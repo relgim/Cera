@@ -82,7 +82,11 @@ roadmap gate.
   actual diff, active source, tests, and effects before claiming completion.
 - Write the reusable Pro review request under `.chatgpt/pro-review/checkpoints/`
   and send the request path plus checkpoint SHA.
-- Stop completely after submitting the request. Silence, an acceptance token,
-  or an advisory review is not creator authorization for another tranche.
+- After submitting the request, stop unless the creator already authorized one
+  named, isolated bridge progression for that review interval. Never invent a
+  bridge task merely to remain busy.
+- When direct repository/chat access is unavailable, use the provider-free
+  `tools/pro_review_bridge.ps1` transport. Importing a response never authorizes
+  its recommendations; stop for explicit creator authority after reconciliation.
 - ChatGPT Pro reviews the real checkpoint and may recommend the next two or
   three progressions; the creator alone authorizes their implementation.

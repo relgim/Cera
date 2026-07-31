@@ -26,6 +26,9 @@
   is provider-free: compilation, focused checks, documentation/source drift
   checks, and the complete 575/575 suite pass. A later live qualification
   requires separate creator authority.
+- The creator authorized a provider-free Downloads file bridge for checkpoint
+  review transport. It changes no active runtime identity or route, and an
+  imported Pro response remains advisory until separate creator authorization.
 - Adult ON/EX live publication, production binding, route promotion,
   deployment, and external-handler work remain closed.
 

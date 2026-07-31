@@ -717,6 +717,26 @@ Read `NATIVE_STORED_REASONER_ACTIVATION_RESULT.md`.
 - Python validation, creator review, branch isolation, privacy, protected-user,
   no-retry/no-fallback behavior, and atomic publication remain unchanged.
 
+## D-181 - Provider-free ChatGPT Pro review file bridge
+
+**Status:** creator-authorized transport-only implementation; active route unchanged.
+
+- `tools/pro_review_bridge.ps1` exports one hash-verified checkpoint evidence
+  ZIP and upload message to Ted's Downloads folder.
+- Wait mode observes only the exact expected response filename. Import requires
+  an exact checkpoint ID, Git object ID, evidence ZIP SHA-256, and
+  `review_scope: evidence_verified`, then preserves response bytes and first
+  response history.
+- Status never infers approval. An imported review remains advisory, and later
+  implementation waits for Ted's explicit authorization.
+- The bridge contains no provider, browser, network-service, story/database,
+  active-route, promotion, deployment, retry, or fallback behavior.
+- Checkpoint 001 bootstrap exports the frozen `248dfbc969a2...` evidence package;
+  the checkpoint and isolated evidence commit remain immutable.
+
+Read `docs/operations/PRO_REVIEW_FILE_BRIDGE.md`. Focused and complete test
+results are recorded in `PRO_REVIEW_FILE_BRIDGE_V1_RESULT.md`.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

@@ -9,8 +9,9 @@
 CERA progresses in small, auditable tranches rather than through continuous
 architecture churn. Codex remains the technical implementer. ChatGPT Pro
 reviews each completed checkpoint, identifies unsupported claims or unnecessary
-complexity, and selects the next two or three substantial progressions. Neither
-party may silently grant creator authority.
+complexity, and recommends and bounds the next two or three substantial
+progressions. Ted explicitly authorizes execution. Neither Codex nor ChatGPT Pro
+may silently grant creator authority.
 
 This protocol supplements `D:\AIChatBot\Cera\AGENTS.md`. It does not weaken the
 owner architecture, typed contracts, creator authority, privacy, branch,
@@ -27,7 +28,7 @@ Before editing, Codex must read, in order:
 4. `D:\AIChatBot\Cera\docs\handoff\CURRENT.md`
 5. `D:\AIChatBot\Cera\docs\authority\CERA_OWNER_ARCHITECTURE.md`
 6. `D:\AIChatBot\Cera\docs\authority\DECISIONS_AND_SUPERSESSIONS.md`
-7. The latest applicable `PRO_RESPONSE.md` under
+7. The latest applicable completed `PRO_RESPONSE*.md` under
    `D:\AIChatBot\Cera\.chatgpt\pro-review\checkpoints\`, when one exists
 8. Every task-specific controlling contract and result named by the current prompt
 
@@ -93,8 +94,9 @@ stop and defer the expansion.
 
 ## Task selection and precedence
 
-The first tranche is defined by the initial stabilization prompt. Every later
-tranche is selected by ChatGPT Pro after reviewing the preceding checkpoint.
+The first tranche is defined by the initial stabilization prompt. ChatGPT Pro
+may recommend and bound every later tranche after reviewing the preceding
+checkpoint. A later tranche begins only when Ted explicitly authorizes it.
 
 Codex must not self-authorize additional architecture, prompt systems, model
 ladders, Adult activation, production binding, deployment, or unrelated cleanup
@@ -186,22 +188,38 @@ The request must contain:
 - Codex's suggested next work, clearly labeled advisory rather than authorized.
 
 Then send ChatGPT Pro one concise message naming the request path and checkpoint
-SHA and ask for independent review plus the next two or three progressions.
+SHA and ask for independent review plus the next two or three recommendations.
+
+When direct repository/chat access is unavailable, use the transport-only
+workflow documented in
+`D:\AIChatBot\Cera\docs\operations\PRO_REVIEW_FILE_BRIDGE.md`. Export exactly
+one hash-verified package through Ted's Downloads folder. The file bridge must
+not call a provider, change story/database state, alter a route, or grant
+authority.
 
 The request must not demand an exact acceptance token, frame approval as the
 expected answer, hide failed evidence, or pressure ChatGPT Pro to respond early.
 
-After sending the request, **stop the run**. Do not continue working, poll while
-changing files, prepare the next implementation in advance, or treat silence as
-authorization.
+After sending the request, stop unless Ted already authorized one named,
+isolated bridge progression for this review interval. The bridge progression
+must be independent of the frozen checkpoint and may not be invented merely to
+avoid waiting. After that one bridge finishes, run only the stationary response
+wait/import workflow and stop. Do not poll while changing source, prepare later
+implementation in advance, or treat silence as authorization.
 
 ## ChatGPT Pro response
 
-ChatGPT Pro may respond in the conversation and/or write:
+ChatGPT Pro may respond in the conversation and/or provide a downloaded file
+that the validated bridge imports without byte changes as:
 
 ```text
 D:\AIChatBot\Cera\.chatgpt\pro-review\checkpoints\<timestamp>-checkpoint-<number>\PRO_RESPONSE.md
 ```
+
+An evidence-repair review may instead use the non-overwriting destination
+`PRO_RESPONSE_EVIDENCE_VERIFIED.md`. The bridge validates checkpoint ID, Git
+object ID, evidence ZIP SHA-256, and `review_scope: evidence_verified` before
+import. A matching filename alone is never sufficient.
 
 The response should:
 
@@ -213,10 +231,11 @@ The response should:
 - name explicit exclusions and live-call ceilings;
 - state uncertainty honestly.
 
-On the next run, Codex must read the latest response before editing and may
-execute only the selected tranche. If Codex materially disagrees, it must
-present repository evidence and stop for resolution rather than silently
-ignoring the review.
+On the next run, Codex must read the latest validated response before editing,
+reconcile any isolated bridge result, and verify Ted's explicit authorization.
+Codex may execute only the creator-authorized tranche. If Codex materially
+disagrees, it must present repository evidence and stop for resolution rather
+than silently ignoring the review.
 
 ## Prohibited anti-patterns
 
