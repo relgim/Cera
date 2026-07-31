@@ -15,7 +15,7 @@ _PACKET_MARKER = "The complete authoritative packet follows as canonical JSON:"
 
 @dataclass(frozen=True, slots=True)
 class ReasonerSessionPromptCompilation:
-    """Exact decomposition; recombination must equal the current v24 prompt."""
+    """Exact decomposition; recombination must equal the active prompt."""
 
     SCHEMA_VERSION: ClassVar[str] = "cera.reasoner_session_prompt_compilation.v1"
 

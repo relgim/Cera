@@ -99,9 +99,13 @@ def validate_repository_source_inventory(
         raise ContractValidationError(
             "broad runtime ignore rule hides src/cera/runtime"
         )
-    if "/runtime/" not in active_lines or "!src/cera/runtime/**" not in active_lines:
+    if "/runtime/" not in active_lines:
         raise ContractValidationError(
-            "runtime output ignore and source exception are not explicit"
+            "root runtime output ignore rule is not explicit"
+        )
+    if "!src/cera/runtime/**" in active_lines:
+        raise ContractValidationError(
+            "redundant runtime source exception can re-include generated files"
         )
     paths = tuple(
         sorted(

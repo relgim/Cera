@@ -1,8 +1,16 @@
 # CERA
 
-**Status:** Governed ordinary/relationship human testing is ready: 497/497 provider-free tests, live v27 at 10/10, and a real SillyTavern provisional-review/Accept smoke passed; the normal non-production world is connected on port 5101  
-**Active repository:** `D:\AIChatBot\Cera`  
-**Authority date:** 2026-07-28
+<!-- CERA_CURRENT_RUNTIME_BEGIN -->
+**Status:** D-180 is the current local-development runtime identity. Reasoner v25/packet v14 uses MCP v7 in the D-179 branch-bound stored session; DeepSeek V4 Flash Composer v29/packet v15/prompt v26 is non-thinking; the independent Sol verifier remains v8/request v7.
+**Active repository:** `D:\AIChatBot\Cera`
+**Status date:** 2026-07-31
+**Active runtime profile:** `cera.active_runtime.d180.v1`
+**Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
+**Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
+**Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
+**Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
+**Provider-free checkpoint verification:** 575/575 tests passed; zero live provider calls
+<!-- CERA_CURRENT_RUNTIME_END -->
 
 CERA is a branch-safe character-reasoning and story-realization system for SillyTavern. Its core runtime shape is:
 
@@ -28,21 +36,27 @@ Read [docs/START_HERE.md](docs/START_HERE.md). It gives the mandatory reading or
 
 ## Current boundary
 
-D-165 completes the behavioral-consolidation gate for the ordinary and
-relationship route. Fresh live v27 passed ten consecutive turns with one
-Sol-medium Reasoner, one DeepSeek V4 Flash thinking Composer, and one
-Sol-medium verifier call per turn: 30 total calls, no retry or fallback. The
-complete provider-free suite passed 497/497.
+D-180 corrects the active Reasoner evidence-citation contract without creating
+a v26 identity: Reasoner adapter/prompt v25, packet v14, and MCP v7 are the
+current source. Python still validates every alias against the current bounded
+evidence allocation before any provisional candidate can reach creator review.
+The current DeepSeek default is Flash with thinking disabled. The canonical
+profile above is used by routes, stored-session compatibility, health output,
+tests, and current-status validation.
 
-A real SillyTavern smoke displayed the provisional prose, Codex sequence plan,
-Sol severity/reason, and creator actions. Accept committed one reviewed artifact
-atomically with zero provider calls or retries. The normal non-production
-human-test database and loopback port-5101 adapter are restored. This is ready
-for governed creator testing, not production or universal prose-quality
-qualification. Live Adult ON/EX publication, route promotion, production
-binding, public deployment, and external-handler integration remain closed.
-See the [D-165 result](docs/implementation/BEHAVIORAL_CONSOLIDATION_AND_HUMAN_TEST_GATE_RESULT.md)
-and [current handoff](docs/handoff/CURRENT.md).
+The earlier D-165, D-177, and D-179 results remain historical evidence. D-179's
+5/5 stored-session qualification is the last live activation evidence, not a
+fresh end-to-end qualification of every D-180 component. This checkpoint makes
+zero provider calls, passes 575/575 provider-free tests, and does not claim a
+new live pass. Adult ON/EX publication,
+route promotion, production binding, public deployment, and external-handler
+integration remain closed. See the [current handoff](docs/handoff/CURRENT.md).
+
+## Historical milestone record
+
+The material below preserves evidence from earlier gates. Any historical use
+of “current” is scoped to that checkpoint and does not override the D-180
+profile above.
 
 The repository contains controlling design documentation, the verified Phase 1 foundation, the verified Phase 2 SQLite authority store, accepted Genesis infrastructure and Hanezawa V1.2 child revision, the snapshot evidence service/Turn Kernel, provider-neutral Reasoner/Composer/verifier contracts, provider-free Adult ON/EX provenance and compiled craft catalog, blocker/resumption infrastructure, derived consolidation, offline evaluation, bounded live transports, request-scoped Codex evidence tools, transactional publication, one qualified local ordinary route, and a chat-ready local development adapter. No production story database or promoted route exists. Genesis and Adult EX artifacts are repository-local authority/provenance but have not been bound to a production world. This work did not:
 

@@ -19,6 +19,7 @@ import threading
 import time
 from typing import ClassVar
 
+from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
 from cera.contracts import EvidenceRecordType
 from cera.errors import (
     ContractValidationError,
@@ -45,7 +46,7 @@ from .fake import ReasonerEvidenceToolPort, ResolveEntitiesRequest
 
 
 MCP_SDK_VERSION = "1.29.0"
-MCP_TOOL_CONTRACT_VERSION = "cera.reasoner_evidence_mcp.v7"
+MCP_TOOL_CONTRACT_VERSION = ACTIVE_RUNTIME_PROFILE.reasoner.tool_contract_version
 SUPPORTED_MCP_TOOL_CONTRACT_VERSIONS = (
     "cera.reasoner_evidence_mcp.v4",
     "cera.reasoner_evidence_mcp.v5",

@@ -37,7 +37,7 @@ from cera.providers import (
 )
 
 
-ACTIVE_REASONER_PROMPT_VERSION = "cera.codex_scene_reasoner_prompt.v24"
+ACTIVE_REASONER_PROMPT_VERSION = "cera.codex_scene_reasoner_prompt.v25"
 ACTIVE_COMPOSER_PROMPT_VERSION = "cera.deepseek_scene_composer_prompt.v26"
 ACTIVE_VERIFIER_PROMPT_VERSION = (
     "cera.codex_scene_realization_verifier_prompt.v8"

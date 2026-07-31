@@ -1,21 +1,33 @@
 # Implementation Roadmap and Authorization Gate
 
 **Status:** controlling ordered roadmap
-**Current local state (D-177):** creator-review presentation v1 is active in
-the local SillyTavern route. The complete provider-free suite passes 565/565.
-D-176 consumed the native-stored canary and stopped before dispatch because the
-claimed stored root had no provider rollout. The active Sol-medium route is
-unchanged; a stored-root lifecycle correction and any later live canary remain
-separate gates.
+<!-- CERA_CURRENT_RUNTIME_BEGIN -->
+**Current local state (D-180):** canonical active runtime identity installed.
+**Active runtime profile:** `cera.active_runtime.d180.v1`
+**Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
+**Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
+**Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
+**Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
+**Provider-free checkpoint verification:** 575/575 tests passed in 268.827 seconds; zero live provider calls
+<!-- CERA_CURRENT_RUNTIME_END -->
 
-**Current authorization:** the autonomous local-human-test goal remains active
-under D-150's creator-authorized total ceilings of 500 Sol-medium and 500
-DeepSeek V4 Pro calls. Continuous v1-v11 plus persistent-probe v1
-conservatively used 40 Sol and 18 DeepSeek dispatches, leaving 460/482. A fresh
-ten-turn route requires 20 Sol and 10 DeepSeek and may now begin. No limit will
-be exceeded silently. The local SillyTavern
-human-test world therefore remains unbound because the controlling sequence
-requires one passing ten-turn route first.
+D-179 remains the last live stored-session activation evidence. This
+stabilization checkpoint makes zero provider calls and does not reinterpret
+historical evidence as a fresh D-180 qualification. The next live gate remains
+separately creator-authorized.
+
+**Current authorization:** Checkpoint 001 permits at most three substantial
+progressions: governance protocol installation, active-runtime identity
+reconciliation, and truthful machine-validated current status. It permits zero
+live provider calls and requires a local checkpoint commit followed by a full
+stop for ChatGPT Pro review. Earlier provider-call ceilings and live-test gates
+are historical evidence, not authority for this checkpoint.
+
+## Historical roadmap record
+
+The material below preserves the authorization and evidence state at earlier
+gates. Historical statements that an action “may now begin” are consumed or
+superseded and do not override the current authorization above.
 
 The current provider-free implementation passes 376/376, including exact live
 transport-evidence activation, semantic-mutation rejection, mixed
@@ -685,6 +697,25 @@ latency qualification. Prompt caching was intermittent and measured Reasoner
 latency remained 83.722-172.640 seconds in the five-turn batch.
 
 Read `NATIVE_STORED_REASONER_ACTIVATION_RESULT.md`.
+
+## D-180 - Canonical active-runtime identity and citation alias correction
+
+**Status:** active source contract; stabilization verification is provider-free.
+
+- Reasoner adapter/prompt v25, packet v14, and MCP v7 replace provider-owned
+  evidence UUID copying with request-local citation aliases resolved by Python.
+- `cera.active_runtime.d180.v1` is the single typed identity used by routes,
+  branch-bound session compatibility, health output, current documentation,
+  and deterministic drift tests. Correcting stale v24 metadata did not create
+  an artificial v26.
+- DeepSeek V4 Flash remains Composer v29/packet v15/prompt v26 with thinking
+  disabled. The independent Sol-medium verifier remains domain adapter v8,
+  prompt v8, request v7, using the pinned one-shot CLI transport.
+- The D-179 stored activation evidence remains unchanged and historical. This
+  checkpoint passes 575/575 provider-free tests, makes no live provider call,
+  and does not claim a fresh full-route D-180 qualification.
+- Python validation, creator review, branch isolation, privacy, protected-user,
+  no-retry/no-fallback behavior, and atomic publication remain unchanged.
 
 ## Repair and pivot rule
 

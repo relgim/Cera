@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar
 
+from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
 from cera.errors import ContractValidationError, ErrorCode, IdentityError
 from cera.creator_review import (
     CreatorReviewAssessment,
@@ -36,16 +37,12 @@ from .orchestrator import SceneRealizationVerificationFailure
 
 
 CODEX_REALIZATION_VERIFIER_ADAPTER_VERSION = (
-    "cera.codex_scene_realization_verifier.v8"
+    ACTIVE_RUNTIME_PROFILE.verifier.domain_adapter_version
 )
-CODEX_REALIZATION_VERIFIER_PACKET_VERSION = (
-    "cera.codex_scene_realization_verifier_packet.v8"
-)
-CODEX_REALIZATION_VERIFIER_PROMPT_VERSION = (
-    "cera.codex_scene_realization_verifier_prompt.v8"
-)
+CODEX_REALIZATION_VERIFIER_PACKET_VERSION = ACTIVE_RUNTIME_PROFILE.verifier.packet_version
+CODEX_REALIZATION_VERIFIER_PROMPT_VERSION = ACTIVE_RUNTIME_PROFILE.verifier.prompt_version
 CODEX_REALIZATION_VERIFIER_DRAFT_VERSION = (
-    "cera.codex_scene_realization_verifier_draft.v3"
+    ACTIVE_RUNTIME_PROFILE.verifier.output_schema_version
 )
 
 _MODEL_REPORTABLE_CODES = tuple(

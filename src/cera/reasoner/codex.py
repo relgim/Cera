@@ -6,6 +6,7 @@ from collections.abc import Callable
 from copy import deepcopy
 from typing import Protocol
 
+from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
 from cera.adult_craft.json_schema import (
     PROVIDER_BINDING_PLACEHOLDER,
     adult_craft_need_provider_draft_json_schema,
@@ -70,9 +71,9 @@ from .models import (
 )
 
 
-CODEX_REASONER_ADAPTER_VERSION = "cera.codex_scene_reasoner.v25"
-CODEX_REASONER_PACKET_VERSION = "cera.codex_scene_reasoner_packet.v14"
-CODEX_REASONER_PROMPT_VERSION = "cera.codex_scene_reasoner_prompt.v25"
+CODEX_REASONER_ADAPTER_VERSION = ACTIVE_RUNTIME_PROFILE.reasoner.domain_adapter_version
+CODEX_REASONER_PACKET_VERSION = ACTIVE_RUNTIME_PROFILE.reasoner.packet_version
+CODEX_REASONER_PROMPT_VERSION = ACTIVE_RUNTIME_PROFILE.reasoner.prompt_version
 
 
 class ReasonerEvidenceBridgePort(Protocol):

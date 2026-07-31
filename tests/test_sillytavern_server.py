@@ -64,6 +64,13 @@ class StubAdapter:
         )
         self.last_review_action = None
 
+    @property
+    def reasoner_session_status(self):
+        return {
+            "mode": "test_factory",
+            "active": False,
+        }
+
     def complete(self, request):
         self.last_request = request
         return SillyTavernTurnReply(
@@ -162,6 +169,20 @@ class SillyTavernServerTests(unittest.TestCase):
         self.assertEqual(self.adapter.last_request.cera_character_autonomy, "mind")
         self.assertEqual(self.adapter.last_request.cera_prompt_handling, "modification")
         self.assertEqual(self.adapter.last_request.cera_reasoning_effort, "xhigh")
+
+    def test_health_exposes_the_validated_active_runtime_profile(self) -> None:
+        status, result = self.request("GET", "/health")
+        self.assertEqual(status, 200)
+        self.assertEqual(result["status"], "ok")
+        self.assertTrue(result["active_runtime"]["valid"])
+        self.assertEqual(
+            result["active_runtime"]["profile_id"],
+            "cera.active_runtime.d180.v1",
+        )
+        self.assertEqual(
+            result["active_runtime"]["reasoner"]["prompt_version"],
+            "cera.codex_scene_reasoner_prompt.v25",
+        )
 
     def test_streaming_and_unknown_models_fail_closed(self) -> None:
         status, result = self.request(

@@ -12,6 +12,7 @@ import time
 from typing import Any
 from urllib.parse import unquote, urlparse
 
+from cera.active_runtime_validation import active_runtime_status
 from cera.creator_review import CreatorReviewAction
 from cera.ids import IdKind, TypedId
 from cera.serialization import text_sha256, to_primitive
@@ -60,6 +61,7 @@ def build_server(
                         "service": "cera-sillytavern-development",
                         "model": CERA_VIRTUAL_MODEL,
                         "production": False,
+                        "active_runtime": active_runtime_status(),
                         "reasoner_session": adapter.reasoner_session_status,
                     },
                 )

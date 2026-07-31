@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
 from cera.evaluation import EvaluationRole
 
 from .models import (
@@ -23,23 +24,27 @@ from .codex_exec_contract import (
 
 
 DEEPSEEK_PRICING_SOURCE = "https://api-docs.deepseek.com/quick_start/pricing/"
-DEFAULT_DEEPSEEK_COMPOSER_MODEL = "deepseek-v4-flash"
+DEFAULT_DEEPSEEK_COMPOSER_MODEL = ACTIVE_RUNTIME_PROFILE.composer.model
 
 
 def codex_reasoner_candidate(
-    *, model: str = "gpt-5.6-sol", effort: str = "medium"
+    *,
+    model: str = ACTIVE_RUNTIME_PROFILE.reasoner.model,
+    effort: str = (
+        ACTIVE_RUNTIME_PROFILE.reasoner.default_reasoning_effort or "medium"
+    ),
 ) -> LiveProviderRoute:
     return LiveProviderRoute(
         schema_version=LiveProviderRoute.SCHEMA_VERSION,
         route_id=f"codex_reasoner_{model}_{effort}",
         role=EvaluationRole.SCENE_REASONER,
         provider=ProviderName.OPENAI_CODEX,
-        adapter_id="cera.codex_python_sdk_reasoner.v24",
+        adapter_id=ACTIVE_RUNTIME_PROFILE.reasoner.route_adapter_id,
         model_name=model,
-        model_revision="openai-resolver-2026-07-28",
-        prompt_version="cera.codex_scene_reasoner_prompt.v24",
-        transport_name="codex_python_sdk_app_server",
-        transport_version="0.144.4",
+        model_revision=ACTIVE_RUNTIME_PROFILE.reasoner.model_revision,
+        prompt_version=ACTIVE_RUNTIME_PROFILE.reasoner.prompt_version,
+        transport_name=ACTIVE_RUNTIME_PROFILE.reasoner.transport_name,
+        transport_version=ACTIVE_RUNTIME_PROFILE.reasoner.transport_version,
         auth_mode=ProviderAuthMode.CHATGPT_SESSION,
         endpoint=None,
         credential_environment_variable=None,
@@ -60,7 +65,11 @@ def codex_reasoner_candidate(
 
 
 def codex_realization_verifier_candidate(
-    *, model: str = "gpt-5.6-sol", effort: str = "medium"
+    *,
+    model: str = ACTIVE_RUNTIME_PROFILE.verifier.model,
+    effort: str = (
+        ACTIVE_RUNTIME_PROFILE.verifier.default_reasoning_effort or "medium"
+    ),
 ) -> LiveProviderRoute:
     """Return the unpromoted one-shot semantic-verifier route."""
 
@@ -69,10 +78,10 @@ def codex_realization_verifier_candidate(
         route_id=f"codex_realization_verifier_{model}_{effort}",
         role=EvaluationRole.SCENE_REALIZATION_VERIFIER,
         provider=ProviderName.OPENAI_CODEX,
-        adapter_id="cera.codex_scene_realization_verifier.v8",
+        adapter_id=ACTIVE_RUNTIME_PROFILE.verifier.domain_adapter_version,
         model_name=model,
-        model_revision="openai-resolver-2026-07-28",
-        prompt_version="cera.codex_scene_realization_verifier_prompt.v8",
+        model_revision=ACTIVE_RUNTIME_PROFILE.verifier.model_revision,
+        prompt_version=ACTIVE_RUNTIME_PROFILE.verifier.prompt_version,
         transport_name="codex_python_sdk_app_server",
         transport_version="0.144.4",
         auth_mode=ProviderAuthMode.CHATGPT_SESSION,
@@ -95,7 +104,11 @@ def codex_realization_verifier_candidate(
 
 
 def codex_cli_realization_verifier_candidate(
-    *, model: str = "gpt-5.6-sol", effort: str = "medium"
+    *,
+    model: str = ACTIVE_RUNTIME_PROFILE.verifier.model,
+    effort: str = (
+        ACTIVE_RUNTIME_PROFILE.verifier.default_reasoning_effort or "medium"
+    ),
 ) -> LiveProviderRoute:
     """Return the unpromoted one-shot CLI semantic-verifier route."""
 
@@ -104,10 +117,10 @@ def codex_cli_realization_verifier_candidate(
         route_id=f"codex_cli_realization_verifier_{model}_{effort}",
         role=EvaluationRole.SCENE_REALIZATION_VERIFIER,
         provider=ProviderName.OPENAI_CODEX,
-        adapter_id="cera.codex_cli_scene_realization_verifier.v1",
+        adapter_id=ACTIVE_RUNTIME_PROFILE.verifier.route_adapter_id,
         model_name=model,
-        model_revision="openai-resolver-2026-07-28",
-        prompt_version="cera.codex_scene_realization_verifier_prompt.v8",
+        model_revision=ACTIVE_RUNTIME_PROFILE.verifier.model_revision,
+        prompt_version=ACTIVE_RUNTIME_PROFILE.verifier.prompt_version,
         transport_name=CODEX_CLI_EXEC_TRANSPORT_NAME,
         transport_version=CODEX_CLI_EXEC_VERSION,
         auth_mode=ProviderAuthMode.CHATGPT_SESSION,
@@ -145,12 +158,12 @@ def deepseek_composer_candidate(
         route_id=f"deepseek_composer_{model}",
         role=EvaluationRole.SCENE_COMPOSER,
         provider=ProviderName.DEEPSEEK,
-        adapter_id="cera.deepseek_chat_composer.v25",
+        adapter_id=ACTIVE_RUNTIME_PROFILE.composer.route_adapter_id,
         model_name=model,
-        model_revision="deepseek-v4-2026-04-24",
-        prompt_version="cera.deepseek_scene_composer_prompt.v26",
-        transport_name="deepseek_chat_completions",
-        transport_version="2026-04-24",
+        model_revision=ACTIVE_RUNTIME_PROFILE.composer.model_revision,
+        prompt_version=ACTIVE_RUNTIME_PROFILE.composer.prompt_version,
+        transport_name=ACTIVE_RUNTIME_PROFILE.composer.transport_name,
+        transport_version=ACTIVE_RUNTIME_PROFILE.composer.transport_version,
         auth_mode=ProviderAuthMode.ENVIRONMENT_API_KEY,
         endpoint="https://api.deepseek.com",
         credential_environment_variable="DEEPSEEK_API_KEY",

@@ -14,6 +14,7 @@ import json
 import re
 from typing import ClassVar
 
+from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
 from cera.contracts import (
     AdultRenderingMode,
     BeatState,
@@ -65,10 +66,13 @@ from .obligations import (
 )
 
 
-DEEPSEEK_COMPOSER_ADAPTER_VERSION = "cera.deepseek_scene_composer.v29"
-DEEPSEEK_COMPOSER_PACKET_VERSION = "cera.deepseek_scene_composer_packet.v15"
+DEEPSEEK_COMPOSER_ADAPTER_VERSION = ACTIVE_RUNTIME_PROFILE.composer.domain_adapter_version
+DEEPSEEK_COMPOSER_PACKET_VERSION = ACTIVE_RUNTIME_PROFILE.composer.packet_version
 DEEPSEEK_COMPOSER_RESPONSE_VERSION = "cera.deepseek_composition_draft.v2"
-DEEPSEEK_COMPOSER_PROMPT_VERSION = "cera.deepseek_scene_composer_prompt.v26"
+DEEPSEEK_COMPOSER_PROMPT_VERSION = ACTIVE_RUNTIME_PROFILE.composer.prompt_version
+DEEPSEEK_COMPOSER_THINKING_ENABLED = (
+    ACTIVE_RUNTIME_PROFILE.composer.thinking_enabled is True
+)
 CHARACTER_EXPRESSION_CONTRACT_VERSION = (
     "cera.character_specific_speech_realization.v1_2"
 )
@@ -545,7 +549,7 @@ class DeepSeekSceneComposerPort(SceneComposerPort):
         self,
         transport: DeepSeekChatTransport,
         *,
-        thinking_enabled: bool = False,
+        thinking_enabled: bool = DEEPSEEK_COMPOSER_THINKING_ENABLED,
     ) -> None:
         if type(thinking_enabled) is not bool:
             raise ContractValidationError(
@@ -680,14 +684,16 @@ def build_deepseek_composer_packet(
     request: SceneComposerRequest,
     *,
     obligations: ComposerOutputObligations | None = None,
-    target_provider_model: str = "deepseek-v4-flash",
+    target_provider_model: str = ACTIVE_RUNTIME_PROFILE.composer.model,
 ) -> dict[str, object]:
     if request.realization_context is None:
         raise ContractValidationError("DeepSeek packet requires realization context")
     obligations = obligations or build_composer_output_obligations(request)
     provider_schema = project_provider_output_schema(
         deepseek_composition_draft_v6_json_schema(),
-        ProviderSchemaDialect.DEEPSEEK_JSON_OBJECT_PROMPT_V1,
+        ProviderSchemaDialect(
+            ACTIVE_RUNTIME_PROFILE.composer.provider_schema_dialect
+        ),
     ).provider_schema
     bind_provider_schema_to_output_obligations(
         provider_schema,

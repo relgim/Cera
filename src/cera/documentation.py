@@ -8,11 +8,14 @@ from pathlib import Path
 import re
 import sys
 
+from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
+
 
 REQUIRED_DOCUMENTS = (
     "README.md",
     "AGENTS.md",
     "docs/START_HERE.md",
+    "docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md",
     "docs/authority/CERA_OWNER_ARCHITECTURE.md",
     "docs/authority/CREATOR_FACTS_AND_PREFERENCES.md",
     "docs/authority/DECISIONS_AND_SUPERSESSIONS.md",
@@ -30,6 +33,8 @@ REQUIRED_DOCUMENTS = (
     "docs/implementation/PHASE_9_RESULT.md",
     "docs/handoff/CURRENT.md",
     "docs/handoff/PRO_WRITING_REVIEW_PACKAGE.md",
+    ".chatgpt/pro-review/README.md",
+    ".chatgpt/pro-review/REQUEST_TEMPLATE.md",
 )
 REFERENCE_RUNTIME_MARKERS = (
     "D:\\AIChatBot\\Vera_v2_d3",
@@ -47,6 +52,14 @@ EXCLUDED_DOCUMENTATION_TREES = {
     "__pycache__",
     "node_modules",
 }
+CURRENT_RUNTIME_DOCUMENTS = (
+    "README.md",
+    "docs/START_HERE.md",
+    "docs/handoff/CURRENT.md",
+    "docs/implementation/ROADMAP_AND_GATE.md",
+)
+CURRENT_RUNTIME_BEGIN = "<!-- CERA_CURRENT_RUNTIME_BEGIN -->"
+CURRENT_RUNTIME_END = "<!-- CERA_CURRENT_RUNTIME_END -->"
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +105,81 @@ def validate_documentation(project_root: Path) -> tuple[DocumentationFinding, ..
                         "REFERENCE_RUNTIME_DEPENDENCY",
                         path.relative_to(root).as_posix(),
                         marker,
+                    )
+                )
+    findings.extend(validate_current_runtime_documents(root))
+    return tuple(findings)
+
+
+def validate_current_runtime_documents(
+    project_root: Path,
+) -> tuple[DocumentationFinding, ...]:
+    """Reject stale active-runtime claims without scanning historical evidence."""
+
+    root = project_root.resolve()
+    profile = ACTIVE_RUNTIME_PROFILE
+    required_tokens = (
+        profile.decision_id,
+        profile.profile_id,
+        profile.profile_sha256,
+        profile.reasoner_session_mode,
+        profile.reasoner.domain_adapter_version,
+        profile.reasoner.packet_version,
+        profile.reasoner.prompt_version,
+        profile.reasoner.tool_contract_version or "",
+        profile.composer.model,
+        profile.composer.domain_adapter_version,
+        profile.composer.packet_version,
+        profile.composer.prompt_version,
+        "non-thinking" if profile.composer.thinking_enabled is False else "thinking",
+        profile.verifier.domain_adapter_version,
+        profile.verifier.prompt_version,
+        profile.verifier.request_schema_version or "",
+    )
+    stale_tokens = (
+        "Reasoner v24",
+        "MCP v6",
+        "Flash thinking",
+        "Flash-thinking",
+    )
+    findings: list[DocumentationFinding] = []
+    for relative in CURRENT_RUNTIME_DOCUMENTS:
+        path = root / relative
+        if not path.is_file():
+            continue
+        text = path.read_text(encoding="utf-8")
+        if (
+            text.count(CURRENT_RUNTIME_BEGIN) != 1
+            or text.count(CURRENT_RUNTIME_END) != 1
+        ):
+            findings.append(
+                DocumentationFinding(
+                    "CURRENT_RUNTIME_BLOCK",
+                    relative,
+                    "requires exactly one current-runtime marker block",
+                )
+            )
+            continue
+        block = text.split(CURRENT_RUNTIME_BEGIN, 1)[1].split(
+            CURRENT_RUNTIME_END,
+            1,
+        )[0]
+        for token in required_tokens:
+            if token and token not in block:
+                findings.append(
+                    DocumentationFinding(
+                        "CURRENT_RUNTIME_TOKEN",
+                        relative,
+                        f"missing {token}",
+                    )
+                )
+        for token in stale_tokens:
+            if token in block:
+                findings.append(
+                    DocumentationFinding(
+                        "CURRENT_RUNTIME_STALE",
+                        relative,
+                        token,
                     )
                 )
     return tuple(findings)

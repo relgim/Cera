@@ -1,35 +1,39 @@
 # Current CERA Handoff
 
 **Updated:** 2026-07-31
-**Phase:** D-179 native stored Reasoner active; Sol M/H/Ex control active
-**Runtime implementation:** Branch-bound native stored Sol Reasoner v24 (`medium/high/xhigh`) with MCP v6 -> Python validation -> DeepSeek V4 Flash non-thinking Composer v29/prompt v26 -> Python provisional display -> Sol-medium verifier/reviewer v8 with bounded exact evidence -> zero-provider atomic Accept. Adult ON/EX live publication remains outside this gate.
+<!-- CERA_CURRENT_RUNTIME_BEGIN -->
+**Phase:** D-180 stabilization checkpoint; canonical active runtime profile installed
+**Active runtime profile:** `cera.active_runtime.d180.v1`
+**Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
+**Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
+**Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
+**Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
+**Provider-free checkpoint verification:** 575/575 tests passed in 268.827 seconds; zero live provider calls
+<!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
 
-- D-179 is active on the local human-test route. CERA health reports
-  `branch_bound_native_stored_v1`, model `gpt-5.6-sol`, selectable Reasoner
-  efforts `medium/high/xhigh`, and verifier effort `medium`.
-- SillyTavern extension v1.3.0 renders one `Sol` selector with `M`, `H`, and
-  `Ex`. Browser verification exercised all three values and restored `M`.
-  Changing effort rotates/reconstructs from accepted Python authority; it does
-  not mix checkpoints or change verifier effort.
-- D-178 explicitly materializes stored roots/forks by naming them. Rejected and
-  failed candidate leaves are archived/non-resumable rather than deleted. This
-  supersedes D-174's deletion mechanism while retaining the accepted-parent and
-  sibling-isolation rules. SQLite schema version is 18.
-- The non-story stored lifecycle/MCP canary passed. A fresh five-turn
-  Sol-medium qualification passed 5/5 on one advancing disposable branch:
-  five Sol calls, zero retry/fallback/DeepSeek/story writes, and successful
-  leaf-first archival cleanup. The complete provider-free suite passes 569/569
-  in 398.054 seconds.
-- Both services were restarted from the updated code. Port 5101 is loopback
-  CERA and port 8000 is SillyTavern/LAN. The installed extension hashes match
-  the repository source.
-- Remaining limitation: live Reasoner latency was 83.722-172.640 seconds and
-  provider cache reporting was intermittent. Persistence is verified; the
-  earlier estimated 80% latency improvement is not established by this batch.
-- Read `implementation/NATIVE_STORED_REASONER_ACTIVATION_RESULT.md` before
-  changing the session route or effort semantics.
+- D-180 is the current source identity. The typed profile is consumed by active
+  routes, stored-session compatibility, and health output; deterministic tests
+  reject drift among profile, adapters, prompts, schemas, tools, and routes.
+- D-179 remains the activation basis for the branch-bound stored Reasoner and
+  the `Sol: M/H/Ex` selector. It is historical qualification evidence, not a
+  claim that a fresh D-180 full-route live batch ran.
+- D-180's alias correction preserved Python evidence, privacy, branch,
+  protected-user, creator-review, and atomic-publication validation. No retry,
+  fallback, automatic acceptance, or provider/story replay was added.
+- This stabilization checkpoint permits zero provider calls. Its verification
+  is provider-free: compilation, focused checks, documentation/source drift
+  checks, and the complete 575/575 suite pass. A later live qualification
+  requires separate creator authority.
+- Adult ON/EX live publication, production binding, route promotion,
+  deployment, and external-handler work remain closed.
+
+## Chronological evidence record
+
+The entries below preserve earlier implementation and qualification evidence.
+When an older entry uses “current,” its claim is scoped to that historical
+checkpoint and does not override the D-180 profile above.
 
 - D-177 adds explicit Good/Concern/Critical/Error colors, renames the visible
   correction button to `Adjustment`, adds typed `False Positive` acceptance

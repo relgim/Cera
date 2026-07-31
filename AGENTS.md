@@ -5,10 +5,11 @@ These instructions apply to every future Codex session working in `D:\AIChatBot\
 ## Mandatory start
 
 1. Read `docs/START_HERE.md`.
-2. Read `docs/handoff/CURRENT.md`.
-3. Read every document marked required for the current phase.
-4. Confirm that the requested action is authorized by `docs/implementation/ROADMAP_AND_GATE.md`.
-5. Inspect the worktree before editing and preserve unrelated user changes.
+2. Read `docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md`.
+3. Read `docs/handoff/CURRENT.md`.
+4. Read every document marked required for the current phase.
+5. Confirm that the requested action is authorized by `docs/implementation/ROADMAP_AND_GATE.md`.
+6. Inspect the worktree before editing and preserve unrelated user changes.
 
 Do not infer implementation authority from the existence of documentation, a roadmap, examples, or an earlier repository.
 
@@ -65,3 +66,23 @@ After roughly twenty focused minutes without tangible progress, or three equival
 4. if still blocked and ChatGPT Pro access is available, send one concise technical review request with evidence and the exact open question.
 
 Do not message Pro after every edit. Request review at a genuine blocker or substantial architecture/prompt milestone.
+
+## Governed progression checkpoints
+
+When the creator authorizes a Codex-to-ChatGPT-Pro progression tranche, follow
+`docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md` in addition to the ordinary
+roadmap gate.
+
+- Treat three substantial progressions as the maximum, never a quota.
+- Stop early when a terminal blocker makes the remaining progression unsafe or
+  irrelevant; preserve the useful diagnostic evidence in the checkpoint.
+- Establish the required lossless backup and safe local Git baseline before the
+  first governed tranche changes the repository.
+- Complete a local checkpoint commit after the bounded tranche and verify the
+  actual diff, active source, tests, and effects before claiming completion.
+- Write the reusable Pro review request under `.chatgpt/pro-review/checkpoints/`
+  and send the request path plus checkpoint SHA.
+- Stop completely after submitting the request. Silence, an acceptance token,
+  or an advisory review is not creator authorization for another tranche.
+- ChatGPT Pro reviews the real checkpoint and may recommend the next two or
+  three progressions; the creator alone authorizes their implementation.

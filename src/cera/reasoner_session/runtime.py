@@ -14,6 +14,7 @@ import json
 from pathlib import Path
 from threading import RLock
 
+from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
 from cera.composer import ArtifactPublicationMode
 from cera.contracts import BehavioralTurnControls
 from cera.ids import IdKind, TypedId, deterministic_id
@@ -61,7 +62,7 @@ _PROVIDER_CONTEXT_POLICY = (
     "every conflict. Never cite provider conversation as evidence, character "
     "knowledge, canon, or durable memory. Python remains final authority."
 )
-_SUPPORTED_EFFORTS = frozenset({"medium", "high", "xhigh"})
+_SUPPORTED_EFFORTS = frozenset(ACTIVE_RUNTIME_PROFILE.reasoner.reasoning_efforts)
 
 
 def _utc_now() -> str:
@@ -119,7 +120,7 @@ class StoredReasonerCandidateBinding:
 class NativeStoredReasonerSessionRuntime:
     """Bind active SillyTavern turns to one accepted Codex checkpoint tree."""
 
-    MODE = "branch_bound_native_stored_v1"
+    MODE = ACTIVE_RUNTIME_PROFILE.reasoner_session_mode
 
     def __init__(
         self,
@@ -152,7 +153,7 @@ class NativeStoredReasonerSessionRuntime:
                 raise RuntimeError("ChatGPT Codex session is unavailable")
             self._backend = OpenAICodexStoredThreadBackend(
                 codex=self._codex,
-                model="gpt-5.6-sol",
+                model=ACTIVE_RUNTIME_PROFILE.reasoner.model,
                 cwd=str(repository_root),
                 base_instructions=_STORED_BASE_INSTRUCTIONS,
                 service_name="cera_sillytavern_stored_reasoner",
@@ -170,9 +171,15 @@ class NativeStoredReasonerSessionRuntime:
         return {
             "mode": self.MODE,
             "active": not self._closed,
-            "model": "gpt-5.6-sol",
-            "reasoning_efforts": ("medium", "high", "xhigh"),
-            "verifier_effort": "medium",
+            "model": ACTIVE_RUNTIME_PROFILE.reasoner.model,
+            "reasoning_efforts": (
+                ACTIVE_RUNTIME_PROFILE.reasoner.reasoning_efforts
+            ),
+            "verifier_effort": ACTIVE_RUNTIME_PROFILE.verifier.default_reasoning_effort,
+            "active_runtime_profile_id": ACTIVE_RUNTIME_PROFILE.profile_id,
+            "active_runtime_profile_sha256": (
+                ACTIVE_RUNTIME_PROFILE.profile_sha256
+            ),
         }
 
     def close(self) -> None:
@@ -204,7 +211,7 @@ class NativeStoredReasonerSessionRuntime:
             delta = self._delta(application_request, ledger.session_id)
             checkpoint = coordinator.begin_candidate(delta)
         route = codex_reasoner_candidate(
-            model="gpt-5.6-sol",
+            model=ACTIVE_RUNTIME_PROFILE.reasoner.model,
             effort=normalized_effort,
         )
         transport = _StablePrefixStoredTransport(
@@ -302,10 +309,15 @@ class NativeStoredReasonerSessionRuntime:
 
     def _compatibility(self, request, effort: str) -> ReasonerSessionCompatibility:
         snapshot = request.prepared_turn.evidence_snapshot
-        route = codex_reasoner_candidate(model="gpt-5.6-sol", effort=effort)
+        route = codex_reasoner_candidate(
+            model=ACTIVE_RUNTIME_PROFILE.reasoner.model,
+            effort=effort,
+        )
         provider_schema = project_provider_output_schema(
             codex_reasoner_draft_v6_json_schema(),
-            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+            ProviderSchemaDialect(
+                ACTIVE_RUNTIME_PROFILE.reasoner.provider_schema_dialect
+            ),
         ).provider_schema
         return ReasonerSessionCompatibility(
             schema_version=ReasonerSessionCompatibility.SCHEMA_VERSION,
@@ -323,7 +335,9 @@ class NativeStoredReasonerSessionRuntime:
             base_instruction_sha256=text_sha256(_STORED_BASE_INSTRUCTIONS),
             tool_contract_version=MCP_TOOL_CONTRACT_VERSION,
             genesis_revision_id=snapshot.genesis_revision_id,
-            authority_policy_version="cera.owner_architecture.v2",
+            authority_policy_version=(
+                ACTIVE_RUNTIME_PROFILE.owner_architecture_version
+            ),
             privacy_projection_version=snapshot.visibility_policy_version,
             protected_user_id=request.prepared_turn.request.protected_user_id,
             autonomy_profile_version=BehavioralTurnControls.SCHEMA_VERSION,

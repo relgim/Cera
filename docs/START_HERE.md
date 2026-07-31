@@ -1,7 +1,15 @@
 # CERA Start-Reading Index
 
 **Status:** controlling index
-**Phase:** D-179 native stored Reasoner active; Sol M/H/Ex control active
+<!-- CERA_CURRENT_RUNTIME_BEGIN -->
+**Phase:** D-180 stabilization checkpoint; canonical active runtime profile installed
+**Active runtime profile:** `cera.active_runtime.d180.v1`
+**Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
+**Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
+**Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
+**Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
+**Provider-free checkpoint verification:** 575/575 tests passed; zero live provider calls
+<!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page
 
@@ -35,33 +43,35 @@ not canon.
 ### Every session
 
 1. This file.
-2. [handoff/CURRENT.md](handoff/CURRENT.md).
-3. [authority/CERA_OWNER_ARCHITECTURE.md](authority/CERA_OWNER_ARCHITECTURE.md).
-4. [authority/DECISIONS_AND_SUPERSESSIONS.md](authority/DECISIONS_AND_SUPERSESSIONS.md).
+2. [authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md](authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md).
+3. [handoff/CURRENT.md](handoff/CURRENT.md).
+4. [authority/CERA_OWNER_ARCHITECTURE.md](authority/CERA_OWNER_ARCHITECTURE.md).
+5. [authority/DECISIONS_AND_SUPERSESSIONS.md](authority/DECISIONS_AND_SUPERSESSIONS.md).
 
 ### Before architecture or runtime work
 
-5. [architecture/RUNTIME_PIPELINE_AND_PORTS.md](architecture/RUNTIME_PIPELINE_AND_PORTS.md).
-6. [architecture/GENESIS_MEMORY_AND_RETRIEVAL.md](architecture/GENESIS_MEMORY_AND_RETRIEVAL.md).
-7. [architecture/BEHAVIORAL_AUTHORITY_AND_SCENE_DEVELOPMENT.md](architecture/BEHAVIORAL_AUTHORITY_AND_SCENE_DEVELOPMENT.md).
-8. [contracts/SCHEMA_CATALOG.md](contracts/SCHEMA_CATALOG.md).
-9. [contracts/STATE_MACHINES_AND_ERRORS.md](contracts/STATE_MACHINES_AND_ERRORS.md).
+6. [architecture/RUNTIME_PIPELINE_AND_PORTS.md](architecture/RUNTIME_PIPELINE_AND_PORTS.md).
+7. [architecture/GENESIS_MEMORY_AND_RETRIEVAL.md](architecture/GENESIS_MEMORY_AND_RETRIEVAL.md).
+8. [architecture/BEHAVIORAL_AUTHORITY_AND_SCENE_DEVELOPMENT.md](architecture/BEHAVIORAL_AUTHORITY_AND_SCENE_DEVELOPMENT.md).
+9. [contracts/SCHEMA_CATALOG.md](contracts/SCHEMA_CATALOG.md).
+10. [contracts/STATE_MACHINES_AND_ERRORS.md](contracts/STATE_MACHINES_AND_ERRORS.md).
 
 ### Before prompt, adult-route, or blocked-event work
 
-10. [architecture/PROMPT_CONTEXT_AND_EXAMPLES.md](architecture/PROMPT_CONTEXT_AND_EXAMPLES.md).
-11. [architecture/BLOCKED_TURN_AND_RESUMPTION.md](architecture/BLOCKED_TURN_AND_RESUMPTION.md).
-12. [authority/CREATOR_FACTS_AND_PREFERENCES.md](authority/CREATOR_FACTS_AND_PREFERENCES.md).
+11. [architecture/PROMPT_CONTEXT_AND_EXAMPLES.md](architecture/PROMPT_CONTEXT_AND_EXAMPLES.md).
+12. [architecture/BLOCKED_TURN_AND_RESUMPTION.md](architecture/BLOCKED_TURN_AND_RESUMPTION.md).
+13. [authority/CREATOR_FACTS_AND_PREFERENCES.md](authority/CREATOR_FACTS_AND_PREFERENCES.md).
 
 ### Before coding
 
-13. [implementation/ROADMAP_AND_GATE.md](implementation/ROADMAP_AND_GATE.md).
-14. Obtain and record separate creator authorization for the applicable roadmap phase.
+14. [implementation/ROADMAP_AND_GATE.md](implementation/ROADMAP_AND_GATE.md).
+15. Obtain and record separate creator authorization for the applicable roadmap phase or governed progression tranche.
 
 ## 3. Document roles
 
 | Document | Role |
 |---|---|
+| `CODEX_PROGRESS_REVIEW_PROTOCOL.md` | Permanent bounded Codex-to-Pro checkpoint and review workflow |
 | `CERA_OWNER_ARCHITECTURE.md` | Product and architectural authority |
 | `CREATOR_FACTS_AND_PREFERENCES.md` | Accepted seed facts and craft preferences |
 | `DECISIONS_AND_SUPERSESSIONS.md` | Decision log and explicit conflict resolution |
@@ -135,7 +145,13 @@ Runtime authority is typed rather than decided by prose order. Genesis, accepted
 
 ## 5. Current implementation gate
 
-D-179 activates the native stored Reasoner for local SillyTavern human testing.
+D-180 is the active source identity. It corrects evidence citation ownership
+with Reasoner v25/packet v14 and MCP v7 while preserving all Python authority
+boundaries. No fresh live D-180 full-route qualification is claimed by this
+zero-provider stabilization checkpoint. The complete provider-free suite
+passes 575/575.
+
+D-179 remains the historical activation basis for the native stored Reasoner.
 Each message forks one stored candidate from the exact accepted checkpoint;
 creator acceptance plus Python publication promotes it. Decline or failure
 archives only that candidate. Restart reconstructs or resumes from accepted
@@ -170,7 +186,7 @@ and Sol-medium remains active. Read
 D-169 below remains the current completion/failure correction baseline.
 
 D-169 corrects the largest D-168 completion/failure-observability class.
-DeepSeek V4 Flash composition now explicitly defaults to non-thinking;
+DeepSeek V4 Flash composition defaults to non-thinking;
 Reasoner adapter/prompt v24 requires a complete non-ready reset; and a
 provider response rejected before typed acceptance retains a privacy-safe
 `ProviderFailureCallReceipt` with exact finish reason and usage but no partial
