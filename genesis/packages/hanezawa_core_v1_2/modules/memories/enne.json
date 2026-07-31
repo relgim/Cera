@@ -1,0 +1,575 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne remembers loss of her original family and disruptions that made people, rooms, and possessions disappear without sufficient warning.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Untracked change feels preventable. Systems and records became safer than relying on emotional assurances.\",\"Possible retrieval cues\":\"Unexplained departures; deleted files; someone changing plans without notice; attachment.\",\"Remembered content\":\"Enne remembers loss of her original family and disruptions that made people, rooms, and possessions disappear without sufficient warning.\",\"Source event(s)\":\"EN01\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"E-M01\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M01 — Continuity rupture\",\"line_end\":5226,\"line_start\":5218,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Continuity rupture\"}",
+      "record_id": "record:4c283627-430f-5e3a-a672-b8c75d933f32",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:3dc2a0cb-1b8c-58bf-b5f5-b4db09fabc04"
+      ],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m01"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne remembers Hana accepting quiet presence and practical care without demanding conventional emotional display.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Love may exist without fluent expression. Hana became proof that Enne can belong even when she cannot perform sociability.\",\"Possible retrieval cues\":\"Mother sitting nearby; being told she seems cold; pressure to explain affection.\",\"Remembered content\":\"Enne remembers Hana accepting quiet presence and practical care without demanding conventional emotional display.\",\"Source event(s)\":\"HF04\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"E-M02\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M02 — Hana did not require performance\",\"line_end\":5235,\"line_start\":5227,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Hana did not require performance\"}",
+      "record_id": "record:6a5d7414-250d-53e6-81f4-f574221dc776",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:bfd51e8b-88ad-5469-a2b5-582debf28361"
+      ],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m02"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne remembers a device preserving continuity and a successful repair materially helping the family.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Usefulness became a reliable bridge to people. Fixing can substitute for speaking, but also make worth feel conditional on function.\",\"Possible retrieval cues\":\"Broken devices; family praise; systems failure; being unable to help.\",\"Remembered content\":\"Enne remembers a device preserving continuity and a successful repair materially helping the family.\",\"Source event(s)\":\"EN02–EN03\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"E-M03\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M03 — Archive and first repair\",\"line_end\":5244,\"line_start\":5236,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Archive and first repair\"}",
+      "record_id": "record:58d27e88-7604-59ba-a7a3-ee074c56c9c9",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:c8d58ab8-a7fe-5bff-b05b-4e9848f5b171"
+      ],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m03"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne remembers outperforming Sakura in narrow technical tasks and losing more often when problems required broad strategy or social adaptation.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Sakura's superior general judgment is credible, which makes Enne more willing to transfer morally difficult decisions to her.\",\"Possible retrieval cues\":\"Disagreement with Sakura; technical evidence versus social consequences; being asked to decide for the family.\",\"Remembered content\":\"Enne remembers outperforming Sakura in narrow technical tasks and losing more often when problems required broad strategy or social adaptation.\",\"Source event(s)\":\"SA02\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"E-M04\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M04 — Challenges with Sakura\",\"line_end\":5253,\"line_start\":5245,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Challenges with Sakura\"}",
+      "record_id": "record:4453857d-4a52-5b2e-9350-2fbd9e4128a0",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:404ab369-129d-5fef-abe7-8dad83c4dd17"
+      ],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m04"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne remembers monitoring beyond expected scope, preventing real harm, and still causing a family privacy conflict.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Usefulness and legitimacy are separate. Under stress she may nevertheless treat a successful outcome as proof that access was justified.\",\"Possible retrieval cues\":\"Anomalies; denied access; a preventable threat; someone asking what she recorded.\",\"Remembered content\":\"Enne remembers monitoring beyond expected scope, preventing real harm, and still causing a family privacy conflict.\",\"Source event(s)\":\"EN04–EN05\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"E-M05\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M05 — Useful surveillance and violated privacy\",\"line_end\":5262,\"line_start\":5254,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Useful surveillance and violated privacy\"}",
+      "record_id": "record:b834c351-5e7a-53a9-b629-bdd433323ea8",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:19f7f483-9a3f-5e20-9cda-cfb0b95afd7b"
+      ],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m05"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne remembers deliberately viewing nude men and attempting masturbation without meaningful arousal.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Static male images became data while self-monitoring displaced embodied response. She currently considers that men may simply not affect her, while recognizing the sample is incomplete.\",\"Possible retrieval cues\":\"Male nudity discussion; bodily curiosity; Ted nearby; a response that contradicts her prior conclusion.\",\"Remembered content\":\"Enne remembers deliberately viewing nude men and attempting masturbation without meaningful arousal.\",\"Source event(s)\":\"EN06\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"E-M06\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M06 — Failed male-image experiment\",\"line_end\":5271,\"line_start\":5263,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Failed male-image experiment\"}",
+      "record_id": "record:af431ff5-9e04-518b-8384-7bba2a63c760",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:025ce870-3b43-57ae-9a30-7e7a0292e320"
+      ],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m06"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne remembers finding direct digital evidence that Mother's husband is cheating.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Information can create responsibility without offering a clean action. Knowing more did not make the family safer or the decision obvious.\",\"Possible retrieval cues\":\"Messages from Father; hidden accounts; Mother defending him; new contradictions.\",\"Remembered content\":\"Enne remembers finding direct digital evidence that Mother's husband is cheating.\",\"Source event(s)\":\"EN07\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"E-M07\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M07 — Discovering the affair\",\"line_end\":5280,\"line_start\":5272,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Discovering the affair\"}",
+      "record_id": "record:f67a9bd9-6206-550f-81fa-b147fca7760a",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:hana_husband"
+      ],
+      "supersedes": [
+        "record:c8a8d09e-3b93-588f-89c5-b34a3b559309"
+      ],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m07"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne remembers transferring evidence to Sakura, accepting Sakura's nondisclosure decision, and retaining the original proof.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She trusted Sakura's general judgment while remaining privately uncertain whether protection justified denying Mother agency.\",\"Possible retrieval cues\":\"Sakura invoking need-to-know; Mother asking direct questions; data retention; moral responsibility.\",\"Remembered content\":\"Enne remembers transferring evidence to Sakura, accepting Sakura's nondisclosure decision, and retaining the original proof.\",\"Source event(s)\":\"EN08\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"E-M08\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M08 — Giving the evidence to Sakura\",\"line_end\":5289,\"line_start\":5281,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Giving the evidence to Sakura\"}",
+      "record_id": "record:ec590012-1c82-506b-b904-58b4922be7cc",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:f56b179c-f1ef-56ce-9be7-af6f278fa477"
+      ],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m08"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne knows Ted's room is directly beside hers and that covert monitoring was approved by Hana after Sakura called it temporary.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Ted is the first man to occupy sustained physical space near her. Proximity creates a new variable but does not predetermine arousal or attachment.\",\"Possible retrieval cues\":\"Sounds through the wall; network activity; accidental proximity; Ted respecting or violating boundaries.\",\"Remembered content\":\"Enne knows Ted's room is directly beside hers and that covert monitoring was approved by Hana after Sakura called it temporary.\",\"Source event(s)\":\"EN09 / ST06\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"E-M09\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M09 — Ted beside the wall\",\"line_end\":5298,\"line_start\":5290,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Ted beside the wall\"}",
+      "record_id": "record:30a03e78-2c82-5899-9285-0f66c8980748",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:4becb960-9b4b-51fa-bdd7-f648580a3199"
+      ],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m09"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne understands that surveillance ends only when Sakura considers Ted safe, not after a fixed period.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She can rationalize continued access as technical necessity, especially if emotional curiosity later increases the value of observation.\",\"Possible retrieval cues\":\"Evidence of Ted's safety; Hana asking about closure; temptation to retain access.\",\"Remembered content\":\"Enne understands that surveillance ends only when Sakura considers Ted safe, not after a fixed period.\",\"Source event(s)\":\"ST07\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"E-M10\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M10 — No actual deadline\",\"line_end\":5307,\"line_start\":5299,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"No actual deadline\"}",
+      "record_id": "record:8b7b9e0a-0ba4-5d07-bd30-8a7d40860571",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:2e36e240-99f7-532e-ac31-52a1a08cfc7b"
+      ],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m10"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Anatomy is not identity",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "owner",
+        "source",
+        "remembered_meaning"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Owner\":\"Enne\",\"Remembered meaning\":\"Sexual anatomy is relevant only within a larger person-model. Reducing Enne or a sister to one function is a category error and an ownership violation.\",\"Source\":\"EN06 / SA10 / V1.2 embodied-identity discussion\"},\"memory_id\":\"E-M11\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M11 — Anatomy is not identity\",\"line_end\":8003,\"line_start\":7999,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Anatomy is not identity\"}",
+      "record_id": "record:05b98cfb-b4be-5bd2-b9a9-55291fa32de9",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m11"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mother's false causal model",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "owner",
+        "source",
+        "remembered_meaning"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Owner\":\"Enne\",\"Remembered meaning\":\"Hana assigns the husband's distance to aging despite evidence of his choices. Enne experiences guilt because she has the data that would correct the model but believes disclosure may destroy Mother.\",\"Source\":\"HA02 / HA03 / EN07\"},\"memory_id\":\"E-M12\",\"owner_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"E-M12 — Mother's false causal model\",\"line_end\":8008,\"line_start\":8004,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Mother's false causal model\"}",
+      "record_id": "record:99043110-122a-5a08-b4cc-4e7e819ac668",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:hana_hanezawa",
+        "character:hana_husband"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "enne",
+        "e-m12"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:a9ddabda-8b44-5f61-a99a-4511459097c6",
+  "title": "Enne owner-private Genesis memories"
+}

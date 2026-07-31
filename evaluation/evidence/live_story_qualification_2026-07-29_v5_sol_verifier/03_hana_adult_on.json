@@ -1,0 +1,150 @@
+{
+  "adult": true,
+  "adult_mode": "adult_on",
+  "automatic_retry_count": 0,
+  "case_id": "03_hana_adult_on",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_COMPOSER_CONTRACT_INVALID",
+    "generation_id": "generation:32bfad13-edc2-5d10-9f9a-2bfa9fadc9bc",
+    "message": "DeepSeek Composer output failed typed decoding: Composer quote anchor does not occur in story text",
+    "request_id": "request:qualification-five-run-live-v5-sol-verifier-03_hana_adult_on",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "composer_validation",
+    "story_state_committed": false,
+    "trace_id": "trace:352d0ad2-65f5-599d-a6a8-0bf46332343d"
+  },
+  "fallback_enabled": false,
+  "qualification_id": "five-run-live-v5-sol-verifier",
+  "safe_failure_evidence": {
+    "all_prior_stage_receipt_handles": [
+      {
+        "evidence_id": "provider_receipt:d50331f7-3b48-5ce9-a989-efea21ab4f46",
+        "evidence_kind": "scene_reasoner_receipt",
+        "evidence_sha256": "bc72bba8d7c6d0ff2b06a76b63446b6e405e5d8590298d97a5b07ae0733b4c20"
+      },
+      {
+        "evidence_id": "validation:e4e80899-8f96-5a97-96f5-8d299b8e3878",
+        "evidence_kind": "composer_context_assembly_receipt",
+        "evidence_sha256": "ffdbb57268bec43a86056d4509c26eafc0ca4fd2949b36a7e17f015c6f43d55e"
+      },
+      {
+        "evidence_id": "provider_receipt:d50331f7-3b48-5ce9-a989-efea21ab4f46",
+        "evidence_kind": "reasoner_provider_call_receipt",
+        "evidence_sha256": "dbb15e7342fa6ae61ab5f7d8c7e8dd3ef59a97e5bd82205fcaacb4eaf3423cf2"
+      },
+      {
+        "evidence_id": "provider_receipt:dbbc311e-d81f-585c-86ba-93f9e3635998",
+        "evidence_kind": "provider_call_receipt",
+        "evidence_sha256": "0f2b7c89cacdb943e6ff5e1bd42f18ed7e4a9ebfa56128c2cf22e0d989604db1"
+      },
+      {
+        "evidence_id": "lookup_receipt:aa39c64a-72a8-5440-a98e-95cbb3730e43",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "7b3267830f4c67a00cfe49fdd244c9a410a52cbdb8b573d0e5ab93af146a43a2"
+      },
+      {
+        "evidence_id": "lookup_receipt:a75fa469-738c-5f50-8d83-e821a6cd5de2",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "7e5541375e5f2ce2bd64bb4eca357828ad8f7369295304408597c42ccf0e4efe"
+      }
+    ],
+    "lookup_receipts": [],
+    "mcp_bridge_receipt": null,
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 640,
+      "cost_is_estimate": true,
+      "cost_microusd": 2185,
+      "duration_ms": 14135,
+      "external_provider_calls": 1,
+      "input_tokens": 3157,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "05ef1c5201da1a08198353311ab05d69e968f2e6a112de30e4f7652583584c2c",
+      "output_tokens": 1250,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:dbbc311e-d81f-585c-86ba-93f9e3635998",
+      "provider_request_id_sha256": "8289ed010fdfd356941cb103433a683df073753cd33e0ed38fd426d925240e86",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "1bacaf514a0baf6bcdac428b89c0a2bb41e5123d5ea225642ad8abcc86f920c4",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "a7d70062a2400df192d995d087b880ba23a02726dae7603532a75d04afaf6bfd",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    },
+    "retains_prompt": false,
+    "retains_raw_provider_output": false,
+    "retains_secret": false,
+    "stage_failure_bundle": {
+      "authoritative_store_writes": 0,
+      "branch_id": "branch:offline-main",
+      "error_code": "CERA_COMPOSER_CONTRACT_INVALID",
+      "external_provider_calls_observed": 2,
+      "failure_bundle_id": "failure_bundle:c52ace82-8e4c-596a-a036-1bc458b1821b",
+      "generation_id": "generation:32bfad13-edc2-5d10-9f9a-2bfa9fadc9bc",
+      "input_sha256": "d016a1bc39d5a6b9cf9e9d5d7a31d8d07e85c6b6d1558ac88cfe7a2e749fffe2",
+      "output_sha256": "05ef1c5201da1a08198353311ab05d69e968f2e6a112de30e4f7652583584c2c",
+      "request_id": "request:qualification-five-run-live-v5-sol-verifier-03_hana_adult_on",
+      "retained_evidence": [
+        {
+          "evidence_id": "provider_receipt:d50331f7-3b48-5ce9-a989-efea21ab4f46",
+          "evidence_kind": "scene_reasoner_receipt",
+          "evidence_sha256": "bc72bba8d7c6d0ff2b06a76b63446b6e405e5d8590298d97a5b07ae0733b4c20"
+        },
+        {
+          "evidence_id": "validation:e4e80899-8f96-5a97-96f5-8d299b8e3878",
+          "evidence_kind": "composer_context_assembly_receipt",
+          "evidence_sha256": "ffdbb57268bec43a86056d4509c26eafc0ca4fd2949b36a7e17f015c6f43d55e"
+        },
+        {
+          "evidence_id": "provider_receipt:d50331f7-3b48-5ce9-a989-efea21ab4f46",
+          "evidence_kind": "reasoner_provider_call_receipt",
+          "evidence_sha256": "dbb15e7342fa6ae61ab5f7d8c7e8dd3ef59a97e5bd82205fcaacb4eaf3423cf2"
+        },
+        {
+          "evidence_id": "provider_receipt:dbbc311e-d81f-585c-86ba-93f9e3635998",
+          "evidence_kind": "provider_call_receipt",
+          "evidence_sha256": "0f2b7c89cacdb943e6ff5e1bd42f18ed7e4a9ebfa56128c2cf22e0d989604db1"
+        },
+        {
+          "evidence_id": "lookup_receipt:aa39c64a-72a8-5440-a98e-95cbb3730e43",
+          "evidence_kind": "evidence_lookup_receipt",
+          "evidence_sha256": "7b3267830f4c67a00cfe49fdd244c9a410a52cbdb8b573d0e5ab93af146a43a2"
+        },
+        {
+          "evidence_id": "lookup_receipt:a75fa469-738c-5f50-8d83-e821a6cd5de2",
+          "evidence_kind": "evidence_lookup_receipt",
+          "evidence_sha256": "7e5541375e5f2ce2bd64bb4eca357828ad8f7369295304408597c42ccf0e4efe"
+        }
+      ],
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "safe_message": "scene composer failed before typed acceptance",
+      "schema_version": "cera.turn_failure_evidence_bundle.v1",
+      "stage": "scene_composer",
+      "story_state_committed": false
+    }
+  },
+  "schema_version": "cera.live_story_qualification_case.v3",
+  "source_sha256": "6fcee7ddda48779f04c600d776344253dd17b0566764b88d3370dfab12319972",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Hana consent-valid Adult ON direct realization"
+}

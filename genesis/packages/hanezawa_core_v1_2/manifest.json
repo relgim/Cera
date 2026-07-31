@@ -1,0 +1,269 @@
+{
+  "compiler_contract_version": "cera.genesis_compiler.v1",
+  "modules": [
+    {
+      "content_sha256": "1baa0045cebf288328e2f3a04d8e39a2da39f53dae1aad10c033dfc4262cca72",
+      "relative_path": "modules/household.json",
+      "source_id": "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+    },
+    {
+      "content_sha256": "fb9de95a9e1e53807824ee9c2266261bab2974be45a43e58ce0ea2fae51b763e",
+      "relative_path": "modules/characters/hana.json",
+      "source_id": "source:8df248c8-4534-58e4-a736-d0fe19d28b10"
+    },
+    {
+      "content_sha256": "5317ef6c2394a4df728314392e8d2577e1778a70a5b31b707b161a7f087b0063",
+      "relative_path": "modules/characters/sakura.json",
+      "source_id": "source:f1a2ffba-21bf-57e6-a0df-8f3f71ef8b71"
+    },
+    {
+      "content_sha256": "032aa7bf87b411b984e4e8f720484219b2c17a22450e7e04bd8fd9d59e12d2c1",
+      "relative_path": "modules/characters/mia.json",
+      "source_id": "source:f300c323-90b5-5778-8b31-e4693e6c7b5f"
+    },
+    {
+      "content_sha256": "d4e6b4b04203552dd9aff7007ad74269ef00e99d9ccc25678a48bebc80bb87da",
+      "relative_path": "modules/characters/enne.json",
+      "source_id": "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+    },
+    {
+      "content_sha256": "370e98069d00819b8c0c299322cd208bcaf498355bb6e110347b37869f48a7f2",
+      "relative_path": "modules/characters/tomi.json",
+      "source_id": "source:643bf853-112a-5a4c-bc5f-a4e1b046dc76"
+    },
+    {
+      "content_sha256": "679978fb927a966611f4f47fb96b5d185cb75113c2b7c250c139da18f10a951b",
+      "relative_path": "modules/characters/aoi.json",
+      "source_id": "source:adb1e738-0ec5-599c-8db2-e83b547b69bb"
+    },
+    {
+      "content_sha256": "b0065ef6f3af233a119c64288a895666b1c192afa7294c5823e848f45c70e006",
+      "relative_path": "modules/characters/yuuni.json",
+      "source_id": "source:507e4a6f-5b57-54da-bed1-3fecc1773a78"
+    },
+    {
+      "content_sha256": "23c6e8ed9ccd9928576066d7b9b92de08ef6b2b55ec6a3930c166a3bd53d59af",
+      "relative_path": "modules/relationships_family.json",
+      "source_id": "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+    },
+    {
+      "content_sha256": "fa750197fef3596b8f5153438e1e99e65980acb26ccbff108e9f8a219b358fcd",
+      "relative_path": "modules/ted_boundary.json",
+      "source_id": "source:de09c465-571e-5df7-9c28-8fb8c4d1f1bc"
+    },
+    {
+      "content_sha256": "e6b01b09a7c7c4e1ffa322b0515418c1d783c0e620540d803ce173acd169f26d",
+      "relative_path": "modules/events.json",
+      "source_id": "source:b14a7bb4-844b-59fd-a885-c404f69454a9"
+    },
+    {
+      "content_sha256": "3ba1b425fbaeea55ba8ceb1d58ac74060de5cbe25475c605b71e9b784c2dfdb6",
+      "relative_path": "modules/memories/hana.json",
+      "source_id": "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+    },
+    {
+      "content_sha256": "7ea52290f6cab2bbaba17a5321caf1d05ee41fef4e63178f1de4d4cda7c16733",
+      "relative_path": "modules/memories/sakura.json",
+      "source_id": "source:b7a4ee46-c99e-5492-8858-0b3434d4b47d"
+    },
+    {
+      "content_sha256": "727bd227ef0006116af02de1ff5063416e71c8e40a4da3901811295cd87c9c01",
+      "relative_path": "modules/memories/mia.json",
+      "source_id": "source:a84c92ed-6ea5-59e0-bb0e-69d12d7dd7a7"
+    },
+    {
+      "content_sha256": "815921f686c19608e0b558994a87469b8c26fc1e69cf41006ca48d14a29555d1",
+      "relative_path": "modules/memories/enne.json",
+      "source_id": "source:a9ddabda-8b44-5f61-a99a-4511459097c6"
+    },
+    {
+      "content_sha256": "39f8668ec5060295ce48c5469cb02199462968ed16335248c21acdf143aec354",
+      "relative_path": "modules/memories/tomi.json",
+      "source_id": "source:da7584a5-c51e-5d5a-9a27-8fbbb618b7a5"
+    },
+    {
+      "content_sha256": "263975e1e35471f9254802f4630e9bb18186dd1600b19b3c4db78ad0431c5dc2",
+      "relative_path": "modules/memories/aoi.json",
+      "source_id": "source:c5618133-cb20-557a-8d97-038b645128a8"
+    },
+    {
+      "content_sha256": "11a262203fe755cec9c713e2dc5ed8023c0be30a207225a8679b33a48c609be1",
+      "relative_path": "modules/memories/yuuni.json",
+      "source_id": "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+    },
+    {
+      "content_sha256": "eb714ed593d6397e4b89d3ef830e211eb9f15e8e2f5990a28627355773e3039f",
+      "relative_path": "modules/visual.json",
+      "source_id": "source:c71bca43-24ae-5337-9371-19921a10e364"
+    },
+    {
+      "content_sha256": "eb963f40704fb26ec1b4ce11f60059552b32385f8140a7d3bf7feb2d4911fe57",
+      "relative_path": "modules/character_expression.json",
+      "source_id": "source:0e718c59-9763-5b53-8878-baf64b373107"
+    },
+    {
+      "content_sha256": "e82193e1e570366a1e6c18329d8e1b8777c08f98d4bf322bbe13032752a4d345",
+      "relative_path": "modules/frameworks.json",
+      "source_id": "source:a5ac8db2-2771-51d7-97cb-499c1b8f2fdf"
+    },
+    {
+      "content_sha256": "3a19c8f730222d9440d9a0a7354f77b1ef9fb066a580384f715d3e5c120803ce",
+      "relative_path": "modules/ledger.json",
+      "source_id": "source:82ba044f-56c4-5863-a129-e113df08621d"
+    }
+  ],
+  "package_class": "creator_canon",
+  "package_id": "genesis_package:b2d1d256-ded2-5f37-b2b3-7edcfceeb372",
+  "parent_revision_id": "genesis_revision:306eff73-7257-5988-8ea6-3021454b4079",
+  "revision_id": "genesis_revision:0f473a00-3ba4-5da8-bea9-5e251c0b3d56",
+  "revision_label": "Hanezawa Core Genesis V1.2",
+  "revision_number": 2,
+  "schema_version": "cera.genesis_manifest.v1",
+  "unresolved_findings": [
+    {
+      "description": "the husband's personal name",
+      "finding_id": "genesis_finding:924f55ba-caf9-5afe-adac-37761b54f61b",
+      "preserved_record_id": "record:fcc3cb19-9b45-5775-895e-febc055e0a5e",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "whether he is a legal or adoptive father to any daughter",
+      "finding_id": "genesis_finding:5694c558-2e7b-5864-aac3-59c70a636fc8",
+      "preserved_record_id": "record:fb7aedfb-09c7-503e-9f12-c7482233bcef",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "the identity of the affair partner",
+      "finding_id": "genesis_finding:6e1678d6-6736-55f8-9338-aee0ca0f0c67",
+      "preserved_record_id": "record:183ac1a1-40c2-5a11-8b79-d85fe5b399e5",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "exact affair dates, location, method, or motive",
+      "finding_id": "genesis_finding:6b459718-aa7c-5780-bdc7-8a4da3121de5",
+      "preserved_record_id": "record:d07a03df-dad4-5847-866c-61f5a280d259",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "exact adoption dates and chronological order for Sakura, Enne, Tomi, and Aoi",
+      "finding_id": "genesis_finding:e20c406f-382b-5417-9713-0fbb93794eea",
+      "preserved_record_id": "record:87a75701-3816-5378-bbcc-8081297e26ab",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "Hana's exact birthday",
+      "finding_id": "genesis_finding:0ac6efc4-28ea-552b-84f0-4448bfea9813",
+      "preserved_record_id": "record:b5c08e32-795f-59dd-b74e-57d4c984952b",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "exact birth times for any character",
+      "finding_id": "genesis_finding:eb64df0e-8c2a-5290-a4c5-90020f3895e0",
+      "preserved_record_id": "record:50cbe226-ec52-5b68-9fbc-de19721d4352",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "exact financial amounts, rent, tutor prices, or household debt",
+      "finding_id": "genesis_finding:bbc50c63-869e-5f09-bf32-7001eb74b310",
+      "preserved_record_id": "record:1efe1857-488b-588f-a711-5c6a198e4e53",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "exact identity of Yuuni's future singing or dance tutor",
+      "finding_id": "genesis_finding:b79b10aa-6ae4-5ca9-9627-8aef37ea5d12",
+      "preserved_record_id": "record:bd240937-228f-58db-b4f5-ef90ebccca76",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "whether Yuuni will receive lessons",
+      "finding_id": "genesis_finding:46e7a367-fd6c-5d41-bc04-93af01c052da",
+      "preserved_record_id": "record:c8a233be-ca44-57c5-9b49-e8ce00adab87",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "whether the affair will be disclosed",
+      "finding_id": "genesis_finding:c9e579cf-59f0-5d55-a970-a9acaefe97a8",
+      "preserved_record_id": "record:ebcc42f1-5b4e-5bd9-9596-9ab46e824289",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "whether Tomi will learn why Ted was accepted",
+      "finding_id": "genesis_finding:a971d477-e6ba-5825-afe9-d25ef8e11ce8",
+      "preserved_record_id": "record:958836da-dee9-50a7-ba6c-d94a0ff3ac31",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "whether Enne will react to a man in physical proximity",
+      "finding_id": "genesis_finding:ca1fba5b-8225-5d8b-8fb4-5c88b12d1403",
+      "preserved_record_id": "record:c3277bf8-e8b3-50a9-9736-1c1891cc66a5",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "whether Tomi's initial romantic possibility becomes attraction",
+      "finding_id": "genesis_finding:63fdd5ab-77e2-5964-b7a7-f5e1d1464a91",
+      "preserved_record_id": "record:7a7707b6-4c81-5472-926f-c849b6f6d456",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "whether Aoi will attempt any removal plan",
+      "finding_id": "genesis_finding:6a0f166c-32ad-5b84-b366-5dcb24154d2f",
+      "preserved_record_id": "record:a7918da4-28a7-534e-8233-ea20e312767c",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "whether Sakura will terminate surveillance",
+      "finding_id": "genesis_finding:dc876a11-e70e-5473-a26b-ad1af27f4005",
+      "preserved_record_id": "record:36aa7715-8e9c-5b0e-8373-268508924d75",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "any future romance, sexual act, crime, injury, pregnancy, betrayal, forgiveness, yandere development, M development, redemption, or collapse",
+      "finding_id": "genesis_finding:89b6106d-b18d-58e9-a401-9bb0f657a6ae",
+      "preserved_record_id": "record:a41c4d09-b8cb-50fc-b268-413fa52b74c5",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    },
+    {
+      "description": "Ted's appearance, motives, preferences, attraction, consent, or private state",
+      "finding_id": "genesis_finding:8a444082-17d7-5f42-8f96-d6556bad4271",
+      "preserved_record_id": "record:610cde60-fa11-5e68-b90d-15d709e3ab58",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ]
+    }
+  ],
+  "world_scope": "creator_worlds"
+}

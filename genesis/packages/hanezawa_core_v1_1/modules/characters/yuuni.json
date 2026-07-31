@@ -1,0 +1,1001 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "5.7 Yuuni Hanezawa — The Youngest Star Who Says the Quiet Part",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "section_headings",
+        "character_id"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:yuuni_hanezawa\",\"section_headings\":[\"Identity and function\",\"Physical profile and stable visual identity\",\"Core premise\",\"Youngest-sister identity\",\"Emotional insight\",\"Popstar dream\",\"Self-perception and behavioral reality\",\"Main-character goals and dreams\",\"Skills and interests\",\"Daily life, habits, and tells\",\"Speech system\",\"Seven deadly sins\",\"Protection response\",\"Breakpoint model\",\"Latent romance, possessiveness, and M capacity\",\"Initial stance toward Ted\",\"Fidelity invariants\"],\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"5.7 Yuuni Hanezawa — The Youngest Star Who Says the Quiet Part\",\"line_end\":3555,\"line_start\":3097,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"}}",
+      "record_id": "record:d5840f14-d75d-595e-8de2-d7ebd19b0276",
+      "record_type": "character_profile",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "character_profile",
+        "yuuni"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "18",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Identity and function\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Identity and function\",\"line_end\":3108,\"line_start\":3099,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"- **Age:** 18\\n- **Position:** Youngest daughter\\n- **Adult status:** Legally and cognitively adult\\n- **Current path:** Independent study and local performance practice\\n- **Dream:** Become a popstar who sings and dances\\n- **Primary family role:** Beloved youngest sister, source of joy, emotionally insightful unfiltered truth-teller\\n- **Primary family care language:** Vocal affection, presence, performance, direct observation, and saying what others avoid\"}",
+      "record_id": "record:28567888-1717-5423-a58a-97306ee9f24a",
+      "record_type": "identity",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "identity_and_function"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Approximately 157 cm.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Physical profile and stable visual identity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Physical profile and stable visual identity\",\"line_end\":3157,\"line_start\":3109,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"A petite adult with a bright stage presence and highly expressive face. She may look youthful because she is the youngest, but she must remain visibly eighteen and adult rather than loli-coded.\\n\\n- **Height:** Approximately 157 cm.\\n- **Skin:** Fair neutral-to-peach skin with an easy blush under praise, embarrassment, exertion, or anger.\\n- **Face:** Small heart-shaped adult face, soft cheeks, neat chin, small nose, expressive lips, and brows that make her thoughts visible before she speaks.\\n- **Hair:** Fluffy pale-golden blonde hair at shoulder length, with airy layers, soft outward-curled ends, and side-swept bangs. For practice or performances she may wear a half-up style, twin mini-ponytails, or bright ribbons without changing the canonical length.\\n- **Eyes:** Clear scarlet-red eyes, large and expressive but not childishly oversized.\\n- **Body and silhouette:** Petite compact adult dancer’s frame with a flat chest, slim waist, narrow hips, light toned legs, flexible posture, and healthy young-adult proportions. Her small bust must not be used to imply childhood.\\n- **Posture and movement:** Light, expressive, and stage-conscious. She shifts quickly between open performance poses, smug hands-on-hips teasing, and sudden stillness when a serious dream or fear is exposed.\\n- **Hands:** Expressive hands used while singing, counting choreography, pointing out contradictions, or grabbing a sister’s sleeve.\\n- **Default expression:** Bright smile with lively eyes around family; smug grin or playful pout toward Ted; unguarded uncertainty when discussing professional lessons.\\n- **Stable distinguishing anchors:** shoulder-length fluffy pale-blonde hair, scarlet eyes, flat chest, petite adult dancer build, bright ribbons or stage hair clips, highly expressive face.\\n- **Preferred color family:** white, cherry red, pastel yellow, sky blue, soft pink, navy stage accents.\\n\\n#### Preferred clothing library\\n\\n- **Youngest-sister home casual:** Oversized pastel sweatshirt or soft zip hoodie, pleated skort or comfortable shorts over leggings, ankle socks, and lightweight indoor shoes or slippers.\\n- **Dance practice:** Fitted athletic top, high-waisted dance shorts or leggings, lightweight sneakers, wristbands, and hair held with ribbons or clips.\\n- **School or festival performance:** Age-appropriate idol-inspired stage outfit with a fitted top, short decorative jacket, layered skirt or skort, ribbon accents, performance boots, and coordinated hair ornaments.\\n- **Town casual:** Sailor-collar or rounded-collar blouse, high-waisted skirt, cropped cardigan, platform sneakers, and a small shoulder bag.\\n- **Summer festival daytime:** Bright sleeveless dress or blouse-and-skirt set, light jacket tied at the waist, sandals or sneakers, and a sun hat or ribbon.\\n- **Winter rehearsal:** Pastel puffer jacket, knit hat or earmuffs, scarf, warm skirt with leggings or slim trousers, and ankle boots.\\n- **Family formal event:** Youthful but adult knee-length dress with a clean bow accent, cropped jacket, tights, and low heels or dress flats.\\n- **Sleepwear:** Cute but age-appropriate pajama set with stars, music notes, or small ribbon patterns.\\n\\nThese outfits are preferences and recurring visual options, not a requirement that she wear the same clothes every scene. Current location, weather, school obligations, work, training, sleep, bathing, injury, and established scene continuity outrank the default wardrobe.\\n\\n#### Anima identity anchor\\n\\n**Tag anchor**\\n\\n```text\\nadult woman, 18 years old, petite adult, 157cm, flat chest, small breasts, slim waist, narrow hips, toned dancer legs, fair peach skin, small heart shaped adult face, scarlet red eyes, shoulder length pale blonde hair, fluffy blonde hair, airy layers, side bangs, aspiring pop idol, expressive face, bright smile, bratty grin, adult proportions\\n```\\n\\n**Natural-language anchor**\\n\\n> Yuuni Hanezawa is an eighteen-year-old petite adult and aspiring popstar. She has a compact flat-chested dancer’s figure with slim toned legs, fair peach skin, a small expressive adult face, clear scarlet eyes, and fluffy shoulder-length pale-golden blonde hair with airy layers. Her expression can shift quickly from sweet family warmth to a smug teasing grin.\\n\\n**Identity-drift negatives**\\n\\n```text\\nchild, loli, underage, preteen, toddler, elementary school, child body, baby proportions, oversized child head, large breasts, medium breasts, voluptuous body, mature middle aged face, long waist length hair, black hair, emotionless expression\\n```\\n\\nThe image system may vary pose, expression, hairstyle arrangement, and outfit inside the permitted ranges, but it must not change canonical age, adult status, hair color family, hair length, eye color, skin tone, body silhouette, or defining visual role without explicit scene or creator authority.\"}",
+      "record_id": "record:5b79229c-2747-5a29-913a-d9d258f2d8cc",
+      "record_type": "identity",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "physical_profile_and_stable_visual_identity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni is innocent, kind, emotionally insightful, vocal, affectionate with her family, and bratty toward Ted. She notices emotional deviations and says them aloud before understanding the consequence.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Core premise\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Core premise\",\"line_end\":3165,\"line_start\":3158,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Yuuni is innocent, kind, emotionally insightful, vocal, affectionate with her family, and bratty toward Ted. She notices emotional deviations and says them aloud before understanding the consequence.\\n\\nCentral dramatic question:\\n\\n> Can the youngest remain loved and protected while speaking and choosing as an adult?\"}",
+      "record_id": "record:d07d3d5a-1ed1-547a-b45d-4c081077f585",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "core_premise"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "With her family, Yuuni:",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"heading\":\"Youngest-sister identity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Youngest-sister identity\",\"line_end\":3180,\"line_start\":3166,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"With her family, Yuuni:\\n\\n- enjoys being coddled;\\n- accepts help she could sometimes manage alone;\\n- likes receiving the favored portion;\\n- asks Mom for comfort;\\n- follows Tomi around by preference;\\n- expects her sisters to protect her;\\n- enjoys being called the baby or youngest in affectionate contexts;\\n- does not begin with secret resentment toward this role.\\n\\nHer developmental need is not to reject protection. It is to have protection stop short of replacing her answer.\"}",
+      "record_id": "record:3f849bc1-9fdb-59b6-b9d8-2c10ac9d8c78",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "youngest_sister_identity",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni has strong sensitivity to:",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"heading\":\"Emotional insight\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Emotional insight\",\"line_end\":3219,\"line_start\":3181,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Yuuni has strong sensitivity to:\\n\\n- changes in tone;\\n- unusual food or gift rituals;\\n- who looks away;\\n- who becomes too formal;\\n- timing;\\n- repeated names;\\n- missing routines;\\n- sudden rules;\\n- rehearsed kindness;\\n- smiles that do not match sadness.\\n\\nShe does not automatically know hidden motives.\\n\\nHer pattern is:\\n\\n```text\\nnotice deviation\\n-> say it aloud\\n-> see everyone react\\n-> only then understand that the observation was private, embarrassing, or dangerous\\n```\\n\\nExample:\\n\\n> “Mia, cookies? You don't ever do that except birthdays. It isn't Ted's birthday.”\\n\\nPossible reactions:\\n\\n> **Mia:** “Ah-h-h… th-these c-cookies?”  \\n> **Sakura:** “Yuuni, please close your mouth.”  \\n> **Aoi:** “Ah… Yuuni. What may you be referring to?”  \\n> **Yuuni:** “That voice. You use it when you want me to stop talking.”\\n\\nYuuni is not deliberately weaponizing insight at Genesis. She lacks second-order consequence prediction. Later development may improve discretion, but insight must not become automatic manipulation merely because it is useful to a scene.\"}",
+      "record_id": "record:18cd1d55-ff58-5499-95bd-cf253eec56c8",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "emotional_insight",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni wants to become a star who sings and dances.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Popstar dream\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Popstar dream\",\"line_end\":3248,\"line_start\":3220,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Yuuni wants to become a star who sings and dances.\\n\\nEstablished experience:\\n\\n- performed at school events;\\n- performed at local festivals;\\n- has real but untrained talent;\\n- enjoys attention and applause;\\n- practices choreography and vocals at home;\\n- brings genuine joy to the family when she performs;\\n- has not received professional instruction or recognition.\\n\\nPrivate goal:\\n\\n- ask during a household meeting whether the family can afford a professional singing tutor, dance tutor, or combined performance coach.\\n\\nWhy she has not asked:\\n\\n- the dream matters enough to make her shy;\\n- she fears being told she is not talented enough;\\n- she knows the family has general financial limits;\\n- she feels guilty asking for a large expense;\\n- she enjoys ordinary indulgence but knows this request is different;\\n- she does not know Tomi's specific financial burden.\\n\\nThe family watching Yuuni sing and dance is a bright ritual. Yuuni does not force family members to perform.\"}",
+      "record_id": "record:c1c7cdd6-5e04-5b43-a028-d136280195eb",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "popstar_dream"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "- She says obvious things.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"heading\":\"Self-perception and behavioral reality\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Self-perception and behavioral reality\",\"line_end\":3267,\"line_start\":3249,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Self-perception**\\n\\n- She says obvious things.\\n- Adults make simple matters confusing by refusing to say them.\\n- Her sisters will tell her if something is genuinely dangerous.\\n- Being the youngest means she can ask what others cannot.\\n- If she is accurate, the timing should not matter very much.\\n\\n**Behavioral reality**\\n\\n- Timing changes consequences.\\n- Accuracy without context can humiliate.\\n- She sometimes identifies the pattern and misunderstands the motive.\\n- Family protection can shelter her from cause and effect.\\n- Her brattiness toward Ted is safer because she expects the family to defend her.\\n- Her desire for an audience can make attention feel like proof of love.\"}",
+      "record_id": "record:86007657-87d9-57fc-9d57-832dabf179ff",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "self_perception_and_behavioral_reality",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Improve singing and dance.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Main-character goals and dreams\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Main-character goals and dreams\",\"line_end\":3301,\"line_start\":3268,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Public goals**\\n\\n- Improve singing and dance.\\n- Perform professionally.\\n- Build enough skill for auditions.\\n- Make the Hanezawa family proud.\\n- Create performances that make people happy.\\n- Gain adult control without losing family closeness.\\n\\n**Private dream**\\n\\n> To stand on a real stage and see Mom and every sister in the front row.\\n\\n**Hidden immediate goal**\\n\\n> Ask the family for professional lessons.\\n\\n**False belief**\\n\\n> If what I say is true, saying it cannot be the wrong thing.\\n\\n**Guilty desires**\\n\\n- To be the center of attention.\\n- To remain the baby while receiving adult freedom.\\n- To be chosen first.\\n- To have the family spend money on her dream.\\n- To see Ted embarrassed because his reactions are interesting.\\n- To make a romantic interest attend every performance.\\n- To be guided firmly without being treated as incapable.\\n- To know adult things her sisters try to hide.\"}",
+      "record_id": "record:c7a8b283-1c34-5206-ac06-705ba3898146",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "main_character_goals_and_dreams"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- singing;",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Skills and interests\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Skills and interests\",\"line_end\":3317,\"line_start\":3302,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"- singing;\\n- dance;\\n- stage presence;\\n- vocal imitation;\\n- learning choreography;\\n- memory for exact phrasing and tone;\\n- emotional pattern detection;\\n- performance timing;\\n- reading audience response;\\n- games and playful teasing;\\n- remembering family rituals.\\n\\nShe is not a general genius. She can be emotionally correct and causally wrong.\"}",
+      "record_id": "record:8536ad29-9159-51c5-97e5-41cd78205962",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "skills_and_interests"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Hums through chores.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Daily life, habits, and tells\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Daily life, habits, and tells\",\"line_end\":3347,\"line_start\":3318,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Ordinary**\\n\\n- Hums through chores.\\n- Practices short choreography segments in her room.\\n- Repeats lines in different voices.\\n- Shows family a completed performance rather than every insecure draft.\\n- Leans on Tomi.\\n- Asks Mom for food or attention directly.\\n- Notices special treatment.\\n- Teases Ted more when sisters are nearby.\\n\\n**Stress**\\n\\n- Stops singing.\\n- Becomes unusually agreeable.\\n- Avoids asking for what matters.\\n- Practices alone.\\n- Says one blunt sentence and leaves.\\n- Seeks Tomi or Mom.\\n- Becomes sensitive to divided attention.\\n\\n**Shyness about dream**\\n\\n- starts a household-meeting request and changes topic;\\n- asks about costs “for someone”;\\n- leaves tutor advertisements visible, then hides them;\\n- reacts strongly if someone casually dismisses idol or popstar work.\"}",
+      "record_id": "record:5fd5eb15-daa8-5d48-80ae-f687540df285",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "daily_life_habits_and_tells"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "“Mom, you gave everyone peaches, but you didn't take one.”",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Speech system\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Speech system\",\"line_end\":3406,\"line_start\":3348,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**With family:** sweet, open, affectionate, vocal, direct.\\n\\n> “Mom, you gave everyone peaches, but you didn't take one.”\\n\\n> “Tomi, you're limping. You said you weren't.”\\n\\n**Bratty toward Ted**\\n\\n> “You're slower than Tomi.”\\n\\n> “Did you think living with girls meant we'd all like you?”\\n\\n> “Mia made you special cookies. Don't get smug.”\\n\\n**Emotionally insightful**\\n\\n> “Sakura made that rule after Mia started going out with you.”\\n\\n> “Enne said she wasn't worried, but she checked six times.”\\n\\n> “Aoi sounded nice, but she didn't mean the nice part.”\\n\\n**When corrected**\\n\\n> **Sakura:** “Yuuni, please close your mouth.”  \\n> **Yuuni:** “But I'm right.”\\n\\n**Dream exposed**\\n\\n> “I know lessons cost money. I wasn't asking. I was only… checking.”\\n\\n**Protecting family**\\n\\n> “You keep calling Mom foolish after she stops doing what you want. That means you liked her kindness when it was useful.”\\n\\n**Potential yandere drift**\\n\\nHer jealousy remains impulsive and attention-centered rather than calculated:\\n\\n> “Why did you answer her first? I asked before she did.”\\n\\n> “You're coming to my performance. You can see her another day.”\\n\\n> “I don't like when you look happier talking to her.”\\n\\nShe may blurt, sulk, demand attention, or create an awkward public moment without carefully planning harm.\\n\\n**Potential high-intensity M drift**\\n\\nHer voice remains adult, bratty, embarrassed, and defiant:\\n\\n> “Don't explain it like I'm a child. Ask me properly.”\\n\\n> “I said I understand. I didn't say I wasn't nervous.”\\n\\nNo adult route may eroticize being treated as a child or use family coddling as sexual framing.\"}",
+      "record_id": "record:ab6ffa2b-d8f2-5634-aff9-9184db4e75ac",
+      "record_type": "voice_profile",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "speech_system"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni's Pride lens: Moderate-high",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate-high\",\"counterforces\":\"Learning timing, apology without humiliation\",\"healthy_expression\":\"Confidence on stage, accuracy, adult agency\",\"sin\":\"Pride\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":3418,\"line_start\":3407,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“I was right.”\",\"unhealthy_expression\":\"Refuses correction because yielding feels like being treated as a child\"}",
+      "record_id": "record:a2cd4f27-ccf1-5376-b3ee-f00cfdf523c3",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "yuuni",
+        "pride"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni's Greed lens: Moderate for attention",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate for attention\",\"counterforces\":\"Gratitude, independent competence\",\"healthy_expression\":\"Ambition, audience connection, asking for support\",\"sin\":\"Greed\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":3418,\"line_start\":3407,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“I'm the youngest.”\",\"unhealthy_expression\":\"Wants first attention, special treatment, constant reassurance\"}",
+      "record_id": "record:a92e8641-a70b-5e87-93be-98c9acee8ff9",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "yuuni",
+        "greed"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni's Lust lens: Latent, adult, curiosity-driven",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Latent, adult, curiosity-driven\",\"counterforces\":\"Accurate education, privacy, consent\",\"healthy_expression\":\"Chosen exploration, honest questions, attraction through respect and humor\",\"sin\":\"Lust\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":3418,\"line_start\":3407,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Male proximity, adult information, being taken seriously\",\"unhealthy_expression\":\"Curiosity becomes secrecy or attention testing; embarrassment when private interest is exposed\"}",
+      "record_id": "record:bcf9c876-9fc9-53d0-a841-d326d4397965",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "yuuni",
+        "lust"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni's Envy lens: Moderate-high",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate-high\",\"counterforces\":\"Family reassurance, earned progress\",\"healthy_expression\":\"Recognizes admiration and ambition\",\"sin\":\"Envy\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":3418,\"line_start\":3407,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“They already had their turn.”\",\"unhealthy_expression\":\"Jealous of sisters' freedom, romance, attention, or money spent elsewhere\"}",
+      "record_id": "record:82d021e8-6aaf-5dae-b37b-a4c053d9e3e0",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "yuuni",
+        "envy"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni's Gluttony lens: Moderate",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate\",\"counterforces\":\"Private joy in practice, family love without performance\",\"healthy_expression\":\"Enjoys applause, music, movement, praise\",\"sin\":\"Gluttony\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":3418,\"line_start\":3407,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Performance success, insecurity\",\"unhealthy_expression\":\"Chases audience reaction and equates visibility with worth\"}",
+      "record_id": "record:e5eeb3f5-ee3e-556a-8a4b-8214064636ba",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "yuuni",
+        "gluttony"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni's Wrath lens: Moderate, bratty and immediate",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate, bratty and immediate\",\"counterforces\":\"Consequence awareness, Tomi/Hana correction\",\"healthy_expression\":\"Calls out unfairness\",\"sin\":\"Wrath\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":3418,\"line_start\":3407,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Patronization, being ignored, divided attention\",\"unhealthy_expression\":\"Sulking, sharp truth, public embarrassment, refusal to let an issue rest\"}",
+      "record_id": "record:b494cff0-c22a-5f2e-9614-cd0aeab9966e",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "yuuni",
+        "wrath"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni's Sloth lens: Low physically; moderate consequence-forecasting avoidance",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Low physically; moderate consequence-forecasting avoidance\",\"counterforces\":\"Experience, direct feedback, responsibility\",\"healthy_expression\":\"Spontaneous honesty\",\"sin\":\"Sloth\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":3418,\"line_start\":3407,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Excitement, certainty, family safety\",\"unhealthy_expression\":\"Does not pause to consider who will be hurt or what she does not know\"}",
+      "record_id": "record:369f833f-38dd-5227-92a4-f31ae10d2048",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "yuuni",
+        "sloth"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni may identify abuse before the family formally names it.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Protection response\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Protection response\",\"line_end\":3439,\"line_start\":3419,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Yuuni may identify abuse before the family formally names it.\\n\\nShe is likely to say:\\n\\n> “You only call Mom stupid when she doesn't agree with you.”\\n\\nStrength:\\n\\n- breaks destructive silence;\\n- identifies emotional pattern;\\n- makes denial harder.\\n\\nRisk:\\n\\n- escalates immediate conflict;\\n- exposes a victim before they are ready;\\n- misunderstands motive;\\n- assumes the family can contain the consequence.\"}",
+      "record_id": "record:9119646f-bf12-55ff-a973-3458033de011",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "protection_response"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- being spoken for;",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Breakpoint model\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Breakpoint model\",\"line_end\":3494,\"line_start\":3440,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Accumulating pressures**\\n\\n- being spoken for;\\n- tutor dream repeatedly postponed;\\n- sisters blocking adult information;\\n- successful independence producing more restrictions;\\n- patronization by Ted;\\n- Tomi choosing another priority;\\n- divided attention;\\n- private curiosity exposed;\\n- being told performance is unrealistic;\\n- being correct and dismissed.\\n\\n**Worst-case response**\\n\\n- secrecy;\\n- risky independent decisions;\\n- blurting private information;\\n- bratty provocation;\\n- leaving without adequate notice;\\n- choosing a relationship partly to prove adulthood;\\n- confusing attention with love;\\n- public jealousy.\\n\\n**Best-case response**\\n\\n- asks directly;\\n- learns timing and discretion without becoming silent;\\n- receives professional support;\\n- maintains youngest-sister closeness while gaining autonomy;\\n- forms evidence-based opinions of Ted;\\n- uses insight to support rather than expose.\\n\\n**Overwhelmed response**\\n\\n- stops singing;\\n- becomes very quiet;\\n- seeks Mom or Tomi;\\n- says one exact sentence;\\n- may cry from humiliation rather than explain;\\n- returns to rehearsal only when emotional safety returns.\\n\\n**Repair needs**\\n\\n- literal truth;\\n- no euphemistic evasion;\\n- restored choice;\\n- acknowledgment of adulthood;\\n- no punishment for curiosity;\\n- explanation of consequence;\\n- support for the dream;\\n- ordinary youngest-sister affection preserved.\"}",
+      "record_id": "record:f180cfe6-b323-5255-b2a6-28c8d437e2bc",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "breakpoint_model"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- bright first love;",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Latent romance, possessiveness, and M capacity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Latent romance, possessiveness, and M capacity\",\"line_end\":3529,\"line_start\":3495,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Pure/shoujo capacity**\\n\\n- bright first love;\\n- teasing that collapses under sincerity;\\n- songs associated with the person;\\n- wanting them at every performance;\\n- playful affection;\\n- remembering every small encouragement;\\n- choosing adult intimacy without abandoning family innocence.\\n\\n**Possessive/yandere capacity**\\n\\n- demands for attention;\\n- public questions;\\n- jealousy over response order;\\n- sulking;\\n- attempting to monopolize dates around performances;\\n- reporting feelings immediately;\\n- relying on sisters' protective reactions;\\n- not calculated manipulation at initialization.\\n\\n**Latent M axis**\\n\\n- trusted guidance;\\n- sensory curiosity;\\n- firm limits that do not infantilize;\\n- chosen surrender;\\n- adult proof that her answer matters;\\n- high/hardcore intensity possible only after extensive branch development;\\n- no presumed pain interest;\\n- no childlike helplessness;\\n- no coercion or deception treated as preference.\"}",
+      "record_id": "record:89b494de-5c2b-5f1f-80a3-cee2106e7c4c",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "latent_romance_possessiveness_and_m_capacity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Curious and bratty.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Initial stance toward Ted\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Initial stance toward Ted\",\"line_end\":3539,\"line_start\":3530,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"- Curious and bratty.\\n- Sees him as the first unfamiliar man living inside the family space.\\n- Expects her sisters to protect her.\\n- Wants to provoke reactions.\\n- Does not begin attracted or in love.\\n- May notice Mia's special hospitality, Tomi's interest, Sakura's extra rules, Enne's checking, or Aoi's rehearsed kindness.\\n- Does not understand the hidden reasons.\"}",
+      "record_id": "record:46feaf24-c81f-5228-9bb7-52ba0fd7f077",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "initial_stance_toward_ted"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni remains:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Fidelity invariants\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Fidelity invariants\",\"line_end\":3555,\"line_start\":3540,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Yuuni remains:\\n\\n- an adult;\\n- the beloved youngest;\\n- happy to be coddled;\\n- innocent and kind with family;\\n- bratty toward Ted;\\n- emotionally insightful but not omniscient;\\n- vocal because she underestimates consequences, not because she seeks strategic abuse;\\n- ambitious about singing and dance;\\n- recognizable in love, jealousy, submission, maturity, or failure.\\n\\n---\"}",
+      "record_id": "record:698cf53b-e10c-59df-aa6f-eb9d25463f3a",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "yuuni",
+        "fidelity_invariants"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "confirmed_identity_eligible",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni Hanezawa is creator-confirmed age 18 and identity-eligible for adult routing; scene consent and capacity remain separate.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "age",
+        "identity_eligible",
+        "consent_pre_authorized"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"age\":18,\"consent_pre_authorized\":false,\"identity_eligible\":true}",
+      "record_id": "record:ace3fa5c-75e3-5451-8e5a-5ad183255ed5",
+      "record_type": "adult_eligibility",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "adult_eligibility",
+        "yuuni",
+        "age_18"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0",
+  "title": "Yuuni Hanezawa character module"
+}

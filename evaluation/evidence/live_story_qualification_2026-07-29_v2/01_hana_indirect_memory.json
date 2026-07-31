@@ -1,0 +1,27 @@
+{
+  "adult": false,
+  "adult_mode": null,
+  "automatic_retry_count": 0,
+  "case_id": "01_hana_indirect_memory",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_COMPOSER_CONTRACT_INVALID",
+    "generation_id": "generation:e335a1d9-9f77-52d6-a260-cb6129b4f6b8",
+    "message": "DeepSeek Composer output failed typed decoding: SemanticInference.target has invalid enum value 'trust'",
+    "request_id": "request:qualification-01_hana_indirect_memory",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "composer_validation",
+    "story_state_committed": false,
+    "trace_id": "trace:d7826a78-c6c5-5e3f-81ec-76317c1a7a16"
+  },
+  "fallback_enabled": false,
+  "qualification_id": "five-run-live-v2",
+  "schema_version": "cera.live_story_qualification_case.v1",
+  "source_sha256": "5b3c76c007b8985be1c49c2a8ce60c7f00b355653fece87193e493848dab1eec",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Hana ordinary turn with indirect missed-calls memory"
+}

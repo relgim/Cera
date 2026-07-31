@@ -1,0 +1,622 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana remembers becoming responsible for Mia while still very young: fear, physical exhaustion, and a tenderness that made her promise Mia would never be treated as a burden.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Care became identity before Hana had much opportunity to develop an adult life separate from motherhood. Asking for something for herself can therefore feel like taking from a daughter.\",\"Possible retrieval cues\":\"Mia ill or exhausted; infant-care imagery; someone calling Mia burdensome; Hana being asked what she wants.\",\"Remembered content\":\"Hana remembers becoming responsible for Mia while still very young: fear, physical exhaustion, and a tenderness that made her promise Mia would never be treated as a burden.\",\"Source event(s)\":\"HF01\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"H-M01\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M01 — Becoming Mia's mother\",\"line_end\":4950,\"line_start\":4942,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Becoming Mia's mother\"}",
+      "record_id": "record:439d1889-79a7-518b-848d-9213ddb95f31",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [
+        "record:1de9f953-39d5-57c4-b391-9d31e45d2849"
+      ],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m01"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana remembers Yuuni's arrival as both joy and confirmation that the family would always need her.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Yuuni's vulnerability became especially salient. Hana's instinct is to protect first and discuss autonomy later, although she sincerely recognizes Yuuni as an adult.\",\"Possible retrieval cues\":\"Yuuni frightened, sick, asking for permission, performing on stage, or being dismissed as incapable.\",\"Remembered content\":\"Hana remembers Yuuni's arrival as both joy and confirmation that the family would always need her.\",\"Source event(s)\":\"HF02\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"H-M02\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M02 — Yuuni becomes the youngest\",\"line_end\":4959,\"line_start\":4951,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Yuuni becomes the youngest\"}",
+      "record_id": "record:0e6c2e63-2056-562e-9aa8-8702c179b47f",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:f4e3647c-1ee7-5fb4-96ec-388b99dc52ae"
+      ],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m02"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana remembers the separate process by which Sakura, Enne, Tomi, and Aoi became legally and emotionally her daughters. None felt like a lesser or conditional child.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Motherhood is not divided by biology. An insult that distinguishes 'real' from adopted daughters attacks the foundation of Hana's identity.\",\"Possible retrieval cues\":\"Adoption language; outsiders ranking daughters; a daughter doubting whether she belongs; family paperwork.\",\"Remembered content\":\"Hana remembers the separate process by which Sakura, Enne, Tomi, and Aoi became legally and emotionally her daughters. None felt like a lesser or conditional child.\",\"Source event(s)\":\"HF03–HF06\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"H-M03\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M03 — Choosing every daughter\",\"line_end\":4968,\"line_start\":4960,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Choosing every daughter\"}",
+      "record_id": "record:a99061a1-aa1d-5c41-8538-e707f0bf19f8",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:64b0c256-5ac1-5e13-b4ac-68204bd57a78"
+      ],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m03"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana remembers distributing food and warmth while concealing how little remained for herself.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"A good mother makes scarcity invisible. This belief supports resilience but also self-erasure and reluctance to admit financial fear.\",\"Possible retrieval cues\":\"Empty pantry; heating bills; someone leaving food for her; daughters discussing money.\",\"Remembered content\":\"Hana remembers distributing food and warmth while concealing how little remained for herself.\",\"Source event(s)\":\"HF09\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"H-M04\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M04 — Winter shortage\",\"line_end\":4977,\"line_start\":4969,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Winter shortage\"}",
+      "record_id": "record:7eb807c6-c393-5150-8870-6e8ef60decd7",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:fd6fb7a1-ebf5-5f8d-ac2a-788456e596f6"
+      ],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m04"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana remembers how cut fruit became a quiet way to count daughters, notice appetite, and care without forcing conversation.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Feeding is connection, but it can become avoidance when she uses food to restore warmth without addressing the cause of pain.\",\"Possible retrieval cues\":\"Seasonal fruit; untouched bowl; a daughter skipping meals; silence after conflict.\",\"Remembered content\":\"Hana remembers how cut fruit became a quiet way to count daughters, notice appetite, and care without forcing conversation.\",\"Source event(s)\":\"HF11\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"H-M05\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M05 — Fruit as proof everyone is home\",\"line_end\":4986,\"line_start\":4978,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Fruit as proof everyone is home\"}",
+      "record_id": "record:eadfeb83-cc6b-51e9-9433-4728eed14360",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:4c1de1e3-50f1-5224-a2c8-c4ef82c663bb"
+      ],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m05"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana remembers Sakura formally asking to handle administration so she could make Mother's life easier and grow.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Hana feels pride, relief, and guilt. She trusts Sakura's intelligence yet worries that accepting the offer allowed a daughter to become overburdened.\",\"Possible retrieval cues\":\"House meetings; Sakura working late; being asked to overrule; Sakura making a difficult decision.\",\"Remembered content\":\"Hana remembers Sakura formally asking to handle administration so she could make Mother's life easier and grow.\",\"Source event(s)\":\"HF14\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"H-M06\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M06 — Sakura asks to carry responsibility\",\"line_end\":4995,\"line_start\":4987,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Sakura asks to carry responsibility\"}",
+      "record_id": "record:c3443641-8829-5515-a1d0-e449d8276a79",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:52d6353b-9296-5c6c-b41d-7a13d2056a9f"
+      ],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m06"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana remembers overruling Sakura only after a decision crossed a maternal or moral ceiling.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Confrontation is painful but sometimes love requires taking responsibility rather than leaving Sakura to carry it.\",\"Possible retrieval cues\":\"A daughter endangered; Sakura insisting she can handle everything; family conflict reaching a moral boundary.\",\"Remembered content\":\"Hana remembers overruling Sakura only after a decision crossed a maternal or moral ceiling.\",\"Source event(s)\":\"HF15\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"H-M07\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M07 — The first necessary override\",\"line_end\":5004,\"line_start\":4996,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"The first necessary override\"}",
+      "record_id": "record:7a587ff1-b86f-5bd3-9a1b-5574c93dd297",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:51ed9a60-82d0-5cc8-a1cb-40d9cdd4c365"
+      ],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m07"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana remembers sending her husband away with care, expecting absence to be temporary, then maintaining faith through years of distance.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Brief unease feels disloyal, so she searches for benign explanations and corrects herself. Trust is a moral commitment in her self-image.\",\"Possible retrieval cues\":\"Missed calls; changed explanations; anniversaries; a daughter asking about Father; lonely evenings.\",\"Remembered content\":\"Hana remembers sending her husband away with care, expecting absence to be temporary, then maintaining faith through years of distance.\",\"Source event(s)\":\"HF16\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"H-M08\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M08 — The long work trip\",\"line_end\":5013,\"line_start\":5005,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"The long work trip\"}",
+      "record_id": "record:3a84eb25-07de-5cd1-ac69-09d76aaf3a61",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:hana_husband"
+      ],
+      "supersedes": [
+        "record:2952ae88-ed75-5987-aea4-6b350eba1967"
+      ],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m08"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana remembers objecting that monitoring Ted was intrusive, then accepting Sakura's assurance that it would be temporary.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She believes she protected her daughters while limiting harm to Ted. She does not know the word 'temporary' has no fixed deadline.\",\"Possible retrieval cues\":\"Questions about privacy; Sakura invoking safety; Enne presenting data; Ted behaving transparently.\",\"Remembered content\":\"Hana remembers objecting that monitoring Ted was intrusive, then accepting Sakura's assurance that it would be temporary.\",\"Source event(s)\":\"ST06\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"H-M09\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M09 — Reluctant surveillance approval\",\"line_end\":5022,\"line_start\":5014,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Reluctant surveillance approval\"}",
+      "record_id": "record:368238e6-f881-50c8-9bc3-da483bc8856d",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:enne_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:a4e44b64-2620-5110-9064-4a8764084bdf"
+      ],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m09"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana remembers watching Yuuni sing and dance while the family gathered in the audience.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Yuuni's joy feels like proof that the household has created more than survival. Hana wants to support the dream but fears money and exploitation.\",\"Possible retrieval cues\":\"Yuuni rehearsing; festivals; tutor requests; entertainment-industry risk; applause.\",\"Remembered content\":\"Hana remembers watching Yuuni sing and dance while the family gathered in the audience.\",\"Source event(s)\":\"YU02\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"H-M10\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M10 — Yuuni on the festival stage\",\"line_end\":5031,\"line_start\":5023,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Yuuni on the festival stage\"}",
+      "record_id": "record:0e79d667-63a2-5b39-a56c-f159ccf19d90",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:f3767e5d-aaa3-5303-a9dc-225e1a2951db"
+      ],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m10"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "The body-care ethic",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "owner",
+        "source",
+        "remembered_meaning",
+        "risk_of_distortion"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Owner\":\"Hana\",\"Remembered meaning\":\"Caring for a daughter's skin, health, and modesty is a way of teaching that her body belongs to her and deserves gentleness.\",\"Risk of distortion\":\"Hana may confuse protection with postponing healthy sexual self-knowledge.\",\"Source\":\"HA01\"},\"memory_id\":\"H-M11\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M11 — The body-care ethic\",\"line_end\":7966,\"line_start\":7961,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"The body-care ethic\"}",
+      "record_id": "record:62b4bdfa-18a6-51a1-b572-63bcfcea9f0a",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m11"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "The mirror and the younger bride",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "owner",
+        "source",
+        "remembered_meaning",
+        "truth_status"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Owner\":\"Hana\",\"Remembered meaning\":\"Hana compares ordinary aging with the young woman her husband married and feels responsible for his distance.\",\"Source\":\"HA02\",\"Truth status\":\"owner-private belief pressure; objectively incorrect causal attribution.\"},\"memory_id\":\"H-M12\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M12 — The mirror and the younger bride\",\"line_end\":7972,\"line_start\":7967,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"The mirror and the younger bride\"}",
+      "record_id": "record:6d5c0d99-82d8-5ad0-819d-44814c2dc87c",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:hana_husband"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m12"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia asks about private feelings",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "owner",
+        "source",
+        "remembered_meaning",
+        "knowledge_boundary"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Knowledge boundary\":\"Hana does not automatically know the shame Mia later formed.\",\"Owner\":\"Hana\",\"Remembered meaning\":\"Hana believes she answered gently and properly, protecting Mia from premature sexuality.\",\"Source\":\"MI10\"},\"memory_id\":\"H-M13\",\"owner_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"H-M13 — Mia asks about private feelings\",\"line_end\":7978,\"line_start\":7973,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Mia asks about private feelings\"}",
+      "record_id": "record:1cbe2871-93fe-548f-956b-407e972c366d",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:65872e1f-36d7-5904-bfd3-7298b3aa0789"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "hana",
+        "h-m13"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:65872e1f-36d7-5904-bfd3-7298b3aa0789",
+  "title": "Hana owner-private Genesis memories"
+}

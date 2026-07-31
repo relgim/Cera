@@ -1,0 +1,518 @@
+{
+  "application_request_sha256": "db4d578fcfcd7121c22208fa6f0f9d07ea15e919caedfe087b570160e301f0f3",
+  "assertions": {
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "hm08_retrieved": false,
+    "ingress_evidence_committed": true,
+    "regeneration": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true
+  },
+  "composer": {
+    "accepted_prose": "Mia's lips parted slightly, the question not fully formed before her expression softened into recognition. She had opened the door to a morning she hadn't expected to include him, and now Ted stood there, his words still settling into the air between them.\n\nA quiet breath escaped her, not quite a laugh, but close—surprise fading into something warmer, though her hands stayed lightly clasped in front of her as if holding the moment to a manageable size. \"A coffee shop...\" she repeated gently, the words more a tender echo than a question, her voice carrying the slight, unguarded warmth she often offered when someone she cared about asked for something small.\n\nShe tilted her head a degree, her smile arriving not at once but gradually, like the first light reaching a windowsill. \"I'd like that,\" she said, the words clear but measured, given without rush. Her eyes held his for a moment longer than she might have intended, soft and attentive, before she added, \"Sometime this week... we can figure out when.\"\n\nShe didn't fill the pause with more details—didn't name a day or ask for his schedule. The answer had been given, and she let it rest there, her expression quietly expectant for whatever he would say next.",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "772197128abc538fe913b0636fb27b07a16cd64cc5a6f5f6ca11b5cca924da82",
+      "character_spans": [
+        {
+          "beat_id": "beat:4e4a5554-eda1-514f-beb2-e0cc945536b4",
+          "end": 664,
+          "kind": "private_state",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "completed",
+          "source_unit_id": null,
+          "start": 258
+        },
+        {
+          "beat_id": "beat:4e4a5554-eda1-514f-beb2-e0cc945536b4",
+          "end": 664,
+          "kind": "dialogue",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "completed",
+          "source_unit_id": null,
+          "start": 258
+        },
+        {
+          "beat_id": "beat:4e4a5554-eda1-514f-beb2-e0cc945536b4",
+          "end": 1016,
+          "kind": "dialogue",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "completed",
+          "source_unit_id": null,
+          "start": 666
+        },
+        {
+          "beat_id": "beat:4e4a5554-eda1-514f-beb2-e0cc945536b4",
+          "end": 1223,
+          "kind": "action",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "completed",
+          "source_unit_id": null,
+          "start": 1018
+        }
+      ],
+      "decision_sha256": "0ad806e2b2c9ed111364537a91872c337aa8a99dfb0ea75c8a273d8b059ad87f",
+      "floor_owner_id": "character:mia_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:eef9af2d-5bcd-5c23-b7d1-6a90a350ac10",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "a534c38e9d2fe0cc3a372156c17a53eb39ab901f30dfddbae6f8f8da6da444c9",
+          "character_id": "character:mia_hanezawa",
+          "selected_intent_sha256": "2fbec1c5a264072303f81fc49f186d88c4a1c63912dcd05029e8e2aa60ae07b7"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:mia_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:4e4a5554-eda1-514f-beb2-e0cc945536b4"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "367dc1b2c32bc7c0913fd9c36c7b02e13e991f87158e11064fea3b6d11e78cb2",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "673188e35a3dfe92b7a0ef34553a8d943af82283d98939dc578e7f71543010b8",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1024,
+      "cost_is_estimate": true,
+      "cost_microusd": 1635,
+      "duration_ms": 9489,
+      "external_provider_calls": 1,
+      "input_tokens": 3386,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "3ef5191884a82ad9cc33a06bd535086b4ddf240287d473e9b468fac125f1474a",
+      "output_tokens": 693,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:1fc71268-49ad-5397-9e8a-9cc70509db63",
+      "provider_request_id_sha256": "ce8a4db047d6b991f5d5a0700db58baa9312f4241a44cf0f16145eb7d17fd934",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "de0908586a961ee29424576399cf2431698d1b9ca6c60b213fa36a638d6ea095",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "bc02d58d54c17d6dc66608fc99288942112980467ff0de5cb2f3f16921fbbe79",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:mia_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "9afb70e833b9aef6d924d35c0257189269c2bc25d16488779fb09c731fdc810c",
+      "assembly_receipt_id": "validation:0f62cdf5-71af-5539-b052-dcef0e9834ef",
+      "base_request_sha256": "2c37d7c341dc87309aabd9c9d6e4964027f5851ab8c493868bb5336564b2fce7",
+      "cumulative_returned_bytes": 3513,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:48a4ac7a-6877-58fa-ad72-2b1887c1ab22",
+        "lookup_receipt:f1eeca6d-7d49-5170-8ddb-ba4aeb0135f1"
+      ],
+      "realization_context_sha256": "92b4bb738f01c3f7aad307af21913e301e6d074effcd7c6a33024efa7557171c",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d",
+        "evidence:e6e5bd4a-7303-52ab-8b3d-2e547c813b17"
+      ],
+      "snapshot_token": "snapshot:a0fde472-d81e-5fb5-96da-5649773b4be1",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:mia_hanezawa"
+    ]
+  },
+  "duration_seconds": 61.189,
+  "index": 3,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "1a9e3a52987dccc76476878adfd2fc629b6445777d56aa65193d82b5b590e770",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "1de09cf95afbda8e197768e7b8c9bd8503882606c65be56514750c9cae1c4e8e",
+      "receipt_id": "validation:69ab549d-c6ca-545a-ae00-a5bee06f9e5b",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "70baa414c512605b2cc4d139c9c9721c3b260a28d17edf0787a3704df30130f1",
+    "receipt_id": "validation:f652e8de-c396-55e8-a8f4-eb266281323c",
+    "request_id": "request:1790bba5-2d6c-5d91-9a94-a8875cf3c65b",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 1205,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:7d143e7f-c0c5-515e-9eec-68683b52b163",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1205,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:a0fde472-d81e-5fb5-96da-5649773b4be1",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:7d143e7f-c0c5-515e-9eec-68683b52b163"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+          ],
+          "obligation_id": "obligation:7b1c82f1-270a-5c0a-ba3c-59dc8ffad87c",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:70a141a1-4ebf-5d5b-b6e5-8f1136332861",
+      "snapshot_binding_sha256": "d6f0abd97308c009835ae571a0efbe32bb7c5d96cae6954e48f0e1e409182bee",
+      "snapshot_token": "snapshot:a0fde472-d81e-5fb5-96da-5649773b4be1"
+    },
+    "snapshot_token": "snapshot:a0fde472-d81e-5fb5-96da-5649773b4be1",
+    "source_sha256": "34081028eb76d392ffc5f2273c2ede40917966e7b2b5707805cfa488c7c2d533"
+  },
+  "key": "mia-coffee-invitation",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:d4bbba73-7f06-52f2-b217-9b54b6003287",
+      "accepted_artifact_sha256": "8d6e50bcb6854f61e94c1ad61aba92b04c06765f02cb86f4171c79af476b0ed6",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "db4d578fcfcd7121c22208fa6f0f9d07ea15e919caedfe087b570160e301f0f3",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:db589558-b159-5c1a-b42f-de062e5096ea",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:c3b2624b-0bac-5395-a030-54880a759b00",
+      "operational_report_id": "validation:e4b33e63-92e5-5f2e-8bb2-7b9334e2132d",
+      "operational_report_sha256": "f47e92405062d87f2b86759c2e920ef52007a270cc28d4e494b838483b4e79f6",
+      "receipt_id": "validation:dcbcf249-098e-5ba3-a184-005b6a3fa140",
+      "request_id": "request:1790bba5-2d6c-5d91-9a94-a8875cf3c65b",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "5633e8ffec5b9d112a922a92b8b193e284fba4c78bc94b9c9e7495de953c373a"
+    },
+    "artifact": {
+      "accepted_prose": "Mia's lips parted slightly, the question not fully formed before her expression softened into recognition. She had opened the door to a morning she hadn't expected to include him, and now Ted stood there, his words still settling into the air between them.\n\nA quiet breath escaped her, not quite a laugh, but close—surprise fading into something warmer, though her hands stayed lightly clasped in front of her as if holding the moment to a manageable size. \"A coffee shop...\" she repeated gently, the words more a tender echo than a question, her voice carrying the slight, unguarded warmth she often offered when someone she cared about asked for something small.\n\nShe tilted her head a degree, her smile arriving not at once but gradually, like the first light reaching a windowsill. \"I'd like that,\" she said, the words clear but measured, given without rush. Her eyes held his for a moment longer than she might have intended, soft and attentive, before she added, \"Sometime this week... we can figure out when.\"\n\nShe didn't fill the pause with more details—didn't name a day or ask for his schedule. The answer had been given, and she let it rest there, her expression quietly expectant for whatever he would say next.",
+      "artifact_id": "artifact:d4bbba73-7f06-52f2-b217-9b54b6003287",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:e3674a53-71df-596c-b9ed-3f8b801f5a30",
+      "generation_id": "generation:c3b2624b-0bac-5395-a030-54880a759b00",
+      "parent_artifact_id": "artifact:403f4958-22d9-57a9-89f7-b32ab8d2e369",
+      "prose_sha256": "673188e35a3dfe92b7a0ef34553a8d943af82283d98939dc578e7f71543010b8",
+      "realized_beat_ids": [
+        "beat:4e4a5554-eda1-514f-beb2-e0cc945536b4"
+      ],
+      "responding_npc_ids": [
+        "character:mia_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:2f517533-f6a5-5717-a568-94d967999163",
+      "status": "accepted",
+      "transaction_id": "transaction:a91c95da-232d-5f20-9fc5-9d85ace8cb98",
+      "validation_receipt_id": "validation:f53576c9-319f-50ec-bbf8-20aec9bb01e2"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:db589558-b159-5c1a-b42f-de062e5096ea",
+      "expected_previous_artifact_id": "artifact:403f4958-22d9-57a9-89f7-b32ab8d2e369",
+      "external_receipt_ids": [],
+      "generation_after": 3,
+      "generation_before": 2,
+      "inserted_record_ids": [
+        "event:c6357bdb-7f30-53ee-988a-ebb25c6ced36"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:7d143e7f-c0c5-515e-9eec-68683b52b163",
+        "lookup_receipt:48a4ac7a-6877-58fa-ad72-2b1887c1ab22",
+        "lookup_receipt:f1eeca6d-7d49-5170-8ddb-ba4aeb0135f1"
+      ],
+      "new_artifact_id": "artifact:d4bbba73-7f06-52f2-b217-9b54b6003287",
+      "new_artifact_sha256": "8d6e50bcb6854f61e94c1ad61aba92b04c06765f02cb86f4171c79af476b0ed6",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:e700595e-a778-5b16-9519-f97c722f79ce",
+        "provider_receipt:1fc71268-49ad-5397-9e8a-9cc70509db63",
+        "provider_receipt:2dc35710-ab0b-5362-bf1d-8c263f48f68d"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:2f517533-f6a5-5717-a568-94d967999163",
+      "source_sha256": "591e3b1f8ce33f7c4531f857e0657b2f4f756af0a72a8faab2bfcfeb1ed229f5",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:a91c95da-232d-5f20-9fc5-9d85ace8cb98",
+      "transaction_sha256": "5633e8ffec5b9d112a922a92b8b193e284fba4c78bc94b9c9e7495de953c373a",
+      "validation_receipt_ids": [
+        "validation:f652e8de-c396-55e8-a8f4-eb266281323c",
+        "validation:0f62cdf5-71af-5539-b052-dcef0e9834ef",
+        "validation:765bbad2-3dbb-59eb-8fa6-fec0a778fb0b",
+        "realization_verification:90a38d6d-aaf0-534e-a66c-16cc7501be24",
+        "validation:f53576c9-319f-50ec-bbf8-20aec9bb01e2",
+        "validation:898358d6-dc9b-566d-a86f-b34a331b438d"
+      ]
+    },
+    "event_record_id": "event:c6357bdb-7f30-53ee-988a-ebb25c6ced36",
+    "visible_artifact_count": 3
+  },
+  "qualification_id": "continuous-ten-turn-v10",
+  "raw_message": "Ted knocks on Mia's door. She opens it, confused because she was not expecting him that morning. Ted says, \"Mia, I think you're very cute. Would you like to go on a date with me to a coffee shop this week?\" He waits for her answer.",
+  "raw_message_sha256": "a8a08a98ed2c0716d4676c2b221c9c21f9a6a4368311284a4e80da54de9393b8",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Let the initial surprise register, then give a cautious, clear acceptance of one coffee date this week while leaving scheduling unresolved.",
+            "character_id": "character:mia_hanezawa",
+            "evidence_ids": [
+              "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+            ],
+            "knowledge_constraints": [
+              "Mia knows she and Ted have known each other for only one week.",
+              "Mia did not expect Ted that morning.",
+              "Mia cannot know Ted's unstated motives, feelings, availability, or next choice.",
+              "Mia's owner-private relationship state must not be transferred to Ted or stated as his knowledge."
+            ],
+            "perception": "Ted has unexpectedly invited her on a coffee date after only one week of acquaintance.",
+            "selected_intent": "Answer with cautious warmth while keeping the commitment limited and low-pressure."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:mia_hanezawa",
+              "beat_id": "beat:4e4a5554-eda1-514f-beb2-e0cc945536b4",
+              "evidence_ids": [
+                "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+              ],
+              "neutral_event": "Mia briefly registers surprise, then clearly accepts one coffee date this week while leaving the timing open.",
+              "state": "completed"
+            }
+          ],
+          "segment_id": "segment:c0b77352-90ac-580c-9f60-d25872c411c2",
+          "stop_before": "Ted's next unsupplied response or other meaningful choice."
+        },
+        "decision_id": "decision:e3674a53-71df-596c-b9ed-3f8b801f5a30",
+        "floor_owner_id": "character:mia_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "Ted chooses to continue the conversation after Mia's answer.",
+              "Ted offers availability or asks Mia to propose a time."
+            ],
+            "invalidation_conditions": [
+              "Ted withdraws the invitation.",
+              "The conversation ends before scheduling begins."
+            ],
+            "open_user_choice": "Whether and how Ted responds to Mia's acceptance remains open.",
+            "possible_consequences": [
+              "They may compare availability for the week.",
+              "Scheduling may remain unresolved."
+            ],
+            "segment_id": "segment:52fe7c79-1649-581c-8c5f-12dd6a1ccd74",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not author Ted's next action, dialogue, thought, feeling, motive, availability, or commitment.",
+          "Do not expose Mia's owner-private relationship evidence as information known by Ted.",
+          "Do not turn conditional scheduling into a committed event.",
+          "Do not make Mia explicitly recognize the romantic imagination described as below awareness."
+        ],
+        "responding_npc_ids": [
+          "character:mia_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Mia answers the unexpected invitation with cautious warmth while preserving room to coordinate details.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "Ted's next response is unknown.",
+          "Both characters' availability and any eventual date details remain unknown."
+        ],
+        "writer_must_preserve": [
+          "Respond only from Mia's perspective without restating or directly narrating Ted's supplied action or dialogue.",
+          "Keep Mia's acceptance cautious, clear, and limited to one coffee date this week.",
+          "Leave timing and other logistical details unresolved.",
+          "Keep Mia's below-awareness romantic imagination implicit rather than converting it into conscious self-knowledge.",
+          "Stop before Ted's next unsupplied meaningful choice."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d",
+          "record_id": "record:2a7aade2-9608-5f82-97ef-81528c75982b",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:mia_hanezawa",
+          "evidence_ids": [
+            "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 41110,
+      "external_provider_calls": 1,
+      "input_tokens": 12994,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "8dbceae55439069e1f75156ba8bf413f689ce7cb7e617d836048577781c4d461",
+      "output_tokens": 1811,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:e700595e-a778-5b16-9519-f97c722f79ce",
+      "provider_request_id_sha256": "2b5dd54fb34cbb522b6f79d01906bfaeac1d2a2098eed65b8b962c599d153ac5",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1103,
+      "request_sha256": "fed57b0a73d8766598e362f0b83e1527f510fd04bf525049f73b06826fea2396",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "b2f734e9adbd46541265a70965f7908526a00aa1dd79fbcb8b159a232664409a",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "b2f734e9adbd46541265a70965f7908526a00aa1dd79fbcb8b159a232664409a",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "6b0e0c8b6347c4dde2d51acd78bb3511b3b98f45bec1a37d5fa8939a84a22487",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:e700595e-a778-5b16-9519-f97c722f79ce",
+      "provider_receipt_sha256": "bf0af06a6601417b3ad09ed5c5c8acbdaf26816b4bb4b3bfdb0c414911db5d39",
+      "reasoner_request_sha256": "70baa414c512605b2cc4d139c9c9721c3b260a28d17edf0787a3704df30130f1",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:a0fde472-d81e-5fb5-96da-5649773b4be1",
+      "source_sha256": "34081028eb76d392ffc5f2273c2ede40917966e7b2b5707805cfa488c7c2d533",
+      "source_view_sha256": "72cfa75445bc2b0dc441dcd21e4f42cb78d9ea353964e4a5a139739dca64adab",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Mia receives an early date invitation",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 6757,
+      "external_provider_calls": 1,
+      "input_tokens": 10727,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "5d57ae836411a990f97c9e658ef43fecb94b1710fc607690014dc4479f8b17ac",
+      "output_tokens": 225,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:2dc35710-ab0b-5362-bf1d-8c263f48f68d",
+      "provider_request_id_sha256": "d2484d0bfcc60e90835ac1fa05dfd2b568195b7238a0af36645d2ef324c415b1",
+      "quota_metered": true,
+      "reasoning_output_tokens": 122,
+      "request_sha256": "191ceedec15c5b4db749c55690bbaba76dedb011199d16447b142dd3f13a29c1",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "d84ca6952abdca260297142460886ebb0e8f1c3cdcb5836f21bc831a589a58a5",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "772197128abc538fe913b0636fb27b07a16cd64cc5a6f5f6ca11b5cca924da82",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:2dc35710-ab0b-5362-bf1d-8c263f48f68d",
+      "provider_receipt_sha256": "cdcbf07bcb59732a92b5d40905e7510313731759436ebfd36910f11a65deaa5f",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "673188e35a3dfe92b7a0ef34553a8d943af82283d98939dc578e7f71543010b8",
+      "verification_id": "realization_verification:90a38d6d-aaf0-534e-a66c-16cc7501be24",
+      "verification_request_sha256": "5209c56b804b67ba634c2e6463bc28b2fa403c67e434699be15dcff1eefd7914",
+      "verified_beat_ids": [
+        "beat:4e4a5554-eda1-514f-beb2-e0cc945536b4"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:mia_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "d84ca6952abdca260297142460886ebb0e8f1c3cdcb5836f21bc831a589a58a5",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

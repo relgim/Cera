@@ -1,0 +1,235 @@
+{
+  "adult_route_note": "The authorized route remained ordinary; Adult ON/EX was not forced.",
+  "adult_route_reached": false,
+  "attempts_per_stage": 1,
+  "codex_cli_verifier_qualification": {
+    "accepted_cases": 3,
+    "qualification_id": "cera-cli-verifier-probe-2026-07-29-v1",
+    "rejected_cases": 1,
+    "requested_model": "gpt-5.6-sol",
+    "route_sha256": "5e9d7fc49d4e097938c10036c108cd714f3df27fa95d22f09e100cd5bf20c9e5",
+    "schema_version": "cera.codex_cli_verifier_qualification_evidence.v1",
+    "summary_sha256": "2253e1862cdb0a6b60b6d5dc40e6ff5f55800dd7f8aa259e4d7dd8b99864aca3",
+    "transport_compatibility_id": "cera.codex_cli_exec_structured_output.v1",
+    "transport_compatibility_source_sha256": "dee1d98f906f6bf71c6d041956a7b8731bfad6799f3068104d37393c3507feed",
+    "transport_name": "codex_cli_exec",
+    "transport_version": "0.144.4",
+    "verifier_calls": 4
+  },
+  "codex_sdk_compatibility": {
+    "activation_contract": "provider_receipt_requires_successful_worker_installation",
+    "compatibility_id": "cera.codex_sdk_completion_registration.v2",
+    "route_notification_source_sha256": "8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1",
+    "sdk_version": "0.144.4"
+  },
+  "committed_generations": 10,
+  "consecutive_successes": 10,
+  "deepseek_calls": 10,
+  "fallback_enabled": false,
+  "finished_at": "2026-07-30T21:14:00.027666+00:00",
+  "foreign_key_findings": 0,
+  "frozen_fork_artifacts": 6,
+  "genesis_revision": "v1_2",
+  "immutable_artifacts": 10,
+  "integrity_check": "ok",
+  "live_route_models": {
+    "scene_composer": "deepseek-v4-flash",
+    "scene_realization_verifier": "gpt-5.6-sol",
+    "scene_reasoner": "gpt-5.6-sol"
+  },
+  "persistent_codex_completion_registration": {
+    "cleanup_policy": "force_full_tree_before_replacement",
+    "maximum_requests_per_process": 2,
+    "process_launches": 5,
+    "qualification_id": "persistent-codex-verifier-epoch-probe-v5",
+    "requested_model": "gpt-5.6-sol",
+    "route_notification_source_sha256": "8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1",
+    "route_sha256": "45267dd3882fcbb453b1ba351c7ac7c44c29af92564dcc83c8d5f029697d597b",
+    "schema_version": "cera.persistent_codex_completion_registration_qualification_evidence.v1",
+    "sdk_compatibility_id": "cera.codex_sdk_completion_registration.v2",
+    "sdk_version": "0.144.4",
+    "summary_sha256": "1e5f7f09f0ed6b29211fe40c8ac998e6344103b84fe1ef0f4bd0b496c40c56f1",
+    "verifier_calls": 10
+  },
+  "persistent_codex_transport": {
+    "qualification_id": "persistent-codex-transport-probe-v1",
+    "reasoner_calls": 2,
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_qualification_evidence.v1",
+    "summary_sha256": "f92a08e5cda04c701c74b3d1ddd98fe1abc0da733959f56545c0eb43cd07f5f3",
+    "verifier_calls": 2
+  },
+  "persistent_codex_tree_cleanup": {
+    "cleanup_policy": "force_full_tree_before_replacement",
+    "maximum_requests_per_process": 2,
+    "process_launches": 2,
+    "qualification_id": "persistent-codex-tree-cleanup-probe-v3",
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_tree_cleanup_qualification_evidence.v1",
+    "summary_sha256": "d477cade6580dcc3d5df9e445047f57a8c9b74e6f24bb21b2a109afb0d4124d8",
+    "verifier_calls": 4
+  },
+  "persistent_transport_sessions": {
+    "scene_realization_verifier": {
+      "process_launch_count": 10,
+      "request_submission_count": 10
+    },
+    "scene_reasoner": {
+      "process_launch_count": 5,
+      "request_submission_count": 9
+    }
+  },
+  "qualification_id": "continuous-ten-turn-v27-flash-thinking",
+  "qualification_story_canonical": false,
+  "reasoner_transport_policy": "persistent_no_mcp_except_request_bound_mcp_one_shot",
+  "relational_protected_user_boundary": {
+    "candidate_sha256": "4fa1f668c4cca11ebbda8fa573443ec10e8bee1b9192f7bbb0379ef8ae82e590",
+    "composer_dto_version": "cera.deepseek_composition_draft.v5",
+    "composer_model": "deepseek-v4-pro",
+    "composer_prompt_version": "cera.deepseek_scene_composer_prompt.v12",
+    "deepseek_calls": 1,
+    "qualification_id": "deepseek-relational-protected-user-boundary-v4",
+    "schema_version": "cera.relational_boundary_qualification_evidence.v1",
+    "sol_calls": 1,
+    "summary_sha256": "d18e1397eafe1e845e2722100268a7fa0cc7b514be30d710a02d76637981940c",
+    "verifier_model": "gpt-5.6-sol"
+  },
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "sol_calls": 20,
+  "started_at": "2026-07-30T20:44:50.320540+00:00",
+  "status": "passed",
+  "story_database_retained": false,
+  "successful_turns": 10,
+  "total_provider_calls": 30,
+  "turns": [
+    {
+      "artifact_id": "artifact:fe05b30a-3a64-50ed-a6bd-eff13a34ca51",
+      "duration_seconds": 147.362,
+      "index": 1,
+      "key": "sakura-doorway-shoe-and-entry-boundary",
+      "prose_sha256": "499d2611acc0521fb671f3cd33516c7dfb0c5ea19b6a6b6464e1481aae8aace7",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:493aade3-11f1-5656-b569-a1173152eec6",
+      "duration_seconds": 190.504,
+      "index": 2,
+      "key": "tomi-post-run-shared-space-boundary",
+      "prose_sha256": "f4072479c2c613299f7f910137717ba12c4e96001344df931ea9c5774adf563b",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:c3df0b77-456e-59b5-a37b-930ef875c16f",
+      "duration_seconds": 181.526,
+      "index": 3,
+      "key": "tomi-indirect-running-joy-memory",
+      "prose_sha256": "cca699b4da714c2fec8f4a4bdfb8b3720aa52eef3f335815d587cc3895b7ad98",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:b6ec811c-5960-5abf-aa07-811944da6e0c",
+      "duration_seconds": 149.578,
+      "index": 4,
+      "key": "tomi-yuuni-cooldown-music-boundaries",
+      "prose_sha256": "0683ba21c2377b0517bab2461065efb890cf511142a74baeaaafc4c87aab41c3",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:tomi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:b8aa85fe-ce01-59ca-9541-c9f47c9d8b31",
+      "duration_seconds": 186.384,
+      "index": 5,
+      "key": "tomi-bounded-stopwatch-offer",
+      "prose_sha256": "fe57089ccae23347157471d35d19c2bab240e45fd1949f0afbfad6a6038d17d3",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:c4336c50-43b4-59b0-8e95-de0ec45ddf6b",
+      "duration_seconds": 189.432,
+      "index": 6,
+      "key": "tomi-aoi-training-data-and-hallway-boundaries",
+      "prose_sha256": "1765a8f40a5cf46c7994d221195480256e403d7cea62455c8ef8545b5242ff13",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:f8c342a0-d786-5702-849b-0d07c87cbbaa",
+      "duration_seconds": 193.014,
+      "index": 7,
+      "key": "tomi-mia-yuuni-frustration-support-round",
+      "prose_sha256": "0f43009942e57a47d13e5125be10f84a205d151246b8842d60083ce5a323d436",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:tomi_hanezawa",
+        "character:mia_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:f0dac294-3cf5-5684-b469-493b5a942399",
+      "duration_seconds": 195.772,
+      "index": 8,
+      "key": "tomi-current-support-choice",
+      "prose_sha256": "95967d58a9618f2d26045b311b03602bf5e55f31930f19a8c0f0a3af0245a036",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:55e13625-9c50-5d4d-a943-990366510407",
+      "duration_seconds": 131.861,
+      "index": 9,
+      "key": "regenerate-tomi-low-demand-support",
+      "prose_sha256": "e0e17cbc982294af54f0d0f9af88c01abd273d369eab8693466d5711c72358e9",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:335968e6-4996-5e5c-b74c-f9aa724642e2",
+      "duration_seconds": 174.759,
+      "index": 10,
+      "key": "tomi-hana-training-time-household-boundary",
+      "prose_sha256": "857fef03b3ca414eb97ad55011e1eb8cdc971a01ab6ce2b90fbb9ee3613c65c3",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:tomi_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "status": "passed"
+    }
+  ],
+  "verifier_transport_policy": "codex_cli_exec_one_shot",
+  "visible_main_artifacts": 9
+}

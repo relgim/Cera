@@ -1,0 +1,652 @@
+{
+  "application_request_sha256": "34e3405941e4ccef074d7abd390f3c8c1284e9afd39824fe42ed77be8268f976",
+  "assertions": {
+    "all_eligible_required": true,
+    "all_eligible_selected": true,
+    "branch_fork_unchanged": true,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": true,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "codex_cli_exec_one_shot"
+  },
+  "composer": {
+    "accepted_prose": "Tomi shifts her weight, arms folding loosely. \"You don't need to announce a whole rule for me. I'll handle my own training.\" She glances away briefly, then back with a small shrug. \"If I ever need something practical, I'll say so.\"\n\nHana waits a beat after Tomi finishes, then offers a gentle nod. \"When anyone comes in from exercise, they're welcome to use the downstairs shower before joining the rest of the house. It's not a special rule—just something that keeps the floors cleaner.\" She wipes her hands on her apron, her expression mild. \"That seems fair, I think.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "ba40c3468a8ce3a04de7ecade67e7fa1bd25b21bed4d986ddabbdb41a030b360",
+      "character_spans": [
+        {
+          "beat_id": "beat:1d2530df-87cb-5c6c-a632-89c1e4d75e19",
+          "end": 231,
+          "kind": "dialogue",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:1d2530df-87cb-5c6c-a632-89c1e4d75e19",
+          "end": 231,
+          "kind": "action",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:b0c754be-7afb-53e7-afbb-a1585bf44abe",
+          "end": 571,
+          "kind": "dialogue",
+          "owner_id": "character:hana_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 233
+        },
+        {
+          "beat_id": "beat:b0c754be-7afb-53e7-afbb-a1585bf44abe",
+          "end": 571,
+          "kind": "action",
+          "owner_id": "character:hana_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 233
+        }
+      ],
+      "decision_sha256": "cd73c988ea068faedaed2b79f1345ddfc216c4e9b425f028d68157d84699f3bd",
+      "floor_owner_id": "character:tomi_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:86183293-25ad-5f01-8f4e-671761335a68",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "2eb7699b81e606df14e59491dd14a366797aad106bd3caaf72b2655726790815",
+          "character_id": "character:tomi_hanezawa",
+          "selected_intent_sha256": "010bf21cb60c5391efc62163f6c9e80c381f60004e241a6be2b96d47c5f68d04"
+        },
+        {
+          "action_direction_sha256": "677955a61d73ec21c1647507585405457d0f0dd0cac47a25f696468fedae523f",
+          "character_id": "character:hana_hanezawa",
+          "selected_intent_sha256": "e4da8686691b7f423d0a7f8add4f1ae32230fc14e382d77762ccf23fad7fbc0b"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        },
+        {
+          "character_id": "character:hana_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:1d2530df-87cb-5c6c-a632-89c1e4d75e19",
+        "beat:b0c754be-7afb-53e7-afbb-a1585bf44abe"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "f03a73f0260fe487802dffd07b2ad90728352c3c4ef38b6fe586345f4aeee71c",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "ef6d7e47e29eb9cf93682fe777a5448363c397147c9978616af7533b91379d4c",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1280,
+      "cost_is_estimate": true,
+      "cost_microusd": 2263,
+      "duration_ms": 7933,
+      "external_provider_calls": 1,
+      "input_tokens": 5439,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "00c3c8d863e259545a4cc0f2c14a47e80fc52fd91545786bc72962e0937e4475",
+      "output_tokens": 516,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:2dce80af-b682-5faa-b922-1fb5fecce950",
+      "provider_request_id_sha256": "d09fa45b617e59c5104f16728e74bbe5a8009a47169c7e7a36c43d7862a50455",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "56b43ee57e781009473bea43eaba5a5b0ae21df00fd037a7dc1b8cbff73980c8",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "e795e7c4dc412df72d8c79dd2828361a6febfd81f63010ff57d72a2f0e03da17",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:hana_hanezawa",
+      "character:tomi_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "729d11a4c0a689f04346ed82d614282f9349097c36e17e467e8449a27f9aa38f",
+      "assembly_receipt_id": "validation:118c5095-8d9c-5dfa-9e7d-102806ecec58",
+      "base_request_sha256": "b0220e70b37aaeab0750bb37ffe73419112981c609d0c1264bda02502e910370",
+      "cumulative_returned_bytes": 6796,
+      "external_provider_calls": 0,
+      "lookup_count": 4,
+      "lookup_receipt_ids": [
+        "lookup_receipt:d4032f95-51de-5946-93dc-131e075d0141",
+        "lookup_receipt:f54ef2de-27ff-5754-971b-17c4beb303ed",
+        "lookup_receipt:0668b48f-d8ab-5e30-b853-266ade6cdefb",
+        "lookup_receipt:b6decaa1-8dc2-531c-b5eb-7e518af93667"
+      ],
+      "realization_context_sha256": "40c2e7acaa7c57d36f2454cdef5d13d935522e48c74feb6d79c005794a591f71",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:cd571466-7224-5bdc-a6b6-f8a47c27323a",
+        "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a",
+        "evidence:5043488b-db8e-5608-bc71-86f9ee7283c4",
+        "evidence:9a8050c6-a481-57a8-a877-25da3345be2f"
+      ],
+      "snapshot_token": "snapshot:4a02b085-407c-5b93-a3e7-10bdfb0cba64",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:tomi_hanezawa",
+      "character:hana_hanezawa"
+    ]
+  },
+  "duration_seconds": 93.251,
+  "index": 10,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "c45b939fe4a9244ca77297fc2664e6e91f09183c8aee1913bab1795ec6990b06",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "b4784a8ba2d8195783924e9b5d100f42d51c34d793831e12669f8439179ca60d",
+      "receipt_id": "validation:76d4d0f7-721b-57da-b486-903e8fd492f2",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "7c468d32a4b83d32d2ae9dac34a98be662dee8cc1c83789df5027d6bacaa3cc4",
+    "receipt_id": "validation:30cea248-e5c8-5ccb-8460-0be0efbf5c03",
+    "request_id": "request:6e03eb74-22fd-5500-a9a3-3be263240903",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2727,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:0b8050a5-fb5b-50da-b03f-e71740c77c75",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2727,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:4a02b085-407c-5b93-a3e7-10bdfb0cba64",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 4794,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:517fe389-9fed-5d0f-8255-e3e00ccd4eea",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2067,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:4a02b085-407c-5b93-a3e7-10bdfb0cba64",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 5990,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:d4e7cb77-8b48-5de4-bba9-68a38de7ca9f",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1196,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:4a02b085-407c-5b93-a3e7-10bdfb0cba64",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 7220,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:760c2e98-9650-575d-8b73-659eb89dc7ed",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1230,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:4a02b085-407c-5b93-a3e7-10bdfb0cba64",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:7f7b85ca-cd7e-5636-a026-0d3e68d2ae98",
+        "evidence:cd571466-7224-5bdc-a6b6-f8a47c27323a",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:0b8050a5-fb5b-50da-b03f-e71740c77c75",
+        "lookup_receipt:517fe389-9fed-5d0f-8255-e3e00ccd4eea",
+        "lookup_receipt:d4e7cb77-8b48-5de4-bba9-68a38de7ca9f",
+        "lookup_receipt:760c2e98-9650-575d-8b73-659eb89dc7ed"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:7f7b85ca-cd7e-5636-a026-0d3e68d2ae98"
+          ],
+          "obligation_id": "obligation:405b20ba-6ad5-52a2-a37d-671bc4bc9994",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:cd571466-7224-5bdc-a6b6-f8a47c27323a"
+          ],
+          "obligation_id": "obligation:071a58cf-75bc-504f-a104-8840e3b8319d",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "obligation_id": "obligation:8fe95235-dfd1-55bb-be2f-714e25d08141",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+          ],
+          "obligation_id": "obligation:1c4aa087-c8cb-5081-863b-6450d1f739d0",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:d83c3b29-5bf2-5795-87bc-5b5e62946bb8",
+      "snapshot_binding_sha256": "b40543bb69b2c4fef9d93be70fb74454edac97879ee5bcf1f627a4cc8f859d7f",
+      "snapshot_token": "snapshot:4a02b085-407c-5b93-a3e7-10bdfb0cba64"
+    },
+    "snapshot_token": "snapshot:4a02b085-407c-5b93-a3e7-10bdfb0cba64",
+    "source_sha256": "b8a64cc3ad4bfddbb715ec5c855750a9466aca3adec2c9edad47e3d5f5f628a2"
+  },
+  "key": "tomi-hana-training-time-household-boundary",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:22e6ef4b-f09c-5737-8588-676d10a1a8eb",
+      "accepted_artifact_sha256": "412c000e89aaceb92fb379c392705d073c694ead35234108bdd4147b59b3f9d9",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "34e3405941e4ccef074d7abd390f3c8c1284e9afd39824fe42ed77be8268f976",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:09253e13-c165-5dc5-bca9-68bf93a82395",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:8dcd3aaf-e6fa-57d8-ac51-1948be6b9322",
+      "operational_report_id": "validation:dfc1991f-7baf-53fd-81c6-8c8febbdfe69",
+      "operational_report_sha256": "bb841a89bff9cb0458d725aa6a5841e6b81aacd5a9383e50b9ce5c4ce102e056",
+      "receipt_id": "validation:ba130544-7139-53b4-bcf4-0d4eeaf0f0ff",
+      "request_id": "request:6e03eb74-22fd-5500-a9a3-3be263240903",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "38a6c170446297248cc8e8dc936e80c4fa9e73d1ae47e533914e06a58fa42779"
+    },
+    "artifact": {
+      "accepted_prose": "Tomi shifts her weight, arms folding loosely. \"You don't need to announce a whole rule for me. I'll handle my own training.\" She glances away briefly, then back with a small shrug. \"If I ever need something practical, I'll say so.\"\n\nHana waits a beat after Tomi finishes, then offers a gentle nod. \"When anyone comes in from exercise, they're welcome to use the downstairs shower before joining the rest of the house. It's not a special rule—just something that keeps the floors cleaner.\" She wipes her hands on her apron, her expression mild. \"That seems fair, I think.\"",
+      "artifact_id": "artifact:22e6ef4b-f09c-5737-8588-676d10a1a8eb",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:c2184377-23d3-57b0-aea4-a8c3d7614066",
+      "generation_id": "generation:8dcd3aaf-e6fa-57d8-ac51-1948be6b9322",
+      "parent_artifact_id": "artifact:edc2cd0e-498c-5155-a939-28202ad14b94",
+      "prose_sha256": "ef6d7e47e29eb9cf93682fe777a5448363c397147c9978616af7533b91379d4c",
+      "realized_beat_ids": [
+        "beat:1d2530df-87cb-5c6c-a632-89c1e4d75e19",
+        "beat:b0c754be-7afb-53e7-afbb-a1585bf44abe"
+      ],
+      "responding_npc_ids": [
+        "character:tomi_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:8da4300e-1c89-56cc-994c-c5710ba7a23e",
+      "status": "accepted",
+      "transaction_id": "transaction:0839fe85-9116-5153-98e9-592371986d94",
+      "validation_receipt_id": "validation:90469d6c-c941-5933-ac1e-0654a5878f1d"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:09253e13-c165-5dc5-bca9-68bf93a82395",
+      "expected_previous_artifact_id": "artifact:edc2cd0e-498c-5155-a939-28202ad14b94",
+      "external_receipt_ids": [],
+      "generation_after": 10,
+      "generation_before": 9,
+      "inserted_record_ids": [
+        "event:12768798-0b24-5a21-9fa4-6063f1c0a69e"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:0b8050a5-fb5b-50da-b03f-e71740c77c75",
+        "lookup_receipt:517fe389-9fed-5d0f-8255-e3e00ccd4eea",
+        "lookup_receipt:d4e7cb77-8b48-5de4-bba9-68a38de7ca9f",
+        "lookup_receipt:760c2e98-9650-575d-8b73-659eb89dc7ed",
+        "lookup_receipt:d4032f95-51de-5946-93dc-131e075d0141",
+        "lookup_receipt:f54ef2de-27ff-5754-971b-17c4beb303ed",
+        "lookup_receipt:0668b48f-d8ab-5e30-b853-266ade6cdefb",
+        "lookup_receipt:b6decaa1-8dc2-531c-b5eb-7e518af93667"
+      ],
+      "new_artifact_id": "artifact:22e6ef4b-f09c-5737-8588-676d10a1a8eb",
+      "new_artifact_sha256": "412c000e89aaceb92fb379c392705d073c694ead35234108bdd4147b59b3f9d9",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:d68ab05e-9dfc-5360-823a-94d5026b71f3",
+        "provider_receipt:2dce80af-b682-5faa-b922-1fb5fecce950",
+        "provider_receipt:4964f1a0-3f1c-5c52-ad0a-552c60689d39"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:8da4300e-1c89-56cc-994c-c5710ba7a23e",
+      "source_sha256": "aa81d48f0c067c61cf4795e020ad45802a65bc47b3e95503590f25725631dab5",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:0839fe85-9116-5153-98e9-592371986d94",
+      "transaction_sha256": "38a6c170446297248cc8e8dc936e80c4fa9e73d1ae47e533914e06a58fa42779",
+      "validation_receipt_ids": [
+        "validation:30cea248-e5c8-5ccb-8460-0be0efbf5c03",
+        "validation:118c5095-8d9c-5dfa-9e7d-102806ecec58",
+        "validation:f5171a05-0561-5a99-9477-3e344e966ccd",
+        "realization_verification:3a376d9f-555c-5afc-a5da-c9d98c2ae281",
+        "validation:90469d6c-c941-5933-ac1e-0654a5878f1d",
+        "validation:aea50505-d5e1-5f59-babd-9031aee05669"
+      ]
+    },
+    "event_record_id": "event:12768798-0b24-5a21-9fa4-6063f1c0a69e",
+    "visible_artifact_count": 9
+  },
+  "qualification_id": "continuous-ten-turn-v20",
+  "raw_message": "After another process restart, Ted speaks with Tomi and Hana. He says, \"I will not repeat Tomi's private answer or turn one difficult training day into a family report.\" He asks Tomi whether she wants any general training-time household boundary stated. He then asks Hana only whether a neutral shared-space rule should apply equally to anyone returning from exercise. He requests Tomi's answer first and Hana's second.",
+  "raw_message_sha256": "3d9ec221fa820c7549d1a7d5a5af8fd4493fd84e9499b7510cc77cd074a3e46d",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Give a concise first response declining a special rule while reserving private training details and any practical requests for her own disclosure.",
+            "character_id": "character:tomi_hanezawa",
+            "evidence_ids": [
+              "evidence:cd571466-7224-5bdc-a6b6-f8a47c27323a"
+            ],
+            "knowledge_constraints": [
+              "Use only Tomi-owned knowledge about her boundary and disclosure.",
+              "Do not disclose or characterize her private answer or broader training state."
+            ],
+            "perception": "The current question asks only for her preferred general training-time boundary and leaves her private answer undisclosed.",
+            "selected_intent": "Decline a special training-time rule while retaining control over private details and later practical requests."
+          },
+          {
+            "action_direction": "Wait until Tomi's bounded response ends, then state one neutral rule that applies equally to anyone returning from exercise.",
+            "character_id": "character:hana_hanezawa",
+            "evidence_ids": [
+              "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+            ],
+            "knowledge_constraints": [
+              "Use only Hana-owned knowledge and the currently supplied household-rule question.",
+              "Do not characterize Tomi's private answer, training state, needs, or condition."
+            ],
+            "perception": "Her remit is limited to an equal household routine rather than Tomi's private information.",
+            "selected_intent": "Endorse an equal shared-space rule that avoids singling anyone out and leaves practical options unassumed."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:tomi_hanezawa",
+              "beat_id": "beat:1d2530df-87cb-5c6c-a632-89c1e4d75e19",
+              "evidence_ids": [
+                "evidence:cd571466-7224-5bdc-a6b6-f8a47c27323a"
+              ],
+              "neutral_event": "Tomi declines a special training-time rule, reserves private training details for her own disclosure, and leaves later practical requests uncommitted.",
+              "state": "requested"
+            },
+            {
+              "actor_id": "character:hana_hanezawa",
+              "beat_id": "beat:b0c754be-7afb-53e7-afbb-a1585bf44abe",
+              "evidence_ids": [
+                "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+              ],
+              "neutral_event": "After Tomi finishes, Hana endorses a neutral shared-space rule for anyone returning from exercise: no person is singled out and practical options remain optional.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:452e1089-de8f-54fb-a5c7-19fcdf134fca",
+          "stop_before": "The protected user's next unsupplied meaningful choice."
+        },
+        "decision_id": "decision:c2184377-23d3-57b0-aea4-a8c3d7614066",
+        "floor_owner_id": "character:tomi_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "Both NPC answers have been delivered in the requested order.",
+              "The protected user supplies a new meaningful choice."
+            ],
+            "invalidation_conditions": [
+              "No new protected-user choice is supplied.",
+              "The branch or scene context changes before continuation."
+            ],
+            "open_user_choice": "Respond, ask a follow-up, change the subject, or leave the matter there.",
+            "possible_consequences": [
+              "An appropriate aware NPC may address only the newly supplied choice."
+            ],
+            "segment_id": "segment:48067f71-6e85-58de-8bc0-197f2dfc8cb4",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not author the protected user's unsupplied action, dialogue, private state, agreement, or refusal.",
+          "Do not treat Hana as knowing Tomi's private answer or training state.",
+          "Do not infer Tomi's undisclosed private information from her stated general boundary.",
+          "Do not convert the equal rule into a claim that Tomi needs special treatment.",
+          "Do not make the conditional future segment a current fact."
+        ],
+        "responding_npc_ids": [
+          "character:tomi_hanezawa",
+          "character:hana_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Tomi declines a special training-time rule while retaining disclosure control; Hana then endorses one neutral equal shared-space rule.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "The protected user's next meaningful choice remains unknown.",
+          "Any private training details Tomi does not choose to state remain unknown."
+        ],
+        "writer_must_preserve": [
+          "Tomi speaks first, and Hana begins only after Tomi's bounded response ends.",
+          "Tomi alone controls disclosure of her private answer and training state.",
+          "Hana addresses only an equal household shared-space routine.",
+          "Neither NPC supplies the protected user's next action, dialogue, private state, or commitment.",
+          "Stop after Hana's bounded answer and before the protected user's next meaningful choice."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:cd571466-7224-5bdc-a6b6-f8a47c27323a",
+          "record_id": "event:69b4de31-f835-580d-901d-4c7c450db4a0",
+          "record_version": 1
+        },
+        {
+          "evidence_id": "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a",
+          "record_id": "record:f9ba2acf-1bca-57cb-b1f4-7d4935dd6dcf",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "evidence_ids": [
+            "evidence:cd571466-7224-5bdc-a6b6-f8a47c27323a"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        },
+        {
+          "character_id": "character:hana_hanezawa",
+          "evidence_ids": [
+            "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+          ],
+          "intervention_reason": "direct_stake",
+          "role": "secondary"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 72759,
+      "external_provider_calls": 1,
+      "input_tokens": 15332,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "f2e2791e6e7307bb38fbc343261fe0e60132a7be0e636e0d55e1a5384b37b1b2",
+      "output_tokens": 3823,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:d68ab05e-9dfc-5360-823a-94d5026b71f3",
+      "provider_request_id_sha256": "e00f6dfe9b4d58dac888d4984effd1eae9fc6fa51cbf2769186fe34cf6f316ac",
+      "quota_metered": true,
+      "reasoning_output_tokens": 2815,
+      "request_sha256": "f125a1fbe64dd4a392644d1115a261c22b445e4f1c3fa45bdcb3c8d8adfc7ee0",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "d09cc8d06e561bebe92bd29f8a43b9cefd0bd54d22ecd4517936a2aa4e1fee5c",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "d09cc8d06e561bebe92bd29f8a43b9cefd0bd54d22ecd4517936a2aa4e1fee5c",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "f1696b56cbb48aba23a2ad3a83f8432a947ecfb9fa575fc86c3427e48b871cbc",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:d68ab05e-9dfc-5360-823a-94d5026b71f3",
+      "provider_receipt_sha256": "0787f5da47fa7d841ec28e848f2389842c717563058b8631537a20b35ef61387",
+      "reasoner_request_sha256": "7c468d32a4b83d32d2ae9dac34a98be662dee8cc1c83789df5027d6bacaa3cc4",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:4a02b085-407c-5b93-a3e7-10bdfb0cba64",
+      "source_sha256": "b8a64cc3ad4bfddbb715ec5c855750a9466aca3adec2c9edad47e3d5f5f628a2",
+      "source_view_sha256": "9c13d357dcb42de7d6c33b8e8b666db3f3077952932b8b40ae67729ab5aef90e",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Tomi and Hana keep private support separate from household routine",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 9984,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 8045,
+      "external_provider_calls": 1,
+      "input_tokens": 12756,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "a360684f1729606a0bb68d218099266ea8c8799e82ee83fde7249015e84e21e9",
+      "output_tokens": 268,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:4964f1a0-3f1c-5c52-ad0a-552c60689d39",
+      "provider_request_id_sha256": "c50e569c0706eeaf1d6158e79575924598afda0867c4c309305532bb93b5749c",
+      "quota_metered": true,
+      "reasoning_output_tokens": 133,
+      "request_sha256": "516f41afad05be8b0751febf41eb6631480a6b63d74c3b6184f375ecf4ae2b41",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "5e9d7fc49d4e097938c10036c108cd714f3df27fa95d22f09e100cd5bf20c9e5",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "ba40c3468a8ce3a04de7ecade67e7fa1bd25b21bed4d986ddabbdb41a030b360",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:4964f1a0-3f1c-5c52-ad0a-552c60689d39",
+      "provider_receipt_sha256": "bdb639d8dfd90ea1ca4032e2a1a84859b8196c39c776205b9bff2db6f8de36ae",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "ef6d7e47e29eb9cf93682fe777a5448363c397147c9978616af7533b91379d4c",
+      "verification_id": "realization_verification:3a376d9f-555c-5afc-a5da-c9d98c2ae281",
+      "verification_request_sha256": "a5346009bd309b71b9b0e176bf63c080ccbe5682465e7f8dedbe161fc5345748",
+      "verified_beat_ids": [
+        "beat:1d2530df-87cb-5c6c-a632-89c1e4d75e19",
+        "beat:b0c754be-7afb-53e7-afbb-a1585bf44abe"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:tomi_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_cli_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "5e9d7fc49d4e097938c10036c108cd714f3df27fa95d22f09e100cd5bf20c9e5",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

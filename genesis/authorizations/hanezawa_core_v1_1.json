@@ -1,0 +1,97 @@
+{
+  "authorization_id": "authorization:52906c73-b6a5-562c-a912-8c359d20f6b1",
+  "authorization_source_id": "source:3248ce8e-5f11-588d-b0ec-5dc187c17204",
+  "authorization_statement_sha256": "ecdd18a94abb3a394846132bdec3fc0ddcd8f2d41d863a9ce273099a97e03eeb",
+  "authorized_by": "creator",
+  "authorized_sources": [
+    {
+      "content_sha256": "338b8edbc54bdb7315710d5c5564dcc5d27658601de8381ba990f7b09ec8bf47",
+      "source_id": "source:0f46176e-5c5c-5c64-8e26-229d647f18c7"
+    },
+    {
+      "content_sha256": "9144a379d5d73ddf9897d2d98bc5c2d8bdd48b4733bba93b87b001c35346fd26",
+      "source_id": "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+    },
+    {
+      "content_sha256": "0a7f811385bbcbe747dae7fe2ded886d116492148bf0aeaf805f44eb0f41c56d",
+      "source_id": "source:ea892687-80ed-5575-85f9-22c470cf303a"
+    },
+    {
+      "content_sha256": "6a74e12f1625811fcab5b7b348336c921810c40388f775f38da7a637c5b218b3",
+      "source_id": "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+    },
+    {
+      "content_sha256": "797e8700c4ee8dbec4f7410bdd068683719d8cd01ecffe6635fa3b15ea05dfa8",
+      "source_id": "source:58558dc8-15b2-516e-b63a-d8d11352b2f3"
+    },
+    {
+      "content_sha256": "7787f1e9522ac94dc148817358c0e03c0a794357f543a6c50911e507b66d09dc",
+      "source_id": "source:4e52de21-c7bf-5c19-89cf-aaed3b3ed939"
+    },
+    {
+      "content_sha256": "fb9802ab3b6f7b7c5496464f980d91261516a0d0932545b62e892e340fa81d1e",
+      "source_id": "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+    },
+    {
+      "content_sha256": "004da1bf50a1bdce7473edc86ae7763758c327657a9106bf0ab12963ba619cd9",
+      "source_id": "source:e2c16f18-8de1-56ef-b72e-0a374c8aced0"
+    },
+    {
+      "content_sha256": "1b87e8a1eaa08c118d47295e71c1e288754f1208c3b4516cf538855880abc36d",
+      "source_id": "source:4f641f94-1bb5-58b5-af47-a3aabe85db2a"
+    },
+    {
+      "content_sha256": "2778de1dd3066f7b55b953942c61995d29d4b94a0517dec1ddd6ba52646fa582",
+      "source_id": "source:d6bcdcc4-cb95-5630-a542-6c8482ae843b"
+    },
+    {
+      "content_sha256": "9ff26d8cd2116ae007337b686b9032a292b17103fb1275a22e766cd2f206a2d4",
+      "source_id": "source:c33168c4-dbf3-5f00-80a1-26bc56691812"
+    },
+    {
+      "content_sha256": "c6b4cab49a2f1751485bc70adc5df2e9bfc32ed864ff11193a0121902c7d2611",
+      "source_id": "source:28bfdfb5-93e7-545a-99ef-5a6046ff7fc2"
+    },
+    {
+      "content_sha256": "d7cd10443a35fb97093d4516d86216cfa02fa749509bf294bec84daab682c6f7",
+      "source_id": "source:49c12931-87cd-5b2a-80f3-bc5c7418908b"
+    },
+    {
+      "content_sha256": "c9d8eded5b2225ceb6b4018a17e1182ee8e2f8b98060f1f6265cbe1c67de0b46",
+      "source_id": "source:1fccd31a-2183-5f92-97f1-4b1c6c344951"
+    },
+    {
+      "content_sha256": "343a53bb7928c338c025416a4305d58e04ce2bfde2c04755d328122c7c834d48",
+      "source_id": "source:63031c73-db0f-53a7-93a2-8a16c2b4fc56"
+    },
+    {
+      "content_sha256": "19b2819b6ae0258f5b4f09b058c634416900db7b254d980590af7e7873ae49d9",
+      "source_id": "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85"
+    },
+    {
+      "content_sha256": "7df392a9ddc609c00715e8b7fe1ed281e5f1740c0b895689238996a3ee13fe0f",
+      "source_id": "source:6180bea1-c3b6-5801-890f-02e36f4b62a1"
+    },
+    {
+      "content_sha256": "669c82d46c890278a3daae019729b955d8aad6b3b9e1336adbd7c932bf1b4c3f",
+      "source_id": "source:d39488c1-e95c-5ebc-b068-4542ed7f26c9"
+    },
+    {
+      "content_sha256": "df2001fdf510af15b4d1a2f8a3599086133b8d6e67c6d878765c285b862fb51d",
+      "source_id": "source:7ea16e0c-fd59-5a07-ace4-ebfc2bb7d1e2"
+    },
+    {
+      "content_sha256": "6220c90a64b826c433ec12eefcd54ee9f4ea038c493ccfe4e910b1f3d73af452",
+      "source_id": "source:0a3e0346-e4b2-51bf-8670-468a573e3b72"
+    },
+    {
+      "content_sha256": "dc9c8e02e7ed7eb466188156b2e3246183ef56a2daa909a64fddc9ff59e740b1",
+      "source_id": "source:7d897db1-bb40-5578-b236-2f962845c1b6"
+    }
+  ],
+  "manifest_sha256": "99e070eb66e926fc38a53102db1fd1915ae06d672157d2672de9f83b9907c6dc",
+  "package_id": "genesis_package:b2d1d256-ded2-5f37-b2b3-7edcfceeb372",
+  "revision_id": "genesis_revision:306eff73-7257-5988-8ea6-3021454b4079",
+  "schema_version": "cera.creator_authorization.v1",
+  "scope": "install_genesis_revision"
+}

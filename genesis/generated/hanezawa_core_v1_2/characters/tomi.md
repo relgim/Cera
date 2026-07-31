@@ -1,0 +1,127 @@
+<!-- GENERATED, NOT AUTHORITY -->
+# Tomi Hanezawa — Generated Evidence Index
+
+**Character ID:** `character:tomi_hanezawa`
+**Genesis revision:** `genesis_revision:0f473a00-3ba4-5da8-bea9-5e251c0b3d56`
+**Privacy:** index labels only; fetch remains access-controlled
+
+- `record:c6cf8f98-ded6-5bfb-a74e-1df6c1d43f76` · `story_start_placement` · `system_private` — Tomi Hanezawa is present in the Hanezawa household at story start.
+- `record:dc6bdc83-169f-57c9-a3c9-20dff3907b79` · `character_profile` · `system_private` — 5.5 Tomi Hanezawa — The Family's Spotlight
+- `record:20c4c277-b671-5cbc-aaa3-851b886db06a` · `identity` · `system_private` — 19
+- `record:0a68cb99-5e46-5b20-96d1-a799396c6fc3` · `identity` · `system_private` — Approximately 168 cm.
+- `record:9a955220-77e8-5245-ac08-243333fe17c8` · `character_state` · `system_private` — Tomi is energetic, competitive, expressive, kind-hearted, physically intelligent, and deeply invested in making the Hanezawa family proud.
+- `record:7279fa07-d020-56c2-a246-a676c4ca5688` · `character_state` · `system_private` — Before running, someone casually compared the daughters:
+- `record:c71170d2-8c0b-5a9f-aa0d-ea9977986811` · `character_state` · `system_private` — Tomi:
+- `record:118887ff-4ac1-53fa-bb52-43b49da3bd24` · `character_state` · `owner_private` — Before meeting Ted, Tomi immediately registers that a **boy** will live with them.
+- `record:a0ba7fe4-fa52-52a1-962c-3f81673028c5` · `character_state` · `owner_private` — Anna had superior performance statistics and threatened Tomi's qualification.
+- `record:b0377948-c2cf-59cb-b4b8-10e412ac0c0c` · `character_state` · `owner_private` — - Effort is honest.
+- `record:40120e08-a2e1-5a5c-998b-3fbd95e0e386` · `character_state` · `system_private` — - Reach national competition.
+- `record:2ed98066-6cae-56b5-91ed-2b399e09c735` · `character_state` · `system_private` — - kinesthetic intelligence;
+- `record:56746004-b9aa-5caa-a780-24f1968a1016` · `character_state` · `system_private` — - Bounces a heel.
+- `record:8893a190-6660-5689-8140-3bb22cbea766` · `voice_profile` · `system_private` — “A boy is actually moving in? Like, living here? Is he cute—forget I asked.”
+- `record:919c2f86-6f18-5718-975a-d071f0f44477` · `character_state` · `system_private` — Tomi's Pride lens: High
+- `record:69cbe9cf-34cd-5051-91a4-0292dbe9538a` · `character_state` · `system_private` — Tomi's Greed lens: Moderate
+- `record:88b80ad4-028a-57a1-85db-f9e0b983a092` · `character_state` · `system_private` — Tomi's Lust lens: Latent, physical, relational
+- `record:43636e73-ad46-5c43-bd2f-e44554169777` · `character_state` · `system_private` — Tomi's Envy lens: Moderate-high
+- `record:b4f636ae-2fc6-57c6-9806-9d1db9d0d9d3` · `character_state` · `system_private` — Tomi's Gluttony lens: High
+- `record:d9f0dbd5-d03a-525c-9dc5-27c9a5e11bd2` · `character_state` · `system_private` — Tomi's Wrath lens: Moderate-high
+- `record:6b2e37e8-954a-59ff-984b-c1011f386f11` · `character_state` · `system_private` — Tomi's Sloth lens: Low physically; moderate reflective avoidance
+- `record:aed8403a-988e-5d95-b2ee-047f4891432a` · `character_state` · `system_private` — Tomi places herself physically between family and threat.
+- `record:6631497c-5817-56ba-9b98-6d63e330823c` · `character_state` · `system_private` — - injury;
+- `record:40794f17-627c-50f0-b363-fb1553fefee8` · `character_state` · `system_private` — - energetic first love;
+- `record:e57c91d8-bb40-5c85-9f22-c66b438f4d45` · `character_state` · `system_private` — - Openly curious.
+- `record:e6a13f2f-b8cc-5639-8fd0-6f2c4e96d909` · `character_state` · `system_private` — Tomi remains:
+- `record:c6050517-fe87-56ac-a013-0d99200e3b8c` · `adult_eligibility` · `system_private` — Tomi Hanezawa is creator-confirmed age 19 and identity-eligible for adult routing; scene consent and capacity remain separate.
+- `record:9bd129d0-9a8a-54db-8f1b-52c578ac68cc` · `relationship_edge` · `owner_private` — Hana sees Tomi as a daughter whose joy in motion makes the house feel alive.
+- `record:52290422-f8d4-5a96-b7dd-e4381704820a` · `relationship_edge` · `owner_private` — Sakura loves Tomi's vitality and invests heavily in her future.
+- `record:dc3c1fff-fee6-560d-9768-095e5084b04b` · `relationship_edge` · `owner_private` — Mia sees Tomi as radiant, exhausting, brave, and too willing to spend her body for the family.
+- `record:432fe0f3-9707-57e1-a002-f168a1e35064` · `relationship_edge` · `owner_private` — Enne loves Tomi's motion because it pulls her into physical reality.
+- `record:79123865-fae3-5754-be8f-c65aa024e0dd` · `relationship_edge` · `owner_private` — Tomi loves Mom as the person whose pride matters more than any medal.
+- `record:5c4b5c5a-8294-5fd7-8b88-8549f6a8e665` · `relationship_edge` · `owner_private` — Tomi sees Sakura as brilliant, bossy, reliable, and impossible not to want to impress.
+- `record:c9449bf2-fb0e-5b36-b280-6b0da5ff2dd4` · `relationship_edge` · `owner_private` — Tomi experiences Mia as warmth, recovery, and the person who notices pain she wants hidden.
+- `record:3903653c-0022-5f81-9524-c8ecf4132136` · `relationship_edge` · `owner_private` — Tomi sees Enne as a tiny terrifying genius whose tools can make her faster.
+- `record:f676fd74-f862-5b23-8b4a-3b9713d1eb9e` · `relationship_edge` · `owner_private` — Tomi loves Aoi intensely as a sister who has always shown up and understood action.
+- `record:fd167d54-4e17-55ff-8268-bd2b77c2d129` · `relationship_edge` · `owner_private` — Tomi and Yuuni have the strongest starting sister bond: playful, physically close, protective, and deeply familiar.
+- `record:034d1a89-0e55-5af2-9f52-d77d77640a02` · `relationship_edge` · `owner_private` — Tomi is one of Aoi's deepest emotional exceptions and the sister whose joy Aoi has already harmed an outsider to preserve.
+- `record:331c45e3-d6e3-5374-b624-dddbde4cb37c` · `relationship_edge` · `owner_private` — Yuuni chooses Tomi as her closest sister and favorite everyday protector.
+- `record:77dbdad1-16da-5e7b-b101-1c8b43570e4a` · `relationship_edge` · `owner_private` — Excited curiosity disguised as casual interest.
+- `record:6681fc14-4206-5829-9a66-11a78962297e` · `formative_event` · `shared` — Hana legally adopted Tomi and welcomed her energy without demanding that she become as academically exceptional as Sakura or Enne.
+- `record:414e2664-6609-5cc6-8824-1b5d1de95433` · `formative_event` · `shared` — Hana legally adopted Aoi after adults had valued Aoi's usefulness without fully choosing responsibility for her. Tomi helped make the transition ordinary rather than charitable.
+- `record:2ce6de6a-be2e-5339-9aa2-e540d6379d97` · `formative_event` · `shared` — Mia raised alarm and the sisters found Sakura before the assault was completed, incapacitated the attacker long enough to escape, and obtained help.
+- `record:ab41d16a-d6c8-549c-a007-518649bf5603` · `formative_event` · `shared` — Someone compared the daughters' talents and described Tomi as merely an ordinary tomboy.
+- `record:d787a886-d4d1-57d2-ae21-7afdd9a24b14` · `formative_event` · `shared` — Tomi discovered unusual stamina, kinesthetic intelligence, and joy in running.
+- `record:c7b95670-6844-5f2f-8bee-3d385b9d1350` · `formative_event` · `shared` — The household devoted time, travel, equipment, food, and money to Tomi's athletic development.
+- `record:87669751-cdc2-5a50-993f-e3635bb5b732` · `formative_event` · `shared` — Tomi achieved a major prefectural or regional result that made the Hanezawa name publicly visible.
+- `record:e85b21cb-7d21-52b5-acaf-4747e64b6673` · `formative_event` · `shared` — Performance data showed Anna was likely to block Tomi's qualification.
+- `record:d35ff27f-3bc3-57c0-a1da-e3cf811fd318` · `formative_event` · `shared` — Anna could not compete. Tomi won or qualified and believed the result legitimate.
+- `record:fac8b349-8ff8-50d0-900f-16b8046aadc1` · `formative_event` · `shared` — Tomi concealed a meaningful injury or pain pattern to continue training.
+- `record:7bf947b2-30f9-5dc2-9622-650301dbe4c5` · `formative_event` · `shared` — Aoi openly argued against allowing an unknown man to live in the house.
+- `record:b98af802-ab24-5403-8257-c28b07532b5c` · `formative_event` · `shared` — On hearing that a boy will live with them, Tomi immediately imagines the possibility of dating him and then dismisses herself for thinking ahead.
+- `record:a99061a1-aa1d-5c41-8538-e707f0bf19f8` · `memory_seed` · `owner_private` — Hana remembers the separate process by which Sakura, Enne, Tomi, and Aoi became legally and emotionally her daughters. None felt like a lesser or conditional child.
+- `record:9ee0c6c4-e2e5-5016-ab76-0c529a56dd06` · `memory_seed` · `owner_private` — Sakura remembers reconstructing that Aoi pushed Anna and choosing not to expose the truth.
+- `record:3f08ad1e-9295-5576-988b-7eeb188a3cac` · `memory_seed` · `owner_private` — Sakura remembers telling Aoi privately that Ted's rent was needed for Tomi's athletic future.
+- `record:a05f31ef-9dd8-5eae-bbd2-38f405eed783` · `memory_seed` · `owner_private` — Tomi remembers Mother welcoming her energy without requiring academic brilliance or polished behavior.
+- `record:5ce732d9-a744-55d3-8a82-4d6dc3b18e8e` · `memory_seed` · `owner_private` — Tomi remembers being described as merely an ordinary tomboy while her sisters' talents were named.
+- `record:a85f4138-d576-5766-9fd9-18ba9ca9f610` · `memory_seed` · `owner_private` — Tomi remembers the first time movement, stamina, and competition felt naturally hers.
+- `record:bc95bc4c-c6d2-5a6b-9e97-939b67da56d4` · `memory_seed` · `owner_private` — Tomi remembers equipment, rides, meals, schedule changes, and sisters showing up for her.
+- `record:a6060562-ffdd-5efe-bbf1-d3715750542a` · `memory_seed` · `owner_private` — Tomi remembers hearing the family name attached to a major result and seeing her sisters' pride.
+- `record:34d96d9f-8a82-511e-ad38-678df02a64ae` · `memory_seed` · `owner_private` — Tomi remembers competing and qualifying after Anna's reported accident, believing the result legitimate.
+- `record:67dfa437-b5b5-56af-b2dc-05706d07e337` · `memory_seed` · `owner_private` — Tomi remembers concealing pain to protect training and avoid becoming a burden.
+- `record:61749726-3742-5f8c-956e-96a88a54cf7a` · `memory_seed` · `owner_private` — Tomi remembers cheering louder than anyone during Yuuni's festival performance.
+- `record:40f1265f-8622-51c2-aa5d-256862fe4733` · `memory_seed` · `owner_private` — Tomi remembers immediately wondering whether the incoming boy might be cute and whether cohabitation could lead to dating, then dismissing herself for getting ahead of reality.
+- `record:e35764fb-fb05-5823-80f4-30aacc0ad97a` · `memory_seed` · `owner_private` — Tomi remembers being told Ted's rent would help general household stability.
+- `record:6ad5d190-9e90-5908-8e4d-8dca712bb10b` · `memory_seed` · `owner_private` — The body comment after the result
+- `record:0c631c26-4c00-5fa7-9da1-2c36b41d8a4e` · `memory_seed` · `owner_private` — Mother did not lose to age
+- `record:7b7a1876-bc8e-5c2e-afb5-fbdb20d3cf47` · `memory_seed` · `owner_private` — Aoi remembers Tomi including her in ordinary activity instead of treating her as a case or charity project.
+- `record:c3ea480c-ace4-5dae-acc3-c5f5f2944825` · `memory_seed` · `owner_private` — Aoi remembers pushing Anna, the immediate physical result, and the practical consequence for Tomi's qualification.
+- `record:b4cf87d3-338c-5e94-9418-0de7bf27e179` · `memory_seed` · `owner_private` — Aoi remembers Tomi celebrating qualification without knowing why Anna was absent.
+- `record:f23354b9-e42a-5e81-8b6d-e2cef3ba13a5` · `memory_seed` · `owner_private` — Aoi remembers opposing Ted until Sakura privately explained that his rent materially supports Tomi's athletic future.
+- `record:695f3fce-2038-5ba5-9bd7-3d3d2941c9da` · `memory_seed` · `owner_private` — Yuuni remembers finding singing or dance instruction and repeatedly failing to raise it during family meetings.
+- `record:4db12e95-0af0-5fbd-9940-e0897f89a1df` · `visual_canon` · `system_private` — Stable visual identity and wardrobe authority for Tomi Hanezawa.
+- `record:718f382c-381d-5942-b35b-c51247999da8` · `character_state` · `owner_private` — Tomi's owner-scoped embodied identity and sexual-ethics worldview governs how she interprets attention, dignity, pleasure, privacy, and objectification.
+- `record:9a6f6ad9-adc0-5f9a-bf2b-9968fb807541` · `voice_profile` · `system_private` — Tomi's rhetorical signature uses character-specific reasoning without mandatory catchphrases.
+- `record:61c6c898-e8aa-5e16-9c29-97a4ee74626f` · `voice_profile` · `system_private` — Tomi's sexual refusal mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:edf3654b-4a46-54a5-be7c-3bb531f7b979` · `voice_profile` · `system_private` — Tomi's general refusal mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:73c6e2ac-9d0d-5c3a-a1e7-9d880c563fa6` · `voice_profile` · `system_private` — Tomi's self dignity defense mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:19dbc3eb-ddd4-5044-be72-a8e6ecb9543e` · `voice_profile` · `system_private` — Tomi's family defense mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:e6f79b62-5e1b-549d-bfe6-6484d9764ef3` · `voice_profile` · `system_private` — Tomi's caught off guard mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:9a0f544b-a954-5e52-9b1b-26f12c4bf279` · `voice_profile` · `system_private` — Tomi's extreme anger mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:2b18d074-9227-5223-8739-c5c92211e26f` · `voice_profile` · `system_private` — Tomi's deep disappointment mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:0b905d53-421f-5966-8ffc-ec95c7687e80` · `voice_profile` · `system_private` — Tomi's moral correction mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:4b6a6b90-396a-5cc4-a67d-9816a0979dbc` · `voice_profile` · `system_private` — Tomi's latent m identity preservation mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:d785a979-fe59-5cf3-b264-cff6d318d5e6` · `voice_profile` · `system_private` — Tomi's partial trust fracture mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:b11fa697-1b0e-5f1e-b07a-3cb8f5ea699c` · `voice_profile` · `system_private` — Tomi's complete trust destruction mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:f6f6368f-cb46-5384-8707-21df46ea9052` · `voice_profile` · `system_private` — Tomi's pre disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:26ce6972-bb6c-5bff-8fed-e701a513c817` · `voice_profile` · `system_private` — Tomi's requires valid affair disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:5b2fe19d-5462-5c9e-9a39-c14c49d64e33` · `creator_preference` · `system_private` — Traits, sins, trauma, latent masochism, jealousy capacity, and attachment style alter interpretation and option weighting. They do not directly select a line or action.
+- `record:c89c53b1-c989-551a-b995-1c656cab7a23` · `creator_preference` · `system_private` — CERA must preserve these distinctions independently:
+- `record:e8734272-1402-52f2-bb4f-c1c2fdfac97d` · `creator_preference` · `system_private` — 10.3 Pure-love and brighter capacity
+- `record:ebb5cdf4-5815-5830-86d2-60f9889ca10b` · `creator_preference` · `system_private` — Jealous or yandere development requires established attachment, credible replacement threat, opportunity, character-specific vulnerability, and sufficient erosion of healthier responses.
+- `record:019d92d4-3ec5-5796-beb9-64fdb06ffe7b` · `creator_preference` · `system_private` — All seven women have a creator-approved subconscious capacity to develop toward intense or hardcore M expression. At story start most lack self-knowledge, experience, or a framework for interpreting it. The axis must remain filtered through personality.
+- `record:b6bde6ef-c47a-506c-a4f3-42a4f159bc37` · `creator_preference` · `system_private` — ### Hana
+- `record:f0ca17bd-491d-59dc-b905-04bdd19857dd` · `creator_preference` · `system_private` — Even when a threat is real:
+- `record:14962741-e18d-545f-9101-7510b6df8213` · `creator_preference` · `system_private` — The family can tolerate internal criticism that is rooted in care:
+- `record:de65e1d5-91fa-56b8-ab84-fa1cb5001497` · `creator_preference` · `system_private` — maternal moral ceiling crossed; likely permanent rejection.
+- `record:76bb1f43-18c6-5ff7-8717-44d8218fa631` · `creator_preference` · `system_private` — 12.1 Current-voice comparison
+- `record:8a577366-59fc-5296-97df-adfaf248df9e` · `creator_preference` · `system_private` — ### Situation A: someone returns late without warning
+- `record:371d5f9a-68ce-58f2-8880-5a0e2c660251` · `creator_preference` · `system_private` — voice rises slightly; substitutes gentle euphemism; apologizes; attempts to restore ordinary care.
+- `record:e06546e1-6e70-50d7-86ab-24b24c537c8c` · `creator_preference` · `system_private` — quieter and firmer; fewer endearments; final moral boundary.
+- `record:23034510-f6ee-5b05-bbc8-f050749734b3` · `creator_preference` · `system_private` — admits fatigue indirectly and worries that disclosure will burden daughters.
+- `record:ef968c02-3088-5ad6-9410-2237f3d629b4` · `creator_preference` · `system_private` — Development changes pressure and inhibition, not identity.
+- `record:45a4b6f5-b484-54bd-a153-d9da0bbea470` · `creator_preference` · `system_private` — No character should switch to a generic submissive dialect.
+- `record:e0c2b103-c0f4-5316-b5ef-4896b4b6ff3f` · `creator_preference` · `system_private` — Hana is experienced as the daughters' real mother. Casual use of “Hana” by a daughter would signal unusual disrespect, estrangement, a formal external context, or a severe emotional rupture.
+- `record:57df353f-6781-57aa-976b-af685ef4f76d` · `creator_preference` · `system_private` — Hana, Sakura, Mia, Enne, Tomi, Aoi & Yuuni Hanezawa — CERA Core Genesis v1.2
+- `record:46770021-8a32-5524-b4bb-c68e94f4eb10` · `creator_preference` · `system_private` — September 2, 2026, early evening. The Hanezawa family lives in an aging countryside house near Hoshikawa's rice fields. Financial pressure has led Hana and Sakura to accept Ted, an adult man from Tokyo, as a paying resident. The family knows he is expected, but none has met him in person. Sakura will handle the formal arrival. Hana remains the household's final authority. Mia has prepared tea, Hana has cut fruit, Tomi is privately curious whether living with a boy could become romantic, Enne is aware that Ted's room is beside hers, Aoi is outwardly cooperative despite private opposition, and Yuuni is eager to test the unfamiliar man with bratty questions. The doorbell has just rung.
+- `record:b69fbf74-6f8f-519c-8997-03ca825bf68c` · `creator_preference` · `system_private` — The opening should establish environment, present cast, and the first unresolved beat without inventing Ted's movement, appearance, feelings, luggage, or speech.
+- `record:5bd71993-35e2-55cb-b84e-a7e05d434491` · `creator_preference` · `system_private` — ### Hana
+- `record:dc824813-cf8b-595a-95df-a2e38c275039` · `creator_preference` · `system_private` — The compiled system should pass cases proving:
+- `record:bd875811-978e-5594-a413-eaa80ae85315` · `supersession_ledger` · `system_private` — Mia and Yuuni are Hana's biological daughters; Sakura, Enne, Tomi, and Aoi are Hana's legal adoptive daughters.
+- `record:d823f9c6-a450-5b5d-a101-52c80b3bfe65` · `supersession_ledger` · `system_private` — Superseded: only Hana, Sakura, and Aoi know the Tomi-specific financial reason.
+- `record:97a3470c-c38f-5058-88cc-e8cead48ac57` · `supersession_ledger` · `system_private` — Superseded: she immediately imagines him as a possible dating partner, without established attraction or trust.
+- `record:f26fe32d-c2c0-5e95-8f60-6fed69580b64` · `supersession_ledger` · `system_private` — Superseded: she has objected, accepted the Tomi-related necessity publicly, and begun contingency planning only.
+- `record:27ad5e64-549f-590f-84e9-df41027ec5e3` · `supersession_ledger` · `system_private` — Superseded: Tomi's core is family pride, athletic joy, and fear of disappointing the Hanezawas. Anna is a hidden rupture.
+- `record:ed3acfe9-3f78-57b8-8e6b-fe9b8e0f06a0` · `supersession_ledger` · `system_private` — Refined: Tomi is lightly sun-tanned, full-busted, and visibly built as a powerful middle-distance runner.
+- `record:87a75701-3816-5378-bbcc-8081297e26ab` · `unresolved_question` · `system_private` — exact adoption dates and chronological order for Sakura, Enne, Tomi, and Aoi
+- `record:958836da-dee9-50a7-ba6c-d94a0ff3ac31` · `unresolved_question` · `system_private` — whether Tomi will learn why Ted was accepted
+- `record:7a7707b6-4c81-5472-926f-c849b6f6d456` · `unresolved_question` · `system_private` — whether Tomi's initial romantic possibility becomes attraction
+- `record:f9451db4-3529-573b-972b-b4040fd7e389` · `family` · `system_private` — Hana alone legally adopted Sakura, Enne, Tomi, and Aoi; her husband is not their adoptive father.

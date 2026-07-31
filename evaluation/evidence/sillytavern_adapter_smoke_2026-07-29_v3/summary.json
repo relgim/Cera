@@ -1,0 +1,84 @@
+{
+  "schema_version": "cera.sillytavern_adapter_smoke.v1",
+  "smoke_id": "sillytavern-adapter-smoke-2026-07-29-v3",
+  "status": "passed",
+  "authority_ids": [
+    "D-146",
+    "D-150"
+  ],
+  "synthetic_noncanonical": true,
+  "actual_sillytavern_ui": true,
+  "backend_indicator": "CERA",
+  "endpoint": "http://127.0.0.1:5101/v1",
+  "model": "cera-alpha",
+  "turn_count": 2,
+  "restart_between_turns": true,
+  "continuity_exact_match": true,
+  "provider_dispatches": {
+    "sol": 4,
+    "deepseek": 2,
+    "total": 6
+  },
+  "automatic_retry_count": 0,
+  "fallback_enabled": false,
+  "story_world": {
+    "generation": 2,
+    "visible_artifact_count": 2,
+    "commit_receipt_count": 2,
+    "direct_event_count": 2,
+    "accepted_reply_material_count": 2,
+    "turn_receipt_record_count": 26,
+    "turn_stage_journal_count": 16,
+    "failure_evidence_count": 0,
+    "integrity_check": [
+      "ok"
+    ],
+    "foreign_key_check": []
+  },
+  "artifacts": [
+    {
+      "artifact_id": "artifact:ca27eb02-c75c-5aff-a008-9b54e70f8073",
+      "artifact_sha256": "58a7a186684d6aedb7105cc2c4f1ff4fce09ac0c4854abc488ed8916fa126cbb",
+      "prose_sha256": "d5e88bb8848fe018ceecd1b9b9fcd2f85f1aeb9c5fd37a770c0eec165bdfa858",
+      "parent_artifact_id": null,
+      "responding_npc_ids": [
+        "character:sakura_hanezawa"
+      ]
+    },
+    {
+      "artifact_id": "artifact:fb73155f-4e8a-5c23-a0b6-7d2d492b975b",
+      "artifact_sha256": "ecdbebf2b5b9f065f6d12121e837a1de1a55fb881c3898723606bf681c8c30dd",
+      "prose_sha256": "65c82c5088061b7bcb1fce5f01f18d8abcb93ce69119c06b62936cdb20e69750",
+      "parent_artifact_id": "artifact:ca27eb02-c75c-5aff-a008-9b54e70f8073",
+      "responding_npc_ids": [
+        "character:sakura_hanezawa"
+      ]
+    }
+  ],
+  "authority_record_payload_sha256": [
+    "9aacb9d42afdc212b7db61eb7e1efe07ed052502847d8fc98da4e5d04acf1d6a",
+    "ddefcf7bf30671e7b23f09e8d52cea58d9e4e0c97bdf7f205279c4b51747d192",
+    "57514ad123b920519c8176bca1ea13c1233ec8cef960aaf327c1d608bfdbf954",
+    "4d068737ed73b26a86fd0a5837861765efc72238c7a7d1a8a6a9773864dd3810"
+  ],
+  "provider_receipt_payload_sha256": [
+    "8f795415220644a3bcbc6c984359734d341af6c528c8dd652b5c1309c4c1b5eb",
+    "f608d2c91466f3f65b18e57992c46998e51818eb80e1bcac5135dbbcb4e9b0cd",
+    "b9951763eba3edc542eba831ccdbece6e98c50cf0187733a2fe6bb9d481910ff",
+    "30ff1ff262205dddf894e658426b811fa9e379b4f20a5c6e425c6492ccb024d2",
+    "65949f987c69caff6784170e733237e51b90d3a12696194fe1987a9c78857fd6",
+    "a6c3f354251c5957ef9cc096c1cb5ef4cc48e4cba3380ed0caf2f10b76ff1663"
+  ],
+  "file_sha256": {
+    "pre_smoke_chat.jsonl": "016baabf8b7839c7630b72dad1d0271830d9956ac192e24174e72a705f590e3e",
+    "post_smoke_chat.jsonl": "38778b84ab20813264ebb9f082552e9a2d244eb7a2f792707db0b65bbf80d39e",
+    "smoke_world.sqlite3": "59aa2fbfd58a7c8194244f47698efd02b4180761161aad9ab230cc0d4f7a991d",
+    "adapter.stdout.log": "85b50d480c7697819b068097a57375fb0be574ce2d51d0003026b07d2b725562",
+    "adapter_restart.stdout.log": "85b50d480c7697819b068097a57375fb0be574ce2d51d0003026b07d2b725562"
+  },
+  "cleanup_verified": true,
+  "production": false,
+  "adult_live_publication": false,
+  "route_promoted": false,
+  "deployed": false
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": "cera.creator_visual_prompt_overlay.v1",
+  "status": "creator_authorized",
+  "supersedes": [
+    "HANEZAWA_VISUAL_CANON_ANIMA_V1.json#global_prompt_policy.neutral_positive_prefix",
+    "HANEZAWA_VISUAL_CANON_ANIMA_V1.json#global_prompt_policy.global_negative_solo",
+    "HANEZAWA_VISUAL_CANON_ANIMA_V1.json#characters.*.anima.identity_drift_negative"
+  ],
+  "positive_prefix": "masterpiece, very aesthetic, @Ani2rel, v0q1d, Cyaniji,",
+  "negative_prompt": "worst quality, low quality, score_1, score_2, score_3, blurry, jpeg artifacts, sepia, low-res, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, jpeg artifacts, signature, watermark, username, blurry, letterboxed, cropped, hetero, letterboxed, picture frame, framed, pussy, cropped, head out of frame, testicles, full body, blue hue, messy hair, close up, signature, bad anatomy, bad proportions, deformed anatomy, deformed face, deformed eyes, multiple fingers,",
+  "negative_prompt_is_exact": true,
+  "append_identity_drift_negatives": false,
+  "age_language_policy": {
+    "general": "Do not add loli to the negative prompt and do not repeat adult-status language when one clear age/status anchor is sufficient.",
+    "yuuni_ordinary_visual": "Use a deliberately youthful, cute, youngest-sister appearance with childlike visual styling while preserving her canonical age, agency, and proportions.",
+    "yuuni_protected_visual": "Do not use childlike or age-ambiguous cues. Establish her canonical age once and keep the depiction unambiguously adult without repetitive age wording."
+  },
+  "creator_statement": "The Anima image prompt must use masterpiece, very aesthetic, @Ani2rel, v0q1d, Cyaniji. Use the supplied exact negative prompt. Do not add loli to the negative prompt or specify adult frequently. The characters should look young and youthful, and Yuuni should look childish.",
+  "runtime_boundary": "The ordinary visual direction does not alter Yuuni's canonical age of 18 or mental agency and is never reused as an age-ambiguous protected-image instruction."
+}

@@ -1,0 +1,38 @@
+{
+  "benchmark_id": "full-branch-session-ab-2026-07-30-v1",
+  "composer": {
+    "model": "deepseek-v4-flash",
+    "thinking": true
+  },
+  "depth": "long",
+  "fallback_count": 0,
+  "messages": [
+    "Hello, my name is Ted. Is this the hanezawa household?",
+    "Respond accordingly to Sakuras Response.",
+    "Respond accordingly to Sakuras Response."
+  ],
+  "policies": [
+    {
+      "description": "one warm Codex process; a fresh ephemeral thread for every turn",
+      "key": "fresh_each_turn",
+      "reuse_thread": false
+    },
+    {
+      "description": "one warm Codex process; one new ephemeral thread continued for all turns",
+      "key": "continued_thread",
+      "reuse_thread": true
+    }
+  ],
+  "production_route_changed": false,
+  "qualification_limit": "The fake verifier proves wiring only; it does not qualify semantic realization or production publication.",
+  "realization_verifier": "scripted_echo_fake",
+  "reasoner": {
+    "effort": "medium",
+    "model": "gpt-5.6-sol"
+  },
+  "retry_count": 0,
+  "schema_version": "cera.full_branch_session_ab_summary.v1",
+  "started_at": "2026-07-31T04:11:03.226702+00:00",
+  "status": "running",
+  "story_state_committed": false
+}

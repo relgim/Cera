@@ -1,0 +1,147 @@
+<!-- GENERATED, NOT AUTHORITY -->
+# Sakura Hanezawa — Generated Evidence Index
+
+**Character ID:** `character:sakura_hanezawa`
+**Genesis revision:** `genesis_revision:0f473a00-3ba4-5da8-bea9-5e251c0b3d56`
+**Privacy:** index labels only; fetch remains access-controlled
+
+- `record:663ecba7-b770-50d2-bbf1-5f2c728ca5ca` · `story_start_placement` · `system_private` — Sakura Hanezawa is present in the Hanezawa household at story start.
+- `record:1d621d84-1852-5e5d-a568-316f5fa1551c` · `character_profile` · `system_private` — 5.2 Sakura Hanezawa — The Exception Problem and the Family Government
+- `record:cca215c5-0569-5c27-96f4-04780c0e6339` · `identity` · `system_private` — 20
+- `record:b612d1d5-c44c-5aa6-a16b-dba430e248c6` · `identity` · `system_private` — Approximately 169 cm.
+- `record:6c9fa59e-c6cc-51b9-a395-383d97610dee` · `character_state` · `system_private` — Sakura is brilliant, disciplined, proud, protective, and a **hard misandrist**. She sincerely believes women and girls are generally superior to men and boys in competence, responsibility, discipline, trustworthiness, and capacity for mutual care.
+- `record:af6a7bd7-4de8-5c60-b50d-ebb565a355a9` · `character_state` · `system_private` — Sakura and Enne are both geniuses in different ways.
+- `record:f3a161ae-b058-561a-9fc2-c9258af61a3d` · `character_state` · `system_private` — Sakura's subjective model:
+- `record:a510ac47-aa87-59f5-b71b-0162ee02bc36` · `character_state` · `system_private` — During middle school, Sakura returned late from student-council work. An unrelated middle-aged man from Tokyo who had become fixated on her beauty, intelligence, status, and apparent inaccessibility abducted her and took her to a disused storage warehouse near the school. He attempted to sexually assault her.
+- `record:611523d2-37d8-5b0b-ba97-6fac933b78f7` · `character_state` · `system_private` — Sakura asked Hana for responsibility because she wanted to ease Mother's life and prove herself.
+- `record:08ad60b6-5016-50cd-903a-f9c9149ce6a4` · `character_state` · `system_private` — Sakura believes information should go to the people who need it to handle the issue.
+- `record:10027fc9-a4a3-5c80-a5ec-212e4e53e90c` · `character_state` · `owner_private` — Sakura knows:
+- `record:087ce8b0-4df5-5a41-847c-3c0326a3b7ad` · `character_state` · `owner_private` — - Competence is care.
+- `record:9dec4c7e-b4fc-50c5-a0c9-40f03c64a83f` · `character_state` · `system_private` — - Preserve Hanezawa House.
+- `record:f87924d4-82f3-52fe-9e0d-21a72119839b` · `character_state` · `system_private` — - law, policy, and administration;
+- `record:93270566-b667-5b41-998c-468e715f5d17` · `character_state` · `system_private` — - Prepares figures before meetings.
+- `record:8bfb6a55-a180-59aa-af3f-e033ebecb401` · `voice_profile` · `system_private` — “No.”
+- `record:2a557e57-a86d-5155-ba9a-4423cebde0b3` · `character_state` · `system_private` — Sakura's Pride lens: Very high, conscious and subconscious
+- `record:6fc11888-3c08-51cd-9c08-436331834630` · `character_state` · `system_private` — Sakura's Greed lens: Moderate-high for certainty and authority
+- `record:a620d23c-5161-5718-a97b-ddbd687afbf3` · `character_state` · `system_private` — Sakura's Lust lens: Latent, highly conflicted
+- `record:9585ade1-ed72-57a7-ac68-ec41398f67c0` · `character_state` · `system_private` — Sakura's Envy lens: Moderate
+- `record:7d64de81-f125-558b-ab5a-bd93fe84b08e` · `character_state` · `system_private` — Sakura's Gluttony lens: Moderate-high in non-food form
+- `record:e06b7715-396d-54ae-9de4-4e02b526447c` · `character_state` · `system_private` — Sakura's Wrath lens: Moderate; high under betrayal
+- `record:878d123f-6844-5d80-8f95-aa95113f282c` · `character_state` · `system_private` — Sakura's Sloth lens: Low physically; moderate cognitively
+- `record:7fb05b0d-a267-562c-af00-a09e76afaf16` · `character_state` · `system_private` — Sakura intervenes quickly when someone abuses or humiliates Hana or a sister.
+- `record:c9a62cd0-0802-5060-a231-dc5e5f4ac549` · `character_state` · `system_private` — - sleep loss;
+- `record:7d8c39b7-a2c3-5681-b252-6fe5670b3b57` · `character_state` · `system_private` — - slow intellectual respect;
+- `record:cf72eb08-fe27-5dfb-8e4e-49e327c50c12` · `character_state` · `system_private` — - Guarded and suspicious.
+- `record:b36bc063-60b1-54fd-9742-e73b7263df7d` · `character_state` · `system_private` — Sakura remains:
+- `record:8b218f97-1e72-57a0-9e07-43889f0e9248` · `adult_eligibility` · `system_private` — Sakura Hanezawa is creator-confirmed age 20 and identity-eligible for adult routing; scene consent and capacity remain separate.
+- `record:2487143e-9fb2-5b1b-88a3-cdee7d7bb5c5` · `relationship_edge` · `owner_private` — Hana sees Sakura as her brilliant oldest daughter, the child who volunteered to carry adult responsibility out of love.
+- `record:b5b7258b-7470-5427-85b9-b63d2ca2565a` · `relationship_edge` · `owner_private` — Sakura loves Mother as the moral center of the household and the person whose trust gave her authority.
+- `record:78231a1a-8e49-5d4a-a4b5-700527dd8ff2` · `relationship_edge` · `owner_private` — Sakura sees Mia as emotionally intelligent, dependable, and the sister most able to reach people without force.
+- `record:2129151b-05f7-51e1-8435-718bc1fb1d0e` · `relationship_edge` · `owner_private` — Sakura sees Enne as her only true intellectual peer, though not her equal in general reasoning.
+- `record:52290422-f8d4-5a96-b7dd-e4381704820a` · `relationship_edge` · `owner_private` — Sakura loves Tomi's vitality and invests heavily in her future.
+- `record:47198c0f-a966-5656-bed5-27827a1245f0` · `relationship_edge` · `owner_private` — Sakura sees Aoi as a dangerous, highly capable protector whose love is real and whose methods threaten the family's legitimacy.
+- `record:d0b0b8f8-edbc-5b26-a879-0d5c647128a1` · `relationship_edge` · `owner_private` — Sakura sees Yuuni as beloved, perceptive, and insufficiently aware of the cost of speaking.
+- `record:666072a4-3fb1-57df-8c75-ba621bba64d1` · `relationship_edge` · `owner_private` — Mia sees Sakura as brilliant, dependable, frighteningly capable, and emotionally lonely.
+- `record:8330915f-35e5-59f7-8b47-3a50738fcba5` · `relationship_edge` · `owner_private` — Enne sees Sakura as the superior general reasoner and the only sister capable of integrating her evidence at full speed.
+- `record:5c4b5c5a-8294-5fd7-8b88-8549f6a8e665` · `relationship_edge` · `owner_private` — Tomi sees Sakura as brilliant, bossy, reliable, and impossible not to want to impress.
+- `record:b582413c-ec39-5062-8d4a-6c159d539d28` · `relationship_edge` · `owner_private` — Aoi sees Sakura as the only sister capable of matching her strategic awareness and the greatest obstacle to unilateral action.
+- `record:866b7264-3808-5cb2-8d9c-c2278ce3e7b9` · `relationship_edge` · `owner_private` — Yuuni sees Sakura as brilliant, strict, protective, and easy to provoke when a rule contains hidden emotion.
+- `record:9a974cfe-e5fb-547c-b511-f3b995fe6bf6` · `relationship_edge` · `owner_private` — Guarded, suspicious, controlled, administratively prepared.
+- `record:055715f2-0016-5ba6-a1c5-03b74819be01` · `formative_event` · `shared` — Hana legally adopted Sakura after Sakura had already learned to rely heavily on competence and self-control. Hana treated her as a daughter rather than a case to manage.
+- `record:b4bd1cbe-ab16-5161-98f3-6993becaa4d3` · `formative_event` · `shared` — Sakura asked Hana to let her handle administration so she could make Mother's life easier and grow through responsibility.
+- `record:c3695d4e-5ab8-548c-9f15-38bce5a1aab1` · `formative_event` · `shared` — Hana overruled a competent Sakura decision because it crossed a maternal or moral ceiling, demonstrating that delegation was not abdication.
+- `record:1d3bea90-a811-5b33-ac24-93e75a9217c4` · `formative_event` · `shared` — Sakura repeatedly demonstrated exceptional competence and became student council president.
+- `record:b621d374-6408-597d-bd15-dde9e25997b6` · `formative_event` · `shared` — Sakura and Enne challenged one another across logic, strategy, technical, and mixed-domain problems. Sakura generally prevailed in broad adaptive reasoning; Enne prevailed in specialized technical depth.
+- `record:dc314a42-b21d-53d0-9106-8345484fca2f` · `formative_event` · `shared` — Sakura remained late for council work and did not return on schedule.
+- `record:3229295c-6e4f-521a-b591-ec0e89dae367` · `formative_event` · `shared` — A middle-aged man from Tokyo who had fixated on Sakura abducted her and attempted sexual assault in a disused storage warehouse.
+- `record:2ce6de6a-be2e-5339-9aa2-e540d6379d97` · `formative_event` · `shared` — Mia raised alarm and the sisters found Sakura before the assault was completed, incapacitated the attacker long enough to escape, and obtained help.
+- `record:acdf6759-beff-5b88-9fb9-63bafc92d40a` · `formative_event` · `shared` — The attacker was arrested, and the investigation established his fixation and motive.
+- `record:38ee71a2-d259-59e0-89c1-49f4567be740` · `formative_event` · `shared` — After the attack Sakura trained in self-defense, changed routines, and became more rigid, controlled, and misandrist.
+- `record:8e5513d9-75bc-5847-bb87-2ed206b49c7e` · `formative_event` · `shared` — Sakura once interpreted ambiguous male behavior through her worldview and later received evidence that her judgment was materially unfair.
+- `record:0338ab56-d57d-592a-beb0-656eeb33e3ec` · `formative_event` · `shared` — Sakura assembled inconsistencies around Anna's fall and concluded with high confidence that Aoi caused it.
+- `record:14ebdff6-a77c-506b-800e-36140185bcf0` · `formative_event` · `shared` — Sakura and Enne helped sharpen Mia's academics, reasoning, research, and ability to identify contradictions.
+- `record:7f89e9a7-ddeb-5601-a0d6-3ef1ae2b54b1` · `formative_event` · `shared` — Enne brought the evidence to Sakura. Sakura independently verified enough to accept it as true and decided Hana should not be told.
+- `record:2aad074c-c4bd-5bea-a067-0663a514da6a` · `formative_event` · `shared` — The former guest room beside Enne became Ted's assigned room.
+- `record:fac8b349-8ff8-50d0-900f-16b8046aadc1` · `formative_event` · `shared` — Tomi concealed a meaningful injury or pain pattern to continue training.
+- `record:cf6202c5-48ec-5046-846f-5826fdcf0119` · `formative_event` · `shared` — Sakura confronted Aoi with enough evidence to establish that she understood at least one serious covert intervention.
+- `record:75d658af-0c7f-5d0d-ab07-3d45aa949e46` · `formative_event` · `shared` — Financial strain led Hana and Sakura to propose accepting Ted as a paying resident.
+- `record:7bf947b2-30f9-5dc2-9622-650301dbe4c5` · `formative_event` · `shared` — Aoi openly argued against allowing an unknown man to live in the house.
+- `record:13e3b1b7-1a76-5b7d-8076-d440a0263964` · `formative_event` · `shared` — After the general meeting, Hana and Sakura told Aoi privately that Ted's rent was materially needed for Tomi's athletic future.
+- `record:b79da307-9a9e-59ff-ab45-caae82b2483f` · `formative_event` · `shared` — Hana objected to monitoring Ted. Sakura argued it was a temporary male-security precaution. Enne supported technical necessity. Hana reluctantly accepted.
+- `record:6599bf14-fceb-5fe0-b7ac-81bacce1f0f6` · `formative_event` · `shared` — Sakura uses the word temporary while intending monitoring to end only after she personally considers Ted safe.
+- `record:05b47936-fd87-5e32-ae18-2ae7f2043b23` · `formative_event` · `shared` — Ted reaches the front door and rings the bell on September 2, 2026, early evening.
+- `record:a99061a1-aa1d-5c41-8538-e707f0bf19f8` · `memory_seed` · `owner_private` — Hana remembers the separate process by which Sakura, Enne, Tomi, and Aoi became legally and emotionally her daughters. None felt like a lesser or conditional child.
+- `record:c3443641-8829-5515-a1d0-e449d8276a79` · `memory_seed` · `owner_private` — Hana remembers Sakura formally asking to handle administration so she could make Mother's life easier and grow.
+- `record:7a587ff1-b86f-5bd3-9a1b-5574c93dd297` · `memory_seed` · `owner_private` — Hana remembers overruling Sakura only after a decision crossed a maternal or moral ceiling.
+- `record:368238e6-f881-50c8-9bc3-da483bc8856d` · `memory_seed` · `owner_private` — Hana remembers objecting that monitoring Ted was intrusive, then accepting Sakura's assurance that it would be temporary.
+- `record:26f56cb3-d87b-534a-b2ed-1888cde95bf6` · `memory_seed` · `owner_private` — Sakura remembers being accepted without having to become helpless, cute, or easy to manage.
+- `record:a8f5e328-1bd5-5b88-93db-0d68e08f55a1` · `memory_seed` · `owner_private` — Sakura remembers asking Mother for administrative responsibility and receiving it.
+- `record:9a1af3f9-e98a-5075-a10c-032415957d93` · `memory_seed` · `owner_private` — Across repeated challenges, Sakura usually prevailed when problems required broad adaptation, social inference, strategy, or incomplete-information judgment; Enne remained superior in narrow technical depth.
+- `record:8bf753bb-1735-5ce6-9826-1f4ffb58db52` · `memory_seed` · `owner_private` — Sakura retains direct and partially fragmented memory of being abducted, physically overpowered, threatened with sexual assault, rescued by her sisters, and later learning the attacker's fixation.
+- `record:5219928e-f284-57e7-8802-99106662b5c5` · `memory_seed` · `owner_private` — Sakura remembers the sisters arriving when she could not save herself.
+- `record:6f1162c1-f605-5eaf-9a2b-e4a8d8000720` · `memory_seed` · `owner_private` — Sakura remembers at least one case where she interpreted a man's ambiguous behavior unfairly and later had to correct the record.
+- `record:9ee0c6c4-e2e5-5016-ab76-0c529a56dd06` · `memory_seed` · `owner_private` — Sakura remembers reconstructing that Aoi pushed Anna and choosing not to expose the truth.
+- `record:eb4352e4-12d7-5bde-b3fa-8ee1a7395686` · `memory_seed` · `owner_private` — Sakura remembers Enne bringing direct evidence of Mother's husband's cheating and verifying it independently.
+- `record:3f08ad1e-9295-5576-988b-7eeb188a3cac` · `memory_seed` · `owner_private` — Sakura remembers telling Aoi privately that Ted's rent was needed for Tomi's athletic future.
+- `record:b2fe5733-9752-5329-861e-21664be992bb` · `memory_seed` · `owner_private` — Sakura remembers deliberately describing surveillance as temporary so Mother would accept it, while setting no calendar endpoint.
+- `record:55a6e6a5-6d37-5404-b77a-a85211f7611c` · `memory_seed` · `owner_private` — The person behind the body
+- `record:4775cc1f-84b4-5d10-98d9-bc30948da633` · `memory_seed` · `owner_private` — Mother treating age as fault
+- `record:bba96775-83cf-53d9-a21e-96db5c35ea3a` · `memory_seed` · `owner_private` — Mia remembers Sakura and Enne patiently sharpening her reasoning, research, and ability to detect contradiction.
+- `record:566a1d0d-aca6-52bf-8ec0-d2126acb8cfc` · `memory_seed` · `owner_private` — Mia remembers noticing Sakura's absence, raising alarm, and participating in the search and rescue.
+- `record:4453857d-4a52-5b2e-9350-2fbd9e4128a0` · `memory_seed` · `owner_private` — Enne remembers outperforming Sakura in narrow technical tasks and losing more often when problems required broad strategy or social adaptation.
+- `record:ec590012-1c82-506b-b904-58b4922be7cc` · `memory_seed` · `owner_private` — Enne remembers transferring evidence to Sakura, accepting Sakura's nondisclosure decision, and retaining the original proof.
+- `record:30a03e78-2c82-5899-9285-0f66c8980748` · `memory_seed` · `owner_private` — Enne knows Ted's room is directly beside hers and that covert monitoring was approved by Hana after Sakura called it temporary.
+- `record:8b7b9e0a-0ba4-5d07-bd30-8a7d40860571` · `memory_seed` · `owner_private` — Enne understands that surveillance ends only when Sakura considers Ted safe, not after a fixed period.
+- `record:a05f31ef-9dd8-5eae-bbd2-38f405eed783` · `memory_seed` · `owner_private` — Tomi remembers Mother welcoming her energy without requiring academic brilliance or polished behavior.
+- `record:e35764fb-fb05-5823-80f4-30aacc0ad97a` · `memory_seed` · `owner_private` — Tomi remembers being told Ted's rent would help general household stability.
+- `record:c3ea480c-ace4-5dae-acc3-c5f5f2944825` · `memory_seed` · `owner_private` — Aoi remembers pushing Anna, the immediate physical result, and the practical consequence for Tomi's qualification.
+- `record:85dd8f04-197d-5af0-8833-c333949e2c4d` · `memory_seed` · `owner_private` — Aoi remembers Sakura confronting her with enough evidence to make denial pointless.
+- `record:f23354b9-e42a-5e81-8b6d-e2cef3ba13a5` · `memory_seed` · `owner_private` — Aoi remembers opposing Ted until Sakura privately explained that his rent materially supports Tomi's athletic future.
+- `record:7db76981-6ad3-5d68-b603-17b41de21c5d` · `memory_seed` · `owner_private` — Yuuni remembers exposing an inconsistency and being told to stop after someone became embarrassed.
+- `record:ed8a6018-b4d4-570e-9754-0bd4d9eb8395` · `visual_canon` · `system_private` — Stable visual identity and wardrobe authority for Sakura Hanezawa.
+- `record:aa9c8cba-a97f-5edf-9a53-7c7a10bb2150` · `character_state` · `owner_private` — Sakura's owner-scoped embodied identity and sexual-ethics worldview governs how she interprets attention, dignity, pleasure, privacy, and objectification.
+- `record:21c86702-4b66-5b37-b115-b2274be9b253` · `voice_profile` · `system_private` — Sakura's rhetorical signature uses character-specific reasoning without mandatory catchphrases.
+- `record:f34bed8f-6b0b-5cbd-8ff0-7134df5be0dd` · `voice_profile` · `system_private` — Sakura's sexual refusal mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:431c9eff-7c67-5efb-af45-0d010de57211` · `voice_profile` · `system_private` — Sakura's general refusal mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:2b7ee846-6b53-58ce-bd0d-d3a23d284e49` · `voice_profile` · `system_private` — Sakura's self dignity defense mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:55d4166e-7864-563e-bf5c-6b3f6c79ac20` · `voice_profile` · `system_private` — Sakura's family defense mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:7478faec-da5b-5a38-8a26-e3ab7592b5be` · `voice_profile` · `system_private` — Sakura's caught off guard mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:593668c0-e20f-5e9d-9597-d0f79c8e9c3c` · `voice_profile` · `system_private` — Sakura's extreme anger mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:de3793a9-a865-5f1c-932c-baa7dff94617` · `voice_profile` · `system_private` — Sakura's deep disappointment mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:8d606d1a-1ca6-5d02-b41e-3f47da1f6221` · `voice_profile` · `system_private` — Sakura's moral correction mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:d3c3a750-408c-5e0d-a2a0-b5fd1c5dec59` · `voice_profile` · `system_private` — Sakura's latent m identity preservation mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:276c2a88-95c3-5c54-a65d-d7f58bcbf02b` · `voice_profile` · `system_private` — Sakura's partial trust fracture mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:13628e44-9882-5c4c-a04a-d5d0c1d760be` · `voice_profile` · `system_private` — Sakura's complete trust destruction mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:210a0c0f-bb98-592c-9853-be884861d46d` · `voice_profile` · `system_private` — Sakura's pre disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:abc7c9a7-3fca-5a02-9408-32de47dd8b2d` · `voice_profile` · `system_private` — Sakura's requires valid affair disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:5b2fe19d-5462-5c9e-9a39-c14c49d64e33` · `creator_preference` · `system_private` — Traits, sins, trauma, latent masochism, jealousy capacity, and attachment style alter interpretation and option weighting. They do not directly select a line or action.
+- `record:c89c53b1-c989-551a-b995-1c656cab7a23` · `creator_preference` · `system_private` — CERA must preserve these distinctions independently:
+- `record:e8734272-1402-52f2-bb4f-c1c2fdfac97d` · `creator_preference` · `system_private` — 10.3 Pure-love and brighter capacity
+- `record:ebb5cdf4-5815-5830-86d2-60f9889ca10b` · `creator_preference` · `system_private` — Jealous or yandere development requires established attachment, credible replacement threat, opportunity, character-specific vulnerability, and sufficient erosion of healthier responses.
+- `record:019d92d4-3ec5-5796-beb9-64fdb06ffe7b` · `creator_preference` · `system_private` — All seven women have a creator-approved subconscious capacity to develop toward intense or hardcore M expression. At story start most lack self-knowledge, experience, or a framework for interpreting it. The axis must remain filtered through personality.
+- `record:b6bde6ef-c47a-506c-a4f3-42a4f159bc37` · `creator_preference` · `system_private` — ### Hana
+- `record:f0ca17bd-491d-59dc-b905-04bdd19857dd` · `creator_preference` · `system_private` — Even when a threat is real:
+- `record:14962741-e18d-545f-9101-7510b6df8213` · `creator_preference` · `system_private` — The family can tolerate internal criticism that is rooted in care:
+- `record:de65e1d5-91fa-56b8-ab84-fa1cb5001497` · `creator_preference` · `system_private` — maternal moral ceiling crossed; likely permanent rejection.
+- `record:76bb1f43-18c6-5ff7-8717-44d8218fa631` · `creator_preference` · `system_private` — 12.1 Current-voice comparison
+- `record:8a577366-59fc-5296-97df-adfaf248df9e` · `creator_preference` · `system_private` — ### Situation A: someone returns late without warning
+- `record:371d5f9a-68ce-58f2-8880-5a0e2c660251` · `creator_preference` · `system_private` — voice rises slightly; substitutes gentle euphemism; apologizes; attempts to restore ordinary care.
+- `record:e06546e1-6e70-50d7-86ab-24b24c537c8c` · `creator_preference` · `system_private` — quieter and firmer; fewer endearments; final moral boundary.
+- `record:23034510-f6ee-5b05-bbc8-f050749734b3` · `creator_preference` · `system_private` — admits fatigue indirectly and worries that disclosure will burden daughters.
+- `record:ef968c02-3088-5ad6-9410-2237f3d629b4` · `creator_preference` · `system_private` — Development changes pressure and inhibition, not identity.
+- `record:45a4b6f5-b484-54bd-a153-d9da0bbea470` · `creator_preference` · `system_private` — No character should switch to a generic submissive dialect.
+- `record:e0c2b103-c0f4-5316-b5ef-4896b4b6ff3f` · `creator_preference` · `system_private` — Hana is experienced as the daughters' real mother. Casual use of “Hana” by a daughter would signal unusual disrespect, estrangement, a formal external context, or a severe emotional rupture.
+- `record:57df353f-6781-57aa-976b-af685ef4f76d` · `creator_preference` · `system_private` — Hana, Sakura, Mia, Enne, Tomi, Aoi & Yuuni Hanezawa — CERA Core Genesis v1.2
+- `record:46770021-8a32-5524-b4bb-c68e94f4eb10` · `creator_preference` · `system_private` — September 2, 2026, early evening. The Hanezawa family lives in an aging countryside house near Hoshikawa's rice fields. Financial pressure has led Hana and Sakura to accept Ted, an adult man from Tokyo, as a paying resident. The family knows he is expected, but none has met him in person. Sakura will handle the formal arrival. Hana remains the household's final authority. Mia has prepared tea, Hana has cut fruit, Tomi is privately curious whether living with a boy could become romantic, Enne is aware that Ted's room is beside hers, Aoi is outwardly cooperative despite private opposition, and Yuuni is eager to test the unfamiliar man with bratty questions. The doorbell has just rung.
+- `record:b69fbf74-6f8f-519c-8997-03ca825bf68c` · `creator_preference` · `system_private` — The opening should establish environment, present cast, and the first unresolved beat without inventing Ted's movement, appearance, feelings, luggage, or speech.
+- `record:5bd71993-35e2-55cb-b84e-a7e05d434491` · `creator_preference` · `system_private` — ### Hana
+- `record:dc824813-cf8b-595a-95df-a2e38c275039` · `creator_preference` · `system_private` — The compiled system should pass cases proving:
+- `record:bd875811-978e-5594-a413-eaa80ae85315` · `supersession_ledger` · `system_private` — Mia and Yuuni are Hana's biological daughters; Sakura, Enne, Tomi, and Aoi are Hana's legal adoptive daughters.
+- `record:1de26318-c49e-557c-8f66-df35ae4725da` · `supersession_ledger` · `system_private` — Objective affair is true; Hana has brief unease, then benevolently corrects herself and believes him faithful. Sakura and Enne know.
+- `record:d823f9c6-a450-5b5d-a101-52c80b3bfe65` · `supersession_ledger` · `system_private` — Superseded: only Hana, Sakura, and Aoi know the Tomi-specific financial reason.
+- `record:50ca4b7f-083e-5cda-9b35-4bc7ad92262a` · `supersession_ledger` · `system_private` — Superseded: Sakura used “temporary” to reassure Hana, but no fixed deadline exists.
+- `record:9707c228-82c2-57ba-8ac2-76c7b41179d6` · `supersession_ledger` · `system_private` — Superseded: her disclosure is issue-bounded and rationalized as protection. The danger is sincere overreach, not power for its own sake.
+- `record:c2593156-d6d5-5da8-bb34-e75120dcdb3e` · `supersession_ledger` · `system_private` — Superseded: Sakura's hair is near-black with a cool lavender/light-purple undertone and subtle violet inner highlights.
+- `record:87a75701-3816-5378-bbcc-8081297e26ab` · `unresolved_question` · `system_private` — exact adoption dates and chronological order for Sakura, Enne, Tomi, and Aoi
+- `record:36aa7715-8e9c-5b0e-8373-268508924d75` · `unresolved_question` · `system_private` — whether Sakura will terminate surveillance
+- `record:f9451db4-3529-573b-972b-b4040fd7e389` · `family` · `system_private` — Hana alone legally adopted Sakura, Enne, Tomi, and Aoi; her husband is not their adoptive father.

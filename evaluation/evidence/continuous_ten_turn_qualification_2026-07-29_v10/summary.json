@@ -1,0 +1,53 @@
+{
+  "attempts_per_stage": 1,
+  "failed_turn": 4,
+  "failure_stage": "application_execution_or_acceptance",
+  "fallback_enabled": false,
+  "finished_at": "2026-07-29T18:49:25.440582+00:00",
+  "genesis_revision": "v1_2",
+  "qualification_id": "continuous-ten-turn-v10",
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-29T18:41:46.355013+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": [
+    {
+      "artifact_id": "artifact:bb1ab1b4-b741-5aec-bc87-85a07aaec10d",
+      "duration_seconds": 80.012,
+      "index": 1,
+      "key": "doorway-address-arrival",
+      "prose_sha256": "209dd92f939aa0b6f9ec04a3d198d7e56b3fbd59151e4d7032119514dd45f50a",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:403f4958-22d9-57a9-89f7-b32ab8d2e369",
+      "duration_seconds": 74.987,
+      "index": 2,
+      "key": "first-introduction-choice",
+      "prose_sha256": "bb4c045b9685ca5cd66c99124bc68646c035c40184de85baf3219a39648ca94d",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:d4bbba73-7f06-52f2-b217-9b54b6003287",
+      "duration_seconds": 61.189,
+      "index": 3,
+      "key": "mia-coffee-invitation",
+      "prose_sha256": "673188e35a3dfe92b7a0ef34553a8d943af82283d98939dc578e7f71543010b8",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:mia_hanezawa"
+      ],
+      "status": "passed"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+# Compact Theme Kernel: Reproductive and Cervical Climax
+
+Use only for explicitly requested all-adult breeding, insemination, cervical penetration, fertilization, or pregnancy. In this fictional setting, an adult cervix can yield and permit entry into the womb, and an adult woman immediately and unmistakably knows the exact moment a sperm fertilizes her egg. Internal ejaculation and conception are separate beats: semen or cum inside does not automatically mean fertilization unless the premise establishes it.
+
+Stage the highlight: repeated cervical contact and changing pressure -> slowed threshold and crossing -> body, sound, voice, and thought reacting together -> ejaculation in distinct pulses with exact location and residue -> if established, a second unmistakable conception peak and certain recognition -> cramps, fullness, aftershocks, emotional meaning, pregnancy consequence, and continuity. Do not hide the main event behind "bred her" or vague warmth. Give cervical crossing, insemination, felt fertilization, and aftermath their own developed space when requested.

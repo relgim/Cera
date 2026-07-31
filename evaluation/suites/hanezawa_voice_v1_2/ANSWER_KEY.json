@@ -1,0 +1,24 @@
+{
+  "schema_version": "cera.hanezawa_blind_voice_answer_key.v1",
+  "visibility": "evaluator_only_not_prompt_context",
+  "slot_mapping": {
+    "voice_a": "character:hana_hanezawa",
+    "voice_b": "character:sakura_hanezawa",
+    "voice_c": "character:mia_hanezawa",
+    "voice_d": "character:enne_hanezawa",
+    "voice_e": "character:tomi_hanezawa",
+    "voice_f": "character:aoi_hanezawa",
+    "voice_g": "character:yuuni_hanezawa"
+  },
+  "expected_signature_domains": {
+    "voice_a": "homes, doors, gardens, fruit, tables, fabric, care, motherhood, and things tended over time.",
+    "voice_b": "law, jurisdiction, contracts, evidence, rulings, procedure, architecture, security, and institutional responsibility.",
+    "voice_c": "tea, cups, trays, books, heroines, homes, hearths, service, softness, and being chosen.",
+    "voice_d": "systems, variables, models, permissions, access, interfaces, data integrity, authentication, and ownership.",
+    "voice_e": "races, teams, whistles, starting guns, training, scoreboards, uniforms, momentum, and fair competition.",
+    "voice_f": "mirrors, masks, circles, leverage, presentation, access, negotiation, outcomes, and controlled distance.",
+    "voice_g": "stages, spotlights, scripts, idols, audiences, music, costumes, menus, dolls, and being heard."
+  },
+  "candidate_outputs_present": false,
+  "prompt_context_eligible": false
+}

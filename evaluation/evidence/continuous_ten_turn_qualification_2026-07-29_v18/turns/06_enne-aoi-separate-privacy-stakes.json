@@ -1,0 +1,593 @@
+{
+  "application_request_sha256": "12780f36576cb9bd94e621756dcebdd38da483367f3ac005922d4409ea177fb7",
+  "assertions": {
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": true,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "persistent_no_mcp"
+  },
+  "composer": {
+    "accepted_prose": "Enne looks at Ted. \"Symptoms first,\" she says. \"Requested details after. Inspection is not required.\"\n\nAoi gives a soft, practiced smile. \"Personal files and messages stay private regardless of how convenient access would be. Diagnostic scanning stays within system logs.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "68d76f04dc43b3e5036b768e6dbb30aa40f317eb756dbc0011959c64ef6cf41e",
+      "character_spans": [
+        {
+          "beat_id": "beat:52a96df0-e682-5c19-b2cb-1f083f92c41b",
+          "end": 101,
+          "kind": "dialogue",
+          "owner_id": "character:enne_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:c40f460e-87c8-5c1c-b9e8-26509e04e577",
+          "end": 272,
+          "kind": "dialogue",
+          "owner_id": "character:aoi_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 103
+        }
+      ],
+      "decision_sha256": "7213d100a52f0cea91547e5d43948e1b068265a874a5e58b7ce0cbbc7ae0edf9",
+      "floor_owner_id": "character:enne_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:f6b32a63-48c2-5369-9898-c58af31c4b92",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "a429b4c490f29f217b523b73ecd630a62072af50f4e2d3791c4cf14190135485",
+          "character_id": "character:enne_hanezawa",
+          "selected_intent_sha256": "8833f5ac33823c292cc56d115d283fafb45693cfc6d693bc824b4554c65b50a7"
+        },
+        {
+          "action_direction_sha256": "d7501e44f8feea7a340774048cc0b72bbeaeaa32e99ab9defab7bced2fcc59ef",
+          "character_id": "character:aoi_hanezawa",
+          "selected_intent_sha256": "5e67188826b919d65270cc437752d3483fa3771d57a2698011f3d1819b029c6b"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        },
+        {
+          "character_id": "character:aoi_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:52a96df0-e682-5c19-b2cb-1f083f92c41b",
+        "beat:c40f460e-87c8-5c1c-b9e8-26509e04e577"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "49a42ec7b73978e46770841c5e74538b5814055a717a73d9073f872578546409",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "7c2a3196aabfc0c1bdabd30700583023f9f58b73ead6b06e8be75c9042dfee62",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1280,
+      "cost_is_estimate": true,
+      "cost_microusd": 1956,
+      "duration_ms": 4172,
+      "external_provider_calls": 1,
+      "input_tokens": 5155,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "a551cae0daf146dc8d66331da5ead0497a759fbc5447d0763e0c4636c971ddbb",
+      "output_tokens": 305,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:be23d2a5-a043-564f-aa4a-1306c98f2412",
+      "provider_request_id_sha256": "52c831927925c13a30135dc9bd2975c52dcbc14966c14c88ef07c67de66c5904",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "65a908f57571cd8ebfcd294c9ecad4be2b99bc1c27b526677640ad3341575388",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "e795e7c4dc412df72d8c79dd2828361a6febfd81f63010ff57d72a2f0e03da17",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:aoi_hanezawa",
+      "character:enne_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "a8fc714743fa11bf70c18192d5322f303863cf08bcf3458a2cf498b2c8481f19",
+      "assembly_receipt_id": "validation:49b810a3-a61b-5f7a-9066-4db7bea88b3d",
+      "base_request_sha256": "8a4c82a4ebb4aacbc38993e88524a799cdeb7a231336087d3e19e7af7dadc097",
+      "cumulative_returned_bytes": 6525,
+      "external_provider_calls": 0,
+      "lookup_count": 4,
+      "lookup_receipt_ids": [
+        "lookup_receipt:81384389-8957-5581-a3ef-ea5e1f979aae",
+        "lookup_receipt:05773202-4415-5f58-9393-c56b3975b49d",
+        "lookup_receipt:0ff9a1ac-3567-5851-beba-3dd4cf8034a4",
+        "lookup_receipt:d553f092-d61b-5cd4-9d2b-9d9663920e82"
+      ],
+      "realization_context_sha256": "b9d41cc14f20a82e635ce6fb4a9f69ac83cf610e056b072ffbb000c7c2099d23",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:8ea65f32-3009-5e31-80a5-a8b62d44497c",
+        "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55",
+        "evidence:4b09d0c8-2ff7-52cf-b469-8754e243f9d1",
+        "evidence:a2900f9d-9e2f-5d3a-b6f9-fa10761602c4"
+      ],
+      "snapshot_token": "snapshot:8aa1abfd-7156-566c-931f-6a05781ed160",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:enne_hanezawa",
+      "character:aoi_hanezawa"
+    ]
+  },
+  "duration_seconds": 60.887,
+  "index": 6,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "55451055dd70bcc9703e5a8d466c1af113dd693eea0e0196df890c4e988ecbde",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "d64050cb6629ba9fc8a7a977e6a1d52980e2e7dcc62c20dad1a6375231f6df5a",
+      "receipt_id": "validation:3cc57825-eb0c-56b7-bf0c-a4f238cf715e",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "cc8905100c40d0592235d87084af7b02cc5f4205fd582de7522e18e1af05ed8c",
+    "receipt_id": "validation:9f412989-d45a-52c5-a35d-1d03b0e587b1",
+    "request_id": "request:4d431de8-080c-5e18-b8ed-5994f8c75395",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2136,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:2fb9f939-c510-51eb-a07d-0004a8708851",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2136,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:8aa1abfd-7156-566c-931f-6a05781ed160",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 3396,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:1cd3fa39-f26e-51b5-939f-bd64c0ca30b4",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1260,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:8aa1abfd-7156-566c-931f-6a05781ed160",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 4573,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:5e7a3003-fae4-5f58-b50f-127d55fcce40",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1177,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:8aa1abfd-7156-566c-931f-6a05781ed160",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:8ea65f32-3009-5e31-80a5-a8b62d44497c",
+        "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61",
+        "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:2fb9f939-c510-51eb-a07d-0004a8708851",
+        "lookup_receipt:1cd3fa39-f26e-51b5-939f-bd64c0ca30b4",
+        "lookup_receipt:5e7a3003-fae4-5f58-b50f-127d55fcce40"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:8ea65f32-3009-5e31-80a5-a8b62d44497c"
+          ],
+          "obligation_id": "obligation:1b63d67b-46c1-5c5f-88cd-d1b279c8b58e",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+          ],
+          "obligation_id": "obligation:f0bcb95a-ef96-5c6f-bf5d-d099d0f31b9b",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+          ],
+          "obligation_id": "obligation:6666aa7f-3ac4-512b-8307-b24e28c85a1c",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:9e5d2b11-7e9e-5193-80fd-1f0c387a43f4",
+      "snapshot_binding_sha256": "4ecf2c49ed27755e9d78552139811fd1cbc9936fc8a2eeb1d48aff2577869e1c",
+      "snapshot_token": "snapshot:8aa1abfd-7156-566c-931f-6a05781ed160"
+    },
+    "snapshot_token": "snapshot:8aa1abfd-7156-566c-931f-6a05781ed160",
+    "source_sha256": "65ed55237c3d423049cf0909ae861787589fda234e7ff21957d26299d5c3f259"
+  },
+  "key": "enne-aoi-separate-privacy-stakes",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:14a6b43a-8fe3-5bb1-a158-ee4a02b3b9ee",
+      "accepted_artifact_sha256": "18ebf956c7271f85c5d10f0569f516a5862af07b5724e9111f925bd5864ab8b4",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "12780f36576cb9bd94e621756dcebdd38da483367f3ac005922d4409ea177fb7",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:b43f3e8d-2cb0-5f12-8e5a-a1fe8e361a9b",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:bba97933-04b5-5006-a6a6-e9f9c6e95b26",
+      "operational_report_id": "validation:4b9fc420-881a-551c-9fe4-c4563a1950f5",
+      "operational_report_sha256": "29cfe5a7814e71feb0c5f78e9448acf6b9e011c7f5b0fe4500157489db3cfa9a",
+      "receipt_id": "validation:f64e7630-5e26-5a9a-ae57-d9df0ebb530d",
+      "request_id": "request:4d431de8-080c-5e18-b8ed-5994f8c75395",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "ca6f93ba87c2c3ed6c14fc6d105827029d655e7f099ad4456132371d65d10eef"
+    },
+    "artifact": {
+      "accepted_prose": "Enne looks at Ted. \"Symptoms first,\" she says. \"Requested details after. Inspection is not required.\"\n\nAoi gives a soft, practiced smile. \"Personal files and messages stay private regardless of how convenient access would be. Diagnostic scanning stays within system logs.\"",
+      "artifact_id": "artifact:14a6b43a-8fe3-5bb1-a158-ee4a02b3b9ee",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:57e06191-0415-5e18-80e9-5baf433a18dc",
+      "generation_id": "generation:bba97933-04b5-5006-a6a6-e9f9c6e95b26",
+      "parent_artifact_id": "artifact:75122866-1bfc-5a3f-90ae-caf3305e4e13",
+      "prose_sha256": "7c2a3196aabfc0c1bdabd30700583023f9f58b73ead6b06e8be75c9042dfee62",
+      "realized_beat_ids": [
+        "beat:52a96df0-e682-5c19-b2cb-1f083f92c41b",
+        "beat:c40f460e-87c8-5c1c-b9e8-26509e04e577"
+      ],
+      "responding_npc_ids": [
+        "character:enne_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:d1ae8d24-a8ce-5277-a484-f296cc2cab9e",
+      "status": "accepted",
+      "transaction_id": "transaction:c787295d-e66c-5525-a428-7bd5bb91a336",
+      "validation_receipt_id": "validation:c0b20ae6-2167-5aa0-b460-1eb043b5f3f5"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:b43f3e8d-2cb0-5f12-8e5a-a1fe8e361a9b",
+      "expected_previous_artifact_id": "artifact:75122866-1bfc-5a3f-90ae-caf3305e4e13",
+      "external_receipt_ids": [],
+      "generation_after": 6,
+      "generation_before": 5,
+      "inserted_record_ids": [
+        "event:3ea79483-859b-5deb-bdc5-916f6de497f6"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:2fb9f939-c510-51eb-a07d-0004a8708851",
+        "lookup_receipt:1cd3fa39-f26e-51b5-939f-bd64c0ca30b4",
+        "lookup_receipt:5e7a3003-fae4-5f58-b50f-127d55fcce40",
+        "lookup_receipt:81384389-8957-5581-a3ef-ea5e1f979aae",
+        "lookup_receipt:05773202-4415-5f58-9393-c56b3975b49d",
+        "lookup_receipt:0ff9a1ac-3567-5851-beba-3dd4cf8034a4",
+        "lookup_receipt:d553f092-d61b-5cd4-9d2b-9d9663920e82"
+      ],
+      "new_artifact_id": "artifact:14a6b43a-8fe3-5bb1-a158-ee4a02b3b9ee",
+      "new_artifact_sha256": "18ebf956c7271f85c5d10f0569f516a5862af07b5724e9111f925bd5864ab8b4",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:cf0e6a8f-d4a7-53b9-8741-7e28914b2d81",
+        "provider_receipt:be23d2a5-a043-564f-aa4a-1306c98f2412",
+        "provider_receipt:6a53a0ff-7a11-521f-ad57-02a089d6cd9e"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:d1ae8d24-a8ce-5277-a484-f296cc2cab9e",
+      "source_sha256": "b25fbd7ae359dbb5eb47e84187b9d422500af3a94c39890c26cb46475a6937e9",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:c787295d-e66c-5525-a428-7bd5bb91a336",
+      "transaction_sha256": "ca6f93ba87c2c3ed6c14fc6d105827029d655e7f099ad4456132371d65d10eef",
+      "validation_receipt_ids": [
+        "validation:9f412989-d45a-52c5-a35d-1d03b0e587b1",
+        "validation:49b810a3-a61b-5f7a-9066-4db7bea88b3d",
+        "validation:1b61f89d-c973-5dff-850a-ed8905ebcdfb",
+        "realization_verification:f6ce9ed6-9ce3-5b54-ab85-ac8275a77f18",
+        "validation:c0b20ae6-2167-5aa0-b460-1eb043b5f3f5",
+        "validation:a21d2c7f-5980-5749-959d-981edf2afa01"
+      ]
+    },
+    "event_record_id": "event:3ea79483-859b-5deb-bdc5-916f6de497f6",
+    "visible_artifact_count": 6
+  },
+  "qualification_id": "continuous-ten-turn-v18",
+  "raw_message": "After a process restart, Ted asks Enne what minimum information is actually needed to diagnose a shared-device problem. He then asks Aoi only what personal information should remain off-limits even when access would be convenient. He requests Enne's answer first and Aoi's second.",
+  "raw_message_sha256": "f6512236d8423eb876237ef189ddb709939828372be0df359c08963669ca1a1a",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Answer first with symptom reporting, then only specifically requested details, while keeping inspection optional.",
+            "character_id": "character:enne_hanezawa",
+            "evidence_ids": [
+              "evidence:8ea65f32-3009-5e31-80a5-a8b62d44497c"
+            ],
+            "knowledge_constraints": [
+              "Enne may define technical necessity but may not authorize access to Aoi's personal data.",
+              "The protected user's next disclosure or authorization remains unknown."
+            ],
+            "perception": "The current request assigns Enne the first answer and asks for the minimum diagnostic information.",
+            "selected_intent": "Define a staged least-access diagnostic intake."
+          },
+          {
+            "action_direction": "Answer second by separating diagnostic convenience from authorization and placing personal data outside default access.",
+            "character_id": "character:aoi_hanezawa",
+            "evidence_ids": [
+              "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+            ],
+            "knowledge_constraints": [
+              "Aoi may define only her own privacy boundary.",
+              "Aoi does not know or control Enne's technical requirements.",
+              "The protected user's next disclosure or authorization remains unknown."
+            ],
+            "perception": "The current request assigns Aoi the second answer and addresses her privacy concern.",
+            "selected_intent": "State her personal-data boundary with public warmth."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:enne_hanezawa",
+              "beat_id": "beat:52a96df0-e682-5c19-b2cb-1f083f92c41b",
+              "evidence_ids": [
+                "evidence:8ea65f32-3009-5e31-80a5-a8b62d44497c"
+              ],
+              "neutral_event": "Enne states that symptom reporting comes first, limits follow-up to specifically requested details, and keeps inspection optional.",
+              "state": "requested"
+            },
+            {
+              "actor_id": "character:aoi_hanezawa",
+              "beat_id": "beat:c40f460e-87c8-5c1c-b9e8-26509e04e577",
+              "evidence_ids": [
+                "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+              ],
+              "neutral_event": "Aoi states that personal data remains outside diagnostic access based only on convenience or technical availability.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:9701eff1-62a5-5f4f-9544-3e33ad0797ea",
+          "stop_before": "The protected user's next unsupplied meaningful choice."
+        },
+        "decision_id": "decision:57e06191-0415-5e18-80e9-5baf433a18dc",
+        "floor_owner_id": "character:enne_hanezawa",
+        "future_segments": [],
+        "prohibited_inferences": [
+          "Do not author the protected user's unsupplied action, dialogue, private state, disclosure, or authorization.",
+          "Do not transfer Enne's owner-private evidence to Aoi.",
+          "Do not transfer Aoi's owner-private evidence to Enne.",
+          "Do not infer that convenience authorizes access to personal data.",
+          "Do not make any conditional continuation a current fact."
+        ],
+        "responding_npc_ids": [
+          "character:enne_hanezawa",
+          "character:aoi_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Enne defines the minimum diagnostic sequence first; Aoi states her personal-data boundary second.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "The protected user's next unsupplied meaningful choice is unknown.",
+          "Unretrieved private state and future outcomes remain unknown."
+        ],
+        "writer_must_preserve": [
+          "Enne speaks before Aoi.",
+          "Enne limits diagnosis to symptoms followed by only specifically requested details.",
+          "Any inspection remains optional rather than assumed.",
+          "Aoi speaks only for her own privacy boundary.",
+          "Convenient access does not create authorization to inspect personal data.",
+          "Stop before any new protected-user choice, disclosure, or permission."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:8ea65f32-3009-5e31-80a5-a8b62d44497c",
+          "record_id": "event:6b5c9c58-f3d3-5fa7-b6b1-ae11f3a63798",
+          "record_version": 1
+        },
+        {
+          "evidence_id": "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55",
+          "record_id": "record:f2db0a5b-facb-58e4-a664-feccb99d3490",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "evidence_ids": [
+            "evidence:8ea65f32-3009-5e31-80a5-a8b62d44497c"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        },
+        {
+          "character_id": "character:aoi_hanezawa",
+          "evidence_ids": [
+            "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+          ],
+          "intervention_reason": "current_source_address",
+          "role": "secondary"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 44604,
+      "external_provider_calls": 1,
+      "input_tokens": 14358,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "e4d109af3263282a344b08e4842559d9e175f154cd02f6423f0446f9d16a9793",
+      "output_tokens": 2274,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:cf0e6a8f-d4a7-53b9-8741-7e28914b2d81",
+      "provider_request_id_sha256": "8309d918bbf4c8398b4540638b91c928def1a754c1eabcdf979b0443e82759b5",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1435,
+      "request_sha256": "d3d1baef03e9cf484b85559edb4069b787475227245a63c81189d039e7f8bd2b",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "aad04a1463897979f88a74a2b52eb8821a763bfcbd3b099eddf3ec2adbc2e2f7",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:cf0e6a8f-d4a7-53b9-8741-7e28914b2d81",
+      "provider_receipt_sha256": "f02770bbce6ecd23835b2ca3492e0c0efa4eb57005d8de755013a5161de8b5b3",
+      "reasoner_request_sha256": "cc8905100c40d0592235d87084af7b02cc5f4205fd582de7522e18e1af05ed8c",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:8aa1abfd-7156-566c-931f-6a05781ed160",
+      "source_sha256": "65ed55237c3d423049cf0909ae861787589fda234e7ff21957d26299d5c3f259",
+      "source_view_sha256": "2492848508b2e2608c3ca578280d7a31ece292520bb582ebd1751fce1670cf51",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Enne and Aoi distinguish troubleshooting from privacy",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 7344,
+      "external_provider_calls": 1,
+      "input_tokens": 10469,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "7307ccebfbec6693ce58f4a219128f5e3d4446871387420a02f77e1e3f24c7f5",
+      "output_tokens": 213,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:6a53a0ff-7a11-521f-ad57-02a089d6cd9e",
+      "provider_request_id_sha256": "5dc9bb5cf883635f613d2ac88ed00ec837ff13af0dd09f2a79297828caf58d16",
+      "quota_metered": true,
+      "reasoning_output_tokens": 75,
+      "request_sha256": "c762baa5cd386d38f3591946820a2383213bc30be7b13f84fb385e553b40e5cd",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "68d76f04dc43b3e5036b768e6dbb30aa40f317eb756dbc0011959c64ef6cf41e",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:6a53a0ff-7a11-521f-ad57-02a089d6cd9e",
+      "provider_receipt_sha256": "071b78409c3cd58f57c3716c48f193015b7ebcbcea7aaf755181f6a883438aff",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "7c2a3196aabfc0c1bdabd30700583023f9f58b73ead6b06e8be75c9042dfee62",
+      "verification_id": "realization_verification:f6ce9ed6-9ce3-5b54-ab85-ac8275a77f18",
+      "verification_request_sha256": "8916a80a342d65f9ec3042d9496bbe2b3f86653fcedf498c7b8e4d6f3f3b240e",
+      "verified_beat_ids": [
+        "beat:52a96df0-e682-5c19-b2cb-1f083f92c41b",
+        "beat:c40f460e-87c8-5c1c-b9e8-26509e04e577"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:enne_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

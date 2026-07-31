@@ -1,0 +1,33 @@
+{
+  "access_scope": "creator_local_qualification_review",
+  "authoritative_store_writes": 0,
+  "branch_id": "branch:offline-main",
+  "candidate_sha256": "f4040a07c0a91daf8accfef3cd28fcfa876930b7be00a9c2b800a845078f6a96",
+  "excerpts": [
+    {
+      "end": 277,
+      "excerpt": "Sakura regarded him through the gap of the door, taking in the single suitcase and the way he kept both hands visible. The request was procedural, which she could work with—procedure gave her something to hold onto. She didn't let the orderly phrasing soften her stance, but sh",
+      "excerpt_sha256": "0c2dd886e812021f22a3f36ce67a8174518d99585d8069a851ad92a7723a46cb",
+      "finding_code": "protected_user_unsupplied_realization",
+      "start": 0
+    }
+  ],
+  "finding_sha256s": [
+    "722ea1d38c2b104c245f0b4217848dc48b75c2367a28e3d64039ba73c9f8d4bc"
+  ],
+  "generation_id": "generation:877e3fca-d734-5b90-962e-8e0ded8425d7",
+  "qualification_only": true,
+  "request_id": "request:27efa18d-cfa5-546d-8224-32e9952777d2",
+  "retains_story_prose": true,
+  "retention_policy": "manual_delete_after_adjudication",
+  "review_id": "review_packet:1f31a538-ecb9-5b09-ac5b-33917fad1ffa",
+  "reviewer_status": "pending_creator_review",
+  "runtime_receipt_forbidden": true,
+  "schema_version": "cera.rejected_candidate_review_artifact.v1",
+  "status": "rejected",
+  "story_state_committed": false,
+  "verification_request_sha256": "c49f92abc683c8a47839996724d0ddbd8463f462c19ed323b0f4839530a8c1fe",
+  "violation_codes": [
+    "protected_user_unsupplied_realization"
+  ]
+}

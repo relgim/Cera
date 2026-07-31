@@ -1,0 +1,78 @@
+{
+  "attempted_cases": 5,
+  "automatic_retry_count": 0,
+  "cases": [
+    {
+      "automatic_retry_count": 0,
+      "case_id": "01_hana_indirect_memory",
+      "error_class": "RuntimeError",
+      "error_message": "live Reasoner did not retrieve and cite the required indirect memory",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana ordinary turn with indirect missed-calls memory"
+    },
+    {
+      "automatic_retry_count": 0,
+      "case_id": "02_mia_sakura_selected_cast",
+      "error_class": "RuntimeError",
+      "error_message": "selected realization context changed requested responders",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Mia and Sakura ordinary selected-cast turn"
+    },
+    {
+      "automatic_retry_count": 0,
+      "case_id": "03_hana_adult_on",
+      "error_class": "ReasonerExecutionFailure",
+      "error_message": "adult craft need does not exactly cover current beats",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana consent-valid Adult ON direct realization"
+    },
+    {
+      "automatic_retry_count": 0,
+      "case_id": "04_hana_adult_ex_climax",
+      "error_class": "ReasonerExecutionFailure",
+      "error_message": "Codex MCP evidence lookup failed",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana consent-valid Adult EX buildup and climax"
+    },
+    {
+      "automatic_retry_count": 0,
+      "case_id": "05_hana_adult_ex_toilet",
+      "error_class": "ReasonerExecutionFailure",
+      "error_message": "Codex MCP evidence lookup failed",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana consent-valid Adult EX toilet and material continuity"
+    }
+  ],
+  "duration_seconds": 300.329,
+  "failed_cases": 5,
+  "fallback_enabled": false,
+  "finished_at": "2026-07-29T05:41:56.255513+00:00",
+  "passed_cases": 0,
+  "preserved_existing_case_ids": [
+    "01_hana_indirect_memory",
+    "02_mia_sakura_selected_cast"
+  ],
+  "production_enabled": false,
+  "qualification_id": "five-run-live-v1",
+  "resumed_after_runner_stdout_interruption": true,
+  "schema_version": "cera.live_story_qualification_summary.v1",
+  "semantic_verifier_limitation": "Adult semantic specificity used the production-prohibited scripted fake; its empty finding set is not proof of semantic quality.",
+  "started_at": "2026-07-29T05:36:55.926150+00:00",
+  "story_authority_writes": 0,
+  "story_state_committed": false
+}

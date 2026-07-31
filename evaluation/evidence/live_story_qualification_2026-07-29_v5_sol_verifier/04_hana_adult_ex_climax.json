@@ -1,0 +1,37 @@
+{
+  "adult": true,
+  "adult_mode": "adult_ex",
+  "automatic_retry_count": 0,
+  "case_id": "04_hana_adult_ex_climax",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_ADULT_CRAFT_SELECTION_INCOMPLETE",
+    "generation_id": "generation:eef949de-b5fa-58f5-8371-da8ceea036aa",
+    "message": "adult craft selection failed: adult craft catalog cannot cover: lexicon:aftermath, lexicon:buildup, lexicon:material_continuity",
+    "request_id": "request:qualification-five-run-live-v5-sol-verifier-04_hana_adult_ex_climax",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "adult_craft_selection",
+    "story_state_committed": false,
+    "trace_id": "trace:8c85f042-6804-55f5-867c-35f62cac30d2"
+  },
+  "fallback_enabled": false,
+  "qualification_id": "five-run-live-v5-sol-verifier",
+  "safe_failure_evidence": {
+    "all_prior_stage_receipt_handles": [],
+    "lookup_receipts": [],
+    "mcp_bridge_receipt": null,
+    "provider_receipt": null,
+    "retains_prompt": false,
+    "retains_raw_provider_output": false,
+    "retains_secret": false,
+    "stage_failure_bundle": null
+  },
+  "schema_version": "cera.live_story_qualification_case.v3",
+  "source_sha256": "9b522d1cc7b35ffc89e63884d0e40177fdd71c4f074a935ca06fd0cf30e5f117",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Hana consent-valid Adult EX buildup and climax"
+}

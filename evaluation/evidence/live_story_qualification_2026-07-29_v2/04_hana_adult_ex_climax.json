@@ -1,0 +1,27 @@
+{
+  "adult": true,
+  "adult_mode": "adult_ex",
+  "automatic_retry_count": 0,
+  "case_id": "04_hana_adult_ex_climax",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_REASONER_CONTRACT_INVALID",
+    "generation_id": "generation:ffef9c9e-73b5-59c9-adf4-4ce0e6396d7d",
+    "message": "Codex reasoner output failed typed decoding: ReasonerOutcome.adult_craft_need does not match its union: ['non-character channel need cannot name a character']",
+    "request_id": "request:qualification-04_hana_adult_ex_climax",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "reasoner_validation",
+    "story_state_committed": false,
+    "trace_id": "trace:e140f594-a750-5a2a-a664-8252c0274a79"
+  },
+  "fallback_enabled": false,
+  "qualification_id": "five-run-live-v2",
+  "schema_version": "cera.live_story_qualification_case.v1",
+  "source_sha256": "9b522d1cc7b35ffc89e63884d0e40177fdd71c4f074a935ca06fd0cf30e5f117",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Hana consent-valid Adult EX buildup and climax"
+}

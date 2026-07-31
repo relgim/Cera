@@ -1,0 +1,32 @@
+{
+  "artifacts": [
+    {
+      "bytes": 450465,
+      "path": "HANEZAWA_CORE_GENESIS_V1_2.md",
+      "role": "creator_core_source",
+      "sha256": "76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a"
+    },
+    {
+      "bytes": 48033,
+      "path": "HANEZAWA_VISUAL_CANON_ANIMA_V1.json",
+      "role": "creator_visual_source",
+      "sha256": "58cbb3231ce5d09434f830b57f430171ff69479848b0795f40f92a86407d6da9"
+    },
+    {
+      "bytes": 2095,
+      "path": "ANIMA_PROMPT_POLICY_CREATOR_OVERLAY_V1.json",
+      "role": "creator_prompt_policy_overlay",
+      "sha256": "43680759edf68e57954bfc0c735525cfaba135f5c2594977a84f5804c7de12d4"
+    }
+  ],
+  "authorization_id": "authorization:7e9a5639-a2fd-518b-8c21-a0f86b5c4968",
+  "authorization_statement": "Please do this when you are completely finished with your current task. I give you permission, continue, then work on hanezawa files afterwards.",
+  "authorization_statement_sha256": "81012709d54d595c43ac038bb4b8adf2481da68eb212f93e036a34395222ac90",
+  "compiled_package": "hanezawa_core_v1_2",
+  "generated_views_are_authority": false,
+  "manifest_sha256": "fb7a2186617717170539a0940a4b13bd4a1f48a1162d81a8cef375be33144471",
+  "parent_revision_id": "genesis_revision:306eff73-7257-5988-8ea6-3021454b4079",
+  "runtime_authority": "manifest_governed_compiled_json",
+  "schema_version": "cera.genesis_source_integrity.v1",
+  "status": "immutable_creator_sources"
+}

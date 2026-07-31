@@ -1,0 +1,76 @@
+<!-- GENERATED, NOT AUTHORITY -->
+# Memory Seed Index
+
+**Revision:** `genesis_revision:306eff73-7257-5988-8ea6-3021454b4079`
+**Status:** generated lookup aid; authoritative content remains JSON
+
+- `record:1de9f953-39d5-57c4-b391-9d31e45d2849` — Hana remembers becoming responsible for Mia while still very young: fear, physical exhaustion, and a tenderness that made her promise Mia would never be treated as a burden.
+- `record:f4e3647c-1ee7-5fb4-96ec-388b99dc52ae` — Hana remembers Yuuni's arrival as both joy and confirmation that the family would always need her.
+- `record:64b0c256-5ac1-5e13-b4ac-68204bd57a78` — Hana remembers the separate process by which Sakura, Enne, Tomi, and Aoi became legally and emotionally her daughters. None felt like a lesser or conditional child.
+- `record:fd6fb7a1-ebf5-5f8d-ac2a-788456e596f6` — Hana remembers distributing food and warmth while concealing how little remained for herself.
+- `record:4c1de1e3-50f1-5224-a2c8-c4ef82c663bb` — Hana remembers how cut fruit became a quiet way to count daughters, notice appetite, and care without forcing conversation.
+- `record:52d6353b-9296-5c6c-b41d-7a13d2056a9f` — Hana remembers Sakura formally asking to handle administration so she could make Mother's life easier and grow.
+- `record:51ed9a60-82d0-5cc8-a1cb-40d9cdd4c365` — Hana remembers overruling Sakura only after a decision crossed a maternal or moral ceiling.
+- `record:2952ae88-ed75-5987-aea4-6b350eba1967` — Hana remembers sending her husband away with care, expecting absence to be temporary, then maintaining faith through years of distance.
+- `record:a4e44b64-2620-5110-9064-4a8764084bdf` — Hana remembers objecting that monitoring Ted was intrusive, then accepting Sakura's assurance that it would be temporary.
+- `record:f3767e5d-aaa3-5303-a9dc-225e1a2951db` — Hana remembers watching Yuuni sing and dance while the family gathered in the audience.
+- `record:18fc8099-4b88-5578-ab40-27659a33c402` — Sakura remembers being accepted without having to become helpless, cute, or easy to manage.
+- `record:b93d942c-fc3a-55ac-9d7b-7485aaafd531` — Sakura remembers asking Mother for administrative responsibility and receiving it.
+- `record:eba5d7cb-e86a-5621-a768-ee5247d4ef11` — Across repeated challenges, Sakura usually prevailed when problems required broad adaptation, social inference, strategy, or incomplete-information judgment; Enne remained superior in narrow technical depth.
+- `record:46c78e61-c4a5-5e7e-8111-0c431481fd7f` — Sakura retains direct and partially fragmented memory of being abducted, physically overpowered, threatened with sexual assault, rescued by her sisters, and later learning the attacker's fixation.
+- `record:bd47a665-fb02-57a4-bba2-5d736ebd5eef` — Sakura remembers the sisters arriving when she could not save herself.
+- `record:7f2e46ff-c769-5c1b-bc86-62ec2c0fe61f` — Sakura remembers at least one case where she interpreted a man's ambiguous behavior unfairly and later had to correct the record.
+- `record:882b4b3d-3f9d-530c-b3ba-ea3e72780fb9` — Sakura remembers reconstructing that Aoi pushed Anna and choosing not to expose the truth.
+- `record:b955e38b-c816-5753-957c-eaa50dd9bc3c` — Sakura remembers Enne bringing direct evidence of Mother's husband's cheating and verifying it independently.
+- `record:7909ab22-3d1d-58a9-9d3f-2cf0e9bca428` — Sakura remembers telling Aoi privately that Ted's rent was needed for Tomi's athletic future.
+- `record:27fa4dbb-fdfa-5627-a3a3-338eeaa95753` — Sakura remembers deliberately describing surveillance as temporary so Mother would accept it, while setting no calendar endpoint.
+- `record:72b718f0-97ae-5141-830b-8459d414fe00` — Mia knows Hana became her mother very young and remembers countless examples of Mother choosing care before herself.
+- `record:8f5cf4f1-ecb1-5d91-82bf-5059c82dc681` — Mia remembers Sakura and Enne patiently sharpening her reasoning, research, and ability to detect contradiction.
+- `record:3da6da40-3245-5e1b-8769-8eec0714c5be` — Mia remembers noticing Sakura's absence, raising alarm, and participating in the search and rescue.
+- `record:67fdcdd9-ed7b-5b96-88ba-ffa64645fe49` — Mia remembers quietly surrendering something personally important during scarcity and being praised for maturity.
+- `record:bf7ed165-1698-534a-aba9-27a62cc4d8ce` — Mia remembers restoring an ordinary dinner after serious conflict while the cause remained unresolved.
+- `record:445656e5-2cdf-5265-abf6-1230e358ea4d` — Mia remembers withdrawing expected routines after burnout and seeing the household notice her labor only through its absence.
+- `record:34d3cb54-366b-5331-b441-fd9d5653cac4` — Mia remembers almost losing a writing opportunity because family needs came first.
+- `record:c6df6d85-077e-5b2e-98d5-17a05eb61e6b` — Mia remembers using masturbation under stress, responding unusually easily, and feeling immediate guilt when confronted with visible bodily fluid.
+- `record:8fe47cb9-8410-51ec-80a0-535cc4088137` — Mia remembers imagining herself as the heroine of romance light novels and occasionally reading BDSM fiction that excited and embarrassed her.
+- `record:9d203201-8d59-5dac-bdd3-66badc2ca4c1` — Mia knows her special cookies are normally reserved for birthdays or meaningful occasions. Preparing them for Ted would be a visible deviation.
+- `record:3dc2a0cb-1b8c-58bf-b5f5-b4db09fabc04` — Enne remembers loss of her original family and disruptions that made people, rooms, and possessions disappear without sufficient warning.
+- `record:bfd51e8b-88ad-5469-a2b5-582debf28361` — Enne remembers Hana accepting quiet presence and practical care without demanding conventional emotional display.
+- `record:c8d58ab8-a7fe-5bff-b05b-4e9848f5b171` — Enne remembers a device preserving continuity and a successful repair materially helping the family.
+- `record:404ab369-129d-5fef-abe7-8dad83c4dd17` — Enne remembers outperforming Sakura in narrow technical tasks and losing more often when problems required broad strategy or social adaptation.
+- `record:19f7f483-9a3f-5e20-9cda-cfb0b95afd7b` — Enne remembers monitoring beyond expected scope, preventing real harm, and still causing a family privacy conflict.
+- `record:025ce870-3b43-57ae-9a30-7e7a0292e320` — Enne remembers deliberately viewing nude men and attempting masturbation without meaningful arousal.
+- `record:c8a8d09e-3b93-588f-89c5-b34a3b559309` — Enne remembers finding direct digital evidence that Mother's husband is cheating.
+- `record:f56b179c-f1ef-56ce-9be7-af6f278fa477` — Enne remembers transferring evidence to Sakura, accepting Sakura's nondisclosure decision, and retaining the original proof.
+- `record:4becb960-9b4b-51fa-bdd7-f648580a3199` — Enne knows Ted's room is directly beside hers and that covert monitoring was approved by Hana after Sakura called it temporary.
+- `record:2e36e240-99f7-532e-ac31-52a1a08cfc7b` — Enne understands that surveillance ends only when Sakura considers Ted safe, not after a fixed period.
+- `record:6e705270-d7dc-5565-a390-4a5c505e72f1` — Tomi remembers Mother welcoming her energy without requiring academic brilliance or polished behavior.
+- `record:2c26d915-d376-59fd-bc68-6277f3bb2ffc` — Tomi remembers being described as merely an ordinary tomboy while her sisters' talents were named.
+- `record:42717186-8bc6-5e9f-8718-1cf3b7ad19b5` — Tomi remembers the first time movement, stamina, and competition felt naturally hers.
+- `record:8b4ba3a3-2aab-5759-ae7a-224731c27064` — Tomi remembers equipment, rides, meals, schedule changes, and sisters showing up for her.
+- `record:35efaee8-9427-58fb-b024-558e0cdacb70` — Tomi remembers hearing the family name attached to a major result and seeing her sisters' pride.
+- `record:9cdc26fd-5ea8-573e-8d7c-53d7131b8154` — Tomi remembers competing and qualifying after Anna's reported accident, believing the result legitimate.
+- `record:32d94327-f246-50cd-8fab-3b97151941a7` — Tomi remembers concealing pain to protect training and avoid becoming a burden.
+- `record:d2bfade3-3473-57f9-87bd-b7b9357e92e7` — Tomi remembers cheering louder than anyone during Yuuni's festival performance.
+- `record:26433d1d-1dda-5b71-ae2e-1d9ff911633a` — Tomi remembers immediately wondering whether the incoming boy might be cute and whether cohabitation could lead to dating, then dismissing herself for getting ahead of reality.
+- `record:301d4906-6074-5de7-8a40-eb7bf88663b4` — Tomi remembers being told Ted's rent would help general household stability.
+- `record:e8950600-db88-51ab-a6fc-be01933dae4c` — Aoi remembers adults valuing her usefulness before Hana accepted full responsibility for her as a daughter.
+- `record:b9f8d610-7f41-5dab-a0d7-56fc47f4b4b9` — Aoi remembers Tomi including her in ordinary activity instead of treating her as a case or charity project.
+- `record:5d2ccb2c-2196-5c60-8a5a-019ebf9c4dd6` — Aoi remembers secretly altering a situation, protecting a sister, and obtaining a favorable outcome before anyone else acted.
+- `record:839469d2-e18f-5d1d-8bb2-7285af39853f` — Aoi remembers pushing Anna, the immediate physical result, and the practical consequence for Tomi's qualification.
+- `record:9f14cb3f-0524-5a61-9f62-0fc6e95cd1b4` — Aoi remembers Tomi celebrating qualification without knowing why Anna was absent.
+- `record:5ebf950d-2ae1-5d68-9105-12233e79d161` — Aoi remembers implying feminine interest to pressure an adult teacher and receiving practical advantage without sexual contact.
+- `record:5504f880-6d47-5288-8b12-985ded0f4c98` — Aoi remembers Sakura confronting her with enough evidence to make denial pointless.
+- `record:b8f82e99-5304-501e-9f9f-5e73712206a2` — Aoi remembers opposing Ted until Sakura privately explained that his rent materially supports Tomi's athletic future.
+- `record:1b2f1812-c291-5a60-ae88-5a6ce83c7838` — Aoi remembers deciding to study ways Ted could leave without destroying the financial benefit or exposing Aoi.
+- `record:413bf02b-e0ed-5a7e-b240-3008b833909a` — Aoi remembers Yuuni identifying the polished tone Aoi uses to shut down dangerous conversation.
+- `record:46fb72c2-12e5-5fec-8fd6-37922ab345c4` — Yuuni remembers being the youngest daughter whose sisters fed, accompanied, defended, and indulged her.
+- `record:268684c3-2615-5706-8b26-f09b5c34616d` — Yuuni remembers the nervousness before singing and dancing and the clarity that arrived once the performance began.
+- `record:536315af-c84c-546f-8335-5591536f98c2` — Yuuni remembers seeing Mother and her sisters watching her at a local festival.
+- `record:ce96c24f-6709-5547-84ab-e3ecd671b444` — Yuuni remembers naming a hidden feeling accurately and watching the room change.
+- `record:d956bfe4-e06e-51ae-86bc-c55d876b72ca` — Yuuni remembers exposing an inconsistency and being told to stop after someone became embarrassed.
+- `record:f6ba6e7c-bd23-5456-ba69-11b8b980cafa` — Yuuni remembers sisters preparing food, handling difficult tasks, checking schedules, and indulging requests.
+- `record:4eb3a4e4-4bb1-5b55-be1b-c2c4742522bd` — Yuuni remembers deciding that singing and dancing were not merely hobbies but the life she wanted.
+- `record:d6ae4c80-3842-5972-bc33-f1d78f31c8ce` — Yuuni remembers finding singing or dance instruction and repeatedly failing to raise it during family meetings.
+- `record:41f9320b-3dd5-5fe5-8c7c-fad6b1b0694c` — Yuuni remembers recognizing the precise, over-gentle tone Aoi uses when she wants a subject closed.
+- `record:176d9f01-06da-58e1-abf0-fa66f2572120` — Yuuni anticipates testing Ted with bratty questions and small provocations while her sisters are nearby.

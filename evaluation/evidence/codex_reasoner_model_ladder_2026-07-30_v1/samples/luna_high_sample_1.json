@@ -1,0 +1,29 @@
+{
+  "benchmark_id": "codex-reasoner-model-ladder-2026-07-30-v1",
+  "cache_position": "cold_observation",
+  "candidate": {
+    "effort": "high",
+    "key": "luna_high",
+    "model": "gpt-5.6-luna"
+  },
+  "failure": {
+    "error_code": null,
+    "external_provider_calls_observed": null,
+    "message": "'McpEvidenceBridgeReceipt' object has no attribute 'tool_call_count'",
+    "privacy_safe_receipt_payloads": [],
+    "realization_verification_receipt": null,
+    "safe_diagnostics": [],
+    "stage": "scene_reasoner",
+    "type": "AttributeError"
+  },
+  "finished_at": "2026-07-31T02:37:26.232548+00:00",
+  "reasoner_wall_seconds": 114.007,
+  "sample": 1,
+  "schema_version": "cera.codex_reasoner_model_ladder_sample.v1",
+  "source_sha256": "06f6249a64dc45b33a4dcb0d2ca15503a55a380eb887aa40e7549f37b2e63052",
+  "source_text": "Hello, Hanezawa residence?",
+  "started_at": "2026-07-31T02:35:32.222310+00:00",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false
+}

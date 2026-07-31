@@ -1,0 +1,29 @@
+{
+  "attempts_per_stage": 1,
+  "failed_turn": 2,
+  "failure_stage": "application_execution_or_acceptance",
+  "fallback_enabled": false,
+  "finished_at": "2026-07-29T19:04:04.226415+00:00",
+  "genesis_revision": "v1_2",
+  "qualification_id": "continuous-ten-turn-v11",
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-29T18:59:05.015736+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": [
+    {
+      "artifact_id": "artifact:8d933b95-7c76-5ffb-9f99-6b2ec6211eef",
+      "duration_seconds": 51.234,
+      "index": 1,
+      "key": "entry-routine-arrival",
+      "prose_sha256": "ed330cb8484949f3c87927a4d1f2c9c57e0d68872849c9d58e7500c54bb097e2",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "status": "passed"
+    }
+  ]
+}

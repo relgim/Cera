@@ -1,0 +1,490 @@
+{
+  "benchmark_id": "codex-reasoner-model-ladder-2026-07-30-v3",
+  "cache_position": "cold_observation",
+  "candidate": {
+    "effort": "xhigh",
+    "key": "terra_xhigh",
+    "model": "gpt-5.6-terra"
+  },
+  "failure": {
+    "error_code": null,
+    "external_provider_calls_observed": null,
+    "message": "DeepSeek did not return one complete candidate",
+    "privacy_safe_receipt_payloads": [
+      {
+        "evidence_id": "provider_receipt:9fa27118-31fe-510e-a68b-2b9d7e9823c5",
+        "evidence_kind": "scene_reasoner_receipt",
+        "evidence_sha256": "20a4f90451ec13a3347a27a6c6b1d1c0309b726f66f55e98ba8f5ba21172fb10",
+        "payload_json": "{\"adapter_evidence_id\":\"codex_reasoner_gpt-5.6-terra_xhigh\",\"adapter_evidence_sha256\":\"5d01dd8e42c143c28ba86af292df7406e4e3792f033563878b7bae4b77cbbf0a\",\"adapter_role\":\"codex_scene_reasoner\",\"adapter_version\":\"cera.codex_scene_reasoner.v23\",\"bridge_receipt_id\":\"mcp_bridge_receipt:03ee9c36-ee39-5f1f-a7c0-035071e9e050\",\"bridge_receipt_sha256\":\"e083613ef44dd2aa1ba993fb2c0b9232120243baac4cc0b21cd7237e7e26f49d\",\"cumulative_evidence_bytes\":0,\"evidence_lookup_receipt_ids\":[],\"external_provider_calls\":1,\"outcome_sha256\":\"b002892ea9289b38ec3fd92cfa0dba208cce1da5ef67ad3ed85e2b386c5ae317\",\"outcome_status\":\"decision_ready\",\"provider_receipt_id\":\"provider_receipt:9fa27118-31fe-510e-a68b-2b9d7e9823c5\",\"provider_receipt_sha256\":\"241fdd13e54bebc030edc2399a286d8ec18f070405eef311f4396a75324c8cd3\",\"reasoner_request_sha256\":\"2f01ca053781a450cca3cec0decbbcd1c44f047f3f5114323a2255ad0c185e59\",\"schema_version\":\"cera.scene_reasoner_receipt.v2\",\"snapshot_token\":\"snapshot:5ea75bb8-2d5c-590c-aada-d10473271dd7\",\"source_sha256\":\"98b2e37b8c372b3638c166aaed7da98709f94bb46027e40c0896c6becb4da182\",\"source_view_sha256\":\"d406fe7ed5d6ef3a4fd3814c651bab6fb9fcb02931d3fc1db2a1c57ab9e8dd9d\",\"tool_call_count\":0}",
+        "payload_sha256": "8cc77df2911131ab46b333293a0647e03371dac278b19a364cdf4872ea3daa49",
+        "receipt_schema_version": "cera.scene_reasoner_receipt.v2"
+      },
+      {
+        "evidence_id": "provider_receipt:9fa27118-31fe-510e-a68b-2b9d7e9823c5",
+        "evidence_kind": "reasoner_provider_call_receipt",
+        "evidence_sha256": "241fdd13e54bebc030edc2399a286d8ec18f070405eef311f4396a75324c8cd3",
+        "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":2816,\"cost_is_estimate\":false,\"cost_microusd\":0,\"duration_ms\":90600,\"external_provider_calls\":1,\"input_tokens\":20847,\"model_identity_source\":\"explicit_request\",\"model_identity_verified\":false,\"model_revision\":\"openai-resolver-2026-07-28\",\"output_sha256\":\"fc94786958cd24d5a6991dd647407ab4a3f51293522966e4d3bc62d74975c53b\",\"output_tokens\":4866,\"provider\":\"openai_codex\",\"provider_receipt_id\":\"provider_receipt:9fa27118-31fe-510e-a68b-2b9d7e9823c5\",\"provider_request_id_sha256\":\"4d118023c3d6b8691e776878b1cab9629610f2ba5cd0d21c47b01f36c7eb4688\",\"quota_metered\":true,\"reasoning_output_tokens\":3106,\"request_sha256\":\"4d9799ea5a1249ce8d97ac00c8092c99443efffddf36ead8dfc04d270d802cae\",\"requested_model\":\"gpt-5.6-terra\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"gpt-5.6-terra\",\"role\":\"scene_reasoner\",\"route_sha256\":\"5d01dd8e42c143c28ba86af292df7406e4e3792f033563878b7bae4b77cbbf0a\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":null}",
+        "payload_sha256": "fe2e8d6fc13f840e3bd46ac4b31a0fe4a7b03b6b6025c25d10cdd0918db27414",
+        "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+      },
+      {
+        "evidence_id": "mcp_bridge_receipt:03ee9c36-ee39-5f1f-a7c0-035071e9e050",
+        "evidence_kind": "mcp_bridge_receipt",
+        "evidence_sha256": "e083613ef44dd2aa1ba993fb2c0b9232120243baac4cc0b21cd7237e7e26f49d",
+        "payload_json": "{\"authoritative_store_writes\":0,\"bridge_binding_sha256\":\"e81437a3842fa587d1d70a187debdc86a5500263501c2bb7aa9fbbc002a7948d\",\"bridge_receipt_id\":\"mcp_bridge_receipt:03ee9c36-ee39-5f1f-a7c0-035071e9e050\",\"calls\":[],\"credential_retained\":false,\"cumulative_evidence_bytes\":0,\"enabled_tools\":[\"cera_get_turn_snapshot\",\"cera_resolve_entities\",\"cera_search_evidence\",\"cera_search_query_plan\",\"cera_fetch_evidence\",\"cera_get_character_sections\",\"cera_get_continuity\"],\"exact_evidence_ids\":[],\"private_evidence_retained\":false,\"provider_observed_tool_calls\":0,\"provider_receipt_id\":\"provider_receipt:9fa27118-31fe-510e-a68b-2b9d7e9823c5\",\"raw_source_retained\":false,\"reasoner_request_sha256\":\"2f01ca053781a450cca3cec0decbbcd1c44f047f3f5114323a2255ad0c185e59\",\"required\":true,\"schema_version\":\"cera.mcp_evidence_bridge_receipt.v2\",\"server_name\":\"cera_request_evidence\",\"snapshot_binding_sha256\":\"946192047ee36c1892440920f4a1777f7f5eafa44455107154fd5759df6a7032\",\"snapshot_token\":\"snapshot:5ea75bb8-2d5c-590c-aada-d10473271dd7\",\"story_prose_retained\":false,\"tool_contract_version\":\"cera.reasoner_evidence_mcp.v6\",\"transport\":\"loopback_streamable_http\"}",
+        "payload_sha256": "41214a7401e9ceede5759342d8c30b82373b71e72fdc949994fae1a659a9d505",
+        "receipt_schema_version": "cera.mcp_evidence_bridge_receipt.v2"
+      },
+      {
+        "evidence_id": "validation:07c5e85e-3349-5e05-b92b-5e71f069990c",
+        "evidence_kind": "composer_context_assembly_receipt",
+        "evidence_sha256": "069a03a8f8fc99bf57d14c9951ba273a431e80f3e95996891a6dba67d82bb076",
+        "payload_json": "{\"assembled_request_sha256\":\"5172c7af28a7b24dd639ac81fc27b09f8e392dcf4c33e0a3e5faaddce897af93\",\"assembly_receipt_id\":\"validation:07c5e85e-3349-5e05-b92b-5e71f069990c\",\"base_request_sha256\":\"ca1c5cfc408598bf4fc231b859f2e6bed2563a9ff86511a1d49fb5771b73b960\",\"cumulative_returned_bytes\":16611,\"external_provider_calls\":0,\"lookup_count\":2,\"lookup_receipt_ids\":[\"lookup_receipt:4d0202e7-0b6b-5eaf-8896-f113c50ab9e7\",\"lookup_receipt:d0c554dd-3d14-572e-86c5-190532957f01\"],\"realization_context_sha256\":\"5093220ea907258e5971d5e8bb54b1995c0f3aeb1d7efd84d0dc3f62309dd1e6\",\"schema_version\":\"cera.composer_context_assembly_receipt.v1\",\"selected_craft_reference_ids\":[],\"selected_evidence_ids\":[\"evidence:054c1a77-758c-5f0a-b0a5-8370f7cb6c41\",\"evidence:19dbf07c-a713-5029-9c87-0e16b0f26e5b\",\"evidence:6a02ec0e-5222-5694-9097-1aa026baba24\",\"evidence:1278b3d6-b9d3-5c81-8188-09493cf221ba\",\"evidence:c570bdac-9ada-5068-9eec-cf8c5bd894c3\"],\"snapshot_token\":\"snapshot:5ea75bb8-2d5c-590c-aada-d10473271dd7\",\"story_authority_writes\":0}",
+        "payload_sha256": "f9d4982fce3f2fea7e601b8d426df197fd330232b723d447e6df661b9b51aead",
+        "receipt_schema_version": "cera.composer_context_assembly_receipt.v1"
+      },
+      {
+        "evidence_id": "lookup_receipt:4d0202e7-0b6b-5eaf-8896-f113c50ab9e7",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "4b2890f1f36d5d5d3a9620f74557a83b6ca1eed515c2ec57a073752ad66fc49b",
+        "payload_json": "{\"authoritative_store_writes\":0,\"cumulative_snapshot_bytes\":10291,\"followup_search_count\":1,\"lookup_receipt_id\":\"lookup_receipt:4d0202e7-0b6b-5eaf-8896-f113c50ab9e7\",\"operation\":\"search_query_plan\",\"returned_bytes\":10291,\"returned_count\":8,\"schema_version\":\"cera.evidence_lookup_receipt.v1\",\"snapshot_token\":\"snapshot:5ea75bb8-2d5c-590c-aada-d10473271dd7\",\"truncated\":false,\"truncation_reason\":null}",
+        "payload_sha256": "098cfadea7c377b07324faff7dc896f643a8bb1ee0d442ba276e06a11616b989",
+        "receipt_schema_version": "cera.evidence_lookup_receipt.v1"
+      },
+      {
+        "evidence_id": "lookup_receipt:d0c554dd-3d14-572e-86c5-190532957f01",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "e090f58e1a4b898a0f4ab50ce284a9ce4e02d1aaec249810864fc7fe4b56830e",
+        "payload_json": "{\"authoritative_store_writes\":0,\"cumulative_snapshot_bytes\":16611,\"followup_search_count\":1,\"lookup_receipt_id\":\"lookup_receipt:d0c554dd-3d14-572e-86c5-190532957f01\",\"operation\":\"fetch_evidence\",\"returned_bytes\":6320,\"returned_count\":4,\"schema_version\":\"cera.evidence_lookup_receipt.v1\",\"snapshot_token\":\"snapshot:5ea75bb8-2d5c-590c-aada-d10473271dd7\",\"truncated\":false,\"truncation_reason\":null}",
+        "payload_sha256": "f85f869334f32f400d59df21b9a73bcc5bf9492cc7a532fc866200e1df8c68c6",
+        "receipt_schema_version": "cera.evidence_lookup_receipt.v1"
+      }
+    ],
+    "realization_verification_receipt": null,
+    "safe_diagnostics": [],
+    "stage": "scene_composer_or_context",
+    "type": "ComposerExecutionFailure"
+  },
+  "finished_at": "2026-07-31T03:11:32.461875+00:00",
+  "pipeline_wall_seconds": 7.97,
+  "reasoner": {
+    "cache_ratio": 0.1351,
+    "cached_input_tokens": 2816,
+    "duration_seconds": 90.6,
+    "estimated_cost_microusd": 0,
+    "input_tokens": 20847,
+    "mcp_bridge_receipt": {
+      "authoritative_store_writes": 0,
+      "bridge_binding_sha256": "e81437a3842fa587d1d70a187debdc86a5500263501c2bb7aa9fbbc002a7948d",
+      "bridge_receipt_id": "mcp_bridge_receipt:03ee9c36-ee39-5f1f-a7c0-035071e9e050",
+      "calls": [],
+      "credential_retained": false,
+      "cumulative_evidence_bytes": 0,
+      "enabled_tools": [
+        "cera_get_turn_snapshot",
+        "cera_resolve_entities",
+        "cera_search_evidence",
+        "cera_search_query_plan",
+        "cera_fetch_evidence",
+        "cera_get_character_sections",
+        "cera_get_continuity"
+      ],
+      "exact_evidence_ids": [],
+      "private_evidence_retained": false,
+      "provider_observed_tool_calls": 0,
+      "provider_receipt_id": "provider_receipt:9fa27118-31fe-510e-a68b-2b9d7e9823c5",
+      "raw_source_retained": false,
+      "reasoner_request_sha256": "2f01ca053781a450cca3cec0decbbcd1c44f047f3f5114323a2255ad0c185e59",
+      "required": true,
+      "schema_version": "cera.mcp_evidence_bridge_receipt.v2",
+      "server_name": "cera_request_evidence",
+      "snapshot_binding_sha256": "946192047ee36c1892440920f4a1777f7f5eafa44455107154fd5759df6a7032",
+      "snapshot_token": "snapshot:5ea75bb8-2d5c-590c-aada-d10473271dd7",
+      "story_prose_retained": false,
+      "tool_contract_version": "cera.reasoner_evidence_mcp.v6",
+      "transport": "loopback_streamable_http"
+    },
+    "metrics": {
+      "advisory_state_delta_count": 0,
+      "continue_beyond_prompt_endpoint": true,
+      "event_advance_count": 4,
+      "event_block_count": 2,
+      "floor_owner_id": "character:sakura_hanezawa",
+      "future_segment_count": 1,
+      "hard_citation_count": 2,
+      "responding_npc_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "runway_class": "developed",
+      "sequence_beat_count": 2,
+      "status": "decision_ready",
+      "tool_call_count": 0
+    },
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "behavioral_scene_plan": {
+        "claim_ledger": {
+          "claims": [
+            {
+              "affected_character_ids": [
+                "character:ted"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:96fbaf1a-c90f-5f76-b569-51bdc4a23713",
+              "end": 26,
+              "exact_text_sha256": "06f6249a64dc45b33a4dcb0d2ca15503a55a380eb887aa40e7549f37b2e63052",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted initiates contact with a greeting directed to the Hanezawa residence.",
+              "rationale": "Adjustment mode preserves the supplied dialogue meaning and order. The greeting is used only as the visible initiating cue for Sakura's response and does not authorize any claim about Ted's private state or later action.",
+              "source_unit_id": "source_unit:8f88bdbf-611a-5d97-bfaf-d9fc51ad3f29",
+              "start": 0
+            }
+          ],
+          "controls_sha256": "b22fc97f55e2179161a099f1b7059fd0fb8c855f314e5cb7691813c620a8f389",
+          "prohibited_inferences": [
+            "Ted is confirmed to be the expected resident.",
+            "Ted crosses a threshold or accepts any invitation.",
+            "Sakura knows or acts on another household member's private relationship evidence.",
+            "Any other household member is at the arrival contact point.",
+            "Ted has a private motive, feeling, or intended next action."
+          ],
+          "schema_version": "cera.source_claim_ledger.v1",
+          "source_sha256": "98b2e37b8c372b3638c166aaed7da98709f94bb46027e40c0896c6becb4da182",
+          "unresolved_questions": [
+            "Ted's identity and arrival purpose remain unconfirmed.",
+            "The exact physical configuration of the arrival contact is unknown.",
+            "Whether any other household member is near the contact point is unknown."
+          ]
+        },
+        "development_atoms": [],
+        "event_blocks": [
+          {
+            "actor_ids": [
+              "character:sakura_hanezawa"
+            ],
+            "block_id": "scene_block:2109f330-ce20-51a4-aa9b-194fe0c20551",
+            "causal_basis": "Ted's source-authorized greeting initiates the expected arrival contact; Sakura's own guarded, controlled, administratively prepared stance supports her taking the formal reception role without presuming his identity.",
+            "event_advances": [
+              "Sakura gives a concise, controlled initial response from the arrival contact point.",
+              "Sakura keeps the exchange formal rather than treating the greeting as sufficient confirmation."
+            ],
+            "evidence_ids": [
+              "evidence:054c1a77-758c-5f0a-b0a5-8370f7cb6c41",
+              "evidence:19dbf07c-a713-5029-9c87-0e16b0f26e5b"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [
+                "exact_supplied_dialogue"
+              ],
+              "explanation": "Sakura may respond to the already-supplied greeting as the initiating cue, but the realization must not restate or narrate Ted's words.",
+              "source_claim_ids": [
+                "source_claim:96fbaf1a-c90f-5f76-b569-51bdc4a23713"
+              ]
+            },
+            "purpose": "Establish Sakura as the current formal receiver while preserving uncertainty about the visitor.",
+            "resulting_state": "The arrival contact is acknowledged, but no identity, permission, movement, or household decision has been established.",
+            "source_claim_ids": [
+              "source_claim:96fbaf1a-c90f-5f76-b569-51bdc4a23713"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Let Sakura's guarded administrative readiness govern the reception.",
+                "Her formality should preserve verification rather than imply hostility or acceptance."
+              ],
+              "open_realization_space": [
+                "Choose concise Sakura-appropriate wording without copying supplied user dialogue.",
+                "Do not prescribe exact gestures, pacing, or imagery."
+              ],
+              "physical_and_material_continuity": [
+                "Maintain an unspecified arrival contact point.",
+                "Do not assume that a door opens, that anyone crosses a threshold, or that another household member is present there."
+              ],
+              "scaffold_id": "writer_scaffold:91033422-f391-5e04-9577-e5ae27b554f9",
+              "transition_obligations": [
+                "Move from acknowledgement into a materially distinct verification tactic.",
+                "Keep all arrival facts beyond the supplied cue unresolved."
+              ],
+              "viewpoint_character_ids": [
+                "character:sakura_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Use Sakura's controlled, concise public manner.",
+                "Keep any interiority selective and limited to her own immediate appraisal."
+              ]
+            }
+          },
+          {
+            "actor_ids": [
+              "character:sakura_hanezawa"
+            ],
+            "block_id": "scene_block:aa12cda7-c734-571e-a96f-d7a64adc7fd7",
+            "causal_basis": "The greeting alone does not establish who is present or what they seek; Sakura's own suspicious, administratively prepared relationship stance supports requesting confirmation before any further reception action.",
+            "event_advances": [
+              "Sakura asks for identifying or arrival-purpose information.",
+              "Sakura holds the formal process at that checkpoint rather than advancing it unilaterally."
+            ],
+            "evidence_ids": [
+              "evidence:054c1a77-758c-5f0a-b0a5-8370f7cb6c41",
+              "evidence:19dbf07c-a713-5029-9c87-0e16b0f26e5b"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [],
+              "explanation": "No new protected-user action, dialogue, thought, motive, or decision may be realized in this block.",
+              "source_claim_ids": []
+            },
+            "purpose": "Create the necessary protected-user clarification boundary without inventing its answer.",
+            "resulting_state": "Sakura retains formal control of the arrival contact; further reception depends on Ted's unsupplied clarification.",
+            "source_claim_ids": [],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Frame the request as Sakura's verification tactic, not as proof that Ted is unwelcome.",
+                "Do not assign Sakura any private feeling supplied by the user. "
+              ],
+              "open_realization_space": [
+                "Choose the exact form of the request without prewriting dialogue.",
+                "Keep the checkpoint proportionate to a first arrival contact."
+              ],
+              "physical_and_material_continuity": [
+                "Preserve the unresolved contact configuration from the previous block.",
+                "Do not add admission, shared movement, or a changed household arrangement."
+              ],
+              "scaffold_id": "writer_scaffold:f54736ce-87d8-5e18-b0eb-d6e157b51bf7",
+              "transition_obligations": [
+                "End after the request and its immediate formal hold.",
+                "Reserve all consequences of a confirmation for a conditional later segment."
+              ],
+              "viewpoint_character_ids": [
+                "character:sakura_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Keep Sakura's voice precise and self-possessed.",
+                "Do not require extended private reflection."
+              ]
+            }
+          }
+        ],
+        "interaction_topology": "single_npc_floor",
+        "interiority_level": "low",
+        "omitted_character_ids": [
+          "character:hana_hanezawa",
+          "character:mia_hanezawa",
+          "character:enne_hanezawa",
+          "character:tomi_hanezawa",
+          "character:aoi_hanezawa",
+          "character:yuuni_hanezawa"
+        ],
+        "runway": {
+          "continue_beyond_prompt_endpoint": true,
+          "development_obligations": [
+            "Sakura gives an initial controlled reception response.",
+            "Sakura shifts to a distinct identification-or-purpose checkpoint.",
+            "The scene pauses at Ted's first unsupplied clarification."
+          ],
+          "runway_class": "developed",
+          "stop_condition": "Stop after Sakura's formal checkpoint, before any identity confirmation, entry, or other meaningful response from Ted is supplied.",
+          "stop_reason": "meaningful_user_decision"
+        },
+        "scene_function": "ordinary_social",
+        "schema_version": "cera.behavioral_scene_plan.v2",
+        "selected_character_ids": [
+          "character:sakura_hanezawa"
+        ],
+        "tone": "tense"
+      },
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Answer the greeting with controlled formality, then request identifying or arrival information before advancing the reception.",
+            "character_id": "character:sakura_hanezawa",
+            "evidence_ids": [
+              "evidence:054c1a77-758c-5f0a-b0a5-8370f7cb6c41",
+              "evidence:19dbf07c-a713-5029-9c87-0e16b0f26e5b"
+            ],
+            "knowledge_constraints": [
+              "Use Sakura's own relationship stance and core characterization only.",
+              "Do not assume Ted's identity, motive, next response, or entry.",
+              "Do not use other household members' owner-private evidence."
+            ],
+            "perception": "An expected but personally unverified arrival is making initial contact.",
+            "selected_intent": "Maintain formal control while obtaining the information needed to continue the arrival."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:sakura_hanezawa",
+              "beat_id": "beat:453acfba-2f12-565f-9b68-bef0157b8d08",
+              "evidence_ids": [
+                "evidence:054c1a77-758c-5f0a-b0a5-8370f7cb6c41",
+                "evidence:19dbf07c-a713-5029-9c87-0e16b0f26e5b"
+              ],
+              "neutral_event": "Establish Sakura as the current formal receiver while preserving uncertainty about the visitor.",
+              "state": "ongoing"
+            },
+            {
+              "actor_id": "character:sakura_hanezawa",
+              "beat_id": "beat:90ebe880-38ac-5797-81d1-12c2d94f37e1",
+              "evidence_ids": [
+                "evidence:054c1a77-758c-5f0a-b0a5-8370f7cb6c41",
+                "evidence:19dbf07c-a713-5029-9c87-0e16b0f26e5b"
+              ],
+              "neutral_event": "Create the necessary protected-user clarification boundary without inventing its answer.",
+              "state": "ongoing"
+            }
+          ],
+          "segment_id": "segment:d2c5dae1-4d0a-5225-b556-84183b4ba9cb",
+          "stop_before": "Stop after Sakura's formal checkpoint, before any identity confirmation, entry, or other meaningful response from Ted is supplied."
+        },
+        "decision_id": "decision:cf62f3f9-a897-5fcd-98b0-ebf34b58131f",
+        "floor_owner_id": "character:sakura_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "Ted independently supplies identity or arrival-purpose clarification."
+            ],
+            "invalidation_conditions": [
+              "The clarification does not support treating the visitor as the expected resident.",
+              "A new authoritative source changes the arrival context."
+            ],
+            "open_user_choice": "Whether Ted confirms identity, clarifies purpose, or provides different arrival information.",
+            "possible_consequences": [
+              "Sakura may continue or decline to continue the formal arrival process based on the supplied information.",
+              "Any need for Hana's final household authority can be assessed only after the clarification."
+            ],
+            "segment_id": "segment:ee96acde-9031-597f-9400-ecb27ba87e28",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Ted is confirmed to be the expected resident.",
+          "Ted crosses a threshold or accepts any invitation.",
+          "Sakura knows or acts on another household member's private relationship evidence.",
+          "Any other household member is at the arrival contact point.",
+          "Ted has a private motive, feeling, or intended next action."
+        ],
+        "responding_npc_ids": [
+          "character:sakura_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Sakura converts the initial greeting into a guarded formal identification checkpoint.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "Ted's identity and arrival purpose remain unconfirmed.",
+          "The exact physical configuration of the arrival contact is unknown.",
+          "Whether any other household member is near the contact point is unknown."
+        ],
+        "writer_must_preserve": [
+          "Do not restate or directly narrate Ted's supplied greeting; leave his next response and private state unsupplied.",
+          "Do not add Hana or another household member without a causally justified transition.",
+          "Do not imply admission, entry, consent, or a household decision before Sakura receives further information."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:054c1a77-758c-5f0a-b0a5-8370f7cb6c41",
+          "record_id": "record:9a974cfe-e5fb-547c-b511-f3b995fe6bf6",
+          "record_version": 2
+        },
+        {
+          "evidence_id": "evidence:19dbf07c-a713-5029-9c87-0e16b0f26e5b",
+          "record_id": "record:6c9fa59e-c6cc-51b9-a395-383d97610dee",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:sakura_hanezawa",
+          "evidence_ids": [
+            "evidence:054c1a77-758c-5f0a-b0a5-8370f7cb6c41",
+            "evidence:19dbf07c-a713-5029-9c87-0e16b0f26e5b"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [
+        {
+          "end": 26,
+          "exact_text_sha256": "06f6249a64dc45b33a4dcb0d2ca15503a55a380eb887aa40e7549f37b2e63052",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:8f88bdbf-611a-5d97-bfaf-d9fc51ad3f29",
+          "start": 0
+        }
+      ],
+      "schema_version": "cera.reasoner_outcome.v6",
+      "status": "decision_ready"
+    },
+    "output_tokens": 4866,
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 2816,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 90600,
+      "external_provider_calls": 1,
+      "input_tokens": 20847,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "fc94786958cd24d5a6991dd647407ab4a3f51293522966e4d3bc62d74975c53b",
+      "output_tokens": 4866,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:9fa27118-31fe-510e-a68b-2b9d7e9823c5",
+      "provider_request_id_sha256": "4d118023c3d6b8691e776878b1cab9629610f2ba5cd0d21c47b01f36c7eb4688",
+      "quota_metered": true,
+      "reasoning_output_tokens": 3106,
+      "request_sha256": "4d9799ea5a1249ce8d97ac00c8092c99443efffddf36ead8dfc04d270d802cae",
+      "requested_model": "gpt-5.6-terra",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-terra",
+      "role": "scene_reasoner",
+      "route_sha256": "5d01dd8e42c143c28ba86af292df7406e4e3792f033563878b7bae4b77cbbf0a",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "quota_metered": true,
+    "reasoner_receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-terra_xhigh",
+      "adapter_evidence_sha256": "5d01dd8e42c143c28ba86af292df7406e4e3792f033563878b7bae4b77cbbf0a",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v23",
+      "bridge_receipt_id": "mcp_bridge_receipt:03ee9c36-ee39-5f1f-a7c0-035071e9e050",
+      "bridge_receipt_sha256": "e083613ef44dd2aa1ba993fb2c0b9232120243baac4cc0b21cd7237e7e26f49d",
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "b002892ea9289b38ec3fd92cfa0dba208cce1da5ef67ad3ed85e2b386c5ae317",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:9fa27118-31fe-510e-a68b-2b9d7e9823c5",
+      "provider_receipt_sha256": "241fdd13e54bebc030edc2399a286d8ec18f070405eef311f4396a75324c8cd3",
+      "reasoner_request_sha256": "2f01ca053781a450cca3cec0decbbcd1c44f047f3f5114323a2255ad0c185e59",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:5ea75bb8-2d5c-590c-aada-d10473271dd7",
+      "source_sha256": "98b2e37b8c372b3638c166aaed7da98709f94bb46027e40c0896c6becb4da182",
+      "source_view_sha256": "d406fe7ed5d6ef3a4fd3814c651bab6fb9fcb02931d3fc1db2a1c57ab9e8dd9d",
+      "tool_call_count": 0
+    },
+    "reasoning_output_tokens": 3106,
+    "uncached_input_tokens": 18031
+  },
+  "reasoner_wall_seconds": 92.838,
+  "sample": 1,
+  "schema_version": "cera.codex_reasoner_model_ladder_sample.v1",
+  "source_sha256": "06f6249a64dc45b33a4dcb0d2ca15503a55a380eb887aa40e7549f37b2e63052",
+  "source_text": "Hello, Hanezawa residence?",
+  "started_at": "2026-07-31T03:09:51.642953+00:00",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "total_wall_seconds": 100.808
+}

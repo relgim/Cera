@@ -1,0 +1,61 @@
+{
+  "attempts_per_stage": 1,
+  "failed_turn": 3,
+  "failure_stage": "application_execution_or_acceptance",
+  "fallback_enabled": false,
+  "finished_at": "2026-07-29T22:46:24.362667+00:00",
+  "genesis_revision": "v1_2",
+  "persistent_codex_transport": {
+    "qualification_id": "persistent-codex-transport-probe-v1",
+    "reasoner_calls": 2,
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_qualification_evidence.v1",
+    "summary_sha256": "f92a08e5cda04c701c74b3d1ddd98fe1abc0da733959f56545c0eb43cd07f5f3",
+    "verifier_calls": 2
+  },
+  "persistent_transport_sessions": {
+    "scene_realization_verifier": {
+      "process_launch_count": 1,
+      "request_submission_count": 3
+    },
+    "scene_reasoner": {
+      "process_launch_count": 1,
+      "request_submission_count": 3
+    }
+  },
+  "qualification_id": "continuous-ten-turn-v13",
+  "reasoner_transport_policy": "persistent_no_mcp_except_request_bound_mcp_one_shot",
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-29T22:40:36.550951+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": [
+    {
+      "artifact_id": "artifact:8c0fcb18-4a59-5404-acb2-f97030e36c3e",
+      "duration_seconds": 48.738,
+      "index": 1,
+      "key": "doorway-housewarming-boundary",
+      "prose_sha256": "35b0aa324d8ad6c29acda4f32141a1b8221ded8865e266a48ba652ca8a49f42b",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:738d27d3-4c2e-5d86-a5fb-0f7a720f78f8",
+      "duration_seconds": 74.068,
+      "index": 2,
+      "key": "mia-kitchen-arrival",
+      "prose_sha256": "937b3dfd4fbdc4b863b654949f809aeae83079cf146e0598b8a6b98fd41e92fa",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:mia_hanezawa"
+      ],
+      "status": "passed"
+    }
+  ],
+  "verifier_transport_policy": "persistent_no_mcp"
+}

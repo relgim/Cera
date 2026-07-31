@@ -1,0 +1,31 @@
+{
+  "artifacts": [
+    {
+      "bytes": 374437,
+      "path": "HANEZAWA_CORE_GENESIS_V1_1.md",
+      "role": "creator_core_source",
+      "sha256": "edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053"
+    },
+    {
+      "bytes": 48033,
+      "path": "HANEZAWA_VISUAL_CANON_ANIMA_V1.json",
+      "role": "creator_visual_source",
+      "sha256": "58cbb3231ce5d09434f830b57f430171ff69479848b0795f40f92a86407d6da9"
+    },
+    {
+      "bytes": 2095,
+      "path": "ANIMA_PROMPT_POLICY_CREATOR_OVERLAY_V1.json",
+      "role": "creator_prompt_policy_overlay",
+      "sha256": "43680759edf68e57954bfc0c735525cfaba135f5c2594977a84f5804c7de12d4"
+    }
+  ],
+  "authorization_id": "authorization:52906c73-b6a5-562c-a912-8c359d20f6b1",
+  "authorization_statement": "I authorize Codex to install the attached V1.1 core Genesis and visual-canon JSON in D:\\AIChatBot\\Cera, verify their hashes, preserve them as immutable creator source artifacts, compile the core material into CERA’s typed authoritative JSON Genesis records, generate derived indexes/views, and run the complete Genesis validation suite. Do not activate live providers, Adult EX, SillyTavern, deployment, or production story data.",
+  "authorization_statement_sha256": "ecdd18a94abb3a394846132bdec3fc0ddcd8f2d41d863a9ce273099a97e03eeb",
+  "compiled_package": "package",
+  "generated_views_are_authority": false,
+  "manifest_sha256": "99e070eb66e926fc38a53102db1fd1915ae06d672157d2672de9f83b9907c6dc",
+  "runtime_authority": "manifest_governed_compiled_json",
+  "schema_version": "cera.genesis_source_integrity.v1",
+  "status": "immutable_creator_sources"
+}

@@ -1,0 +1,457 @@
+{
+  "aggregate": {
+    "continued_thread": {
+      "cached_input_tokens": 71168,
+      "completed_turns": 3,
+      "duration_seconds": 485.969,
+      "input_tokens": 145771,
+      "output_tokens": 39780,
+      "provider_calls": 3,
+      "reasoning_output_tokens": 32938,
+      "status": "passed",
+      "thread_start_count": 1,
+      "uncached_input_tokens": 74603,
+      "wall_seconds": 499.992
+    }
+  },
+  "benchmark_id": "codex-branch-session-ab-2026-07-30-v1",
+  "depth": "long",
+  "effort": "max",
+  "fallback_count": 0,
+  "finished_at": "2026-07-31T06:24:19.082502+00:00",
+  "maximum_output_tokens": 131072,
+  "messages": [
+    "Hello, my name is Ted. Is this the hanezawa household?",
+    "Respond accordingly to Sakuras Response.",
+    "Respond accordingly to Sakuras Response."
+  ],
+  "model": "gpt-5.6-luna",
+  "policies": [
+    {
+      "description": "one warm Codex process; one new ephemeral thread continued for all turns",
+      "key": "continued_thread",
+      "reuse_thread": true
+    }
+  ],
+  "production_route_changed": false,
+  "provider_stages": [
+    {
+      "dispatch_started": true,
+      "effort": "max",
+      "maximum_output_tokens": 131072,
+      "model": "gpt-5.6-luna",
+      "policy": "continued_thread",
+      "provider": "openai_codex",
+      "service_tier": "priority",
+      "turn": 1
+    },
+    {
+      "dispatch_started": true,
+      "effort": "max",
+      "maximum_output_tokens": 131072,
+      "model": "gpt-5.6-luna",
+      "policy": "continued_thread",
+      "provider": "openai_codex",
+      "service_tier": "priority",
+      "turn": 2
+    },
+    {
+      "dispatch_started": true,
+      "effort": "max",
+      "maximum_output_tokens": 131072,
+      "model": "gpt-5.6-luna",
+      "policy": "continued_thread",
+      "provider": "openai_codex",
+      "service_tier": "priority",
+      "turn": 3
+    }
+  ],
+  "retry_count": 0,
+  "runs": [
+    {
+      "database_validation": {
+        "artifact_count": 0,
+        "foreign_key_findings": 0,
+        "integrity_check": [
+          "ok"
+        ]
+      },
+      "fallback_count": 0,
+      "finished_at": "2026-07-31T06:24:19.043922+00:00",
+      "policy": {
+        "description": "one warm Codex process; one new ephemeral thread continued for all turns",
+        "key": "continued_thread",
+        "reuse_thread": true
+      },
+      "provider_calls": 3,
+      "retry_count": 0,
+      "schema_version": "cera.codex_branch_session_ab_run.v1",
+      "started_at": "2026-07-31T06:15:56.753172+00:00",
+      "status": "passed",
+      "story_state_committed": false,
+      "thread_start_count": 1,
+      "turns": [
+        {
+          "cached_input_tokens": 0,
+          "dispatch_started": true,
+          "duration_seconds": 260.829,
+          "index": 1,
+          "input_tokens": 20981,
+          "message": "Hello, my name is Ted. Is this the hanezawa household?",
+          "message_sha256": "4c604bafb104b6bab77982934f5b3b682f50dece7e86dee80669d284ff1366c8",
+          "outcome": {
+            "event_blocks": [
+              {
+                "causal_basis": "The supplied greeting asks for household identification; the scene assigns Sakura the formal arrival, and her exact relationship and core evidence support a guarded, controlled answer.",
+                "event_advances": [
+                  "Sakura directly answers whether this is the Hanezawa household.",
+                  "She acknowledges the supplied name as the expected resident without adding unsupported biography or intimacy.",
+                  "She keeps the first exchange formal and bounded."
+                ],
+                "purpose": "Provide the first direct NPC answer and establish Sakura as the formal-arrival lead.",
+                "resulting_state": "The household question has an NPC answer, Sakura controls the formal exchange, and no new Ted action or decision has been authored."
+              },
+              {
+                "causal_basis": "Once the direct question is answered, Sakura's guarded and administratively controlled stance supports a concise handoff; the scene gives Hana final household authority.",
+                "event_advances": [
+                  "Sakura keeps the formal intake bounded instead of launching an unsupported interview.",
+                  "She calls Hana to join and take the household-level welcome."
+                ],
+                "purpose": "Move from Sakura's first answer to a causally justified household-authority handoff.",
+                "resulting_state": "Sakura's response phase is complete, Hana has a causal reason to join, and no protected-user movement, answer, or commitment has been added."
+              },
+              {
+                "causal_basis": "Sakura's summons is the causal transition; Hana is the final household authority, and her exact relationship and core evidence support genuine hospitality with mild caution.",
+                "event_advances": [
+                  "Hana joins the exchange after Sakura's summons, with no uncaused additional household entrant.",
+                  "She gives a measured welcome to the expected paying resident without assuming familiarity or a private reaction.",
+                  "She frames the next practical arrival step as a bounded invitation or question, leaving acceptance, entry, and any further answer to Ted."
+                ],
+                "purpose": "Complete the NPC-controlled first-contact chain at the first user handoff.",
+                "resulting_state": "The first-contact sequence has moved from formal verification to household welcome; the next meaningful progression depends on Ted, so the plan stops before his response or movement."
+              }
+            ],
+            "floor_owner_id": "character:sakura_hanezawa",
+            "future_segments": [
+              {
+                "activation_conditions": [
+                  "Ted supplies a new answer or chooses a next arrival action after Hana's handoff."
+                ],
+                "invalidation_conditions": [
+                  "The branch ends or the arrival premise is superseded before that handoff.",
+                  "The next cue introduces a different scene objective before Ted responds."
+                ],
+                "open_user_choice": "Ted's next answer, movement, or decision about whether and how to proceed.",
+                "possible_consequences": [
+                  "Hana responds to Ted's chosen next step without preselecting it now.",
+                  "Sakura provides bounded procedural clarification only if the next cue establishes a need and exact evidence supports the detail.",
+                  "Additional household members remain omitted unless a later cue gives them a causal role."
+                ],
+                "segment_id": "segment:78a80cc8-8fb6-5f9f-80a9-53f86dee4462",
+                "status": "conditional_plan_only"
+              }
+            ],
+            "hard_citation_count": 4,
+            "insufficiencies": [],
+            "responding_npc_ids": [
+              "character:sakura_hanezawa",
+              "character:hana_hanezawa"
+            ],
+            "runway": {
+              "continue_beyond_prompt_endpoint": true,
+              "development_obligations": [
+                "Answer the direct user greeting with Sakura's controlled formal response.",
+                "Advance from that answer to a purposeful Sakura-to-Hana summons.",
+                "Give Hana a causally entered, genuine but measured household welcome and a bounded next-step handoff.",
+                "Stop before Ted's next unsupplied answer, entry, or other meaningful choice."
+              ],
+              "runway_class": "domino",
+              "stop_condition": "After Hana completes the welcome and frames the next practical step, before Ted supplies another reply, accepts entry, moves, or chooses a different direction.",
+              "stop_reason": "meaningful_user_decision"
+            },
+            "scene_intent": "Handle the first household contact as a controlled formal arrival: Sakura answers and bounds the exchange, then Hana assumes the household welcome and presents the next step without authoring Ted's response.",
+            "status": "decision_ready"
+          },
+          "output_tokens": 21514,
+          "packet_bytes": 21754,
+          "packet_sha256": "15c9de3175f05347067fa266e816f0cbeb075ba48c4dd147ce3b483e75c56871",
+          "prompt_bytes": 38109,
+          "prompt_sha256": "3d892263b093751120c3daf142c2c3b4b98557a65a9087065a422ca443a7c4f2",
+          "provider_receipt": {
+            "automatic_retry_count": 0,
+            "cached_input_tokens": 0,
+            "cost_is_estimate": false,
+            "cost_microusd": 0,
+            "duration_ms": 260829,
+            "external_provider_calls": 1,
+            "input_tokens": 20981,
+            "model_identity_source": "explicit_request",
+            "model_identity_verified": false,
+            "model_revision": "openai-resolver-2026-07-28",
+            "output_sha256": "e324ab11a0775e32a8f7c8728c88fcb91c6908ef8320bf45042d4c9ccc2563a8",
+            "output_tokens": 21514,
+            "provider": "openai_codex",
+            "provider_receipt_id": "provider_receipt:fc0a5603-bd37-56f2-b2c6-5a27284b5d6c",
+            "provider_request_id_sha256": "c8d5355518725e4180c7794194795b66400515e7dca8a8b778e0d0cb8a30e696",
+            "quota_metered": true,
+            "reasoning_output_tokens": 18646,
+            "request_sha256": "811bd996f51bf5e12d4fa0aa6f49b8da9968e16dc08f869290052fc0d35e1223",
+            "requested_model": "gpt-5.6-luna",
+            "retains_private_evidence": false,
+            "retains_prompt": false,
+            "retains_raw_source": false,
+            "retains_secret": false,
+            "retains_story_prose": false,
+            "returned_model": "gpt-5.6-luna",
+            "role": "scene_reasoner",
+            "route_sha256": "0b8acec1f0a8d7b504736233ae0b82ab1df2f7b342f768e66259581b6b63513e",
+            "schema_version": "cera.live_provider_call_receipt.v2",
+            "story_authority_writes": 0,
+            "system_fingerprint_sha256": null
+          },
+          "reasoning_output_tokens": 18646,
+          "request_sha256": "396c9d6500d22162b784ebea2eb25ce4d8f0087d4c3305e028e6cdedc56e1911",
+          "status": "passed",
+          "uncached_input_tokens": 20981,
+          "wall_seconds": 266.119
+        },
+        {
+          "cached_input_tokens": 20224,
+          "dispatch_started": true,
+          "duration_seconds": 166.005,
+          "index": 2,
+          "input_tokens": 51220,
+          "message": "Respond accordingly to Sakuras Response.",
+          "message_sha256": "f250492cb9b0fd9a3a41efef4e63514b2939072f6cf4e2fb0bf77bef692c7cf4",
+          "outcome": {
+            "event_blocks": [
+              {
+                "causal_basis": "The current message directly references a preceding Sakura turn, while the current scene anchors assign Hana final household authority. The reference is used only as the immediate handoff cue, not as a source of unquoted wording or private facts.",
+                "event_advances": [
+                  "Hana joins the existing formal-arrival exchange through the referenced Sakura handoff.",
+                  "She assumes the household-level response without expanding the scene to other family members."
+                ],
+                "purpose": "Bring Hana into the referenced formal-arrival exchange with a justified transition and no additional entrant.",
+                "resulting_state": "Hana owns the current NPC floor, and no new Ted words, movement, consent, or private state has been authored."
+              },
+              {
+                "causal_basis": "Hana's genuine hospitality, patience, and mild caution support a bounded follow-through; the exact content of Sakura's referenced turn remains unknown and is not expanded.",
+                "event_advances": [
+                  "Hana acknowledges the current arrival exchange and gives a genuine but non-assumptive household welcome.",
+                  "She frames one broad next step or clarifying question without selecting Ted's answer, consent, movement, or private state."
+                ],
+                "purpose": "Complete Hana's NPC-controlled follow-through and stop at Ted's next meaningful choice.",
+                "resulting_state": "Hana's supported response is complete; further progression requires a new protected-user contribution or exact clarification."
+              }
+            ],
+            "floor_owner_id": "character:hana_hanezawa",
+            "future_segments": [
+              {
+                "activation_conditions": [
+                  "Ted supplies a new answer or chooses a next arrival action after Hana's handoff."
+                ],
+                "invalidation_conditions": [
+                  "The branch ends before Ted responds.",
+                  "A later cue changes the scene objective before the handoff is answered."
+                ],
+                "open_user_choice": "Ted's next answer, movement, or decision about whether and how to proceed.",
+                "possible_consequences": [
+                  "Hana responds to Ted's chosen next step without preselecting it now.",
+                  "Sakura provides bounded clarification only if a later cue establishes a need and exact evidence supports the detail.",
+                  "Additional household members remain omitted unless a later cue gives them a causal role."
+                ],
+                "segment_id": "segment:e8da5f34-77b0-5d6c-ba28-04f406d19c7d",
+                "status": "conditional_plan_only"
+              }
+            ],
+            "hard_citation_count": 2,
+            "insufficiencies": [],
+            "responding_npc_ids": [
+              "character:hana_hanezawa"
+            ],
+            "runway": {
+              "continue_beyond_prompt_endpoint": true,
+              "development_obligations": [
+                "Use the referenced Sakura turn only as the immediate cue for Hana's participation.",
+                "Move from Hana's causal join to a measured household-level welcome.",
+                "Frame a bounded next step without selecting Ted's response.",
+                "Stop before Ted's next unsupplied answer, movement, or meaningful choice."
+              ],
+              "runway_class": "domino",
+              "stop_condition": "After Hana completes the welcome and frames the next practical step, before Ted supplies another reply, accepts entry, moves, or chooses a different direction.",
+              "stop_reason": "meaningful_user_decision"
+            },
+            "scene_intent": "Continue the formal arrival at Hana's household-authority level in response to the referenced Sakura turn, without inventing the unquoted prior content and while stopping before Ted's next contribution.",
+            "status": "decision_ready"
+          },
+          "output_tokens": 13625,
+          "packet_bytes": 21740,
+          "packet_sha256": "05c9e682811b4c83ea5794d5be27d4677bc4337a977482d372139c5582d97cc2",
+          "prompt_bytes": 38095,
+          "prompt_sha256": "b96812866c0b8ac23ee27c6e4596e48ebd8463e39124dd3578247d1395c9896d",
+          "provider_receipt": {
+            "automatic_retry_count": 0,
+            "cached_input_tokens": 20224,
+            "cost_is_estimate": false,
+            "cost_microusd": 0,
+            "duration_ms": 166005,
+            "external_provider_calls": 1,
+            "input_tokens": 51220,
+            "model_identity_source": "explicit_request",
+            "model_identity_verified": false,
+            "model_revision": "openai-resolver-2026-07-28",
+            "output_sha256": "66686ed8cfcd0c0c46214d4b5a2eb63d3d29aa36bdbc67af809f964185747f9d",
+            "output_tokens": 13625,
+            "provider": "openai_codex",
+            "provider_receipt_id": "provider_receipt:f2df4cc8-3f6d-50cd-a73a-9c04f4f516be",
+            "provider_request_id_sha256": "26ea12f3b346732b6726183b6a506f4627bb55d064a090afc11efd41206ae7c9",
+            "quota_metered": true,
+            "reasoning_output_tokens": 11633,
+            "request_sha256": "69f932888d6b3471ef2c00d278a31069bf27ce1f42f9f15b880c0def4a376dc8",
+            "requested_model": "gpt-5.6-luna",
+            "retains_private_evidence": false,
+            "retains_prompt": false,
+            "retains_raw_source": false,
+            "retains_secret": false,
+            "retains_story_prose": false,
+            "returned_model": "gpt-5.6-luna",
+            "role": "scene_reasoner",
+            "route_sha256": "0b8acec1f0a8d7b504736233ae0b82ab1df2f7b342f768e66259581b6b63513e",
+            "schema_version": "cera.live_provider_call_receipt.v2",
+            "story_authority_writes": 0,
+            "system_fingerprint_sha256": null
+          },
+          "reasoning_output_tokens": 11633,
+          "request_sha256": "1f878d6f5a5faff0e8c797b38693a55529285aaf5cec322cca575c98bde00f59",
+          "status": "passed",
+          "uncached_input_tokens": 30996,
+          "wall_seconds": 170.438
+        },
+        {
+          "cached_input_tokens": 50944,
+          "dispatch_started": true,
+          "duration_seconds": 59.135,
+          "index": 3,
+          "input_tokens": 73570,
+          "message": "Respond accordingly to Sakuras Response.",
+          "message_sha256": "f250492cb9b0fd9a3a41efef4e63514b2939072f6cf4e2fb0bf77bef692c7cf4",
+          "outcome": {
+            "event_blocks": [
+              {
+                "causal_basis": "The current message directly references a preceding Sakura turn, while the current scene anchors assign Hana final household authority. The reference is used only as the immediate handoff cue, not as a source of unquoted wording or private facts.",
+                "event_advances": [
+                  "Hana joins the existing formal-arrival exchange through the referenced Sakura handoff.",
+                  "She assumes the household-level response without expanding the scene to other family members."
+                ],
+                "purpose": "Bring Hana into the referenced formal-arrival exchange with a justified transition and no additional entrant.",
+                "resulting_state": "Hana owns the current NPC floor, and no new Ted words, movement, consent, or private state has been authored."
+              },
+              {
+                "causal_basis": "Hana's genuine hospitality, patience, and mild caution support a bounded follow-through; the exact content of Sakura's referenced turn remains unknown and is not expanded.",
+                "event_advances": [
+                  "Hana acknowledges the current arrival exchange and gives a genuine but non-assumptive household welcome.",
+                  "She frames one broad next step or clarifying question without selecting Ted's answer, consent, movement, or private state."
+                ],
+                "purpose": "Complete Hana's NPC-controlled follow-through and stop at Ted's next meaningful choice.",
+                "resulting_state": "Hana's supported response is complete; further progression requires a new protected-user contribution or exact clarification."
+              }
+            ],
+            "floor_owner_id": "character:hana_hanezawa",
+            "future_segments": [
+              {
+                "activation_conditions": [
+                  "Ted supplies a new answer or chooses a next arrival action after Hana's handoff."
+                ],
+                "invalidation_conditions": [
+                  "The branch ends before Ted responds.",
+                  "A later cue changes the scene objective before the handoff is answered."
+                ],
+                "open_user_choice": "Ted's next answer, movement, or decision about whether and how to proceed.",
+                "possible_consequences": [
+                  "Hana responds to Ted's chosen next step without preselecting it now.",
+                  "Any further household orientation remains conditional on later exact evidence.",
+                  "Additional household members remain omitted unless a later cue gives them a causal role."
+                ],
+                "segment_id": "segment:659fdac9-0c12-5e3f-8ddc-f025d61e3b54",
+                "status": "conditional_plan_only"
+              }
+            ],
+            "hard_citation_count": 2,
+            "insufficiencies": [],
+            "responding_npc_ids": [
+              "character:hana_hanezawa"
+            ],
+            "runway": {
+              "continue_beyond_prompt_endpoint": true,
+              "development_obligations": [
+                "Use the referenced Sakura turn only as the immediate cue for Hana's participation.",
+                "Move from Hana's causal join to a measured household-level welcome.",
+                "Frame a bounded next step without selecting Ted's response.",
+                "Stop before Ted's next unsupplied answer, movement, or meaningful choice."
+              ],
+              "runway_class": "domino",
+              "stop_condition": "After Hana completes the welcome and frames the next practical step, before Ted supplies another reply, accepts entry, moves, or chooses a different direction.",
+              "stop_reason": "meaningful_user_decision"
+            },
+            "scene_intent": "Continue the formal arrival at Hana's household-authority level in response to the referenced Sakura turn, without inventing the unquoted prior content and while stopping before Ted's next contribution.",
+            "status": "decision_ready"
+          },
+          "output_tokens": 4641,
+          "packet_bytes": 21740,
+          "packet_sha256": "05c9e682811b4c83ea5794d5be27d4677bc4337a977482d372139c5582d97cc2",
+          "prompt_bytes": 38095,
+          "prompt_sha256": "b96812866c0b8ac23ee27c6e4596e48ebd8463e39124dd3578247d1395c9896d",
+          "provider_receipt": {
+            "automatic_retry_count": 0,
+            "cached_input_tokens": 50944,
+            "cost_is_estimate": false,
+            "cost_microusd": 0,
+            "duration_ms": 59135,
+            "external_provider_calls": 1,
+            "input_tokens": 73570,
+            "model_identity_source": "explicit_request",
+            "model_identity_verified": false,
+            "model_revision": "openai-resolver-2026-07-28",
+            "output_sha256": "7f129a85702a86f030555252996408d242221f61cec43135a67b7fb696f9beff",
+            "output_tokens": 4641,
+            "provider": "openai_codex",
+            "provider_receipt_id": "provider_receipt:8c507194-f09f-56ee-b565-b21df029bf9a",
+            "provider_request_id_sha256": "d8cbfc972f75e41c1c106e344ce084b02c6eb9604609584807b65a87f1b26a33",
+            "quota_metered": true,
+            "reasoning_output_tokens": 2659,
+            "request_sha256": "69f932888d6b3471ef2c00d278a31069bf27ce1f42f9f15b880c0def4a376dc8",
+            "requested_model": "gpt-5.6-luna",
+            "retains_private_evidence": false,
+            "retains_prompt": false,
+            "retains_raw_source": false,
+            "retains_secret": false,
+            "retains_story_prose": false,
+            "returned_model": "gpt-5.6-luna",
+            "role": "scene_reasoner",
+            "route_sha256": "0b8acec1f0a8d7b504736233ae0b82ab1df2f7b342f768e66259581b6b63513e",
+            "schema_version": "cera.live_provider_call_receipt.v2",
+            "story_authority_writes": 0,
+            "system_fingerprint_sha256": null
+          },
+          "reasoning_output_tokens": 2659,
+          "request_sha256": "36fa297b6c62c3c5de710961302b143d81fbd857df5a48a58a3863baef99fb51",
+          "status": "passed",
+          "uncached_input_tokens": 22626,
+          "wall_seconds": 63.435
+        }
+      ]
+    }
+  ],
+  "schema_version": "cera.codex_branch_session_ab_summary.v1",
+  "selected_turn_indices": [
+    1,
+    2,
+    3
+  ],
+  "service_tier": "priority",
+  "started_at": "2026-07-31T06:15:56.751672+00:00",
+  "status": "passed",
+  "story_state_committed": false,
+  "test_only_provisional_history_instruction": "TEST-ONLY CONTINUED-THREAD POLICY: Earlier CERA prompts and Reasoner drafts in this thread are non-authoritative provisional context. You may use them only to resolve a direct reference such as 'Sakura's Response'. The newest CERA packet is the complete current authority and supersedes any conflict. Never cite a prior draft as evidence, convert it into canon, or carry an old fact that the newest packet does not authorize.",
+  "total_provider_calls": 3
+}

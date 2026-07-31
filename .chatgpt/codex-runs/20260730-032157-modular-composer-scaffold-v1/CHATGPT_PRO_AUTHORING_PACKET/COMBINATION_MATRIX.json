@@ -1,0 +1,365 @@
+{
+  "schema_version": "cera.modular_prompt_combination_matrix.v1",
+  "rows": [
+    {
+      "scene_depth_mode": "off",
+      "adult_rendering_mode": "off",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.off.v1",
+        "composer.adult.off.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        310,
+        410,
+        510,
+        610
+      ],
+      "adult_fragments_included": false,
+      "selected_fragment_count": 0,
+      "selected_example_count": 0,
+      "module_content_bytes": 923,
+      "system_prompt_bytes": 1220,
+      "user_packet_bytes": 3279,
+      "total_prompt_bytes": 4499,
+      "estimated_total_tokens": 1125,
+      "receipt_sha256": "3ffa2c64ee0baadbac19d583cc307e19c6d8da85953df327b8a73a623624d284",
+      "provider_dispatch_allowed": false
+    },
+    {
+      "scene_depth_mode": "off",
+      "adult_rendering_mode": "on",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.off.v1",
+        "composer.adult.on.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        310,
+        420,
+        510,
+        610
+      ],
+      "adult_fragments_included": true,
+      "selected_fragment_count": 2,
+      "selected_example_count": 1,
+      "module_content_bytes": 948,
+      "system_prompt_bytes": 1635,
+      "user_packet_bytes": 3911,
+      "total_prompt_bytes": 5546,
+      "estimated_total_tokens": 1387,
+      "receipt_sha256": "7b73e844ecaf873449e5db0fdac487f087174efa326d3c1371c67344fe970eaf",
+      "provider_dispatch_allowed": false
+    },
+    {
+      "scene_depth_mode": "off",
+      "adult_rendering_mode": "ex",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.off.v1",
+        "composer.adult.ex.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        310,
+        430,
+        510,
+        610
+      ],
+      "adult_fragments_included": true,
+      "selected_fragment_count": 4,
+      "selected_example_count": 2,
+      "module_content_bytes": 961,
+      "system_prompt_bytes": 2040,
+      "user_packet_bytes": 4546,
+      "total_prompt_bytes": 6586,
+      "estimated_total_tokens": 1647,
+      "receipt_sha256": "a4557bb47d618d8e8a744625df446043a484f56a69ad072a4045dea28a6ec361",
+      "provider_dispatch_allowed": false
+    },
+    {
+      "scene_depth_mode": "auto",
+      "adult_rendering_mode": "off",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.auto.v1",
+        "composer.adult.off.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        320,
+        410,
+        510,
+        610
+      ],
+      "adult_fragments_included": false,
+      "selected_fragment_count": 0,
+      "selected_example_count": 0,
+      "module_content_bytes": 924,
+      "system_prompt_bytes": 1222,
+      "user_packet_bytes": 3282,
+      "total_prompt_bytes": 4504,
+      "estimated_total_tokens": 1127,
+      "receipt_sha256": "8cef11db269d15fad83587e6d93ffeffe7b77afa58e43783ff4a89e994641bbe",
+      "provider_dispatch_allowed": false
+    },
+    {
+      "scene_depth_mode": "auto",
+      "adult_rendering_mode": "on",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.auto.v1",
+        "composer.adult.on.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        320,
+        420,
+        510,
+        610
+      ],
+      "adult_fragments_included": true,
+      "selected_fragment_count": 2,
+      "selected_example_count": 1,
+      "module_content_bytes": 949,
+      "system_prompt_bytes": 1637,
+      "user_packet_bytes": 3914,
+      "total_prompt_bytes": 5551,
+      "estimated_total_tokens": 1388,
+      "receipt_sha256": "341cad1e0980d9c9671d8db439d711a236ce3bc29bb395c1c26b0e7e10ff8aa7",
+      "provider_dispatch_allowed": false
+    },
+    {
+      "scene_depth_mode": "auto",
+      "adult_rendering_mode": "ex",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.auto.v1",
+        "composer.adult.ex.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        320,
+        430,
+        510,
+        610
+      ],
+      "adult_fragments_included": true,
+      "selected_fragment_count": 4,
+      "selected_example_count": 2,
+      "module_content_bytes": 962,
+      "system_prompt_bytes": 2042,
+      "user_packet_bytes": 4549,
+      "total_prompt_bytes": 6591,
+      "estimated_total_tokens": 1648,
+      "receipt_sha256": "031fc6971f099c8d662873586374ff9f6d03877016c9c6ae6a8bcb9122dc062b",
+      "provider_dispatch_allowed": false
+    },
+    {
+      "scene_depth_mode": "long",
+      "adult_rendering_mode": "off",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.long.v1",
+        "composer.adult.off.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        330,
+        410,
+        510,
+        610
+      ],
+      "adult_fragments_included": false,
+      "selected_fragment_count": 0,
+      "selected_example_count": 0,
+      "module_content_bytes": 924,
+      "system_prompt_bytes": 1222,
+      "user_packet_bytes": 3282,
+      "total_prompt_bytes": 4504,
+      "estimated_total_tokens": 1127,
+      "receipt_sha256": "d8264c26a55da12a246a9e43032a71adf946c76718e5b14ab4faf35d702a5ca5",
+      "provider_dispatch_allowed": false
+    },
+    {
+      "scene_depth_mode": "long",
+      "adult_rendering_mode": "on",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.long.v1",
+        "composer.adult.on.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        330,
+        420,
+        510,
+        610
+      ],
+      "adult_fragments_included": true,
+      "selected_fragment_count": 2,
+      "selected_example_count": 1,
+      "module_content_bytes": 949,
+      "system_prompt_bytes": 1637,
+      "user_packet_bytes": 3914,
+      "total_prompt_bytes": 5551,
+      "estimated_total_tokens": 1388,
+      "receipt_sha256": "6544c30a1b5cbe03f6a3782a42b553602caf1f171e8c66b44afbb369f8a34e21",
+      "provider_dispatch_allowed": false
+    },
+    {
+      "scene_depth_mode": "long",
+      "adult_rendering_mode": "ex",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.long.v1",
+        "composer.adult.ex.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        330,
+        430,
+        510,
+        610
+      ],
+      "adult_fragments_included": true,
+      "selected_fragment_count": 4,
+      "selected_example_count": 2,
+      "module_content_bytes": 962,
+      "system_prompt_bytes": 2042,
+      "user_packet_bytes": 4549,
+      "total_prompt_bytes": 6591,
+      "estimated_total_tokens": 1648,
+      "receipt_sha256": "edba3dede2d912678e78a60fbc99250aa4b39a6cf7bb7a618b8cce4d334efb8f",
+      "provider_dispatch_allowed": false
+    },
+    {
+      "scene_depth_mode": "epic",
+      "adult_rendering_mode": "off",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.epic.v1",
+        "composer.adult.off.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        340,
+        410,
+        510,
+        610
+      ],
+      "adult_fragments_included": false,
+      "selected_fragment_count": 0,
+      "selected_example_count": 0,
+      "module_content_bytes": 924,
+      "system_prompt_bytes": 1222,
+      "user_packet_bytes": 3282,
+      "total_prompt_bytes": 4504,
+      "estimated_total_tokens": 1127,
+      "receipt_sha256": "a575800679e06297a8c8887c5e04677d84ef508a4bd1edd7ced7cd3c9ed1fa0d",
+      "provider_dispatch_allowed": false
+    },
+    {
+      "scene_depth_mode": "epic",
+      "adult_rendering_mode": "on",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.epic.v1",
+        "composer.adult.on.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        340,
+        420,
+        510,
+        610
+      ],
+      "adult_fragments_included": true,
+      "selected_fragment_count": 2,
+      "selected_example_count": 1,
+      "module_content_bytes": 949,
+      "system_prompt_bytes": 1637,
+      "user_packet_bytes": 3914,
+      "total_prompt_bytes": 5551,
+      "estimated_total_tokens": 1388,
+      "receipt_sha256": "2c0263f43f0f055c7d3ec594e8974f4edbf48038fa97ca0c36f3080bfc481524",
+      "provider_dispatch_allowed": false
+    },
+    {
+      "scene_depth_mode": "epic",
+      "adult_rendering_mode": "ex",
+      "selected_module_ids": [
+        "composer.core.authority.v1",
+        "composer.core.structured_output.v1",
+        "composer.depth.epic.v1",
+        "composer.adult.ex.v1",
+        "composer.topology.single_npc_floor.v1",
+        "composer.scene.ordinary_social.v1"
+      ],
+      "module_order": [
+        100,
+        200,
+        340,
+        430,
+        510,
+        610
+      ],
+      "adult_fragments_included": true,
+      "selected_fragment_count": 4,
+      "selected_example_count": 2,
+      "module_content_bytes": 962,
+      "system_prompt_bytes": 2042,
+      "user_packet_bytes": 4549,
+      "total_prompt_bytes": 6591,
+      "estimated_total_tokens": 1648,
+      "receipt_sha256": "4a43ab721f26e443ee6c70b8b66d3af838c5ce291df880444948c31bda0325d1",
+      "provider_dispatch_allowed": false
+    }
+  ]
+}

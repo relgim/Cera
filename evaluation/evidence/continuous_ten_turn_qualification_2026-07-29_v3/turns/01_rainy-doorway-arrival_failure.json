@@ -1,0 +1,612 @@
+{
+  "index": 1,
+  "key": "rainy-doorway-arrival",
+  "qualification_id": "continuous-ten-turn-v3",
+  "raw_message_sha256": "ecaae75435747355becde9d1e06a82d8f36e1f6e07b52d25ac1e0898b416c568",
+  "safe_failure": {
+    "automatic_retry_count": 0,
+    "error": {
+      "branch_id": "branch:offline-main",
+      "details": [],
+      "error_code": "CERA_VERIFIER_FAILED",
+      "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+      "message": "scene realization was not independently verified: protected_user_unsupplied_realization",
+      "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+      "retry_mode": "manual_after_review",
+      "schema_version": "cera.error.v1",
+      "stage": "scene_realization_verification",
+      "story_state_committed": false,
+      "trace_id": "trace:81ae24d9-3198-52cc-b552-78d3f6fddd90"
+    },
+    "failure_evidence_bundle": {
+      "authoritative_store_writes": 0,
+      "branch_id": "branch:offline-main",
+      "error_code": "CERA_VERIFIER_FAILED",
+      "external_provider_calls_observed": 3,
+      "failure_bundle_id": "failure_bundle:b3519791-5bb2-58c5-861b-5d7e88e2182e",
+      "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+      "input_sha256": "efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141",
+      "output_sha256": null,
+      "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+      "retained_evidence": [
+        {
+          "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+          "evidence_kind": "scene_reasoner_receipt",
+          "evidence_sha256": "2539ee76172d81d9fa7b4ade35070683d1df4e5a4f281d3faf73aacc7beb68fe"
+        },
+        {
+          "evidence_id": "validation:17e986ed-2260-5663-b0ce-387410d2b2e5",
+          "evidence_kind": "composer_context_assembly_receipt",
+          "evidence_sha256": "6c96bba67117fc3c2e8a3192f9669fd77af58888dbcd7e345d054a5f08bc3c78"
+        },
+        {
+          "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+          "evidence_kind": "scene_composer_receipt",
+          "evidence_sha256": "423b9da53f3afa42425f556a2aa26a15374a32da060d6892af0d52c58e80f533"
+        },
+        {
+          "evidence_id": "validation:6a4f04ac-f972-55fe-ac39-361dbe93401b",
+          "evidence_kind": "composer_validation_receipt",
+          "evidence_sha256": "cb7b7a225c047c09c2ca9022eea37f3be777b5a2933e4af263508c62c6271eab"
+        },
+        {
+          "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+          "evidence_kind": "reasoner_provider_call_receipt",
+          "evidence_sha256": "80607854d139f2d3921486f68795de00cf909d438834696e03642ca49573c2b9"
+        },
+        {
+          "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+          "evidence_kind": "composer_provider_call_receipt",
+          "evidence_sha256": "43605efe6353586be46eb23437a0bb020f61c8d0c17ad0ef19d32dedd99d864f"
+        },
+        {
+          "evidence_id": "lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3",
+          "evidence_kind": "evidence_lookup_receipt",
+          "evidence_sha256": "518fe23428f47e3cd557cf5e5d7c40e0345d75c836d4c0e14cb6aa3911e45488"
+        },
+        {
+          "evidence_id": "lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad",
+          "evidence_kind": "evidence_lookup_receipt",
+          "evidence_sha256": "86be1d6a54ab1589d0422133b8b9c91b4b4d46895f300af841606084854af8ef"
+        },
+        {
+          "evidence_id": "realization_verification:9ffe7892-bf6e-5217-8bd7-267f8abf1ff9",
+          "evidence_kind": "scene_realization_verification_receipt",
+          "evidence_sha256": "87422b44667d8cedd1f9727797ebbc28eceb296b51e5f45c2b217668cf12fae7"
+        },
+        {
+          "evidence_id": "provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051",
+          "evidence_kind": "realization_verifier_provider_call_receipt",
+          "evidence_sha256": "ab564ab9b121223f415a7d1b179b4935224b91d29bf74ad32f47e675b6579b8a"
+        },
+        {
+          "evidence_id": "review_packet:4a6ce138-97f2-55f5-bf64-51810120e3ab",
+          "evidence_kind": "rejected_candidate_review_artifact",
+          "evidence_sha256": "3a64a6206f672317be3d16db4198bfbb8b2978d8a396f1500aa10fe9077911af"
+        }
+      ],
+      "retained_receipt_payloads": [
+        {
+          "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+          "evidence_kind": "scene_reasoner_receipt",
+          "evidence_sha256": "2539ee76172d81d9fa7b4ade35070683d1df4e5a4f281d3faf73aacc7beb68fe",
+          "payload_json": "{\"adapter_evidence_id\":\"codex_reasoner_gpt-5.6-sol_medium\",\"adapter_evidence_sha256\":\"8fa06ca8d0eb484996914e725a99ce62448394d12be6b795b9d2951edf979e91\",\"adapter_role\":\"codex_scene_reasoner\",\"adapter_version\":\"cera.codex_scene_reasoner.v8\",\"bridge_receipt_id\":null,\"bridge_receipt_sha256\":null,\"cumulative_evidence_bytes\":0,\"evidence_lookup_receipt_ids\":[],\"external_provider_calls\":1,\"outcome_sha256\":\"db324ffefa85878d7694c0e0eb238c84f93bb00b6221d8cb430fde9b04b585b2\",\"outcome_status\":\"decision_ready\",\"provider_receipt_id\":\"provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f\",\"provider_receipt_sha256\":\"80607854d139f2d3921486f68795de00cf909d438834696e03642ca49573c2b9\",\"reasoner_request_sha256\":\"197bca817cc0857c8a6cc44f9dcaa91ccdbc6ce5f18b895a213909ef1cbb7c1d\",\"schema_version\":\"cera.scene_reasoner_receipt.v2\",\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"source_sha256\":\"a959d7a47f562cb669dd136cdadf240c956e0a137cff4155c85cce66d40d0b92\",\"source_view_sha256\":\"72628404c2c44348589746dd861d5cd61bcdb48f5d57cd739c7a33f6e546538b\",\"tool_call_count\":0}",
+          "payload_sha256": "e7ad6bef291bce3237caed9f47da1551f67e538e38c2efd8a29ee2f4e1d5a7fb",
+          "receipt_schema_version": "cera.scene_reasoner_receipt.v2"
+        },
+        {
+          "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+          "evidence_kind": "reasoner_provider_call_receipt",
+          "evidence_sha256": "80607854d139f2d3921486f68795de00cf909d438834696e03642ca49573c2b9",
+          "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":false,\"cost_microusd\":0,\"duration_ms\":40495,\"external_provider_calls\":1,\"input_tokens\":12830,\"model_identity_source\":\"explicit_request\",\"model_identity_verified\":false,\"model_revision\":\"openai-resolver-2026-07-28\",\"output_sha256\":\"eb21cc9beb6ec76da9701c5d9ddee11bf4e4d6776492bcd82b39cb75d3c53e74\",\"output_tokens\":2040,\"provider\":\"openai_codex\",\"provider_receipt_id\":\"provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f\",\"provider_request_id_sha256\":\"cd1998475c2ee4c90e6cfdd3be867f8735f455cb9d5c55fa96a5f2164fd57108\",\"quota_metered\":true,\"reasoning_output_tokens\":1235,\"request_sha256\":\"2a78dcbd8b87aa8213ab8425174f8eacff88ba38374e91371b8824b67692d7d1\",\"requested_model\":\"gpt-5.6-sol\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"gpt-5.6-sol\",\"role\":\"scene_reasoner\",\"route_sha256\":\"8fa06ca8d0eb484996914e725a99ce62448394d12be6b795b9d2951edf979e91\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":null}",
+          "payload_sha256": "46c22659c26bd7389433414fc596bb36f60e83501adfd65866a14b1318d841b6",
+          "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+        },
+        {
+          "evidence_id": "validation:17e986ed-2260-5663-b0ce-387410d2b2e5",
+          "evidence_kind": "composer_context_assembly_receipt",
+          "evidence_sha256": "6c96bba67117fc3c2e8a3192f9669fd77af58888dbcd7e345d054a5f08bc3c78",
+          "payload_json": "{\"assembled_request_sha256\":\"22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7\",\"assembly_receipt_id\":\"validation:17e986ed-2260-5663-b0ce-387410d2b2e5\",\"base_request_sha256\":\"fd22b30661a3878be21ecdc16d6e2bcf7d80d78d94571c445627b1b8506f8c79\",\"cumulative_returned_bytes\":3521,\"external_provider_calls\":0,\"lookup_count\":2,\"lookup_receipt_ids\":[\"lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3\",\"lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad\"],\"realization_context_sha256\":\"071ec29407a6de0dd82e18630b2b46fcaaccbcfe5a690c0205f3214ef83da218\",\"schema_version\":\"cera.composer_context_assembly_receipt.v1\",\"selected_craft_reference_ids\":[],\"selected_evidence_ids\":[\"evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a\",\"evidence:9a8050c6-a481-57a8-a877-25da3345be2f\"],\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"story_authority_writes\":0}",
+          "payload_sha256": "7b9963097fcfd82c4ba32b77a1f58b8b05000cdf884efe937c5d1817b2051f27",
+          "receipt_schema_version": "cera.composer_context_assembly_receipt.v1"
+        },
+        {
+          "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+          "evidence_kind": "scene_composer_receipt",
+          "evidence_sha256": "423b9da53f3afa42425f556a2aa26a15374a32da060d6892af0d52c58e80f533",
+          "payload_json": "{\"adapter_evidence_id\":\"deepseek_composer_deepseek-v4-pro\",\"adapter_evidence_sha256\":\"65b7c693b538df2ca61b5292db310db8970dd10a7e3764c97694260cdb0aa44e\",\"adapter_role\":\"deepseek_scene_composer\",\"adapter_version\":\"cera.deepseek_scene_composer.v8\",\"candidate_sha256\":\"efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141\",\"composer_request_sha256\":\"22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7\",\"decision_sha256\":\"88a5019a25aa311e9f3b52e4aa1664a5fbe4af34a7b8702a8bc9093fab423fbc\",\"external_provider_calls\":1,\"manifest_sha256\":\"e5264a06378ea3e659e05c514b7a3c068e94de5df40f755272240de85f06a4c4\",\"outcome\":\"candidate_returned\",\"protected_source_envelope_sha256\":null,\"provider_receipt_id\":\"provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6\",\"provider_receipt_sha256\":\"43605efe6353586be46eb23437a0bb020f61c8d0c17ad0ef19d32dedd99d864f\",\"safe_ledger_sha256\":\"72628404c2c44348589746dd861d5cd61bcdb48f5d57cd739c7a33f6e546538b\",\"schema_version\":\"cera.scene_composer_receipt.v2\",\"sequence_plan_sha256\":\"368e0d20c47faa3d3628e400784b2a613e0aa0130a8a20164f80c8b84bb5a5a4\",\"source_sha256\":\"a959d7a47f562cb669dd136cdadf240c956e0a137cff4155c85cce66d40d0b92\"}",
+          "payload_sha256": "15c6836648d5a8fc28d2579b32c09239b4dc39056a80ac46937800b779c7455c",
+          "receipt_schema_version": "cera.scene_composer_receipt.v2"
+        },
+        {
+          "evidence_id": "validation:6a4f04ac-f972-55fe-ac39-361dbe93401b",
+          "evidence_kind": "composer_validation_receipt",
+          "evidence_sha256": "cb7b7a225c047c09c2ca9022eea37f3be777b5a2933e4af263508c62c6271eab",
+          "payload_json": "{\"candidate_sha256\":\"efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141\",\"composer_request_sha256\":\"22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7\",\"manifest_sha256\":\"e5264a06378ea3e659e05c514b7a3c068e94de5df40f755272240de85f06a4c4\",\"quarantined_advisory_count\":0,\"quarantined_advisory_sha256\":[],\"schema_version\":\"cera.composer_validation_receipt.v1\",\"semantic_quality_proven\":false,\"status\":\"accepted_in_memory\",\"story_state_committed\":false,\"validation_kind\":\"structural_candidate_validation\",\"validation_receipt_id\":\"validation:6a4f04ac-f972-55fe-ac39-361dbe93401b\"}",
+          "payload_sha256": "99add3109c9486dc8b7188a769654215ccb2f1b8a4bd5f62f2e472ded1b7961c",
+          "receipt_schema_version": "cera.composer_validation_receipt.v1"
+        },
+        {
+          "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+          "evidence_kind": "composer_provider_call_receipt",
+          "evidence_sha256": "43605efe6353586be46eb23437a0bb020f61c8d0c17ad0ef19d32dedd99d864f",
+          "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":true,\"cost_microusd\":1792,\"duration_ms\":7134,\"external_provider_calls\":1,\"input_tokens\":3200,\"model_identity_source\":\"provider_response\",\"model_identity_verified\":true,\"model_revision\":\"deepseek-v4-2026-04-24\",\"output_sha256\":\"4e8fb1d7af72d5a376fe50a610481f1e5680eb2d9668df76351915f3b47b3c8f\",\"output_tokens\":459,\"provider\":\"deepseek\",\"provider_receipt_id\":\"provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6\",\"provider_request_id_sha256\":\"6ff690af5f78c2686d6d85fb4de0c7229ee20568070c9819b0996e8a283391fb\",\"quota_metered\":false,\"reasoning_output_tokens\":0,\"request_sha256\":\"c3d858cdf3e18211265448ef19f1ffebb08e598e27b1cffee4d262fe9cdbc2dc\",\"requested_model\":\"deepseek-v4-pro\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"deepseek-v4-pro\",\"role\":\"scene_composer\",\"route_sha256\":\"65b7c693b538df2ca61b5292db310db8970dd10a7e3764c97694260cdb0aa44e\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":\"2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627\"}",
+          "payload_sha256": "1dedd26c939f238a95d581c08214b3191d8897c94cd753d5e46b44e3924d407f",
+          "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+        },
+        {
+          "evidence_id": "lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3",
+          "evidence_kind": "evidence_lookup_receipt",
+          "evidence_sha256": "518fe23428f47e3cd557cf5e5d7c40e0345d75c836d4c0e14cb6aa3911e45488",
+          "payload_json": "{\"authoritative_store_writes\":0,\"cumulative_snapshot_bytes\":1135,\"followup_search_count\":1,\"lookup_receipt_id\":\"lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3\",\"operation\":\"search_evidence\",\"returned_bytes\":1135,\"returned_count\":1,\"schema_version\":\"cera.evidence_lookup_receipt.v1\",\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"truncated\":false,\"truncation_reason\":null}",
+          "payload_sha256": "a9e365b4b3a31478a6bb627053743d22d94e695f8c54be9dc5106fbe0ff28732",
+          "receipt_schema_version": "cera.evidence_lookup_receipt.v1"
+        },
+        {
+          "evidence_id": "lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad",
+          "evidence_kind": "evidence_lookup_receipt",
+          "evidence_sha256": "86be1d6a54ab1589d0422133b8b9c91b4b4d46895f300af841606084854af8ef",
+          "payload_json": "{\"authoritative_store_writes\":0,\"cumulative_snapshot_bytes\":3521,\"followup_search_count\":1,\"lookup_receipt_id\":\"lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad\",\"operation\":\"fetch_evidence\",\"returned_bytes\":2386,\"returned_count\":1,\"schema_version\":\"cera.evidence_lookup_receipt.v1\",\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"truncated\":false,\"truncation_reason\":null}",
+          "payload_sha256": "8245404d7e76b99316a37bba4c79dccfb67a6153ff1d7e8145d4b0c54f7a0b00",
+          "receipt_schema_version": "cera.evidence_lookup_receipt.v1"
+        },
+        {
+          "evidence_id": "realization_verification:9ffe7892-bf6e-5217-8bd7-267f8abf1ff9",
+          "evidence_kind": "scene_realization_verification_receipt",
+          "evidence_sha256": "87422b44667d8cedd1f9727797ebbc28eceb296b51e5f45c2b217668cf12fae7",
+          "payload_json": "{\"authoritative_store_writes\":0,\"candidate_sha256\":\"efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141\",\"external_provider_calls\":1,\"provider_receipt_id\":\"provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051\",\"provider_receipt_sha256\":\"ab564ab9b121223f415a7d1b179b4935224b91d29bf74ad32f47e675b6579b8a\",\"qualification_eligible\":true,\"retains_story_prose\":false,\"schema_version\":\"cera.scene_realization_verification_receipt.v4\",\"status\":\"rejected\",\"story_text_sha256\":\"fd44ee884301cd5ed02d80f3e4d0ad272e6c044e154bef5cb7f33b9626c9125a\",\"verification_id\":\"realization_verification:9ffe7892-bf6e-5217-8bd7-267f8abf1ff9\",\"verification_request_sha256\":\"7f2a8395cb94140bd10f326c6910fc88900e22303f87d35cc594de972c079c8a\",\"verified_beat_ids\":[\"beat:2887b07b-ad8e-526b-b684-d349e9e740dd\"],\"verified_boundary_checks\":[\"protected_user_no_unsupplied_realization\"],\"verified_participant_ids\":[\"character:hana_hanezawa\"],\"verifier_adapter_evidence_id\":\"codex_realization_verifier_gpt-5.6-sol_medium\",\"verifier_adapter_evidence_sha256\":\"5a1e0459ed49951cd6a62cd198f0fade603ddb4d11cc5c882416a86a6b19654f\",\"verifier_adapter_version\":\"cera.codex_scene_realization_verifier.v2\",\"violation_codes\":[\"protected_user_unsupplied_realization\"],\"violation_finding_sha256s\":[\"18c59412cd86536bb58333854627ab9dc3087694075148f7c8181f2235aee56d\"]}",
+          "payload_sha256": "41f5b3c83f19c15d72137c001ba6ba7ccb1b0458c590eb44217d2b290caa9089",
+          "receipt_schema_version": "cera.scene_realization_verification_receipt.v4"
+        },
+        {
+          "evidence_id": "provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051",
+          "evidence_kind": "realization_verifier_provider_call_receipt",
+          "evidence_sha256": "ab564ab9b121223f415a7d1b179b4935224b91d29bf74ad32f47e675b6579b8a",
+          "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":false,\"cost_microusd\":0,\"duration_ms\":14422,\"external_provider_calls\":1,\"input_tokens\":10341,\"model_identity_source\":\"explicit_request\",\"model_identity_verified\":false,\"model_revision\":\"openai-resolver-2026-07-28\",\"output_sha256\":\"4b1c7f99c727301bbfe0466a39581ef4a8b79badbebc3690c032f3588fc9d1f9\",\"output_tokens\":525,\"provider\":\"openai_codex\",\"provider_receipt_id\":\"provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051\",\"provider_request_id_sha256\":\"f734c7e6ee6e7a759c71264608ffd885ccca720169a931593ca288ecfeeff268\",\"quota_metered\":true,\"reasoning_output_tokens\":390,\"request_sha256\":\"11c74d4e06d4d538442273ee4b3dd0bc7afb7a0ca6f1232b83318ee70d7a6fc3\",\"requested_model\":\"gpt-5.6-sol\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"gpt-5.6-sol\",\"role\":\"scene_realization_verifier\",\"route_sha256\":\"5a1e0459ed49951cd6a62cd198f0fade603ddb4d11cc5c882416a86a6b19654f\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":null}",
+          "payload_sha256": "e3e555bb94cec7be9c6a3d70554568630425b6395f8dcab513b40637674dc1ff",
+          "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+        }
+      ],
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "safe_message": "scene realization verification rejected or was inconclusive",
+      "schema_version": "cera.turn_failure_evidence_bundle.v2",
+      "stage": "scene_realization_verification",
+      "story_state_committed": false
+    },
+    "fallback_enabled": false,
+    "mcp_bridge_receipt": null,
+    "privacy_safe_receipt_payloads": [
+      {
+        "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+        "evidence_kind": "scene_reasoner_receipt",
+        "evidence_sha256": "2539ee76172d81d9fa7b4ade35070683d1df4e5a4f281d3faf73aacc7beb68fe",
+        "payload_json": "{\"adapter_evidence_id\":\"codex_reasoner_gpt-5.6-sol_medium\",\"adapter_evidence_sha256\":\"8fa06ca8d0eb484996914e725a99ce62448394d12be6b795b9d2951edf979e91\",\"adapter_role\":\"codex_scene_reasoner\",\"adapter_version\":\"cera.codex_scene_reasoner.v8\",\"bridge_receipt_id\":null,\"bridge_receipt_sha256\":null,\"cumulative_evidence_bytes\":0,\"evidence_lookup_receipt_ids\":[],\"external_provider_calls\":1,\"outcome_sha256\":\"db324ffefa85878d7694c0e0eb238c84f93bb00b6221d8cb430fde9b04b585b2\",\"outcome_status\":\"decision_ready\",\"provider_receipt_id\":\"provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f\",\"provider_receipt_sha256\":\"80607854d139f2d3921486f68795de00cf909d438834696e03642ca49573c2b9\",\"reasoner_request_sha256\":\"197bca817cc0857c8a6cc44f9dcaa91ccdbc6ce5f18b895a213909ef1cbb7c1d\",\"schema_version\":\"cera.scene_reasoner_receipt.v2\",\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"source_sha256\":\"a959d7a47f562cb669dd136cdadf240c956e0a137cff4155c85cce66d40d0b92\",\"source_view_sha256\":\"72628404c2c44348589746dd861d5cd61bcdb48f5d57cd739c7a33f6e546538b\",\"tool_call_count\":0}",
+        "payload_sha256": "e7ad6bef291bce3237caed9f47da1551f67e538e38c2efd8a29ee2f4e1d5a7fb",
+        "receipt_schema_version": "cera.scene_reasoner_receipt.v2"
+      },
+      {
+        "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+        "evidence_kind": "reasoner_provider_call_receipt",
+        "evidence_sha256": "80607854d139f2d3921486f68795de00cf909d438834696e03642ca49573c2b9",
+        "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":false,\"cost_microusd\":0,\"duration_ms\":40495,\"external_provider_calls\":1,\"input_tokens\":12830,\"model_identity_source\":\"explicit_request\",\"model_identity_verified\":false,\"model_revision\":\"openai-resolver-2026-07-28\",\"output_sha256\":\"eb21cc9beb6ec76da9701c5d9ddee11bf4e4d6776492bcd82b39cb75d3c53e74\",\"output_tokens\":2040,\"provider\":\"openai_codex\",\"provider_receipt_id\":\"provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f\",\"provider_request_id_sha256\":\"cd1998475c2ee4c90e6cfdd3be867f8735f455cb9d5c55fa96a5f2164fd57108\",\"quota_metered\":true,\"reasoning_output_tokens\":1235,\"request_sha256\":\"2a78dcbd8b87aa8213ab8425174f8eacff88ba38374e91371b8824b67692d7d1\",\"requested_model\":\"gpt-5.6-sol\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"gpt-5.6-sol\",\"role\":\"scene_reasoner\",\"route_sha256\":\"8fa06ca8d0eb484996914e725a99ce62448394d12be6b795b9d2951edf979e91\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":null}",
+        "payload_sha256": "46c22659c26bd7389433414fc596bb36f60e83501adfd65866a14b1318d841b6",
+        "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+      },
+      {
+        "evidence_id": "validation:17e986ed-2260-5663-b0ce-387410d2b2e5",
+        "evidence_kind": "composer_context_assembly_receipt",
+        "evidence_sha256": "6c96bba67117fc3c2e8a3192f9669fd77af58888dbcd7e345d054a5f08bc3c78",
+        "payload_json": "{\"assembled_request_sha256\":\"22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7\",\"assembly_receipt_id\":\"validation:17e986ed-2260-5663-b0ce-387410d2b2e5\",\"base_request_sha256\":\"fd22b30661a3878be21ecdc16d6e2bcf7d80d78d94571c445627b1b8506f8c79\",\"cumulative_returned_bytes\":3521,\"external_provider_calls\":0,\"lookup_count\":2,\"lookup_receipt_ids\":[\"lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3\",\"lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad\"],\"realization_context_sha256\":\"071ec29407a6de0dd82e18630b2b46fcaaccbcfe5a690c0205f3214ef83da218\",\"schema_version\":\"cera.composer_context_assembly_receipt.v1\",\"selected_craft_reference_ids\":[],\"selected_evidence_ids\":[\"evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a\",\"evidence:9a8050c6-a481-57a8-a877-25da3345be2f\"],\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"story_authority_writes\":0}",
+        "payload_sha256": "7b9963097fcfd82c4ba32b77a1f58b8b05000cdf884efe937c5d1817b2051f27",
+        "receipt_schema_version": "cera.composer_context_assembly_receipt.v1"
+      },
+      {
+        "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+        "evidence_kind": "scene_composer_receipt",
+        "evidence_sha256": "423b9da53f3afa42425f556a2aa26a15374a32da060d6892af0d52c58e80f533",
+        "payload_json": "{\"adapter_evidence_id\":\"deepseek_composer_deepseek-v4-pro\",\"adapter_evidence_sha256\":\"65b7c693b538df2ca61b5292db310db8970dd10a7e3764c97694260cdb0aa44e\",\"adapter_role\":\"deepseek_scene_composer\",\"adapter_version\":\"cera.deepseek_scene_composer.v8\",\"candidate_sha256\":\"efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141\",\"composer_request_sha256\":\"22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7\",\"decision_sha256\":\"88a5019a25aa311e9f3b52e4aa1664a5fbe4af34a7b8702a8bc9093fab423fbc\",\"external_provider_calls\":1,\"manifest_sha256\":\"e5264a06378ea3e659e05c514b7a3c068e94de5df40f755272240de85f06a4c4\",\"outcome\":\"candidate_returned\",\"protected_source_envelope_sha256\":null,\"provider_receipt_id\":\"provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6\",\"provider_receipt_sha256\":\"43605efe6353586be46eb23437a0bb020f61c8d0c17ad0ef19d32dedd99d864f\",\"safe_ledger_sha256\":\"72628404c2c44348589746dd861d5cd61bcdb48f5d57cd739c7a33f6e546538b\",\"schema_version\":\"cera.scene_composer_receipt.v2\",\"sequence_plan_sha256\":\"368e0d20c47faa3d3628e400784b2a613e0aa0130a8a20164f80c8b84bb5a5a4\",\"source_sha256\":\"a959d7a47f562cb669dd136cdadf240c956e0a137cff4155c85cce66d40d0b92\"}",
+        "payload_sha256": "15c6836648d5a8fc28d2579b32c09239b4dc39056a80ac46937800b779c7455c",
+        "receipt_schema_version": "cera.scene_composer_receipt.v2"
+      },
+      {
+        "evidence_id": "validation:6a4f04ac-f972-55fe-ac39-361dbe93401b",
+        "evidence_kind": "composer_validation_receipt",
+        "evidence_sha256": "cb7b7a225c047c09c2ca9022eea37f3be777b5a2933e4af263508c62c6271eab",
+        "payload_json": "{\"candidate_sha256\":\"efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141\",\"composer_request_sha256\":\"22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7\",\"manifest_sha256\":\"e5264a06378ea3e659e05c514b7a3c068e94de5df40f755272240de85f06a4c4\",\"quarantined_advisory_count\":0,\"quarantined_advisory_sha256\":[],\"schema_version\":\"cera.composer_validation_receipt.v1\",\"semantic_quality_proven\":false,\"status\":\"accepted_in_memory\",\"story_state_committed\":false,\"validation_kind\":\"structural_candidate_validation\",\"validation_receipt_id\":\"validation:6a4f04ac-f972-55fe-ac39-361dbe93401b\"}",
+        "payload_sha256": "99add3109c9486dc8b7188a769654215ccb2f1b8a4bd5f62f2e472ded1b7961c",
+        "receipt_schema_version": "cera.composer_validation_receipt.v1"
+      },
+      {
+        "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+        "evidence_kind": "composer_provider_call_receipt",
+        "evidence_sha256": "43605efe6353586be46eb23437a0bb020f61c8d0c17ad0ef19d32dedd99d864f",
+        "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":true,\"cost_microusd\":1792,\"duration_ms\":7134,\"external_provider_calls\":1,\"input_tokens\":3200,\"model_identity_source\":\"provider_response\",\"model_identity_verified\":true,\"model_revision\":\"deepseek-v4-2026-04-24\",\"output_sha256\":\"4e8fb1d7af72d5a376fe50a610481f1e5680eb2d9668df76351915f3b47b3c8f\",\"output_tokens\":459,\"provider\":\"deepseek\",\"provider_receipt_id\":\"provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6\",\"provider_request_id_sha256\":\"6ff690af5f78c2686d6d85fb4de0c7229ee20568070c9819b0996e8a283391fb\",\"quota_metered\":false,\"reasoning_output_tokens\":0,\"request_sha256\":\"c3d858cdf3e18211265448ef19f1ffebb08e598e27b1cffee4d262fe9cdbc2dc\",\"requested_model\":\"deepseek-v4-pro\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"deepseek-v4-pro\",\"role\":\"scene_composer\",\"route_sha256\":\"65b7c693b538df2ca61b5292db310db8970dd10a7e3764c97694260cdb0aa44e\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":\"2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627\"}",
+        "payload_sha256": "1dedd26c939f238a95d581c08214b3191d8897c94cd753d5e46b44e3924d407f",
+        "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+      },
+      {
+        "evidence_id": "lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "518fe23428f47e3cd557cf5e5d7c40e0345d75c836d4c0e14cb6aa3911e45488",
+        "payload_json": "{\"authoritative_store_writes\":0,\"cumulative_snapshot_bytes\":1135,\"followup_search_count\":1,\"lookup_receipt_id\":\"lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3\",\"operation\":\"search_evidence\",\"returned_bytes\":1135,\"returned_count\":1,\"schema_version\":\"cera.evidence_lookup_receipt.v1\",\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"truncated\":false,\"truncation_reason\":null}",
+        "payload_sha256": "a9e365b4b3a31478a6bb627053743d22d94e695f8c54be9dc5106fbe0ff28732",
+        "receipt_schema_version": "cera.evidence_lookup_receipt.v1"
+      },
+      {
+        "evidence_id": "lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "86be1d6a54ab1589d0422133b8b9c91b4b4d46895f300af841606084854af8ef",
+        "payload_json": "{\"authoritative_store_writes\":0,\"cumulative_snapshot_bytes\":3521,\"followup_search_count\":1,\"lookup_receipt_id\":\"lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad\",\"operation\":\"fetch_evidence\",\"returned_bytes\":2386,\"returned_count\":1,\"schema_version\":\"cera.evidence_lookup_receipt.v1\",\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"truncated\":false,\"truncation_reason\":null}",
+        "payload_sha256": "8245404d7e76b99316a37bba4c79dccfb67a6153ff1d7e8145d4b0c54f7a0b00",
+        "receipt_schema_version": "cera.evidence_lookup_receipt.v1"
+      },
+      {
+        "evidence_id": "realization_verification:9ffe7892-bf6e-5217-8bd7-267f8abf1ff9",
+        "evidence_kind": "scene_realization_verification_receipt",
+        "evidence_sha256": "87422b44667d8cedd1f9727797ebbc28eceb296b51e5f45c2b217668cf12fae7",
+        "payload_json": "{\"authoritative_store_writes\":0,\"candidate_sha256\":\"efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141\",\"external_provider_calls\":1,\"provider_receipt_id\":\"provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051\",\"provider_receipt_sha256\":\"ab564ab9b121223f415a7d1b179b4935224b91d29bf74ad32f47e675b6579b8a\",\"qualification_eligible\":true,\"retains_story_prose\":false,\"schema_version\":\"cera.scene_realization_verification_receipt.v4\",\"status\":\"rejected\",\"story_text_sha256\":\"fd44ee884301cd5ed02d80f3e4d0ad272e6c044e154bef5cb7f33b9626c9125a\",\"verification_id\":\"realization_verification:9ffe7892-bf6e-5217-8bd7-267f8abf1ff9\",\"verification_request_sha256\":\"7f2a8395cb94140bd10f326c6910fc88900e22303f87d35cc594de972c079c8a\",\"verified_beat_ids\":[\"beat:2887b07b-ad8e-526b-b684-d349e9e740dd\"],\"verified_boundary_checks\":[\"protected_user_no_unsupplied_realization\"],\"verified_participant_ids\":[\"character:hana_hanezawa\"],\"verifier_adapter_evidence_id\":\"codex_realization_verifier_gpt-5.6-sol_medium\",\"verifier_adapter_evidence_sha256\":\"5a1e0459ed49951cd6a62cd198f0fade603ddb4d11cc5c882416a86a6b19654f\",\"verifier_adapter_version\":\"cera.codex_scene_realization_verifier.v2\",\"violation_codes\":[\"protected_user_unsupplied_realization\"],\"violation_finding_sha256s\":[\"18c59412cd86536bb58333854627ab9dc3087694075148f7c8181f2235aee56d\"]}",
+        "payload_sha256": "41f5b3c83f19c15d72137c001ba6ba7ccb1b0458c590eb44217d2b290caa9089",
+        "receipt_schema_version": "cera.scene_realization_verification_receipt.v4"
+      },
+      {
+        "evidence_id": "provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051",
+        "evidence_kind": "realization_verifier_provider_call_receipt",
+        "evidence_sha256": "ab564ab9b121223f415a7d1b179b4935224b91d29bf74ad32f47e675b6579b8a",
+        "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":false,\"cost_microusd\":0,\"duration_ms\":14422,\"external_provider_calls\":1,\"input_tokens\":10341,\"model_identity_source\":\"explicit_request\",\"model_identity_verified\":false,\"model_revision\":\"openai-resolver-2026-07-28\",\"output_sha256\":\"4b1c7f99c727301bbfe0466a39581ef4a8b79badbebc3690c032f3588fc9d1f9\",\"output_tokens\":525,\"provider\":\"openai_codex\",\"provider_receipt_id\":\"provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051\",\"provider_request_id_sha256\":\"f734c7e6ee6e7a759c71264608ffd885ccca720169a931593ca288ecfeeff268\",\"quota_metered\":true,\"reasoning_output_tokens\":390,\"request_sha256\":\"11c74d4e06d4d538442273ee4b3dd0bc7afb7a0ca6f1232b83318ee70d7a6fc3\",\"requested_model\":\"gpt-5.6-sol\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"gpt-5.6-sol\",\"role\":\"scene_realization_verifier\",\"route_sha256\":\"5a1e0459ed49951cd6a62cd198f0fade603ddb4d11cc5c882416a86a6b19654f\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":null}",
+        "payload_sha256": "e3e555bb94cec7be9c6a3d70554568630425b6395f8dcab513b40637674dc1ff",
+        "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+      }
+    ],
+    "provider_call_receipt": null,
+    "retained_evidence_handles": [
+      {
+        "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+        "evidence_kind": "scene_reasoner_receipt",
+        "evidence_sha256": "2539ee76172d81d9fa7b4ade35070683d1df4e5a4f281d3faf73aacc7beb68fe"
+      },
+      {
+        "evidence_id": "validation:17e986ed-2260-5663-b0ce-387410d2b2e5",
+        "evidence_kind": "composer_context_assembly_receipt",
+        "evidence_sha256": "6c96bba67117fc3c2e8a3192f9669fd77af58888dbcd7e345d054a5f08bc3c78"
+      },
+      {
+        "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+        "evidence_kind": "scene_composer_receipt",
+        "evidence_sha256": "423b9da53f3afa42425f556a2aa26a15374a32da060d6892af0d52c58e80f533"
+      },
+      {
+        "evidence_id": "validation:6a4f04ac-f972-55fe-ac39-361dbe93401b",
+        "evidence_kind": "composer_validation_receipt",
+        "evidence_sha256": "cb7b7a225c047c09c2ca9022eea37f3be777b5a2933e4af263508c62c6271eab"
+      },
+      {
+        "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+        "evidence_kind": "reasoner_provider_call_receipt",
+        "evidence_sha256": "80607854d139f2d3921486f68795de00cf909d438834696e03642ca49573c2b9"
+      },
+      {
+        "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+        "evidence_kind": "composer_provider_call_receipt",
+        "evidence_sha256": "43605efe6353586be46eb23437a0bb020f61c8d0c17ad0ef19d32dedd99d864f"
+      },
+      {
+        "evidence_id": "lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "518fe23428f47e3cd557cf5e5d7c40e0345d75c836d4c0e14cb6aa3911e45488"
+      },
+      {
+        "evidence_id": "lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "86be1d6a54ab1589d0422133b8b9c91b4b4d46895f300af841606084854af8ef"
+      },
+      {
+        "evidence_id": "realization_verification:9ffe7892-bf6e-5217-8bd7-267f8abf1ff9",
+        "evidence_kind": "scene_realization_verification_receipt",
+        "evidence_sha256": "87422b44667d8cedd1f9727797ebbc28eceb296b51e5f45c2b217668cf12fae7"
+      },
+      {
+        "evidence_id": "provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051",
+        "evidence_kind": "realization_verifier_provider_call_receipt",
+        "evidence_sha256": "ab564ab9b121223f415a7d1b179b4935224b91d29bf74ad32f47e675b6579b8a"
+      },
+      {
+        "evidence_id": "review_packet:4a6ce138-97f2-55f5-bf64-51810120e3ab",
+        "evidence_kind": "rejected_candidate_review_artifact",
+        "evidence_sha256": "3a64a6206f672317be3d16db4198bfbb8b2978d8a396f1500aa10fe9077911af"
+      }
+    ],
+    "retains_prompt": false,
+    "retains_secret": false,
+    "stage_journal": [
+      {
+        "branch_id": "branch:offline-main",
+        "external_provider_calls_observed": 0,
+        "failure_bundle_id": null,
+        "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+        "input_sha256": "197bca817cc0857c8a6cc44f9dcaa91ccdbc6ce5f18b895a213909ef1cbb7c1d",
+        "journal_id": "stage_journal:96224ccc-634f-5d04-8498-fe89fbf6930c",
+        "output_sha256": null,
+        "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+        "schema_version": "cera.turn_stage_audit_entry.v1",
+        "sequence": 1,
+        "stage": "scene_reasoner",
+        "status": "started",
+        "story_state_committed": false
+      },
+      {
+        "branch_id": "branch:offline-main",
+        "external_provider_calls_observed": 1,
+        "failure_bundle_id": null,
+        "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+        "input_sha256": "197bca817cc0857c8a6cc44f9dcaa91ccdbc6ce5f18b895a213909ef1cbb7c1d",
+        "journal_id": "stage_journal:fd23d1f1-548f-5ef0-949c-93f475e0d11b",
+        "output_sha256": "db324ffefa85878d7694c0e0eb238c84f93bb00b6221d8cb430fde9b04b585b2",
+        "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+        "schema_version": "cera.turn_stage_audit_entry.v1",
+        "sequence": 2,
+        "stage": "scene_reasoner",
+        "status": "completed",
+        "story_state_committed": false
+      },
+      {
+        "branch_id": "branch:offline-main",
+        "external_provider_calls_observed": 1,
+        "failure_bundle_id": null,
+        "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+        "input_sha256": "db324ffefa85878d7694c0e0eb238c84f93bb00b6221d8cb430fde9b04b585b2",
+        "journal_id": "stage_journal:1e6fdcd4-63da-562e-a1c4-4a2f4f2e5b04",
+        "output_sha256": null,
+        "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+        "schema_version": "cera.turn_stage_audit_entry.v1",
+        "sequence": 3,
+        "stage": "composer_context_assembly",
+        "status": "started",
+        "story_state_committed": false
+      },
+      {
+        "branch_id": "branch:offline-main",
+        "external_provider_calls_observed": 1,
+        "failure_bundle_id": null,
+        "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+        "input_sha256": "db324ffefa85878d7694c0e0eb238c84f93bb00b6221d8cb430fde9b04b585b2",
+        "journal_id": "stage_journal:b3ac58c8-e025-5a4f-a3fc-bf40a3071df7",
+        "output_sha256": "22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7",
+        "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+        "schema_version": "cera.turn_stage_audit_entry.v1",
+        "sequence": 4,
+        "stage": "composer_context_assembly",
+        "status": "completed",
+        "story_state_committed": false
+      },
+      {
+        "branch_id": "branch:offline-main",
+        "external_provider_calls_observed": 1,
+        "failure_bundle_id": null,
+        "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+        "input_sha256": "22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7",
+        "journal_id": "stage_journal:0d749846-35d8-51a5-b503-cc229a08eec1",
+        "output_sha256": null,
+        "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+        "schema_version": "cera.turn_stage_audit_entry.v1",
+        "sequence": 5,
+        "stage": "scene_composer",
+        "status": "started",
+        "story_state_committed": false
+      },
+      {
+        "branch_id": "branch:offline-main",
+        "external_provider_calls_observed": 2,
+        "failure_bundle_id": null,
+        "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+        "input_sha256": "22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7",
+        "journal_id": "stage_journal:a3454e5b-b8c0-5b2d-8497-39379314a057",
+        "output_sha256": "efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141",
+        "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+        "schema_version": "cera.turn_stage_audit_entry.v1",
+        "sequence": 6,
+        "stage": "scene_composer",
+        "status": "completed",
+        "story_state_committed": false
+      },
+      {
+        "branch_id": "branch:offline-main",
+        "external_provider_calls_observed": 2,
+        "failure_bundle_id": null,
+        "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+        "input_sha256": "efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141",
+        "journal_id": "stage_journal:5baffd65-9186-5b09-ba24-2282b4384ec2",
+        "output_sha256": null,
+        "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+        "schema_version": "cera.turn_stage_audit_entry.v1",
+        "sequence": 7,
+        "stage": "scene_realization_verification",
+        "status": "started",
+        "story_state_committed": false
+      },
+      {
+        "branch_id": "branch:offline-main",
+        "external_provider_calls_observed": 3,
+        "failure_bundle_id": "failure_bundle:b3519791-5bb2-58c5-861b-5d7e88e2182e",
+        "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+        "input_sha256": "efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141",
+        "journal_id": "stage_journal:4a94b17d-f509-5ac6-b591-f7336f2938a2",
+        "output_sha256": null,
+        "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+        "schema_version": "cera.turn_stage_audit_entry.v1",
+        "sequence": 8,
+        "stage": "scene_realization_verification",
+        "status": "failed",
+        "story_state_committed": false
+      }
+    ],
+    "stored_failure_bundles": [
+      {
+        "authoritative_store_writes": 0,
+        "branch_id": "branch:offline-main",
+        "error_code": "CERA_VERIFIER_FAILED",
+        "external_provider_calls_observed": 3,
+        "failure_bundle_id": "failure_bundle:b3519791-5bb2-58c5-861b-5d7e88e2182e",
+        "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+        "input_sha256": "efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141",
+        "output_sha256": null,
+        "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+        "retained_evidence": [
+          {
+            "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+            "evidence_kind": "scene_reasoner_receipt",
+            "evidence_sha256": "2539ee76172d81d9fa7b4ade35070683d1df4e5a4f281d3faf73aacc7beb68fe"
+          },
+          {
+            "evidence_id": "validation:17e986ed-2260-5663-b0ce-387410d2b2e5",
+            "evidence_kind": "composer_context_assembly_receipt",
+            "evidence_sha256": "6c96bba67117fc3c2e8a3192f9669fd77af58888dbcd7e345d054a5f08bc3c78"
+          },
+          {
+            "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+            "evidence_kind": "scene_composer_receipt",
+            "evidence_sha256": "423b9da53f3afa42425f556a2aa26a15374a32da060d6892af0d52c58e80f533"
+          },
+          {
+            "evidence_id": "validation:6a4f04ac-f972-55fe-ac39-361dbe93401b",
+            "evidence_kind": "composer_validation_receipt",
+            "evidence_sha256": "cb7b7a225c047c09c2ca9022eea37f3be777b5a2933e4af263508c62c6271eab"
+          },
+          {
+            "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+            "evidence_kind": "reasoner_provider_call_receipt",
+            "evidence_sha256": "80607854d139f2d3921486f68795de00cf909d438834696e03642ca49573c2b9"
+          },
+          {
+            "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+            "evidence_kind": "composer_provider_call_receipt",
+            "evidence_sha256": "43605efe6353586be46eb23437a0bb020f61c8d0c17ad0ef19d32dedd99d864f"
+          },
+          {
+            "evidence_id": "lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3",
+            "evidence_kind": "evidence_lookup_receipt",
+            "evidence_sha256": "518fe23428f47e3cd557cf5e5d7c40e0345d75c836d4c0e14cb6aa3911e45488"
+          },
+          {
+            "evidence_id": "lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad",
+            "evidence_kind": "evidence_lookup_receipt",
+            "evidence_sha256": "86be1d6a54ab1589d0422133b8b9c91b4b4d46895f300af841606084854af8ef"
+          },
+          {
+            "evidence_id": "realization_verification:9ffe7892-bf6e-5217-8bd7-267f8abf1ff9",
+            "evidence_kind": "scene_realization_verification_receipt",
+            "evidence_sha256": "87422b44667d8cedd1f9727797ebbc28eceb296b51e5f45c2b217668cf12fae7"
+          },
+          {
+            "evidence_id": "provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051",
+            "evidence_kind": "realization_verifier_provider_call_receipt",
+            "evidence_sha256": "ab564ab9b121223f415a7d1b179b4935224b91d29bf74ad32f47e675b6579b8a"
+          },
+          {
+            "evidence_id": "review_packet:4a6ce138-97f2-55f5-bf64-51810120e3ab",
+            "evidence_kind": "rejected_candidate_review_artifact",
+            "evidence_sha256": "3a64a6206f672317be3d16db4198bfbb8b2978d8a396f1500aa10fe9077911af"
+          }
+        ],
+        "retained_receipt_payloads": [
+          {
+            "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+            "evidence_kind": "scene_reasoner_receipt",
+            "evidence_sha256": "2539ee76172d81d9fa7b4ade35070683d1df4e5a4f281d3faf73aacc7beb68fe",
+            "payload_json": "{\"adapter_evidence_id\":\"codex_reasoner_gpt-5.6-sol_medium\",\"adapter_evidence_sha256\":\"8fa06ca8d0eb484996914e725a99ce62448394d12be6b795b9d2951edf979e91\",\"adapter_role\":\"codex_scene_reasoner\",\"adapter_version\":\"cera.codex_scene_reasoner.v8\",\"bridge_receipt_id\":null,\"bridge_receipt_sha256\":null,\"cumulative_evidence_bytes\":0,\"evidence_lookup_receipt_ids\":[],\"external_provider_calls\":1,\"outcome_sha256\":\"db324ffefa85878d7694c0e0eb238c84f93bb00b6221d8cb430fde9b04b585b2\",\"outcome_status\":\"decision_ready\",\"provider_receipt_id\":\"provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f\",\"provider_receipt_sha256\":\"80607854d139f2d3921486f68795de00cf909d438834696e03642ca49573c2b9\",\"reasoner_request_sha256\":\"197bca817cc0857c8a6cc44f9dcaa91ccdbc6ce5f18b895a213909ef1cbb7c1d\",\"schema_version\":\"cera.scene_reasoner_receipt.v2\",\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"source_sha256\":\"a959d7a47f562cb669dd136cdadf240c956e0a137cff4155c85cce66d40d0b92\",\"source_view_sha256\":\"72628404c2c44348589746dd861d5cd61bcdb48f5d57cd739c7a33f6e546538b\",\"tool_call_count\":0}",
+            "payload_sha256": "e7ad6bef291bce3237caed9f47da1551f67e538e38c2efd8a29ee2f4e1d5a7fb",
+            "receipt_schema_version": "cera.scene_reasoner_receipt.v2"
+          },
+          {
+            "evidence_id": "provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f",
+            "evidence_kind": "reasoner_provider_call_receipt",
+            "evidence_sha256": "80607854d139f2d3921486f68795de00cf909d438834696e03642ca49573c2b9",
+            "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":false,\"cost_microusd\":0,\"duration_ms\":40495,\"external_provider_calls\":1,\"input_tokens\":12830,\"model_identity_source\":\"explicit_request\",\"model_identity_verified\":false,\"model_revision\":\"openai-resolver-2026-07-28\",\"output_sha256\":\"eb21cc9beb6ec76da9701c5d9ddee11bf4e4d6776492bcd82b39cb75d3c53e74\",\"output_tokens\":2040,\"provider\":\"openai_codex\",\"provider_receipt_id\":\"provider_receipt:5ab61069-3ea3-5948-9bcb-ffa5e8a9292f\",\"provider_request_id_sha256\":\"cd1998475c2ee4c90e6cfdd3be867f8735f455cb9d5c55fa96a5f2164fd57108\",\"quota_metered\":true,\"reasoning_output_tokens\":1235,\"request_sha256\":\"2a78dcbd8b87aa8213ab8425174f8eacff88ba38374e91371b8824b67692d7d1\",\"requested_model\":\"gpt-5.6-sol\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"gpt-5.6-sol\",\"role\":\"scene_reasoner\",\"route_sha256\":\"8fa06ca8d0eb484996914e725a99ce62448394d12be6b795b9d2951edf979e91\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":null}",
+            "payload_sha256": "46c22659c26bd7389433414fc596bb36f60e83501adfd65866a14b1318d841b6",
+            "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+          },
+          {
+            "evidence_id": "validation:17e986ed-2260-5663-b0ce-387410d2b2e5",
+            "evidence_kind": "composer_context_assembly_receipt",
+            "evidence_sha256": "6c96bba67117fc3c2e8a3192f9669fd77af58888dbcd7e345d054a5f08bc3c78",
+            "payload_json": "{\"assembled_request_sha256\":\"22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7\",\"assembly_receipt_id\":\"validation:17e986ed-2260-5663-b0ce-387410d2b2e5\",\"base_request_sha256\":\"fd22b30661a3878be21ecdc16d6e2bcf7d80d78d94571c445627b1b8506f8c79\",\"cumulative_returned_bytes\":3521,\"external_provider_calls\":0,\"lookup_count\":2,\"lookup_receipt_ids\":[\"lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3\",\"lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad\"],\"realization_context_sha256\":\"071ec29407a6de0dd82e18630b2b46fcaaccbcfe5a690c0205f3214ef83da218\",\"schema_version\":\"cera.composer_context_assembly_receipt.v1\",\"selected_craft_reference_ids\":[],\"selected_evidence_ids\":[\"evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a\",\"evidence:9a8050c6-a481-57a8-a877-25da3345be2f\"],\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"story_authority_writes\":0}",
+            "payload_sha256": "7b9963097fcfd82c4ba32b77a1f58b8b05000cdf884efe937c5d1817b2051f27",
+            "receipt_schema_version": "cera.composer_context_assembly_receipt.v1"
+          },
+          {
+            "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+            "evidence_kind": "scene_composer_receipt",
+            "evidence_sha256": "423b9da53f3afa42425f556a2aa26a15374a32da060d6892af0d52c58e80f533",
+            "payload_json": "{\"adapter_evidence_id\":\"deepseek_composer_deepseek-v4-pro\",\"adapter_evidence_sha256\":\"65b7c693b538df2ca61b5292db310db8970dd10a7e3764c97694260cdb0aa44e\",\"adapter_role\":\"deepseek_scene_composer\",\"adapter_version\":\"cera.deepseek_scene_composer.v8\",\"candidate_sha256\":\"efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141\",\"composer_request_sha256\":\"22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7\",\"decision_sha256\":\"88a5019a25aa311e9f3b52e4aa1664a5fbe4af34a7b8702a8bc9093fab423fbc\",\"external_provider_calls\":1,\"manifest_sha256\":\"e5264a06378ea3e659e05c514b7a3c068e94de5df40f755272240de85f06a4c4\",\"outcome\":\"candidate_returned\",\"protected_source_envelope_sha256\":null,\"provider_receipt_id\":\"provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6\",\"provider_receipt_sha256\":\"43605efe6353586be46eb23437a0bb020f61c8d0c17ad0ef19d32dedd99d864f\",\"safe_ledger_sha256\":\"72628404c2c44348589746dd861d5cd61bcdb48f5d57cd739c7a33f6e546538b\",\"schema_version\":\"cera.scene_composer_receipt.v2\",\"sequence_plan_sha256\":\"368e0d20c47faa3d3628e400784b2a613e0aa0130a8a20164f80c8b84bb5a5a4\",\"source_sha256\":\"a959d7a47f562cb669dd136cdadf240c956e0a137cff4155c85cce66d40d0b92\"}",
+            "payload_sha256": "15c6836648d5a8fc28d2579b32c09239b4dc39056a80ac46937800b779c7455c",
+            "receipt_schema_version": "cera.scene_composer_receipt.v2"
+          },
+          {
+            "evidence_id": "validation:6a4f04ac-f972-55fe-ac39-361dbe93401b",
+            "evidence_kind": "composer_validation_receipt",
+            "evidence_sha256": "cb7b7a225c047c09c2ca9022eea37f3be777b5a2933e4af263508c62c6271eab",
+            "payload_json": "{\"candidate_sha256\":\"efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141\",\"composer_request_sha256\":\"22cfad00813f8fda1786311d1d2ac70e61ebae47dab758adccfa68c9b5d6d9c7\",\"manifest_sha256\":\"e5264a06378ea3e659e05c514b7a3c068e94de5df40f755272240de85f06a4c4\",\"quarantined_advisory_count\":0,\"quarantined_advisory_sha256\":[],\"schema_version\":\"cera.composer_validation_receipt.v1\",\"semantic_quality_proven\":false,\"status\":\"accepted_in_memory\",\"story_state_committed\":false,\"validation_kind\":\"structural_candidate_validation\",\"validation_receipt_id\":\"validation:6a4f04ac-f972-55fe-ac39-361dbe93401b\"}",
+            "payload_sha256": "99add3109c9486dc8b7188a769654215ccb2f1b8a4bd5f62f2e472ded1b7961c",
+            "receipt_schema_version": "cera.composer_validation_receipt.v1"
+          },
+          {
+            "evidence_id": "provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6",
+            "evidence_kind": "composer_provider_call_receipt",
+            "evidence_sha256": "43605efe6353586be46eb23437a0bb020f61c8d0c17ad0ef19d32dedd99d864f",
+            "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":true,\"cost_microusd\":1792,\"duration_ms\":7134,\"external_provider_calls\":1,\"input_tokens\":3200,\"model_identity_source\":\"provider_response\",\"model_identity_verified\":true,\"model_revision\":\"deepseek-v4-2026-04-24\",\"output_sha256\":\"4e8fb1d7af72d5a376fe50a610481f1e5680eb2d9668df76351915f3b47b3c8f\",\"output_tokens\":459,\"provider\":\"deepseek\",\"provider_receipt_id\":\"provider_receipt:48e7465f-4945-5a99-93cb-0100de9195b6\",\"provider_request_id_sha256\":\"6ff690af5f78c2686d6d85fb4de0c7229ee20568070c9819b0996e8a283391fb\",\"quota_metered\":false,\"reasoning_output_tokens\":0,\"request_sha256\":\"c3d858cdf3e18211265448ef19f1ffebb08e598e27b1cffee4d262fe9cdbc2dc\",\"requested_model\":\"deepseek-v4-pro\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"deepseek-v4-pro\",\"role\":\"scene_composer\",\"route_sha256\":\"65b7c693b538df2ca61b5292db310db8970dd10a7e3764c97694260cdb0aa44e\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":\"2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627\"}",
+            "payload_sha256": "1dedd26c939f238a95d581c08214b3191d8897c94cd753d5e46b44e3924d407f",
+            "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+          },
+          {
+            "evidence_id": "lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3",
+            "evidence_kind": "evidence_lookup_receipt",
+            "evidence_sha256": "518fe23428f47e3cd557cf5e5d7c40e0345d75c836d4c0e14cb6aa3911e45488",
+            "payload_json": "{\"authoritative_store_writes\":0,\"cumulative_snapshot_bytes\":1135,\"followup_search_count\":1,\"lookup_receipt_id\":\"lookup_receipt:fc5a3812-1475-5bd3-97fe-f628a324dec3\",\"operation\":\"search_evidence\",\"returned_bytes\":1135,\"returned_count\":1,\"schema_version\":\"cera.evidence_lookup_receipt.v1\",\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"truncated\":false,\"truncation_reason\":null}",
+            "payload_sha256": "a9e365b4b3a31478a6bb627053743d22d94e695f8c54be9dc5106fbe0ff28732",
+            "receipt_schema_version": "cera.evidence_lookup_receipt.v1"
+          },
+          {
+            "evidence_id": "lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad",
+            "evidence_kind": "evidence_lookup_receipt",
+            "evidence_sha256": "86be1d6a54ab1589d0422133b8b9c91b4b4d46895f300af841606084854af8ef",
+            "payload_json": "{\"authoritative_store_writes\":0,\"cumulative_snapshot_bytes\":3521,\"followup_search_count\":1,\"lookup_receipt_id\":\"lookup_receipt:3dbcdadc-3c2e-5dbe-b4fd-194eb45c85ad\",\"operation\":\"fetch_evidence\",\"returned_bytes\":2386,\"returned_count\":1,\"schema_version\":\"cera.evidence_lookup_receipt.v1\",\"snapshot_token\":\"snapshot:4b436dff-a85d-5bf1-9985-7ffe7c7b08a4\",\"truncated\":false,\"truncation_reason\":null}",
+            "payload_sha256": "8245404d7e76b99316a37bba4c79dccfb67a6153ff1d7e8145d4b0c54f7a0b00",
+            "receipt_schema_version": "cera.evidence_lookup_receipt.v1"
+          },
+          {
+            "evidence_id": "realization_verification:9ffe7892-bf6e-5217-8bd7-267f8abf1ff9",
+            "evidence_kind": "scene_realization_verification_receipt",
+            "evidence_sha256": "87422b44667d8cedd1f9727797ebbc28eceb296b51e5f45c2b217668cf12fae7",
+            "payload_json": "{\"authoritative_store_writes\":0,\"candidate_sha256\":\"efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141\",\"external_provider_calls\":1,\"provider_receipt_id\":\"provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051\",\"provider_receipt_sha256\":\"ab564ab9b121223f415a7d1b179b4935224b91d29bf74ad32f47e675b6579b8a\",\"qualification_eligible\":true,\"retains_story_prose\":false,\"schema_version\":\"cera.scene_realization_verification_receipt.v4\",\"status\":\"rejected\",\"story_text_sha256\":\"fd44ee884301cd5ed02d80f3e4d0ad272e6c044e154bef5cb7f33b9626c9125a\",\"verification_id\":\"realization_verification:9ffe7892-bf6e-5217-8bd7-267f8abf1ff9\",\"verification_request_sha256\":\"7f2a8395cb94140bd10f326c6910fc88900e22303f87d35cc594de972c079c8a\",\"verified_beat_ids\":[\"beat:2887b07b-ad8e-526b-b684-d349e9e740dd\"],\"verified_boundary_checks\":[\"protected_user_no_unsupplied_realization\"],\"verified_participant_ids\":[\"character:hana_hanezawa\"],\"verifier_adapter_evidence_id\":\"codex_realization_verifier_gpt-5.6-sol_medium\",\"verifier_adapter_evidence_sha256\":\"5a1e0459ed49951cd6a62cd198f0fade603ddb4d11cc5c882416a86a6b19654f\",\"verifier_adapter_version\":\"cera.codex_scene_realization_verifier.v2\",\"violation_codes\":[\"protected_user_unsupplied_realization\"],\"violation_finding_sha256s\":[\"18c59412cd86536bb58333854627ab9dc3087694075148f7c8181f2235aee56d\"]}",
+            "payload_sha256": "41f5b3c83f19c15d72137c001ba6ba7ccb1b0458c590eb44217d2b290caa9089",
+            "receipt_schema_version": "cera.scene_realization_verification_receipt.v4"
+          },
+          {
+            "evidence_id": "provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051",
+            "evidence_kind": "realization_verifier_provider_call_receipt",
+            "evidence_sha256": "ab564ab9b121223f415a7d1b179b4935224b91d29bf74ad32f47e675b6579b8a",
+            "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":false,\"cost_microusd\":0,\"duration_ms\":14422,\"external_provider_calls\":1,\"input_tokens\":10341,\"model_identity_source\":\"explicit_request\",\"model_identity_verified\":false,\"model_revision\":\"openai-resolver-2026-07-28\",\"output_sha256\":\"4b1c7f99c727301bbfe0466a39581ef4a8b79badbebc3690c032f3588fc9d1f9\",\"output_tokens\":525,\"provider\":\"openai_codex\",\"provider_receipt_id\":\"provider_receipt:e5cfdf16-c690-57e3-b41c-87435858a051\",\"provider_request_id_sha256\":\"f734c7e6ee6e7a759c71264608ffd885ccca720169a931593ca288ecfeeff268\",\"quota_metered\":true,\"reasoning_output_tokens\":390,\"request_sha256\":\"11c74d4e06d4d538442273ee4b3dd0bc7afb7a0ca6f1232b83318ee70d7a6fc3\",\"requested_model\":\"gpt-5.6-sol\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"gpt-5.6-sol\",\"role\":\"scene_realization_verifier\",\"route_sha256\":\"5a1e0459ed49951cd6a62cd198f0fade603ddb4d11cc5c882416a86a6b19654f\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":null}",
+            "payload_sha256": "e3e555bb94cec7be9c6a3d70554568630425b6395f8dcab513b40637674dc1ff",
+            "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+          }
+        ],
+        "retains_private_evidence": false,
+        "retains_prompt": false,
+        "retains_raw_source": false,
+        "retains_secret": false,
+        "retains_story_prose": false,
+        "safe_message": "scene realization verification rejected or was inconclusive",
+        "schema_version": "cera.turn_failure_evidence_bundle.v2",
+        "stage": "scene_realization_verification",
+        "story_state_committed": false
+      }
+    ],
+    "story_state_committed": false
+  },
+  "schema_version": "cera.continuous_qualification_failure.v1",
+  "status": "failed",
+  "title": "Hana receives Ted after he keeps the rain outside"
+}

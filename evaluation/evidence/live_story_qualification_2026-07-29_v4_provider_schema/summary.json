@@ -1,0 +1,82 @@
+{
+  "attempted_cases": 5,
+  "automatic_retry_count": 0,
+  "cases": [
+    {
+      "automatic_retry_count": 0,
+      "case_id": "01_hana_indirect_memory",
+      "error_class": "CERA_REASONER_CONTRACT_INVALID",
+      "error_message": "Codex reasoner output failed typed decoding: decision-ready draft lacks required semantic content",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana ordinary turn with indirect missed-calls memory"
+    },
+    {
+      "accepted_prose_sha256": "ea00094fa35d9da5a4b39fe59bb3cca1a7a4aef8cb0d5762a4690aa4a9d25048",
+      "case_id": "02_mia_sakura_selected_cast",
+      "codex_model": "gpt-5.6-sol",
+      "deepseek_model": "deepseek-v4-pro",
+      "duration_seconds": 93.073,
+      "external_provider_calls": 2,
+      "status": "passed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Mia and Sakura ordinary selected-cast turn"
+    },
+    {
+      "automatic_retry_count": 0,
+      "case_id": "03_hana_adult_on",
+      "error_class": "CERA_COMPOSER_CONTRACT_INVALID",
+      "error_message": "DeepSeek Composer output failed typed decoding: Composer quote anchor does not resolve to the declared occurrence",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana consent-valid Adult ON direct realization"
+    },
+    {
+      "automatic_retry_count": 0,
+      "case_id": "04_hana_adult_ex_climax",
+      "error_class": "CERA_REASONER_CONTRACT_INVALID",
+      "error_message": "Codex reasoner output failed typed decoding: CodexReasonerDraftV2.adult_craft_need does not match its union: [\"AdultBeatCraftDraftV2.channel_requirements[] does not match its union: ['CharacterChannelCraftNeedV2 is missing required fields: character_id', 'scene-channel concepts must not contain duplicates']\"]",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana consent-valid Adult EX buildup and climax"
+    },
+    {
+      "automatic_retry_count": 0,
+      "case_id": "05_hana_adult_ex_toilet",
+      "error_class": "ReasonerExecutionFailure",
+      "error_message": "Codex reasoner output failed typed decoding: CodexReasonerDraftV2.adult_craft_need does not match its union: [\"AdultBeatCraftDraftV2.channel_requirements[] does not match its union: ['CharacterChannelCraftNeedV2 is missing required fields: character_id', 'scene-channel concepts must not contain duplicates']\"]",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana consent-valid Adult EX toilet and material continuity"
+    }
+  ],
+  "duration_seconds": 98.149,
+  "failed_cases": 4,
+  "fallback_enabled": false,
+  "finished_at": "2026-07-29T10:39:20.104541+00:00",
+  "passed_cases": 1,
+  "preserved_existing_case_ids": [
+    "01_hana_indirect_memory",
+    "02_mia_sakura_selected_cast",
+    "03_hana_adult_on",
+    "04_hana_adult_ex_climax"
+  ],
+  "production_enabled": false,
+  "qualification_id": "five-run-live-v4-provider-schema",
+  "realization_verifier_limitation": "Scene realization used the production-prohibited echo-accepting scripted fake; its acceptance proves wiring only, not semantic realization quality.",
+  "resumed_after_runner_stdout_interruption": true,
+  "schema_version": "cera.live_story_qualification_summary.v2",
+  "semantic_verifier_limitation": "Adult semantic specificity used the production-prohibited scripted fake; its empty finding set is not proof of semantic quality.",
+  "started_at": "2026-07-29T10:37:41.955996+00:00",
+  "story_authority_writes": 0,
+  "story_state_committed": false
+}

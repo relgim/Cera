@@ -1,0 +1,86 @@
+{
+  "attempts_per_stage": 1,
+  "failed_turn": 5,
+  "failure_stage": "application_execution_or_acceptance",
+  "fallback_enabled": false,
+  "finished_at": "2026-07-29T22:21:35.394955+00:00",
+  "genesis_revision": "v1_2",
+  "persistent_codex_transport": {
+    "qualification_id": "persistent-codex-transport-probe-v1",
+    "reasoner_calls": 2,
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_qualification_evidence.v1",
+    "summary_sha256": "f92a08e5cda04c701c74b3d1ddd98fe1abc0da733959f56545c0eb43cd07f5f3",
+    "verifier_calls": 2
+  },
+  "persistent_transport_sessions": {
+    "scene_realization_verifier": {
+      "process_launch_count": 1,
+      "request_submission_count": 4
+    },
+    "scene_reasoner": {
+      "process_launch_count": 1,
+      "request_submission_count": 4
+    }
+  },
+  "qualification_id": "continuous-ten-turn-v12",
+  "reasoner_transport_policy": "persistent_no_mcp_except_request_bound_mcp_one_shot",
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-29T22:16:09.455873+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": [
+    {
+      "artifact_id": "artifact:095d0e71-3f43-55c5-a142-494e2a42be1b",
+      "duration_seconds": 47.644,
+      "index": 1,
+      "key": "doorway-belongings-choice",
+      "prose_sha256": "89839db6250ac02e19da2f6e3f0e05dfda4c7c261d87101448d5cf9be479506c",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:9add1f51-c2f7-561f-a9a2-a29254856163",
+      "duration_seconds": 70.318,
+      "index": 2,
+      "key": "yuuni-interrupts-introduction",
+      "prose_sha256": "354293fc9cabc128ad1fb4fdb1293fd4b180a2287c04a3a956b38db61899459e",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:d03ee59b-85e9-53ad-a54c-3364b8432a54",
+      "duration_seconds": 57.068,
+      "index": 3,
+      "key": "tomi-training-return",
+      "prose_sha256": "0113bd975e56d09f65238c3df51cd2ee2fced9ef0fc5f490a3d63c4d3a72385b",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:20610082-e182-565b-8bcc-79fedae37d94",
+      "duration_seconds": 54.004,
+      "index": 4,
+      "key": "aoi-arrives-after-strain",
+      "prose_sha256": "2b2228e024aec220b22e9cfea22e240045f85c224471cbd5668432f3ad612d1e",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "status": "passed"
+    }
+  ],
+  "verifier_transport_policy": "persistent_no_mcp"
+}

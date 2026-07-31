@@ -1,0 +1,33 @@
+{
+  "access_scope": "creator_local_qualification_review",
+  "authoritative_store_writes": 0,
+  "branch_id": "branch:offline-main",
+  "candidate_sha256": "527ace8940c298700f803a43d4b180a89e4c9ab4265550c39a2c25e1ac0b0e00",
+  "excerpts": [
+    {
+      "end": 394,
+      "excerpt": "Sakura's hand remained on the doorframe, her fingers still against the painted wood. She looked at the man on her doorstep—his single suitcase set to the side, his weight settled back as if he understood the threshold meant something. The restraint was noted. It was not yet trust, but it was a passable start.\n\n\"Guests remove their shoes at the genkan and place them on the rack to the left,\" ",
+      "excerpt_sha256": "015a967a9d5587cfd6f25341ff3c3776cd1a0176f4711bcb66adf7d4e65511ed",
+      "finding_code": "protected_user_unsupplied_realization",
+      "start": 0
+    }
+  ],
+  "finding_sha256s": [
+    "24c049157ddeaf8eba62565a7a82c42e5e4a94a4cefa06c058c8ae6b98d76068"
+  ],
+  "generation_id": "generation:dc6c013e-2dce-58ca-8504-d7a6f67c3376",
+  "qualification_only": true,
+  "request_id": "request:11bbc880-e43a-5088-86dc-1727fe746ddf",
+  "retains_story_prose": true,
+  "retention_policy": "manual_delete_after_adjudication",
+  "review_id": "review_packet:7ba142bd-9c4c-50cf-938d-1f8bb2a61b6b",
+  "reviewer_status": "pending_creator_review",
+  "runtime_receipt_forbidden": true,
+  "schema_version": "cera.rejected_candidate_review_artifact.v1",
+  "status": "rejected",
+  "story_state_committed": false,
+  "verification_request_sha256": "9ea5d8fa6caf9eb673a6db655f890a2ac8a4ca929d92e13b1fd4d546fc7d10ae",
+  "violation_codes": [
+    "protected_user_unsupplied_realization"
+  ]
+}

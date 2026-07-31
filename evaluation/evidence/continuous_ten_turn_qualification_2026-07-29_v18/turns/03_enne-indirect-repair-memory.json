@@ -1,0 +1,577 @@
+{
+  "application_request_sha256": "ce04527465564e480b5cb5102e11f9ce941255c59717bd6c9c3c723770c98048",
+  "assertions": {
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "one_shot_request_bound_mcp",
+    "regeneration": false,
+    "required_memory_id": "E-M03",
+    "required_memory_retrieved": true,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "persistent_no_mcp"
+  },
+  "composer": {
+    "accepted_prose": "The question lands like a diagnostic tool that found a fault without needing to be told where it was. She feels the old logic surface: function as worth, repair as the bridge that only works when something is broken. The memory is still hers.\n\n\"A repair can recalibrate a relationship. It can also make your presence feel necessary only when there is a failure. The difference is not in the repair. It is in what persists afterward.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "cc23810b54a164b33cec4b041a791a1a97bd9063c98b021dc5f0cf431567a989",
+      "character_spans": [
+        {
+          "beat_id": "beat:bab9de19-4b16-5ff2-ad69-13fc639cbf57",
+          "end": 242,
+          "kind": "private_state",
+          "owner_id": "character:enne_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:bab9de19-4b16-5ff2-ad69-13fc639cbf57",
+          "end": 433,
+          "kind": "dialogue",
+          "owner_id": "character:enne_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 244
+        }
+      ],
+      "decision_sha256": "f4a5daf5fb012d7e46f8ba13d20cc477b2159f9f74fae64ee4a3df500d7c4025",
+      "floor_owner_id": "character:enne_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:b084a9df-3fae-5f40-94de-70d8506e7cae",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "385a605b6d1648937585f7f7647e0d5519652da2a47602e6f23ee12c673d3c9f",
+          "character_id": "character:enne_hanezawa",
+          "selected_intent_sha256": "e5b12fffc2c69adfb0d9f414412e075f7572b43e4038bf90ba2c9a4a0bd88374"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:bab9de19-4b16-5ff2-ad69-13fc639cbf57"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "1b240661a3a1422ba88e9fe71415958b5f696b19679c5aeec5a1219934a58955",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "89c2d3ebda6dab307c6f4db01ff306514b4b53bfd6886b7942545c9b9821f99c",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1280,
+      "cost_is_estimate": true,
+      "cost_microusd": 1552,
+      "duration_ms": 4736,
+      "external_provider_calls": 1,
+      "input_tokens": 4161,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "96cb30d2cc6fc8579502c30151dd09e1eef0408803c1522c426591996d7ca632",
+      "output_tokens": 338,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:a7bff270-360d-5565-a492-51bf6bc03bd9",
+      "provider_request_id_sha256": "ec223ce4b27ce6036f90995e1dd5fcb275d0537db5b2c3d1ffaf39a378e3f825",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "ced1fe3c8cbcfc888800b1523c135d56e5b10ecbbf283c1f8ce65c178d465cad",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "e795e7c4dc412df72d8c79dd2828361a6febfd81f63010ff57d72a2f0e03da17",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:enne_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "6203f8d52fdcce56deeb83cb6c4f1174e23de4df0b001b48817489af8f519bb0",
+      "assembly_receipt_id": "validation:aba1d098-61cd-5590-ba56-ef9c4629fd40",
+      "base_request_sha256": "78d29fa3dc15d4427d91eeb364bd8fa3e409a0639d010e77d0d30c0e4f15413c",
+      "cumulative_returned_bytes": 3197,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:9bebf671-78e0-554e-9d6e-56cf9c6c5b3b",
+        "lookup_receipt:0feebee4-e653-510a-a6c8-4deee88befc4"
+      ],
+      "realization_context_sha256": "ef781c91f4902bd5d198eb3d0dbb258c7c1bf88c96e508fbd1c89d02a91fc8f0",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:cd4c1f64-68df-5673-9eab-a34a2b63dfd7",
+        "evidence:4b09d0c8-2ff7-52cf-b469-8754e243f9d1"
+      ],
+      "snapshot_token": "snapshot:6cdb93e9-e934-5d0b-af53-b075aefac3c8",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:enne_hanezawa"
+    ]
+  },
+  "duration_seconds": 90.552,
+  "index": 3,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "6b5fd0ae9682d5a322b905cf2be2256a3a0a21f761ed989f1bd1e9a461eb40a9",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "288a428423832d96b5764e26c1d693b72ecc50e5b65d9ba442cef23c78b794ba",
+      "receipt_id": "validation:de98afd4-faea-5076-900a-116b0047947e",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "88f68efbf7847ba243f53b023bac5604c93e5263fd98254189a8214cacb79f2f",
+    "receipt_id": "validation:14fc15f0-8578-54fe-9ab2-7d6554aadba0",
+    "request_id": "request:52c8ac37-9099-5e21-aeb7-e49db96383e8",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 1260,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:a5c93a61-68e6-5083-93cc-82849535814c",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1260,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:6cdb93e9-e934-5d0b-af53-b075aefac3c8",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:a5c93a61-68e6-5083-93cc-82849535814c"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+          ],
+          "obligation_id": "obligation:9290bfc2-87d4-5b1e-8fe9-eb41358cd8c3",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:2eec7c08-2714-5f52-a29f-3b87e0e9d79c",
+      "snapshot_binding_sha256": "efedc490fa3273e1015a442dc5259f75c5cf124c58c64cab6bbd167f1271ac79",
+      "snapshot_token": "snapshot:6cdb93e9-e934-5d0b-af53-b075aefac3c8"
+    },
+    "snapshot_token": "snapshot:6cdb93e9-e934-5d0b-af53-b075aefac3c8",
+    "source_sha256": "7f31976f927bbb208da48ca1a45a0056b0b830672512366fe9897712286a4265"
+  },
+  "key": "enne-indirect-repair-memory",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:6e69be79-a78b-5669-990f-8af5ccd0a611",
+      "accepted_artifact_sha256": "b55899395ea4ec935efc958990cb2e8b23c4ff61c9a3de54eb371545435ba197",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "ce04527465564e480b5cb5102e11f9ce941255c59717bd6c9c3c723770c98048",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:2f0c9142-e8e8-561e-87fe-cdaa1733deb9",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:098fa16e-11ab-58fc-9bac-b6e50054b940",
+      "operational_report_id": "validation:8c48a0bd-18f4-5bfc-9954-523b236e1782",
+      "operational_report_sha256": "4c910d233f3c1265f24a13f90f78991e3b4aee3665fb5020ad0f0590c736bc4f",
+      "receipt_id": "validation:a47ac70b-803d-595b-b40e-0674ac642588",
+      "request_id": "request:52c8ac37-9099-5e21-aeb7-e49db96383e8",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "788a1779789eb6d0f218b88b3b7cf1672c76b336ecb66c915860b91aac126da0"
+    },
+    "artifact": {
+      "accepted_prose": "The question lands like a diagnostic tool that found a fault without needing to be told where it was. She feels the old logic surface: function as worth, repair as the bridge that only works when something is broken. The memory is still hers.\n\n\"A repair can recalibrate a relationship. It can also make your presence feel necessary only when there is a failure. The difference is not in the repair. It is in what persists afterward.\"",
+      "artifact_id": "artifact:6e69be79-a78b-5669-990f-8af5ccd0a611",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:1868883d-ef2a-50b1-9bee-8149baa7419b",
+      "generation_id": "generation:098fa16e-11ab-58fc-9bac-b6e50054b940",
+      "parent_artifact_id": "artifact:c207c9ca-609b-5936-a682-4876eed654dd",
+      "prose_sha256": "89c2d3ebda6dab307c6f4db01ff306514b4b53bfd6886b7942545c9b9821f99c",
+      "realized_beat_ids": [
+        "beat:bab9de19-4b16-5ff2-ad69-13fc639cbf57"
+      ],
+      "responding_npc_ids": [
+        "character:enne_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:1d4b3337-47bb-5755-ab42-a7bbf8a30253",
+      "status": "accepted",
+      "transaction_id": "transaction:b740fd67-f98e-5733-b819-c2415e6a45a4",
+      "validation_receipt_id": "validation:94806b02-dd41-58e8-aa5c-c82b9e1369b1"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:2f0c9142-e8e8-561e-87fe-cdaa1733deb9",
+      "expected_previous_artifact_id": "artifact:c207c9ca-609b-5936-a682-4876eed654dd",
+      "external_receipt_ids": [],
+      "generation_after": 3,
+      "generation_before": 2,
+      "inserted_record_ids": [
+        "event:32066d51-aff0-57e3-af42-cf7c1484c92b"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:a5c93a61-68e6-5083-93cc-82849535814c",
+        "lookup_receipt:1f33e0a3-846f-5c1b-ae61-4ae04f214232",
+        "lookup_receipt:2ed90b3c-1b33-5063-9adc-f8f1ae40f706",
+        "lookup_receipt:affabaac-16e6-5228-9af5-c279935cb7de",
+        "lookup_receipt:9bebf671-78e0-554e-9d6e-56cf9c6c5b3b",
+        "lookup_receipt:0feebee4-e653-510a-a6c8-4deee88befc4"
+      ],
+      "new_artifact_id": "artifact:6e69be79-a78b-5669-990f-8af5ccd0a611",
+      "new_artifact_sha256": "b55899395ea4ec935efc958990cb2e8b23c4ff61c9a3de54eb371545435ba197",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:014d08b6-73e5-5280-bb90-20dd6d54027c",
+        "provider_receipt:a7bff270-360d-5565-a492-51bf6bc03bd9",
+        "provider_receipt:e6228ca6-46c9-5b8e-9120-4d557e0972e7"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:1d4b3337-47bb-5755-ab42-a7bbf8a30253",
+      "source_sha256": "585ef180c3e0d1efb0d88c907e730222b5f5a6652b61b6aa6b0271203c9f4ca5",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:b740fd67-f98e-5733-b819-c2415e6a45a4",
+      "transaction_sha256": "788a1779789eb6d0f218b88b3b7cf1672c76b336ecb66c915860b91aac126da0",
+      "validation_receipt_ids": [
+        "validation:14fc15f0-8578-54fe-9ab2-7d6554aadba0",
+        "validation:aba1d098-61cd-5590-ba56-ef9c4629fd40",
+        "validation:5522f0ef-5b59-513a-962a-58321a7e57cc",
+        "realization_verification:51217adc-64e1-5a11-8031-f8447af088d2",
+        "validation:94806b02-dd41-58e8-aa5c-c82b9e1369b1",
+        "validation:492978f0-5bc2-591d-9fac-6b8f2fcacb26"
+      ]
+    },
+    "event_record_id": "event:32066d51-aff0-57e3-af42-cf7c1484c92b",
+    "visible_artifact_count": 3
+  },
+  "qualification_id": "continuous-ten-turn-v18",
+  "raw_message": "Later, Ted says to Enne, \"I once saw a failed device nearly erase records that mattered to a family. The person who repaired it ended up helping everyone, but also started feeling useful only when something was broken. Has fixing things ever carried that kind of weight for you? You do not have to explain the event.\" He waits.",
+  "raw_message_sha256": "4dbd2ca82a7d6caed847eb9c82140a3a43c0d3b4d6a46a19f6376b6b3016bc6c",
+  "reasoner": {
+    "mcp_bridge_receipt": {
+      "authoritative_store_writes": 0,
+      "bridge_binding_sha256": "1d19ce9f6dd49d56d71534b27fe8ad1bd34bda514aa0f993998ba25f845db69f",
+      "bridge_receipt_id": "mcp_bridge_receipt:0ee4cf07-e44f-52c1-907b-8c2ac8e752b8",
+      "calls": [
+        {
+          "call_index": 1,
+          "error_code": null,
+          "error_field_path": null,
+          "error_reason": null,
+          "lookup_receipt_id": "lookup_receipt:1f33e0a3-846f-5c1b-ae61-4ae04f214232",
+          "request_sha256": "0457e8216a037b7171bb80c505322404e4c72c31dca54f17494ec1debe64eff1",
+          "result_sha256": "af22de8f1c7cd9fe08a1d82febc94d0166895a77028ecbb5bc46cec7187d4538",
+          "returned_bytes": 2,
+          "success": true,
+          "tool_name": "cera_search_query_plan"
+        },
+        {
+          "call_index": 2,
+          "error_code": null,
+          "error_field_path": null,
+          "error_reason": null,
+          "lookup_receipt_id": "lookup_receipt:2ed90b3c-1b33-5063-9adc-f8f1ae40f706",
+          "request_sha256": "8b38fddf578fc624076d936ba4e6ed86b29ac5e73fca54036387c2041e63eff1",
+          "result_sha256": "d176677e2ef29f9e443fbcecd4140e21b6060370b2eb8503f56bdc912d18f8f2",
+          "returned_bytes": 1397,
+          "success": true,
+          "tool_name": "cera_search_evidence"
+        },
+        {
+          "call_index": 3,
+          "error_code": null,
+          "error_field_path": null,
+          "error_reason": null,
+          "lookup_receipt_id": "lookup_receipt:affabaac-16e6-5228-9af5-c279935cb7de",
+          "request_sha256": "b003a20e4497d3c295ede636e56b942e2c5c9eb99d3fda50aee997ef525d2045",
+          "result_sha256": "06d18ce0948efd0837780ae019c582f0645a5d13a90de6c2de040041fdb6fb52",
+          "returned_bytes": 1845,
+          "success": true,
+          "tool_name": "cera_fetch_evidence"
+        }
+      ],
+      "credential_retained": false,
+      "cumulative_evidence_bytes": 3244,
+      "enabled_tools": [
+        "cera_get_turn_snapshot",
+        "cera_resolve_entities",
+        "cera_search_evidence",
+        "cera_search_query_plan",
+        "cera_fetch_evidence",
+        "cera_get_character_sections",
+        "cera_get_continuity"
+      ],
+      "exact_evidence_ids": [
+        "evidence:cd4c1f64-68df-5673-9eab-a34a2b63dfd7"
+      ],
+      "private_evidence_retained": false,
+      "provider_observed_tool_calls": 3,
+      "provider_receipt_id": "provider_receipt:014d08b6-73e5-5280-bb90-20dd6d54027c",
+      "raw_source_retained": false,
+      "reasoner_request_sha256": "88f68efbf7847ba243f53b023bac5604c93e5263fd98254189a8214cacb79f2f",
+      "required": true,
+      "schema_version": "cera.mcp_evidence_bridge_receipt.v2",
+      "server_name": "cera_request_evidence",
+      "snapshot_binding_sha256": "efedc490fa3273e1015a442dc5259f75c5cf124c58c64cab6bbd167f1271ac79",
+      "snapshot_token": "snapshot:6cdb93e9-e934-5d0b-af53-b075aefac3c8",
+      "story_prose_retained": false,
+      "tool_contract_version": "cera.reasoner_evidence_mcp.v5",
+      "transport": "loopback_streamable_http"
+    },
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Deliver a concise, qualified acknowledgment of conditional-worth pressure while withholding the originating event.",
+            "character_id": "character:enne_hanezawa",
+            "evidence_ids": [
+              "evidence:cd4c1f64-68df-5673-9eab-a34a2b63dfd7"
+            ],
+            "knowledge_constraints": [
+              "The underlying memory is owner-private to Enne.",
+              "The indirect cue does not establish that Ted knows Enne's history.",
+              "Enne controls whether any event details are disclosed."
+            ],
+            "perception": "The device-repair and conditional-usefulness framing matches an owner-private memory cue without proving knowledge of the underlying event.",
+            "selected_intent": "Acknowledge that fixing can make worth feel conditional on function while keeping the originating event private."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:enne_hanezawa",
+              "beat_id": "beat:bab9de19-4b16-5ff2-ad69-13fc639cbf57",
+              "evidence_ids": [
+                "evidence:cd4c1f64-68df-5673-9eab-a34a2b63dfd7"
+              ],
+              "neutral_event": "Enne gives a qualified acknowledgment that fixing can make worth feel conditional on function, without identifying the remembered event.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:d4ec277b-6454-54c8-8f82-07fb3520d0e5",
+          "stop_before": "The protected user's next unsupplied meaningful choice."
+        },
+        "decision_id": "decision:1868883d-ef2a-50b1-9bee-8149baa7419b",
+        "floor_owner_id": "character:enne_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "A later supplied message asks Enne for the originating event or additional personal detail."
+            ],
+            "invalidation_conditions": [
+              "The scene ends before any further prompt.",
+              "A later supplied message changes the subject."
+            ],
+            "open_user_choice": "Whether to ask for more detail, change the subject, or end the exchange remains open.",
+            "possible_consequences": [
+              "Enne may disclose a limited factual detail.",
+              "Enne may retain the boundary and decline further detail."
+            ],
+            "segment_id": "segment:6d82ec1e-e44f-55e6-9b9d-4d4244976dc2",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not infer that Ted knows Enne's owner-private memory.",
+          "Do not infer Enne's motive beyond the selected bounded disclosure.",
+          "Do not add event details absent from exact evidence.",
+          "Do not author the protected user's next action, dialogue, thought, feeling, or decision.",
+          "Do not treat the conditional future segment as a current event."
+        ],
+        "responding_npc_ids": [
+          "character:enne_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Enne provides a bounded answer about repair-linked conditional worth while retaining the event details.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "The protected user's next meaningful choice is unknown.",
+          "Whether Enne would later disclose event details remains unknown."
+        ],
+        "writer_must_preserve": [
+          "Render only Enne's response without restating or directly narrating the protected user's supplied words or wait.",
+          "Keep the originating memory private except for the bounded meaning Enne chooses to disclose.",
+          "Do not identify the remembered device, family, or repair beyond the authorized general facts.",
+          "End before any protected-user response or next meaningful choice."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:cd4c1f64-68df-5673-9eab-a34a2b63dfd7",
+          "record_id": "record:58d27e88-7604-59ba-a7a3-ee074c56c9c9",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "evidence_ids": [
+            "evidence:cd4c1f64-68df-5673-9eab-a34a2b63dfd7"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 16128,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 73859,
+      "external_provider_calls": 1,
+      "input_tokens": 18073,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "3a72399916bb14d1f429dac39d15dc316eedcda81ffc8081b9a5179646e3e160",
+      "output_tokens": 1894,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:014d08b6-73e5-5280-bb90-20dd6d54027c",
+      "provider_request_id_sha256": "5f613e1be7f975806ee73ae098d1f1dfac8fefe521fd466262a8095e31e7d3a8",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1195,
+      "request_sha256": "576c5fbabde7128b4f795a26be152af20d0961ef6747cf843cd230f1859cdaca",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": "mcp_bridge_receipt:0ee4cf07-e44f-52c1-907b-8c2ac8e752b8",
+      "bridge_receipt_sha256": "082e26fb90538204548bb88d7073c5d5d927543d60ea1e22b0b605f5094991f6",
+      "cumulative_evidence_bytes": 3244,
+      "evidence_lookup_receipt_ids": [
+        "lookup_receipt:1f33e0a3-846f-5c1b-ae61-4ae04f214232",
+        "lookup_receipt:2ed90b3c-1b33-5063-9adc-f8f1ae40f706",
+        "lookup_receipt:affabaac-16e6-5228-9af5-c279935cb7de"
+      ],
+      "external_provider_calls": 1,
+      "outcome_sha256": "6938971fc932966e5f8de75573e20c5d51eed4ccac897e0e168bb4e7d7d3e48b",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:014d08b6-73e5-5280-bb90-20dd6d54027c",
+      "provider_receipt_sha256": "8fd9fa7e7217544e166ebbe582145a8253189b5f166c9edf36940b67cd6cb925",
+      "reasoner_request_sha256": "88f68efbf7847ba243f53b023bac5604c93e5263fd98254189a8214cacb79f2f",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:6cdb93e9-e934-5d0b-af53-b075aefac3c8",
+      "source_sha256": "7f31976f927bbb208da48ca1a45a0056b0b830672512366fe9897712286a4265",
+      "source_view_sha256": "da4e29f308239c9ecff7f7f554a5a7365cdd09da53fc4fc8d80d1661552956c5",
+      "tool_call_count": 3
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Enne answers a paraphrased indirect cue to E-M03",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 6809,
+      "external_provider_calls": 1,
+      "input_tokens": 10435,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "c6a9bf7c40f3b8fc44905a4868333f5728fe0bdeb10c5d0aa5606906493788d0",
+      "output_tokens": 163,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:e6228ca6-46c9-5b8e-9120-4d557e0972e7",
+      "provider_request_id_sha256": "09949f5f85860af788e0cc8955a5ed53a6c7ba9893959ebd0b56371c814c5cc1",
+      "quota_metered": true,
+      "reasoning_output_tokens": 61,
+      "request_sha256": "f616bc885553818fd44c2e38dc2224c30fe3852b52bf14bc2941f337ebe73a40",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "cc23810b54a164b33cec4b041a791a1a97bd9063c98b021dc5f0cf431567a989",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:e6228ca6-46c9-5b8e-9120-4d557e0972e7",
+      "provider_receipt_sha256": "4d93c5b76d289a16e4c0f3b33061e57ddf2a8bf388617c16bea1258274591b34",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "89c2d3ebda6dab307c6f4db01ff306514b4b53bfd6886b7942545c9b9821f99c",
+      "verification_id": "realization_verification:51217adc-64e1-5a11-8031-f8447af088d2",
+      "verification_request_sha256": "b8224da60a90fb89fe92ed186a983414353f3fe72205c6a5c2d174e822db607b",
+      "verified_beat_ids": [
+        "beat:bab9de19-4b16-5ff2-ad69-13fc639cbf57"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:enne_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

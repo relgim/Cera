@@ -1,0 +1,904 @@
+{
+  "application_request_sha256": "e5d32f0891ebae7d6a1cbebcdcd761f92d97bc0dd348ee26b8b7338c35638439",
+  "assertions": {
+    "all_eligible_required": true,
+    "all_eligible_selected": true,
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "codex_cli_exec_one_shot"
+  },
+  "composer": {
+    "accepted_prose": "Tomi tilted her head, considering. “Honestly? It depends on the day. If I've pushed hard and I'm really winded, I usually want silence—just let my breathing come back on its own. But on a normal cooldown, yeah, music can help shift my headspace. So it's not a yes or no for me. It's more… situational.”\n\nHer answer hung for a moment before Yuuni piped up from beside her. “I mean… I could. If Tomi ever asks for one. I've got playlists already sorted for different vibes, so it's not like it's extra work. But I'm not gonna just drop one right now. She'd have to actually ask first.” She shrugged, a hint of smugness in her tone.",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "3cc1a1237825a36abeb1bb4a55d754ed80ca6e2e5ecd569aaa6d8c3b83a2514b",
+      "character_spans": [
+        {
+          "beat_id": "beat:a0d96667-ec4b-5b88-ba9f-53732198562e",
+          "end": 302,
+          "kind": "dialogue",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:1c6a0091-6ef2-5a52-af39-f273adf8cb00",
+          "end": 629,
+          "kind": "dialogue",
+          "owner_id": "character:yuuni_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 304
+        },
+        {
+          "beat_id": null,
+          "end": 302,
+          "kind": "dialogue",
+          "owner_id": "character:ted",
+          "realized_state": "attempted",
+          "source_unit_id": "source_unit:889a4089-ebe0-5a8a-be3a-1287be483571",
+          "start": 0
+        },
+        {
+          "beat_id": null,
+          "end": 629,
+          "kind": "dialogue",
+          "owner_id": "character:ted",
+          "realized_state": "attempted",
+          "source_unit_id": "source_unit:889a4089-ebe0-5a8a-be3a-1287be483571",
+          "start": 304
+        }
+      ],
+      "decision_sha256": "3a34b3135833bf1b44e178a78a995e2c4cd0a7ad14943db9d5dcc6bc0256e249",
+      "floor_owner_id": "character:tomi_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:286e0d6a-06a5-5271-a5bb-2fce13428b03",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "422245d56d67acfcf18e29f89142644ba7caac55389d5d27acd791dec166ae4f",
+          "character_id": "character:tomi_hanezawa",
+          "selected_intent_sha256": "d66a32bcbbcbe48171edf40b804e2a687a3a84156d92776165cb3bc2686b4bab"
+        },
+        {
+          "action_direction_sha256": "728b4017ab0ffd88fda75faec1b0d3f3f64f2c416ae9991fac98e24d285916a3",
+          "character_id": "character:yuuni_hanezawa",
+          "selected_intent_sha256": "6829c818faf780857f09a0db84c6af95b237d25533599c3160a2b84b425a87da"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        },
+        {
+          "character_id": "character:yuuni_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:a0d96667-ec4b-5b88-ba9f-53732198562e",
+        "beat:1c6a0091-6ef2-5a52-af39-f273adf8cb00"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "cc85183957f0beec9d49223b98a04788ad3b677fb863fcf963ffb06ef2b899d7",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "0683ba21c2377b0517bab2461065efb890cf511142a74baeaaafc4c87aab41c3",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": true,
+      "cost_microusd": 2009,
+      "duration_ms": 10877,
+      "external_provider_calls": 1,
+      "input_tokens": 12167,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "c453f6cbb41884c3aa348279e28d93f03061e02b11cb6eef3346c0e2a1b96881",
+      "output_tokens": 1091,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:b1a1f337-59f6-5d52-8bea-63858861c292",
+      "provider_request_id_sha256": "996d5b9f6c5505df851e9c08cbdf40296799571b79b82462416cccf2ff28f295",
+      "quota_metered": false,
+      "reasoning_output_tokens": 606,
+      "request_sha256": "9ba37217c82021d871ea99cc74e6c2acc0673ebeacc5c594cdeae37cc58ec05c",
+      "requested_model": "deepseek-v4-flash",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-flash",
+      "role": "scene_composer",
+      "route_sha256": "d24615bdc0cf57837a9f7f781c660944897ecf943ea1af381e5fbf09a5c66151",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "414be700ccd24a1285d604c6d131a264df150e9b206237a0016945a2ae20af15"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:tomi_hanezawa",
+      "character:yuuni_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "4ea5ea2eed1102e340be16c7e222d4bac1478ba82067fff492ff4406cae7986e",
+      "assembly_receipt_id": "validation:3a7a3728-68a3-588f-ae56-735db1e6536e",
+      "base_request_sha256": "cdbf9bf22f1ba313e811738ddf63c269ab53973a8aa3ecb1a79c60821a83e563",
+      "cumulative_returned_bytes": 32638,
+      "external_provider_calls": 0,
+      "lookup_count": 4,
+      "lookup_receipt_ids": [
+        "lookup_receipt:21379db7-8b05-5e68-ab51-76810b09b693",
+        "lookup_receipt:8fabb897-f2cb-5da3-961a-88a8dac9cbf5",
+        "lookup_receipt:c2e5c56b-33d1-58c4-a802-69d847d02003",
+        "lookup_receipt:5ba37aee-4cdf-5b02-bbcb-a1e297a9da7e"
+      ],
+      "realization_context_sha256": "41cf44cdc703a7f6904fedf4d4ccc9533af681c2c960fb53cd90ca403310df8e",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:78f43b84-0902-526c-b53b-4e128cf0189b",
+        "evidence:2c41af40-d585-5087-a434-0c1d89dda573",
+        "evidence:5043488b-db8e-5608-bc71-86f9ee7283c4",
+        "evidence:f33c52f3-4686-5d96-8477-118a587f7678",
+        "evidence:e513943c-d492-5890-9492-d54b074f1fa6",
+        "evidence:04238391-2dfb-5804-b3a9-72cfb96c203c",
+        "evidence:8ffb7f41-974b-5239-8669-038c0cb6d755",
+        "evidence:4473abee-6e91-5d78-9c8e-7a8c5e76c389",
+        "evidence:fdec6f7c-e63d-5bc7-b207-c69241259f01",
+        "evidence:a009e09b-cbfe-501a-a709-f10702949c74"
+      ],
+      "snapshot_token": "snapshot:6de3611f-08a2-5b99-9f4f-b51678debc91",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:tomi_hanezawa",
+      "character:yuuni_hanezawa"
+    ]
+  },
+  "duration_seconds": 149.578,
+  "index": 4,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "8b911d89cb8171b083043dfa43b60d003fc7d9792c566de9a5535d39d7462578",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "07c15a3a0adb58ba0f682a55c01fd8d3241ad82fb1a0c033e2f4031d68797d25",
+      "receipt_id": "validation:8caacf02-3d1f-501c-a90a-170404b8aae0",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "566b2758c6d2d454b8922c6524f4136cd0fa014ad6e52a152d0d31cf95b5603d",
+    "receipt_id": "validation:21e37dcb-55fa-5114-be12-0bb2175c6480",
+    "request_id": "request:44db5a0e-d8c3-510f-918e-ce33c4abf174",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2519,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:a3e2ce40-b66b-59d7-822a-ffe8a4f3f5fc",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2519,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:6de3611f-08a2-5b99-9f4f-b51678debc91",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 5235,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:41e5015a-bdf8-516b-aaa5-e07c889c5773",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2716,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:6de3611f-08a2-5b99-9f4f-b51678debc91",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 6431,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:ac0f3a0a-fad1-5054-ba0b-3e45d79966f5",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1196,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:6de3611f-08a2-5b99-9f4f-b51678debc91",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 7633,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:d0cb7660-6402-584d-9548-576da689b96a",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1202,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:6de3611f-08a2-5b99-9f4f-b51678debc91",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:78f43b84-0902-526c-b53b-4e128cf0189b",
+        "evidence:7c7a8a8d-c801-5021-aac3-b32f26e449ce",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:a3e2ce40-b66b-59d7-822a-ffe8a4f3f5fc",
+        "lookup_receipt:41e5015a-bdf8-516b-aaa5-e07c889c5773",
+        "lookup_receipt:ac0f3a0a-fad1-5054-ba0b-3e45d79966f5",
+        "lookup_receipt:d0cb7660-6402-584d-9548-576da689b96a"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:78f43b84-0902-526c-b53b-4e128cf0189b"
+          ],
+          "obligation_id": "obligation:7b78d686-efdc-5475-b332-0828cd2c6cbe",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:7c7a8a8d-c801-5021-aac3-b32f26e449ce"
+          ],
+          "obligation_id": "obligation:68d741ec-90b8-5adf-b2be-a8a2e98f6b28",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "obligation_id": "obligation:5da5c60c-f488-575b-a3e3-2c86ae6c379b",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+          ],
+          "obligation_id": "obligation:5d7ea401-93d8-59f8-b002-97683dee6eb0",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:b35f7e59-3b3d-523a-bd08-52e9a582137c",
+      "snapshot_binding_sha256": "ebef37878258ef3ede40abae6a7a7dd65d0cb4c80f3f15ad1d9c7f1734c6857e",
+      "snapshot_token": "snapshot:6de3611f-08a2-5b99-9f4f-b51678debc91"
+    },
+    "snapshot_token": "snapshot:6de3611f-08a2-5b99-9f4f-b51678debc91",
+    "source_sha256": "563c7ae5e929f4fc89ab1dead16eb4cc240d70aa9dba08dcb01275ecbea03df3"
+  },
+  "key": "tomi-yuuni-cooldown-music-boundaries",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:b6ec811c-5960-5abf-aa07-811944da6e0c",
+      "accepted_artifact_sha256": "af73a0f7df47242d9ae2461bd10071ed5b6f49fc0f11b00e882f8640e07f4690",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "e5d32f0891ebae7d6a1cbebcdcd761f92d97bc0dd348ee26b8b7338c35638439",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:2b536f43-dd36-51e2-b79c-243713a269d1",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:27570145-4830-50ee-b319-20c65547a919",
+      "operational_report_id": "validation:72397838-a4eb-5101-a06b-c0f61e47d3ba",
+      "operational_report_sha256": "759f2b425d04ef9cb01b86334e8ceb096fae21502b543467ae6683b79a04accf",
+      "receipt_id": "validation:40917eaa-4633-5b2c-b0af-1bbf6910f8b8",
+      "request_id": "request:44db5a0e-d8c3-510f-918e-ce33c4abf174",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "7c90f25246a2e44b9e702721a6e50fd37e060788d7801abe4bfec9a852e35bd5"
+    },
+    "artifact": {
+      "accepted_prose": "Tomi tilted her head, considering. “Honestly? It depends on the day. If I've pushed hard and I'm really winded, I usually want silence—just let my breathing come back on its own. But on a normal cooldown, yeah, music can help shift my headspace. So it's not a yes or no for me. It's more… situational.”\n\nHer answer hung for a moment before Yuuni piped up from beside her. “I mean… I could. If Tomi ever asks for one. I've got playlists already sorted for different vibes, so it's not like it's extra work. But I'm not gonna just drop one right now. She'd have to actually ask first.” She shrugged, a hint of smugness in her tone.",
+      "artifact_id": "artifact:b6ec811c-5960-5abf-aa07-811944da6e0c",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:207571a4-11a0-565f-84b9-f988d8d80fbc",
+      "generation_id": "generation:27570145-4830-50ee-b319-20c65547a919",
+      "parent_artifact_id": "artifact:c3df0b77-456e-59b5-a37b-930ef875c16f",
+      "prose_sha256": "0683ba21c2377b0517bab2461065efb890cf511142a74baeaaafc4c87aab41c3",
+      "realized_beat_ids": [
+        "beat:a0d96667-ec4b-5b88-ba9f-53732198562e",
+        "beat:1c6a0091-6ef2-5a52-af39-f273adf8cb00"
+      ],
+      "responding_npc_ids": [
+        "character:tomi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:f892c217-607f-5580-93a5-be4eaa6a041a",
+      "status": "accepted",
+      "transaction_id": "transaction:a0fe785b-557a-5850-b6a3-e780f8bab4e3",
+      "validation_receipt_id": "validation:345fe3dd-ea6d-5a55-b3ed-5acb94575e3d"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:2b536f43-dd36-51e2-b79c-243713a269d1",
+      "expected_previous_artifact_id": "artifact:c3df0b77-456e-59b5-a37b-930ef875c16f",
+      "external_receipt_ids": [],
+      "generation_after": 4,
+      "generation_before": 3,
+      "inserted_record_ids": [
+        "event:f869abf2-a774-5138-b687-105c5813c119",
+        "material:1fa7b0f6-7825-58b7-9253-b889b490b5a7"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:a3e2ce40-b66b-59d7-822a-ffe8a4f3f5fc",
+        "lookup_receipt:41e5015a-bdf8-516b-aaa5-e07c889c5773",
+        "lookup_receipt:ac0f3a0a-fad1-5054-ba0b-3e45d79966f5",
+        "lookup_receipt:d0cb7660-6402-584d-9548-576da689b96a",
+        "lookup_receipt:21379db7-8b05-5e68-ab51-76810b09b693",
+        "lookup_receipt:8fabb897-f2cb-5da3-961a-88a8dac9cbf5",
+        "lookup_receipt:c2e5c56b-33d1-58c4-a802-69d847d02003",
+        "lookup_receipt:5ba37aee-4cdf-5b02-bbcb-a1e297a9da7e"
+      ],
+      "new_artifact_id": "artifact:b6ec811c-5960-5abf-aa07-811944da6e0c",
+      "new_artifact_sha256": "af73a0f7df47242d9ae2461bd10071ed5b6f49fc0f11b00e882f8640e07f4690",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:a4873b30-34e8-561e-b00f-b40234fe9c56",
+        "provider_receipt:b1a1f337-59f6-5d52-8bea-63858861c292",
+        "provider_receipt:38a36bf5-4208-5a24-9dc1-16db0e358259"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:f892c217-607f-5580-93a5-be4eaa6a041a",
+      "source_sha256": "d0872f49af8c33b9c39d4d6a4feb8201baa9df6a64223700fa273ee1cd1f8877",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:a0fe785b-557a-5850-b6a3-e780f8bab4e3",
+      "transaction_sha256": "7c90f25246a2e44b9e702721a6e50fd37e060788d7801abe4bfec9a852e35bd5",
+      "validation_receipt_ids": [
+        "validation:21e37dcb-55fa-5114-be12-0bb2175c6480",
+        "validation:3a7a3728-68a3-588f-ae56-735db1e6536e",
+        "validation:cd6f8dfd-4bff-59ea-ae97-e59c07f5724a",
+        "realization_verification:7dcf6a13-9779-55bb-b6a6-ecd0ef15340c",
+        "validation:345fe3dd-ea6d-5a55-b3ed-5acb94575e3d",
+        "validation:a4b2906d-725e-5645-850b-51a601e38f9c"
+      ]
+    },
+    "event_record_id": "event:f869abf2-a774-5138-b687-105c5813c119",
+    "visible_artifact_count": 4
+  },
+  "qualification_id": "continuous-ten-turn-v27-flash-thinking",
+  "raw_message": "With Tomi and Yuuni together, Ted asks Tomi whether music during cooldown helps, distracts, or depends on the day. He then asks Yuuni only whether she would be willing to offer one public playlist if Tomi asks for it. He requests Tomi's answer first and Yuuni's second.",
+  "raw_message_sha256": "7c10cefd24624b63d570cd76d557c34b803daa0ceb7c85f774e61937796aa165",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "behavioral_scene_plan": {
+        "claim_ledger": {
+          "claims": [
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa",
+                "character:yuuni_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:7b9bcfe4-6a52-51cb-9075-827dfede9307",
+              "end": 28,
+              "exact_text_sha256": "27fff5902f96320812d460a6ef47b812a15f361d155a1957cee35f07deea8807",
+              "kind": "time_place_context",
+              "normalized_meaning": "Ted, Tomi, and Yuuni share the current scene, so both addressed NPCs can answer without an entrance transition.",
+              "rationale": "The supplied source controls observable scene context and agrees with the authoritative presence list.",
+              "source_unit_id": "source_unit:889a4089-ebe0-5a8a-be3a-1287be483571",
+              "start": 0
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:b13e24c9-8463-53b5-a23a-97de256baf23",
+              "end": 114,
+              "exact_text_sha256": "4d5d37aaf7fc285329565777056abb0f5305ab299d07e442226fa640efcb331a",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted asks Tomi for her own assessment of whether music during cooldown helps, distracts, or varies by day.",
+              "rationale": "This is supplied protected-user dialogue meaning and may establish the exact initiating question, but it does not determine Tomi's private appraisal or answer.",
+              "source_unit_id": "source_unit:889a4089-ebe0-5a8a-be3a-1287be483571",
+              "start": 30
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:yuuni_hanezawa",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:30044782-ea11-5100-95f8-61568a45fd61",
+              "end": 217,
+              "exact_text_sha256": "b30fd9de08976e754603946c47748a3c55ae04fe54845ef3cbaeb1afd27cd597",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted asks only whether Yuuni would be willing to offer one public playlist if Tomi later requests it.",
+              "rationale": "This supplied dialogue may control the scope and condition of Yuuni's addressed question, but it cannot determine Yuuni's answer or create a request from Tomi.",
+              "source_unit_id": "source_unit:889a4089-ebe0-5a8a-be3a-1287be483571",
+              "start": 115
+            },
+            {
+              "affected_character_ids": [
+                "character:tomi_hanezawa",
+                "character:yuuni_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:45cf0f8a-95e1-5c8e-8149-cf0a26118b7f",
+              "end": 269,
+              "exact_text_sha256": "e19dc43dcc0cc0b9cc61f59c4bb36a46ea9ea7f9c7330c3f4de857e9948c6800",
+              "kind": "creative_direction",
+              "normalized_meaning": "Tomi must answer before Yuuni within the current reply.",
+              "rationale": "The explicit ordering direction is compatible with both characters' autonomy and may control turn sequencing without controlling either answer's substance.",
+              "source_unit_id": "source_unit:889a4089-ebe0-5a8a-be3a-1287be483571",
+              "start": 218
+            }
+          ],
+          "controls_sha256": "b22fc97f55e2179161a099f1b7059fd0fb8c855f314e5cb7691813c620a8f389",
+          "prohibited_inferences": [
+            "Do not predetermine Tomi's cooldown-music preference from her curiosity toward Ted.",
+            "Do not predetermine Yuuni's willingness from her curious, bratty, or smug traits.",
+            "Do not infer attraction, agreement, or shared preference from either answer.",
+            "Do not have Yuuni speak for Tomi or disclose Tomi's private state.",
+            "Do not treat the conditional future playlist as selected, offered, transmitted, or played.",
+            "Do not author Ted's reaction, follow-up, private state, or next choice."
+          ],
+          "schema_version": "cera.source_claim_ledger.v1",
+          "source_sha256": "563c7ae5e929f4fc89ab1dead16eb4cc240d70aa9dba08dcb01275ecbea03df3",
+          "unresolved_questions": [
+            "Tomi's exact preference and qualifications remain for autonomous realization.",
+            "Yuuni's exact willingness, refusal, or qualification remains for autonomous realization.",
+            "Whether Tomi will ever make the later playlist request is unknown."
+          ]
+        },
+        "development_atoms": [],
+        "event_blocks": [
+          {
+            "actor_ids": [
+              "character:tomi_hanezawa"
+            ],
+            "block_id": "scene_block:b5b2641c-c0bf-555f-8230-38cb7e31bbf8",
+            "causal_basis": "Ted's supplied question addresses Tomi's own training environment and asks for a situational assessment rather than imposing a preference; Tomi's directional relationship evidence and prior validated response pattern support an autonomous, practical answer.",
+            "event_advances": [
+              "Tomi appraises the possible value and distraction of music during cooldown according to her own present judgment.",
+              "Tomi states a substantive answer that resolves the immediate question while allowing the preference to depend on relevant circumstances."
+            ],
+            "evidence_ids": [
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+              "evidence:78f43b84-0902-526c-b53b-4e128cf0189b"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [
+                "exact_supplied_dialogue"
+              ],
+              "explanation": "The block may rely on the supplied meaning of Ted's exact question as the initiating cue but may not add words, reactions, or further conduct for him.",
+              "source_claim_ids": [
+                "source_claim:b13e24c9-8463-53b5-a23a-97de256baf23"
+              ]
+            },
+            "purpose": "Convert the open-ended practical question into Tomi's autonomous first answer without predetermining her preference.",
+            "resulting_state": "Tomi has stated her own current cooldown-music preference or situational rule; Yuuni has not yet answered and Ted has not been assigned any response.",
+            "source_claim_ids": [
+              "source_claim:7b9bcfe4-6a52-51cb-9075-827dfede9307",
+              "source_claim:b13e24c9-8463-53b5-a23a-97de256baf23",
+              "source_claim:45cf0f8a-95e1-5c8e-8149-cf0a26118b7f"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Tomi owns the judgment because the question concerns her routine and environment.",
+                "Her curiosity toward Ted can make the question personally engaging without dictating attraction, agreement, or a particular preference.",
+                "The answer should be practically usable while remaining revisable across different days or cooldown conditions."
+              ],
+              "open_realization_space": [
+                "Choose autonomously whether Tomi says music helps, distracts, or depends on circumstances.",
+                "Choose the relevant situational factors and degree of qualification without inventing history.",
+                "Realize a concise spoken answer in Tomi's voice without copying prior prose."
+              ],
+              "physical_and_material_continuity": [
+                "Keep Ted, Tomi, and Yuuni together in the established location.",
+                "Do not introduce music playback, a device interaction, or a selected playlist.",
+                "Treat the cooldown routine as the subject of discussion, not as proof that a new cooldown action begins."
+              ],
+              "scaffold_id": "writer_scaffold:54668a23-7835-590b-8857-3e02daf8e00d",
+              "transition_obligations": [
+                "Complete Tomi's answer before yielding the floor to Yuuni.",
+                "Make the handoff arise from the explicitly requested order rather than from a new action by Ted."
+              ],
+              "viewpoint_character_ids": [
+                "character:tomi_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Use selective interiority only to support Tomi's practical appraisal and disclosure choice.",
+                "Keep private processing owner-local and do not expose Yuuni's private evidence.",
+                "Let Tomi's spoken register carry interest without making the answer coy, romantic, or reciprocal."
+              ]
+            }
+          },
+          {
+            "actor_ids": [
+              "character:yuuni_hanezawa"
+            ],
+            "block_id": "scene_block:d4b00d6a-180c-57a4-a3bc-e3714e63e588",
+            "causal_basis": "The supplied second question directly asks Yuuni for a bounded decision about her own willingness, while making any actual playlist offer conditional on a later request from Tomi.",
+            "event_advances": [
+              "Yuuni appraises only whether she is willing to provide one public playlist under the stated future condition.",
+              "Yuuni states a clear acceptance, refusal, or bounded qualification without selecting, offering, or playing a playlist now.",
+              "Yuuni leaves Tomi's preference and any later request entirely under Tomi's control, completing the requested second response."
+            ],
+            "evidence_ids": [
+              "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [
+                "exact_supplied_dialogue"
+              ],
+              "explanation": "The block may use the supplied meaning of Ted's second question and its condition but may not invent a follow-up, reaction, or decision for him.",
+              "source_claim_ids": [
+                "source_claim:30044782-ea11-5100-95f8-61568a45fd61"
+              ]
+            },
+            "purpose": "Resolve Yuuni's own willingness after Tomi's answer while preserving Tomi's ownership and the future condition.",
+            "resulting_state": "Yuuni's present willingness or refusal is explicit; no playlist has been offered or chosen, Tomi has made no later request, and the current two-answer causal unit is complete.",
+            "source_claim_ids": [
+              "source_claim:7b9bcfe4-6a52-51cb-9075-827dfede9307",
+              "source_claim:30044782-ea11-5100-95f8-61568a45fd61",
+              "source_claim:45cf0f8a-95e1-5c8e-8149-cf0a26118b7f"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Yuuni is answering for herself rather than mediating Tomi's preference.",
+                "Her established curious, bratty, and smug qualities may color delivery without forcing consent, attraction, or refusal.",
+                "The narrow condition gives Yuuni room for a crisp boundary or qualification without taking over Tomi's environment."
+              ],
+              "open_realization_space": [
+                "Choose autonomously whether Yuuni accepts, refuses, or qualifies the possible future request.",
+                "Choose restrained tonal coloring consistent with Yuuni's evidence without inventing a playlist title or music preference.",
+                "Keep the response bounded rather than expanding into an unsolicited performance or negotiation."
+              ],
+              "physical_and_material_continuity": [
+                "Maintain the same three-character setting and established speaker sequence.",
+                "No playlist, device, link, or music begins to exist merely because willingness is discussed.",
+                "Tomi's answer from the prior block remains unchanged and cannot be rephrased as Yuuni's knowledge beyond what was spoken."
+              ],
+              "scaffold_id": "writer_scaffold:6174494f-c138-54d1-804b-a1160bd7a427",
+              "transition_obligations": [
+                "Begin only after Tomi's answer is complete.",
+                "Close after Yuuni's bounded answer and a minimal NPC-controlled settling beat.",
+                "Leave all later playlist activity contingent rather than transitioning into another scene."
+              ],
+              "viewpoint_character_ids": [
+                "character:yuuni_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Use low-to-medium owner-local processing to select Yuuni's answer and rhetorical angle.",
+                "Allow concise bratty or smug coloration without hostility, objectification, or romantic implication.",
+                "Do not narrate Tomi's private state or Ted's reaction."
+              ]
+            }
+          }
+        ],
+        "interaction_topology": "multi_npc_shared_floor",
+        "interiority_level": "medium",
+        "omitted_character_ids": [],
+        "runway": {
+          "continue_beyond_prompt_endpoint": true,
+          "development_obligations": [
+            "Let Tomi privately appraise the cooldown question and state her own current, situational preference without assigning that preference to Yuuni.",
+            "After Tomi finishes, let Yuuni answer only the question of her own willingness to provide one public playlist upon a later request from Tomi.",
+            "Preserve the requested speaker order and complete both bounded answers before stopping.",
+            "Do not turn the conditional playlist possibility into a present offer, selection, or playback."
+          ],
+          "runway_class": "developed",
+          "stop_condition": "Stop after Tomi has stated her self-owned assessment and Yuuni has clearly stated her own willingness or refusal, with any playlist provision still conditional on a later request from Tomi and no response invented for Ted.",
+          "stop_reason": "causal_unit_complete"
+        },
+        "scene_function": "ordinary_social",
+        "schema_version": "cera.behavioral_scene_plan.v2",
+        "selected_character_ids": [
+          "character:tomi_hanezawa",
+          "character:yuuni_hanezawa"
+        ],
+        "tone": "warm"
+      },
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Answer first with Tomi's own practical assessment of whether music during cooldown helps, distracts, or varies by day, preserving situational nuance rather than claiming a universal rule.",
+            "character_id": "character:tomi_hanezawa",
+            "evidence_ids": [
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+              "evidence:78f43b84-0902-526c-b53b-4e128cf0189b"
+            ],
+            "knowledge_constraints": [
+              "Tomi may speak only for her own cooldown preference.",
+              "Tomi does not possess Yuuni's owner-private relationship evidence.",
+              "No evidence fixes which of the offered preference categories Tomi must choose."
+            ],
+            "perception": "Tomi recognizes a respectful, practical question addressed to her about an environment and routine she owns.",
+            "selected_intent": "Make an autonomous, usable statement of her current preference while retaining the right for that preference to vary with circumstances."
+          },
+          {
+            "action_direction": "After Tomi's answer is complete, give Yuuni's bounded answer about whether she would be willing to offer one public playlist if Tomi later asks, without supplying Tomi's preference or acting on the condition now.",
+            "character_id": "character:yuuni_hanezawa",
+            "evidence_ids": [
+              "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+            ],
+            "knowledge_constraints": [
+              "Yuuni may decide only her own willingness.",
+              "Yuuni cannot volunteer or reinterpret Tomi's preference.",
+              "Tomi has not supplied the later request that would activate a playlist offer.",
+              "No evidence fixes whether Yuuni's answer must be acceptance or refusal."
+            ],
+            "perception": "Yuuni recognizes a narrow question addressed directly to her after Tomi's turn, limited to her willingness to provide a public playlist under a future condition.",
+            "selected_intent": "Answer the narrow willingness question in her own curious, bratty, or smug register while keeping the offer conditional and nonintrusive."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:tomi_hanezawa",
+              "beat_id": "beat:a0d96667-ec4b-5b88-ba9f-53732198562e",
+              "evidence_ids": [
+                "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+                "evidence:78f43b84-0902-526c-b53b-4e128cf0189b"
+              ],
+              "neutral_event": "Convert the open-ended practical question into Tomi's autonomous first answer without predetermining her preference.",
+              "state": "ongoing"
+            },
+            {
+              "actor_id": "character:yuuni_hanezawa",
+              "beat_id": "beat:1c6a0091-6ef2-5a52-af39-f273adf8cb00",
+              "evidence_ids": [
+                "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+              ],
+              "neutral_event": "Resolve Yuuni's own willingness after Tomi's answer while preserving Tomi's ownership and the future condition.",
+              "state": "ongoing"
+            }
+          ],
+          "segment_id": "segment:cedfe4ce-2d75-5d23-9317-ff4b3ebc56a1",
+          "stop_before": "Stop after Tomi has stated her self-owned assessment and Yuuni has clearly stated her own willingness or refusal, with any playlist provision still conditional on a later request from Tomi and no response invented for Ted."
+        },
+        "decision_id": "decision:207571a4-11a0-565f-84b9-f988d8d80fbc",
+        "floor_owner_id": "character:tomi_hanezawa",
+        "future_segments": [],
+        "prohibited_inferences": [
+          "Do not predetermine Tomi's cooldown-music preference from her curiosity toward Ted.",
+          "Do not predetermine Yuuni's willingness from her curious, bratty, or smug traits.",
+          "Do not infer attraction, agreement, or shared preference from either answer.",
+          "Do not have Yuuni speak for Tomi or disclose Tomi's private state.",
+          "Do not treat the conditional future playlist as selected, offered, transmitted, or played.",
+          "Do not author Ted's reaction, follow-up, private state, or next choice."
+        ],
+        "responding_npc_ids": [
+          "character:tomi_hanezawa",
+          "character:yuuni_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Deliver Tomi's autonomous practical answer first, then Yuuni's autonomous and narrowly conditional willingness answer, completing the requested two-speaker exchange without initiating playlist activity.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "Tomi's exact preference and qualifications remain for autonomous realization.",
+          "Yuuni's exact willingness, refusal, or qualification remains for autonomous realization.",
+          "Whether Tomi will ever make the later playlist request is unknown."
+        ],
+        "writer_must_preserve": [
+          "Tomi answers before Yuuni.",
+          "Each NPC answers only the question addressed to her.",
+          "The exchange ends without inventing any response or new conduct for Ted.",
+          "Any actual playlist provision remains contingent on a later request from Tomi.",
+          "Creator acceptance and Python validation remain required before canon publication."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+          "record_id": "record:77dbdad1-16da-5e7b-b101-1c8b43570e4a",
+          "record_version": 2
+        },
+        {
+          "evidence_id": "evidence:78f43b84-0902-526c-b53b-4e128cf0189b",
+          "record_id": "event:12529fcb-d542-5576-91d9-7109fcdb8774",
+          "record_version": 1
+        },
+        {
+          "evidence_id": "evidence:2c41af40-d585-5087-a434-0c1d89dda573",
+          "record_id": "record:520fab42-fd9c-5347-a658-815d48169ef9",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+            "evidence:78f43b84-0902-526c-b53b-4e128cf0189b"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        },
+        {
+          "character_id": "character:yuuni_hanezawa",
+          "evidence_ids": [
+            "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+          ],
+          "intervention_reason": "current_source_address",
+          "role": "secondary"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [
+        {
+          "end": 114,
+          "exact_text_sha256": "4d5d37aaf7fc285329565777056abb0f5305ab299d07e442226fa640efcb331a",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:889a4089-ebe0-5a8a-be3a-1287be483571",
+          "start": 30
+        },
+        {
+          "end": 217,
+          "exact_text_sha256": "b30fd9de08976e754603946c47748a3c55ae04fe54845ef3cbaeb1afd27cd597",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:889a4089-ebe0-5a8a-be3a-1287be483571",
+          "start": 115
+        }
+      ],
+      "schema_version": "cera.reasoner_outcome.v6",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 120201,
+      "external_provider_calls": 1,
+      "input_tokens": 17860,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "5ce404cfcb1a598bbd46ca2abdd5cbda3a985d6090c94bc5ba000fa9ba1feed0",
+      "output_tokens": 4553,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:a4873b30-34e8-561e-b00f-b40234fe9c56",
+      "provider_request_id_sha256": "079c59a7833d0ed85cee577f71855813259d9ba7f01da65d3e3af777cdf03fb2",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1709,
+      "request_sha256": "77eef548dc5f5e055a8889891af25c4e2c40886e1f491ab231e6d6149d1364ef",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "2bb84ac48579b71997f821f5f4499c3445215fe398eb6fb9e0814dbfc13ca997",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "2bb84ac48579b71997f821f5f4499c3445215fe398eb6fb9e0814dbfc13ca997",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v18",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "ad63f5f5d8e7d8d22969b13987c556dd9d06ba7461baec1a0bdad818c9fd5f41",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:a4873b30-34e8-561e-b00f-b40234fe9c56",
+      "provider_receipt_sha256": "0120ffb3f0a0d84b7f47227cc805989ee9a9277c8d17ceec101c4796fc8391e8",
+      "reasoner_request_sha256": "566b2758c6d2d454b8922c6524f4136cd0fa014ad6e52a152d0d31cf95b5603d",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:6de3611f-08a2-5b99-9f4f-b51678debc91",
+      "source_sha256": "563c7ae5e929f4fc89ab1dead16eb4cc240d70aa9dba08dcb01275ecbea03df3",
+      "source_view_sha256": "f715fc8539b7d4c7480835d1eaef1137c3e7ff87afa31063ad603db0cbf82287",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Tomi and Yuuni keep training choice separate from a music offer",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 10249,
+      "external_provider_calls": 1,
+      "input_tokens": 13258,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "40a803c15ef67f00a9c2f456b1bf832716d2f14365319b0cbdbbef5232653d2a",
+      "output_tokens": 323,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:38a36bf5-4208-5a24-9dc1-16db0e358259",
+      "provider_request_id_sha256": "3d424511e67804eee380a421dd1cd165688454d753a252667b0b21856e5485d3",
+      "quota_metered": true,
+      "reasoning_output_tokens": 133,
+      "request_sha256": "f80a222589377bd12e596148becfaa1f92e184a3a91431c6e80e49f82ae4b068",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "3cc1a1237825a36abeb1bb4a55d754ed80ca6e2e5ecd569aaa6d8c3b83a2514b",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:38a36bf5-4208-5a24-9dc1-16db0e358259",
+      "provider_receipt_sha256": "e62720276ccd116523e34924b2e44273d114725b36613f4a31011bf6140bdf23",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v5",
+      "status": "accepted",
+      "story_text_sha256": "0683ba21c2377b0517bab2461065efb890cf511142a74baeaaafc4c87aab41c3",
+      "verification_id": "realization_verification:7dcf6a13-9779-55bb-b6a6-ecd0ef15340c",
+      "verification_request_sha256": "18c35d40e38611768fb99f43e6fd62538f598fb32cce147d05343148ef7cf169",
+      "verified_beat_ids": [
+        "beat:a0d96667-ec4b-5b88-ba9f-53732198562e",
+        "beat:1c6a0091-6ef2-5a52-af39-f273adf8cb00"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_development_atom_ids": [],
+      "verified_participant_ids": [
+        "character:tomi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_cli_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v6",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

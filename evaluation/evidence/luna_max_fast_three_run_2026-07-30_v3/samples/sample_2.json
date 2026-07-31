@@ -1,0 +1,19 @@
+{
+  "failure": {
+    "error_code": "CERA_PROVIDER_BUDGET_EXCEEDED",
+    "external_provider_calls_observed": 1,
+    "message": "Codex output exceeded the configured token budget",
+    "privacy_safe_receipt_payloads": [],
+    "provider_call_receipt": null,
+    "retained_evidence_handles": [],
+    "safe_diagnostics": [],
+    "type": "ReasonerExecutionFailure"
+  },
+  "finished_at": "2026-07-31T05:45:55.517972+00:00",
+  "reasoner_service_tier_requested": "priority",
+  "sample": 2,
+  "started_at": "2026-07-31T05:42:14.937130+00:00",
+  "status": "failed",
+  "story_state_committed": false,
+  "total_wall_seconds": 220.581
+}

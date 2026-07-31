@@ -1,0 +1,15 @@
+{
+  "automatic_retry_count": 0,
+  "error_class": "IdentityError",
+  "failure_stage": "development_turn_preparation",
+  "fallback_enabled": false,
+  "index": 2,
+  "key": "first-household-offer",
+  "message": "record_id requires record, received event",
+  "provider_calls_for_failed_turn": 0,
+  "qualification_id": "continuous-ten-turn-v4",
+  "schema_version": "cera.continuous_qualification_failure.v1",
+  "status": "failed",
+  "story_state_committed_for_failed_turn": false,
+  "title": "Hana answers Ted's first offer to help"
+}

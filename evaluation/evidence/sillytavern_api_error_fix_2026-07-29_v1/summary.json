@@ -1,0 +1,27 @@
+{
+  "schema_version": "cera.sillytavern_api_error_fix_summary.v1",
+  "created_at": "2026-07-29",
+  "authority_ids": [
+    "D-146",
+    "D-150"
+  ],
+  "database_sha256": "a55fb1358125b97a7c8158d2a61c4cf110575f4f115819e087e007aa46bfa746",
+  "request_id": "request:8e4ce976-ea72-5892-b5f9-4ab618a85308",
+  "artifact_id": "artifact:7affc04c-d715-58cd-a64c-c38c98347225",
+  "generation": 1,
+  "prose_sha256": "d8f33709e147d7683fa5aeda51586bbb281238fb5ff250448baaaa656615e68b",
+  "responding_npc_ids": [
+    "character:sakura_hanezawa"
+  ],
+  "provider_calls": {
+    "sol_medium": 2,
+    "deepseek_v4_pro": 1,
+    "automatic_retries": 0,
+    "fallbacks": 0
+  },
+  "accepted_prose": "There is a brief pause, hollow with the filtered quiet of the line. Then the receiver shifts slightly, held closer. \u201cYou have reached the Hanezawa residence,\u201d Sakura says, her voice precise and even. \u201cBefore this conversation continues, I require your name and the purpose of your call.\u201d",
+  "integrity_check": "ok",
+  "foreign_key_findings": 0,
+  "story_authority_writes": 1,
+  "result": "passed"
+}

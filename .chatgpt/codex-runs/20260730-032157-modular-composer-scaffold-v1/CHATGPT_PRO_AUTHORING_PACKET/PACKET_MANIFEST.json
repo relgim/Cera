@@ -1,0 +1,269 @@
+{
+  "schema_version": "cera.chatgpt_pro_authoring_packet_manifest.v1",
+  "frozen": true,
+  "active_route_changed": false,
+  "provider_calls": 0,
+  "database_copied": false,
+  "files": [
+    {
+      "relative_path": "COMBINATION_MATRIX.json",
+      "bytes": 10830,
+      "sha256": "d7d4eec77ed274c3a0ed2bcd4246507f88897f7b24aab5e16c217b76cb405cb9"
+    },
+    {
+      "relative_path": "COMBINATION_MATRIX.md",
+      "bytes": 709,
+      "sha256": "e2d7791ae201a01faf9723318ddb0595f3bd2475f19fdc374142dfa78e1fd773"
+    },
+    {
+      "relative_path": "COMPILER_INTERFACE_PROPOSAL.md",
+      "bytes": 3800,
+      "sha256": "985be749687cdc2207f416add87891bfad06ef46560830f4c01bdd4266e2b061"
+    },
+    {
+      "relative_path": "CURRENT_ASSEMBLED_PROMPT_ANATOMY.md",
+      "bytes": 2057,
+      "sha256": "6b8a8adb40e16a4a918965b4a46620aa51869d1c912bf0e55fcbeb2438188502"
+    },
+    {
+      "relative_path": "representative_packets/01_auto_off_single_ordinary.md",
+      "bytes": 13476,
+      "sha256": "830e87e354c32218650bc974f4945c2932063e710910ce10ab187bc1b11bdcd6"
+    },
+    {
+      "relative_path": "representative_packets/02_long_off_multi_confrontation.md",
+      "bytes": 14306,
+      "sha256": "b748231d99f3cd4e1f04fc04781bfe57f3b12322fdd57020ba1f59ed18c3f6c1"
+    },
+    {
+      "relative_path": "representative_packets/03_auto_on_single_vulnerability.md",
+      "bytes": 14865,
+      "sha256": "692e3ece9ca7f117a491b3ae9a4c4b611574ae734c6e3ac8fbda7bf8ba467a5a"
+    },
+    {
+      "relative_path": "representative_packets/04_epic_ex_npc_exchange_aftermath.md",
+      "bytes": 16846,
+      "sha256": "223e888500ee0044f37d1bf64c4326532e42bdeac8cff597cbc5acc48995f300"
+    },
+    {
+      "relative_path": "SOURCE_SNAPSHOT_MANIFEST.json",
+      "bytes": 11619,
+      "sha256": "b9e355bee9d1688404d9c89c18b646e9016c2ae2cc1de7d70342b9fe9a07aba4"
+    },
+    {
+      "relative_path": "sources/adult/catalog/adult_craft_v1/manifest.json",
+      "bytes": 26331,
+      "sha256": "c06071d15ef4ea9b324ab83db8cf801322cc7f3951e87ad810e6886063e10ec1"
+    },
+    {
+      "relative_path": "sources/config/cera/prompts/character_specific_speech_realization_v1_2.txt",
+      "bytes": 4135,
+      "sha256": "e61c8b9a287e6be1223e4a2a2aebcbd8d5da5e5433bee8de781d833149cc11cf"
+    },
+    {
+      "relative_path": "sources/config/cera/prompts/composer/MANIFEST.schema.json",
+      "bytes": 2860,
+      "sha256": "67f2d696cf4a33dba6ba750ad6f3f723c967058d2aec0da5c42055a8d8f663d3"
+    },
+    {
+      "relative_path": "sources/config/cera/prompts/composer/README.md",
+      "bytes": 587,
+      "sha256": "5996e3a066fc0e671e4b04deb7ac97c61987c795d842142afbd816479362c4ec"
+    },
+    {
+      "relative_path": "sources/config/cera/prompts/MANIFEST.json",
+      "bytes": 886,
+      "sha256": "2a4452dbf1ea1190db7d4f9226496cbe81c1381bc36485eecee0dcd821bb33e4"
+    },
+    {
+      "relative_path": "sources/src/cera/adult_craft/models.py",
+      "bytes": 52611,
+      "sha256": "2d843770e4178b0dcae45250fd24af1fdcd9d1f0361cc5c15e74a5c47fb7e668"
+    },
+    {
+      "relative_path": "sources/src/cera/adult_craft/selector.py",
+      "bytes": 12438,
+      "sha256": "9b919e308292c9f8e554ba4d05d76cee5789908f2d64659399a5f5e8d89cf32a"
+    },
+    {
+      "relative_path": "sources/src/cera/composer/context.py",
+      "bytes": 18008,
+      "sha256": "2f6c63d1e237bb510c25d90dea1be94d38daf3b388a7d39554159a428b098528"
+    },
+    {
+      "relative_path": "sources/src/cera/composer/deepseek.py",
+      "bytes": 94016,
+      "sha256": "44690e403bf6d87ee868d1d0d1669a89b15defedfeffe9ebd4bc72e4b0d998ae"
+    },
+    {
+      "relative_path": "sources/src/cera/composer/models.py",
+      "bytes": 47907,
+      "sha256": "f9050c34f8adf85b6aa2f53611b8df8d790ea0366cb80dba19be2ac0f2712c02"
+    },
+    {
+      "relative_path": "sources/src/cera/composer/obligations.py",
+      "bytes": 13533,
+      "sha256": "21fbdcc0da66227f5c3fb3f92111947f9645c94fa52f3becd1d55aa0e31cb626"
+    },
+    {
+      "relative_path": "sources/src/cera/contracts/turn.py",
+      "bytes": 5081,
+      "sha256": "d865c08c366321a0f12c000732b58d3d4d4ddd324654087ebe535294b87590a5"
+    },
+    {
+      "relative_path": "sources/src/cera/prompting/adult_bridge.py",
+      "bytes": 3230,
+      "sha256": "d4ead1e250a8434471d1fa0513862db739ef49c45f94d51b97eda023f3699ab7"
+    },
+    {
+      "relative_path": "sources/src/cera/prompting/compiler.py",
+      "bytes": 10677,
+      "sha256": "972f79b4a5f168529a5c3fad4d0ab3a56fb8ec03a92babffbb6ec6fcbcedf8a1"
+    },
+    {
+      "relative_path": "sources/src/cera/prompting/models.py",
+      "bytes": 19435,
+      "sha256": "fc0ca4b7f2813c62ca60e73f3a7f8c43dff577505035159b6261d0a2076e8973"
+    },
+    {
+      "relative_path": "sources/src/cera/prompting/registry.py",
+      "bytes": 4699,
+      "sha256": "c02e0f2ae94cb2d77bde7b21d560a9ae3113ce59704db86978e4d71be111f30b"
+    },
+    {
+      "relative_path": "sources/src/cera/prompting/selector.py",
+      "bytes": 3946,
+      "sha256": "7934d59d4f8aacdfbe9d678bcd8687476f563313cf137147469c7d3fe62148aa"
+    },
+    {
+      "relative_path": "sources/src/cera/providers/deepseek.py",
+      "bytes": 10038,
+      "sha256": "56f43bf39ee48073950a7b61031631414a69c97da81fc491225d299b89f4fe18"
+    },
+    {
+      "relative_path": "sources/src/cera/providers/routes.py",
+      "bytes": 6246,
+      "sha256": "bb3fa07f73bf2fdd6a8ed765303e357d2afa18cd8797e40389db184c17153690"
+    },
+    {
+      "relative_path": "sources/src/cera/providers/schema_dialects.py",
+      "bytes": 16038,
+      "sha256": "cd773c5ac8fe67b4df1009ed0160836a02dcfac25677204ae452176e024df763"
+    },
+    {
+      "relative_path": "sources/src/cera/reasoner/codex.py",
+      "bytes": 37082,
+      "sha256": "cea7779dfd9441cbddeffd4577890d81d69f9dc7902cd699d155a72499857392"
+    },
+    {
+      "relative_path": "sources/src/cera/sillytavern/adapter.py",
+      "bytes": 18555,
+      "sha256": "b990e55e158b4f5466c84704b29fa22ff4fd09be57b6730d1fdf3c2837cd51c3"
+    },
+    {
+      "relative_path": "sources/src/cera/sillytavern/models.py",
+      "bytes": 5707,
+      "sha256": "ca493fb3608a824ac9e0e4a70db563aa486adf38c3a960d13e71b8d2b906ce67"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/MANIFEST.json",
+      "bytes": 12672,
+      "sha256": "67d9c6b1d7479c7f658769cda17c34681ec6acc2bb668b31eecb1d084a55d275"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/adult/ex_v1.md",
+      "bytes": 150,
+      "sha256": "d84115d1cbabd3b6218114bf5b381360b46a47bece55d8167e84e50ab33b02dc"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/adult/off_v1.md",
+      "bytes": 112,
+      "sha256": "102631905f615c71c0ae31f0686b2874dcf56cb981a219734360b14f8caf887d"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/adult/on_v1.md",
+      "bytes": 137,
+      "sha256": "79c7c74660779772e71449d72084f287beac70cf668bd68eec241adcccc87bf4"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/core/authority_and_hard_boundaries_v1.md",
+      "bytes": 243,
+      "sha256": "f439675e8a50e077ddbd04c45fdac17f1d98ece19e6599684ae8f9ff7b3f601d"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/core/structured_output_v1.md",
+      "bytes": 214,
+      "sha256": "602ffbf600d1108f07492ef25feb78b7d897e41523bc435587107e91ae42da87"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/depth/auto_v1.md",
+      "bytes": 114,
+      "sha256": "4bea59e7bff227c1e59db3a0dc2050d50f8de441560053642c9341e1e079585d"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/depth/epic_v1.md",
+      "bytes": 114,
+      "sha256": "decafa9db2399bd8b49a97fadcb92d5c60ca427c38eae4f3d02e40cd62be7e62"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/depth/long_v1.md",
+      "bytes": 114,
+      "sha256": "17890b3130737928bda6537eb566ac41f94d61755691559ad4973b63329d6269"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/depth/off_v1.md",
+      "bytes": 113,
+      "sha256": "7382a91a96d068993760c8946a91902bf92f4c54f712499dafc9b723827b36c0"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/scene/aftermath_recovery_v1.md",
+      "bytes": 115,
+      "sha256": "d6abf55e6ee67185147ca8490ef82f52f45d2aa1a82054321eb75561fb7df7f3"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/scene/confrontation_boundary_v1.md",
+      "bytes": 119,
+      "sha256": "31afb0a4c5468904e37dfff8896dd49e9cad2fa0f97a13cf578bfd504f2e9d92"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/scene/emotional_vulnerability_v1.md",
+      "bytes": 120,
+      "sha256": "08e481935c97bd8b5e78e11b29f97df3c1cbfe472b1f8437a6e6411d91573bdf"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/scene/ordinary_social_v1.md",
+      "bytes": 112,
+      "sha256": "2ec7771184a787d0fecd61e7e44a9ad6967410a83eed19770b7e7b63ed859367"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/scene/urgent_physical_action_v1.md",
+      "bytes": 119,
+      "sha256": "9379a06cafaf699612c4da1169554c4b8f5064ff1755d9f6098556f1f84d6656"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/topology/multi_npc_shared_floor_v1.md",
+      "bytes": 159,
+      "sha256": "086af27dfc1cead51e2a78340ab453d646a7fa503aea2fe230d8662a0751a7ff"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/topology/npc_to_npc_exchange_v1.md",
+      "bytes": 159,
+      "sha256": "19ad280c8ab09dd30fe861d4e512e4d78b84f197fe7915a016d0acdb8d003419"
+    },
+    {
+      "relative_path": "sources/tests/fixtures/modular_composer/modules/topology/single_npc_floor_v1.md",
+      "bytes": 129,
+      "sha256": "512ed34ff66a602c1d314fe840e60f134b03e753d08258043bd01cab273798d6"
+    },
+    {
+      "relative_path": "sources/tests/test_modular_composer_prompting.py",
+      "bytes": 18325,
+      "sha256": "75f0aff6103bebe3f2e2b7dc4866fa4394802f55ea05552195d1519e094f1e83"
+    },
+    {
+      "relative_path": "WRITING_EVIDENCE.md",
+      "bytes": 6899,
+      "sha256": "9d402b91fff20a43038b3a2bb10bff87871b8659363324f16084bbd2c469d562"
+    }
+  ]
+}

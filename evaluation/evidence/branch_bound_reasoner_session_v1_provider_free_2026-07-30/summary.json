@@ -1,0 +1,79 @@
+{
+  "schema_version": "cera.branch_bound_reasoner_session_provider_free_summary.v1",
+  "decision_id": "D-172",
+  "date": "2026-07-30",
+  "repository": "D:\\AIChatBot\\Cera",
+  "status": "provider_free_complete",
+  "route_state": {
+    "active_route_changed": false,
+    "live_benchmark_run": false,
+    "provider_calls": 0,
+    "deepseek_calls": 0,
+    "sillytavern_behavior_changed": false,
+    "story_state_writes": 0,
+    "adult_publication_activated": false,
+    "route_promoted": false,
+    "retry_or_fallback_added": false,
+    "deployed": false
+  },
+  "creator_decisions": {
+    "restart_persistent_non_ephemeral_rollouts": "deferred_until_working_bug_free_model",
+    "raw_rejected_candidate_prose_retained": false,
+    "creator_constraint_default_scope": "branch_local",
+    "global_constraint_requires_explicit_scope": true
+  },
+  "verification": {
+    "focused_architecture": {
+      "passed": 23,
+      "failed": 0
+    },
+    "impacted_integration": {
+      "passed": 60,
+      "failed": 0,
+      "seconds": 16.083
+    },
+    "initial_repository_run": {
+      "tests_executed": 530,
+      "errors": 1,
+      "failure_class": "eager_package_export_circular_import",
+      "correction": "lazy prompting and observability exports in cera.reasoner_session",
+      "counted_as_success": false
+    },
+    "fresh_process_import_probe": "passed",
+    "final_complete_suite": {
+      "passed": 546,
+      "failed": 0,
+      "errors": 0,
+      "seconds": 257.427
+    },
+    "final_documentation_foundations": {
+      "passed": 31,
+      "failed": 0,
+      "seconds": 2.085
+    },
+    "compileall": "passed",
+    "documentation_validation": {
+      "passed": true,
+      "findings": []
+    }
+  },
+  "advisory_inputs": {
+    "chatgpt_findings_sha256": "d13b417c141a2a90363aaf53f6e61866bfb0770457864ee036d2b69e3d2777b4",
+    "chatgpt_command_sha256": "986b5e00f728eb4c59d1ccbba3e83ef2fc256813be1e506b7b502971045d8c76",
+    "independent_codex_assessment": "docs/implementation/SOL_MEDIUM_SESSION_ARCHITECTURE_REVIEW_AND_DECISION.md"
+  },
+  "source_sha256": {
+    "src/cera/reasoner_session/models.py": "c121d2f987239687f858ab7c22a835fa126f3555183a36f32a1c87e976f79f21",
+    "src/cera/reasoner_session/ports.py": "c7419c4a390e9cfcd67cb9bf6f33edec995b8df2ca701def05b304f6422a3721",
+    "src/cera/reasoner_session/fake.py": "9c49187b0e305706df24f7275a55227b3b4b96c8cd2c01609f2aa87cb1b6b319",
+    "src/cera/reasoner_session/coordinator.py": "125a54da8a098b1f18768769026d9d0483e3c891c6e851ba3186ec408fb18a40",
+    "src/cera/reasoner_session/materialization.py": "c9d31e0bf4013b4403e75ebf146f633d8df6f12ccbe10daae19a645ef27a3cfe",
+    "src/cera/reasoner_session/prompting.py": "0168734bf294fd92f01d88d609a206ef585d80468ca3da2f1d71849e86ffde23",
+    "src/cera/reasoner_session/observability.py": "8992754c5c44718a859cfc60d6c96a5818c7fbfd583a9759cae61aea26c939c6",
+    "src/cera/reasoner_session/__init__.py": "5c3cf8b4397888f3bfcbe6df8910c865c738c9e13b443f47592745f81d719087",
+    "src/cera/storage/reasoner_session_store.py": "ea29744bf680803fe8a7131b3b802148a2eee23b1edb1f42c4852f83875a40e8",
+    "src/cera/storage/migrations.py": "d5b0626d22d5b79bf2436bd2fc668d25425a3f45aeeb403d1f3d1d8e5db7af33",
+    "tests/test_reasoner_session_architecture.py": "8202f87b0aca5a61073d9e97cfb16b3125772a652931fe6947f71954de6a15f0"
+  },
+  "next_gate": "separate_creator_authorization_for_controlled_sol_medium_live_benchmark"
+}

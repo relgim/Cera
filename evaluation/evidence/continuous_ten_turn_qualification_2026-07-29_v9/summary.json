@@ -1,0 +1,41 @@
+{
+  "attempts_per_stage": 1,
+  "failed_turn": 3,
+  "failure_stage": "application_execution_or_acceptance",
+  "fallback_enabled": false,
+  "finished_at": "2026-07-29T18:36:30.464905+00:00",
+  "genesis_revision": "v1_2",
+  "qualification_id": "continuous-ten-turn-v9",
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-29T18:33:31.597633+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": [
+    {
+      "artifact_id": "artifact:c1570da6-1aeb-595c-a01c-afb5efe57bd1",
+      "duration_seconds": 74.644,
+      "index": 1,
+      "key": "doorway-family-arrival",
+      "prose_sha256": "01a78f84978b33fd2552d7711b61cd3fb44ee5af358d680c17f8e6d6be592d9e",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:9092dfdc-44d8-57f9-9b9c-8fb8a6c8b404",
+      "duration_seconds": 43.643,
+      "index": 2,
+      "key": "first-evening-choice",
+      "prose_sha256": "c67b5c7b06e235cc0c691684f028efb2debf471c29e18b397a1646c6498a61b4",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "status": "passed"
+    }
+  ]
+}

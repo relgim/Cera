@@ -1,0 +1,179 @@
+{
+  "adult": false,
+  "adult_mode": null,
+  "automatic_retry_count": 0,
+  "case_id": "02_mia_sakura_selected_cast",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_VERIFIER_FAILED",
+    "generation_id": "generation:c71227c8-ce5b-51d8-9879-70dc807644e0",
+    "message": "scene realization was not independently verified: protected_user_unsupplied_realization",
+    "request_id": "request:qualification-five-run-live-v5-sol-verifier-02_mia_sakura_selected_cast",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "scene_realization_verification",
+    "story_state_committed": false,
+    "trace_id": "trace:4a1149d4-449f-520d-88dc-9251f4e9e459"
+  },
+  "fallback_enabled": false,
+  "qualification_id": "five-run-live-v5-sol-verifier",
+  "safe_failure_evidence": {
+    "all_prior_stage_receipt_handles": [
+      {
+        "evidence_id": "provider_receipt:55ef0e2f-9b2f-5863-acb3-ce830e405e8d",
+        "evidence_kind": "scene_reasoner_receipt",
+        "evidence_sha256": "51e6284851037995e7054f25c6359dc5306dc44113ad9d7c5f2defd2102a4fa7"
+      },
+      {
+        "evidence_id": "validation:c9b1202f-f582-55b1-b851-5bca90be63e6",
+        "evidence_kind": "composer_context_assembly_receipt",
+        "evidence_sha256": "66a7fafa985925ee57d3e7758b8f1ec5c001002408e2adb0f3de954c7fb637ac"
+      },
+      {
+        "evidence_id": "provider_receipt:ece84865-2049-5113-8426-c4113a7c547b",
+        "evidence_kind": "scene_composer_receipt",
+        "evidence_sha256": "e98a107d8d7d8488ec01a9bb241b9ed8cb5573698925329b3fb2a680d559ca9d"
+      },
+      {
+        "evidence_id": "validation:07988bea-a6b5-5d5f-a5d0-56f8b1fcfa37",
+        "evidence_kind": "composer_validation_receipt",
+        "evidence_sha256": "8698eb247a2d7d29f9214c1b2e4eccdaa5bc6a38e03936805a2ef6726659c79f"
+      },
+      {
+        "evidence_id": "provider_receipt:55ef0e2f-9b2f-5863-acb3-ce830e405e8d",
+        "evidence_kind": "reasoner_provider_call_receipt",
+        "evidence_sha256": "341f44f56346e4fd1a617b3153d2dd43f1e09153efc44ff835343ec55d17053d"
+      },
+      {
+        "evidence_id": "provider_receipt:ece84865-2049-5113-8426-c4113a7c547b",
+        "evidence_kind": "composer_provider_call_receipt",
+        "evidence_sha256": "761b4d5a041638e1ffce9b5e5fd12a9b0bb96ff73836ece732bf81f78e986440"
+      },
+      {
+        "evidence_id": "lookup_receipt:3d5abca5-f726-5ec6-99a0-9aa5fde4bebc",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "be80bff6151c41ec342e6d92de7de5bd9c05d12e6c094652482751ba7cb3d9fd"
+      },
+      {
+        "evidence_id": "lookup_receipt:f3c58dc0-fcba-58fa-a7c1-db928c8adfa4",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "1a8d863bb6dc9e210ae14f4b52ba67f4c82931021591abc5d2b44dad26e660e6"
+      },
+      {
+        "evidence_id": "lookup_receipt:02206f62-9627-58d6-a61e-d96a7a9389d1",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "45771650e718405d4781bc2158bafea251b5a8546cfc514c88c1281b067400d0"
+      },
+      {
+        "evidence_id": "lookup_receipt:267fc039-db06-5717-a132-27ed6252b5dc",
+        "evidence_kind": "evidence_lookup_receipt",
+        "evidence_sha256": "df978b5173ec25d26950349a2b03069edfc3af8e8e26aebb2f04d204ad56cd1b"
+      },
+      {
+        "evidence_id": "realization_verification:9184663f-d07a-564a-a4a3-30d52ddede57",
+        "evidence_kind": "scene_realization_verification_receipt",
+        "evidence_sha256": "f45a8ad5c1819c7b9da24c42cc5564cca4046bc9afb2f6d62851d047f66a4b72"
+      },
+      {
+        "evidence_id": "provider_receipt:ba8c0cbf-e600-5476-8c55-8be8b43df776",
+        "evidence_kind": "realization_verifier_provider_call_receipt",
+        "evidence_sha256": "ed9d7f417822652245e9c7e3505802ed43150034781cc54987dc078a90b49565"
+      }
+    ],
+    "lookup_receipts": [],
+    "mcp_bridge_receipt": null,
+    "provider_receipt": null,
+    "retains_prompt": false,
+    "retains_raw_provider_output": false,
+    "retains_secret": false,
+    "stage_failure_bundle": {
+      "authoritative_store_writes": 0,
+      "branch_id": "branch:offline-main",
+      "error_code": "CERA_VERIFIER_FAILED",
+      "external_provider_calls_observed": 3,
+      "failure_bundle_id": "failure_bundle:c5886cf6-666a-5a65-b3b3-2f33c35f0f2d",
+      "generation_id": "generation:c71227c8-ce5b-51d8-9879-70dc807644e0",
+      "input_sha256": "9aa4b85682f8561417de27fe71ea7103fca7cc6e7b79655c78bdd3ff25e71712",
+      "output_sha256": null,
+      "request_id": "request:qualification-five-run-live-v5-sol-verifier-02_mia_sakura_selected_cast",
+      "retained_evidence": [
+        {
+          "evidence_id": "provider_receipt:55ef0e2f-9b2f-5863-acb3-ce830e405e8d",
+          "evidence_kind": "scene_reasoner_receipt",
+          "evidence_sha256": "51e6284851037995e7054f25c6359dc5306dc44113ad9d7c5f2defd2102a4fa7"
+        },
+        {
+          "evidence_id": "validation:c9b1202f-f582-55b1-b851-5bca90be63e6",
+          "evidence_kind": "composer_context_assembly_receipt",
+          "evidence_sha256": "66a7fafa985925ee57d3e7758b8f1ec5c001002408e2adb0f3de954c7fb637ac"
+        },
+        {
+          "evidence_id": "provider_receipt:ece84865-2049-5113-8426-c4113a7c547b",
+          "evidence_kind": "scene_composer_receipt",
+          "evidence_sha256": "e98a107d8d7d8488ec01a9bb241b9ed8cb5573698925329b3fb2a680d559ca9d"
+        },
+        {
+          "evidence_id": "validation:07988bea-a6b5-5d5f-a5d0-56f8b1fcfa37",
+          "evidence_kind": "composer_validation_receipt",
+          "evidence_sha256": "8698eb247a2d7d29f9214c1b2e4eccdaa5bc6a38e03936805a2ef6726659c79f"
+        },
+        {
+          "evidence_id": "provider_receipt:55ef0e2f-9b2f-5863-acb3-ce830e405e8d",
+          "evidence_kind": "reasoner_provider_call_receipt",
+          "evidence_sha256": "341f44f56346e4fd1a617b3153d2dd43f1e09153efc44ff835343ec55d17053d"
+        },
+        {
+          "evidence_id": "provider_receipt:ece84865-2049-5113-8426-c4113a7c547b",
+          "evidence_kind": "composer_provider_call_receipt",
+          "evidence_sha256": "761b4d5a041638e1ffce9b5e5fd12a9b0bb96ff73836ece732bf81f78e986440"
+        },
+        {
+          "evidence_id": "lookup_receipt:3d5abca5-f726-5ec6-99a0-9aa5fde4bebc",
+          "evidence_kind": "evidence_lookup_receipt",
+          "evidence_sha256": "be80bff6151c41ec342e6d92de7de5bd9c05d12e6c094652482751ba7cb3d9fd"
+        },
+        {
+          "evidence_id": "lookup_receipt:f3c58dc0-fcba-58fa-a7c1-db928c8adfa4",
+          "evidence_kind": "evidence_lookup_receipt",
+          "evidence_sha256": "1a8d863bb6dc9e210ae14f4b52ba67f4c82931021591abc5d2b44dad26e660e6"
+        },
+        {
+          "evidence_id": "lookup_receipt:02206f62-9627-58d6-a61e-d96a7a9389d1",
+          "evidence_kind": "evidence_lookup_receipt",
+          "evidence_sha256": "45771650e718405d4781bc2158bafea251b5a8546cfc514c88c1281b067400d0"
+        },
+        {
+          "evidence_id": "lookup_receipt:267fc039-db06-5717-a132-27ed6252b5dc",
+          "evidence_kind": "evidence_lookup_receipt",
+          "evidence_sha256": "df978b5173ec25d26950349a2b03069edfc3af8e8e26aebb2f04d204ad56cd1b"
+        },
+        {
+          "evidence_id": "realization_verification:9184663f-d07a-564a-a4a3-30d52ddede57",
+          "evidence_kind": "scene_realization_verification_receipt",
+          "evidence_sha256": "f45a8ad5c1819c7b9da24c42cc5564cca4046bc9afb2f6d62851d047f66a4b72"
+        },
+        {
+          "evidence_id": "provider_receipt:ba8c0cbf-e600-5476-8c55-8be8b43df776",
+          "evidence_kind": "realization_verifier_provider_call_receipt",
+          "evidence_sha256": "ed9d7f417822652245e9c7e3505802ed43150034781cc54987dc078a90b49565"
+        }
+      ],
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "safe_message": "scene realization verification rejected or was inconclusive",
+      "schema_version": "cera.turn_failure_evidence_bundle.v1",
+      "stage": "scene_realization_verification",
+      "story_state_committed": false
+    }
+  },
+  "schema_version": "cera.live_story_qualification_case.v3",
+  "source_sha256": "a72d3b50a8359c58ed250dbd95f230d61fab2acbd65748d37593e917932f0891",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Mia and Sakura ordinary selected-cast turn"
+}

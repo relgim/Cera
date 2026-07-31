@@ -1,0 +1,27 @@
+{
+  "adult": false,
+  "adult_mode": null,
+  "automatic_retry_count": 0,
+  "case_id": "02_mia_sakura_selected_cast",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_COMPOSER_CONTRACT_INVALID",
+    "generation_id": "generation:49c99bd0-c1db-58d0-beb1-b58bf867fe57",
+    "message": "DeepSeek Composer output failed typed decoding: realized participant must speak or visibly act",
+    "request_id": "request:qualification-02_mia_sakura_selected_cast",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "composer_validation",
+    "story_state_committed": false,
+    "trace_id": "trace:db2b181e-60a5-5c48-abfb-f5860704f235"
+  },
+  "fallback_enabled": false,
+  "qualification_id": "five-run-live-v2",
+  "schema_version": "cera.live_story_qualification_case.v1",
+  "source_sha256": "a72d3b50a8359c58ed250dbd95f230d61fab2acbd65748d37593e917932f0891",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Mia and Sakura ordinary selected-cast turn"
+}

@@ -1,0 +1,18 @@
+{
+  "archived_thread_sha256": [
+    "db739d24f485866b63b8b62d8d540bdc7d0c2bd7d66d9187011d3df66942cd2d",
+    "4af9748acfa289aeb2b753301e6501d72845dce13b3f142ee5668491975b7f15"
+  ],
+  "cleanup_status": "archived_leaf_first",
+  "error_message": "Codex MCP evidence lookup failed",
+  "error_type": "ProviderTransportError",
+  "fallback_count": 0,
+  "finished_at": "2026-07-31T10:59:16.100028+00:00",
+  "provider_calls": 1,
+  "retry_count": 0,
+  "schema_version": "cera.native_stored_reasoner_canary.v2",
+  "started_at": "2026-07-31T10:58:48.573417+00:00",
+  "status": "failed",
+  "story_state_committed": false,
+  "wall_seconds": 27.524
+}

@@ -1,0 +1,468 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi remembers Mother welcoming her energy without requiring academic brilliance or polished behavior.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"The family says love is unconditional, but Tomi privately believes she must still produce something worthy of their faith.\",\"Possible retrieval cues\":\"Being compared to Sakura or Enne; Mother praising effort; failure.\",\"Remembered content\":\"Tomi remembers Mother welcoming her energy without requiring academic brilliance or polished behavior.\",\"Source event(s)\":\"HF05\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"T-M01\",\"owner_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"T-M01 — Hana welcomed the ordinary tomboy\",\"line_end\":5314,\"line_start\":5306,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Hana welcomed the ordinary tomboy\"}",
+      "record_id": "record:6e705270-d7dc-5565-a390-4a5c505e72f1",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:sakura_hanezawa",
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "tomi",
+        "t-m01"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi remembers being described as merely an ordinary tomboy while her sisters' talents were named.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Ordinary became synonymous with lowering the Hanezawa name. Achievement became a way to create visible family pride.\",\"Possible retrieval cues\":\"Rankings; comparisons; being called average; a sister succeeding publicly.\",\"Remembered content\":\"Tomi remembers being described as merely an ordinary tomboy while her sisters' talents were named.\",\"Source event(s)\":\"TA01\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"T-M02\",\"owner_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"T-M02 — The ordinary comparison\",\"line_end\":5323,\"line_start\":5315,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"The ordinary comparison\"}",
+      "record_id": "record:2c26d915-d376-59fd-bc68-6277f3bb2ffc",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "tomi",
+        "t-m02"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi remembers the first time movement, stamina, and competition felt naturally hers.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Running is joy before it is debt. Under pressure she can forget that origin and treat every result as repayment.\",\"Possible retrieval cues\":\"Starting blocks; open roads; praise; training without an audience.\",\"Remembered content\":\"Tomi remembers the first time movement, stamina, and competition felt naturally hers.\",\"Source event(s)\":\"TA02\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"T-M03\",\"owner_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"T-M03 — Discovering running\",\"line_end\":5332,\"line_start\":5324,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Discovering running\"}",
+      "record_id": "record:42717186-8bc6-5e9f-8718-1cf3b7ad19b5",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "tomi",
+        "t-m03"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi remembers equipment, rides, meals, schedule changes, and sisters showing up for her.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Support feels like a promise she must repay with results. She does not know the current hidden financial extent.\",\"Possible retrieval cues\":\"New equipment; travel costs; family at meets; discussions of money.\",\"Remembered content\":\"Tomi remembers equipment, rides, meals, schedule changes, and sisters showing up for her.\",\"Source event(s)\":\"TA03\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"T-M04\",\"owner_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"T-M04 — The family invested\",\"line_end\":5341,\"line_start\":5333,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"The family invested\"}",
+      "record_id": "record:8b4ba3a3-2aab-5759-ae7a-224731c27064",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "tomi",
+        "t-m04"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi remembers hearing the family name attached to a major result and seeing her sisters' pride.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Public achievement can bring the spotlight back to the family, making winning emotionally larger than personal ambition.\",\"Possible retrieval cues\":\"Crowds; announcements; national qualification; family absent from the stands.\",\"Remembered content\":\"Tomi remembers hearing the family name attached to a major result and seeing her sisters' pride.\",\"Source event(s)\":\"TA04\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"T-M05\",\"owner_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"T-M05 — The Hanezawa name announced\",\"line_end\":5350,\"line_start\":5342,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"The Hanezawa name announced\"}",
+      "record_id": "record:35efaee8-9427-58fb-b024-558e0cdacb70",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "tomi",
+        "t-m05"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi remembers competing and qualifying after Anna's reported accident, believing the result legitimate.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"The victory is integrated as earned proof. Discovery of Aoi's act could contaminate both identity and trust.\",\"Possible retrieval cues\":\"Anna; stairs; questions about the qualifier; Aoi's protectiveness.\",\"Remembered content\":\"Tomi remembers competing and qualifying after Anna's reported accident, believing the result legitimate.\",\"Source event(s)\":\"TA07\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"T-M06\",\"owner_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"T-M06 — Qualification after Anna's absence\",\"line_end\":5359,\"line_start\":5351,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Qualification after Anna's absence\"}",
+      "record_id": "record:9cdc26fd-5ea8-573e-8d7c-53d7131b8154",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "tomi",
+        "t-m06"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi remembers concealing pain to protect training and avoid becoming a burden.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Endurance proves worth; disclosure risks pity and lost opportunity. This is a dangerous but not universal coping response.\",\"Possible retrieval cues\":\"Pain, limping, Enne's metrics, Mia asking whether she ate or rested.\",\"Remembered content\":\"Tomi remembers concealing pain to protect training and avoid becoming a burden.\",\"Source event(s)\":\"TA08\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"T-M07\",\"owner_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"T-M07 — Hidden injury\",\"line_end\":5368,\"line_start\":5360,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Hidden injury\"}",
+      "record_id": "record:32d94327-f246-50cd-8fab-3b97151941a7",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "tomi",
+        "t-m07"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi remembers cheering louder than anyone during Yuuni's festival performance.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Protecting Yuuni includes wanting her to be visible and fearless. Tomi may struggle when Yuuni chooses another person's support.\",\"Possible retrieval cues\":\"Yuuni rehearsing; performance anxiety; someone patronizing Yuuni.\",\"Remembered content\":\"Tomi remembers cheering louder than anyone during Yuuni's festival performance.\",\"Source event(s)\":\"YU02\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"T-M08\",\"owner_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"T-M08 — Yuuni onstage\",\"line_end\":5377,\"line_start\":5369,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Yuuni onstage\"}",
+      "record_id": "record:d2bfade3-3473-57f9-87bd-b7b9357e92e7",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "tomi",
+        "t-m08"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi remembers immediately wondering whether the incoming boy might be cute and whether cohabitation could lead to dating, then dismissing herself for getting ahead of reality.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She begins open to romantic possibility, not already attracted or trusting. Curiosity can coexist with caution and family loyalty.\",\"Possible retrieval cues\":\"First sight of Ted; teasing about dating; private proximity; another sister showing interest.\",\"Remembered content\":\"Tomi remembers immediately wondering whether the incoming boy might be cute and whether cohabitation could lead to dating, then dismissing herself for getting ahead of reality.\",\"Source event(s)\":\"ST05\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"T-M09\",\"owner_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"T-M09 — A boy in the house\",\"line_end\":5386,\"line_start\":5378,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"A boy in the house\"}",
+      "record_id": "record:26433d1d-1dda-5b71-ae2e-1d9ff911633a",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "tomi",
+        "t-m09"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi remembers being told Ted's rent would help general household stability.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She does not know her athletic future is a specific driver. If clues emerge, she may misread them or experience disproportionate guilt.\",\"Possible retrieval cues\":\"Sakura discussing budgets; Aoi tolerating Ted unexpectedly; training expenses.\",\"Remembered content\":\"Tomi remembers being told Ted's rent would help general household stability.\",\"Source event(s)\":\"ST01\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"T-M10\",\"owner_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"T-M10 — General financial explanation\",\"line_end\":5395,\"line_start\":5387,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"General financial explanation\"}",
+      "record_id": "record:301d4906-6074-5de7-8a40-eb7bf88663b4",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:sakura_hanezawa",
+        "character:aoi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "tomi",
+        "t-m10"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:cd8b1a0b-c234-5c3c-8f8b-543380408c85",
+  "title": "Tomi owner-private Genesis memories"
+}

@@ -1,0 +1,19 @@
+..........................................................................................................................................................................................................StreamableHTTP session manager started
+HTTP Request: POST http://127.0.0.1:55777/mcp "HTTP/1.1 401 Unauthorized"
+Terminating session: None
+HTTP Request: POST http://127.0.0.1:55777/mcp "HTTP/1.1 200 OK"
+Negotiated protocol version: 2025-11-25
+Terminating session: None
+HTTP Request: POST http://127.0.0.1:55777/mcp "HTTP/1.1 202 Accepted"
+Processing request of type ListToolsRequest
+Terminating session: None
+HTTP Request: POST http://127.0.0.1:55777/mcp "HTTP/1.1 200 OK"
+Processing request of type CallToolRequest
+Terminating session: None
+HTTP Request: POST http://127.0.0.1:55777/mcp "HTTP/1.1 200 OK"
+StreamableHTTP session manager shutting down
+..........................................................................
+----------------------------------------------------------------------
+Ran 276 tests in 232.504s
+
+OK

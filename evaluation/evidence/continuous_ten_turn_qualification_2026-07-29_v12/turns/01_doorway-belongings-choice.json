@@ -1,0 +1,490 @@
+{
+  "application_request_sha256": "4caad8f515d27b33b06ef646b3c086fdc1f75770641d4b6a9f7acdc4f9a7f9df",
+  "assertions": {
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "persistent_no_mcp"
+  },
+  "composer": {
+    "accepted_prose": "Hana smiled and gestured toward the wooden shoe rack beside the entryway. \"Right here, Ted. There's plenty of room on the bottom row,\" she said. \"And your suitcase can rest against the wall just past the step—it won't be in anyone's way.\" She met his eyes with a reassuring look. \"You're not claiming anyone's space. I promise.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "1ad18071682f854f03df7baf747224fec27a84876a10572d2576d7641153b85a",
+      "character_spans": [
+        {
+          "beat_id": "beat:def1c484-8a21-5db4-ac2c-b6ce4a6442a6",
+          "end": 328,
+          "kind": "dialogue",
+          "owner_id": "character:hana_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        }
+      ],
+      "decision_sha256": "e904ef25afaaf5cdfc411da12d3ba8c566c35eede0697a1fb513b80f06da516e",
+      "floor_owner_id": "character:hana_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:d33f82ec-71f6-5f5b-8954-3a0b7e96bd94",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "547628626503fef5d7e26b6f644208dc1950174e4a9f4bf8db11d9b1ee63bf33",
+          "character_id": "character:hana_hanezawa",
+          "selected_intent_sha256": "7b848e98e0b7ac681239d42f26a4d94f49feaf85e93339e6a1365bd4321d9bae"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:hana_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:def1c484-8a21-5db4-ac2c-b6ce4a6442a6"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "d29720af860f9db6f1ef731a58b5a89cdead9330503f47e43e4a8d899c16af5b",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "89839db6250ac02e19da2f6e3f0e05dfda4c7c261d87101448d5cf9be479506c",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1024,
+      "cost_is_estimate": true,
+      "cost_microusd": 1209,
+      "duration_ms": 3482,
+      "external_provider_calls": 1,
+      "input_tokens": 3305,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "4dafc1efd374952ecd54c92537e599246454bdddb0a7b6a0b9a45b5bf706698b",
+      "output_tokens": 244,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:55ef12d1-1c59-5dfd-89b2-e590b17a5392",
+      "provider_request_id_sha256": "a29c44088ae486a6668bb91f5281f2d0c891e2945f2af1a4cd665889c3c2b748",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "4d8f517bf6a696015d909207edbb6a172dbebd58a5b4996fb748466f4af52b83",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "bc02d58d54c17d6dc66608fc99288942112980467ff0de5cb2f3f16921fbbe79",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:hana_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "5668f4ef9a7bba471c6e67fa41b7b44eb0c5695162db7f3ef1bff91c0a24477f",
+      "assembly_receipt_id": "validation:197581d1-afb2-514c-a820-7ec7089443df",
+      "base_request_sha256": "dfcd2dda0a130ec7a9d640c2b114c31369e8b934e3a27558d3b5036fd719e581",
+      "cumulative_returned_bytes": 3521,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:1d55cc1c-ab9e-58b4-9612-1c7ec9a1563d",
+        "lookup_receipt:16d17856-a84d-58ff-9aaf-945bba08172d"
+      ],
+      "realization_context_sha256": "071ec29407a6de0dd82e18630b2b46fcaaccbcfe5a690c0205f3214ef83da218",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a",
+        "evidence:9a8050c6-a481-57a8-a877-25da3345be2f"
+      ],
+      "snapshot_token": "snapshot:15fa40d4-5692-5d3c-b879-da51704192f6",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:hana_hanezawa"
+    ]
+  },
+  "duration_seconds": 47.644,
+  "index": 1,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "059e8f54ee9a2a10f562e323b4d2223b47baa7d5f41dbe7a6272f5e0931111e1",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "77ac4a27c685c364a132a91b9230fcce2d8963d2121cb0db40addc8e42b127bc",
+      "receipt_id": "validation:43f03612-6900-520b-8463-cafa46888f7c",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "f5a3ad92130ecb981d5ede9966dd7d97b3d3dc5c03693bcb60002dc843af3e7d",
+    "receipt_id": "validation:c37c8912-6476-5a7c-8c8e-d361aef54423",
+    "request_id": "request:bb190062-62dc-5982-b348-65b76ed86500",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 1230,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:88bf4da7-aae7-5b49-8ff7-20d0b89fa796",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1230,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:15fa40d4-5692-5d3c-b879-da51704192f6",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:88bf4da7-aae7-5b49-8ff7-20d0b89fa796"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+          ],
+          "obligation_id": "obligation:60d159b9-1def-5cbd-9848-f71de7026c9a",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:38681312-1375-572e-bbb3-cd60acb8dfd8",
+      "snapshot_binding_sha256": "1fa288801812fc1c3920d43b1ff4c916c14a6049ee43e61f2e9fbfe20f814546",
+      "snapshot_token": "snapshot:15fa40d4-5692-5d3c-b879-da51704192f6"
+    },
+    "snapshot_token": "snapshot:15fa40d4-5692-5d3c-b879-da51704192f6",
+    "source_sha256": "1493a534b596b4f480f109874bd70a03f71c4a0ffa6aadc1c08463d34d5d3ab9"
+  },
+  "key": "doorway-belongings-choice",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:095d0e71-3f43-55c5-a142-494e2a42be1b",
+      "accepted_artifact_sha256": "6dfa43705a8a84d6ab4d1e10c33f36f7b4134334019528215f8ed27d929e4bec",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "4caad8f515d27b33b06ef646b3c086fdc1f75770641d4b6a9f7acdc4f9a7f9df",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:26c38c86-36aa-51c1-9ca5-d23ffe88788e",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:97214b43-2972-5718-ae3d-2f6f6559f6f8",
+      "operational_report_id": "validation:b20fedc0-45fb-59b1-bad3-3be800b7aa85",
+      "operational_report_sha256": "d5223849184ccd8012018a449eadb5e1afae0dd47c9dc417bf8297e3bfae472f",
+      "receipt_id": "validation:bf469cf1-f3c4-5765-90dc-2476d9445ef7",
+      "request_id": "request:bb190062-62dc-5982-b348-65b76ed86500",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "df9ac496aa3109f0fa5c162ec5e5d95c5a348b33bff5c543fb3fd9e5bfb83692"
+    },
+    "artifact": {
+      "accepted_prose": "Hana smiled and gestured toward the wooden shoe rack beside the entryway. \"Right here, Ted. There's plenty of room on the bottom row,\" she said. \"And your suitcase can rest against the wall just past the step—it won't be in anyone's way.\" She met his eyes with a reassuring look. \"You're not claiming anyone's space. I promise.\"",
+      "artifact_id": "artifact:095d0e71-3f43-55c5-a142-494e2a42be1b",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:3042ba31-1688-5868-b16f-ef84ebe4314c",
+      "generation_id": "generation:97214b43-2972-5718-ae3d-2f6f6559f6f8",
+      "parent_artifact_id": null,
+      "prose_sha256": "89839db6250ac02e19da2f6e3f0e05dfda4c7c261d87101448d5cf9be479506c",
+      "realized_beat_ids": [
+        "beat:def1c484-8a21-5db4-ac2c-b6ce4a6442a6"
+      ],
+      "responding_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:733b014d-bc72-5709-8050-8e4337555883",
+      "status": "accepted",
+      "transaction_id": "transaction:8dbfcd51-af5d-5ba2-9bef-a859aab07656",
+      "validation_receipt_id": "validation:f162d3aa-cf9a-5348-a307-78c15d21f568"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:26c38c86-36aa-51c1-9ca5-d23ffe88788e",
+      "expected_previous_artifact_id": null,
+      "external_receipt_ids": [],
+      "generation_after": 1,
+      "generation_before": 0,
+      "inserted_record_ids": [
+        "event:253ab3f2-3802-5a23-9936-f135017a8757"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:88bf4da7-aae7-5b49-8ff7-20d0b89fa796",
+        "lookup_receipt:1d55cc1c-ab9e-58b4-9612-1c7ec9a1563d",
+        "lookup_receipt:16d17856-a84d-58ff-9aaf-945bba08172d"
+      ],
+      "new_artifact_id": "artifact:095d0e71-3f43-55c5-a142-494e2a42be1b",
+      "new_artifact_sha256": "6dfa43705a8a84d6ab4d1e10c33f36f7b4134334019528215f8ed27d929e4bec",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:b03006e9-7338-5b3c-9b81-3d7aebdefeba",
+        "provider_receipt:55ef12d1-1c59-5dfd-89b2-e590b17a5392",
+        "provider_receipt:15a43f32-4197-52c9-9bda-fc6cba4f8607"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:733b014d-bc72-5709-8050-8e4337555883",
+      "source_sha256": "c864398565973c3c0da9eea94ea49c5e022566477c6765fcf6d724e70765e051",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:8dbfcd51-af5d-5ba2-9bef-a859aab07656",
+      "transaction_sha256": "df9ac496aa3109f0fa5c162ec5e5d95c5a348b33bff5c543fb3fd9e5bfb83692",
+      "validation_receipt_ids": [
+        "validation:c37c8912-6476-5a7c-8c8e-d361aef54423",
+        "validation:197581d1-afb2-514c-a820-7ec7089443df",
+        "validation:375cf671-2ee7-5053-b2a3-b47be00165e0",
+        "realization_verification:d74d2e76-5e1d-5740-8c25-aa52244da68c",
+        "validation:f162d3aa-cf9a-5348-a307-78c15d21f568",
+        "validation:1f4e1d90-45c2-5917-b814-9340263b4bce"
+      ]
+    },
+    "event_record_id": "event:253ab3f2-3802-5a23-9936-f135017a8757",
+    "visible_artifact_count": 1
+  },
+  "qualification_id": "continuous-ten-turn-v12",
+  "raw_message": "Ted reaches the Hanezawa doorway with one suitcase and pauses before moving farther inside. He asks Hana, \"Where should I leave my shoes and bag so I don't claim someone else's space?\" He waits at the threshold for her answer.",
+  "raw_message_sha256": "837f4924c2bba26d829e98e0cf277d1c42e1ce25ba854c1cff753587cf62a839",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Answer directly by designating a place for the shoes and a separate temporary spot for the suitcase, using warm, low-pressure phrasing that avoids embarrassment.",
+            "character_id": "character:hana_hanezawa",
+            "evidence_ids": [
+              "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+            ],
+            "knowledge_constraints": [
+              "Keep Hana's owner-private concern about possible humiliation implicit.",
+              "Do not imply knowledge of Ted's private state or next choice."
+            ],
+            "perception": "Ted is waiting at the threshold for practical placement guidance.",
+            "selected_intent": "Welcome Ted through clear household guidance while protecting his dignity."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:hana_hanezawa",
+              "beat_id": "beat:def1c484-8a21-5db4-ac2c-b6ce4a6442a6",
+              "evidence_ids": [
+                "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+              ],
+              "neutral_event": "Hana gives concise directions for the shoes and suitcase and makes clear that Ted is not imposing.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:47f710ad-9388-5c38-b5dc-529ec25b3a7a",
+          "stop_before": "Ted's next unsupplied response or movement after Hana's guidance."
+        },
+        "decision_id": "decision:3042ba31-1688-5868-b16f-ef84ebe4314c",
+        "floor_owner_id": "character:hana_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "Ted follows the placement guidance or asks a further practical question."
+            ],
+            "invalidation_conditions": [
+              "Ted declines the guidance or chooses not to enter farther."
+            ],
+            "open_user_choice": "Whether Ted follows the directions, asks for clarification, or remains at the threshold.",
+            "possible_consequences": [
+              "Hana can continue orienting Ted to the home.",
+              "The arrival can pause without assigning Ted a response."
+            ],
+            "segment_id": "segment:f3b9f828-fc1e-5e39-b3e5-1ce21031d357",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not author Ted's next action, dialogue, thought, feeling, destination, or commitment.",
+          "Do not expose Hana's owner-private belief as shared knowledge.",
+          "Do not establish an unprovided household layout or fixed storage arrangement.",
+          "Do not treat the conditional arrival-orientation segment as current fact."
+        ],
+        "responding_npc_ids": [
+          "character:hana_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Hana answers the threshold question with practical, dignity-preserving hospitality.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "The home's exact shoe and luggage locations are unspecified.",
+          "Ted's next meaningful choice remains unknown."
+        ],
+        "writer_must_preserve": [
+          "Only Hana responds in the current segment.",
+          "Hana's response must directly resolve where the shoes and suitcase may be placed.",
+          "Keep the tone hospitable, mildly careful, and non-humiliating.",
+          "Do not restate or directly narrate Ted's supplied action or dialogue.",
+          "Stop before any new action or dialogue by Ted."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a",
+          "record_id": "record:f9ba2acf-1bca-57cb-b1f4-7d4935dd6dcf",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:hana_hanezawa",
+          "evidence_ids": [
+            "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 33569,
+      "external_provider_calls": 1,
+      "input_tokens": 12958,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "c3648902c3a342234f6a5915d5e22e93fa71d7f7bf60ffe8e1c6ac29fe9092d1",
+      "output_tokens": 1168,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:b03006e9-7338-5b3c-9b81-3d7aebdefeba",
+      "provider_request_id_sha256": "82889a81c0a29738fce853640e8d69cb567024567d5049ba3e0d6cb942d612e4",
+      "quota_metered": true,
+      "reasoning_output_tokens": 516,
+      "request_sha256": "7f241d9783bf0dfd677d403a133528459a9036cc5da0d26c9a802f565ff6e465",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "b2f734e9adbd46541265a70965f7908526a00aa1dd79fbcb8b159a232664409a",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "b2f734e9adbd46541265a70965f7908526a00aa1dd79fbcb8b159a232664409a",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "3bc96bca75b84f63a780d10e1471cfc5e7e80c2afa2dd531dc5d75a5ffe13a48",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:b03006e9-7338-5b3c-9b81-3d7aebdefeba",
+      "provider_receipt_sha256": "c852ab144a5ebc6817ccddb7106e2ec20db9e7551af27686637b955139991856",
+      "reasoner_request_sha256": "f5a3ad92130ecb981d5ede9966dd7d97b3d3dc5c03693bcb60002dc843af3e7d",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:15fa40d4-5692-5d3c-b879-da51704192f6",
+      "source_sha256": "1493a534b596b4f480f109874bd70a03f71c4a0ffa6aadc1c08463d34d5d3ab9",
+      "source_view_sha256": "4924f297f338644b2c37134ba19a65e646dbec8c588562105192e1ab977bc385",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Hana chooses Ted's first concrete doorway step",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 6744,
+      "external_provider_calls": 1,
+      "input_tokens": 10340,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "190f8744fee5a501535b455640a79ab08d9c3066bf0c02d286e6315ef0cac618",
+      "output_tokens": 246,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:15a43f32-4197-52c9-9bda-fc6cba4f8607",
+      "provider_request_id_sha256": "c070e6a99222dc9928d6876e7985bb5fc69b588f8004f25eaf8ab13ee3a4422f",
+      "quota_metered": true,
+      "reasoning_output_tokens": 142,
+      "request_sha256": "3de173ec2568ebf23db16fefe9fc353520a1b51dd089c374de210d3b5cc27283",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "d84ca6952abdca260297142460886ebb0e8f1c3cdcb5836f21bc831a589a58a5",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "1ad18071682f854f03df7baf747224fec27a84876a10572d2576d7641153b85a",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:15a43f32-4197-52c9-9bda-fc6cba4f8607",
+      "provider_receipt_sha256": "193d3907b7d02a04955fc31463875ea8a6b7393ad9fc90d25ffcc75e50e367ea",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "89839db6250ac02e19da2f6e3f0e05dfda4c7c261d87101448d5cf9be479506c",
+      "verification_id": "realization_verification:d74d2e76-5e1d-5740-8c25-aa52244da68c",
+      "verification_request_sha256": "2b431fe76736500e88dcbbc69aba81f76125dcd8e391029876e1e3ff4c2539f0",
+      "verified_beat_ids": [
+        "beat:def1c484-8a21-5db4-ac2c-b6ce4a6442a6"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:hana_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "d84ca6952abdca260297142460886ebb0e8f1c3cdcb5836f21bc831a589a58a5",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

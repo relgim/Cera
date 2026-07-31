@@ -1,0 +1,2096 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia and Yuuni are Hana's biological daughters; Sakura, Enne, Tomi, and Aoi are Hana's legal adoptive daughters.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Mia and Yuuni are Hana's biological daughters; Sakura, Enne, Tomi, and Aoi are Hana's legal adoptive daughters.\",\"older_claim\":\"All daughters are non-biological orphanage sisters.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:bd875811-978e-5594-a413-eaa80ae85315",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:e9f0d852-feb1-5651-882c-ae9952d2b54c"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_1"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana is the current mother, guardian, and household head. Chiyo's possible historical role remains unresolved provenance.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Hana is the current mother, guardian, and household head. Chiyo's possible historical role remains unresolved provenance.\",\"older_claim\":\"Chiyo is the current guardian or household mother.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:0367b9b9-d8d7-5535-839b-c11a10508b6b",
+      "record_type": "supersession_ledger",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_2"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana Hanezawa is creator-confirmed.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Hana Hanezawa is creator-confirmed.\",\"older_claim\":\"Hana's surname is unknown.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:a7d9583c-bc8b-58b4-9a0a-e94723f3a5c2",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:c5c02bdc-821e-596c-8d25-0a86c29ce0ca"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_3"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Excluded as an old, unrelated source adapted elsewhere. Current Hana Hanezawa is 38, mother of six, resident at story start, and adult-route eligible.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Excluded as an old, unrelated source adapted elsewhere. Current Hana Hanezawa is 38, mother of six, resident at story start, and adult-route eligible.\",\"older_claim\":\"Hana is 24 and part of a separate Hana/Mei/Yuna household.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:145f6acb-6709-5eb2-8ffb-654131a4af86",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:9d8aa2ea-73e2-51df-9b5e-51e7b0eb4e37"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_4"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Objective affair is true; Hana has brief unease, then benevolently corrects herself and believes him faithful. Sakura and Enne know.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Objective affair is true; Hana has brief unease, then benevolently corrects herself and believes him faithful. Sakura and Enne know.\",\"older_claim\":\"Hana stably suspects that her husband is cheating.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:1de26318-c49e-557c-8f66-df35ae4725da",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:enne_hanezawa",
+        "character:hana_husband"
+      ],
+      "supersedes": [
+        "record:15f0ea64-322a-55b8-bed3-17f14b89dfb8"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_5"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: the husband is objectively cheating. Details remain unknown.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: the husband is objectively cheating. Details remain unknown.\",\"older_claim\":\"Actual infidelity status is unknown.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:57b62cc9-22a6-5ea5-9ded-5760916fde89",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_husband"
+      ],
+      "supersedes": [
+        "record:8a417acb-add2-545f-9853-779ef2c86b5e"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_6"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: Hana resides at Hanezawa House and may participate from story start.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: Hana resides at Hanezawa House and may participate from story start.\",\"older_claim\":\"Hana is absent or ineligible to respond.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:43f77d10-79d7-58dd-ba20-2752a82382e9",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:f888061e-6861-5e28-b9da-360fdd32d28b"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_7"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: only Hana, Sakura, and Aoi know the Tomi-specific financial reason.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: only Hana, Sakura, and Aoi know the Tomi-specific financial reason.\",\"older_claim\":\"Tomi, Mia, or Enne know that Ted was accepted specifically for Tomi's athletic future.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:d823f9c6-a450-5b5d-a101-52c80b3bfe65",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:17221e75-e1a2-50ac-8fa3-80340a81c44f"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_8"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: Enne's room is directly beside Ted's assigned room. A technical work area may still exist within or near her room.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: Enne's room is directly beside Ted's assigned room. A technical work area may still exist within or near her room.\",\"older_claim\":\"Enne lives in a detached technical annex.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:167f0c14-dcbc-5641-9294-e685df4fbaaa",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:8094cfdb-e859-5072-83a1-a59020ad418b"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_9"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: Sakura used “temporary” to reassure Hana, but no fixed deadline exists.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: Sakura used “temporary” to reassure Hana, but no fixed deadline exists.\",\"older_claim\":\"Surveillance has a short fixed deadline.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:50ca4b7f-083e-5cda-9b35-4bc7ad92262a",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:0ba83f65-51dc-5013-8943-793f7892f3ba"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_10"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: she respects her sisters' privacy as trusted family; Ted receives no such presumption at story start.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: she respects her sisters' privacy as trusted family; Ted receives no such presumption at story start.\",\"older_claim\":\"Enne freely invades every sister's privacy.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:087de8bc-4d5f-5cd3-9a09-5ffca8af9602",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:09763844-8288-5b5e-a668-56921adcc430"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_11"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded as primary path: Yuuni's central dream is professional singing and dance. Visual creativity may remain a minor hobby only if later retained.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded as primary path: Yuuni's central dream is professional singing and dance. Visual creativity may remain a minor hobby only if later retained.\",\"older_claim\":\"Yuuni's central identity is visual art.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:e20b7e68-b58e-51fb-bbaf-3ffc95068f2f",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:42e077c8-2a12-54a3-9b1d-c62ca903055f"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_12"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: Yuuni is 18, adult, sheltered and innocent by experience, and retains full agency. Family coddling is relational, not incapacity.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: Yuuni is 18, adult, sheltered and innocent by experience, and retains full agency. Family coddling is relational, not incapacity.\",\"older_claim\":\"Yuuni is childlike, developmentally incapable, or excluded from adult-private design.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:ed57dc29-d9e7-58ee-aa26-2cab00b90d7e",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:9ed8f9f5-9e75-55f2-a72f-c54021c7dab8"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_13"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: she blurts emotionally insightful observations because she does not fully predict consequences. Later development may change discretion but is not initialized as manipulation.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: she blurts emotionally insightful observations because she does not fully predict consequences. Later development may change discretion but is not initialized as manipulation.\",\"older_claim\":\"Yuuni strategically weaponizes insight at Genesis.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:a6559c9b-7e78-5f6f-9647-d6f6a423aecc",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:e79b0cf3-46cb-592b-b49c-1a412f7188d9"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_14"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: she immediately imagines him as a possible dating partner, without established attraction or trust.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: she immediately imagines him as a possible dating partner, without established attraction or trust.\",\"older_claim\":\"Tomi begins neutral toward the idea of Ted.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:97a3470c-c38f-5058-88cc-e8cead48ac57",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:6247bfd4-58b7-57dc-9c31-9cc912cc82d3"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_15"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: online nude male images and deliberate masturbation experiments produced no meaningful arousal. Real physical proximity remains untested.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: online nude male images and deliberate masturbation experiments produced no meaningful arousal. Real physical proximity remains untested.\",\"older_claim\":\"Enne is responsive to male images.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:06bd5a37-c19f-51e7-aada-22a2380eb421",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:0fbfefd6-79a8-517e-a698-ffc604bf9a79"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_16"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: her disclosure is issue-bounded and rationalized as protection. The danger is sincere overreach, not power for its own sake.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: her disclosure is issue-bounded and rationalized as protection. The danger is sincere overreach, not power for its own sake.\",\"older_claim\":\"Sakura withholds information to accumulate power.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:9707c228-82c2-57ba-8ac2-76c7b41179d6",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:903e597e-5e27-5b1c-ac2e-e387fa8a7212"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_17"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: she has objected, accepted the Tomi-related necessity publicly, and begun contingency planning only.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: she has objected, accepted the Tomi-related necessity publicly, and begun contingency planning only.\",\"older_claim\":\"Aoi has already executed a plan against Ted.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:f26fe32d-c2c0-5e95-8f60-6fed69580b64",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:20363cf2-dbb2-55f0-aa11-d711950eb388"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_18"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: family kindness is genuine; kindness toward Ted initially contains strategic purpose but may include ordinary sincere conduct.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: family kindness is genuine; kindness toward Ted initially contains strategic purpose but may include ordinary sincere conduct.\",\"older_claim\":\"Aoi's kindness is wholly fake.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:cabce2d5-cb1d-591d-90bf-e5a6070debe4",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:9ac8458d-a60d-5075-9a7b-70d69be60d95"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_19"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: Tomi's core is family pride, athletic joy, and fear of disappointing the Hanezawas. Anna is a hidden rupture.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: Tomi's core is family pride, athletic joy, and fear of disappointing the Hanezawas. Anna is a hidden rupture.\",\"older_claim\":\"The Anna incident defines Tomi's entire character.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:27ad5e64-549f-590f-84e9-df41027ec5e3",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:94781283-585b-5924-a3ab-6e2c53a5ecb0"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_20"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: Hana has long light honey-brown hair with warm golden-yellow/blonde highlights. Mia retains the light-pink family visual role.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: Hana has long light honey-brown hair with warm golden-yellow/blonde highlights. Mia retains the light-pink family visual role.\",\"older_claim\":\"Hana has shoulder-length rose-pink hair.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:84232ab5-5a38-5ad7-a397-ca112081d417",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [
+        "record:cb58d024-2d29-5638-b4e8-04735a7be5cb"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_21"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: Sakura's hair is near-black with a cool lavender/light-purple undertone and subtle violet inner highlights.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: Sakura's hair is near-black with a cool lavender/light-purple undertone and subtle violet inner highlights.\",\"older_claim\":\"Sakura has plain black hair without color nuance.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:c2593156-d6d5-5da8-bb34-e75120dcdb3e",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:4166439e-fe3a-5447-8a88-43443610e5f3"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_22"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Refined: Enne has a short silver-white bob with pale blue and cool gray tones.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Refined: Enne has a short silver-white bob with pale blue and cool gray tones.\",\"older_claim\":\"Enne has a saturated pale-blue bob.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:d539c464-663f-5568-883f-b66fd448666c",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:07562697-eda3-5fed-bead-d9f145a7aabc"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_23"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Superseded: Aoi has long light strawberry/copper-red hair worn mainly in a ponytail.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Superseded: Aoi has long light strawberry/copper-red hair worn mainly in a ponytail.\",\"older_claim\":\"Aoi has dark indigo-black hair.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:01ee8985-5d04-5409-823a-2dde04da8fbe",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:a0146aae-7474-591a-bc4f-039d6cf9c9d1"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_24"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Refined: Tomi is lightly sun-tanned, full-busted, and visibly built as a powerful middle-distance runner.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Refined: Tomi is lightly sun-tanned, full-busted, and visibly built as a powerful middle-distance runner.\",\"older_claim\":\"Tomi's body is generic athletic.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:ed3acfe9-3f78-57b8-8e6b-fe9b8e0f06a0",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:aa2236d3-7e77-5733-8557-97088f8bd417"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_25"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Prohibited: Yuuni is an 18-year-old flat-chested adult dancer with adult proportions.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Prohibited: Yuuni is an 18-year-old flat-chested adult dancer with adult proportions.\",\"older_claim\":\"Yuuni's petite body may be rendered childlike.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:38f4137f-6067-5471-8d45-3bd2a336c7e6",
+      "record_type": "supersession_ledger",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_26"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Prohibited. Any development must preserve voice, values, relationships, and character-specific meaning.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "older_claim",
+        "active_resolution"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"active_resolution\":\"Prohibited. Any development must preserve voice, values, relationships, and character-specific meaning.\",\"older_claim\":\"Generic yandere or M states replace personality.\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.1 Active supersessions\",\"line_end\":6344,\"line_start\":6313,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:984a94e6-ecd6-513d-bc9d-f43fdbe120a0",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:5ef462f9-1aae-5a1e-8954-b49d07cfa381"
+      ],
+      "tags": [
+        "supersession",
+        "provenance",
+        "v1_2",
+        "entry_27"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "the husband's personal name",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"the husband's personal name\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:fcc3cb19-9b45-5775-895e-febc055e0a5e",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_husband"
+      ],
+      "supersedes": [
+        "record:0f7d0326-45eb-540b-8c53-ee4f768556b7"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_1"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "whether he is a legal or adoptive father to any daughter",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"whether he is a legal or adoptive father to any daughter\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:fb7aedfb-09c7-503e-9f12-c7482233bcef",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_husband"
+      ],
+      "supersedes": [
+        "record:748bacc6-9eb5-5098-9879-49b5766177c3"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_3"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "the identity of the affair partner",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"the identity of the affair partner\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:183ac1a1-40c2-5a11-8b79-d85fe5b399e5",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:6e00584c-29e6-5168-96d3-a0b1a6e46ab1"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_4"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "exact affair dates, location, method, or motive",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"exact affair dates, location, method, or motive\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:d07a03df-dad4-5847-866c-61f5a280d259",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:c392bfe5-885d-5578-aac3-589024c0cdfe"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_5"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "exact adoption dates and chronological order for Sakura, Enne, Tomi, and Aoi",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"exact adoption dates and chronological order for Sakura, Enne, Tomi, and Aoi\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:87a75701-3816-5378-bbcc-8081297e26ab",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:8e2a2beb-27c6-5739-92cf-781fca5c12ae"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_6"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "Hana's exact birthday",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"Hana's exact birthday\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:b5c08e32-795f-59dd-b74e-57d4c984952b",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:8905a6a3-d45c-5d9b-84f7-c99d6529fc83"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_8"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "exact birth times for any character",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"exact birth times for any character\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:50cbe226-ec52-5b68-9fbc-de19721d4352",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:9c8d38d8-9e6a-5275-9887-1c10a165b08a"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_9"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "exact financial amounts, rent, tutor prices, or household debt",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"exact financial amounts, rent, tutor prices, or household debt\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:1efe1857-488b-588f-a711-5c6a198e4e53",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:3b528edb-2686-5eb9-9260-20569fb9dc75"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_10"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "exact identity of Yuuni's future singing or dance tutor",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"exact identity of Yuuni's future singing or dance tutor\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:bd240937-228f-58db-b4f5-ef90ebccca76",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:6030c807-634d-5fee-8d1f-7e2bba924676"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_11"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "whether Yuuni will receive lessons",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"whether Yuuni will receive lessons\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:c8a233be-ca44-57c5-9b49-e8ce00adab87",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:bc14f425-b99f-5deb-9daa-5448f890aac8"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_12"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "whether the affair will be disclosed",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"whether the affair will be disclosed\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:ebcc42f1-5b4e-5bd9-9596-9ab46e824289",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:5400ceaa-a2e9-5f00-9770-407ffbd6fb4c"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_13"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "whether Tomi will learn why Ted was accepted",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"whether Tomi will learn why Ted was accepted\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:958836da-dee9-50a7-ba6c-d94a0ff3ac31",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:ff22b3d6-cb29-53c8-8ba0-646419ae5142"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_14"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "whether Enne will react to a man in physical proximity",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"whether Enne will react to a man in physical proximity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:c3277bf8-e8b3-50a9-9736-1c1891cc66a5",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:b4740c43-2269-5de0-ba16-076bbcb058bf"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_15"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "whether Tomi's initial romantic possibility becomes attraction",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"whether Tomi's initial romantic possibility becomes attraction\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:7a7707b6-4c81-5472-926f-c849b6f6d456",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:fcc2bee9-3667-5573-9168-98a9f6f16b6c"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_16"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "whether Aoi will attempt any removal plan",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"whether Aoi will attempt any removal plan\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:a7918da4-28a7-534e-8233-ea20e312767c",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:113a6246-2599-598d-8521-6afe11f85051"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_17"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "whether Sakura will terminate surveillance",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"whether Sakura will terminate surveillance\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:36aa7715-8e9c-5b0e-8373-268508924d75",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:8fce7db6-df10-59fd-98da-784c27cd84a1"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_18"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "any future romance, sexual act, crime, injury, pregnancy, betrayal, forgiveness, yandere development, M development, redemption, or collapse",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"any future romance, sexual act, crime, injury, pregnancy, betrayal, forgiveness, yandere development, M development, redemption, or collapse\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:a41c4d09-b8cb-50fc-b268-413fa52b74c5",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:32f57b5b-0ca5-5b23-a518-4fbda6657e67"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_19"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "unknown",
+      "claim": "Ted's appearance, motives, preferences, attraction, consent, or private state",
+      "content_class": "ordinary",
+      "epistemic_layer": "unresolved_question",
+      "expandable_sections": [
+        "source"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"question\":\"Ted's appearance, motives, preferences, attraction, consent, or private state\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"15.3 Explicit unknowns\",\"line_end\":6387,\"line_start\":6361,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:610cde60-fa11-5e68-b90d-15d709e3ab58",
+      "record_type": "unresolved_question",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:df962db8-a454-5dda-a0eb-498d8f69e547"
+      ],
+      "tags": [
+        "explicit_unknown",
+        "unknown_20"
+      ],
+      "truth_status": "unknown",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana's unnamed husband is the biological father of Mia and Yuuni.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "father_id",
+        "biological_children",
+        "source_authority"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"biological_children\":[\"character:mia_hanezawa\",\"character:yuuni_hanezawa\"],\"father_id\":\"character:hana_husband\",\"source_authority\":\"direct creator decision predating and retained over V1.1 conflict\"}",
+      "record_id": "record:06c48894-22eb-5008-896b-8a2cdba2b403",
+      "record_type": "family",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_husband",
+        "character:hana_hanezawa",
+        "character:mia_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:6c0561dc-7aaa-5689-9798-47c97e3f9c37"
+      ],
+      "tags": [
+        "family",
+        "biological_father",
+        "creator_correction"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana alone legally adopted Sakura, Enne, Tomi, and Aoi; her husband is not their adoptive father.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sole_legal_adopter",
+        "adopted_children",
+        "husband_is_adoptive_father"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"adopted_children\":[\"character:sakura_hanezawa\",\"character:enne_hanezawa\",\"character:tomi_hanezawa\",\"character:aoi_hanezawa\"],\"husband_is_adoptive_father\":false,\"sole_legal_adopter\":\"character:hana_hanezawa\"}",
+      "record_id": "record:f9451db4-3529-573b-972b-b4040fd7e389",
+      "record_type": "family",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_husband",
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:0038d219-e505-5660-8fad-1afaedc513af"
+      ],
+      "tags": [
+        "family",
+        "adoption",
+        "creator_correction"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Chiyo is excluded from active CERA Genesis and must not be inferred into Hanezawa backstory.",
+      "content_class": "ordinary",
+      "epistemic_layer": "creator_preference",
+      "expandable_sections": [
+        "excluded_entity",
+        "historical_source_may_remain_provenance_only"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"excluded_entity\":\"Chiyo\",\"historical_source_may_remain_provenance_only\":true}",
+      "record_id": "record:073d8954-427c-5de2-8625-3cb2a996b718",
+      "record_type": "creator_preference",
+      "record_version": 3,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:fa3f5f21-acf1-56b7-8b8e-1dc7b556de2e",
+        "record:0367b9b9-d8d7-5535-839b-c11a10508b6b"
+      ],
+      "tags": [
+        "creator_preference",
+        "excluded_entity",
+        "chiyo"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni's ordinary visual presentation may be deliberately childish and youthful, without changing her canonical age, agency, or protected-route age clarity.",
+      "content_class": "ordinary",
+      "epistemic_layer": "creator_preference",
+      "expandable_sections": [
+        "ordinary_visual",
+        "protected_visual",
+        "canonical_age",
+        "mental_incapacity_inferred"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"canonical_age\":18,\"mental_incapacity_inferred\":false,\"ordinary_visual\":\"Use a deliberately youthful, cute, youngest-sister appearance with childlike visual styling while preserving her canonical age, agency, and proportions.\",\"protected_visual\":\"Do not use childlike or age-ambiguous cues. Establish her canonical age once and keep the depiction unambiguously adult without repetitive age wording.\"}",
+      "record_id": "record:e398c868-208a-5fed-9ccd-b846dfb92942",
+      "record_type": "creator_preference",
+      "record_version": 3,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:447e32f3-2525-5725-8057-5a0d8694abfa",
+        "record:38f4137f-6067-5471-8d45-3bd2a336c7e6"
+      ],
+      "tags": [
+        "creator_preference",
+        "yuuni",
+        "visual_age_style"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hanezawa Core Genesis V1.2 is a complete child snapshot; unmatched V1.1 compiled records are retired rather than inherited.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "parent_revision_id",
+        "replacement_revision_id",
+        "retired_record_ids",
+        "reason"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"parent_revision_id\":\"genesis_revision:306eff73-7257-5988-8ea6-3021454b4079\",\"reason\":\"complete_creator_authorized_revision_replacement\",\"replacement_revision_id\":\"genesis_revision:0f473a00-3ba4-5da8-bea9-5e251c0b3d56\",\"retired_record_ids\":[\"record:1dcc46de-3056-55a5-82da-5cf213f5d099\",\"record:6a4291ae-e6fa-5b0c-8af4-f398944b225b\",\"record:6f2d9414-36b5-5405-8509-cd98bc831685\",\"record:73c5a33b-7a30-58f5-9a70-cb45738b3e40\",\"record:74784a14-6841-5cf3-b85c-5bfccb67e1eb\",\"record:9338adbd-e5a7-5a83-8823-bb97cea66bbf\",\"record:c4765418-f1f7-570c-8715-e65a944de8dc\",\"record:ca365a89-a46d-5b44-bf2c-d86683e040ba\",\"record:eeba99f5-8aac-5ed0-80a9-59553f4d9ce8\"]}",
+      "record_id": "record:cc30b599-fc83-566f-9b28-3296c3a36dd5",
+      "record_type": "supersession_ledger",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:82ba044f-56c4-5863-a129-e113df08621d"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:1dcc46de-3056-55a5-82da-5cf213f5d099",
+        "record:6a4291ae-e6fa-5b0c-8af4-f398944b225b",
+        "record:6f2d9414-36b5-5405-8509-cd98bc831685",
+        "record:73c5a33b-7a30-58f5-9a70-cb45738b3e40",
+        "record:74784a14-6841-5cf3-b85c-5bfccb67e1eb",
+        "record:9338adbd-e5a7-5a83-8823-bb97cea66bbf",
+        "record:c4765418-f1f7-570c-8715-e65a944de8dc",
+        "record:ca365a89-a46d-5b44-bf2c-d86683e040ba",
+        "record:eeba99f5-8aac-5ed0-80a9-59553f4d9ce8"
+      ],
+      "tags": [
+        "supersession",
+        "v1_2",
+        "complete_parent_replacement"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:82ba044f-56c4-5863-a129-e113df08621d",
+  "title": "Supersessions, explicit unknowns, and later creator corrections"
+}

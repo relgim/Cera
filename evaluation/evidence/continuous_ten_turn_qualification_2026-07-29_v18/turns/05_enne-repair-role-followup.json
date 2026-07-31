@@ -1,0 +1,539 @@
+{
+  "application_request_sha256": "fb20949b6f70f3aa6f842f0ec5c1582381ed5851237e614a5b2a50c76f6b3a51",
+  "assertions": {
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "persistent_no_mcp"
+  },
+  "composer": {
+    "accepted_prose": "\"Report the symptoms first. After that, give only the details I ask for. If I never request more, the default is that I am not inspecting it. You can take it elsewhere at any point. That protocol respects both.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "44e81dba357d47e5fb3dcf65b93be83dab3ce1448e19dee1baf9f75a3c3fda00",
+      "character_spans": [
+        {
+          "beat_id": "beat:3c63b00f-2a6e-5454-9493-6fed05a28d89",
+          "end": 211,
+          "kind": "dialogue",
+          "owner_id": "character:enne_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        }
+      ],
+      "decision_sha256": "0ee04407d53f7ae13b241643e5554307fb4522c03d8ab909a726d871d1a9bf03",
+      "floor_owner_id": "character:enne_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:45c3320a-b948-5155-80ba-5987e41ea707",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "74c00dbb7be21d94be325b262bcce5e9d9a8f57e0a1302344a7a7c8c80fc07db",
+          "character_id": "character:enne_hanezawa",
+          "selected_intent_sha256": "19ffa0de2318d14593c51798d0ef5125ec7660a0ab75c659f54daa5f989cbf71"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:3c63b00f-2a6e-5454-9493-6fed05a28d89"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "894f4bf77b0e006e9ece33f3eb751d5a726dc94d91a881ac3897c4775b635421",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "cf753657ffc9afd9fd23c84b51d52fe418f5a36e63d318447f7cf206800ef8bc",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1280,
+      "cost_is_estimate": true,
+      "cost_microusd": 1623,
+      "duration_ms": 3394,
+      "external_provider_calls": 1,
+      "input_tokens": 4600,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "74e93d276df56dfb6b2e5c94048d7cc8ca0b25b37fea867ce9f667d5022cd846",
+      "output_tokens": 200,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:690fe9d3-f5d0-5a30-9cd9-86cb924abf7e",
+      "provider_request_id_sha256": "1196d620840615ca6b03c9eefcd09eebcf40114e0fb3629f2523eea3529c962c",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "8dcce429bd3e11c61200fcd11943bbee87424608d02597136ccf74c5dae0521e",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "e795e7c4dc412df72d8c79dd2828361a6febfd81f63010ff57d72a2f0e03da17",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:enne_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "848a16e137517f5b5b78cf10ef6d9ecc66b48361d24a038b7725501559fa279f",
+      "assembly_receipt_id": "validation:cb1be9bf-202a-5bc5-805c-35b4e72732da",
+      "base_request_sha256": "5e78e5f3963e2892b8123b787a14411e288064c02d793782f8625236a146964e",
+      "cumulative_returned_bytes": 3197,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:6b111bb0-bce5-59e8-a567-efc7cab5ba22",
+        "lookup_receipt:25c98a71-29f5-52e5-a863-ec3bc01ea093"
+      ],
+      "realization_context_sha256": "0100a477e33ecd3fab5ab8e8bae67db7dacbdfc332ef867939159090b5690c8b",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:111cdea0-35ef-5028-a1cb-4c883c99405c",
+        "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61",
+        "evidence:4b09d0c8-2ff7-52cf-b469-8754e243f9d1"
+      ],
+      "snapshot_token": "snapshot:84950fc5-0616-58b9-9f0f-fe5418dea8c3",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:enne_hanezawa"
+    ]
+  },
+  "duration_seconds": 69.696,
+  "index": 5,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "83004a0139038d67b30326c5ce702fa8faa83ed6a502e1392d64f32b6495a1cd",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "34f3153717fa40ecbf6bebc52d2421d1a7270feb152dd6bb1b0f5dc69db4a53f",
+      "receipt_id": "validation:8b762b1f-b1a4-53af-bffa-298a36914cf9",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "13d0cf1a4adbb459a1b1fe965716640746252274e7e73bc09f217ac88ffc27b2",
+    "receipt_id": "validation:0a6f09ad-da0a-5ddc-8453-39663df98808",
+    "request_id": "request:b5b8f49c-c51a-5f26-a486-13c8442ddcc9",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2098,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:0e852c6c-3d07-5f58-ab9a-290a12cf5484",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2098,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:84950fc5-0616-58b9-9f0f-fe5418dea8c3",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 3358,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:77b0c6a4-f2ee-5c4f-ac43-f0060847afe9",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1260,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:84950fc5-0616-58b9-9f0f-fe5418dea8c3",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:111cdea0-35ef-5028-a1cb-4c883c99405c",
+        "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:0e852c6c-3d07-5f58-ab9a-290a12cf5484",
+        "lookup_receipt:77b0c6a4-f2ee-5c4f-ac43-f0060847afe9"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:111cdea0-35ef-5028-a1cb-4c883c99405c"
+          ],
+          "obligation_id": "obligation:0f555c5a-b63e-50a6-a395-ec7d8215f137",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+          ],
+          "obligation_id": "obligation:221af544-88b5-5781-9329-44f1ff380a50",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:92d2d446-5f0b-5ab4-9146-6e44c5792dde",
+      "snapshot_binding_sha256": "a8ea4431ab2d969a82a062a519659e3a6292f4a29f20ebf07d1063a6b06e7b58",
+      "snapshot_token": "snapshot:84950fc5-0616-58b9-9f0f-fe5418dea8c3"
+    },
+    "snapshot_token": "snapshot:84950fc5-0616-58b9-9f0f-fe5418dea8c3",
+    "source_sha256": "e23dbddf48e829486f4464b3daea8c855277ce506ac1c1d7c381fbb6ad160d48"
+  },
+  "key": "enne-repair-role-followup",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:75122866-1bfc-5a3f-90ae-caf3305e4e13",
+      "accepted_artifact_sha256": "9f02fd430140e77742e32e8206fde63b32dfcadcfcb10898323e608aa38f25cf",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "fb20949b6f70f3aa6f842f0ec5c1582381ed5851237e614a5b2a50c76f6b3a51",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:ed45d3ad-e59a-5dad-9c6c-803c15d5607b",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:8171d2ac-673e-5746-9a45-a842405b41fa",
+      "operational_report_id": "validation:011d653e-6cae-5dd8-a4df-23fb9b9b879d",
+      "operational_report_sha256": "2c128bea01cef2de319121c80e1290c725794e3eecd45602be6f68dafa06f54b",
+      "receipt_id": "validation:46851ec6-a5da-539d-bb00-8c976086f359",
+      "request_id": "request:b5b8f49c-c51a-5f26-a486-13c8442ddcc9",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "229b13f2d1bef1375c5213d94fc45f81df606bab25b5f173e60dca9d20e02fe0"
+    },
+    "artifact": {
+      "accepted_prose": "\"Report the symptoms first. After that, give only the details I ask for. If I never request more, the default is that I am not inspecting it. You can take it elsewhere at any point. That protocol respects both.\"",
+      "artifact_id": "artifact:75122866-1bfc-5a3f-90ae-caf3305e4e13",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:a9453ab8-2ba3-566c-b92a-d1775db638fa",
+      "generation_id": "generation:8171d2ac-673e-5746-9a45-a842405b41fa",
+      "parent_artifact_id": "artifact:f295fc0b-1020-5bb3-bf9e-be5bba426942",
+      "prose_sha256": "cf753657ffc9afd9fd23c84b51d52fe418f5a36e63d318447f7cf206800ef8bc",
+      "realized_beat_ids": [
+        "beat:3c63b00f-2a6e-5454-9493-6fed05a28d89"
+      ],
+      "responding_npc_ids": [
+        "character:enne_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:2cd21a89-9a5c-57a5-bd1e-af9b13ca1a86",
+      "status": "accepted",
+      "transaction_id": "transaction:c7f27d64-3462-5c10-9192-035a5719ed0d",
+      "validation_receipt_id": "validation:86b59d01-cc9c-5948-97fb-1ef66d8ff8b2"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:ed45d3ad-e59a-5dad-9c6c-803c15d5607b",
+      "expected_previous_artifact_id": "artifact:f295fc0b-1020-5bb3-bf9e-be5bba426942",
+      "external_receipt_ids": [],
+      "generation_after": 5,
+      "generation_before": 4,
+      "inserted_record_ids": [
+        "event:6b5c9c58-f3d3-5fa7-b6b1-ae11f3a63798"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:0e852c6c-3d07-5f58-ab9a-290a12cf5484",
+        "lookup_receipt:77b0c6a4-f2ee-5c4f-ac43-f0060847afe9",
+        "lookup_receipt:6b111bb0-bce5-59e8-a567-efc7cab5ba22",
+        "lookup_receipt:25c98a71-29f5-52e5-a863-ec3bc01ea093"
+      ],
+      "new_artifact_id": "artifact:75122866-1bfc-5a3f-90ae-caf3305e4e13",
+      "new_artifact_sha256": "9f02fd430140e77742e32e8206fde63b32dfcadcfcb10898323e608aa38f25cf",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:d3883cfc-5ecf-5b17-923c-b6411a6d779d",
+        "provider_receipt:690fe9d3-f5d0-5a30-9cd9-86cb924abf7e",
+        "provider_receipt:29c94f7b-5d9f-5666-902e-91f2d1de2156"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:2cd21a89-9a5c-57a5-bd1e-af9b13ca1a86",
+      "source_sha256": "a053ae7df851c45bea7c4cc28494c330a32584c25020dfb7f9a2715bb98ab21f",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:c7f27d64-3462-5c10-9192-035a5719ed0d",
+      "transaction_sha256": "229b13f2d1bef1375c5213d94fc45f81df606bab25b5f173e60dca9d20e02fe0",
+      "validation_receipt_ids": [
+        "validation:0a6f09ad-da0a-5ddc-8453-39663df98808",
+        "validation:cb1be9bf-202a-5bc5-805c-35b4e72732da",
+        "validation:0f5a4655-3870-5d2e-a40f-33b8a6ce988f",
+        "realization_verification:2e45a3bd-a3ae-521f-b7b7-8e36b49f9874",
+        "validation:86b59d01-cc9c-5948-97fb-1ef66d8ff8b2",
+        "validation:4bdd2a55-198a-5e34-9ead-e1c73cf354e4"
+      ]
+    },
+    "event_record_id": "event:6b5c9c58-f3d3-5fa7-b6b1-ae11f3a63798",
+    "visible_artifact_count": 5
+  },
+  "qualification_id": "continuous-ten-turn-v18",
+  "raw_message": "Ted accepts Enne's answer without asking her to prove usefulness. He says, \"If a shared device fails, I can report the symptoms and leave it untouched, gather only the details you request, or ask someone else so repair never becomes your duty. Which approach respects both your skill and your right not to fix it?\" He waits.",
+  "raw_message_sha256": "c39ca46666aa06333fc15e1d50dafc94cd46b21aba0e7a92ae738fbb64d3d1d9",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "State a preference for symptom reporting and only requested details, while reserving sole discretion to inspect or decline.",
+            "character_id": "character:enne_hanezawa",
+            "evidence_ids": [
+              "evidence:111cdea0-35ef-5028-a1cb-4c883c99405c",
+              "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+            ],
+            "knowledge_constraints": [
+              "Enne may use the currently supplied options and her owner-private analytical stance.",
+              "Enne may not infer the protected user's motive, private state, or future compliance."
+            ],
+            "perception": "Enne registers the offered device-failure protocols and their preservation of her refusal authority.",
+            "selected_intent": "Choose a bounded reporting protocol that keeps inspection and repair voluntary."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:enne_hanezawa",
+              "beat_id": "beat:3c63b00f-2a6e-5454-9493-6fed05a28d89",
+              "evidence_ids": [
+                "evidence:111cdea0-35ef-5028-a1cb-4c883c99405c",
+                "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+              ],
+              "neutral_event": "Enne identifies symptom reporting followed by only requested details as the preferred default and keeps inspection optional.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:cd43afab-0ca3-5ed1-8d3f-ee39482c30b0",
+          "stop_before": "The protected user's next unsupplied meaningful choice."
+        },
+        "decision_id": "decision:a9453ab8-2ba3-566c-b92a-d1775db638fa",
+        "floor_owner_id": "character:enne_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "A future device-failure report is supplied and Enne chooses to assess it."
+            ],
+            "invalidation_conditions": [
+              "Enne declines technical involvement.",
+              "No device failure occurs."
+            ],
+            "open_user_choice": "Whether to use the stated protocol remains the protected user's unsupplied choice.",
+            "possible_consequences": [
+              "Enne may request a bounded set of diagnostic details.",
+              "Enne may decide whether to inspect the device after reviewing those details."
+            ],
+            "segment_id": "segment:969fbf7d-bee1-5d9a-a135-b404b9d3c140",
+            "status": "conditional_plan_only"
+          },
+          {
+            "activation_conditions": [
+              "Enne decides not to assess a reported device failure."
+            ],
+            "invalidation_conditions": [
+              "Enne independently chooses to inspect the device."
+            ],
+            "open_user_choice": "Any subsequent handling of the device remains unsupplied.",
+            "possible_consequences": [
+              "Enne may end her technical involvement without further justification."
+            ],
+            "segment_id": "segment:4d7d03d9-be32-5370-9df1-37a115c9cd67",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not author the protected user's unsupplied action, dialogue, thought, feeling, motive, or decision.",
+          "Do not infer that the protected user will follow Enne's selected protocol.",
+          "Do not convert a conditional assessment or refusal into a current event.",
+          "Do not disclose Enne's owner-private belief as shared knowledge.",
+          "Do not identify the previously remembered event."
+        ],
+        "responding_npc_ids": [
+          "character:enne_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Enne selects a repair-reporting protocol while retaining refusal authority.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "No actual device failure or repair request is established.",
+          "Enne's exact phrasing is unsupplied."
+        ],
+        "writer_must_preserve": [
+          "Enne answers without restating or directly narrating the protected user's supplied words or actions.",
+          "Enne keeps inspection and repair voluntary.",
+          "Enne does not demand disclosure of the remembered event.",
+          "The response remains analytical and bounded.",
+          "The scene stops before any protected-user reply or commitment."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:111cdea0-35ef-5028-a1cb-4c883c99405c",
+          "record_id": "event:32066d51-aff0-57e3-af42-cf7c1484c92b",
+          "record_version": 1
+        },
+        {
+          "evidence_id": "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61",
+          "record_id": "record:30292a40-f837-5c08-9cf7-c23e70524b75",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "evidence_ids": [
+            "evidence:111cdea0-35ef-5028-a1cb-4c883c99405c",
+            "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 54472,
+      "external_provider_calls": 1,
+      "input_tokens": 13885,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "9df9168133abc56dabe5d9c6fc18adc47f13479ed550dbed81c60721b2806a59",
+      "output_tokens": 2249,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:d3883cfc-5ecf-5b17-923c-b6411a6d779d",
+      "provider_request_id_sha256": "7c808a1a91fd897bd53ba661a8412e9f74dcb56ec364dd80219c07d87e6d2964",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1431,
+      "request_sha256": "55b9d4b62b486d9d9ee2b9d69752368caf32283984988f05838976bf254403c2",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "155ef5b98ef9f38785d53b8b476c1a002e96f9e2eb67509361155ee00011eacb",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:d3883cfc-5ecf-5b17-923c-b6411a6d779d",
+      "provider_receipt_sha256": "20c4ccb636293fdf8b86225af2ef4a8d61fdd46ea6ecb045ff1f5100b6aec568",
+      "reasoner_request_sha256": "13d0cf1a4adbb459a1b1fe965716640746252274e7e73bc09f217ac88ffc27b2",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:84950fc5-0616-58b9-9f0f-fe5418dea8c3",
+      "source_sha256": "e23dbddf48e829486f4464b3daea8c855277ce506ac1c1d7c381fbb6ad160d48",
+      "source_view_sha256": "9ba4bb7cad231bf460ec9f691db841ec9d80fe27f349c2fc1bc63d45d91cd0ce",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Enne chooses how Ted should report a device problem",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 7871,
+      "external_provider_calls": 1,
+      "input_tokens": 10337,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "c260fefc16d910255c1fa52a4cad34441aa31b863a89152a88e4913c43c1cc5c",
+      "output_tokens": 162,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:29c94f7b-5d9f-5666-902e-91f2d1de2156",
+      "provider_request_id_sha256": "6d26cf614e09d7b67f2843f27a5673582eefdc7983dbd3b3ff6ec0abf8fdfc73",
+      "quota_metered": true,
+      "reasoning_output_tokens": 56,
+      "request_sha256": "02b5991d6420704e4236f093ed3b48488a5b39415a30f9f49a4c70ebd1a522ba",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "44e81dba357d47e5fb3dcf65b93be83dab3ce1448e19dee1baf9f75a3c3fda00",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:29c94f7b-5d9f-5666-902e-91f2d1de2156",
+      "provider_receipt_sha256": "b95c499ff73f37afa7d455d264a507f7cfebc7f86f9a6e7e4fbfd565c7b4b097",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "cf753657ffc9afd9fd23c84b51d52fe418f5a36e63d318447f7cf206800ef8bc",
+      "verification_id": "realization_verification:2e45a3bd-a3ae-521f-b7b7-8e36b49f9874",
+      "verification_request_sha256": "3e20393af72309c33b692ded01f623d1cbc11dd52082318708709c6072939f0c",
+      "verified_beat_ids": [
+        "beat:3c63b00f-2a6e-5454-9493-6fed05a28d89"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:enne_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

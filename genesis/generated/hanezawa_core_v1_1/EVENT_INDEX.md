@@ -1,0 +1,78 @@
+<!-- GENERATED, NOT AUTHORITY -->
+# Formative Event Index
+
+**Revision:** `genesis_revision:306eff73-7257-5988-8ea6-3021454b4079`
+**Status:** generated lookup aid; authoritative content remains JSON
+
+- `record:113dcbeb-33cb-56ba-9e90-96f6cccf3a6c` — Hana became Mia's biological mother at approximately age eighteen. The event established Hana as a very young mother whose identity formed around responsibility before she had much adult life of her own.
+- `record:f6643bb4-f1b4-539e-8c34-c0a32e902c92` — Hana became Yuuni's biological mother approximately two years after Mia. Yuuni became the youngest and remained the household's protected baby even after reaching adulthood.
+- `record:49ca45f2-cea7-510d-a955-62064de4c975` — Hana legally adopted Sakura after Sakura had already learned to rely heavily on competence and self-control. Hana treated her as a daughter rather than a case to manage.
+- `record:114e753c-58d8-52c9-9efe-e3c41620dad4` — Hana legally adopted Enne after losses and disruptions had made systems feel safer than people. Hana did not require ordinary social performance to prove affection.
+- `record:0445aa04-0819-5bbc-a6ac-2acdda3735ac` — Hana legally adopted Tomi and welcomed her energy without demanding that she become as academically exceptional as Sakura or Enne.
+- `record:1985729c-9f44-5493-8285-2fef89aebdd9` — Hana legally adopted Aoi after adults had valued Aoi's usefulness without fully choosing responsibility for her. Tomi helped make the transition ordinary rather than charitable.
+- `record:b9de7119-abeb-5e41-a74f-8accd46fd897` — The six daughters use the Hanezawa surname and regard themselves as one family under Hana.
+- `record:ce9c2266-daae-5914-ae5f-737194754e96` — The household took an early complete photograph after the family structure stabilized. Not every daughter felt equally comfortable being posed.
+- `record:d2023e96-db20-5c9c-bc5e-46648194f42c` — A period of heating, food, repair, or income strain forced the household to ration and cooperate.
+- `record:6c37be50-cbfd-5664-b8ed-32967169064e` — The family formalized recurring rules after conflict over privacy, chores, or shared resources.
+- `record:d8321ef1-d03d-5f25-b0f1-75c2205a4505` — Hana began routinely cutting seasonal fruit and distributing it as an unobtrusive way to check nutrition, mood, and presence.
+- `record:a2757f38-f5d8-5145-b246-8ce53cf9565a` — Mia began preparing tea as a low-pressure way to offer connection without requiring immediate disclosure.
+- `record:606ce52b-fb49-5131-b838-106d695af5c6` — Mia's special cookie recipe became associated with birthdays and unusually meaningful occasions rather than ordinary daily service.
+- `record:63743069-975a-5609-935e-663eacca87a0` — Sakura asked Hana to let her handle administration so she could make Mother's life easier and grow through responsibility.
+- `record:4d7f7063-03fb-50d2-b2ce-71f329c876d5` — Hana overruled a competent Sakura decision because it crossed a maternal or moral ceiling, demonstrating that delegation was not abdication.
+- `record:f7e96b95-3ecb-5abd-b1b1-2fdf1266924d` — Hana's unnamed husband left for a work trip that has lasted approximately three years by story start.
+- `record:eb30e6b0-b739-51c5-a2ab-7a439065cce1` — Sakura repeatedly demonstrated exceptional competence and became student council president.
+- `record:d2b8a391-5315-5132-a68f-8310a7f18bc1` — Sakura and Enne challenged one another across logic, strategy, technical, and mixed-domain problems. Sakura generally prevailed in broad adaptive reasoning; Enne prevailed in specialized technical depth.
+- `record:daf8c743-b352-582a-b2b7-ff103f151576` — Sakura remained late for council work and did not return on schedule.
+- `record:23cea28a-3580-5f57-b536-2ad3294f2553` — A middle-aged man from Tokyo who had fixated on Sakura abducted her and attempted sexual assault in a disused storage warehouse.
+- `record:48cfdf9a-aff9-5e31-a4e0-18a1f40dc71e` — Mia raised alarm and the sisters found Sakura before the assault was completed, incapacitated the attacker long enough to escape, and obtained help.
+- `record:e1097b7e-af38-5345-bbc9-39f3260c4aaf` — The attacker was arrested, and the investigation established his fixation and motive.
+- `record:70a8b755-4bfb-57a4-887b-d5fdcceacdd2` — After the attack Sakura trained in self-defense, changed routines, and became more rigid, controlled, and misandrist.
+- `record:e6d2a125-7508-571e-8547-609cbf7de12c` — Sakura once interpreted ambiguous male behavior through her worldview and later received evidence that her judgment was materially unfair.
+- `record:036452d4-507d-5157-b138-953e931a9ed5` — Sakura assembled inconsistencies around Anna's fall and concluded with high confidence that Aoi caused it.
+- `record:573eb894-a448-51b4-84a3-2e138036a435` — Sakura and Enne helped sharpen Mia's academics, reasoning, research, and ability to identify contradictions.
+- `record:7692be00-2dff-5ea8-b7e1-930b4c3427a6` — During household strain, Mia quietly surrendered something personally meaningful so family resources could go elsewhere.
+- `record:69e917a4-dbc6-511d-8725-07d982a76293` — Mia prepared food or tea after a serious family conflict. Everyone resumed ordinary behavior, but the cause remained unresolved.
+- `record:4de9ff1f-a32e-5acc-ba36-53b2d98eea65` — Repeated acts of care gradually became assumed rather than explicitly thanked.
+- `record:3d1cdae5-63fa-5883-92d6-c99fbb976bf7` — After prolonged overextension, Mia stopped one or more expected care routines and withdrew.
+- `record:387ab942-f505-5455-b1f5-dba09963b20b` — Mia nearly missed a submission, club opportunity, or external recognition because household needs came first.
+- `record:dd2bac0d-7a33-572b-8166-2c3c6913b724` — Mia used masturbation to regulate stress and was disturbed by how strongly and visibly her body responded.
+- `record:85b88844-97f3-56aa-9770-71b4b46542db` — Mia's romance-light-novel reading developed alongside occasional BDSM-themed reading that excited and embarrassed her.
+- `record:9babfc1e-9250-5b07-9bc5-371aef90ecce` — Mia once refused to mediate, cook, or soothe when the family expected it.
+- `record:06cb9dd1-dd1f-57cd-a333-b618593ada0d` — Loss of Enne's original family and related disruption worsened existing social detachment and made continuity feel fragile.
+- `record:a0bc6e7a-1963-5910-89c3-beade3d5995f` — A device, archive, or digital record preserved continuity during instability.
+- `record:9c554a98-6649-5b10-b1a0-5ad5bd23a02e` — Enne repaired a system failure that materially helped the family.
+- `record:cc561f04-ea66-56ae-9276-50b8662ca070` — Enne's monitoring detected a genuine household, financial, safety, or technical issue before harm escalated.
+- `record:d1864b04-6851-511e-af05-d5c33d07713d` — A family member discovered that Enne had observed or retained more information than authorized, despite solving a real problem.
+- `record:142a55c6-3369-5c16-97a3-4c9e614d6798` — Enne viewed nude men online and attempted masturbation as an experiment. She experienced no meaningful arousal.
+- `record:6a743887-fe1e-5388-bbf4-5804a370fc9a` — Enne found direct digital evidence that Hana's husband is cheating.
+- `record:187a003b-e587-53de-9e3e-f050f01f1743` — Enne brought the evidence to Sakura. Sakura independently verified enough to accept it as true and decided Hana should not be told.
+- `record:133f9c48-6aeb-5b7b-88af-f729957d7479` — The former guest room beside Enne became Ted's assigned room.
+- `record:0f1e6a88-e6e8-59c6-8cce-79eef085e5cd` — Someone compared the daughters' talents and described Tomi as merely an ordinary tomboy.
+- `record:118c50cd-c5f3-5385-b6a9-50ae83662584` — Tomi discovered unusual stamina, kinesthetic intelligence, and joy in running.
+- `record:6bf0ef7d-1163-554c-9c09-4483a52431ba` — The household devoted time, travel, equipment, food, and money to Tomi's athletic development.
+- `record:a18f1c90-457a-58de-8fa5-76c8a1a93782` — Tomi achieved a major prefectural or regional result that made the Hanezawa name publicly visible.
+- `record:c04817c8-74e1-55cf-9098-67ae0097817b` — Performance data showed Anna was likely to block Tomi's qualification.
+- `record:9d1ea710-a22e-597d-82f3-e39e3e5b964e` — Aoi pushed Anna down a long staircase, causing a fractured skull and broken shin.
+- `record:70ea41f7-9db6-5f1c-938c-5e20de41c140` — Anna could not compete. Tomi won or qualified and believed the result legitimate.
+- `record:9dfc8ef9-3bcc-51f7-a0a8-9f64a5f76493` — Tomi concealed a meaningful injury or pain pattern to continue training.
+- `record:9a7a27ca-30b9-5f23-8800-9dec07d257a0` — Before Anna, Aoi secretly altered a situation to protect a sister and achieved a favorable result without severe physical harm.
+- `record:df6c228a-d0b5-5dc5-8121-ea6c99096c3b` — After turning 18, Aoi implied interest and used social pressure to obtain practical advantage from an adult teacher. No sexual contact occurred.
+- `record:17266a51-ae2c-51f4-b0e0-370650b43a57` — Sakura confronted Aoi with enough evidence to establish that she understood at least one serious covert intervention.
+- `record:0862d547-3a66-5fde-9723-19fd03d26f86` — Yuuni sang and danced at a school event, demonstrating real but untrained performance talent.
+- `record:f6c8804c-9ce2-50d6-85ec-aa963bf86837` — Yuuni performed at a local festival and the family watching her became a recurring positive reference.
+- `record:2b84bc9d-4b52-5879-bc18-b0cda2b05a5b` — Yuuni stated an emotionally accurate observation during a difficult family moment, surprising people who assumed she did not understand.
+- `record:e35048a7-aba2-5e63-bdc0-41d368dcab0f` — Yuuni publicly noted a ritual deviation or emotional inconsistency and caused embarrassment because she did not predict the consequence.
+- `record:01343f67-d350-5903-a15d-4546c3ba3fd3` — The family developed habits of feeding, accompanying, helping, and indulging Yuuni. Yuuni accepted and enjoyed them.
+- `record:2e834b1a-f8c8-5924-bb7a-7780cd17a4af` — After school and festival performances, Yuuni formed a serious private ambition to become a professional singer and dancer.
+- `record:c3f96c33-6128-5fa4-91ca-d6012b97d4ab` — Yuuni identifies professional singing or dance instruction she wants but does not bring the request to the household meeting.
+- `record:2d5a9841-c1d0-5ed8-b18e-3286904d46ee` — Yuuni notices that Aoi's polished tone changes when Aoi wants her to stop speaking.
+- `record:416907af-799f-5679-8833-1c9194d7234a` — Before meeting Ted, Yuuni expects to tease and test him because he is an unfamiliar man and her sisters are nearby.
+- `record:b6c50263-90fb-5f3d-b3a2-227a9fb385f0` — Financial strain led Hana and Sakura to propose accepting Ted as a paying resident.
+- `record:516659c6-9389-5d90-afab-d074ccfd6fa2` — Aoi openly argued against allowing an unknown man to live in the house.
+- `record:2e4ce93b-9377-56c9-9794-44f76a981f07` — After the general meeting, Hana and Sakura told Aoi privately that Ted's rent was materially needed for Tomi's athletic future.
+- `record:f43ff979-dae2-5d03-bdba-c2585420223e` — Aoi privately begins considering how Ted could be made to leave without damaging Tomi's future or exposing Aoi.
+- `record:a1e0c9a1-426c-509c-ab04-9eb30eb1835a` — On hearing that a boy will live with them, Tomi immediately imagines the possibility of dating him and then dismisses herself for thinking ahead.
+- `record:2e5bdd96-a52c-519d-abbe-e21a43ec9b04` — Hana objected to monitoring Ted. Sakura argued it was a temporary male-security precaution. Enne supported technical necessity. Hana reluctantly accepted.
+- `record:d247d9a9-a252-521c-afd1-0d286ea6c537` — Sakura uses the word temporary while intending monitoring to end only after she personally considers Ted safe.
+- `record:bc4f254c-c695-57a3-86e5-1f7c35845f13` — The former guest room beside Enne is prepared. Mia arranges tea. Hana prepares fruit. Sakura reviews documents and rules. Others prepare according to their own stance.
+- `record:7f2a3408-069f-57ea-aac6-1dd66b28f149` — Ted reaches the front door and rings the bell on September 2, 2026, early evening.

@@ -1,0 +1,518 @@
+{
+  "application_request_sha256": "94bd4a19b63d6d9460ece346bfa480944fed68946230ac77f0d95c414fb08b32",
+  "assertions": {
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "persistent_no_mcp"
+  },
+  "composer": {
+    "accepted_prose": "\"Okay, so—\" Tomi shifts her weight, making the floor creak under her heel just like before. \"I was standing here, I went to move, and the shoe rack kinda pitched sideways. I caught myself and leaned the other way. That's it. Nobody fell, nobody broke anything.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "2b28b6267ba05c83967d3ba8537c080f422a4ab2a3b276e6aa97e9660f426f79",
+      "character_spans": [
+        {
+          "beat_id": "beat:3345a5d3-292c-5165-ad51-7442a70bb73d",
+          "end": 261,
+          "kind": "dialogue",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        }
+      ],
+      "decision_sha256": "7d19d78dc191c196a6740e0aef3e0b184b320ae9f38f247de3e186f49b2cc8f1",
+      "floor_owner_id": "character:tomi_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:13fec127-a2b0-5fa3-a238-ab9e1ffcaa10",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "78bece1987cb9dbfe6aba2c2660bc3354672e6416bea499b283987bae15264c8",
+          "character_id": "character:tomi_hanezawa",
+          "selected_intent_sha256": "6eb4bf45a49536c663812e21796704475b73c26dd9c9b9e495ecbbfd5ed91fb3"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:3345a5d3-292c-5165-ad51-7442a70bb73d"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "54c1f434054e7be64787aa7b2def39800a309c212295ca360a522c6127aaf54c",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "2b2228e024aec220b22e9cfea22e240045f85c224471cbd5668432f3ad612d1e",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1024,
+      "cost_is_estimate": true,
+      "cost_microusd": 1204,
+      "duration_ms": 3230,
+      "external_provider_calls": 1,
+      "input_tokens": 3350,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "b4ab2fbe591c3b0be3b5847f47db6ad93d6c098aa31460ba6a446ea5a5c8c30a",
+      "output_tokens": 216,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:9360acc5-e93c-56d4-88a0-82af241a3860",
+      "provider_request_id_sha256": "6b48120ad29669d499fb5c26be3d3a200b7ef57a0312a59ad809a3f3538e6cc8",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "7973e20fda3855cb421803a9e8ac334713b2142c10c2714f1d63ea2a0f5d7f45",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "bc02d58d54c17d6dc66608fc99288942112980467ff0de5cb2f3f16921fbbe79",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:tomi_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "1e87ece1010cb2599dedbccdf7316faf97dc2603d29a087393986c58a5a16004",
+      "assembly_receipt_id": "validation:046ca818-ccb8-52c6-92de-6e9d24b3e5ec",
+      "base_request_sha256": "38d221d8b2c42849b8fd009e02b36314fe6d721f596a166b3897d9ee23791464",
+      "cumulative_returned_bytes": 3275,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:5f5f5e0b-f3a9-5569-9e1a-877ea9882718",
+        "lookup_receipt:4db9ea37-480f-504f-b3ad-e086f9157495"
+      ],
+      "realization_context_sha256": "bbf3a75bb5818d2c63dbcc62f9d71e4f7752322d2a80ea8ef976e469060f1c61",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:5043488b-db8e-5608-bc71-86f9ee7283c4"
+      ],
+      "snapshot_token": "snapshot:9c65d16e-36ed-5b7a-b5a9-c01c62cccf66",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:tomi_hanezawa"
+    ]
+  },
+  "duration_seconds": 54.004,
+  "index": 4,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "dc7eaefb72ebf82ea265bd5c4dbe0c4aa3e329269ca99723d7f213de13d2b18a",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "76707d1bfff121a7f723389355390a6cfd2e83e308600961596c51de1af17647",
+      "receipt_id": "validation:f2fc88d2-a5c3-579a-8911-a9c101c3178a",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "9545e66c412ef195c9da9e2e7ff8aa2caf85b9c1af6f8721505212bc80f06883",
+    "receipt_id": "validation:91d75305-8522-5bf0-a162-58093af91414",
+    "request_id": "request:dabf86e0-405e-5ef7-b82c-6c3e8fe0a47b",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 1196,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:dd089469-3240-57a5-a0c7-c5678b1f6029",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1196,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:9c65d16e-36ed-5b7a-b5a9-c01c62cccf66",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2373,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:025395a3-17c1-5dad-beba-ca778ec7e3ba",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1177,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:9c65d16e-36ed-5b7a-b5a9-c01c62cccf66",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:dd089469-3240-57a5-a0c7-c5678b1f6029",
+        "lookup_receipt:025395a3-17c1-5dad-beba-ca778ec7e3ba"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "obligation_id": "obligation:98efe31e-8b51-5d3d-b074-144ab8f56bbb",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+          ],
+          "obligation_id": "obligation:1fdd331b-4ce9-5b64-99ce-b9dc95dad6d1",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:0f4794fe-b1b8-5553-8e97-a1b3c2b6f50a",
+      "snapshot_binding_sha256": "59589dbfcbd56b75328afcee4c83ccc1068c253256081875b6b35875f871ddf4",
+      "snapshot_token": "snapshot:9c65d16e-36ed-5b7a-b5a9-c01c62cccf66"
+    },
+    "snapshot_token": "snapshot:9c65d16e-36ed-5b7a-b5a9-c01c62cccf66",
+    "source_sha256": "e38222000d45c1902b53a75966c0030355f110306d33b28339d80f3e99fd8ff5"
+  },
+  "key": "aoi-arrives-after-strain",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:20610082-e182-565b-8bcc-79fedae37d94",
+      "accepted_artifact_sha256": "4d09a47430d7eda68d5731a0c4d54aee4dc28dda234097f3f00fa50d40ef719d",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "94bd4a19b63d6d9460ece346bfa480944fed68946230ac77f0d95c414fb08b32",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:01a96ec2-4757-5011-adaa-4a890f29ae45",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:f359eb8e-83a8-58ee-b609-0765c05ab273",
+      "operational_report_id": "validation:4a819971-0e5b-53bf-a53d-ea2d2ac21b69",
+      "operational_report_sha256": "344298e4f415ec00b867598a8890c4aa869f4aee97b2aebd0b75f542a7ecc2e9",
+      "receipt_id": "validation:ea5e3e34-0ad2-5f17-a4f5-d0211283dcdb",
+      "request_id": "request:dabf86e0-405e-5ef7-b82c-6c3e8fe0a47b",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "525ab7d295a2e57e3d06a58f277f388da3518144daa6324417fa47904d83281b"
+    },
+    "artifact": {
+      "accepted_prose": "\"Okay, so—\" Tomi shifts her weight, making the floor creak under her heel just like before. \"I was standing here, I went to move, and the shoe rack kinda pitched sideways. I caught myself and leaned the other way. That's it. Nobody fell, nobody broke anything.\"",
+      "artifact_id": "artifact:20610082-e182-565b-8bcc-79fedae37d94",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:d490cb89-eedb-5cf5-86a6-dea39aaa9eff",
+      "generation_id": "generation:f359eb8e-83a8-58ee-b609-0765c05ab273",
+      "parent_artifact_id": "artifact:d03ee59b-85e9-53ad-a54c-3364b8432a54",
+      "prose_sha256": "2b2228e024aec220b22e9cfea22e240045f85c224471cbd5668432f3ad612d1e",
+      "realized_beat_ids": [
+        "beat:3345a5d3-292c-5165-ad51-7442a70bb73d"
+      ],
+      "responding_npc_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:5bc5a1d4-d08c-5f7b-b4ca-24591a64787e",
+      "status": "accepted",
+      "transaction_id": "transaction:0088c0f0-b461-552d-bb71-31c50ca561f4",
+      "validation_receipt_id": "validation:6f10152f-59c6-5603-a5f5-f68d794c3fb8"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:01a96ec2-4757-5011-adaa-4a890f29ae45",
+      "expected_previous_artifact_id": "artifact:d03ee59b-85e9-53ad-a54c-3364b8432a54",
+      "external_receipt_ids": [],
+      "generation_after": 4,
+      "generation_before": 3,
+      "inserted_record_ids": [
+        "event:f0fcb98d-d45e-5bca-b81e-7989fbec8e0f"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:dd089469-3240-57a5-a0c7-c5678b1f6029",
+        "lookup_receipt:025395a3-17c1-5dad-beba-ca778ec7e3ba",
+        "lookup_receipt:5f5f5e0b-f3a9-5569-9e1a-877ea9882718",
+        "lookup_receipt:4db9ea37-480f-504f-b3ad-e086f9157495"
+      ],
+      "new_artifact_id": "artifact:20610082-e182-565b-8bcc-79fedae37d94",
+      "new_artifact_sha256": "4d09a47430d7eda68d5731a0c4d54aee4dc28dda234097f3f00fa50d40ef719d",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:b1e0d7a4-37f5-5419-bdf8-d2fb735af43f",
+        "provider_receipt:9360acc5-e93c-56d4-88a0-82af241a3860",
+        "provider_receipt:b5b62f50-c655-5899-8742-c11aa6f89d71"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:5bc5a1d4-d08c-5f7b-b4ca-24591a64787e",
+      "source_sha256": "be1f3baa031e17bcc1da328d9428f4b14d6aa54314f3f91bdd546533e50474e9",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:0088c0f0-b461-552d-bb71-31c50ca561f4",
+      "transaction_sha256": "525ab7d295a2e57e3d06a58f277f388da3518144daa6324417fa47904d83281b",
+      "validation_receipt_ids": [
+        "validation:91d75305-8522-5bf0-a162-58093af91414",
+        "validation:046ca818-ccb8-52c6-92de-6e9d24b3e5ec",
+        "validation:285c94d8-6984-51a4-bd0b-51fa45e4fa01",
+        "realization_verification:e37187cc-df52-5a2e-aaaa-874291201052",
+        "validation:6f10152f-59c6-5603-a5f5-f68d794c3fb8",
+        "validation:e4b23391-bf7d-5f36-b144-fc40ce7cc399"
+      ]
+    },
+    "event_record_id": "event:f0fcb98d-d45e-5bca-b81e-7989fbec8e0f",
+    "visible_artifact_count": 4
+  },
+  "qualification_id": "continuous-ten-turn-v12",
+  "raw_message": "Aoi enters after hearing the shoe rack move and asks what happened. Ted says only that Tomi caught herself and shifted her weight; he does not diagnose her. He asks Tomi to answer first and tells Aoi she can add what she needs only after Tomi has had the floor.",
+  "raw_message_sha256": "72aaad2892c6e989f0c8089b08302f744d8d35f91c7789754da5873b26ffeced",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Answer Aoi first in her own terms, limit the account to what she directly experienced, and leave any later addition to Aoi.",
+            "character_id": "character:tomi_hanezawa",
+            "evidence_ids": [
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+            ],
+            "knowledge_constraints": [
+              "Use only Tomi's own bodily experience and the shared exchange.",
+              "Do not diagnose an injury or claim knowledge of Aoi's private state.",
+              "Do not reveal Tomi's owner-private relationship belief."
+            ],
+            "perception": "Aoi wants an explanation, and the conversational floor has been reserved for Tomi's account first.",
+            "selected_intent": "Give a concise first-person account of catching herself and shifting her weight while maintaining casual composure."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:tomi_hanezawa",
+              "beat_id": "beat:3345a5d3-292c-5165-ad51-7442a70bb73d",
+              "evidence_ids": [
+                "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+              ],
+              "neutral_event": "Tomi gives the first bounded account of her balance correction without adding a diagnosis.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:f1f0ca44-b0eb-5818-93bf-37b369c6e140",
+          "stop_before": "Any new meaningful action, dialogue, or decision by Ted."
+        },
+        "decision_id": "decision:d490cb89-eedb-5cf5-86a6-dea39aaa9eff",
+        "floor_owner_id": "character:tomi_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "Tomi completes her first account.",
+              "Aoi still has a relevant observation or concern from her own stake."
+            ],
+            "invalidation_conditions": [
+              "Tomi retains the floor to clarify her account.",
+              "Aoi's addition would override Tomi's bodily account.",
+              "The scene ends before Aoi speaks."
+            ],
+            "open_user_choice": "Whether Ted responds after Aoi's possible addition remains open.",
+            "possible_consequences": [
+              "Aoi may add only her own observation or concern without redefining Tomi's experience."
+            ],
+            "segment_id": "segment:8df31cc1-936d-58b5-b351-c4cd5a92ce67",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not author Ted's next action, dialogue, thought, feeling, motive, or decision.",
+          "Do not diagnose Tomi or infer an injury.",
+          "Do not transfer Tomi's private belief to Aoi.",
+          "Do not treat Aoi's conditional future addition as a current event."
+        ],
+        "responding_npc_ids": [
+          "character:tomi_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Let Tomi give a bounded first-person account while preserving her bodily authority and the established floor order.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "Ted's next meaningful choice remains unknown.",
+          "Whether Aoi will add anything after Tomi finishes remains unknown.",
+          "Any injury or other unreported physical condition remains unknown."
+        ],
+        "writer_must_preserve": [
+          "Tomi speaks before Aoi.",
+          "Tomi controls the account of her own bodily experience.",
+          "No diagnosis is introduced.",
+          "Aoi does not interrupt or override Tomi's account.",
+          "Stop before Ted's next unsupplied meaningful choice."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+          "record_id": "record:77dbdad1-16da-5e7b-b101-1c8b43570e4a",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 43682,
+      "external_provider_calls": 1,
+      "input_tokens": 13401,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "225c7e3691ccdc55b382005be85a5806acdadc17076018489d1f83df5894169f",
+      "output_tokens": 2124,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:b1e0d7a4-37f5-5419-bdf8-d2fb735af43f",
+      "provider_request_id_sha256": "62072dc6effed7b2bd41305121c13317e92a8aadfa123e7c02b8d6f9c09575f2",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1428,
+      "request_sha256": "baf5c3c4d4d75dee31a7c9a485f7f92e884a233c36840b02630a505d9466a934",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "b2f734e9adbd46541265a70965f7908526a00aa1dd79fbcb8b159a232664409a",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "b2f734e9adbd46541265a70965f7908526a00aa1dd79fbcb8b159a232664409a",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "328d80d40a5f9a7760113862df9aad953d4fc710fa7dd2fb3c14246a2e4a7681",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:b1e0d7a4-37f5-5419-bdf8-d2fb735af43f",
+      "provider_receipt_sha256": "1c04ca816de9dd06b25d3c7593996a0f3ab300d2aecb4a749bf07af134aa19cc",
+      "reasoner_request_sha256": "9545e66c412ef195c9da9e2e7ff8aa2caf85b9c1af6f8721505212bc80f06883",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:9c65d16e-36ed-5b7a-b5a9-c01c62cccf66",
+      "source_sha256": "e38222000d45c1902b53a75966c0030355f110306d33b28339d80f3e99fd8ff5",
+      "source_view_sha256": "f3d710a8ecc5356fb410b0b7f92181d15682b19bb88bc07a84086f2ef0b445c3",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Tomi keeps the floor while Aoi may offer her own practical stake",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 5032,
+      "external_provider_calls": 1,
+      "input_tokens": 10331,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "a91043007c0e603bf27b882572b323abe6335649b205777089116f8d1cad8b9d",
+      "output_tokens": 139,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:b5b62f50-c655-5899-8742-c11aa6f89d71",
+      "provider_request_id_sha256": "3f0c0c69f17df409a86b7b084c296a9a2bd872cff56925736c6028ec0c7626f1",
+      "quota_metered": true,
+      "reasoning_output_tokens": 36,
+      "request_sha256": "68d1ea5ce17971a412c7ab08b0492079f454b9e3cb994fa66b04982a485f4e2e",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "d84ca6952abdca260297142460886ebb0e8f1c3cdcb5836f21bc831a589a58a5",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "2b28b6267ba05c83967d3ba8537c080f422a4ab2a3b276e6aa97e9660f426f79",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:b5b62f50-c655-5899-8742-c11aa6f89d71",
+      "provider_receipt_sha256": "ab77a63805b5843c9f073e84a5666456d8e4387a04414f667a69ad62d9026b0d",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "2b2228e024aec220b22e9cfea22e240045f85c224471cbd5668432f3ad612d1e",
+      "verification_id": "realization_verification:e37187cc-df52-5a2e-aaaa-874291201052",
+      "verification_request_sha256": "3e7826f9e185676f69a976f353d6a0de6a410d77af89260ddd4507feea642201",
+      "verified_beat_ids": [
+        "beat:3345a5d3-292c-5165-ad51-7442a70bb73d"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "d84ca6952abdca260297142460886ebb0e8f1c3cdcb5836f21bc831a589a58a5",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

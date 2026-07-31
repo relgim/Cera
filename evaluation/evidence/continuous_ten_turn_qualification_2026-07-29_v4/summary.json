@@ -1,0 +1,28 @@
+{
+  "attempts_per_stage": 1,
+  "fallback_enabled": false,
+  "genesis_revision": "v1_2",
+  "failed_turn": 2,
+  "finished_at": "2026-07-29T17:55:20.9165513Z",
+  "qualification_id": "continuous-ten-turn-v4",
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-29T17:52:10.550273+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": [
+    {
+      "artifact_id": "artifact:2410547c-54ab-5142-b4f4-d1004b4b0494",
+      "duration_seconds": 72.223,
+      "index": 1,
+      "key": "doorway-permission-arrival",
+      "prose_sha256": "46d4dad4782fb551eddb9edfd2b0dcff8c930c9cdd7e6736c9b572f3373a1ce4",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "status": "passed"
+    }
+  ]
+}

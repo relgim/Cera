@@ -1,0 +1,892 @@
+{
+  "application_request_sha256": "0400eeabe9180a389386144a18a5a7b393c02e6580189a683a21a180709065ea",
+  "assertions": {
+    "all_eligible_required": true,
+    "all_eligible_selected": true,
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": true,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "codex_cli_exec_one_shot"
+  },
+  "composer": {
+    "accepted_prose": "Tomi leaned back in her chair, tapping a finger against her chin as she considered the question. She let the silence stretch just long enough to make it clear she was thinking, not hesitating. Finally, she shrugged.\n\n\"Okay, so if you're talking strictly timing—like, when I head out or come back—I guess I wouldn't mind knowing if someone's around. But here's the thing: I don't need you or anyone else analyzing my schedule. If it's just 'Tomi left at three,' that's whatever. But the second it becomes 'Tomi's been gone a while,' we have a problem. Curiosity's fine; just don't make it your business to report on me.\"\n\nShe flashed a quick grin, casual but with an edge. \"So yeah, limited data. And I'm the one who decides what's useful. Got it?\"\n\nAfter Tomi finished, Aoi smiled warmly and turned her attention to the question directed at her. Her voice was soft and practical.\n\n\"For the hallway or back door, a quick message five minutes before you come or go would be perfect. That way we can avoid any awkward surprises. Nothing strict—just a heads-up so I can make sure I'm not in your way or leaving something in the hall.\"\n\nShe clasped her hands lightly in front of her, the picture of reasonable cooperation. \"That should cover the shared spaces. The rest can stay flexible.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "f019ad1f1ec0365021db515702b6acfe41f54511ed61241d34be0ee5890c26bd",
+      "character_spans": [
+        {
+          "beat_id": "beat:15a83d52-2459-5900-8752-a66da76965fb",
+          "end": 747,
+          "kind": "dialogue",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:36f77e67-1bfd-5400-8858-e9465bfd77b2",
+          "end": 1284,
+          "kind": "dialogue",
+          "owner_id": "character:aoi_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 749
+        }
+      ],
+      "decision_sha256": "a66cfd1ea7232b530a1ef69cc7180212a0586cde613e13a58232d9791bf93200",
+      "floor_owner_id": "character:tomi_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:9c5f07d0-b579-5a2b-bacd-624117804ae1",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "e8ee0cbb0ecea69d4a83af34f92ea9fe27ad9ab38f74fca25eabe64879007f55",
+          "character_id": "character:tomi_hanezawa",
+          "selected_intent_sha256": "7e3761551d36897c65dc7c132c4fdd2cddef9d738e41a805b066dc92467af2b4"
+        },
+        {
+          "action_direction_sha256": "0873711cbbd8917ee5d4fc63f874851b56b3a0c86f6492dda327074db0ffe22a",
+          "character_id": "character:aoi_hanezawa",
+          "selected_intent_sha256": "43726fcb092d4ef7cb368fe52d00843fc3adae4d308c0f0463bf3311152e6fa8"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        },
+        {
+          "character_id": "character:aoi_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:15a83d52-2459-5900-8752-a66da76965fb",
+        "beat:36f77e67-1bfd-5400-8858-e9465bfd77b2"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "9afc835c0903539aa53a777a7e77a90fcf6e740d8b48e335cc810464e8f8b09f",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "1765a8f40a5cf46c7994d221195480256e403d7cea62455c8ef8545b5242ff13",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1408,
+      "cost_is_estimate": true,
+      "cost_microusd": 1874,
+      "duration_ms": 18710,
+      "external_provider_calls": 1,
+      "input_tokens": 11868,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "97520fe46f1e401711498852e876255d2e074d09a47202fc8c31199771933f11",
+      "output_tokens": 1446,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:2c0b7b15-4752-5221-8f79-59cf27d31d55",
+      "provider_request_id_sha256": "709f958b86fd741172eda8c69820081c9b8442c8356093b4fe729c336aeacda1",
+      "quota_metered": false,
+      "reasoning_output_tokens": 929,
+      "request_sha256": "63968d1c07784a53242f8158da815c4e3fda0d9fabbbac11bcf7bb2ce754ec46",
+      "requested_model": "deepseek-v4-flash",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-flash",
+      "role": "scene_composer",
+      "route_sha256": "d24615bdc0cf57837a9f7f781c660944897ecf943ea1af381e5fbf09a5c66151",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "414be700ccd24a1285d604c6d131a264df150e9b206237a0016945a2ae20af15"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:aoi_hanezawa",
+      "character:tomi_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "371228673576d6f300e653f52e3c04b6ec54471494bc8280e3d246de3dffdccc",
+      "assembly_receipt_id": "validation:4e3c4551-7cc8-523a-9be4-ff801cda18af",
+      "base_request_sha256": "497a1b90dc2ec2affdc2d0e12bf9566c9d74b44ece02f0128cac4724351efb6d",
+      "cumulative_returned_bytes": 32197,
+      "external_provider_calls": 0,
+      "lookup_count": 4,
+      "lookup_receipt_ids": [
+        "lookup_receipt:b55216fc-b5bf-5d7b-a357-80ed21af3f35",
+        "lookup_receipt:67243f3d-bcc9-5f47-a9ae-016a7b460003",
+        "lookup_receipt:151fc60c-ee4e-56e2-b0cd-e2b3e24e10aa",
+        "lookup_receipt:dad7b8a4-c2f6-58e3-928a-1d2bd23121c9"
+      ],
+      "realization_context_sha256": "5834360e5e78bb3d2803cacc99e916e95db30cfe11da5ed53d7e582d6e8ecd3c",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55",
+        "evidence:5043488b-db8e-5608-bc71-86f9ee7283c4",
+        "evidence:f33c52f3-4686-5d96-8477-118a587f7678",
+        "evidence:e513943c-d492-5890-9492-d54b074f1fa6",
+        "evidence:04238391-2dfb-5804-b3a9-72cfb96c203c",
+        "evidence:a2900f9d-9e2f-5d3a-b6f9-fa10761602c4",
+        "evidence:8d2ef5f9-feea-5d75-8546-4763cb8eda54",
+        "evidence:399c0ea3-93d9-5420-8bd1-28ebdab7f557",
+        "evidence:80c29612-3d0b-549a-8315-023ccc625ac5"
+      ],
+      "snapshot_token": "snapshot:7807333d-35d8-511b-a3b8-e73f0d9d2cdb",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:tomi_hanezawa",
+      "character:aoi_hanezawa"
+    ]
+  },
+  "duration_seconds": 189.432,
+  "index": 6,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "b9c2d9e42c093eff9947637b5e840252ac61837e36a9937add562a9fa82f15eb",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "8ead9953df5107fda9a93022ccc22f1cdf7accb8e611c9e4c4b1a5e7b0687064",
+      "receipt_id": "validation:6f13c39b-f700-53ac-bc47-489439545c1d",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "42c249e03fb77f3c1090d4f43524ce356f63a11ba31a78d560ff099928fc04db",
+    "receipt_id": "validation:74e6f422-f437-5d0e-b423-cc23fdb2d435",
+    "request_id": "request:ed94b2dd-d58d-5705-bd54-a2bc65e42cfc",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2251,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:d11f0aa0-2958-5cb6-8cc2-559aa5501b1f",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2251,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:7807333d-35d8-511b-a3b8-e73f0d9d2cdb",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 3447,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:83681f60-d621-5828-87b2-cc69a4c3d05f",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1196,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:7807333d-35d8-511b-a3b8-e73f0d9d2cdb",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 4624,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:f2ba50d1-973c-5138-90e7-0f52a020ab4a",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1177,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:7807333d-35d8-511b-a3b8-e73f0d9d2cdb",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:d11f0aa0-2958-5cb6-8cc2-559aa5501b1f",
+        "lookup_receipt:83681f60-d621-5828-87b2-cc69a4c3d05f",
+        "lookup_receipt:f2ba50d1-973c-5138-90e7-0f52a020ab4a"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b"
+          ],
+          "obligation_id": "obligation:e2171e9e-b141-5b35-b43f-ddf26dad9977",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "obligation_id": "obligation:a7d3a54f-9540-526a-a0b7-b484f7d50224",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+          ],
+          "obligation_id": "obligation:42fe4ccf-7161-5da1-9887-e93660738665",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:5167d040-8531-5516-a356-27709ef52c9b",
+      "snapshot_binding_sha256": "dafcd31f36e416f00cf53d3de9fd27a5e666e437ab96dec337837979dd68720d",
+      "snapshot_token": "snapshot:7807333d-35d8-511b-a3b8-e73f0d9d2cdb"
+    },
+    "snapshot_token": "snapshot:7807333d-35d8-511b-a3b8-e73f0d9d2cdb",
+    "source_sha256": "ea98ac209cf5e56e38117b03cf54bf7dab61829c78682623553007e07d1ca837"
+  },
+  "key": "tomi-aoi-training-data-and-hallway-boundaries",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:c4336c50-43b4-59b0-8e95-de0ec45ddf6b",
+      "accepted_artifact_sha256": "d0187cbef316f5008c16710139c0041d59727c4561bb085b1d78e21ce4ba7245",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "0400eeabe9180a389386144a18a5a7b393c02e6580189a683a21a180709065ea",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:3ef588b9-0421-5f05-99d1-b913193c2263",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:263b173b-9122-5a32-83d5-8cb4f4fb3bde",
+      "operational_report_id": "validation:f9e6ed0a-3fbf-5faf-9ee2-33416bbbc0c6",
+      "operational_report_sha256": "9bdbe0fb9e01e6d3375d7ba0777068045ece1471da230c31e3f022e833d68924",
+      "receipt_id": "validation:63117fe5-69bd-5441-9759-08e9d4843532",
+      "request_id": "request:ed94b2dd-d58d-5705-bd54-a2bc65e42cfc",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "aac4a31509bf1dbe91cc728ef94e163d92a208f70d58175b8fe5466442cfab9e"
+    },
+    "artifact": {
+      "accepted_prose": "Tomi leaned back in her chair, tapping a finger against her chin as she considered the question. She let the silence stretch just long enough to make it clear she was thinking, not hesitating. Finally, she shrugged.\n\n\"Okay, so if you're talking strictly timing—like, when I head out or come back—I guess I wouldn't mind knowing if someone's around. But here's the thing: I don't need you or anyone else analyzing my schedule. If it's just 'Tomi left at three,' that's whatever. But the second it becomes 'Tomi's been gone a while,' we have a problem. Curiosity's fine; just don't make it your business to report on me.\"\n\nShe flashed a quick grin, casual but with an edge. \"So yeah, limited data. And I'm the one who decides what's useful. Got it?\"\n\nAfter Tomi finished, Aoi smiled warmly and turned her attention to the question directed at her. Her voice was soft and practical.\n\n\"For the hallway or back door, a quick message five minutes before you come or go would be perfect. That way we can avoid any awkward surprises. Nothing strict—just a heads-up so I can make sure I'm not in your way or leaving something in the hall.\"\n\nShe clasped her hands lightly in front of her, the picture of reasonable cooperation. \"That should cover the shared spaces. The rest can stay flexible.\"",
+      "artifact_id": "artifact:c4336c50-43b4-59b0-8e95-de0ec45ddf6b",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:ab5e5e62-0f94-5daa-a6aa-8267dd08df80",
+      "generation_id": "generation:263b173b-9122-5a32-83d5-8cb4f4fb3bde",
+      "parent_artifact_id": "artifact:b8aa85fe-ce01-59ca-9541-c9f47c9d8b31",
+      "prose_sha256": "1765a8f40a5cf46c7994d221195480256e403d7cea62455c8ef8545b5242ff13",
+      "realized_beat_ids": [
+        "beat:15a83d52-2459-5900-8752-a66da76965fb",
+        "beat:36f77e67-1bfd-5400-8858-e9465bfd77b2"
+      ],
+      "responding_npc_ids": [
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:3d66effe-b6c3-5a75-adb1-62bb8ccce302",
+      "status": "accepted",
+      "transaction_id": "transaction:044479c7-f9b0-5b88-9d71-f65efb2efecf",
+      "validation_receipt_id": "validation:1683563b-eb2c-5caf-b30a-9091e3be0454"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:3ef588b9-0421-5f05-99d1-b913193c2263",
+      "expected_previous_artifact_id": "artifact:b8aa85fe-ce01-59ca-9541-c9f47c9d8b31",
+      "external_receipt_ids": [],
+      "generation_after": 6,
+      "generation_before": 5,
+      "inserted_record_ids": [
+        "event:7acdbc83-1aed-501f-9113-957ad4f136e5",
+        "material:388df0d4-f662-5632-9a73-702f3156e9bf"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:d11f0aa0-2958-5cb6-8cc2-559aa5501b1f",
+        "lookup_receipt:83681f60-d621-5828-87b2-cc69a4c3d05f",
+        "lookup_receipt:f2ba50d1-973c-5138-90e7-0f52a020ab4a",
+        "lookup_receipt:b55216fc-b5bf-5d7b-a357-80ed21af3f35",
+        "lookup_receipt:67243f3d-bcc9-5f47-a9ae-016a7b460003",
+        "lookup_receipt:151fc60c-ee4e-56e2-b0cd-e2b3e24e10aa",
+        "lookup_receipt:dad7b8a4-c2f6-58e3-928a-1d2bd23121c9"
+      ],
+      "new_artifact_id": "artifact:c4336c50-43b4-59b0-8e95-de0ec45ddf6b",
+      "new_artifact_sha256": "d0187cbef316f5008c16710139c0041d59727c4561bb085b1d78e21ce4ba7245",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:33e1d624-4c9c-5ea3-a1c7-16c1e5433aae",
+        "provider_receipt:2c0b7b15-4752-5221-8f79-59cf27d31d55",
+        "provider_receipt:db180d02-b7a4-57f0-b3ac-348e8ccba3fb"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:3d66effe-b6c3-5a75-adb1-62bb8ccce302",
+      "source_sha256": "5cf0239f08eeb19d697da589d09bd11c33975ceba4fb00630ad82ead954d63b6",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:044479c7-f9b0-5b88-9d71-f65efb2efecf",
+      "transaction_sha256": "aac4a31509bf1dbe91cc728ef94e163d92a208f70d58175b8fe5466442cfab9e",
+      "validation_receipt_ids": [
+        "validation:74e6f422-f437-5d0e-b423-cc23fdb2d435",
+        "validation:4e3c4551-7cc8-523a-9be4-ff801cda18af",
+        "validation:0b1e6dbe-caac-5172-b507-234663a00cc0",
+        "realization_verification:e40c1dbc-2947-50b0-9c1c-389b36111ff4",
+        "validation:1683563b-eb2c-5caf-b30a-9091e3be0454",
+        "validation:d9d76b8f-da80-5658-809a-917ef14e494c"
+      ]
+    },
+    "event_record_id": "event:7acdbc83-1aed-501f-9113-957ad4f136e5",
+    "visible_artifact_count": 6
+  },
+  "qualification_id": "continuous-ten-turn-v27-flash-thinking",
+  "raw_message": "After a process restart, Ted speaks with Tomi and Aoi. He says he cannot judge Tomi's training and will not report her earlier answer for her. He asks Tomi what timing data, if any, she would actually want from a helper. He then asks Aoi only whether the shared hallway or back-door timing needs neutral coordination. He requests Tomi's answer first and Aoi's second.",
+  "raw_message_sha256": "670e60af4e79bcf18df56da413df05cc5a58c94f3b3cc31129e96cdd14124480",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "behavioral_scene_plan": {
+        "claim_ledger": {
+          "claims": [
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa",
+                "character:aoi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:d87c15ba-6e9c-56f4-a45e-6ddc63d6fd49",
+              "end": 23,
+              "exact_text_sha256": "57d98e60205da8e4b601017a89eadc49b51fdc541c3b61b551673dd81a4c5782",
+              "kind": "time_place_context",
+              "normalized_meaning": "The exchange occurs after a process restart.",
+              "rationale": "This is supplied objective scene context and does not determine an NPC private state.",
+              "source_unit_id": "source_unit:84ba17ba-5e74-5b4c-bb91-767c2b92497b",
+              "start": 0
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa",
+                "character:aoi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:75e1da3f-1d98-550a-9b4c-a7a1d5fd76bc",
+              "end": 54,
+              "exact_text_sha256": "cf7726eb9425bc3047a50b014e7d2439cad2ec80bbf784b32bc5de9835fb9277",
+              "kind": "protected_user_action",
+              "normalized_meaning": "Ted has begun speaking with both present NPCs.",
+              "rationale": "This is an explicitly supplied observable protected-user action.",
+              "source_unit_id": "source_unit:84ba17ba-5e74-5b4c-bb91-767c2b92497b",
+              "start": 25
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:6575d2bd-feef-54b3-bbfa-66108efe519f",
+              "end": 142,
+              "exact_text_sha256": "f52fd75898df59641d8dee9cf4f866ad158b4e2c2339fab50453fb1844703368",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted says he will neither judge Tomi's training nor report her earlier answer on her behalf.",
+              "rationale": "The supplied dialogue meaning is protected-user-authored and remains fixed in adjustment mode.",
+              "source_unit_id": "source_unit:84ba17ba-5e74-5b4c-bb91-767c2b92497b",
+              "start": 55
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:b947e273-be92-5a69-897f-430143a8b0bd",
+              "end": 220,
+              "exact_text_sha256": "1a3f9487262124f9b2f9bc5ff588426f0e6d66ab66ee871f19377c9cd7ccc7bb",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted asks Tomi to decide what timing data, if any, she wants from a helper.",
+              "rationale": "This authorizes Ted's question but does not determine Tomi's desire, consent, or answer.",
+              "source_unit_id": "source_unit:84ba17ba-5e74-5b4c-bb91-767c2b92497b",
+              "start": 143
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:aoi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:8d8edd88-caa4-59d0-8ff5-aa911e1ee427",
+              "end": 317,
+              "exact_text_sha256": "79c121a2a4c8e375da9a137c17e6dcbd4809b1d297412f036902219ece6afd19",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted limits his question to Aoi to neutral shared hallway or back-door timing coordination.",
+              "rationale": "This fixes the protected-user question and its narrow scope without determining Aoi's answer.",
+              "source_unit_id": "source_unit:84ba17ba-5e74-5b4c-bb91-767c2b92497b",
+              "start": 221
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa",
+                "character:aoi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:b57ab221-9ba7-5fbc-beb3-6b7a18301f5f",
+              "end": 367,
+              "exact_text_sha256": "f816173b92d99c885f6660ac6ee33de33b2144215b3cd294014dc31f5c1b45b2",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted requests that Tomi answer before Aoi.",
+              "rationale": "The supplied ordering is an authorized protected-user request preserved by adjustment mode; each NPC still owns her response.",
+              "source_unit_id": "source_unit:84ba17ba-5e74-5b4c-bb91-767c2b92497b",
+              "start": 318
+            }
+          ],
+          "controls_sha256": "b22fc97f55e2179161a099f1b7059fd0fb8c855f314e5cb7691813c620a8f389",
+          "prohibited_inferences": [
+            "Do not author Ted's next action, dialogue, acknowledgment, private state, or decision.",
+            "Do not turn Tomi's curiosity into blanket consent, attraction, dependence, or authorization to begin training.",
+            "Do not transfer Tomi's owner-private curiosity to Aoi.",
+            "Do not transfer Aoi's owner-private irritation to Tomi or Ted.",
+            "Do not infer an existing hallway or back-door conflict.",
+            "Do not treat the conditional coordination rule as a committed future event."
+          ],
+          "schema_version": "cera.source_claim_ledger.v1",
+          "source_sha256": "ea98ac209cf5e56e38117b03cf54bf7dab61829c78682623553007e07d1ca837",
+          "unresolved_questions": [
+            "The exact fine-grained timing categories Tomi chooses are not fixed by the dossier.",
+            "No objective current hallway or back-door conflict is established."
+          ]
+        },
+        "development_atoms": [],
+        "event_blocks": [
+          {
+            "actor_ids": [
+              "character:tomi_hanezawa"
+            ],
+            "block_id": "scene_block:cc9d8be1-7a75-5232-a24b-15b2644591cb",
+            "causal_basis": "Ted has explicitly declined judgment and reporting authority and asked Tomi to define what timing data she actually wants; validated prior-state evidence requires Tomi to complete that assessment autonomously.",
+            "event_advances": [
+              "Tomi distinguishes her curiosity from consent, usefulness, and authority over training or disclosure.",
+              "She permits only a narrowly bounded class of timing observations that she herself judges useful.",
+              "She excludes independent judgment, unsolicited reporting, and any automatic start of the proposed helper activity."
+            ],
+            "evidence_ids": [
+              "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [],
+              "explanation": "Ted's supplied words are prior causal context only; do not restate, extend, or newly perform them in this block.",
+              "source_claim_ids": []
+            },
+            "purpose": "Resolve Tomi's practical question through her own assessment while preserving her control over training data and disclosure.",
+            "resulting_state": "Tomi has stated a bounded timing-only preference and retained all judgment, consent, reporting, and training authority; the floor can pass to Aoi.",
+            "source_claim_ids": [
+              "source_claim:6575d2bd-feef-54b3-bbfa-66108efe519f",
+              "source_claim:b947e273-be92-5a69-897f-430143a8b0bd",
+              "source_claim:b57ab221-9ba7-5fbc-beb3-6b7a18301f5f"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Let genuine curiosity motivate Tomi's willingness to consider limited information.",
+                "Keep the interest casual in presentation rather than turning it into blanket consent or dependence."
+              ],
+              "open_realization_space": [
+                "Choose the exact timing-observation categories within the established narrow, nonjudgmental limit.",
+                "Choose original phrasing and pacing for Tomi's distinction among curiosity, usefulness, consent, and authority."
+              ],
+              "physical_and_material_continuity": [
+                "Keep all present characters in the established shared conversational setting.",
+                "Do not begin data collection, training, movement, or another activity."
+              ],
+              "scaffold_id": "writer_scaffold:21271202-f1e2-5dba-9858-4ec6d9f2606d",
+              "transition_obligations": [
+                "Complete Tomi's answer before Aoi speaks.",
+                "Leave a clean floor transfer without supplying any acknowledgment or response from Ted."
+              ],
+              "viewpoint_character_ids": [
+                "character:tomi_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Use low, selective Tomi interiority only if it clarifies the contrast between private excitement and casual presentation.",
+                "Do not expose Tomi's private evidence as information available to Aoi or Ted."
+              ]
+            }
+          },
+          {
+            "actor_ids": [
+              "character:aoi_hanezawa"
+            ],
+            "block_id": "scene_block:6c849b6d-c696-53fa-b860-6e43867badb7",
+            "causal_basis": "After Tomi's first answer, Aoi has a direct, deliberately narrow question about neutral shared hallway or back-door timing and owns only that logistical response.",
+            "event_advances": [
+              "Aoi confines her response to shared-space timing rather than commenting on Tomi's training or preferences.",
+              "She gives a minimal advance-coordination rule for any possible timing overlap.",
+              "She avoids asserting that a present conflict, restriction, or additional commitment already exists."
+            ],
+            "evidence_ids": [
+              "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [],
+              "explanation": "No new Ted action, dialogue, acknowledgment, or reciprocal behavior is needed for Aoi to complete her bounded answer.",
+              "source_claim_ids": []
+            },
+            "purpose": "Complete the second requested answer while keeping Aoi's role limited to neutral household logistics.",
+            "resulting_state": "Aoi has defined the neutral coordination boundary without entering Tomi's private domain or requiring an immediate Ted decision; the current exchange is complete.",
+            "source_claim_ids": [
+              "source_claim:8d8edd88-caa4-59d0-8ff5-aa911e1ee427",
+              "source_claim:b57ab221-9ba7-5fbc-beb3-6b7a18301f5f"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Prioritize orderly shared-space logistics and public warmth.",
+                "Allow private irritation to influence restraint or brevity only, not to become an accusation or disclosed fact."
+              ],
+              "open_realization_space": [
+                "Choose original wording for a minimal advance-notice convention.",
+                "Choose restrained tonal shading that remains publicly warm and practically neutral."
+              ],
+              "physical_and_material_continuity": [
+                "Preserve the same shared conversational setting and existing positions.",
+                "Do not invent an actual hallway collision, back-door obstruction, departure, or relocation."
+              ],
+              "scaffold_id": "writer_scaffold:0124165e-7b14-5b09-8c3b-2a362f162c9d",
+              "transition_obligations": [
+                "Begin only after Tomi's answer has clearly finished.",
+                "Close the exchange after Aoi's answer without soliciting or supplying Ted's next choice."
+              ],
+              "viewpoint_character_ids": [
+                "character:aoi_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Use low Aoi interiority only if needed to support the contrast between private irritation and public warmth.",
+                "Keep Aoi's private evidence owner-bound and do not let Tomi know it."
+              ]
+            }
+          }
+        ],
+        "interaction_topology": "multi_npc_shared_floor",
+        "interiority_level": "low",
+        "omitted_character_ids": [],
+        "runway": {
+          "continue_beyond_prompt_endpoint": true,
+          "development_obligations": [
+            "Complete Tomi's autonomous assessment before transferring the floor.",
+            "Follow with Aoi's separately owned neutral-logistics answer.",
+            "End after both bounded answers settle without initiating the proposed activity or supplying Ted's response."
+          ],
+          "runway_class": "developed",
+          "stop_condition": "Stop after Aoi completes the bounded shared-space coordination answer and the ordered exchange settles.",
+          "stop_reason": "causal_unit_complete"
+        },
+        "scene_function": "ordinary_social",
+        "schema_version": "cera.behavioral_scene_plan.v2",
+        "selected_character_ids": [
+          "character:tomi_hanezawa",
+          "character:aoi_hanezawa"
+        ],
+        "tone": "warm"
+      },
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Answer first with casual but bounded interest, identifying only a narrow timing-observation role while retaining control of usefulness, disclosure, and training authority.",
+            "character_id": "character:tomi_hanezawa",
+            "evidence_ids": [
+              "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+            ],
+            "knowledge_constraints": [
+              "Use only Tomi-owned curiosity and the validated requirement that she distinguish curiosity from consent, usefulness, and authority.",
+              "Do not treat Ted's question as determining Tomi's desire or consent.",
+              "Do not disclose Aoi-owned private evidence."
+            ],
+            "perception": "Tomi has directly heard Ted decline to judge or report her training and ask what timing data she herself would want.",
+            "selected_intent": "Give a self-owned, narrowly useful answer that permits limited timing observations without delegating judgment, reporting, consent, or training authority."
+          },
+          {
+            "action_direction": "Wait until Tomi's answer is complete, then provide a concise, publicly warm coordination rule limited to neutral shared-space timing.",
+            "character_id": "character:aoi_hanezawa",
+            "evidence_ids": [
+              "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+            ],
+            "knowledge_constraints": [
+              "Use Aoi's private irritation only as owner-private subtext beneath public warmth.",
+              "Do not claim knowledge of Tomi's private reasoning or training preferences.",
+              "Do not assert that a hallway or back-door conflict currently exists."
+            ],
+            "perception": "Aoi has been asked second and only about neutral coordination for shared hallway or back-door timing.",
+            "selected_intent": "Keep the answer practical and warm by defining minimal advance coordination for possible shared-space overlap without entering Tomi's training discussion."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:tomi_hanezawa",
+              "beat_id": "beat:15a83d52-2459-5900-8752-a66da76965fb",
+              "evidence_ids": [
+                "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+                "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+              ],
+              "neutral_event": "Resolve Tomi's practical question through her own assessment while preserving her control over training data and disclosure.",
+              "state": "ongoing"
+            },
+            {
+              "actor_id": "character:aoi_hanezawa",
+              "beat_id": "beat:36f77e67-1bfd-5400-8858-e9465bfd77b2",
+              "evidence_ids": [
+                "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+              ],
+              "neutral_event": "Complete the second requested answer while keeping Aoi's role limited to neutral household logistics.",
+              "state": "ongoing"
+            }
+          ],
+          "segment_id": "segment:7f01aecb-9f8a-565f-86d4-214f7e909f92",
+          "stop_before": "Stop after Aoi completes the bounded shared-space coordination answer and the ordered exchange settles."
+        },
+        "decision_id": "decision:ab5e5e62-0f94-5daa-a6aa-8267dd08df80",
+        "floor_owner_id": "character:tomi_hanezawa",
+        "future_segments": [],
+        "prohibited_inferences": [
+          "Do not author Ted's next action, dialogue, acknowledgment, private state, or decision.",
+          "Do not turn Tomi's curiosity into blanket consent, attraction, dependence, or authorization to begin training.",
+          "Do not transfer Tomi's owner-private curiosity to Aoi.",
+          "Do not transfer Aoi's owner-private irritation to Tomi or Ted.",
+          "Do not infer an existing hallway or back-door conflict.",
+          "Do not treat the conditional coordination rule as a committed future event."
+        ],
+        "responding_npc_ids": [
+          "character:tomi_hanezawa",
+          "character:aoi_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Complete the ordered practical exchange through Tomi's autonomous timing-data boundary and Aoi's separate neutral shared-space coordination answer.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "The exact fine-grained timing categories Tomi chooses are not fixed by the dossier.",
+          "No objective current hallway or back-door conflict is established."
+        ],
+        "writer_must_preserve": [
+          "Tomi's complete answer precedes Aoi's complete answer.",
+          "Keep Tomi's training-data authority separate from Aoi's neutral shared-space role.",
+          "Do not restate Ted's supplied words or invent his response.",
+          "End without starting the helper activity or converting either answer into a future commitment."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+          "record_id": "event:fb0b42cc-21be-5b29-9150-672f408c25c1",
+          "record_version": 1
+        },
+        {
+          "evidence_id": "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+          "record_id": "record:77dbdad1-16da-5e7b-b101-1c8b43570e4a",
+          "record_version": 2
+        },
+        {
+          "evidence_id": "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55",
+          "record_id": "record:f2db0a5b-facb-58e4-a664-feccb99d3490",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "evidence_ids": [
+            "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        },
+        {
+          "character_id": "character:aoi_hanezawa",
+          "evidence_ids": [
+            "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+          ],
+          "intervention_reason": "current_source_address",
+          "role": "secondary"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [
+        {
+          "end": 54,
+          "exact_text_sha256": "cf7726eb9425bc3047a50b014e7d2439cad2ec80bbf784b32bc5de9835fb9277",
+          "kind": "action",
+          "source_unit_id": "source_unit:84ba17ba-5e74-5b4c-bb91-767c2b92497b",
+          "start": 25
+        },
+        {
+          "end": 142,
+          "exact_text_sha256": "f52fd75898df59641d8dee9cf4f866ad158b4e2c2339fab50453fb1844703368",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:84ba17ba-5e74-5b4c-bb91-767c2b92497b",
+          "start": 55
+        },
+        {
+          "end": 220,
+          "exact_text_sha256": "1a3f9487262124f9b2f9bc5ff588426f0e6d66ab66ee871f19377c9cd7ccc7bb",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:84ba17ba-5e74-5b4c-bb91-767c2b92497b",
+          "start": 143
+        },
+        {
+          "end": 317,
+          "exact_text_sha256": "79c121a2a4c8e375da9a137c17e6dcbd4809b1d297412f036902219ece6afd19",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:84ba17ba-5e74-5b4c-bb91-767c2b92497b",
+          "start": 221
+        },
+        {
+          "end": 367,
+          "exact_text_sha256": "f816173b92d99c885f6660ac6ee33de33b2144215b3cd294014dc31f5c1b45b2",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:84ba17ba-5e74-5b4c-bb91-767c2b92497b",
+          "start": 318
+        }
+      ],
+      "schema_version": "cera.reasoner_outcome.v6",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 16128,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 153227,
+      "external_provider_calls": 1,
+      "input_tokens": 19341,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "2a0faaf5c418e05cc8e2d75ab7f6b9d7170f08b3710a29cb5885ece9fdff51b6",
+      "output_tokens": 2668,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:33e1d624-4c9c-5ea3-a1c7-16c1e5433aae",
+      "provider_request_id_sha256": "eaff9680db3188ca2d5f038d0719ae0fa4280a43be5d153e6e6051a06098d163",
+      "quota_metered": true,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "6cd905f18552bd40c0e2b2a60e92f121566824a4aa4beb0fdb4cb1e2e5d63472",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "2bb84ac48579b71997f821f5f4499c3445215fe398eb6fb9e0814dbfc13ca997",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "2bb84ac48579b71997f821f5f4499c3445215fe398eb6fb9e0814dbfc13ca997",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v18",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "b044b27db3ef03df3ac245813f3fc75970f942c847e7177dccb199b727e14f11",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:33e1d624-4c9c-5ea3-a1c7-16c1e5433aae",
+      "provider_receipt_sha256": "bfa3464be0968d9602c0799857eff160cfd7ec598226bdbdc1498073c6372242",
+      "reasoner_request_sha256": "42c249e03fb77f3c1090d4f43524ce356f63a11ba31a78d560ff099928fc04db",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:7807333d-35d8-511b-a3b8-e73f0d9d2cdb",
+      "source_sha256": "ea98ac209cf5e56e38117b03cf54bf7dab61829c78682623553007e07d1ca837",
+      "source_view_sha256": "39d415358d355fbd2232d008d34174d6e3e719393f267b864289c0203148733e",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Tomi and Aoi separate training data from household logistics",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 13897,
+      "external_provider_calls": 1,
+      "input_tokens": 12047,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "b250fb1a042f6f2b4475ebe91f2171accd887f31a2e0328a8611a4adca54c090",
+      "output_tokens": 308,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:db180d02-b7a4-57f0-b3ac-348e8ccba3fb",
+      "provider_request_id_sha256": "800edf4f3334f5408c24fe4fbac7f56c01f08856b8e022d095d6e5d3c6aaa10a",
+      "quota_metered": true,
+      "reasoning_output_tokens": 126,
+      "request_sha256": "68bba64bece0f44b351ded24d0e0cfc466a30163343a959fea4a08c8a46e43de",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "f019ad1f1ec0365021db515702b6acfe41f54511ed61241d34be0ee5890c26bd",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:db180d02-b7a4-57f0-b3ac-348e8ccba3fb",
+      "provider_receipt_sha256": "f02375ef962744e9107950deb73ded06863941f597f0df62f60c1a740ee2f524",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v5",
+      "status": "accepted",
+      "story_text_sha256": "1765a8f40a5cf46c7994d221195480256e403d7cea62455c8ef8545b5242ff13",
+      "verification_id": "realization_verification:e40c1dbc-2947-50b0-9c1c-389b36111ff4",
+      "verification_request_sha256": "3c94dbbe68eb17fbdf432fedbfa030fcbcfbc49839577117f6f18e3257c925aa",
+      "verified_beat_ids": [
+        "beat:15a83d52-2459-5900-8752-a66da76965fb",
+        "beat:36f77e67-1bfd-5400-8858-e9465bfd77b2"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_development_atom_ids": [],
+      "verified_participant_ids": [
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_cli_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v6",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

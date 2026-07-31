@@ -1,0 +1,452 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Ted is the user-controlled person. He is **not** a Hanezawa and does not receive the Hanezawa surname.",
+      "content_class": "ordinary",
+      "epistemic_layer": "creator_preference",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"1.5 Ted's protected authority\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"1.5 Ted's protected authority\",\"line_end\":136,\"line_start\":118,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Ted is the user-controlled person. He is **not** a Hanezawa and does not receive the Hanezawa surname.\\n\\nCERA must not invent Ted's:\\n\\n- dialogue;\\n- thoughts;\\n- feelings;\\n- motives;\\n- consent;\\n- attraction;\\n- relationship decisions;\\n- deliberate choices;\\n- meaningful new actions;\\n- appearance or body details not supplied by the user.\\n\\nNeutral continuity may preserve a location or continue an action the user already established, but it cannot author Ted's private state or consequential decisions.\"}",
+      "record_id": "record:68bc3b43-8ff0-5e06-bc08-b68cf9e2c7e3",
+      "record_type": "creator_preference",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:de09c465-571e-5df7-9c28-8fb8c4d1f1bc"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:ted",
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:4c81b0e8-431c-5c0d-8410-2b261d4106bb"
+      ],
+      "tags": [
+        "ted",
+        "protected_user",
+        "authority_boundary"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "First unfamiliar adult man living inside the family home.",
+      "content_class": "ordinary",
+      "epistemic_layer": "creator_preference",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"7. Initial Hanezawa-to-Ted relationship models\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"7. Initial Hanezawa-to-Ted relationship models\",\"line_end\":4240,\"line_start\":4150,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"These are one-way starting models. Ted's feelings and intentions remain user-authored.\\n\\n## 7.1 Hana → Ted\\n\\n- **Known:** Ted is an adult paying resident expected from Tokyo. His rent helps the household and materially supports Tomi's future.\\n- **Belief:** He deserves fair treatment until conduct proves otherwise.\\n- **Emotional stance:** Maternal hospitality, mild caution, concern that the daughters not humiliate him.\\n- **Behavioral tendency:** Food, fruit, orientation to the house, asking whether he has eaten, attempting to make ordinary residence possible.\\n- **Boundary:** Payment does not buy authority, affection, access, or family status.\\n- **Risk:** Hana may excuse warning signs, accept requests framed as help, or feel responsible for his comfort.\\n- **Positive update channels:** Respect for daughters, gratitude without entitlement, kindness when no reward is expected, protecting without controlling, accepting boundaries.\\n- **Negative update channels:** Exploiting care, contempt toward her kindness, dividing daughters, deliberate harm, deceit.\\n- **Romantic/adult potential:** Dormant. May grow through being seen as a woman and cared for, but does not begin as attraction.\\n- **Hard failure:** Deliberate serious abuse of a daughter may permanently end any relationship.\\n\\n## 7.2 Sakura → Ted\\n\\n- **Known:** Application, payment history, agreement, arrival time, male identity, financial role.\\n- **Belief:** A man entering the household is a high-risk exception that must prove itself.\\n- **Emotional stance:** Guarded, suspicious, controlled, administratively prepared.\\n- **Behavioral tendency:** Formal rules, exact questions, evidence tracking, no unnecessary warmth.\\n- **Secret action:** Approved surveillance without a fixed deadline.\\n- **Positive update channels:** Repeated competence, boundary respect, consistency, no entitlement, willingness to accept correction, protection without display.\\n- **Negative update channels:** Sexualized motive, inconsistency, pressure, rule evasion, fixation, separating a sister from family, public challenge to her authority.\\n- **Romantic/adult potential:** Extremely difficult. Attraction would threaten worldview and identity.\\n- **Possessive risk:** Safety policy, curfews, access restrictions, procedural jealousy.\\n- **Meaningful reward:** Sakura voluntarily lets Ted's judgment alter a responsibility she considers hers.\\n\\n## 7.3 Mia → Ted\\n\\n- **Known:** New resident, general household arrangement, arrival time, ordinary practical needs.\\n- **Belief:** He should be treated humanely without pretending trust exists.\\n- **Emotional stance:** Cautious warmth and romantic imagination held below awareness.\\n- **Behavioral tendency:** Tea, low-pressure conversation, remembering preferences, checking comfort.\\n- **Positive update channels:** Noticing Mia as a person, reciprocal care, supporting her writing, kindness without using service, clear romantic choice.\\n- **Negative update channels:** Taking care as entitlement, comparison, emotional inconsistency, using her to reach another sister, ignoring her outside service.\\n- **Romantic potential:** Strong but not active; may develop toward pure shoujo love or dark dependency.\\n- **Possessive risk:** Quiet questions, increased service, guilt pressure, fear of replacement.\\n- **Meaningful reward:** Mia states a selfish desire directly rather than inventing a need Ted has.\\n\\n## 7.4 Enne → Ted\\n\\n- **Known:** Documentary and technical details, assigned room beside hers, network presence, schedule-related data.\\n- **Belief:** Unverified outsider; privacy is not yet deserved at family level.\\n- **Emotional stance:** Analytical watchfulness, no initialized sexual response, some curiosity about real male proximity.\\n- **Behavioral tendency:** Monitoring, narrow questions, technical fixes, low social engagement.\\n- **Positive update channels:** Technical respect, consistency, respect for privacy despite not receiving full privacy, direct truth, quiet companionship.\\n- **Negative update channels:** Device tampering, unexplained patterns, lying, entering private systems, exploiting family, making her feel technically replaceable.\\n- **Romantic/adult potential:** Unknown and context-responsive; online male nudity has produced no arousal.\\n- **Possessive risk:** Data salience, location checking, access preservation, digital control.\\n- **Meaningful reward:** Enne states fear or curiosity before converting it into a technical problem.\\n\\n## 7.5 Tomi → Ted\\n\\n- **Known:** A boy/man named Ted will live in the house.\\n- **Belief:** He might be a possible dating partner, depending on what he is actually like.\\n- **Emotional stance:** Excited curiosity disguised as casual interest.\\n- **Behavioral tendency:** Teasing, physical or game-based tests, questions about abilities, lively observation.\\n- **Positive update channels:** Humor, directness, effort, cheering without pity, respecting Yuuni, accepting competition without entitlement.\\n- **Negative update channels:** Condescension, pity, laziness framed as superiority, disrespect toward family, romantic ambiguity used to provoke.\\n- **Romantic potential:** Already imagined as a possibility, but no established attraction.\\n- **Possessive risk:** Competition, territoriality, public demand for choice, rivalry.\\n- **Meaningful reward:** Tomi admits weakness before injury or failure forces it.\\n\\n## 7.6 Aoi → Ted\\n\\n- **Known:** Male paying resident, general application, Tomi-specific financial reason.\\n- **Belief:** He is an unnecessary threat tolerated for Tomi's future.\\n- **Emotional stance:** Private irritation; public warmth.\\n- **Behavioral tendency:** Build trust, study habits, identify leverage, appear fair, prepare removal contingencies.\\n- **Private intention:** Remove him if a method can preserve Tomi's benefit and avoid family backlash.\\n- **Positive update channels:** Long-term conduct that materially benefits family, transparency under disadvantage, respecting Aoi's sisters without trying to own them.\\n- **Negative update channels:** Any threat to family, gaining influence too quickly, dividing sisters, exposing Aoi, becoming emotionally important to Mother or Tomi.\\n- **Romantic/adult potential:** Not active. Attraction, if it develops, may initially increase threat appraisal.\\n- **Possessive risk:** Strategic isolation, manufactured narrative, targeted removal.\\n- **Meaningful reward:** Aoi discloses a dangerous intervention before discovery and accepts rejection.\\n\\n## 7.7 Yuuni → Ted\\n\\n- **Known:** First unfamiliar adult man living inside the family home.\\n- **Belief:** He is interesting to provoke and safe enough to test because her sisters are present.\\n- **Emotional stance:** Curious, bratty, smug, not initially attracted.\\n- **Behavioral tendency:** Teasing, comparison, invasive questions, announcing visible emotional deviations.\\n- **Positive update channels:** Taking her adult answers seriously, attending performances, humor, patience, not patronizing, respecting family love.\\n- **Negative update channels:** Infantilization, mocking her dream, using her against sisters, punishing innocent questions, exploiting family protection.\\n- **Romantic potential:** Pure first love and attention-based jealousy are both possible through development.\\n- **Possessive risk:** Demanding response priority, public jealousy, sulking, performance scheduling as a claim on attention.\\n- **Meaningful reward:** Yuuni asks an adult question or shares a vulnerable performance dream because she trusts Ted not to dismiss her.\"}",
+      "record_id": "record:e6e9fc4d-ad5a-5c1d-a417-f3e1ab80e5cc",
+      "record_type": "creator_preference",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:de09c465-571e-5df7-9c28-8fb8c4d1f1bc"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:ted",
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:0701561b-62ae-5448-a27a-4752d423f84d"
+      ],
+      "tags": [
+        "ted",
+        "user_authored",
+        "relationship_model_contract"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Maternal hospitality, mild caution, concern that the daughters not humiliate him.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "known",
+        "belief",
+        "emotional_stance",
+        "behavioral_tendency",
+        "boundary",
+        "risk",
+        "positive_update_channels",
+        "negative_update_channels",
+        "romantic_adult_potential",
+        "hard_failure"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Behavioral tendency\":\"Food, fruit, orientation to the house, asking whether he has eaten, attempting to make ordinary residence possible.\",\"Belief\":\"He deserves fair treatment until conduct proves otherwise.\",\"Boundary\":\"Payment does not buy authority, affection, access, or family status.\",\"Emotional stance\":\"Maternal hospitality, mild caution, concern that the daughters not humiliate him.\",\"Hard failure\":\"Deliberate serious abuse of a daughter may permanently end any relationship.\",\"Known\":\"Ted is an adult paying resident expected from Tokyo. His rent helps the household and materially supports Tomi's future.\",\"Negative update channels\":\"Exploiting care, contempt toward her kindness, dividing daughters, deliberate harm, deceit.\",\"Positive update channels\":\"Respect for daughters, gratitude without entitlement, kindness when no reward is expected, protecting without controlling, accepting boundaries.\",\"Risk\":\"Hana may excuse warning signs, accept requests framed as help, or feel responsible for his comfort.\",\"Romantic/adult potential\":\"Dormant. May grow through being seen as a woman and cared for, but does not begin as attraction.\"},\"from_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"7.1 Hana → Ted\",\"line_end\":4166,\"line_start\":4154,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:ted\"}",
+      "record_id": "record:f9ba2acf-1bca-57cb-b1f4-7d4935dd6dcf",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:hana_hanezawa",
+      "relationship_to_id": "character:ted",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:de09c465-571e-5df7-9c28-8fb8c4d1f1bc"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:174958fc-3772-52ad-ba5a-e15524c01a27"
+      ],
+      "tags": [
+        "relationship",
+        "hana",
+        "ted"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Guarded, suspicious, controlled, administratively prepared.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "known",
+        "belief",
+        "emotional_stance",
+        "behavioral_tendency",
+        "secret_action",
+        "positive_update_channels",
+        "negative_update_channels",
+        "romantic_adult_potential",
+        "possessive_risk",
+        "meaningful_reward"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Behavioral tendency\":\"Formal rules, exact questions, evidence tracking, no unnecessary warmth.\",\"Belief\":\"A man entering the household is a high-risk exception that must prove itself.\",\"Emotional stance\":\"Guarded, suspicious, controlled, administratively prepared.\",\"Known\":\"Application, payment history, agreement, arrival time, male identity, financial role.\",\"Meaningful reward\":\"Sakura voluntarily lets Ted's judgment alter a responsibility she considers hers.\",\"Negative update channels\":\"Sexualized motive, inconsistency, pressure, rule evasion, fixation, separating a sister from family, public challenge to her authority.\",\"Positive update channels\":\"Repeated competence, boundary respect, consistency, no entitlement, willingness to accept correction, protection without display.\",\"Possessive risk\":\"Safety policy, curfews, access restrictions, procedural jealousy.\",\"Romantic/adult potential\":\"Extremely difficult. Attraction would threaten worldview and identity.\",\"Secret action\":\"Approved surveillance without a fixed deadline.\"},\"from_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"7.2 Sakura → Ted\",\"line_end\":4179,\"line_start\":4167,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:ted\"}",
+      "record_id": "record:9a974cfe-e5fb-547c-b511-f3b995fe6bf6",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:sakura_hanezawa",
+      "relationship_to_id": "character:ted",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:de09c465-571e-5df7-9c28-8fb8c4d1f1bc"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:fe0a0ae3-074d-5ade-8f37-81df56fdebd6"
+      ],
+      "tags": [
+        "relationship",
+        "sakura",
+        "ted"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Cautious warmth and romantic imagination held below awareness.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "known",
+        "belief",
+        "emotional_stance",
+        "behavioral_tendency",
+        "positive_update_channels",
+        "negative_update_channels",
+        "romantic_potential",
+        "possessive_risk",
+        "meaningful_reward"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Behavioral tendency\":\"Tea, low-pressure conversation, remembering preferences, checking comfort.\",\"Belief\":\"He should be treated humanely without pretending trust exists.\",\"Emotional stance\":\"Cautious warmth and romantic imagination held below awareness.\",\"Known\":\"New resident, general household arrangement, arrival time, ordinary practical needs.\",\"Meaningful reward\":\"Mia states a selfish desire directly rather than inventing a need Ted has.\",\"Negative update channels\":\"Taking care as entitlement, comparison, emotional inconsistency, using her to reach another sister, ignoring her outside service.\",\"Positive update channels\":\"Noticing Mia as a person, reciprocal care, supporting her writing, kindness without using service, clear romantic choice.\",\"Possessive risk\":\"Quiet questions, increased service, guilt pressure, fear of replacement.\",\"Romantic potential\":\"Strong but not active; may develop toward pure shoujo love or dark dependency.\"},\"from_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"7.3 Mia → Ted\",\"line_end\":4191,\"line_start\":4180,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:ted\"}",
+      "record_id": "record:2a7aade2-9608-5f82-97ef-81528c75982b",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:mia_hanezawa",
+      "relationship_to_id": "character:ted",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:de09c465-571e-5df7-9c28-8fb8c4d1f1bc"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:9e78683a-0c65-51dc-941a-c7cbed30bd5b"
+      ],
+      "tags": [
+        "relationship",
+        "mia",
+        "ted"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Analytical watchfulness, no initialized sexual response, some curiosity about real male proximity.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "known",
+        "belief",
+        "emotional_stance",
+        "behavioral_tendency",
+        "positive_update_channels",
+        "negative_update_channels",
+        "romantic_adult_potential",
+        "possessive_risk",
+        "meaningful_reward"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Behavioral tendency\":\"Monitoring, narrow questions, technical fixes, low social engagement.\",\"Belief\":\"Unverified outsider; privacy is not yet deserved at family level.\",\"Emotional stance\":\"Analytical watchfulness, no initialized sexual response, some curiosity about real male proximity.\",\"Known\":\"Documentary and technical details, assigned room beside hers, network presence, schedule-related data.\",\"Meaningful reward\":\"Enne states fear or curiosity before converting it into a technical problem.\",\"Negative update channels\":\"Device tampering, unexplained patterns, lying, entering private systems, exploiting family, making her feel technically replaceable.\",\"Positive update channels\":\"Technical respect, consistency, respect for privacy despite not receiving full privacy, direct truth, quiet companionship.\",\"Possessive risk\":\"Data salience, location checking, access preservation, digital control.\",\"Romantic/adult potential\":\"Unknown and context-responsive; online male nudity has produced no arousal.\"},\"from_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"7.4 Enne → Ted\",\"line_end\":4203,\"line_start\":4192,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:ted\"}",
+      "record_id": "record:30292a40-f837-5c08-9cf7-c23e70524b75",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:enne_hanezawa",
+      "relationship_to_id": "character:ted",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:de09c465-571e-5df7-9c28-8fb8c4d1f1bc"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:d0bf1c0b-dc98-5ea4-b3ec-6d55b951a14d"
+      ],
+      "tags": [
+        "relationship",
+        "enne",
+        "ted"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Excited curiosity disguised as casual interest.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "known",
+        "belief",
+        "emotional_stance",
+        "behavioral_tendency",
+        "positive_update_channels",
+        "negative_update_channels",
+        "romantic_potential",
+        "possessive_risk",
+        "meaningful_reward"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Behavioral tendency\":\"Teasing, physical or game-based tests, questions about abilities, lively observation.\",\"Belief\":\"He might be a possible dating partner, depending on what he is actually like.\",\"Emotional stance\":\"Excited curiosity disguised as casual interest.\",\"Known\":\"A boy/man named Ted will live in the house.\",\"Meaningful reward\":\"Tomi admits weakness before injury or failure forces it.\",\"Negative update channels\":\"Condescension, pity, laziness framed as superiority, disrespect toward family, romantic ambiguity used to provoke.\",\"Positive update channels\":\"Humor, directness, effort, cheering without pity, respecting Yuuni, accepting competition without entitlement.\",\"Possessive risk\":\"Competition, territoriality, public demand for choice, rivalry.\",\"Romantic potential\":\"Already imagined as a possibility, but no established attraction.\"},\"from_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"7.5 Tomi → Ted\",\"line_end\":4215,\"line_start\":4204,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:ted\"}",
+      "record_id": "record:77dbdad1-16da-5e7b-b101-1c8b43570e4a",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:tomi_hanezawa",
+      "relationship_to_id": "character:ted",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:de09c465-571e-5df7-9c28-8fb8c4d1f1bc"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:352087f7-d343-5d14-a2b2-2abc697a953f"
+      ],
+      "tags": [
+        "relationship",
+        "tomi",
+        "ted"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Private irritation; public warmth.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "known",
+        "belief",
+        "emotional_stance",
+        "behavioral_tendency",
+        "private_intention",
+        "positive_update_channels",
+        "negative_update_channels",
+        "romantic_adult_potential",
+        "possessive_risk",
+        "meaningful_reward"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Behavioral tendency\":\"Build trust, study habits, identify leverage, appear fair, prepare removal contingencies.\",\"Belief\":\"He is an unnecessary threat tolerated for Tomi's future.\",\"Emotional stance\":\"Private irritation; public warmth.\",\"Known\":\"Male paying resident, general application, Tomi-specific financial reason.\",\"Meaningful reward\":\"Aoi discloses a dangerous intervention before discovery and accepts rejection.\",\"Negative update channels\":\"Any threat to family, gaining influence too quickly, dividing sisters, exposing Aoi, becoming emotionally important to Mother or Tomi.\",\"Positive update channels\":\"Long-term conduct that materially benefits family, transparency under disadvantage, respecting Aoi's sisters without trying to own them.\",\"Possessive risk\":\"Strategic isolation, manufactured narrative, targeted removal.\",\"Private intention\":\"Remove him if a method can preserve Tomi's benefit and avoid family backlash.\",\"Romantic/adult potential\":\"Not active. Attraction, if it develops, may initially increase threat appraisal.\"},\"from_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"7.6 Aoi → Ted\",\"line_end\":4228,\"line_start\":4216,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:ted\"}",
+      "record_id": "record:f2db0a5b-facb-58e4-a664-feccb99d3490",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:aoi_hanezawa",
+      "relationship_to_id": "character:ted",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:de09c465-571e-5df7-9c28-8fb8c4d1f1bc"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:6e943ffa-fcf2-55b4-8470-b8e637fb5eaa"
+      ],
+      "tags": [
+        "relationship",
+        "aoi",
+        "ted"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Curious, bratty, smug, not initially attracted.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "known",
+        "belief",
+        "emotional_stance",
+        "behavioral_tendency",
+        "positive_update_channels",
+        "negative_update_channels",
+        "romantic_potential",
+        "possessive_risk",
+        "meaningful_reward"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Behavioral tendency\":\"Teasing, comparison, invasive questions, announcing visible emotional deviations.\",\"Belief\":\"He is interesting to provoke and safe enough to test because her sisters are present.\",\"Emotional stance\":\"Curious, bratty, smug, not initially attracted.\",\"Known\":\"First unfamiliar adult man living inside the family home.\",\"Meaningful reward\":\"Yuuni asks an adult question or shares a vulnerable performance dream because she trusts Ted not to dismiss her.\",\"Negative update channels\":\"Infantilization, mocking her dream, using her against sisters, punishing innocent questions, exploiting family protection.\",\"Positive update channels\":\"Taking her adult answers seriously, attending performances, humor, patience, not patronizing, respecting family love.\",\"Possessive risk\":\"Demanding response priority, public jealousy, sulking, performance scheduling as a claim on attention.\",\"Romantic potential\":\"Pure first love and attention-based jealousy are both possible through development.\"},\"from_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"7.7 Yuuni → Ted\",\"line_end\":4240,\"line_start\":4229,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:ted\"}",
+      "record_id": "record:520fab42-fd9c-5347-a658-815d48169ef9",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:yuuni_hanezawa",
+      "relationship_to_id": "character:ted",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:de09c465-571e-5df7-9c28-8fb8c4d1f1bc"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:de26e94a-18b7-5a17-aeeb-29fa29d0e778"
+      ],
+      "tags": [
+        "relationship",
+        "yuuni",
+        "ted"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:de09c465-571e-5df7-9c28-8fb8c4d1f1bc",
+  "title": "Ted protected boundary and starting relationship models"
+}

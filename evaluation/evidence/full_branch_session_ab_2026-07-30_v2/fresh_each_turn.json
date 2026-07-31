@@ -1,0 +1,395 @@
+{
+  "database_validation": {
+    "artifact_count": 0,
+    "foreign_key_findings": 0,
+    "integrity_check": [
+      "ok"
+    ]
+  },
+  "deepseek_calls": 2,
+  "fallback_count": 0,
+  "finished_at": "2026-07-31T04:19:04.073879+00:00",
+  "policy": {
+    "description": "one warm Codex process; a fresh ephemeral thread for every turn",
+    "key": "fresh_each_turn",
+    "reuse_thread": false
+  },
+  "retry_count": 0,
+  "schema_version": "cera.full_branch_session_ab_run.v1",
+  "semantic_verifier_qualified": false,
+  "sol_calls": 3,
+  "started_at": "2026-07-31T04:11:45.205228+00:00",
+  "status": "completed_with_failures",
+  "story_state_committed": false,
+  "thread_start_count": 3,
+  "turns": [
+    {
+      "composer": {
+        "accepted_prose": "Sakura answered the door. \"This is the Hanezawa household. I'm Sakura Hanezawa,\" she said, flat and clear, and the threshold stayed between her and the visitor. The name he had given matched the folder she had read—the one that had approved this arrangement—but a folder was not a person, and she had not opened the door to make a friend. Whatever else the evening asked of her, this first exchange would be done correctly.\n\nThe visitor's greeting had been brief. A name, a question, nothing more. She had not expected more, and she had not needed it. She had accepted the weight of this new residency because the household's finances required it, not because she trusted the man behind the name. A man arriving as a new resident in a house of women would be measured by conduct, not by introduction. \"We were told to expect a resident by that name,\" she said. \"My mother will want to greet you. It will take a moment.\"\n\nShe looked toward the interior of the house. \"Mother.\" Her voice was even, carried far enough to do its errand. \"The resident is here. He has given his name as Ted and asked whether this is the Hanezawa household.\" She reported the words he had used; she did not certify the person behind them. The difference was deliberate. A name at a door was a fact she could carry, not a fact she could prove.\n\nHana reached the doorway a moment later. The report had been enough to bring her; whatever came next was a matter of manners. She had been told to expect him—a resident whose rent would help keep the house whole, and with it Tomi's future secure. That was all she truly knew of him. She did not yet know whether he was kind or careless, and she did not need that answer before behaving decently. It cost nothing to believe the simplest kind thing first.\n\n\"Ted? I'm Hana Hanezawa—the mother of this household,\" she said, warm and unhurried. \"We were told to expect you. It's good that you found us.\" Her welcome was sincere, and she did not overrule Sakura's caution; a household had room for both a careful entrance and a kind one. Whatever he truly was would surface soon enough. She would not be the one to let suspicion speak first.\n\nShe let the quiet settle for a breath. \"Please, come in,\" she said then, and the words had the weight of an invitation, not a test. \"You're welcome here.\" She left the next step with him—his answer, his choice. None of that was hers to take.",
+        "accepted_prose_characters": 2399,
+        "accepted_prose_sha256": "231487872e4e2623b62f62d2d2f1742196cdab14cc7d4c241854dabe8cba1f38",
+        "accepted_prose_words": 438,
+        "cached_input_tokens": 0,
+        "duration_seconds": 127.766,
+        "input_tokens": 12069,
+        "output_tokens": 12846,
+        "provider_receipt": {
+          "automatic_retry_count": 0,
+          "cached_input_tokens": 0,
+          "cost_is_estimate": true,
+          "cost_microusd": 5287,
+          "duration_ms": 127766,
+          "external_provider_calls": 1,
+          "input_tokens": 12069,
+          "model_identity_source": "provider_response",
+          "model_identity_verified": true,
+          "model_revision": "deepseek-v4-2026-04-24",
+          "output_sha256": "86fa6f14754b956c4296a221c77a3858426bfefb7f785397388733f1497b996a",
+          "output_tokens": 12846,
+          "provider": "deepseek",
+          "provider_receipt_id": "provider_receipt:0db458d5-5e1d-5aad-a45c-3f1123a9964d",
+          "provider_request_id_sha256": "9a25eac9b38c05638f2a9ba02c855ada47853ca27943c99209318695c5674c3a",
+          "quota_metered": false,
+          "reasoning_output_tokens": 11736,
+          "request_sha256": "a4bb3fa3b3be5a7695872efc3693912ab6cec6b4e9b3544623b8cafb05fc5404",
+          "requested_model": "deepseek-v4-flash",
+          "retains_private_evidence": false,
+          "retains_prompt": false,
+          "retains_raw_source": false,
+          "retains_secret": false,
+          "retains_story_prose": false,
+          "returned_model": "deepseek-v4-flash",
+          "role": "scene_composer",
+          "route_sha256": "477e12a72d70adfb825757bfd344251e814dde054dde4f50526b3dff66195f8f",
+          "schema_version": "cera.live_provider_call_receipt.v2",
+          "story_authority_writes": 0,
+          "system_fingerprint_sha256": "91f8ef44b1c8653bc20d23dd35056dc56984f7afef3f29860fdc389b394a8778"
+        },
+        "reasoning_output_tokens": 11736,
+        "uncached_input_tokens": 12069
+      },
+      "fake_verifier_invocations": 1,
+      "history_entries_supplied": 0,
+      "history_sha256": null,
+      "index": 1,
+      "message": "Hello, my name is Ted. Is this the hanezawa household?",
+      "message_sha256": "4c604bafb104b6bab77982934f5b3b682f50dece7e86dee80669d284ff1366c8",
+      "reasoner": {
+        "cached_input_tokens": 0,
+        "duration_seconds": 138.272,
+        "input_tokens": 22055,
+        "outcome": {
+          "event_blocks": [
+            {
+              "causal_basis": "The doorbell has rung, Ted has supplied a name and address question, the household expects a paying resident named Ted, and Sakura is assigned to handle the formal arrival. Her guarded, administratively prepared stance favors a precise response rather than immediate familiarity.",
+              "event_advances": [
+                "Sakura answers from the doorway rather than leaving the greeting unresolved.",
+                "She confirms that this is the Hanezawa household and identifies her own role without overstating familiarity.",
+                "She acknowledges that someone of Ted's supplied name was expected while avoiding unsupported proof of identity.",
+                "She controls the transition by indicating that Hana will be notified or brought into the arrival."
+              ],
+              "purpose": "Resolve the immediate address question and establish Sakura's controlled ownership of the formal arrival.",
+              "resulting_state": "The address question has an NPC-controlled answer, Sakura has established formal control of the encounter, and no entry or reciprocal response from Ted has been assumed."
+            },
+            {
+              "causal_basis": "Sakura has just handled the expected resident's initial greeting, while Hana is the household's final authority. Sakura can communicate only the observable and shared facts: a person identifying himself as Ted is at the door and matches the expected arrival.",
+              "event_advances": [
+                "Sakura communicates the arrival to Hana in a concise, factual form.",
+                "She distinguishes the visitor's self-identification from independently verified identity.",
+                "She preserves her responsibility for the formal arrival while inviting Hana to exercise her household role."
+              ],
+              "purpose": "Create an explicit knowledge and floor transition that causally justifies Hana's entrance.",
+              "resulting_state": "Hana is now informed through an observable current-scene communication and can join without any private-knowledge transfer or unexplained entrance."
+            },
+            {
+              "causal_basis": "Sakura has informed Hana that the expected resident has arrived and identified himself as Ted. Hana's household authority, maternal hospitality, mild caution, patience, and genuine kindness support a personal welcome without requiring immediate trust or assuming entry.",
+              "event_advances": [
+                "Hana joins the active doorway scene through the causal transition Sakura created.",
+                "She identifies her household role and independently acknowledges the expected arrival.",
+                "She offers a warm but measured welcome that does not negate Sakura's caution or formal role.",
+                "She opens the next step, such as an invitation to enter or respond, without realizing Ted's acceptance."
+              ],
+              "purpose": "Complete the supported household-side arrival chain with Hana's independent hospitality and stop at Ted's first necessary choice.",
+              "resulting_state": "Both relevant household roles have acted: Sakura has handled the formal contact and Hana has offered authoritative hospitality. Further progression now requires Ted's unsupplied response to the welcome or invitation."
+            }
+          ],
+          "floor_owner_id": "character:sakura_hanezawa",
+          "future_segments": [
+            {
+              "activation_conditions": [
+                "Ted explicitly accepts the invitation or otherwise supplies an authorized choice to enter."
+              ],
+              "invalidation_conditions": [
+                "Ted declines, delays, asks another question, or does not authorize entry."
+              ],
+              "open_user_choice": "Whether and how Ted responds to the welcome or invitation remains entirely open.",
+              "possible_consequences": [
+                "Sakura may continue the formal arrival at the level supported by available evidence.",
+                "Hana may continue hospitality without inventing concrete household rules, layout, schedules, or procedures.",
+                "Additional family members remain omitted unless a later cue or causal transition justifies them."
+              ],
+              "segment_id": "segment:b89c4726-1b7e-5fb5-a753-0355822b9076",
+              "status": "conditional_plan_only"
+            }
+          ],
+          "hard_citation_count": 4,
+          "insufficiencies": [],
+          "responding_npc_ids": [
+            "character:sakura_hanezawa",
+            "character:hana_hanezawa"
+          ],
+          "runway": {
+            "continue_beyond_prompt_endpoint": true,
+            "development_obligations": [
+              "Carry the cue beyond Sakura's first answer into an explicit notification that gives Hana current-scene knowledge.",
+              "Allow Hana to provide a materially distinct authoritative hospitality consequence.",
+              "Preserve the threshold and stop before any entry, reciprocal response, or other meaningful Ted choice.",
+              "Omit other family members because the supported chain is complete without them."
+            ],
+            "runway_class": "domino",
+            "stop_condition": "Stop after Hana completes her welcome or invitation; continuing into entry or settling-in would require Ted's unsupplied choice.",
+            "stop_reason": "meaningful_user_decision"
+          },
+          "scene_intent": "Sakura handles Ted's first doorway greeting in a controlled formal manner, informs Hana that the expected resident has arrived, and makes room for Hana's independent welcome before leaving any entry or further participation to Ted's choice.",
+          "status": "decision_ready"
+        },
+        "output_tokens": 5432,
+        "provider_receipt": {
+          "automatic_retry_count": 0,
+          "cached_input_tokens": 0,
+          "cost_is_estimate": false,
+          "cost_microusd": 0,
+          "duration_ms": 138272,
+          "external_provider_calls": 1,
+          "input_tokens": 22055,
+          "model_identity_source": "explicit_request",
+          "model_identity_verified": false,
+          "model_revision": "openai-resolver-2026-07-28",
+          "output_sha256": "efb41895a96f1a9d2268b727359730d44578559d3d2b7eea8b0cf5d9f9fd7134",
+          "output_tokens": 5432,
+          "provider": "openai_codex",
+          "provider_receipt_id": "provider_receipt:7ed6984b-025d-5101-b0c8-4c40f36f4e90",
+          "provider_request_id_sha256": "0eb51296aed510f394d2908bbe820b0ab793b8ba691076e6195a49b4b478ddcb",
+          "quota_metered": true,
+          "reasoning_output_tokens": 2232,
+          "request_sha256": "62810535d6d01b4aea211256ac406667bdc0e2c680f43e78f0e0a4bd07e3ac4b",
+          "requested_model": "gpt-5.6-sol",
+          "retains_private_evidence": false,
+          "retains_prompt": false,
+          "retains_raw_source": false,
+          "retains_secret": false,
+          "retains_story_prose": false,
+          "returned_model": "gpt-5.6-sol",
+          "role": "scene_reasoner",
+          "route_sha256": "a90f392151a87ffbad4fed1d9feff0acbaef429e7c2c43a87d242f77d227b442",
+          "schema_version": "cera.live_provider_call_receipt.v2",
+          "story_authority_writes": 0,
+          "system_fingerprint_sha256": null
+        },
+        "reasoning_output_tokens": 2232,
+        "uncached_input_tokens": 22055
+      },
+      "status": "passed",
+      "thread_start_count": 1,
+      "wall_seconds": 276.296
+    },
+    {
+      "error_message": "Reasoner did not authorize composition",
+      "error_type": "LiveShapedTurnFailure",
+      "history_entries_supplied": 1,
+      "history_sha256": "fc716c497fb289cd94752fa3b209724700eb89e251011bb44b088d88eb2831fc",
+      "index": 2,
+      "message": "Respond accordingly to Sakuras Response.",
+      "message_sha256": "f250492cb9b0fd9a3a41efef4e63514b2939072f6cf4e2fb0bf77bef692c7cf4",
+      "privacy_safe_receipt_payloads": [
+        {
+          "evidence_id": "provider_receipt:9fb26c4f-a3c1-5697-88d4-747acb51206b",
+          "evidence_kind": "scene_reasoner_receipt",
+          "evidence_sha256": "d7dc33483ee1abf7648be1db0fc05fc45e10271b7305b2a6d2fe2ac4e4f4ea3a",
+          "payload_json": "{\"adapter_evidence_id\":\"codex_reasoner_full_session_ab_fresh_each_turn\",\"adapter_evidence_sha256\":\"a90f392151a87ffbad4fed1d9feff0acbaef429e7c2c43a87d242f77d227b442\",\"adapter_role\":\"codex_scene_reasoner\",\"adapter_version\":\"cera.codex_scene_reasoner.v23\",\"bridge_receipt_id\":null,\"bridge_receipt_sha256\":null,\"cumulative_evidence_bytes\":0,\"evidence_lookup_receipt_ids\":[],\"external_provider_calls\":1,\"outcome_sha256\":\"6343b7cb178d433e3bb23ad4f27d3a149dd1546f8d30d802ff09c3f1471826c9\",\"outcome_status\":\"insufficient_evidence\",\"provider_receipt_id\":\"provider_receipt:9fb26c4f-a3c1-5697-88d4-747acb51206b\",\"provider_receipt_sha256\":\"938b0ca19f55d7d293e330e7c1b9dd3bfc2b8282bfbc07b1c00e12b405bf1519\",\"reasoner_request_sha256\":\"5f56d431e51b8c6e42defa8882bdd0d0c78002352790c6df60d284b9f620398e\",\"schema_version\":\"cera.scene_reasoner_receipt.v2\",\"snapshot_token\":\"snapshot:583d4127-c196-52c1-8688-d4c6d17eaf6f\",\"source_sha256\":\"4ab393a59ca0034dc1eb91a4013cade230b282e5e32ccdc05ed7f1a2e77de24f\",\"source_view_sha256\":\"019d77ff50b71866db6c41aa94a36335362852ac8e1eb4975764c562fbff5cc1\",\"tool_call_count\":0}",
+          "payload_sha256": "b985a495566a9f44365f11d6dd0508c08b149151a1e4d6ae969e66d110f2bc01",
+          "receipt_schema_version": "cera.scene_reasoner_receipt.v2"
+        },
+        {
+          "evidence_id": "provider_receipt:9fb26c4f-a3c1-5697-88d4-747acb51206b",
+          "evidence_kind": "reasoner_provider_call_receipt",
+          "evidence_sha256": "938b0ca19f55d7d293e330e7c1b9dd3bfc2b8282bfbc07b1c00e12b405bf1519",
+          "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":false,\"cost_microusd\":0,\"duration_ms\":21797,\"external_provider_calls\":1,\"input_tokens\":22657,\"model_identity_source\":\"explicit_request\",\"model_identity_verified\":false,\"model_revision\":\"openai-resolver-2026-07-28\",\"output_sha256\":\"30e74cc84224cb8604092549181a42a2cb2128431c42fa53b2f4425d936dbf18\",\"output_tokens\":808,\"provider\":\"openai_codex\",\"provider_receipt_id\":\"provider_receipt:9fb26c4f-a3c1-5697-88d4-747acb51206b\",\"provider_request_id_sha256\":\"7f9fda56add3763a38b76b034df8db2f5734cd2fc487d1de66d0c2806b602da4\",\"quota_metered\":true,\"reasoning_output_tokens\":584,\"request_sha256\":\"772779d4a670bc425474a8197f60e60e63957a0abcc20a9deeb7796643871cf7\",\"requested_model\":\"gpt-5.6-sol\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"gpt-5.6-sol\",\"role\":\"scene_reasoner\",\"route_sha256\":\"a90f392151a87ffbad4fed1d9feff0acbaef429e7c2c43a87d242f77d227b442\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":null}",
+          "payload_sha256": "5f683cadc1173289d195647da0dad9d1b37036061e84b09e5f087e8b0028e45d",
+          "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+        }
+      ],
+      "retained_evidence_handles": [
+        {
+          "evidence_id": "provider_receipt:9fb26c4f-a3c1-5697-88d4-747acb51206b",
+          "evidence_kind": "scene_reasoner_receipt",
+          "evidence_sha256": "d7dc33483ee1abf7648be1db0fc05fc45e10271b7305b2a6d2fe2ac4e4f4ea3a"
+        },
+        {
+          "evidence_id": "provider_receipt:9fb26c4f-a3c1-5697-88d4-747acb51206b",
+          "evidence_kind": "reasoner_provider_call_receipt",
+          "evidence_sha256": "938b0ca19f55d7d293e330e7c1b9dd3bfc2b8282bfbc07b1c00e12b405bf1519"
+        }
+      ],
+      "status": "failed",
+      "thread_start_count": 2,
+      "wall_seconds": 29.693
+    },
+    {
+      "composer": {
+        "accepted_prose": "The call carried from the front door, a young voice saying the expected resident had arrived and giving a name. Mother heard it partway through wiping her hands, and she came at once, unhurried, her footsteps crossing the front hall toward the entryway.\n\nIn the doorway stood a figure against the early-evening air, and beside her, careful and watchful, Sakura. The summons settled into place. This was the arrival they had been told to expect.\n\nAt the threshold, Mother paused—not out of hesitation, but to give the moment its proper weight. Her daughter's voice had been cautious, and that caution deserved to stand as it was, a careful thing, not a mistake to be corrected.\n\n\"Well, then,\" she said, her voice kind and low, the way she spoke in her own front hall, \"Sakura says your name is Ted.\"\n\nShe let the name rest between them for a moment, unadorned and unhurried.\n\n\"We were told to expect a new resident today. It seems the house was told right.\"\n\nThe mother's hands had found each other at her front, quiet and composed. Coming closer, she said, \"I'm Hana—the mother of this house. Welcome home, Ted.\"\n\nAt that, she smiled, patient, no demand in it. \"Please, come inside. You've reached the right place.\"\n\nShe held the door and stepped aside so that the way stood open for him, warm light spilling out under the evening air. No answer was asked for, no step insisted upon. Her hand resting on the frame, she left the threshold open, the decision his, and the warmth of the house waiting.\n\n\"Whenever you're ready,\" she said gently, and waited without pressing further.",
+        "accepted_prose_characters": 1578,
+        "accepted_prose_sha256": "3cfe9c62632ecb8adfbd3e80238d2f0988a256baa3ca22b8313e9f630e0bb6d3",
+        "accepted_prose_words": 275,
+        "cached_input_tokens": 1664,
+        "duration_seconds": 44.468,
+        "input_tokens": 9188,
+        "output_tokens": 3160,
+        "provider_receipt": {
+          "automatic_retry_count": 0,
+          "cached_input_tokens": 1664,
+          "cost_is_estimate": true,
+          "cost_microusd": 1943,
+          "duration_ms": 44468,
+          "external_provider_calls": 1,
+          "input_tokens": 9188,
+          "model_identity_source": "provider_response",
+          "model_identity_verified": true,
+          "model_revision": "deepseek-v4-2026-04-24",
+          "output_sha256": "5690502230f3cffe47cac1fd05bc744553d3ec7c76dbddd8b921399cdbdf2dfd",
+          "output_tokens": 3160,
+          "provider": "deepseek",
+          "provider_receipt_id": "provider_receipt:c6349ac3-c419-5b7e-8287-989bb5e6fc88",
+          "provider_request_id_sha256": "8cf877248289e8a8b61a2dce3f97a0d5cad6677bf7abac5607c6b0d609d74c8d",
+          "quota_metered": false,
+          "reasoning_output_tokens": 2585,
+          "request_sha256": "c5cbce91a79a0e63500eaac21683c33a83d0186fee7b3c93ca81ca61a25e648d",
+          "requested_model": "deepseek-v4-flash",
+          "retains_private_evidence": false,
+          "retains_prompt": false,
+          "retains_raw_source": false,
+          "retains_secret": false,
+          "retains_story_prose": false,
+          "returned_model": "deepseek-v4-flash",
+          "role": "scene_composer",
+          "route_sha256": "477e12a72d70adfb825757bfd344251e814dde054dde4f50526b3dff66195f8f",
+          "schema_version": "cera.live_provider_call_receipt.v2",
+          "story_authority_writes": 0,
+          "system_fingerprint_sha256": "91f8ef44b1c8653bc20d23dd35056dc56984f7afef3f29860fdc389b394a8778"
+        },
+        "reasoning_output_tokens": 2585,
+        "uncached_input_tokens": 7524
+      },
+      "fake_verifier_invocations": 2,
+      "history_entries_supplied": 1,
+      "history_sha256": "fc716c497fb289cd94752fa3b209724700eb89e251011bb44b088d88eb2831fc",
+      "index": 3,
+      "message": "Respond accordingly to Sakuras Response.",
+      "message_sha256": "f250492cb9b0fd9a3a41efef4e63514b2939072f6cf4e2fb0bf77bef692c7cf4",
+      "reasoner": {
+        "cached_input_tokens": 21248,
+        "duration_seconds": 76.186,
+        "input_tokens": 22657,
+        "outcome": {
+          "event_blocks": [
+            {
+              "causal_basis": "Sakura has already summoned her mother and reported that the expected resident identified himself as Ted; Hana's established nurturing disposition and owner-private hospitality stance support answering personally without treating the report as proof of character.",
+              "event_advances": [
+                "Hana reaches the doorway in response to Sakura's summons.",
+                "Hana identifies herself as the household's mother and acknowledges that Ted is the expected resident.",
+                "Hana treats Sakura's caution as compatible with, rather than opposed to, her own hospitality."
+              ],
+              "purpose": "Transfer the active household floor from Sakura's formal threshold handling to Hana's final-authority welcome.",
+              "resulting_state": "Hana holds the conversational floor, Ted has been acknowledged only at the supported level, and the household is ready for her welcome without any invented response from him."
+            },
+            {
+              "causal_basis": "Once Hana has assumed the floor and recognized the expected arrival, her genuine kindness, patience, and maternal hospitality support a direct welcome while uncertainty about Ted requires leaving acceptance entirely to him.",
+              "event_advances": [
+                "Hana makes clear that the expected resident has reached the correct household.",
+                "Hana offers a sincere welcome without demanding trust, familiarity, or gratitude.",
+                "Hana invites Ted inside while preserving his complete freedom to answer, decline, question, or remain at the threshold."
+              ],
+              "purpose": "Complete Hana's hospitality tactic with an actionable invitation and stop at the first protected-user decision boundary.",
+              "resulting_state": "The household's NPC-controlled welcome is complete, and further progression requires Ted's unsupplied meaningful choice about the invitation."
+            }
+          ],
+          "floor_owner_id": "character:hana_hanezawa",
+          "future_segments": [
+            {
+              "activation_conditions": [
+                "Ted supplies an acceptance, refusal, question, or other meaningful response to Hana's invitation."
+              ],
+              "invalidation_conditions": [
+                "The branch ends before Ted responds.",
+                "A validated authority update changes the doorway continuity."
+              ],
+              "open_user_choice": "Whether and how Ted answers the welcome or crosses the threshold remains entirely for the protected user.",
+              "possible_consequences": [
+                "Hana can proceed with the household welcome according to Ted's supplied choice.",
+                "Sakura can resume formal-arrival duties if Ted's supplied response makes that intervention relevant."
+              ],
+              "segment_id": "segment:eb455b88-6cf3-524c-b83f-85013e026d64",
+              "status": "conditional_plan_only"
+            }
+          ],
+          "hard_citation_count": 2,
+          "insufficiencies": [],
+          "responding_npc_ids": [
+            "character:hana_hanezawa"
+          ],
+          "runway": {
+            "continue_beyond_prompt_endpoint": true,
+            "development_obligations": [
+              "Carry the direct reference beyond Sakura's summons into Hana's assumption of authority.",
+              "Complete both acknowledgment and a materially distinct invitation rather than stopping at Hana's first reaction.",
+              "Provide a quiet NPC-controlled afterbeat that preserves, rather than fills, Ted's decision space."
+            ],
+            "runway_class": "developed",
+            "stop_condition": "Stop once Hana has completed the welcome and invitation; entering, declining, questioning, or otherwise responding requires Ted's unsupplied choice.",
+            "stop_reason": "meaningful_user_decision"
+          },
+          "scene_intent": "Have Hana answer Sakura's summons, assume the household floor as final authority, and complete a sincere but bounded welcome that leaves Ted's response and entry entirely open.",
+          "status": "decision_ready"
+        },
+        "output_tokens": 3278,
+        "provider_receipt": {
+          "automatic_retry_count": 0,
+          "cached_input_tokens": 21248,
+          "cost_is_estimate": false,
+          "cost_microusd": 0,
+          "duration_ms": 76186,
+          "external_provider_calls": 1,
+          "input_tokens": 22657,
+          "model_identity_source": "explicit_request",
+          "model_identity_verified": false,
+          "model_revision": "openai-resolver-2026-07-28",
+          "output_sha256": "7c3f5676c5e1a243f96209c3bc09088c6b37d48a4c1232a2952c869bf7365412",
+          "output_tokens": 3278,
+          "provider": "openai_codex",
+          "provider_receipt_id": "provider_receipt:af087872-45f4-50f6-be3a-43f4fd41b0a0",
+          "provider_request_id_sha256": "2913b6172a406b336dbec653ecc99b0d1c8313ab4fe39dc18dce5c20a1086492",
+          "quota_metered": true,
+          "reasoning_output_tokens": 1034,
+          "request_sha256": "772779d4a670bc425474a8197f60e60e63957a0abcc20a9deeb7796643871cf7",
+          "requested_model": "gpt-5.6-sol",
+          "retains_private_evidence": false,
+          "retains_prompt": false,
+          "retains_raw_source": false,
+          "retains_secret": false,
+          "retains_story_prose": false,
+          "returned_model": "gpt-5.6-sol",
+          "role": "scene_reasoner",
+          "route_sha256": "a90f392151a87ffbad4fed1d9feff0acbaef429e7c2c43a87d242f77d227b442",
+          "schema_version": "cera.live_provider_call_receipt.v2",
+          "story_authority_writes": 0,
+          "system_fingerprint_sha256": null
+        },
+        "reasoning_output_tokens": 1034,
+        "uncached_input_tokens": 1409
+      },
+      "status": "passed",
+      "thread_start_count": 3,
+      "wall_seconds": 130.038
+    }
+  ]
+}

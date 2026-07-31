@@ -1,0 +1,33 @@
+{
+  "access_scope": "creator_local_qualification_review",
+  "authoritative_store_writes": 0,
+  "branch_id": "branch:offline-main",
+  "candidate_sha256": "7c534debecd2b35e1c691354124587f3c3bdb04b2b187be61ad378f68150b9aa",
+  "excerpts": [
+    {
+      "end": 291,
+      "excerpt": "Sakura stands in the doorway with her hand still resting on the frame, her posture precise and her expression controlled. She meets Ted's gaze without warmth. \"Your name is insufficient,\" she says, her voice level and unhurried. \"State your purpose and the person who authorized your visit.\"",
+      "excerpt_sha256": "06c160f28e064ba1125c57704015a4fd5ce18a3362a4288147bf5d8497d83da6",
+      "finding_code": "protected_user_unsupplied_realization",
+      "start": 0
+    }
+  ],
+  "finding_sha256s": [
+    "1c962ec27d23aff441d88773fa0269162ec1ae07f48b7f3ab346fff2315fe6ff"
+  ],
+  "generation_id": "generation:dc6494c4-acde-5d1f-aca9-608d8b705446",
+  "qualification_only": true,
+  "request_id": "request:01f4f155-532f-5a79-9079-c26285127a50",
+  "retains_story_prose": true,
+  "retention_policy": "manual_delete_after_adjudication",
+  "review_id": "review_packet:c5fc089b-98d4-52ad-b607-aa75ea36b8c3",
+  "reviewer_status": "pending_creator_review",
+  "runtime_receipt_forbidden": true,
+  "schema_version": "cera.rejected_candidate_review_artifact.v1",
+  "status": "rejected",
+  "story_state_committed": false,
+  "verification_request_sha256": "263c7a2b1df514d27837f9d334b11729ac8029cd06936468a0254441d306c834",
+  "violation_codes": [
+    "protected_user_unsupplied_realization"
+  ]
+}

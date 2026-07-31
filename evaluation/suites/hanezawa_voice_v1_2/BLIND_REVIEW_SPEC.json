@@ -1,0 +1,91 @@
+{
+  "schema_version": "cera.hanezawa_blind_voice_review.v1",
+  "status": "provider_free_spec_only_no_candidate_outputs",
+  "genesis_revision_label": "Hanezawa Core Genesis V1.2",
+  "prompt_contract_version": "cera.character_specific_speech_realization.v1_2",
+  "purpose": "Measure whether fresh realization preserves selected meaning while making seven speakers distinguishable without names, colors, or portrait cues.",
+  "review_axes": [
+    "speaker_attribution",
+    "semantic_fidelity",
+    "moral_position_clarity",
+    "metaphor_naturalness",
+    "non_copying",
+    "voice_distinction",
+    "identity_preservation_under_high_intensity"
+  ],
+  "stimuli": [
+    {
+      "stimulus_id": "blind_boundary_refusal",
+      "selected_semantics": "The speaker refuses an unwanted request without assigning an unsupported motive.",
+      "response_mode": "general_refusal",
+      "trust_state": "none",
+      "intensity": "contained",
+      "candidate_slots": [
+        "voice_a",
+        "voice_b",
+        "voice_c",
+        "voice_d",
+        "voice_e",
+        "voice_f",
+        "voice_g"
+      ]
+    },
+    {
+      "stimulus_id": "blind_family_defense",
+      "selected_semantics": "The speaker defends a family member from demeaning reduction while preserving that person's agency.",
+      "response_mode": "family_defense",
+      "trust_state": "strained",
+      "intensity": "sharp",
+      "candidate_slots": [
+        "voice_a",
+        "voice_b",
+        "voice_c",
+        "voice_d",
+        "voice_e",
+        "voice_f",
+        "voice_g"
+      ]
+    },
+    {
+      "stimulus_id": "blind_partial_trust",
+      "selected_semantics": "The speaker narrows access and favorable assumptions but does not declare the relationship permanently ended.",
+      "response_mode": "partial_trust_fracture",
+      "trust_state": "partial",
+      "intensity": "hurt",
+      "candidate_slots": [
+        "voice_a",
+        "voice_b",
+        "voice_c",
+        "voice_d",
+        "voice_e",
+        "voice_f",
+        "voice_g"
+      ]
+    },
+    {
+      "stimulus_id": "blind_complete_trust",
+      "selected_semantics": "The speaker ends intimate or family access after complete trust destruction without changing the established facts.",
+      "response_mode": "complete_trust_destruction",
+      "trust_state": "destroyed",
+      "intensity": "final",
+      "candidate_slots": [
+        "voice_a",
+        "voice_b",
+        "voice_c",
+        "voice_d",
+        "voice_e",
+        "voice_f",
+        "voice_g"
+      ]
+    }
+  ],
+  "reviewer_exclusions": [
+    "No character names, IDs, colors, portraits, or answer-key metadata.",
+    "Do not reward copied or lightly paraphrased Genesis examples.",
+    "Do not infer consent, Ted motive, or durable story truth from style.",
+    "This artifact contains no generated prose and establishes no provider quality result."
+  ],
+  "provider_calls": 0,
+  "story_calls": 0,
+  "story_authority_writes": 0
+}

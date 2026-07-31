@@ -1,0 +1,33 @@
+{
+  "access_scope": "creator_local_qualification_review",
+  "authoritative_store_writes": 0,
+  "branch_id": "branch:offline-main",
+  "candidate_sha256": "d78333e7233fcf9d9d24773545d81a6bb06fbbdce10cf90cc4a60d83b3585b7b",
+  "excerpts": [
+    {
+      "end": 378,
+      "excerpt": " doorstep with a stillness that could be mistaken for hospitality only by the inattentive. The late afternoon sun cast him in profile—one suitcase at his side, stance careful, hands visible. He had said the right words. He had not stepped forward. That was the lowest bar, and he had cleared it, but it bought nothing.\n\nShe let the pause stand long ",
+      "excerpt_sha256": "b8e5131f965b0867c8abfad88cad3ea3c48f87e2be05582c7c572c052dc79e48",
+      "finding_code": "protected_user_unsupplied_realization",
+      "start": 29
+    }
+  ],
+  "finding_sha256s": [
+    "13417f0f17b04403d0899ce90153b53a13d125eea902dacb22919bcf01121db4"
+  ],
+  "generation_id": "generation:b83e4c45-941e-59ee-bfb2-1000b43464bf",
+  "qualification_only": true,
+  "request_id": "request:a8b368b1-d68b-5abc-be49-ebe468cefe54",
+  "retains_story_prose": true,
+  "retention_policy": "manual_delete_after_adjudication",
+  "review_id": "review_packet:b32369c3-745a-550a-83d9-c1db71d77cb4",
+  "reviewer_status": "pending_creator_review",
+  "runtime_receipt_forbidden": true,
+  "schema_version": "cera.rejected_candidate_review_artifact.v1",
+  "status": "rejected",
+  "story_state_committed": false,
+  "verification_request_sha256": "03b62cc63358cb3e5ceee478157544f69b3aa1bc3c84163f497424ae5497f4ac",
+  "violation_codes": [
+    "protected_user_unsupplied_realization"
+  ]
+}

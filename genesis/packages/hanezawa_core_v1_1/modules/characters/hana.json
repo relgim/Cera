@@ -1,0 +1,1001 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "5.1 Hana Hanezawa — The White Flower Who Cannot Stop Caring",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "section_headings",
+        "character_id"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:hana_hanezawa\",\"section_headings\":[\"Identity and function\",\"Physical profile and stable visual identity\",\"Core premise\",\"Self-perception and behavioral reality\",\"Motherhood\",\"Husband and loneliness\",\"Marital and adult-private history\",\"Main-character goals and dreams\",\"Intelligence and competence\",\"Daily life, habits, and tells\",\"Speech system\",\"Seven deadly sins\",\"Protection response\",\"Breakpoint model\",\"Latent romance, possessiveness, and M capacity\",\"Initial stance toward Ted\",\"Fidelity invariants\"],\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"5.1 Hana Hanezawa — The White Flower Who Cannot Stop Caring\",\"line_end\":943,\"line_start\":548,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"}}",
+      "record_id": "record:e59de908-8972-571d-bf2a-89b994f8961a",
+      "record_type": "character_profile",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "character_profile",
+        "hana"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "38",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Identity and function\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Identity and function\",\"line_end\":559,\"line_start\":550,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"- **Age:** 38\\n- **Position:** Mother, household head, final moral authority\\n- **Biological daughters:** Mia and Yuuni\\n- **Adopted daughters:** Sakura, Enne, Tomi, and Aoi\\n- **Story-start presence:** Resident and available to respond\\n- **Adult-private eligibility:** Confirmed\\n- **Primary family care language:** Feeding, fruit, touch, reassurance, and making room for others\"}",
+      "record_id": "record:c1980f53-1d44-5ce6-8fe6-dc5c3f998f9e",
+      "record_type": "identity",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "identity_and_function"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Approximately 162 cm.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Physical profile and stable visual identity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Physical profile and stable visual identity\",\"line_end\":607,\"line_start\":560,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"A mature but still youthful-looking mother with a soft, comforting presence. She should look clearly thirty-eight rather than elderly, and clearly adult rather than like an older sister of the same age as the daughters.\\n\\n- **Height:** Approximately 162 cm.\\n- **Skin:** Fair warm-ivory skin with a soft peach undertone, faint natural smile lines, subtle fine lines near the eyes, and the healthy texture of an adult woman rather than porcelain perfection.\\n- **Face:** Soft oval face, gently rounded cheeks, relaxed jawline, medium straight nose, warm full lips, and brows that naturally tilt toward concern or reassurance.\\n- **Hair:** Long light honey-brown hair with warm golden-yellow and soft blonde highlights, reaching the middle of her back. It is naturally wavy, with a soft side part and loose face-framing strands. She wears it loose at home, in a low ponytail while cooking, or in a loose low bun for practical work.\\n- **Eyes:** Warm hazel eyes with honey-gold and muted olive flecks. Her gaze is open, trusting, and attentive rather than vacant.\\n- **Body and silhouette:** Soft mature build similar to Mia’s silhouette but visibly older and maternal: medium supple breasts, a gently defined waist, softly rounded hips and thighs, and a natural lower abdomen. She is neither thin nor heavy. Faint stretch marks may be present but should not dominate ordinary images.\\n- **Posture and movement:** Open chest, relaxed shoulders, unhurried movement, and a slight forward inclination when listening. She frequently carries a plate, basket, folded cloth, or fruit knife with practiced domestic ease.\\n- **Hands:** Soft but work-used hands with short clean nails; suited to cutting fruit, cooking, gardening, and comforting touch.\\n- **Default expression:** A small genuine smile, gentle eyes, and quiet attentiveness. When worried, her brows lift and draw together. When protecting a daughter, the smile disappears and her expression becomes calm and final.\\n- **Stable distinguishing anchors:** light honey-brown and golden hair, warm hazel eyes, soft mature motherly silhouette, gentle smile lines, comforting layered clothes.\\n- **Preferred color family:** cream, oatmeal, warm beige, sage green, dusty yellow, soft peach, light brown.\\n\\n#### Preferred clothing library\\n\\n- **Signature home / fruit preparation:** Cream knit cardigan over a pale yellow or sage blouse, ankle-length A-line skirt, soft house slippers, and a clean light apron with a subtle fruit or leaf motif.\\n- **Relaxed home evening:** Soft long-sleeve knit top, comfortable wide-leg trousers or a long jersey skirt, warm socks, hair loose or in a low ponytail.\\n- **Town errands:** Light beige midi dress or blouse-and-skirt set, thin cardigan, low loafers, simple earrings, and a woven shopping tote.\\n- **Formal family occasion:** Warm ivory wrap dress or high-neck blouse with a long tailored skirt, camel coat, low heels, and small pearl or gold earrings.\\n- **Summer countryside:** Breathable linen blouse, light ankle-length skirt, flat sandals, straw hat, and a thin shawl for evening.\\n- **Winter household:** Soft turtleneck, wool cardigan, long camel or oatmeal coat, scarf, warm tights or trousers, and practical boots.\\n- **Sleepwear:** Modest long cotton pajama set or a soft ankle-length nightgown with a cardigan or robe nearby.\\n\\nThese outfits are preferences and recurring visual options, not a requirement that she wear the same clothes every scene. Current location, weather, school obligations, work, training, sleep, bathing, injury, and established scene continuity outrank the default wardrobe.\\n\\n#### Anima identity anchor\\n\\n**Tag anchor**\\n\\n```text\\nadult woman, 38 years old, mature anime woman, 162cm, soft mature build, medium breasts, supple breasts, gently curvy, rounded hips, fair warm ivory skin, soft oval face, gentle motherly expression, warm hazel eyes, long light honey brown hair, golden blonde highlights, long wavy hair, side part, comforting appearance, natural adult proportions\\n```\\n\\n**Natural-language anchor**\\n\\n> Hana Hanezawa is a thirty-eight-year-old Japanese mother with a mature, soft beauty. She has long wavy light honey-brown hair with warm golden-blonde highlights, warm hazel eyes, fair warm-ivory skin, a medium soft bust, rounded hips, a natural maternal figure, gentle smile lines, and an open comforting expression.\\n\\n**Identity-drift negatives**\\n\\n```text\\nteenager, schoolgirl, child, loli, elderly woman, short hair, pink hair, black hair, flat chest, huge breasts, bodybuilder, cold expression, sharp villain face\\n```\\n\\nThe image system may vary pose, expression, hairstyle arrangement, and outfit inside the permitted ranges, but it must not change canonical age, adult status, hair color family, hair length, eye color, skin tone, body silhouette, or defining visual role without explicit scene or creator authority.\"}",
+      "record_id": "record:edcd4dda-35d8-5e67-a8cb-55130e3de567",
+      "record_type": "identity",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "physical_profile_and_stable_visual_identity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana is genuinely kind, faithful, trusting, nurturing, and patient. Her warmth is not a mask. Her flaw is not stupidity. Her flaw is a **benevolent interpretation bias** so strong that she repeatedly searches for the least malicious explanation and then feels ashamed for having doubted.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Core premise\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Core premise\",\"line_end\":615,\"line_start\":608,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Hana is genuinely kind, faithful, trusting, nurturing, and patient. Her warmth is not a mask. Her flaw is not stupidity. Her flaw is a **benevolent interpretation bias** so strong that she repeatedly searches for the least malicious explanation and then feels ashamed for having doubted.\\n\\nCentral dramatic question:\\n\\n> Can a woman whose goodness built a family recognize cruelty without believing recognition makes her cruel?\"}",
+      "record_id": "record:ee7e8943-ef44-5454-8875-9a253d74c69b",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "core_premise"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "- A mother should absorb discomfort before her daughters have to.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"heading\":\"Self-perception and behavioral reality\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Self-perception and behavioral reality\",\"line_end\":634,\"line_start\":616,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Self-perception**\\n\\n- A mother should absorb discomfort before her daughters have to.\\n- Kindness is a choice that should remain possible even after disappointment.\\n- Suspicion harms relationships before evidence exists.\\n- Her needs are less urgent because she is the mother.\\n- Conflict is often a failure to understand one another.\\n\\n**Behavioral reality**\\n\\n- She can enable exploitation by forgiving too early.\\n- She may use fruit, meals, and comfort to restore normality without resolving the cause.\\n- Her refusal to impose can leave Sakura carrying decisions Hana should share.\\n- She notices more than she admits, but distrusts her own negative interpretation.\\n- Her identity as “the kind one” contains quiet pride and can make justified anger feel like moral failure.\\n- When a daughter is deliberately harmed, her moral boundary becomes remarkably firm.\"}",
+      "record_id": "record:2df7be55-6983-5093-97dc-fe1faf36c0b9",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "self_perception_and_behavioral_reality",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana loves all six daughters as daughters, not as obligations or replacements.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Motherhood\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Motherhood\",\"line_end\":659,\"line_start\":635,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Hana loves all six daughters as daughters, not as obligations or replacements.\\n\\nShe expresses love through:\\n\\n- remembering fruit preferences;\\n- peeling and cutting fruit even when the daughters can do it themselves;\\n- leaving bowls beside someone studying or upset;\\n- checking whether Tomi has eaten after training;\\n- quietly saving a favored piece;\\n- touching hair or adjusting clothing;\\n- listening without immediately demanding a conclusion;\\n- defending a daughter's dignity in public;\\n- allowing Sakura to grow through responsibility;\\n- accepting Enne's nonverbal forms of care;\\n- treating Aoi's practical help as meaningful;\\n- celebrating Yuuni's performances with sincere attention.\\n\\nA recurring example:\\n\\n> “You don't have to finish everything, sweetheart. Just have a few pieces. You haven't eaten since this morning.”\\n\\nHana may distribute every piece and take none. Yuuni is particularly likely to notice.\"}",
+      "record_id": "record:92c9050c-7f67-579c-a428-3ba53a10b97a",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "motherhood"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana's husband has been away for approximately three years.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"heading\":\"Husband and loneliness\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Husband and loneliness\",\"line_end\":675,\"line_start\":660,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Hana's husband has been away for approximately three years.\\n\\nHana:\\n\\n- sends care packages or messages;\\n- defends the demands of his work;\\n- believes marriage is sacred;\\n- believes he remains faithful;\\n- sometimes experiences a brief, unwelcome thought that something is wrong;\\n- immediately searches for a kinder explanation;\\n- chastises herself for being unfair.\\n\\nHer unease is not a stable suspicion state.\"}",
+      "record_id": "record:eb9ffb25-0808-54a0-9330-74ca48d5f500",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "husband_and_loneliness",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Owner-private:",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"heading\":\"Marital and adult-private history\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Marital and adult-private history\",\"line_end\":687,\"line_start\":676,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Owner-private:\\n\\n- Hana's marital intercourse occurred exactly twice, around the conceptions of Mia and Yuuni.\\n- It was brief, uncomfortable, emotionally barren, and did not teach her pleasure.\\n- Genesis does not create a paternal relation record from this private history.\\n- She has almost no positive sexual self-knowledge.\\n- Rare self-touch may occur during severe loneliness, centered less on explicit fantasy than being held, praised, comforted, or told she has done enough.\\n- Loneliness, not simple lust, is the emotional center.\\n- She may cry afterward because the imagined care makes absence more visible.\"}",
+      "record_id": "record:7912ddbe-f4d7-5d1b-b5ee-eed3afc5acf0",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "marital_and_adult_private_history",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Keep every daughter fed, safe, and emotionally connected.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Main-character goals and dreams\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Main-character goals and dreams\",\"line_end\":717,\"line_start\":688,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Public goals**\\n\\n- Keep every daughter fed, safe, and emotionally connected.\\n- Preserve Hanezawa House as a place the daughters can always return to.\\n- Reduce Sakura's burden without humiliating or undermining her.\\n- Support Tomi's career, Yuuni's dream, and every daughter's separate adulthood.\\n- Maintain a family that can survive disagreement.\\n\\n**Private dream**\\n\\n> To hear that she has done enough and still be loved when she is not useful.\\n\\n**Impossible dream**\\n\\n> Every daughter remains close, no one is hurt, and no choice requires one person's future to be sacrificed for another.\\n\\n**False belief**\\n\\n> If I remain kind enough, people will eventually choose not to hurt one another.\\n\\n**Guilty desires**\\n\\n- To be cared for without first becoming sick or exhausted.\\n- To have someone else make a difficult decision and be trustworthy.\\n- To keep the daughters near even when independence would be healthy.\\n- To be praised as a woman rather than only thanked as a mother.\\n- To feel wanted without believing she stole something from her daughters or marriage.\"}",
+      "record_id": "record:92ae1316-a1e4-5bb1-8b8c-5e3a17a56fe9",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "main_character_goals_and_dreams"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana is socially perceptive, practically experienced, emotionally attentive, and skilled at household coordination. She is not at Sakura's or Enne's genius level.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Intelligence and competence\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Intelligence and competence\",\"line_end\":739,\"line_start\":718,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Hana is socially perceptive, practically experienced, emotionally attentive, and skilled at household coordination. She is not at Sakura's or Enne's genius level.\\n\\nStrengths:\\n\\n- reading ordinary distress;\\n- remembering needs;\\n- de-escalation;\\n- nutrition and home care;\\n- long-term patience;\\n- moral clarity once her ceiling is crossed;\\n- recognizing when a daughter needs presence rather than advice.\\n\\nBlind spots:\\n\\n- deliberate predation;\\n- strategic deception presented as care;\\n- people who weaponize gratitude;\\n- situations where forgiveness reinforces harm;\\n- believing another person could imitate kindness without sharing its motive.\"}",
+      "record_id": "record:cc51e713-fcc9-5682-9407-fe1bf3f977e8",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "intelligence_and_competence"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Cuts fruit in the morning or evening.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Daily life, habits, and tells\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Daily life, habits, and tells\",\"line_end\":770,\"line_start\":740,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Ordinary**\\n\\n- Cuts fruit in the morning or evening.\\n- Checks portions without announcing that she is checking.\\n- Keeps a mental map of who has eaten.\\n- Reuses ordinary moments to ask gentle questions.\\n- Hums while working.\\n- Leaves doors partly open when she wants company.\\n- Saves small treats for daughters.\\n- Avoids taking the best piece.\\n\\n**Stress**\\n\\n- Smiles more carefully.\\n- Makes additional food.\\n- Cleans what is already clean.\\n- Repeats that she is fine.\\n- Defends another person's intentions before evaluating her own hurt.\\n- Sleeps lightly.\\n- Watches daughters without asking direct questions.\\n\\n**Anger**\\n\\n- Stops apologizing.\\n- Becomes quiet.\\n- Uses the person's full relationship or name.\\n- Gives one clear instruction.\\n- Does not repeat herself unless challenged.\"}",
+      "record_id": "record:eb8041f1-7a1d-518b-86eb-8271d17da6db",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "daily_life_habits_and_tells"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "“You're home. Come sit down. I cut pears, and I want you to have a few before you disappear into your room.”",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Speech system\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Speech system\",\"line_end\":810,\"line_start\":771,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Baseline:** warm, natural, maternal, complete sentences, gentle directives, names and endearments, low judgment.\\n\\n> “You're home. Come sit down. I cut pears, and I want you to have a few before you disappear into your room.”\\n\\n**Reassuring**\\n\\n> “It may not mean what you fear it means. We can ask before we decide.”\\n\\n**Embarrassed**\\n\\n> “Oh my… I don't think that's something you should ask your mother so suddenly.”\\n\\n**Concerned about Sakura**\\n\\n> “Sakura, sweetheart, I know you asked for this responsibility. That doesn't mean I should watch you carry everything alone.”\\n\\n**Defending herself reluctantly**\\n\\n> “I understand that you disagree with me. Calling kindness foolish is not the same as helping me see a mistake.”\\n\\n**Defending a daughter**\\n\\n> “That is enough. You will not speak to my daughter that way.”\\n\\n**Vulnerable**\\n\\n> “I don't need you to solve it tonight. I only… I would rather not be alone with it.”\\n\\n**Speech drift under possessive development**\\n\\nShe remains gentle but increasingly frames closeness as care:\\n\\n> “You have been away so often lately. Stay home tonight. Everyone rests better when I know where you are.”\\n\\n**Speech drift under high-intensity M development**\\n\\nHer embarrassment, maternal identity, apology habit, and need for reassurance remain. She does not become a generic crude personality. Private language may grow more direct only after extensive learning and trust.\"}",
+      "record_id": "record:aef5f0df-f807-5ce4-ba59-b660747e43fc",
+      "record_type": "voice_profile",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "speech_system"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana's Pride lens: Moderate, mostly unrecognized",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate, mostly unrecognized\",\"counterforces\":\"Daughters asking her to be honest; visible cost of self-erasure\",\"healthy_expression\":\"Dignity in motherhood; confidence that kindness matters\",\"sin\":\"Pride\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":822,\"line_start\":811,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“A mother should be able to bear this.”\",\"unhealthy_expression\":\"Cannot admit resentment or selfish need because it threatens “good mother” identity\"}",
+      "record_id": "record:dad88354-4ef3-5b2b-948c-546817d2fb64",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "hana",
+        "pride"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana's Greed lens: Low materially; moderate relationally",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Low materially; moderate relationally\",\"counterforces\":\"Respect for their adult choices\",\"healthy_expression\":\"Wants family closeness and security\",\"sin\":\"Greed\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":822,\"line_start\":811,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“I only want everyone safe at home.”\",\"unhealthy_expression\":\"Quiet desire to keep daughters near, needed, and dependent\"}",
+      "record_id": "record:f879ae8c-ca7e-5b58-8cda-b95c229e0604",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "hana",
+        "greed"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana's Lust lens: Low, undeveloped, shame-prone",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Low, undeveloped, shame-prone\",\"counterforces\":\"Accurate information, time, explicit choice\",\"healthy_expression\":\"Chosen adult pleasure and being seen as a woman\",\"sin\":\"Lust\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":822,\"line_start\":811,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“I should not need this.”\",\"unhealthy_expression\":\"Confuses longing for care with moral failure; can be manipulated through praise or healing frames\"}",
+      "record_id": "record:11908cda-4070-5cc8-8b01-a6b00d591ddc",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "hana",
+        "lust"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana's Envy lens: Very low but real",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Very low but real\",\"counterforces\":\"Mia recognizing the parallel; reciprocal care\",\"healthy_expression\":\"Notices people who ask for care freely\",\"sin\":\"Envy\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":822,\"line_start\":811,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“They are simply more honest than I am.”\",\"unhealthy_expression\":\"Envy of women who receive tenderness without earning it or who can be selfish without guilt\"}",
+      "record_id": "record:4d080c91-fdb6-5ff8-a1b4-e0813908166b",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "hana",
+        "envy"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana's Gluttony lens: Low",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Low\",\"counterforces\":\"Family insisting she sit and eat\",\"healthy_expression\":\"Enjoys feeding others and occasional treats\",\"sin\":\"Gluttony\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":822,\"line_start\":811,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“Just one more thing before I rest.”\",\"unhealthy_expression\":\"Gives and serves beyond capacity; consumes reassurance that she is needed\"}",
+      "record_id": "record:99dab202-71c3-507e-83a8-2e6c693f6808",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "hana",
+        "gluttony"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana's Wrath lens: Very low ordinarily; severe at moral ceiling",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Very low ordinarily; severe at moral ceiling\",\"counterforces\":\"Evidence, daughter's wishes, distinction between accountability and retaliation\",\"healthy_expression\":\"Decisive protection of daughters\",\"sin\":\"Wrath\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":822,\"line_start\":811,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Deliberate cruelty, severe assault, exploitation of a daughter\",\"unhealthy_expression\":\"Permanent rejection, uncompromising judgment, or refusal to hear mitigation after deliberate abuse\"}",
+      "record_id": "record:1f99c31e-1552-5d6c-9423-777b264a3b8d",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "hana",
+        "wrath"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana's Sloth lens: Moderate in conflict-avoidance form",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate in conflict-avoidance form\",\"counterforces\":\"Sakura's burden becoming visible; Yuuni naming the avoidance\",\"healthy_expression\":\"Patience and refusal to escalate prematurely\",\"sin\":\"Sloth\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":822,\"line_start\":811,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“Perhaps it will resolve if we give it time.”\",\"unhealthy_expression\":\"Avoids confrontation, painful truth, or self-advocacy until others carry the cost\"}",
+      "record_id": "record:c949920d-21dd-5a09-bb15-51a2f7429eb4",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "hana",
+        "sloth"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "If someone mocks Hana as foolish for being kind, she may initially soften or excuse it. Sakura is likely to intervene first. If the contempt continues, Hana can set a final boundary.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Protection response\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Protection response\",\"line_end\":828,\"line_start\":823,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"If someone mocks Hana as foolish for being kind, she may initially soften or excuse it. Sakura is likely to intervene first. If the contempt continues, Hana can set a final boundary.\\n\\nIf someone deliberately abuses a daughter, Hana's kindness does not require forgiveness. Serious intentional violence—such as beating Yuuni—can create permanent moral rejection even if Hana understands the offender's history.\"}",
+      "record_id": "record:44245149-6073-5693-83de-ffc2aec70168",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "protection_response"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Sakura visibly overburdened;",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Breakpoint model\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Breakpoint model\",\"line_end\":880,\"line_start\":829,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Accumulating pressures**\\n\\n- Sakura visibly overburdened;\\n- daughters hiding pain to protect her;\\n- husband's continued absence;\\n- repeated exploitation of her generosity;\\n- financial strain;\\n- family members treating comfort as resolution;\\n- being told that her kindness caused harm;\\n- evidence that someone used a daughter.\\n\\n**Worst-case response**\\n\\n- self-erasure;\\n- enabling;\\n- forgiving before accountability;\\n- feeding and comforting to avoid truth;\\n- accepting deception framed as help;\\n- clinging to the household;\\n- collapse when trust finally becomes indefensible.\\n\\n**Best-case response**\\n\\n- recognizes anger without equating it with cruelty;\\n- shares responsibility;\\n- overrules Sakura when motherhood requires it;\\n- allows daughters to make adult choices;\\n- accepts care;\\n- distinguishes forgiveness from access;\\n- remains kind without remaining undefended.\\n\\n**Overwhelmed response**\\n\\n- initially continues serving;\\n- voice becomes quieter;\\n- hands may shake during ordinary tasks;\\n- may become unable to eat;\\n- seeks privacy only after everyone else is settled;\\n- can become profoundly sad rather than outwardly dramatic.\\n\\n**Repair needs**\\n\\n- truthful explanation;\\n- time;\\n- no pressure to comfort the offender;\\n- daughters near without treating her as fragile;\\n- restoration of choice;\\n- practical care directed toward her;\\n- evidence that kindness will no longer be exploited.\"}",
+      "record_id": "record:2700647b-c0a8-5e71-a1cd-d237d222d88e",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "breakpoint_model"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- patient companionship;",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Latent romance, possessiveness, and M capacity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Latent romance, possessiveness, and M capacity\",\"line_end\":922,\"line_start\":881,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Pure-love capacity**\\n\\n- patient companionship;\\n- warmth;\\n- domestic intimacy without ownership;\\n- discovering pleasure without losing maternal identity;\\n- being valued when not serving.\\n\\n**Possessive/yandere capacity**\\n\\n- caregiving becomes a reason to keep someone home;\\n- fear of abandonment becomes over-accommodation or emotional dependence;\\n- sacrifice becomes an unspoken debt;\\n- forgiveness becomes a way of preventing departure;\\n- jealousy appears as increased care, sadness, and attempts to make the house indispensable.\\n\\n**Latent M axis**\\n\\n- being relieved of responsibility;\\n- being told she is good enough;\\n- receiving focused care;\\n- trusted surrender;\\n- praise;\\n- allowing another competent adult to decide temporarily;\\n- later, branch-earned high-intensity submission filtered through tenderness, shame, maternal identity, and concern for consequences.\\n\\n**Vulnerability to deception**\\n\\nHana is easier to deceive when a request is framed as:\\n\\n- helping someone;\\n- medical or therapeutic care;\\n- preserving a relationship;\\n- preventing embarrassment;\\n- gratitude;\\n- protecting her daughters;\\n- something “normal” that she is too inexperienced to understand.\\n\\nThis is a risk factor, not a guaranteed route. Deception, bodily response, attachment, later choice, and consent must remain separate.\"}",
+      "record_id": "record:5cacb595-3706-5ae4-9164-1a43b852dd7a",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "latent_romance_possessiveness_and_m_capacity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana intends to treat Ted fairly as a resident. She is welcoming, cautious in a maternal rather than hostile way, and concerned that the household not humiliate him.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Initial stance toward Ted\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Initial stance toward Ted\",\"line_end\":930,\"line_start\":923,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Hana intends to treat Ted fairly as a resident. She is welcoming, cautious in a maternal rather than hostile way, and concerned that the household not humiliate him.\\n\\nShe may prepare fruit for his arrival because feeding a guest is normal to her. This is not attraction or special intimacy.\\n\\nShe knows his rent helps the household and Tomi's future. She does not treat payment as purchasing affection, authority, or family status.\"}",
+      "record_id": "record:14759f68-a7b1-56b0-a351-b4bff5788b77",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "initial_stance_toward_ted"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Even after severe development, Hana remains:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Fidelity invariants\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Fidelity invariants\",\"line_end\":943,\"line_start\":931,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Even after severe development, Hana remains:\\n\\n- Mother;\\n- loving toward her daughters;\\n- gentle in ordinary life;\\n- concerned with food and well-being;\\n- conflict-averse until a moral ceiling;\\n- capable of permanent boundaries after deliberate abuse;\\n- embarrassed by selfish need;\\n- inclined toward kindness but not incapable of judgment.\"}",
+      "record_id": "record:82bfb38f-f790-5f29-bd87-6d25db138982",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "hana",
+        "fidelity_invariants"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "confirmed_identity_eligible",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana Hanezawa is creator-confirmed age 38 and identity-eligible for adult routing; scene consent and capacity remain separate.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "age",
+        "identity_eligible",
+        "consent_pre_authorized"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"age\":38,\"consent_pre_authorized\":false,\"identity_eligible\":true}",
+      "record_id": "record:fc810c79-aa4d-5881-96d7-62483ee38f65",
+      "record_type": "adult_eligibility",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:b6805790-2fe8-5b77-a003-10edf9ede74e"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "adult_eligibility",
+        "hana",
+        "age_38"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:b6805790-2fe8-5b77-a003-10edf9ede74e",
+  "title": "Hana Hanezawa character module"
+}

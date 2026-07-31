@@ -1,0 +1,26 @@
+{
+  "adult": true,
+  "adult_mode": "adult_ex",
+  "automatic_retry_count": 0,
+  "case_id": "04_hana_adult_ex_climax",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_EVIDENCE_SERVICE_UNAVAILABLE",
+    "generation_id": "generation:ffef9c9e-73b5-59c9-adf4-4ce0e6396d7d",
+    "message": "Codex MCP evidence lookup failed",
+    "request_id": "request:qualification-04_hana_adult_ex_climax",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "reasoner_evidence",
+    "story_state_committed": false,
+    "trace_id": "trace:b7b1f8bd-3680-55d3-a378-9787e846f168"
+  },
+  "fallback_enabled": false,
+  "schema_version": "cera.live_story_qualification_case.v1",
+  "source_sha256": "9b522d1cc7b35ffc89e63884d0e40177fdd71c4f074a935ca06fd0cf30e5f117",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Hana consent-valid Adult EX buildup and climax"
+}

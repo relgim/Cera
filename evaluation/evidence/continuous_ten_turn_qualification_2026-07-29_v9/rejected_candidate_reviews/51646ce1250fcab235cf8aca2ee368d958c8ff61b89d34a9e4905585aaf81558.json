@@ -1,0 +1,33 @@
+{
+  "access_scope": "creator_local_qualification_review",
+  "authoritative_store_writes": 0,
+  "branch_id": "branch:offline-main",
+  "candidate_sha256": "44939061bd93c8ff70a09db507bfacfd235693fe91c1afb587bdc7d44f0a7b89",
+  "excerpts": [
+    {
+      "end": 322,
+      "excerpt": "Mia's eyes widen, and for a moment she simply blinks at him, a soft, startled sound escaping her lips. She had not expected to see him standing there this morning, and the words take an extra second to settle into something she can hold onto.\n\nA gentle warmth rises in her cheeks, and she tucks a strand of hair behind her",
+      "excerpt_sha256": "fba01940ac208fa5dd70ad641c6ed7f86b8f7daebbb31c4003f8973bcb232bc2",
+      "finding_code": "protected_user_unsupplied_realization",
+      "start": 0
+    }
+  ],
+  "finding_sha256s": [
+    "3e1bc8a2b068b423ff20bade1b53c2d846a0f6fe498c71e49912bc9535a0b56f"
+  ],
+  "generation_id": "generation:738dff3b-9205-5c5e-ab57-d7d7cafebdc0",
+  "qualification_only": true,
+  "request_id": "request:4288ed11-aa3a-5a06-82ae-4d494b5b7c15",
+  "retains_story_prose": true,
+  "retention_policy": "manual_delete_after_adjudication",
+  "review_id": "review_packet:c898f65d-7929-5c3d-b503-fecd55b9bddf",
+  "reviewer_status": "pending_creator_review",
+  "runtime_receipt_forbidden": true,
+  "schema_version": "cera.rejected_candidate_review_artifact.v1",
+  "status": "rejected",
+  "story_state_committed": false,
+  "verification_request_sha256": "f3472a7c260a27a75085ed5f15de5cebb2cd9548be9518f914752f6d40330e59",
+  "violation_codes": [
+    "protected_user_unsupplied_realization"
+  ]
+}

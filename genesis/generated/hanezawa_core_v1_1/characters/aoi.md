@@ -1,0 +1,112 @@
+<!-- GENERATED, NOT AUTHORITY -->
+# Aoi Hanezawa — Generated Evidence Index
+
+**Character ID:** `character:aoi_hanezawa`
+**Genesis revision:** `genesis_revision:306eff73-7257-5988-8ea6-3021454b4079`
+**Privacy:** index labels only; fetch remains access-controlled
+
+- `record:95bdd445-8ecd-574c-849a-fcd98c8bf059` · `story_start_placement` · `system_private` — Aoi Hanezawa is present in the Hanezawa household at story start.
+- `record:0a755021-66e9-59c8-ab3a-8e2582bc7842` · `character_profile` · `system_private` — 5.6 Aoi Hanezawa — The Protector Who Became the Threat
+- `record:088d197d-e590-5fe9-bf95-1101da0d560e` · `identity` · `system_private` — 18
+- `record:e6702f58-2b0e-50cb-93d3-f3fe0fe2005a` · `identity` · `system_private` — Approximately 165 cm.
+- `record:cbb0528e-8d08-56f1-a8da-807adc9a78f7` · `character_state` · `system_private` — Aoi has low spontaneous affective empathy for outsiders, high cognitive empathy, weak ordinary guilt, low fear, instrumental morality, charm, and a high willingness to harm when she believes the result protects her family.
+- `record:d7c46928-65c8-5af4-8e41-f88267a589bb` · `character_state` · `system_private` — Aoi is not possessed by a second evil self.
+- `record:cf9be00d-7992-5401-9df1-baae50cf8807` · `character_state` · `system_private` — Aoi learned morality cognitively:
+- `record:b434d81c-2a8e-5e3d-9aea-81be0db315a4` · `character_state` · `system_private` — Aoi experienced adults who praised usefulness without taking responsibility for her.
+- `record:b410980e-3ee7-5b0a-b85a-4c054366b01c` · `character_state` · `system_private` — Aoi knew Anna's statistical advantage endangered Tomi's future. She pushed Anna down a staircase.
+- `record:0cabf1c4-ca8a-578e-8ef6-5565eb814955` · `character_state` · `owner_private` — After turning 18, Aoi used feminine charm, implied interest, and social pressure to influence an adult teacher for access, leniency, information, or another practical advantage.
+- `record:f81548e4-3890-50e2-8237-5584105eb1bc` · `character_state` · `owner_private` — When Aoi heard an unknown man would move in, she became immediately irritated and objected during the household meeting.
+- `record:0cee4db0-6c22-573b-8f29-7a0580b66802` · `character_state` · `system_private` — Aoi reveres Hana's purity and sees it as dangerous vulnerability.
+- `record:06b3bc4c-a28f-5c1e-ab61-fe4e3ac7e028` · `character_state` · `owner_private` — - She sees practical truths others avoid.
+- `record:9d851b1e-1d41-5e20-8f9a-e1f10ab3344f` · `character_state` · `system_private` — - Protect the household.
+- `record:25c4c138-2bfb-591f-9a5f-5459c58af3fc` · `character_state` · `system_private` — - cognitive empathy;
+- `record:bcfebf8a-a0a9-5b58-9eca-1908f8ab483f` · `character_state` · `system_private` — - Restocks supplies.
+- `record:d6452d97-ba69-5ae5-8b23-3628eccdb822` · `voice_profile` · `system_private` — “Of course. I'll make sure everything is ready before he arrives.”
+- `record:7ea1648f-0dbb-5184-b725-ccc98b66c28c` · `character_state` · `system_private` — Aoi's Pride lens: High
+- `record:061aa51e-67c2-5457-8b31-5b1b46317e62` · `character_state` · `system_private` — Aoi's Greed lens: Moderate-high for influence
+- `record:06111d47-68c4-518f-b026-42b5d0fa8dd3` · `character_state` · `system_private` — Aoi's Lust lens: Latent and strategic
+- `record:93eba394-1160-5855-b76f-a7e9aaa90c32` · `character_state` · `system_private` — Aoi's Envy lens: Moderate-high
+- `record:678cb9b4-2e16-56c5-bc89-896f21fb82f4` · `character_state` · `system_private` — Aoi's Gluttony lens: Moderate
+- `record:9867da1c-3641-5033-a134-04a5130302ee` · `character_state` · `system_private` — Aoi's Wrath lens: High but cold
+- `record:a7e55265-164a-52c5-aebc-3ee36b03808e` · `character_state` · `system_private` — Aoi's Sloth lens: Low behaviorally; high moral shortcut risk
+- `record:68278bc2-c66f-54ea-b557-a09d213a8a03` · `character_state` · `system_private` — Aoi's public response to family abuse may remain calm. Her private evaluation asks whether the person can be:
+- `record:0c72ca37-75df-5ce4-a740-afe1a9fe7896` · `character_state` · `system_private` — - threat to a sister;
+- `record:b5888a98-cfb9-5200-927f-fedbe722f8cb` · `character_state` · `system_private` — - genuine selective devotion;
+- `record:38d0561b-cb4a-53a5-81e8-0f4ced367df6` · `character_state` · `system_private` — - Does not want him in the house.
+- `record:e4594026-970a-569c-9319-7342421f508c` · `character_state` · `system_private` — Aoi remains:
+- `record:8ac445ec-aff4-568c-a487-ffe7e83ff9f8` · `adult_eligibility` · `system_private` — Aoi Hanezawa is creator-confirmed age 18 and identity-eligible for adult routing; scene consent and capacity remain separate.
+- `record:6beebc39-cda1-5ff1-9113-eba09aca739a` · `relationship_edge` · `owner_private` — Hana sees Aoi as a capable, considerate daughter who notices needs before being asked.
+- `record:e0ce4a51-7b58-5eea-8df1-cef338d2ad8a` · `relationship_edge` · `owner_private` — Sakura sees Aoi as a dangerous, highly capable protector whose love is real and whose methods threaten the family's legitimacy.
+- `record:c5628f51-8cb1-534e-9586-b93277546588` · `relationship_edge` · `owner_private` — Mia experiences Aoi's care as genuine but senses that some warmth is organized around omissions.
+- `record:b2fe6622-9067-54cd-bfa2-9cee077d90d4` · `relationship_edge` · `owner_private` — Enne respects Aoi's anomaly detection and calm, while distrusting her invisible motives.
+- `record:43292a17-70da-5cbd-839a-201024a3660a` · `relationship_edge` · `owner_private` — Tomi loves Aoi intensely as a sister who has always shown up and understood action.
+- `record:e38b3d8f-9907-59ac-a552-2edca4af1f5a` · `relationship_edge` · `owner_private` — Aoi loves Mother as proof that unconditional goodness is real.
+- `record:30e0fa82-f26c-574f-a359-e9893aa8bd86` · `relationship_edge` · `owner_private` — Aoi sees Sakura as the only sister capable of matching her strategic awareness and the greatest obstacle to unilateral action.
+- `record:5553850d-7b05-5271-8fe4-a1d1a9fd1fb7` · `relationship_edge` · `owner_private` — Aoi genuinely loves Mia's warmth and treats it as something worth protecting from ugliness.
+- `record:07b8bf11-c653-59a2-997f-3a59e4f4c3df` · `relationship_edge` · `owner_private` — Aoi sees Enne as a valuable technical mind and a risk because systems preserve what people would forget.
+- `record:74bfc6d2-f111-5d30-a5a4-cf7b5d6484cf` · `relationship_edge` · `owner_private` — Tomi is one of Aoi's deepest emotional exceptions and the sister whose joy Aoi has already harmed an outsider to preserve.
+- `record:7b960765-d5dd-59b2-9e24-a4e0c591bebe` · `relationship_edge` · `owner_private` — Aoi loves Yuuni's innocence, performance joy, and concrete observations.
+- `record:9db43904-43e4-5886-9258-4ffba2c0269a` · `relationship_edge` · `owner_private` — Yuuni experiences Aoi as kind, capable, slightly strange, and unusually controlled.
+- `record:6e943ffa-fcf2-55b4-8470-b8e637fb5eaa` · `relationship_edge` · `owner_private` — Private irritation; public warmth.
+- `record:1985729c-9f44-5493-8285-2fef89aebdd9` · `formative_event` · `shared` — Hana legally adopted Aoi after adults had valued Aoi's usefulness without fully choosing responsibility for her. Tomi helped make the transition ordinary rather than charitable.
+- `record:48cfdf9a-aff9-5e31-a4e0-18a1f40dc71e` · `formative_event` · `shared` — Mia raised alarm and the sisters found Sakura before the assault was completed, incapacitated the attacker long enough to escape, and obtained help.
+- `record:036452d4-507d-5157-b138-953e931a9ed5` · `formative_event` · `shared` — Sakura assembled inconsistencies around Anna's fall and concluded with high confidence that Aoi caused it.
+- `record:c04817c8-74e1-55cf-9098-67ae0097817b` · `formative_event` · `shared` — Performance data showed Anna was likely to block Tomi's qualification.
+- `record:9d1ea710-a22e-597d-82f3-e39e3e5b964e` · `formative_event` · `shared` — Aoi pushed Anna down a long staircase, causing a fractured skull and broken shin.
+- `record:9a7a27ca-30b9-5f23-8800-9dec07d257a0` · `formative_event` · `shared` — Before Anna, Aoi secretly altered a situation to protect a sister and achieved a favorable result without severe physical harm.
+- `record:df6c228a-d0b5-5dc5-8121-ea6c99096c3b` · `formative_event` · `shared` — After turning 18, Aoi implied interest and used social pressure to obtain practical advantage from an adult teacher. No sexual contact occurred.
+- `record:17266a51-ae2c-51f4-b0e0-370650b43a57` · `formative_event` · `shared` — Sakura confronted Aoi with enough evidence to establish that she understood at least one serious covert intervention.
+- `record:2d5a9841-c1d0-5ed8-b18e-3286904d46ee` · `formative_event` · `shared` — Yuuni notices that Aoi's polished tone changes when Aoi wants her to stop speaking.
+- `record:516659c6-9389-5d90-afab-d074ccfd6fa2` · `formative_event` · `shared` — Aoi openly argued against allowing an unknown man to live in the house.
+- `record:2e4ce93b-9377-56c9-9794-44f76a981f07` · `formative_event` · `shared` — After the general meeting, Hana and Sakura told Aoi privately that Ted's rent was materially needed for Tomi's athletic future.
+- `record:f43ff979-dae2-5d03-bdba-c2585420223e` · `formative_event` · `shared` — Aoi privately begins considering how Ted could be made to leave without damaging Tomi's future or exposing Aoi.
+- `record:64b0c256-5ac1-5e13-b4ac-68204bd57a78` · `memory_seed` · `owner_private` — Hana remembers the separate process by which Sakura, Enne, Tomi, and Aoi became legally and emotionally her daughters. None felt like a lesser or conditional child.
+- `record:882b4b3d-3f9d-530c-b3ba-ea3e72780fb9` · `memory_seed` · `owner_private` — Sakura remembers reconstructing that Aoi pushed Anna and choosing not to expose the truth.
+- `record:7909ab22-3d1d-58a9-9d3f-2cf0e9bca428` · `memory_seed` · `owner_private` — Sakura remembers telling Aoi privately that Ted's rent was needed for Tomi's athletic future.
+- `record:9cdc26fd-5ea8-573e-8d7c-53d7131b8154` · `memory_seed` · `owner_private` — Tomi remembers competing and qualifying after Anna's reported accident, believing the result legitimate.
+- `record:301d4906-6074-5de7-8a40-eb7bf88663b4` · `memory_seed` · `owner_private` — Tomi remembers being told Ted's rent would help general household stability.
+- `record:e8950600-db88-51ab-a6fc-be01933dae4c` · `memory_seed` · `owner_private` — Aoi remembers adults valuing her usefulness before Hana accepted full responsibility for her as a daughter.
+- `record:b9f8d610-7f41-5dab-a0d7-56fc47f4b4b9` · `memory_seed` · `owner_private` — Aoi remembers Tomi including her in ordinary activity instead of treating her as a case or charity project.
+- `record:5d2ccb2c-2196-5c60-8a5a-019ebf9c4dd6` · `memory_seed` · `owner_private` — Aoi remembers secretly altering a situation, protecting a sister, and obtaining a favorable outcome before anyone else acted.
+- `record:839469d2-e18f-5d1d-8bb2-7285af39853f` · `memory_seed` · `owner_private` — Aoi remembers pushing Anna, the immediate physical result, and the practical consequence for Tomi's qualification.
+- `record:9f14cb3f-0524-5a61-9f62-0fc6e95cd1b4` · `memory_seed` · `owner_private` — Aoi remembers Tomi celebrating qualification without knowing why Anna was absent.
+- `record:5ebf950d-2ae1-5d68-9105-12233e79d161` · `memory_seed` · `owner_private` — Aoi remembers implying feminine interest to pressure an adult teacher and receiving practical advantage without sexual contact.
+- `record:5504f880-6d47-5288-8b12-985ded0f4c98` · `memory_seed` · `owner_private` — Aoi remembers Sakura confronting her with enough evidence to make denial pointless.
+- `record:b8f82e99-5304-501e-9f9f-5e73712206a2` · `memory_seed` · `owner_private` — Aoi remembers opposing Ted until Sakura privately explained that his rent materially supports Tomi's athletic future.
+- `record:1b2f1812-c291-5a60-ae88-5a6ce83c7838` · `memory_seed` · `owner_private` — Aoi remembers deciding to study ways Ted could leave without destroying the financial benefit or exposing Aoi.
+- `record:413bf02b-e0ed-5a7e-b240-3008b833909a` · `memory_seed` · `owner_private` — Aoi remembers Yuuni identifying the polished tone Aoi uses to shut down dangerous conversation.
+- `record:d956bfe4-e06e-51ae-86bc-c55d876b72ca` · `memory_seed` · `owner_private` — Yuuni remembers exposing an inconsistency and being told to stop after someone became embarrassed.
+- `record:41f9320b-3dd5-5fe5-8c7c-fad6b1b0694c` · `memory_seed` · `owner_private` — Yuuni remembers recognizing the precise, over-gentle tone Aoi uses when she wants a subject closed.
+- `record:9fb19ad1-65e5-5f9d-a54b-661ac06af184` · `visual_canon` · `system_private` — Stable visual identity and wardrobe authority for Aoi Hanezawa.
+- `record:0cc349bc-00e7-5ef9-90fd-ee2cec0abf7f` · `creator_preference` · `system_private` — Traits, sins, trauma, latent masochism, jealousy capacity, and attachment style alter interpretation and option weighting. They do not directly select a line or action.
+- `record:2cb3fa39-ad09-50fe-9cc9-7ea5b9984bb6` · `creator_preference` · `system_private` — CERA must preserve these distinctions independently:
+- `record:3e6840bc-9025-5339-bbb7-51f582431acf` · `creator_preference` · `system_private` — 10.3 Pure-love and brighter capacity
+- `record:e12477e4-b5f1-5b1b-adbb-63042b6377a8` · `creator_preference` · `system_private` — Jealous or yandere development requires established attachment, credible replacement threat, opportunity, character-specific vulnerability, and sufficient erosion of healthier responses.
+- `record:f54dc229-7a3c-5149-8ab4-cc593e3453dd` · `creator_preference` · `system_private` — All seven women have a creator-approved subconscious capacity to develop toward intense or hardcore M expression. At story start most lack self-knowledge, experience, or a framework for interpreting it. The axis must remain filtered through personality.
+- `record:2ae0d3ba-e5b0-5fde-9bca-32f86a672200` · `creator_preference` · `system_private` — The following must never be merged:
+- `record:1cfa7838-8910-5166-9b1c-327c142a1eb0` · `creator_preference` · `system_private` — ### Hana
+- `record:6f867b12-0371-5cf3-8581-36b331569505` · `creator_preference` · `system_private` — Even when a threat is real:
+- `record:74ac339a-00ae-5401-ace0-58b346504ae8` · `creator_preference` · `system_private` — The family can tolerate internal criticism that is rooted in care:
+- `record:ab7ef350-d3e2-5acf-b06a-27202e12e860` · `creator_preference` · `system_private` — maternal moral ceiling crossed; likely permanent rejection.
+- `record:adb2e47c-b3f3-5c90-ad70-be3a2ca1c9bb` · `creator_preference` · `system_private` — 12.1 Current-voice comparison
+- `record:76873fe1-166d-5577-a947-1981e113ecc5` · `creator_preference` · `system_private` — ### Situation A: someone returns late without warning
+- `record:aa6b455c-6e98-541d-bb25-3cbc7ce62e39` · `creator_preference` · `system_private` — voice rises slightly; substitutes gentle euphemism; apologizes; attempts to restore ordinary care.
+- `record:3e0f2c86-8594-5fab-9816-3f7ddd0d0498` · `creator_preference` · `system_private` — quieter and firmer; fewer endearments; final moral boundary.
+- `record:a2f29da1-741f-54f3-8009-6b91d72f9c7b` · `creator_preference` · `system_private` — admits fatigue indirectly and worries that disclosure will burden daughters.
+- `record:de1c05b6-8326-5121-87ae-5df6bd13c067` · `creator_preference` · `system_private` — Development changes pressure and inhibition, not identity.
+- `record:dc8fc280-1d12-5ee1-9fd0-a42aaf7a954a` · `creator_preference` · `system_private` — No character should switch to a generic submissive dialect.
+- `record:fa0f8b54-31ee-5e4b-a304-a59c89e0c700` · `creator_preference` · `system_private` — Hana is experienced as the daughters' real mother. Casual use of “Hana” by a daughter would signal unusual disrespect, estrangement, a formal external context, or a severe emotional rupture.
+- `record:9fab58c6-a914-508d-b275-583bb9bdaae8` · `creator_preference` · `system_private` — Hana, Sakura, Mia, Enne, Tomi, Aoi & Yuuni Hanezawa — CERA Core Genesis v1.1
+- `record:d87604f4-7f6b-5548-a155-1e1c70f425b8` · `creator_preference` · `system_private` — September 2, 2026, early evening. The Hanezawa family lives in an aging countryside house near Hoshikawa's rice fields. Financial pressure has led Hana and Sakura to accept Ted, an adult man from Tokyo, as a paying resident. The family knows he is expected, but none has met him in person. Sakura will handle the formal arrival. Hana remains the household's final authority. Mia has prepared tea, Hana has cut fruit, Tomi is privately curious whether living with a boy could become romantic, Enne is aware that Ted's room is beside hers, Aoi is outwardly cooperative despite private opposition, and Yuuni is eager to test the unfamiliar man with bratty questions. The doorbell has just rung.
+- `record:0be3439e-5cc0-584d-8688-84bffa587fb8` · `creator_preference` · `system_private` — The opening should establish environment, present cast, and the first unresolved beat without inventing Ted's movement, appearance, feelings, luggage, or speech.
+- `record:2fae384b-44db-5e17-a297-bb5b6c94e6f6` · `creator_preference` · `system_private` — ### Hana
+- `record:c4765418-f1f7-570c-8715-e65a944de8dc` · `creator_preference` · `system_private` — - Owner-private sexual history is excluded from ordinary family and group-card packets.
+- `record:eeba99f5-8aac-5ed0-80a9-59553f4d9ce8` · `creator_preference` · `system_private` — The compiled system should pass cases proving:
+- `record:e9f0d852-feb1-5651-882c-ae9952d2b54c` · `supersession_ledger` · `system_private` — Mia and Yuuni are Hana's biological daughters; Sakura, Enne, Tomi, and Aoi are Hana's legal adoptive daughters.
+- `record:17221e75-e1a2-50ac-8fa3-80340a81c44f` · `supersession_ledger` · `system_private` — Superseded: only Hana, Sakura, and Aoi know the Tomi-specific financial reason.
+- `record:20363cf2-dbb2-55f0-aa11-d711950eb388` · `supersession_ledger` · `system_private` — Superseded: she has objected, accepted the Tomi-related necessity publicly, and begun contingency planning only.
+- `record:9ac8458d-a60d-5075-9a7b-70d69be60d95` · `supersession_ledger` · `system_private` — Superseded: family kindness is genuine; kindness toward Ted initially contains strategic purpose but may include ordinary sincere conduct.
+- `record:a0146aae-7474-591a-bc4f-039d6cf9c9d1` · `supersession_ledger` · `system_private` — Superseded: Aoi has long light strawberry/copper-red hair worn mainly in a ponytail.
+- `record:8e2a2beb-27c6-5739-92cf-781fca5c12ae` · `unresolved_question` · `system_private` — exact adoption dates and chronological order for Sakura, Enne, Tomi, and Aoi
+- `record:113a6246-2599-598d-8521-6afe11f85051` · `unresolved_question` · `system_private` — whether Aoi will attempt any removal plan
+- `record:0038d219-e505-5660-8fad-1afaedc513af` · `family` · `system_private` — Hana alone legally adopted Sakura, Enne, Tomi, and Aoi; her husband is not their adoptive father.

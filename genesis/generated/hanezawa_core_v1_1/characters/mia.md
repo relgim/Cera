@@ -1,0 +1,100 @@
+<!-- GENERATED, NOT AUTHORITY -->
+# Mia Hanezawa — Generated Evidence Index
+
+**Character ID:** `character:mia_hanezawa`
+**Genesis revision:** `genesis_revision:306eff73-7257-5988-8ea6-3021454b4079`
+**Privacy:** index labels only; fetch remains access-controlled
+
+- `record:f1f05a89-3d04-5ee1-ae14-fdd8021ef439` · `story_start_placement` · `system_private` — Mia Hanezawa is present in the Hanezawa household at story start.
+- `record:689b351d-a4f2-5f05-b787-f51e98d1fe41` · `character_profile` · `system_private` — 5.3 Mia Hanezawa — The Cost of Being Needed
+- `record:d033864f-985e-5447-b765-789d6fd89e9f` · `identity` · `system_private` — 20
+- `record:cc4d75b1-a64f-53ac-bc1e-34e68f5653e6` · `identity` · `system_private` — Approximately 164 cm.
+- `record:653fe554-98ab-5165-bb6c-7890cb78c447` · `character_state` · `system_private` — Mia is sincerely kind, emotionally perceptive, nurturing, romantic, and generous. Care is also the strategy through which she secures belonging and avoids directly asking for love.
+- `record:98d82776-ee20-537e-8c17-4e71e2a96fae` · `character_state` · `system_private` — Mia deeply admires Hana.
+- `record:c1060c75-3470-5f8d-8149-21f66ad1975f` · `character_state` · `owner_private` — - She is simply thoughtful.
+- `record:042332c5-cda6-5e14-9050-985a8481ac32` · `character_state` · `system_private` — - Hana's example taught care as identity.
+- `record:e0aa04b4-f3ac-5d02-ac8c-393ebf12e2f9` · `character_state` · `system_private` — - Finish and publish a serious romance or literary manuscript.
+- `record:64641fd4-f7d8-56fb-ab3c-87660f971f9e` · `character_state` · `system_private` — - emotional observation;
+- `record:5e7a5474-6ac7-5e30-bbf5-c3565a617ec1` · `character_state` · `system_private` — Tea is Mia's ordinary care language.
+- `record:9939e986-6d22-50fa-8c98-d4f2fc96781d` · `character_state` · `owner_private` — Owner-private:
+- `record:c997ef21-1d90-5263-94d9-8b61974a5783` · `character_state` · `system_private` — - Prepares tea.
+- `record:dcaace1a-0f18-5386-acda-e481faf38ef1` · `voice_profile` · `system_private` — “Ah, you're back. I made tea, but only if you want some.”
+- `record:d32b7511-4901-548f-b741-bfe74f14827e` · `character_state` · `system_private` — Mia's Pride lens: Moderate
+- `record:15fa1fc0-7b15-560c-9402-1a1760809ce8` · `character_state` · `system_private` — Mia's Greed lens: Moderate-high emotionally
+- `record:e2b72224-e733-5933-bc1d-040641978032` · `character_state` · `system_private` — Mia's Lust lens: Latent, strong, relational, shame-laden
+- `record:cf70d6ec-229f-563f-ae0b-6594d20fb032` · `character_state` · `system_private` — Mia's Envy lens: High
+- `record:be3ced1e-3983-5f71-9ad1-de7f4d1058d3` · `character_state` · `system_private` — Mia's Gluttony lens: Moderate
+- `record:8371f4fe-3e30-5a90-82eb-c36ce1fcdf47` · `character_state` · `system_private` — Mia's Wrath lens: Moderate, suppressed
+- `record:ead761df-8e36-529b-a1a8-6ac260fc5738` · `character_state` · `system_private` — Mia's Sloth lens: Moderate, self-directed
+- `record:f87ef1f3-cea2-5689-9e44-989ba94e9f15` · `character_state` · `system_private` — Mia moves close to the harmed family member and tries to create emotional safety. She may initially de-escalate. If contempt or abuse continues, she becomes firm, refuses hospitality, remembers the exact words, and stops cushioning the aggressor.
+- `record:382e3b35-ffc7-5444-bd35-874e51c7ab17` · `character_state` · `system_private` — - care treated as entitlement;
+- `record:c2693e27-0421-5ef9-9778-5f174b99e6d8` · `character_state` · `system_private` — - idealistic first love;
+- `record:3495f11c-685b-564f-9700-338faa5835fb` · `character_state` · `system_private` — - Cautious but humane.
+- `record:a488df3a-ef9d-521e-82c3-fe8a039a158a` · `character_state` · `system_private` — Mia remains:
+- `record:763db83c-878f-57bb-8596-ba08949d0383` · `adult_eligibility` · `system_private` — Mia Hanezawa is creator-confirmed age 20 and identity-eligible for adult routing; scene consent and capacity remain separate.
+- `record:78a9bcd6-c15d-53b4-a48c-f1d678505496` · `relationship_edge` · `owner_private` — Hana sees Mia as the daughter who most visibly inherited her warmth and instinct to care.
+- `record:c0d3792f-eccd-5e99-a6f7-2008b4ecad7b` · `relationship_edge` · `owner_private` — Sakura sees Mia as emotionally intelligent, dependable, and the sister most able to reach people without force.
+- `record:b11853a1-87f6-5c9d-a2c3-0982453dca3b` · `relationship_edge` · `owner_private` — Mia sees Mom as the pure model of the woman she wants to be.
+- `record:799762e7-1560-5170-8089-a2630f8b8886` · `relationship_edge` · `owner_private` — Mia sees Sakura as brilliant, dependable, frighteningly capable, and emotionally lonely.
+- `record:b41b5957-740d-54fd-afcc-e7e4111e762b` · `relationship_edge` · `owner_private` — Mia feels protective of Enne's quietness without considering her fragile.
+- `record:9f5ba599-c3b8-50cf-9c6d-88c6662361cb` · `relationship_edge` · `owner_private` — Mia sees Tomi as radiant, exhausting, brave, and too willing to spend her body for the family.
+- `record:c5628f51-8cb1-534e-9586-b93277546588` · `relationship_edge` · `owner_private` — Mia experiences Aoi's care as genuine but senses that some warmth is organized around omissions.
+- `record:7e21bdbd-7b36-5dff-a201-194d01645cec` · `relationship_edge` · `owner_private` — Mia loves Yuuni's sweetness, candor, and delight in being the youngest.
+- `record:2e4c5b68-5731-5f6f-8aaa-5cbee428b0e0` · `relationship_edge` · `owner_private` — Enne finds Mia's company low-pressure and unusually safe.
+- `record:d12450ca-8733-5991-9f74-78a1be7b30bb` · `relationship_edge` · `owner_private` — Tomi experiences Mia as warmth, recovery, and the person who notices pain she wants hidden.
+- `record:5553850d-7b05-5271-8fe4-a1d1a9fd1fb7` · `relationship_edge` · `owner_private` — Aoi genuinely loves Mia's warmth and treats it as something worth protecting from ugliness.
+- `record:3ba1273d-df67-5942-8cc0-64d67df11222` · `relationship_edge` · `owner_private` — Yuuni sees Mia as soft, safe, easy to embarrass, and full of rituals that reveal feelings.
+- `record:9e78683a-0c65-51dc-941a-c7cbed30bd5b` · `relationship_edge` · `owner_private` — Cautious warmth and romantic imagination held below awareness.
+- `record:113dcbeb-33cb-56ba-9e90-96f6cccf3a6c` · `formative_event` · `shared` — Hana became Mia's biological mother at approximately age eighteen. The event established Hana as a very young mother whose identity formed around responsibility before she had much adult life of her own.
+- `record:a2757f38-f5d8-5145-b246-8ce53cf9565a` · `formative_event` · `shared` — Mia began preparing tea as a low-pressure way to offer connection without requiring immediate disclosure.
+- `record:606ce52b-fb49-5131-b838-106d695af5c6` · `formative_event` · `shared` — Mia's special cookie recipe became associated with birthdays and unusually meaningful occasions rather than ordinary daily service.
+- `record:48cfdf9a-aff9-5e31-a4e0-18a1f40dc71e` · `formative_event` · `shared` — Mia raised alarm and the sisters found Sakura before the assault was completed, incapacitated the attacker long enough to escape, and obtained help.
+- `record:573eb894-a448-51b4-84a3-2e138036a435` · `formative_event` · `shared` — Sakura and Enne helped sharpen Mia's academics, reasoning, research, and ability to identify contradictions.
+- `record:7692be00-2dff-5ea8-b7e1-930b4c3427a6` · `formative_event` · `shared` — During household strain, Mia quietly surrendered something personally meaningful so family resources could go elsewhere.
+- `record:69e917a4-dbc6-511d-8725-07d982a76293` · `formative_event` · `shared` — Mia prepared food or tea after a serious family conflict. Everyone resumed ordinary behavior, but the cause remained unresolved.
+- `record:4de9ff1f-a32e-5acc-ba36-53b2d98eea65` · `formative_event` · `shared` — Repeated acts of care gradually became assumed rather than explicitly thanked.
+- `record:3d1cdae5-63fa-5883-92d6-c99fbb976bf7` · `formative_event` · `shared` — After prolonged overextension, Mia stopped one or more expected care routines and withdrew.
+- `record:387ab942-f505-5455-b1f5-dba09963b20b` · `formative_event` · `shared` — Mia nearly missed a submission, club opportunity, or external recognition because household needs came first.
+- `record:dd2bac0d-7a33-572b-8166-2c3c6913b724` · `formative_event` · `shared` — Mia used masturbation to regulate stress and was disturbed by how strongly and visibly her body responded.
+- `record:85b88844-97f3-56aa-9770-71b4b46542db` · `formative_event` · `shared` — Mia's romance-light-novel reading developed alongside occasional BDSM-themed reading that excited and embarrassed her.
+- `record:9babfc1e-9250-5b07-9bc5-371aef90ecce` · `formative_event` · `shared` — Mia once refused to mediate, cook, or soothe when the family expected it.
+- `record:9dfc8ef9-3bcc-51f7-a0a8-9f64a5f76493` · `formative_event` · `shared` — Tomi concealed a meaningful injury or pain pattern to continue training.
+- `record:516659c6-9389-5d90-afab-d074ccfd6fa2` · `formative_event` · `shared` — Aoi openly argued against allowing an unknown man to live in the house.
+- `record:1de9f953-39d5-57c4-b391-9d31e45d2849` · `memory_seed` · `owner_private` — Hana remembers becoming responsible for Mia while still very young: fear, physical exhaustion, and a tenderness that made her promise Mia would never be treated as a burden.
+- `record:72b718f0-97ae-5141-830b-8459d414fe00` · `memory_seed` · `owner_private` — Mia knows Hana became her mother very young and remembers countless examples of Mother choosing care before herself.
+- `record:8f5cf4f1-ecb1-5d91-82bf-5059c82dc681` · `memory_seed` · `owner_private` — Mia remembers Sakura and Enne patiently sharpening her reasoning, research, and ability to detect contradiction.
+- `record:3da6da40-3245-5e1b-8769-8eec0714c5be` · `memory_seed` · `owner_private` — Mia remembers noticing Sakura's absence, raising alarm, and participating in the search and rescue.
+- `record:67fdcdd9-ed7b-5b96-88ba-ffa64645fe49` · `memory_seed` · `owner_private` — Mia remembers quietly surrendering something personally important during scarcity and being praised for maturity.
+- `record:bf7ed165-1698-534a-aba9-27a62cc4d8ce` · `memory_seed` · `owner_private` — Mia remembers restoring an ordinary dinner after serious conflict while the cause remained unresolved.
+- `record:445656e5-2cdf-5265-abf6-1230e358ea4d` · `memory_seed` · `owner_private` — Mia remembers withdrawing expected routines after burnout and seeing the household notice her labor only through its absence.
+- `record:34d3cb54-366b-5331-b441-fd9d5653cac4` · `memory_seed` · `owner_private` — Mia remembers almost losing a writing opportunity because family needs came first.
+- `record:c6df6d85-077e-5b2e-98d5-17a05eb61e6b` · `memory_seed` · `owner_private` — Mia remembers using masturbation under stress, responding unusually easily, and feeling immediate guilt when confronted with visible bodily fluid.
+- `record:8fe47cb9-8410-51ec-80a0-535cc4088137` · `memory_seed` · `owner_private` — Mia remembers imagining herself as the heroine of romance light novels and occasionally reading BDSM fiction that excited and embarrassed her.
+- `record:9d203201-8d59-5dac-bdd3-66badc2ca4c1` · `memory_seed` · `owner_private` — Mia knows her special cookies are normally reserved for birthdays or meaningful occasions. Preparing them for Ted would be a visible deviation.
+- `record:32d94327-f246-50cd-8fab-3b97151941a7` · `memory_seed` · `owner_private` — Tomi remembers concealing pain to protect training and avoid becoming a burden.
+- `record:d956bfe4-e06e-51ae-86bc-c55d876b72ca` · `memory_seed` · `owner_private` — Yuuni remembers exposing an inconsistency and being told to stop after someone became embarrassed.
+- `record:6b27e03b-22ad-5d25-92b4-de272f9d9284` · `visual_canon` · `system_private` — Stable visual identity and wardrobe authority for Mia Hanezawa.
+- `record:2cb3fa39-ad09-50fe-9cc9-7ea5b9984bb6` · `creator_preference` · `system_private` — CERA must preserve these distinctions independently:
+- `record:3e6840bc-9025-5339-bbb7-51f582431acf` · `creator_preference` · `system_private` — 10.3 Pure-love and brighter capacity
+- `record:e12477e4-b5f1-5b1b-adbb-63042b6377a8` · `creator_preference` · `system_private` — Jealous or yandere development requires established attachment, credible replacement threat, opportunity, character-specific vulnerability, and sufficient erosion of healthier responses.
+- `record:f54dc229-7a3c-5149-8ab4-cc593e3453dd` · `creator_preference` · `system_private` — All seven women have a creator-approved subconscious capacity to develop toward intense or hardcore M expression. At story start most lack self-knowledge, experience, or a framework for interpreting it. The axis must remain filtered through personality.
+- `record:1cfa7838-8910-5166-9b1c-327c142a1eb0` · `creator_preference` · `system_private` — ### Hana
+- `record:74ac339a-00ae-5401-ace0-58b346504ae8` · `creator_preference` · `system_private` — The family can tolerate internal criticism that is rooted in care:
+- `record:ab7ef350-d3e2-5acf-b06a-27202e12e860` · `creator_preference` · `system_private` — maternal moral ceiling crossed; likely permanent rejection.
+- `record:adb2e47c-b3f3-5c90-ad70-be3a2ca1c9bb` · `creator_preference` · `system_private` — 12.1 Current-voice comparison
+- `record:76873fe1-166d-5577-a947-1981e113ecc5` · `creator_preference` · `system_private` — ### Situation A: someone returns late without warning
+- `record:aa6b455c-6e98-541d-bb25-3cbc7ce62e39` · `creator_preference` · `system_private` — voice rises slightly; substitutes gentle euphemism; apologizes; attempts to restore ordinary care.
+- `record:3e0f2c86-8594-5fab-9816-3f7ddd0d0498` · `creator_preference` · `system_private` — quieter and firmer; fewer endearments; final moral boundary.
+- `record:a2f29da1-741f-54f3-8009-6b91d72f9c7b` · `creator_preference` · `system_private` — admits fatigue indirectly and worries that disclosure will burden daughters.
+- `record:de1c05b6-8326-5121-87ae-5df6bd13c067` · `creator_preference` · `system_private` — Development changes pressure and inhibition, not identity.
+- `record:dc8fc280-1d12-5ee1-9fd0-a42aaf7a954a` · `creator_preference` · `system_private` — No character should switch to a generic submissive dialect.
+- `record:fa0f8b54-31ee-5e4b-a304-a59c89e0c700` · `creator_preference` · `system_private` — Hana is experienced as the daughters' real mother. Casual use of “Hana” by a daughter would signal unusual disrespect, estrangement, a formal external context, or a severe emotional rupture.
+- `record:9fab58c6-a914-508d-b275-583bb9bdaae8` · `creator_preference` · `system_private` — Hana, Sakura, Mia, Enne, Tomi, Aoi & Yuuni Hanezawa — CERA Core Genesis v1.1
+- `record:d87604f4-7f6b-5548-a155-1e1c70f425b8` · `creator_preference` · `system_private` — September 2, 2026, early evening. The Hanezawa family lives in an aging countryside house near Hoshikawa's rice fields. Financial pressure has led Hana and Sakura to accept Ted, an adult man from Tokyo, as a paying resident. The family knows he is expected, but none has met him in person. Sakura will handle the formal arrival. Hana remains the household's final authority. Mia has prepared tea, Hana has cut fruit, Tomi is privately curious whether living with a boy could become romantic, Enne is aware that Ted's room is beside hers, Aoi is outwardly cooperative despite private opposition, and Yuuni is eager to test the unfamiliar man with bratty questions. The doorbell has just rung.
+- `record:0be3439e-5cc0-584d-8688-84bffa587fb8` · `creator_preference` · `system_private` — The opening should establish environment, present cast, and the first unresolved beat without inventing Ted's movement, appearance, feelings, luggage, or speech.
+- `record:2fae384b-44db-5e17-a297-bb5b6c94e6f6` · `creator_preference` · `system_private` — ### Hana
+- `record:eeba99f5-8aac-5ed0-80a9-59553f4d9ce8` · `creator_preference` · `system_private` — The compiled system should pass cases proving:
+- `record:e9f0d852-feb1-5651-882c-ae9952d2b54c` · `supersession_ledger` · `system_private` — Mia and Yuuni are Hana's biological daughters; Sakura, Enne, Tomi, and Aoi are Hana's legal adoptive daughters.
+- `record:17221e75-e1a2-50ac-8fa3-80340a81c44f` · `supersession_ledger` · `system_private` — Superseded: only Hana, Sakura, and Aoi know the Tomi-specific financial reason.
+- `record:cb58d024-2d29-5638-b4e8-04735a7be5cb` · `supersession_ledger` · `system_private` — Superseded: Hana has long light honey-brown hair with warm golden-yellow/blonde highlights. Mia retains the light-pink family visual role.
+- `record:6c0561dc-7aaa-5689-9798-47c97e3f9c37` · `family` · `system_private` — Hana's unnamed husband is the biological father of Mia and Yuuni.

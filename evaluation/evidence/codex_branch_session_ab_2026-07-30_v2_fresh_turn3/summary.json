@@ -1,0 +1,146 @@
+{
+  "aggregate": {
+    "fresh_each_turn": {
+      "cached_input_tokens": 0,
+      "completed_turns": 1,
+      "duration_seconds": 13.757,
+      "input_tokens": 22046,
+      "output_tokens": 604,
+      "provider_calls": 1,
+      "reasoning_output_tokens": 370,
+      "status": "passed",
+      "thread_start_count": 1,
+      "uncached_input_tokens": 22046,
+      "wall_seconds": 22.289
+    }
+  },
+  "benchmark_id": "codex-branch-session-ab-2026-07-30-v1",
+  "depth": "long",
+  "effort": "medium",
+  "fallback_count": 0,
+  "finished_at": "2026-07-31T04:02:28.467675+00:00",
+  "messages": [
+    "Hello, my name is Ted. Is this the hanezawa household?",
+    "Respond accordingly to Sakuras Response.",
+    "Respond accordingly to Sakuras Response."
+  ],
+  "model": "gpt-5.6-sol",
+  "policies": [
+    {
+      "description": "one warm Codex process; a fresh ephemeral thread for every turn",
+      "key": "fresh_each_turn",
+      "reuse_thread": false
+    }
+  ],
+  "production_route_changed": false,
+  "provider_stages": [
+    {
+      "dispatch_started": true,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "policy": "fresh_each_turn",
+      "provider": "openai_codex",
+      "turn": 3
+    }
+  ],
+  "retry_count": 0,
+  "runs": [
+    {
+      "database_validation": {
+        "artifact_count": 0,
+        "foreign_key_findings": 0,
+        "integrity_check": [
+          "ok"
+        ]
+      },
+      "fallback_count": 0,
+      "finished_at": "2026-07-31T04:02:28.415611+00:00",
+      "policy": {
+        "description": "one warm Codex process; a fresh ephemeral thread for every turn",
+        "key": "fresh_each_turn",
+        "reuse_thread": false
+      },
+      "provider_calls": 1,
+      "retry_count": 0,
+      "schema_version": "cera.codex_branch_session_ab_run.v1",
+      "started_at": "2026-07-31T04:02:03.037959+00:00",
+      "status": "passed",
+      "story_state_committed": false,
+      "thread_start_count": 1,
+      "turns": [
+        {
+          "cached_input_tokens": 0,
+          "duration_seconds": 13.757,
+          "index": 3,
+          "input_tokens": 22046,
+          "message": "Respond accordingly to Sakuras Response.",
+          "message_sha256": "f250492cb9b0fd9a3a41efef4e63514b2939072f6cf4e2fb0bf77bef692c7cf4",
+          "outcome": {
+            "event_blocks": [],
+            "floor_owner_id": null,
+            "future_segments": [],
+            "hard_citation_count": 0,
+            "insufficiencies": [
+              "The request depends on the exact content of “Sakuras Response,” but no bound prior sequence or response text is supplied; therefore the reply cue, established positions, and scene state needed for a decision-ready plan cannot be determined."
+            ],
+            "responding_npc_ids": [],
+            "runway": null,
+            "scene_intent": null,
+            "status": "insufficient_evidence"
+          },
+          "output_tokens": 604,
+          "packet_bytes": 21740,
+          "packet_sha256": "4b0c9256d361888d3317fa24584c28aea2eb43f8bc0c15e352f1f5f863513782",
+          "prompt_bytes": 37490,
+          "prompt_sha256": "9e883162615042a2e8a6d9f2c0e3be82396f64a32d104fbf71a557f0d52b459f",
+          "provider_receipt": {
+            "automatic_retry_count": 0,
+            "cached_input_tokens": 0,
+            "cost_is_estimate": false,
+            "cost_microusd": 0,
+            "duration_ms": 13757,
+            "external_provider_calls": 1,
+            "input_tokens": 22046,
+            "model_identity_source": "explicit_request",
+            "model_identity_verified": false,
+            "model_revision": "openai-resolver-2026-07-28",
+            "output_sha256": "74f24de45297c0a00fc3fe7fa779187c1c9a60fc72fb54e990f2c551943d7baa",
+            "output_tokens": 604,
+            "provider": "openai_codex",
+            "provider_receipt_id": "provider_receipt:6058aaa5-766a-5f86-8cd5-555ff344880b",
+            "provider_request_id_sha256": "c42efb9ea0ad1d42cf42f85d23bb79b2e065535bfcde1ef7bf98310b84fb566f",
+            "quota_metered": true,
+            "reasoning_output_tokens": 370,
+            "request_sha256": "dcbbf1d683834b77f9aa0d5f8c27af2239ac4da443e4521e14115633f13c0c45",
+            "requested_model": "gpt-5.6-sol",
+            "retains_private_evidence": false,
+            "retains_prompt": false,
+            "retains_raw_source": false,
+            "retains_secret": false,
+            "retains_story_prose": false,
+            "returned_model": "gpt-5.6-sol",
+            "role": "scene_reasoner",
+            "route_sha256": "ad43a26883d2b3e64d324a2545a0c3f83350d06e40cd45612505383b7775636a",
+            "schema_version": "cera.live_provider_call_receipt.v2",
+            "story_authority_writes": 0,
+            "system_fingerprint_sha256": null
+          },
+          "reasoning_output_tokens": 370,
+          "request_sha256": "d7e7a1da84aea3fd34f083bcba85969c8e46a547d4179ef68748eda1dca4d331",
+          "status": "passed",
+          "uncached_input_tokens": 22046,
+          "wall_seconds": 22.289
+        }
+      ]
+    }
+  ],
+  "schema_version": "cera.codex_branch_session_ab_summary.v1",
+  "selected_turn_indices": [
+    3
+  ],
+  "started_at": "2026-07-31T04:02:03.036458+00:00",
+  "status": "passed",
+  "story_state_committed": false,
+  "test_only_provisional_history_instruction": "TEST-ONLY CONTINUED-THREAD POLICY: Earlier CERA prompts and Reasoner drafts in this thread are non-authoritative provisional context. You may use them only to resolve a direct reference such as 'Sakura's Response'. The newest CERA packet is the complete current authority and supersedes any conflict. Never cite a prior draft as evidence, convert it into canon, or carry an old fact that the newest packet does not authorize.",
+  "total_provider_calls": 1
+}

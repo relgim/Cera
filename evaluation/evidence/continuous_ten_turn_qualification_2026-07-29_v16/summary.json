@@ -1,0 +1,65 @@
+{
+  "attempts_per_stage": 1,
+  "codex_sdk_compatibility": {
+    "activation_contract": "provider_receipt_requires_successful_worker_installation",
+    "compatibility_id": "cera.codex_sdk_early_completion_buffer.v1",
+    "route_notification_source_sha256": "8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1",
+    "sdk_version": "0.144.4"
+  },
+  "failed_turn": 1,
+  "failure_stage": "application_execution_or_acceptance",
+  "fallback_enabled": false,
+  "finished_at": "2026-07-30T00:21:00.131981+00:00",
+  "genesis_revision": "v1_2",
+  "persistent_codex_transport": {
+    "qualification_id": "persistent-codex-transport-probe-v1",
+    "reasoner_calls": 2,
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_qualification_evidence.v1",
+    "summary_sha256": "f92a08e5cda04c701c74b3d1ddd98fe1abc0da733959f56545c0eb43cd07f5f3",
+    "verifier_calls": 2
+  },
+  "persistent_codex_tree_cleanup": {
+    "cleanup_policy": "force_full_tree_before_replacement",
+    "maximum_requests_per_process": 2,
+    "process_launches": 2,
+    "qualification_id": "persistent-codex-tree-cleanup-probe-v3",
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_tree_cleanup_qualification_evidence.v1",
+    "summary_sha256": "d477cade6580dcc3d5df9e445047f57a8c9b74e6f24bb21b2a109afb0d4124d8",
+    "verifier_calls": 4
+  },
+  "persistent_codex_verifier_epoch": {
+    "cleanup_policy": "force_full_tree_before_replacement",
+    "maximum_requests_per_process": 2,
+    "process_launches": 3,
+    "qualification_id": "persistent-codex-verifier-epoch-probe-v4",
+    "requested_model": "gpt-5.6-sol",
+    "route_notification_source_sha256": "8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1",
+    "schema_version": "cera.persistent_codex_verifier_epoch_qualification_evidence.v1",
+    "sdk_compatibility_id": "cera.codex_sdk_early_completion_buffer.v1",
+    "sdk_version": "0.144.4",
+    "summary_sha256": "d08a18bc970c788ab0f9f8bdcdf647c42bd5c42e7fef3e20d51ed25ab2c84b9b",
+    "verifier_calls": 6
+  },
+  "persistent_transport_sessions": {
+    "scene_realization_verifier": {
+      "process_launch_count": 1,
+      "request_submission_count": 1
+    },
+    "scene_reasoner": {
+      "process_launch_count": 1,
+      "request_submission_count": 1
+    }
+  },
+  "qualification_id": "continuous-ten-turn-v16",
+  "reasoner_transport_policy": "persistent_no_mcp_except_request_bound_mcp_one_shot",
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-30T00:20:01.895569+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": [],
+  "verifier_transport_policy": "persistent_no_mcp"
+}

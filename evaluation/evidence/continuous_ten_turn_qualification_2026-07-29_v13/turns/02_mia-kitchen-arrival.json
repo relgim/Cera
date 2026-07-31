@@ -1,0 +1,582 @@
+{
+  "application_request_sha256": "977633ad2a595da7080a6e1ac6135aaac97f5b55011ad2b5afb77ef16f9095f5",
+  "assertions": {
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "persistent_no_mcp"
+  },
+  "composer": {
+    "accepted_prose": "Mia paused, the dish towel held still against her palms as she considered his question with a small, careful nod. \"The counter near the stove—I'm using it to set out some things I need,\" she said, her voice gentle but practical. \"It would help if that spot stays clear. The rest is fine, though you're welcome to stay nearby if you like.\"\n\nShe glanced toward the open kitchen, then back at him, her tone a shade warmer. \"I don't mind the company,\" she added, \"as long as you're not in the way. I mean—of the work. The hot work. Not you.\" A faint, self-conscious laugh escaped her, and she looked down, smoothing the towel.\n\n\"So… a little corner is yours,\" she finished, her expression settling into cautious warmth. \"But I'm not going to tell you where to stand. You can decide what feels right.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "ec877ac6ecca9ff2b2885155a91251ba0cfa5380b69e94fe819acff929023296",
+      "character_spans": [
+        {
+          "beat_id": "beat:8657cb16-6539-532f-991f-15cc33e00436",
+          "end": 338,
+          "kind": "dialogue",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:21ec6c5c-1b03-5368-b7f7-9f41ed0009ce",
+          "end": 622,
+          "kind": "dialogue",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 340
+        },
+        {
+          "beat_id": "beat:21ec6c5c-1b03-5368-b7f7-9f41ed0009ce",
+          "end": 796,
+          "kind": "dialogue",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 624
+        }
+      ],
+      "decision_sha256": "b322d50577a56b6ad483a005a76ed4e158afa8a6761baf00e8eccbc95b039195",
+      "floor_owner_id": "character:mia_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:bd74c2f2-5ab1-5f93-8b26-b8299f741adb",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "abfcb910c60244c1ccac950bc79df1660ec1a6ed7d1154c78fb07eb499a22e09",
+          "character_id": "character:mia_hanezawa",
+          "selected_intent_sha256": "ed41b0d63824f566622582ae5caf4d9f5cefa423e852c4589966cae16b8ca836"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:mia_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:8657cb16-6539-532f-991f-15cc33e00436",
+        "beat:21ec6c5c-1b03-5368-b7f7-9f41ed0009ce"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "567df141fdb61bb344dfda4e2775b18fee7ea1553596a08841fa8357abcf15ef",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "937b3dfd4fbdc4b863b654949f809aeae83079cf146e0598b8a6b98fd41e92fa",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1024,
+      "cost_is_estimate": true,
+      "cost_microusd": 1543,
+      "duration_ms": 6722,
+      "external_provider_calls": 1,
+      "input_tokens": 3485,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "d5ec5b34a50cec1d8623b64ed38a86ed0941fdb6ce961907c4db1336e9f86853",
+      "output_tokens": 538,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:fdcb48e1-a44d-543c-832d-bf02dec7a817",
+      "provider_request_id_sha256": "c405c0a46a6db560f7f822e7946643e6dae895bcbbdd1b8583d8ee670418b06f",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "b18fd01ad990d640be2bcb55e1cd69756903c6d5c355e0e1d2533edc8a5e2dde",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "bc02d58d54c17d6dc66608fc99288942112980467ff0de5cb2f3f16921fbbe79",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:mia_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "5764c9c74dcca7b1064bb03099be31ed13f25de5c9b774b540b336a6aca5928f",
+      "assembly_receipt_id": "validation:5e0fa192-37e0-54a9-8989-7b9a72a9430e",
+      "base_request_sha256": "ce1b185f8ea722e2f814dbfe8c6f4fe5d7234151f152038e0f6e5ca9fb72f7b7",
+      "cumulative_returned_bytes": 3513,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:39d7377d-c921-530c-a199-7d14563a1333",
+        "lookup_receipt:334cdcc0-a8ea-51a1-b0ed-776d41d7890b"
+      ],
+      "realization_context_sha256": "92b4bb738f01c3f7aad307af21913e301e6d074effcd7c6a33024efa7557171c",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d",
+        "evidence:e6e5bd4a-7303-52ab-8b3d-2e547c813b17"
+      ],
+      "snapshot_token": "snapshot:493c0210-522f-5e9b-ad5f-eb9d99886607",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:mia_hanezawa"
+    ]
+  },
+  "duration_seconds": 74.068,
+  "index": 2,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "8b1bd6370df3b41fb2ba4781ba4843d3330b61af1c35f1c56a6d880ad85bcab2",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "5a695dc24efb5ccb95db365523e713cfbb675d4cfe512cfb9088862065a2a457",
+      "receipt_id": "validation:218b605a-3da3-5f05-b982-a0ef782f8a3e",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "7de263df55b4a9efa2020a557ea4b4230043e200ad381ec9130ae863a4ff8c8d",
+    "receipt_id": "validation:d6fc7be7-c9a2-541f-81d6-07526b2f96d6",
+    "request_id": "request:3f16433b-dae6-55a0-a77e-22b4c71d54d7",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2402,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:0343ad3c-6cf1-5f2d-8622-a4748ae330f5",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2402,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:493c0210-522f-5e9b-ad5f-eb9d99886607",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 3632,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:f0112f8c-2652-5902-b851-c380afe2fc78",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1230,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:493c0210-522f-5e9b-ad5f-eb9d99886607",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 4837,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:e28fd454-9e1d-5b7c-a3eb-96eb076204fa",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1205,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:493c0210-522f-5e9b-ad5f-eb9d99886607",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:e7578a87-40bb-59d7-97d6-d585c589c183",
+        "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a",
+        "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:0343ad3c-6cf1-5f2d-8622-a4748ae330f5",
+        "lookup_receipt:f0112f8c-2652-5902-b851-c380afe2fc78",
+        "lookup_receipt:e28fd454-9e1d-5b7c-a3eb-96eb076204fa"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:e7578a87-40bb-59d7-97d6-d585c589c183"
+          ],
+          "obligation_id": "obligation:7d8b8525-f2c7-5f1f-a927-8dc8722a93df",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+          ],
+          "obligation_id": "obligation:a632c638-8097-5155-9a21-3b7af2445cf1",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+          ],
+          "obligation_id": "obligation:38ee22ad-59bd-5031-8f12-838a284e77db",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:d40b9053-6812-54f0-80f3-5bb32b2ac2f8",
+      "snapshot_binding_sha256": "6e2859e1bfee3bc21426408914cb64494256d729cf518a77b4218606a1fb7266",
+      "snapshot_token": "snapshot:493c0210-522f-5e9b-ad5f-eb9d99886607"
+    },
+    "snapshot_token": "snapshot:493c0210-522f-5e9b-ad5f-eb9d99886607",
+    "source_sha256": "7294725d6fc45dd226f8d89ffa7099eba3962e4a7bf62e2d9b70846ff02a50ff"
+  },
+  "key": "mia-kitchen-arrival",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:738d27d3-4c2e-5d86-a5fb-0f7a720f78f8",
+      "accepted_artifact_sha256": "74392f804cd8950bf661fafb989033a5cd5c10c6b3d05fd429215f753a10eb95",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "977633ad2a595da7080a6e1ac6135aaac97f5b55011ad2b5afb77ef16f9095f5",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:60557f48-d391-5f9c-ae62-96f8db89006e",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:60d198b2-15fb-5355-b516-a06fd822c213",
+      "operational_report_id": "validation:eaefbf68-c32a-5c5e-8b65-e93fcd304cc2",
+      "operational_report_sha256": "fbf43c91c212b81adc406ddaa9d3db7e6bd6e259949e8f5f410cde0eb1b8ffda",
+      "receipt_id": "validation:01c099f7-9cfa-5351-8a1d-45bdb65105ab",
+      "request_id": "request:3f16433b-dae6-55a0-a77e-22b4c71d54d7",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "248d3ea549c81e829cc84bd22e179417ece1c3eb3413918fccbe25c2bd616736"
+    },
+    "artifact": {
+      "accepted_prose": "Mia paused, the dish towel held still against her palms as she considered his question with a small, careful nod. \"The counter near the stove—I'm using it to set out some things I need,\" she said, her voice gentle but practical. \"It would help if that spot stays clear. The rest is fine, though you're welcome to stay nearby if you like.\"\n\nShe glanced toward the open kitchen, then back at him, her tone a shade warmer. \"I don't mind the company,\" she added, \"as long as you're not in the way. I mean—of the work. The hot work. Not you.\" A faint, self-conscious laugh escaped her, and she looked down, smoothing the towel.\n\n\"So… a little corner is yours,\" she finished, her expression settling into cautious warmth. \"But I'm not going to tell you where to stand. You can decide what feels right.\"",
+      "artifact_id": "artifact:738d27d3-4c2e-5d86-a5fb-0f7a720f78f8",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:16188129-d3dd-5fb6-94d7-d5631bbac994",
+      "generation_id": "generation:60d198b2-15fb-5355-b516-a06fd822c213",
+      "parent_artifact_id": "artifact:8c0fcb18-4a59-5404-acb2-f97030e36c3e",
+      "prose_sha256": "937b3dfd4fbdc4b863b654949f809aeae83079cf146e0598b8a6b98fd41e92fa",
+      "realized_beat_ids": [
+        "beat:8657cb16-6539-532f-991f-15cc33e00436",
+        "beat:21ec6c5c-1b03-5368-b7f7-9f41ed0009ce"
+      ],
+      "responding_npc_ids": [
+        "character:mia_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:4df6c4d7-f694-5150-85a0-99f9c48f9c76",
+      "status": "accepted",
+      "transaction_id": "transaction:85a55f7f-1916-5dc0-86a4-085f02dca8d6",
+      "validation_receipt_id": "validation:420faac6-1701-580e-9274-0e72dc85dc07"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:60557f48-d391-5f9c-ae62-96f8db89006e",
+      "expected_previous_artifact_id": "artifact:8c0fcb18-4a59-5404-acb2-f97030e36c3e",
+      "external_receipt_ids": [],
+      "generation_after": 2,
+      "generation_before": 1,
+      "inserted_record_ids": [
+        "event:f399a096-1a94-52ca-aec1-206b3325bbc1"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:0343ad3c-6cf1-5f2d-8622-a4748ae330f5",
+        "lookup_receipt:f0112f8c-2652-5902-b851-c380afe2fc78",
+        "lookup_receipt:e28fd454-9e1d-5b7c-a3eb-96eb076204fa",
+        "lookup_receipt:39d7377d-c921-530c-a199-7d14563a1333",
+        "lookup_receipt:334cdcc0-a8ea-51a1-b0ed-776d41d7890b"
+      ],
+      "new_artifact_id": "artifact:738d27d3-4c2e-5d86-a5fb-0f7a720f78f8",
+      "new_artifact_sha256": "74392f804cd8950bf661fafb989033a5cd5c10c6b3d05fd429215f753a10eb95",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:4beed730-585c-55b5-bf02-a324b6070f45",
+        "provider_receipt:fdcb48e1-a44d-543c-832d-bf02dec7a817",
+        "provider_receipt:d9606bfc-cfa7-5f65-bfd3-a890a00c5ffb"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:4df6c4d7-f694-5150-85a0-99f9c48f9c76",
+      "source_sha256": "135262a1b7263b259c97e3d9724d7ff7700d8891d2355f4ac6201dd28b7ff3e1",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:85a55f7f-1916-5dc0-86a4-085f02dca8d6",
+      "transaction_sha256": "248d3ea549c81e829cc84bd22e179417ece1c3eb3413918fccbe25c2bd616736",
+      "validation_receipt_ids": [
+        "validation:d6fc7be7-c9a2-541f-81d6-07526b2f96d6",
+        "validation:5e0fa192-37e0-54a9-8989-7b9a72a9430e",
+        "validation:00fdcca8-4910-5034-bafe-a569d762f6a4",
+        "realization_verification:e05dab7d-042f-5788-a419-53cca330133b",
+        "validation:420faac6-1701-580e-9274-0e72dc85dc07",
+        "validation:d9e9b9e6-8ab4-5852-ae7b-b100107816d9"
+      ]
+    },
+    "event_record_id": "event:f399a096-1a94-52ca-aec1-206b3325bbc1",
+    "visible_artifact_count": 2
+  },
+  "qualification_id": "continuous-ten-turn-v13",
+  "raw_message": "After following Hana's doorway decision, Ted sees Mia pause beside the kitchen with a dish towel in her hands. He tells Hana that he will follow her household timing, then asks Mia, \"Is there a place you need kept clear while you finish, or would you rather I stay out of the kitchen entirely?\" He waits instead of moving her things.",
+  "raw_message_sha256": "8aa7dfa063eea9703a43cc0fab8f59ea2f629b261967c3b98688be0cf703b81b",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Give a concise practical boundary, then leave the next movement entirely to Ted.",
+            "character_id": "character:mia_hanezawa",
+            "evidence_ids": [
+              "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+            ],
+            "knowledge_constraints": [
+              "Use only Mia's owner-private relationship evidence for her own cautious warmth.",
+              "Do not imply that Hana knows Mia's private disposition.",
+              "Do not infer Ted's motive, feelings, or intended movement."
+            ],
+            "perception": "A direct kitchen-boundary question awaits Mia's answer.",
+            "selected_intent": "Protect the active kitchen workspace while answering with cautious warmth."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:mia_hanezawa",
+              "beat_id": "beat:8657cb16-6539-532f-991f-15cc33e00436",
+              "evidence_ids": [
+                "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+              ],
+              "neutral_event": "Mia states that the active work area should remain clear but does not require Ted to leave the kitchen entirely.",
+              "state": "requested"
+            },
+            {
+              "actor_id": "character:mia_hanezawa",
+              "beat_id": "beat:21ec6c5c-1b03-5368-b7f7-9f41ed0009ce",
+              "evidence_ids": [
+                "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+              ],
+              "neutral_event": "Mia keeps the answer practical and cautiously warm, without directing or presuming Ted's next movement.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:c3d300fd-714e-503b-b9b1-6bf9947e2c53",
+          "stop_before": "Ted's next unsupplied response, movement, or other meaningful choice."
+        },
+        "decision_id": "decision:16188129-d3dd-5fb6-94d7-d5631bbac994",
+        "floor_owner_id": "character:mia_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "Ted accepts the stated boundary without requesting clarification."
+            ],
+            "invalidation_conditions": [
+              "Ted instead asks a follow-up question or chooses another response."
+            ],
+            "open_user_choice": "Whether Ted remains nearby, withdraws from the kitchen, or responds another way.",
+            "possible_consequences": [
+              "Mia may resume her kitchen task while preserving the stated workspace boundary."
+            ],
+            "segment_id": "segment:5d4d1950-1063-5d5a-a5fd-0733f2601a6c",
+            "status": "conditional_plan_only"
+          },
+          {
+            "activation_conditions": [
+              "Ted requests clarification about the practical boundary."
+            ],
+            "invalidation_conditions": [
+              "Ted acts without seeking clarification or ends the exchange."
+            ],
+            "open_user_choice": "Whether Ted asks for a more specific limit.",
+            "possible_consequences": [
+              "Mia may refine the boundary using only presently observable kitchen conditions."
+            ],
+            "segment_id": "segment:1657b1a0-322a-58d9-a3bd-66ab5656cbf5",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not author Ted's next action, dialogue, thought, feeling, motive, or decision.",
+          "Do not transfer Mia's owner-private evidence to Hana.",
+          "Do not infer an exact kitchen layout or unobserved task detail.",
+          "Do not treat either conditional future segment as a committed event."
+        ],
+        "responding_npc_ids": [
+          "character:mia_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Have Mia answer the practical kitchen-boundary question directly while preserving Ted's agency.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "Ted's next meaningful choice remains unknown.",
+          "The exact kitchen layout and unfinished task details remain unknown."
+        ],
+        "writer_must_preserve": [
+          "Mia owns the practical kitchen boundary and the conversational floor.",
+          "Mia permits proximity only while keeping the active work area clear.",
+          "The response remains cautiously warm and non-pressuring.",
+          "Do not restate or directly narrate Ted's supplied action or dialogue.",
+          "Stop before any unsupplied response or movement by Ted."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d",
+          "record_id": "record:2a7aade2-9608-5f82-97ef-81528c75982b",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:mia_hanezawa",
+          "evidence_ids": [
+            "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 58349,
+      "external_provider_calls": 1,
+      "input_tokens": 14322,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "7ba0c380b725fb0be35bb04fc84c5bc3ab8ff9a5cc9869583ca1b4362c833351",
+      "output_tokens": 2121,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:4beed730-585c-55b5-bf02-a324b6070f45",
+      "provider_request_id_sha256": "1c7f013b19d4d8c06bdfa1e71fa7d9ed409dec15dd8a3c15e3f0518331d65ca6",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1328,
+      "request_sha256": "a307160aa185d5c14234fdf20344c99799e8de2d0b4798b83751371a355dd999",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "b2f734e9adbd46541265a70965f7908526a00aa1dd79fbcb8b159a232664409a",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "b2f734e9adbd46541265a70965f7908526a00aa1dd79fbcb8b159a232664409a",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "4714ce4eeef50a436c2f93d91617f5d88496bd687ab6e104d73e386c60a85b24",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:4beed730-585c-55b5-bf02-a324b6070f45",
+      "provider_receipt_sha256": "a53fc8c3e788be5dd4864e3d39ed30f0d65e4c7e0bee7c254011386b50806f3f",
+      "reasoner_request_sha256": "7de263df55b4a9efa2020a557ea4b4230043e200ad381ec9130ae863a4ff8c8d",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:493c0210-522f-5e9b-ad5f-eb9d99886607",
+      "source_sha256": "7294725d6fc45dd226f8d89ffa7099eba3962e4a7bf62e2d9b70846ff02a50ff",
+      "source_view_sha256": "2c1bd760351d064a2b5d0237611abc2b828e7af6443bac6ea8a1d41a33e367bd",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Hana and Mia answer separate arrival stakes",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 6697,
+      "external_provider_calls": 1,
+      "input_tokens": 10680,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "552986d5d6c7ae3f529d896dbd25e9262bb841d5abaabc4b26ae816c3c3de9f2",
+      "output_tokens": 229,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:d9606bfc-cfa7-5f65-bfd3-a890a00c5ffb",
+      "provider_request_id_sha256": "4eaf1c3b50df7b24472c4b8ad72b656ff2b4857644c15dbabf1f55119004f27a",
+      "quota_metered": true,
+      "reasoning_output_tokens": 100,
+      "request_sha256": "c7673e082ad4d1843f044d649439422769d00c32eb4e73f0b41155ce327bb03a",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "d84ca6952abdca260297142460886ebb0e8f1c3cdcb5836f21bc831a589a58a5",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "ec877ac6ecca9ff2b2885155a91251ba0cfa5380b69e94fe819acff929023296",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:d9606bfc-cfa7-5f65-bfd3-a890a00c5ffb",
+      "provider_receipt_sha256": "49b1c8825f6f1cd9718faaaaffc4fdc25f172067a9cd90bcf45152c924ec4558",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "937b3dfd4fbdc4b863b654949f809aeae83079cf146e0598b8a6b98fd41e92fa",
+      "verification_id": "realization_verification:e05dab7d-042f-5788-a419-53cca330133b",
+      "verification_request_sha256": "179f5e973fbf2fde947ca5782fa873198897c0d0f2af123bc05f6d1e35adca5d",
+      "verified_beat_ids": [
+        "beat:8657cb16-6539-532f-991f-15cc33e00436",
+        "beat:21ec6c5c-1b03-5368-b7f7-9f41ed0009ce"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:mia_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "d84ca6952abdca260297142460886ebb0e8f1c3cdcb5836f21bc831a589a58a5",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

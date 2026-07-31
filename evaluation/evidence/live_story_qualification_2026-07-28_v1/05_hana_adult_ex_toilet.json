@@ -1,0 +1,26 @@
+{
+  "adult": true,
+  "adult_mode": "adult_ex",
+  "automatic_retry_count": 0,
+  "case_id": "05_hana_adult_ex_toilet",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_EVIDENCE_SERVICE_UNAVAILABLE",
+    "generation_id": "generation:3595abbb-498a-509a-add6-69e7b5242c90",
+    "message": "Codex MCP evidence lookup failed",
+    "request_id": "request:qualification-05_hana_adult_ex_toilet",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "reasoner_evidence",
+    "story_state_committed": false,
+    "trace_id": "trace:36ad97a9-9b41-5697-879f-5ec08b135ff6"
+  },
+  "fallback_enabled": false,
+  "schema_version": "cera.live_story_qualification_case.v1",
+  "source_sha256": "3c45b6c5ff558505c632d5fe1ecd354490e1adbdddf018b8e091b67982ece95b",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Hana consent-valid Adult EX toilet and material continuity"
+}

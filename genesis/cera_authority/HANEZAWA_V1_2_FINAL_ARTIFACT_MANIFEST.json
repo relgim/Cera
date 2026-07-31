@@ -1,0 +1,83 @@
+{
+  "schema_version": "cera.hanezawa.v1_2.final_artifact_manifest.v2",
+  "creator_authority": "Ted",
+  "prepared": "2026-07-29",
+  "intended_repository_root": "D:\\AIChatBot\\Cera",
+  "canonical_repository_target": "genesis/cera_authority/HANEZAWA_CORE_GENESIS_V1_2.md",
+  "artifacts": [
+    {
+      "path": "genesis/cera_authority/HANEZAWA_CORE_GENESIS_V1_2.md",
+      "lines": 8339,
+      "words": 60294,
+      "bytes": 450465,
+      "sha256": "76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a"
+    },
+    {
+      "path": "genesis/cera_authority/HANEZAWA_VISUAL_CANON_ANIMA_V1.json",
+      "lines": 788,
+      "words": 5396,
+      "bytes": 48033,
+      "sha256": "58cbb3231ce5d09434f830b57f430171ff69479848b0795f40f92a86407d6da9"
+    },
+    {
+      "path": "genesis/cera_authority/UserResponse.txt",
+      "lines": 52,
+      "words": 583,
+      "bytes": 3300,
+      "sha256": "76295fa15a5b2c687dd760932276b06140911d6a7bd3586244c46252817073c8"
+    },
+    {
+      "path": "docs/implementation/HANEZAWA_V1_2_SPEECHSTYLE_IMPLEMENTATION_BRIEF.md",
+      "lines": 269,
+      "words": 1452,
+      "bytes": 11745,
+      "sha256": "524238309c39d320a1f06fb02febe33eae0f338b26ec786c51cf14e1cdc60a43"
+    },
+    {
+      "path": "config/cera/prompts/character_specific_speech_realization_v1_2.txt",
+      "lines": 71,
+      "words": 528,
+      "bytes": 4135,
+      "sha256": "e61c8b9a287e6be1223e4a2a2aebcbd8d5da5e5433bee8de781d833149cc11cf"
+    },
+    {
+      "path": ".chatgpt/codex-runs/2026-07-29T130000Z-hanezawa-v1-2-embodied-identity-speech-v1/PROMPT.md",
+      "lines": 322,
+      "words": 1915,
+      "bytes": 15547,
+      "sha256": "e27afe2c5bba2718770ad87aba78b7ff0bf0a5eaee6fd710f3d75aba718dc450"
+    },
+    {
+      "path": ".chatgpt/codex-runs/2026-07-29T130000Z-hanezawa-v1-2-embodied-identity-speech-v1/COPY_PROMPT.ps1",
+      "lines": 9,
+      "words": 42,
+      "bytes": 402,
+      "sha256": "589a075168c4d3b3a10ed391c660adcfb67ce5b9e52425cce4113ad0a45acdfa"
+    }
+  ],
+  "content_audit": {
+    "event_count": 79,
+    "event_unique_count": 79,
+    "memory_count": 84,
+    "memory_unique_count": 84,
+    "embodied_profile_count": 7,
+    "speech_character_count": 7,
+    "speech_response_mode_count": 77,
+    "speech_example_count": 154,
+    "balanced_code_fences": true,
+    "old_example_exact_hits": [],
+    "implementation_companion_bound": true,
+    "writer_prompt_companion_bound": true,
+    "codex_task_prompt_bound": true,
+    "provider_calls": 0,
+    "story_calls": 0,
+    "database_writes": 0,
+    "deployment_activity": 0
+  },
+  "recommended_command": "& \"D:\\AIChatBot\\Cera\\.chatgpt\\codex-runs\\2026-07-29T130000Z-hanezawa-v1-2-embodied-identity-speech-v1\\COPY_PROMPT.ps1\"",
+  "notes": [
+    "HANEZAWA_CORE_GENESIS_V1_1.md remains immutable prior-version evidence.",
+    "Codex remains technical owner and must independently inspect implementation seams.",
+    "No provider call, story call, production binding, commit, push, deployment, or live database write was performed by this artifact build."
+  ]
+}

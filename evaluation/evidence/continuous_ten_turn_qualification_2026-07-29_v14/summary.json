@@ -1,0 +1,72 @@
+{
+  "attempts_per_stage": 1,
+  "failed_turn": 3,
+  "failure_stage": "application_execution_or_acceptance",
+  "fallback_enabled": false,
+  "finished_at": "2026-07-29T23:13:49.755459+00:00",
+  "genesis_revision": "v1_2",
+  "persistent_codex_rotation": {
+    "maximum_requests_per_process": 2,
+    "process_launches": 2,
+    "qualification_id": "persistent-codex-rotation-probe-v2",
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_rotation_qualification_evidence.v1",
+    "summary_sha256": "c4bbe45d98649a14e817380524b71e1a2703c72433b162386f16ea37f06ca2d9",
+    "verifier_calls": 4
+  },
+  "persistent_codex_transport": {
+    "qualification_id": "persistent-codex-transport-probe-v1",
+    "reasoner_calls": 2,
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_qualification_evidence.v1",
+    "summary_sha256": "f92a08e5cda04c701c74b3d1ddd98fe1abc0da733959f56545c0eb43cd07f5f3",
+    "verifier_calls": 2
+  },
+  "persistent_transport_sessions": {
+    "scene_realization_verifier": {
+      "process_launch_count": 2,
+      "request_submission_count": 3
+    },
+    "scene_reasoner": {
+      "process_launch_count": 2,
+      "request_submission_count": 3
+    }
+  },
+  "qualification_id": "continuous-ten-turn-v14",
+  "reasoner_transport_policy": "persistent_no_mcp_except_request_bound_mcp_one_shot",
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-29T23:07:18.085882+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": [
+    {
+      "artifact_id": "artifact:7e48b3e5-9323-5e97-a7c4-3ac0d956c407",
+      "duration_seconds": 67.31,
+      "index": 1,
+      "key": "doorway-rule-handoff",
+      "prose_sha256": "6e71d9f6d646216563e9ac6e3da3c892eaf261f4b51976f9d45f5f700d3513af",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:5edb47d5-f19b-54eb-89ee-7df78b00b9cd",
+      "duration_seconds": 85.883,
+      "index": 2,
+      "key": "training-path-boundary",
+      "prose_sha256": "8289a162e670f7d6a9c41e475fc7b6555284b94ecab0980c8c9fbbd022342a6a",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:aoi_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "status": "passed"
+    }
+  ],
+  "verifier_transport_policy": "persistent_no_mcp"
+}

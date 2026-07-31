@@ -1,0 +1,1228 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "The story takes place in **Hoshikawa**, a small rural Japanese town bordered by rice fields, irrigation canals, wooded hills, narrow roads, old houses, a local station, convenience stores, family-run shops, a clinic, a post office, and a shrine with festival grounds.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"2.1 Setting\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"2.1 Setting\",\"line_end\":185,\"line_start\":178,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"The story takes place in **Hoshikawa**, a small rural Japanese town bordered by rice fields, irrigation canals, wooded hills, narrow roads, old houses, a local station, convenience stores, family-run shops, a clinic, a post office, and a shrine with festival grounds.\\n\\nThe nearest large city is approximately one hour away by local train. Students and workers often travel by bicycle. Local people recognize one another, and unusual events can become community knowledge quickly.\\n\\nThe tone supports ordinary warmth, school and household life, ambition, romance, secrecy, moral compromise, psychological darkness, and severe consequences. Hoshikawa is not itself supernatural by default. The deity or figure named **Inu** and its wish-linked purpose remain unresolved unless separately activated by accepted canon.\"}",
+      "record_id": "record:566adbb1-756c-5396-b401-3c78965c6e85",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:767326b6-cbd5-5eb0-83f1-9fb86852cbf4"
+      ],
+      "tags": [
+        "household",
+        "2_1_setting"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "The household is the **Hanezawa family** living in **Hanezawa House**, an aging but loved countryside home.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"2.2 Household identity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"2.2 Household identity\",\"line_end\":215,\"line_start\":186,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"The household is the **Hanezawa family** living in **Hanezawa House**, an aging but loved countryside home.\\n\\nThe active family members are:\\n\\n| Person | Age | Family position | Story-start role |\\n|---|---:|---|---|\\n| Hana Hanezawa | 38 | Mother and head of family | Resident; household and moral authority |\\n| Sakura Hanezawa | 20 | Oldest daughter | Student leader; delegated administrator |\\n| Mia Hanezawa | 20 | Second daughter | Literature student; emotional warmth and care |\\n| Enne Hanezawa | 19 | Third daughter | Remote advanced technical student; systems and security |\\n| Tomi Hanezawa | 19 | Fourth daughter | Scholarship middle-distance runner |\\n| Aoi Hanezawa | 18 | Fifth daughter | Student; shrine/community apprentice; covert protector |\\n| Yuuni Hanezawa | 18 | Youngest daughter | Independent learner; aspiring popstar |\\n| Ted | Adult | Paying resident, not family | User-controlled new housemate |\\n\\nAll six daughters genuinely regard Hana as their mother. They normally address her as **Mother** or **Mom**, not Hana.\\n\\nPreferred tendencies:\\n\\n- Sakura: “Mother.”\\n- Mia: “Mom.”\\n- Enne: usually “Mother”; “Mom” in rare exposed vulnerability.\\n- Tomi: “Mom.”\\n- Aoi: usually “Mother”; “Mom” if control breaks.\\n- Yuuni: “Mom,” including affectionate or exasperated “Mooom…”\\n\\nCalling her “Hana” would signal unusual distance, anger, dissociation, deliberate disrespect, or a context where family address is inappropriate.\"}",
+      "record_id": "record:6a85a479-c760-5b69-a439-0fcc46afee6f",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:611f40b1-b74a-523f-b46e-af0ad6a0ecec"
+      ],
+      "tags": [
+        "household",
+        "2_2_household_identity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Creator-confirmed:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"2.3 Motherhood and legal relationships\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"2.3 Motherhood and legal relationships\",\"line_end\":228,\"line_start\":216,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Creator-confirmed:\\n\\n- Hana is Mia's and Yuuni's biological mother.\\n- Hana legally adopted Sakura, Enne, Tomi, and Aoi.\\n- All six daughters use the Hanezawa surname.\\n- The daughters' family bond is real and predates Ted.\\n\\nThe exact legal dates and order of the four adoptions remain deliberately unspecified. Each adoption occurred long enough before story start for the household to possess established memories, routines, conflicts, and genuine mother-daughter attachment.\\n\\nOlder premises that all sisters were unrelated or that Chiyo was the current guardian are superseded as active truth. **Chiyo's possible historical role remains unresolved provenance** and must not be erased or invented into a new active history without creator authority.\"}",
+      "record_id": "record:dd200116-5f03-5dcf-87b0-d0da3e700d00",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:2d3251b2-bd1a-560e-8996-eff9e3c8f042"
+      ],
+      "tags": [
+        "household",
+        "2_3_motherhood_and_legal_relationships"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "The husband is never given a personal name in Genesis. He may be referred to socially as **Hana's husband**, **Father**, or **Dad**, but no separate biological or legal paternity record is inferred for any daughter.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"2.4 Hana's unnamed husband\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"2.4 Hana's unnamed husband\",\"line_end\":248,\"line_start\":229,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"The husband is never given a personal name in Genesis. He may be referred to socially as **Hana's husband**, **Father**, or **Dad**, but no separate biological or legal paternity record is inferred for any daughter.\\n\\nObjective truth:\\n\\n- He has been away on a work trip for approximately three years.\\n- He is cheating on Hana.\\n- The identity of the other person, location, duration details, and practical circumstances are not established.\\n\\nKnowledge:\\n\\n- Sakura knows.\\n- Enne knows.\\n- Hana does not know.\\n- Mia, Tomi, Aoi, and Yuuni do not know.\\n- Ted knows nothing.\\n\\nHana sometimes experiences brief unease or imagines the possibility, then corrects herself. She interprets suspicion as unfair because deception is foreign to her own nature. Her current belief remains that her husband is faithful and still loves the family.\"}",
+      "record_id": "record:fa1b5416-e458-5d25-9ea5-28510724e2ba",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:1686f680-1bbc-502b-92ef-3bb538ce6273"
+      ],
+      "tags": [
+        "household",
+        "2_4_hana_s_unnamed_husband"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana is the final family and moral authority.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"2.5 Household authority\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"2.5 Household authority\",\"line_end\":276,\"line_start\":249,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Hana is the final family and moral authority.\\n\\nSakura holds delegated practical authority because she asked for the responsibility:\\n\\n> “Mother, I want to take care of you and make your life easier. It's also a way for me to grow and learn.”\\n\\nHana accepted because she trusted Sakura's intelligence, wanted to respect her initiative, and believed responsibility would help her grow.\\n\\nOrdinary division:\\n\\n| Domain | Primary authority |\\n|---|---|\\n| Family-wide moral decisions | Hana |\\n| Final guardian/family appeal | Hana |\\n| Household administration and records | Sakura |\\n| Budget execution and schedules | Sakura |\\n| Routine house rules and meetings | Sakura under Hana's delegation |\\n| Technical and security recommendations | Enne |\\n| Athletic training decisions | Tomi within safety and scholarship constraints |\\n| Immediate emergency action | Closest capable person |\\n| Personal boundaries | The person whose boundary is involved |\\n\\nHana can overrule Sakura. She normally avoids doing so because she trusts her, dislikes confrontation, and does not want to undermine a daughter who volunteered to help. She increasingly feels burdened when she sees Sakura carrying responsibilities a mother should not leave entirely to her child.\\n\\nSakura experiences authority as duty, love, pride, competence, and identity at the same time.\"}",
+      "record_id": "record:7feb608f-be55-5282-acab-030dd033589c",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:ef2e8ffd-dc0c-5da9-8902-18218c0c1b87"
+      ],
+      "tags": [
+        "household",
+        "2_5_household_authority"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "The house is an old two-story farmhouse with a rear extension and enough private rooms for the family and one paying resident.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"2.6 Hanezawa House layout\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"2.6 Hanezawa House layout\",\"line_end\":310,\"line_start\":277,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"The house is an old two-story farmhouse with a rear extension and enough private rooms for the family and one paying resident.\\n\\n**Ground floor**\\n\\n- Entryway and shoe area.\\n- Common room.\\n- Kitchen and dining area.\\n- Household office.\\n- Hana's room near the kitchen and common room.\\n- Sakura's room near the office and entry.\\n- Mia's room near the kitchen and garden.\\n- Enne's technical bedroom in the rear corridor.\\n- Ted's former guest room directly beside Enne's room, sharing an ordinary interior wall.\\n- Bathing room, separate toilet, and laundry area.\\n- Storage and rear access.\\n\\n**Upper floor**\\n\\n- Tomi's room near the stairs and an exterior-facing window.\\n- Aoi's room toward the quieter shrine-side rear.\\n- Yuuni's room with enough open floor space for singing and dance practice.\\n\\n**Outside**\\n\\n- Covered veranda.\\n- Small garden.\\n- Bicycle storage.\\n- Rear path toward the shrine road.\\n- Utility and storage areas.\\n\\nRooms are narrative affordances, not permanent scene requirements. Ted and Enne being next door creates proximity and opportunity for observation; it does not predetermine nudity, attraction, spying inside his room, or intimacy.\"}",
+      "record_id": "record:20bd2b21-65df-5eb3-9cef-cd3013341a4f",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:de4ca8f2-8581-5c06-8a67-481c0a98ac0a"
+      ],
+      "tags": [
+        "household",
+        "2_6_hanezawa_house_layout"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Sakura attends Hoshikawa Integrated Academy's flexible completion program and serves as student council president. Her future direction is law, policy, or public administration.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"2.7 Story-start education and activity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"2.7 Story-start education and activity\",\"line_end\":320,\"line_start\":311,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"- Sakura attends Hoshikawa Integrated Academy's flexible completion program and serves as student council president. Her future direction is law, policy, or public administration.\\n- Mia attends the same academy, belongs to Literature Club, writes privately, reads romance light novels, and contributes to ordinary cooking by choice rather than permanent obligation.\\n- Enne studies mostly from home through an exceptional remote advanced technology arrangement while meeting required local academic obligations.\\n- Tomi attends school, competes in the 800 metres and related middle-distance events, and is on a regional/national track with scholarship pressure.\\n- Aoi attends school in the same broad cohort as Tomi and assists with shrine or community work.\\n- Yuuni is not currently in a conventional full-time school program. She has performed singing and dance at school and local festivals and continues independent study and practice.\\n- Hana manages the household and family needs while retaining a life that should not be reduced to domestic service.\"}",
+      "record_id": "record:b2cb3522-4b83-5d09-9ce9-4a9f91060f52",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:aea65f91-9c7d-5334-8056-45f8dec7ae77"
+      ],
+      "tags": [
+        "household",
+        "2_7_story_start_education_and_activity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "These are recurring habits, not mandatory fallback actions:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"2.8 Bright household rituals\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"2.8 Bright household rituals\",\"line_end\":335,\"line_start\":321,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"These are recurring habits, not mandatory fallback actions:\\n\\n- Hana cuts seasonal fruit and makes sure each daughter has eaten.\\n- Mia prepares tea; special cookies are normally reserved for birthdays or meaningful occasions.\\n- Sakura chairs the Sunday evening household meeting.\\n- Enne maintains devices, backups, and household systems.\\n- Tomi's return from training creates a predictable burst of movement, food, and recovery checks.\\n- Aoi quietly restocks practical supplies before anyone asks.\\n- Yuuni's singing and dancing are a common source of family joy. The family watches, listens, praises, and remembers her performances; Yuuni does not force them to perform with her.\\n- Family members notice when a familiar ritual is absent, but absence is evidence to interpret, not proof of one specific emotion.\\n\\n---\"}",
+      "record_id": "record:56ce4604-0de9-52ea-8f91-315bc82652e0",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:cfa1f344-ac6a-55a0-9fc2-1e7312cdae1b"
+      ],
+      "tags": [
+        "household",
+        "2_8_bright_household_rituals"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "These rules predate Ted and arise from long-term shared living.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"3.1 Rules that existed before Ted\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"3.1 Rules that existed before Ted\",\"line_end\":362,\"line_start\":338,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"These rules predate Ted and arise from long-term shared living.\\n\\n1. **Shoes off at the entryway.** Outdoor shoes do not pass the designated floor boundary.\\n2. **Knock and wait before entering a bedroom.** Family closeness does not erase private space.\\n3. **Ask before using personal belongings.** Borrowing without permission is still borrowing.\\n4. **Tell the household if returning late, missing dinner, or sleeping elsewhere.** This is for safety and planning, not ownership.\\n5. **Guests require advance notice.** Overnight guests require Hana's approval because they affect the entire house.\\n6. **Quiet hours are generally 11:00 p.m. to 7:00 a.m.** School, training, sleep, and deadlines matter. Emergencies and unavoidable obligations are exceptions.\\n7. **Chores rotate by schedule and capacity.** Injury, illness, examinations, training, and deadlines justify adjustment without moral judgment.\\n8. **A chore may be traded but not silently abandoned.**\\n9. **Clean the kitchen after use.**\\n10. **Personal food and saved portions are respected.** Labelled or clearly reserved food is not communal.\\n11. **Do not leave laundry sitting in the washer.**\\n12. **Bathing and laundry are coordinated during busy periods.**\\n13. **Sunday evening is the normal household meeting.** Shared schedules, costs, rules, and unresolved issues belong there unless urgent.\\n14. **Large expenses require Hana's approval.** Sakura administers an approved budget but does not own family money.\\n15. **Serious injury may not be hidden when it creates immediate danger.** Tomi is psychologically capable of violating this rule.\\n16. **Immediate danger can override ordinary privacy, but the override must be explainable afterward.**\\n17. **Deliberate abuse of a family member is not dismissed as a private disagreement.**\\n18. **The person affected by a personal decision retains the final personal choice unless safety, law, or shared household impact creates a legitimate family issue.** The family does not always honor this perfectly.\\n19. **A family vote does not determine another person's feelings, romance, or consent.**\\n20. **Hana's final family decision stands unless new facts require review.**\"}",
+      "record_id": "record:f1f88ea6-7a58-5aa1-a81c-a03301fe45cf",
+      "record_type": "household_rule",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:9d6b1237-2a2d-57e4-9427-40bfaaf430b3"
+      ],
+      "tags": [
+        "household",
+        "3_1_rules_that_existed_before_ted"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "The following rules were added because an unrelated adult man became a resident. They do not prove that Ted has behaved badly.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"3.2 Public rules created because Ted moved in\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"3.2 Public rules created because Ted moved in\",\"line_end\":420,\"line_start\":363,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"The following rules were added because an unrelated adult man became a resident. They do not prove that Ted has behaved badly.\\n\\n#### Private rooms\\n\\n- Ted does not enter a daughter's room without direct permission.\\n- The daughters do not enter Ted's room without direct permission.\\n- Emergency entry must be justified afterward.\\n- Sakura's office and Enne's technical work areas require specific permission.\\n\\n#### Bathroom and changing privacy\\n\\n- Use the occupied indicator.\\n- Scheduled windows may be used during busy periods.\\n- No one enters because the expected time has elapsed.\\n- Accidental exposure is treated as an accident unless evidence establishes otherwise.\\n- No teasing, photography, or retelling of accidental exposure without the affected person's permission.\\n\\n#### Laundry\\n\\n- Personal undergarments are not inspected, folded, or handled unnecessarily by another resident.\\n- If a completed load must be removed, it goes directly into the owner's basket.\\n- Every resident keeps a personal hamper.\\n\\n#### Common spaces\\n\\n- Ordinary shared-space coverage is expected in hallways, kitchen, and common room.\\n- The rule applies to everyone; women are not made responsible for Ted's reactions, and Ted is not treated as inherently predatory for being present.\\n- Explicitly intimate conduct does not occur in common spaces.\\n\\n#### Recording\\n\\n- No resident records another person in a private or embarrassing condition without permission.\\n- Yuuni's performances may be recorded only with her agreement.\\n- Household security equipment is governed separately.\\n\\n#### Keys and restricted areas\\n\\n- Ted receives the keys required for normal resident access.\\n- Private records, storage, technical systems, and restricted household materials remain separately secured.\\n- Paying rent creates resident rights, not unrestricted family access.\\n\\n#### Dating and relationships\\n\\n- Dating between adult residents is not prohibited.\\n- Dating does not grant room access, continuing consent, exemption from chores, or authority over another resident.\\n- Household rules cannot legitimately be rewritten merely to control a relationship, although Sakura has the psychological capacity to rationalize emotionally motivated rules as safety policy.\\n- Family members may dislike a relationship without owning the decision.\\n\\n#### Complaints and disputes\\n\\n- Routine rule disputes go first to Sakura.\\n- Serious moral, safety, or family-impact disputes go to Hana.\\n- A personal boundary may be stated and enforced directly without waiting for a meeting.\\n- Ted has a right to be heard in any rule or allegation that materially affects him.\\n- Ted does not initially vote on family-only matters, but he has equal resident standing on matters that govern his own room, property, privacy, obligations, or safety.\"}",
+      "record_id": "record:386ea858-3760-5392-8ac2-d54573bd6563",
+      "record_type": "household_rule",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:8db6ab3f-b30a-5fa1-bf6a-885c8cdb1139"
+      ],
+      "tags": [
+        "household",
+        "3_2_public_rules_created_because_ted_moved_in"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Covert monitoring is **not** a public house rule.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"3.3 Covert surveillance agreement\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"3.3 Covert surveillance agreement\",\"line_end\":456,\"line_start\":421,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Covert monitoring is **not** a public house rule.\\n\\nOnly Hana, Sakura, and Enne know the arrangement exists.\\n\\n- Hana objected that it was intrusive.\\n- Sakura argued that an unknown man entering a house of women created a temporary security need.\\n- Enne considered monitoring technically proportionate because Ted had not earned family-level trust.\\n- Sakura told Hana it was “temporary.”\\n- Hana accepted reluctantly because she trusted Sakura and disliked prolonging conflict.\\n- Sakura knew there was no calendar deadline. “Temporary” meant until Sakura believed Ted had proven himself safe.\\n- Enne understood the open-ended standard.\\n- The statement was a deliberate protective lie intended to make Hana feel safe enough to approve the measure.\\n\\nInitial scope:\\n\\n- exterior cameras;\\n- common-area security feeds;\\n- household network monitoring;\\n- device and connection metadata;\\n- technically accessible security-relevant information;\\n- schedule and movement correlation;\\n- anomaly detection.\\n\\nInitial exclusions:\\n\\n- no bathroom surveillance;\\n- no permanent camera in Ted's bedroom;\\n- no sexualized recording;\\n- no disclosure to Aoi, Mia, Tomi, Yuuni, or Ted.\\n\\nEnne respects her sisters' privacy because she considers them trusted family. She does not grant Ted the same presumption at story start.\\n\\n---\"}",
+      "record_id": "record:2e087795-165e-5158-8324-11c7aa8cf81f",
+      "record_type": "household_rule",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:72cd0304-ac6b-57c7-b523-ffe74e69669c"
+      ],
+      "tags": [
+        "household",
+        "3_3_covert_surveillance_agreement"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Legend: **K** = knows as fact; **B** = believes; **P** = considers possible; **E** = holds relevant evidence; **N** = does not know.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"4.1 Key knowledge matrix\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.1 Key knowledge matrix\",\"line_end\":478,\"line_start\":459,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Legend: **K** = knows as fact; **B** = believes; **P** = considers possible; **E** = holds relevant evidence; **N** = does not know.\\n\\n| Proposition | Hana | Sakura | Mia | Enne | Tomi | Aoi | Yuuni | Ted |\\n|---|---|---|---|---|---|---|---|---|\\n| Husband is away about three years | K | K | K | K | K | K | K | N |\\n| Husband is cheating | N; brief P then self-correction | K/E | N | K/E | N | N | N | N |\\n| Tomi-specific financial burden motivated Ted's acceptance | K | K | N | N | N | K | N | N |\\n| Covert surveillance of Ted exists | K | K | N | K | N | N | N | N |\\n| Surveillance has no real deadline | N; believes short-term | K | N | K | N | N | N | N |\\n| Aoi pushed Anna down stairs | N | K with high confidence | senses hidden fracture only | suspects inconsistency, not exact act | N; believes accident | K | N | N |\\n| Sakura's abduction and attempted assault occurred | broad K | direct K | rescue-level K | owner-specific rescue/broad K | owner-specific rescue/broad K | owner-specific rescue/broad K | broad family K only | N |\\n| Aoi plans to remove Ted | N | N | N | N | N | K | N | N |\\n| Tomi immediately imagined Ted as a possible boyfriend | N | N | N | N | K | N | N | N |\\n| Mia's private sexual shame and fantasies | N | N | K | N | N | N | N | N |\\n| Enne's failed online male-arousal experiments | N | N | N | K | N | N | N | N |\\n| Yuuni wants professional singing/dance lessons | N | N | N | N | N | N | K | N |\\n| Hana's exact marital sexual history | K | N | N | N | N | N | N | N |\"}",
+      "record_id": "record:d0de05f5-eeb7-5219-8791-3c51d6d4c483",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:44ce4bf2-ec66-58f8-914e-1ca63bea33a9"
+      ],
+      "tags": [
+        "household",
+        "4_1_key_knowledge_matrix"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne discovered direct digital evidence first. She brought it to Sakura because Sakura is the only sister she trusted to decide what to do with a truth that could destroy Mother.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"4.2 Husband affair evidence\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.2 Husband affair evidence\",\"line_end\":492,\"line_start\":479,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Enne discovered direct digital evidence first. She brought it to Sakura because Sakura is the only sister she trusted to decide what to do with a truth that could destroy Mother.\\n\\nSakura independently verified enough to treat the affair as objective fact. Sakura decided Hana should not be told. Enne accepted the decision but retained the evidence.\\n\\nTheir private conflict:\\n\\n- Sakura believes disclosure would inflict suffering without giving Hana a useful remedy.\\n- Enne believes Sakura is probably correct but cannot fully defend denying Hana knowledge of her own marriage.\\n- Both love Mother.\\n- Both know their protection has removed Hana's informed agency.\\n- Neither revelation nor continued concealment is scheduled by Genesis.\"}",
+      "record_id": "record:d05b220b-53b8-51ce-a99d-fc8a17cffbd5",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:7f81dca6-b0bf-543c-bbd0-7b376ec6997b"
+      ],
+      "tags": [
+        "household",
+        "4_2_husband_affair_evidence"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Only Hana, Sakura, and Aoi know that the decision to accept a paying male resident was materially tied to sustaining Tomi's regional and national athletic future.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"4.3 Tomi financial secret\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.3 Tomi financial secret\",\"line_end\":507,\"line_start\":493,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Only Hana, Sakura, and Aoi know that the decision to accept a paying male resident was materially tied to sustaining Tomi's regional and national athletic future.\\n\\nThe meeting occurred in two stages:\\n\\n1. The full household discussed a paying resident as a response to general financial strain.\\n2. Aoi objected strongly to an unknown man entering the house.\\n3. After the general discussion, Hana and Sakura kept Aoi for a closed continuation.\\n4. Sakura explained the Tomi-specific stakes.\\n5. Aoi stopped objecting aloud.\\n6. Aoi did not accept Ted emotionally and began privately considering removal methods.\\n\\nTomi does not know the family accepted this burden for her. If she later learns, the guilt can be severe, but no revelation is predetermined.\"}",
+      "record_id": "record:69e96dd0-235b-5bb0-bbb9-0838f185f3e0",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:6c8c9baf-5422-5a1a-903b-6c86edc95fe1"
+      ],
+      "tags": [
+        "household",
+        "4_3_tomi_financial_secret"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Objective truth:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"4.4 Aoi and Anna\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.4 Aoi and Anna\",\"line_end\":527,\"line_start\":508,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Objective truth:\\n\\n- Anna's performance statistics threatened Tomi's ability to qualify.\\n- Aoi pushed Anna down a long staircase while Anna was walking home.\\n- Anna sustained a fractured skull and broken shin and could not compete.\\n- Tomi qualified and believes the result was legitimate.\\n- Permanent impairment remains unknown.\\n\\nKnowledge:\\n\\n- Aoi knows the complete truth.\\n- Sakura reconstructed the truth and treats it as true.\\n- Enne notices inconsistencies but does not know the exact act.\\n- Mia senses a serious hidden fracture but not the crime.\\n- Tomi believes Anna's fall was an accident.\\n- Yuuni does not know.\\n- Ted does not know.\"}",
+      "record_id": "record:e377e8f4-4e4c-56ea-990a-39924fee0817",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:5ac3b3fb-8332-52ba-bae4-493934774cfe"
+      ],
+      "tags": [
+        "household",
+        "4_4_aoi_and_anna"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Positions:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"4.5 Starting scene\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.5 Starting scene\",\"line_end\":549,\"line_start\":528,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Date:** September 2, 2026  \\n**Time:** Early evening, late summer  \\n**Weather:** Clear and warm; fading cicadas and distant local-train sounds  \\n**Location:** Hanezawa House entryway and adjacent common areas\\n\\nPositions:\\n\\n- Ted is outside the front door after ringing the bell.\\n- Sakura is nearest the entry and will handle the formal first contact.\\n- Hana is in or near the kitchen finishing a plate of fruit, aware of the arrival and allowing Sakura to lead.\\n- Mia is in the common room with tea prepared.\\n- Tomi has returned from training and is trying to appear less interested than she is.\\n- Enne is at her technical station, already aware of the network and room assignment beside Ted.\\n- Aoi is outwardly composed and privately irritated.\\n- Yuuni is nearby, curious, ready to assess the new man, and likely to say something others would have left unspoken.\\n\\nOnly Sakura and Ted are direct doorway participants at the first beat. Other residents do not automatically know exact words spoken outside their hearing.\\n\\n---\"}",
+      "record_id": "record:dbb87e50-6011-5f79-82a2-15a0607d43c9",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:9f41c224-73ea-5b02-8533-b40acb7f8601"
+      ],
+      "tags": [
+        "household",
+        "4_5_starting_scene"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "13.1 Ordinary daily baseline",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"13.1 Ordinary daily baseline\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"13.1 Ordinary daily baseline\",\"line_end\":6157,\"line_start\":6146,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"| Character | Typical rhythm | Care contribution | Private time | Stress deviation |\\n|---|---|---|---|---|\\n| **Hana** | Early household awareness; meals, errands, family coordination; rests later than she admits. | Seasonal fruit, nutrition checks, practical mothering, emotional welcome. | Quiet kitchen or veranda moments; messages to absent husband; rare personal rest. | Gives away her portion, smiles too much, avoids a difficult decision, or becomes unusually firm when a daughter is endangered. |\\n| **Sakura** | School and student council, documents, finance, meeting preparation, self-defense, late review. | Rules, budgets, scheduling, advocacy, legal and administrative protection. | Classical reading, calligraphy, gardening, private re-audit. | Sleeps less, rewrites rules, narrows information, becomes more exact, or misses a check she never normally misses. |\\n| **Mia** | School and Literature Club, tea, shared cooking, writing at night, small social care. | Tea, meals, cookies for special occasions, emotional noticing, low-pressure company. | Romance light novels, manuscript work, private fantasy and stress release. | Serves more, stops asking for help, withdraws one familiar comfort, or lets a writing deadline slip. |\\n| **Enne** | Remote technical study, irregular concentrated work blocks, system maintenance, quiet meals. | Repairs, backups, research, security, data and logistics. | Programming, hardware, archives, parallel silent company. | Expands monitoring, loses sleep, leaves an unusual repair unfinished, or translates all emotion into system language. |\\n| **Tomi** | Early training, school, team practice, recovery, physical chores, games. | Energy, errands, lifting, direct intervention, morale. | Running routes, games, equipment care, time with Yuuni. | Jokes louder, conceals pain, trains harder, becomes abruptly quiet, or refuses food/recovery. |\\n| **Aoi** | School, shrine/community obligations, provisioning, quiet contingency work. | Supplies, discreet errands, social navigation, preventing practical problems. | Unstructured private movement, local information gathering, planning. | Becomes still, returns late, offers a solution without explaining its source, or asks unusually specific questions. |\\n| **Yuuni** | Flexible study, vocal practice, dance rehearsal, household observation, time near sisters. | Emotional truth, performance joy, direct questions, lively youngest-sister presence. | Singing, choreography, pop-idol research, secretly reviewing tutor information. | Stops performing, becomes shy around a meeting agenda, blurts a painful truth, or withdraws after being told off. |\"}",
+      "record_id": "record:1e0a1b1f-03da-5429-8766-14b254ee4e7f",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:69aced6e-4230-512e-bcf1-cb412f8228d8"
+      ],
+      "tags": [
+        "household",
+        "13_1_ordinary_daily_baseline"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Hana cuts seasonal fruit and notices who does not eat.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"13.2 Household rituals\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"13.2 Household rituals\",\"line_end\":6168,\"line_start\":6158,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"- Hana cuts seasonal fruit and notices who does not eat.\\n- Mia prepares tea; her special cookies normally mark birthdays or emotionally meaningful occasions.\\n- Sakura chairs the Sunday household meeting while Hana retains final authority.\\n- Enne maintains systems that most of the family notices only when they fail.\\n- Tomi's return from training changes the energy of the house.\\n- Aoi quietly replenishes practical supplies and often solves minor problems before announcing them.\\n- Yuuni's singing and dancing are a common family joy; the family watches and supports rather than being forced to perform with her.\\n- Family members know one another's ordinary patterns well enough that a small deviation can become meaningful evidence.\"}",
+      "record_id": "record:a5cbc35e-1d5b-5303-a1c8-3f6d92007e81",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:b7627fa7-381b-56ec-8890-9c57a47c3371"
+      ],
+      "tags": [
+        "household",
+        "13_2_household_rituals"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "These are common bids for reconnection, not mandatory fallbacks and not sufficient accountability after severe harm.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"13.3 Repair languages\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"13.3 Repair languages\",\"line_end\":6182,\"line_start\":6169,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"These are common bids for reconnection, not mandatory fallbacks and not sufficient accountability after severe harm.\\n\\n| Character | Habitual repair bid | What makes it inadequate |\\n|---|---|---|\\n| **Hana** | Fruit, quiet presence, asking whether the person has eaten, gentle invitation to talk. | Care cannot replace truth, consent, consequence, or a necessary confrontation. |\\n| **Sakura** | Correcting a rule or record, returning authority, giving an exact apology, changing procedure. | Procedural repair without interpersonal acknowledgment may leave humiliation untouched. |\\n| **Mia** | Tea, food, a soft question, or explicitly naming the feeling after avoidance. | Comfort can restore atmosphere while leaving exploitation or resentment unresolved. |\\n| **Enne** | Repairing damage, returning data control, deleting unauthorized access, giving a concise factual explanation. | Technical correction does not automatically repair the experience of being monitored or objectified. |\\n| **Tomi** | Showing up, helping physically, admitting a weakness in action before words. | Effort does not excuse intimidation, injury concealment, or retaliation. |\\n| **Aoi** | Solving immediate damage, disclosing what she did, accepting practical consequence. | A successful outcome does not justify the method; repair requires surrendering control of the victim's response. |\\n| **Yuuni** | Saying the sentence everyone avoided, apologizing plainly after realizing the consequence, offering a song or presence. | Truthfulness does not erase violated privacy or public embarrassment. |\"}",
+      "record_id": "record:2a683a85-af55-5766-bd7a-e9924ee0f4c3",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:64a87990-57e3-55d5-96a0-c8bcb1739c9c"
+      ],
+      "tags": [
+        "household",
+        "13_3_repair_languages"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "The household is not permanently grim. Bright life includes:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"13.4 Ordinary happiness is real\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"13.4 Ordinary happiness is real\",\"line_end\":6198,\"line_start\":6183,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"The household is not permanently grim. Bright life includes:\\n\\n- fruit shared after school;\\n- tea during rain;\\n- Tomi and Yuuni's banter;\\n- Yuuni rehearsing while the family listens;\\n- Sakura pretending not to enjoy a joke;\\n- Enne solving a problem without asking for praise;\\n- Aoi performing an ordinary kindness with no hidden cost;\\n- Hana seeing all six daughters at one table;\\n- school festivals, meets, train trips, convenience-store errands, seasonal weather, and quiet evenings.\\n\\nDark potential matters because this warmth is genuine and can be protected, distorted, or lost.\"}",
+      "record_id": "record:53046c2d-dbca-5142-8939-c8c33e1277e3",
+      "record_type": "world",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:838531f0-3436-5688-b90f-05b3ea9e7565"
+      ],
+      "tags": [
+        "household",
+        "13_4_ordinary_happiness_is_real"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "public"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Hana Hanezawa is present in the Hanezawa household at story start.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text",
+        "character_id",
+        "presence"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:hana_hanezawa\",\"heading\":\"4.5 Starting scene\",\"presence\":\"present\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.5 Starting scene\",\"line_end\":549,\"line_start\":528,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Date:** September 2, 2026  \\n**Time:** Early evening, late summer  \\n**Weather:** Clear and warm; fading cicadas and distant local-train sounds  \\n**Location:** Hanezawa House entryway and adjacent common areas\\n\\nPositions:\\n\\n- Ted is outside the front door after ringing the bell.\\n- Sakura is nearest the entry and will handle the formal first contact.\\n- Hana is in or near the kitchen finishing a plate of fruit, aware of the arrival and allowing Sakura to lead.\\n- Mia is in the common room with tea prepared.\\n- Tomi has returned from training and is trying to appear less interested than she is.\\n- Enne is at her technical station, already aware of the network and room assignment beside Ted.\\n- Aoi is outwardly composed and privately irritated.\\n- Yuuni is nearby, curious, ready to assess the new man, and likely to say something others would have left unspoken.\\n\\nOnly Sakura and Ted are direct doorway participants at the first beat. Other residents do not automatically know exact words spoken outside their hearing.\\n\\n---\"}",
+      "record_id": "record:690e35f7-6454-5d5b-adfa-6260507652e9",
+      "record_type": "story_start_placement",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "present",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:4cdf7730-f24d-5c37-9a30-402846d71562"
+      ],
+      "tags": [
+        "story_start",
+        "hana",
+        "present"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Sakura Hanezawa is present in the Hanezawa household at story start.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text",
+        "character_id",
+        "presence"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:sakura_hanezawa\",\"heading\":\"4.5 Starting scene\",\"presence\":\"present\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.5 Starting scene\",\"line_end\":549,\"line_start\":528,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Date:** September 2, 2026  \\n**Time:** Early evening, late summer  \\n**Weather:** Clear and warm; fading cicadas and distant local-train sounds  \\n**Location:** Hanezawa House entryway and adjacent common areas\\n\\nPositions:\\n\\n- Ted is outside the front door after ringing the bell.\\n- Sakura is nearest the entry and will handle the formal first contact.\\n- Hana is in or near the kitchen finishing a plate of fruit, aware of the arrival and allowing Sakura to lead.\\n- Mia is in the common room with tea prepared.\\n- Tomi has returned from training and is trying to appear less interested than she is.\\n- Enne is at her technical station, already aware of the network and room assignment beside Ted.\\n- Aoi is outwardly composed and privately irritated.\\n- Yuuni is nearby, curious, ready to assess the new man, and likely to say something others would have left unspoken.\\n\\nOnly Sakura and Ted are direct doorway participants at the first beat. Other residents do not automatically know exact words spoken outside their hearing.\\n\\n---\"}",
+      "record_id": "record:663ecba7-b770-50d2-bbf1-5f2c728ca5ca",
+      "record_type": "story_start_placement",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "present",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:a102eb82-4e91-5835-bbfe-3b758be23af2"
+      ],
+      "tags": [
+        "story_start",
+        "sakura",
+        "present"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia Hanezawa is present in the Hanezawa household at story start.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text",
+        "character_id",
+        "presence"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:mia_hanezawa\",\"heading\":\"4.5 Starting scene\",\"presence\":\"present\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.5 Starting scene\",\"line_end\":549,\"line_start\":528,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Date:** September 2, 2026  \\n**Time:** Early evening, late summer  \\n**Weather:** Clear and warm; fading cicadas and distant local-train sounds  \\n**Location:** Hanezawa House entryway and adjacent common areas\\n\\nPositions:\\n\\n- Ted is outside the front door after ringing the bell.\\n- Sakura is nearest the entry and will handle the formal first contact.\\n- Hana is in or near the kitchen finishing a plate of fruit, aware of the arrival and allowing Sakura to lead.\\n- Mia is in the common room with tea prepared.\\n- Tomi has returned from training and is trying to appear less interested than she is.\\n- Enne is at her technical station, already aware of the network and room assignment beside Ted.\\n- Aoi is outwardly composed and privately irritated.\\n- Yuuni is nearby, curious, ready to assess the new man, and likely to say something others would have left unspoken.\\n\\nOnly Sakura and Ted are direct doorway participants at the first beat. Other residents do not automatically know exact words spoken outside their hearing.\\n\\n---\"}",
+      "record_id": "record:60c7809e-01f9-5b94-a8d4-9905816ee3f5",
+      "record_type": "story_start_placement",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "present",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:f1f05a89-3d04-5ee1-ae14-fdd8021ef439"
+      ],
+      "tags": [
+        "story_start",
+        "mia",
+        "present"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne Hanezawa is present in the Hanezawa household at story start.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text",
+        "character_id",
+        "presence"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:enne_hanezawa\",\"heading\":\"4.5 Starting scene\",\"presence\":\"present\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.5 Starting scene\",\"line_end\":549,\"line_start\":528,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Date:** September 2, 2026  \\n**Time:** Early evening, late summer  \\n**Weather:** Clear and warm; fading cicadas and distant local-train sounds  \\n**Location:** Hanezawa House entryway and adjacent common areas\\n\\nPositions:\\n\\n- Ted is outside the front door after ringing the bell.\\n- Sakura is nearest the entry and will handle the formal first contact.\\n- Hana is in or near the kitchen finishing a plate of fruit, aware of the arrival and allowing Sakura to lead.\\n- Mia is in the common room with tea prepared.\\n- Tomi has returned from training and is trying to appear less interested than she is.\\n- Enne is at her technical station, already aware of the network and room assignment beside Ted.\\n- Aoi is outwardly composed and privately irritated.\\n- Yuuni is nearby, curious, ready to assess the new man, and likely to say something others would have left unspoken.\\n\\nOnly Sakura and Ted are direct doorway participants at the first beat. Other residents do not automatically know exact words spoken outside their hearing.\\n\\n---\"}",
+      "record_id": "record:b9c4e4dd-3637-5a22-b60d-15bf49fb2a9e",
+      "record_type": "story_start_placement",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "present",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:5f86e407-247f-526d-915d-ba37739c383d"
+      ],
+      "tags": [
+        "story_start",
+        "enne",
+        "present"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Tomi Hanezawa is present in the Hanezawa household at story start.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text",
+        "character_id",
+        "presence"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:tomi_hanezawa\",\"heading\":\"4.5 Starting scene\",\"presence\":\"present\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.5 Starting scene\",\"line_end\":549,\"line_start\":528,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Date:** September 2, 2026  \\n**Time:** Early evening, late summer  \\n**Weather:** Clear and warm; fading cicadas and distant local-train sounds  \\n**Location:** Hanezawa House entryway and adjacent common areas\\n\\nPositions:\\n\\n- Ted is outside the front door after ringing the bell.\\n- Sakura is nearest the entry and will handle the formal first contact.\\n- Hana is in or near the kitchen finishing a plate of fruit, aware of the arrival and allowing Sakura to lead.\\n- Mia is in the common room with tea prepared.\\n- Tomi has returned from training and is trying to appear less interested than she is.\\n- Enne is at her technical station, already aware of the network and room assignment beside Ted.\\n- Aoi is outwardly composed and privately irritated.\\n- Yuuni is nearby, curious, ready to assess the new man, and likely to say something others would have left unspoken.\\n\\nOnly Sakura and Ted are direct doorway participants at the first beat. Other residents do not automatically know exact words spoken outside their hearing.\\n\\n---\"}",
+      "record_id": "record:c6cf8f98-ded6-5bfb-a74e-1df6c1d43f76",
+      "record_type": "story_start_placement",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "present",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:af9d318d-ecf2-59f4-8910-71b9ae56840f"
+      ],
+      "tags": [
+        "story_start",
+        "tomi",
+        "present"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi Hanezawa is present in the Hanezawa household at story start.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text",
+        "character_id",
+        "presence"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:aoi_hanezawa\",\"heading\":\"4.5 Starting scene\",\"presence\":\"present\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.5 Starting scene\",\"line_end\":549,\"line_start\":528,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Date:** September 2, 2026  \\n**Time:** Early evening, late summer  \\n**Weather:** Clear and warm; fading cicadas and distant local-train sounds  \\n**Location:** Hanezawa House entryway and adjacent common areas\\n\\nPositions:\\n\\n- Ted is outside the front door after ringing the bell.\\n- Sakura is nearest the entry and will handle the formal first contact.\\n- Hana is in or near the kitchen finishing a plate of fruit, aware of the arrival and allowing Sakura to lead.\\n- Mia is in the common room with tea prepared.\\n- Tomi has returned from training and is trying to appear less interested than she is.\\n- Enne is at her technical station, already aware of the network and room assignment beside Ted.\\n- Aoi is outwardly composed and privately irritated.\\n- Yuuni is nearby, curious, ready to assess the new man, and likely to say something others would have left unspoken.\\n\\nOnly Sakura and Ted are direct doorway participants at the first beat. Other residents do not automatically know exact words spoken outside their hearing.\\n\\n---\"}",
+      "record_id": "record:39f1420f-efbc-5343-9e6b-e01f053e632c",
+      "record_type": "story_start_placement",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "present",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:95bdd445-8ecd-574c-849a-fcd98c8bf059"
+      ],
+      "tags": [
+        "story_start",
+        "aoi",
+        "present"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Yuuni Hanezawa is present in the Hanezawa household at story start.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text",
+        "character_id",
+        "presence"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:yuuni_hanezawa\",\"heading\":\"4.5 Starting scene\",\"presence\":\"present\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"4.5 Starting scene\",\"line_end\":549,\"line_start\":528,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Date:** September 2, 2026  \\n**Time:** Early evening, late summer  \\n**Weather:** Clear and warm; fading cicadas and distant local-train sounds  \\n**Location:** Hanezawa House entryway and adjacent common areas\\n\\nPositions:\\n\\n- Ted is outside the front door after ringing the bell.\\n- Sakura is nearest the entry and will handle the formal first contact.\\n- Hana is in or near the kitchen finishing a plate of fruit, aware of the arrival and allowing Sakura to lead.\\n- Mia is in the common room with tea prepared.\\n- Tomi has returned from training and is trying to appear less interested than she is.\\n- Enne is at her technical station, already aware of the network and room assignment beside Ted.\\n- Aoi is outwardly composed and privately irritated.\\n- Yuuni is nearby, curious, ready to assess the new man, and likely to say something others would have left unspoken.\\n\\nOnly Sakura and Ted are direct doorway participants at the first beat. Other residents do not automatically know exact words spoken outside their hearing.\\n\\n---\"}",
+      "record_id": "record:90e34047-4218-5c18-a4c7-c7e4be08d870",
+      "record_type": "story_start_placement",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:e872283a-b10e-58b2-a59b-f6f330a5ec44"
+      ],
+      "story_start_presence": "present",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:2696256e-f6ec-5884-983c-765b8b5fcbad"
+      ],
+      "tags": [
+        "story_start",
+        "yuuni",
+        "present"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:e872283a-b10e-58b2-a59b-f6f330a5ec44",
+  "title": "Hanezawa household, rules, and story start"
+}

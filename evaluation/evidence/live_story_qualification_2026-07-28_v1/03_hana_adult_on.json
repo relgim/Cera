@@ -1,0 +1,26 @@
+{
+  "adult": true,
+  "adult_mode": "adult_on",
+  "automatic_retry_count": 0,
+  "case_id": "03_hana_adult_on",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_REASONER_CONTRACT_INVALID",
+    "generation_id": "generation:3b572f20-abc8-5e56-89df-11c431eaee34",
+    "message": "adult craft need does not exactly cover current beats",
+    "request_id": "request:qualification-03_hana_adult_on",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "reasoner_validation",
+    "story_state_committed": false,
+    "trace_id": "trace:a40099d5-6410-5ad5-84d4-06151b3e19e0"
+  },
+  "fallback_enabled": false,
+  "schema_version": "cera.live_story_qualification_case.v1",
+  "source_sha256": "6fcee7ddda48779f04c600d776344253dd17b0566764b88d3370dfab12319972",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Hana consent-valid Adult ON direct realization"
+}

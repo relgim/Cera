@@ -1,0 +1,75 @@
+{
+  "attempted_cases": 5,
+  "automatic_retry_count": 0,
+  "cases": [
+    {
+      "automatic_retry_count": 0,
+      "case_id": "01_hana_indirect_memory",
+      "error_class": "ComposerExecutionFailure",
+      "error_message": "DeepSeek Composer output failed typed decoding: SemanticInference.target has invalid enum value 'trust'",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana ordinary turn with indirect missed-calls memory"
+    },
+    {
+      "automatic_retry_count": 0,
+      "case_id": "02_mia_sakura_selected_cast",
+      "error_class": "ComposerExecutionFailure",
+      "error_message": "DeepSeek Composer output failed typed decoding: realized participant must speak or visibly act",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Mia and Sakura ordinary selected-cast turn"
+    },
+    {
+      "automatic_retry_count": 0,
+      "case_id": "03_hana_adult_on",
+      "error_class": "ReasonerExecutionFailure",
+      "error_message": "Codex reasoner output failed typed decoding: ReasonerOutcome.adult_craft_need does not match its union: ['non-character channel need cannot name a character']",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana consent-valid Adult ON direct realization"
+    },
+    {
+      "automatic_retry_count": 0,
+      "case_id": "04_hana_adult_ex_climax",
+      "error_class": "ReasonerExecutionFailure",
+      "error_message": "Codex reasoner output failed typed decoding: ReasonerOutcome.adult_craft_need does not match its union: ['non-character channel need cannot name a character']",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana consent-valid Adult EX buildup and climax"
+    },
+    {
+      "automatic_retry_count": 0,
+      "case_id": "05_hana_adult_ex_toilet",
+      "error_class": "ReasonerExecutionFailure",
+      "error_message": "Codex reasoner output failed typed decoding: ReasonerOutcome.adult_craft_need does not match its union: ['non-character channel need cannot name a character']",
+      "fallback_enabled": false,
+      "status": "failed",
+      "story_authority_writes": 0,
+      "story_state_committed": false,
+      "title": "Hana consent-valid Adult EX toilet and material continuity"
+    }
+  ],
+  "duration_seconds": 441.668,
+  "failed_cases": 5,
+  "fallback_enabled": false,
+  "finished_at": "2026-07-29T07:31:13.447674+00:00",
+  "passed_cases": 0,
+  "preserved_existing_case_ids": [],
+  "production_enabled": false,
+  "qualification_id": "five-run-live-v2",
+  "resumed_after_runner_stdout_interruption": false,
+  "schema_version": "cera.live_story_qualification_summary.v1",
+  "semantic_verifier_limitation": "Adult semantic specificity used the production-prohibited scripted fake; its empty finding set is not proof of semantic quality.",
+  "started_at": "2026-07-29T07:23:51.780132+00:00",
+  "story_authority_writes": 0,
+  "story_state_committed": false
+}

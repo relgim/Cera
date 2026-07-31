@@ -1,0 +1,17 @@
+{
+  "deepseek_calls": 0,
+  "fallback_count": 0,
+  "policy": {
+    "description": "one warm Codex process; one new ephemeral thread continued for all turns",
+    "key": "continued_thread",
+    "reuse_thread": true
+  },
+  "retry_count": 0,
+  "schema_version": "cera.full_branch_session_ab_run.v1",
+  "semantic_verifier_qualified": false,
+  "sol_calls": 0,
+  "started_at": "2026-07-31T04:19:04.129982+00:00",
+  "status": "running",
+  "story_state_committed": false,
+  "turns": []
+}

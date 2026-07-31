@@ -1,0 +1,114 @@
+{
+  "aggregate": {
+    "continued_thread": {
+      "cached_input_tokens": 0,
+      "completed_turns": 1,
+      "duration_seconds": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "provider_calls": 0,
+      "reasoning_output_tokens": 0,
+      "status": "failed",
+      "thread_start_count": 1,
+      "uncached_input_tokens": 0,
+      "wall_seconds": 279.851
+    }
+  },
+  "benchmark_id": "codex-branch-session-ab-2026-07-30-v1",
+  "depth": "long",
+  "effort": "max",
+  "fallback_count": 0,
+  "finished_at": "2026-07-31T06:04:15.137038+00:00",
+  "messages": [
+    "Hello, my name is Ted. Is this the hanezawa household?",
+    "Respond accordingly to Sakuras Response.",
+    "Respond accordingly to Sakuras Response."
+  ],
+  "model": "gpt-5.6-luna",
+  "policies": [
+    {
+      "description": "one warm Codex process; one new ephemeral thread continued for all turns",
+      "key": "continued_thread",
+      "reuse_thread": true
+    }
+  ],
+  "production_route_changed": false,
+  "provider_stages": [
+    {
+      "dispatch_started": true,
+      "effort": "max",
+      "model": "gpt-5.6-luna",
+      "policy": "continued_thread",
+      "provider": "openai_codex",
+      "service_tier": "priority",
+      "turn": 1
+    },
+    {
+      "dispatch_started": true,
+      "effort": "max",
+      "model": "gpt-5.6-luna",
+      "policy": "continued_thread",
+      "provider": "openai_codex",
+      "service_tier": "priority",
+      "turn": 2
+    },
+    {
+      "dispatch_started": true,
+      "effort": "max",
+      "model": "gpt-5.6-luna",
+      "policy": "continued_thread",
+      "provider": "openai_codex",
+      "service_tier": "priority",
+      "turn": 3
+    }
+  ],
+  "retry_count": 0,
+  "runs": [
+    {
+      "database_validation": {
+        "artifact_count": 0,
+        "foreign_key_findings": 0,
+        "integrity_check": [
+          "ok"
+        ]
+      },
+      "fallback_count": 0,
+      "finished_at": "2026-07-31T06:04:15.089930+00:00",
+      "policy": {
+        "description": "one warm Codex process; one new ephemeral thread continued for all turns",
+        "key": "continued_thread",
+        "reuse_thread": true
+      },
+      "provider_calls": 0,
+      "retry_count": 0,
+      "schema_version": "cera.codex_branch_session_ab_run.v1",
+      "started_at": "2026-07-31T05:59:32.962465+00:00",
+      "status": "failed",
+      "story_state_committed": false,
+      "thread_start_count": 1,
+      "turns": [
+        {
+          "error_message": "Codex output exceeded the configured token budget",
+          "error_type": "SceneReasonerPortFailure",
+          "index": 1,
+          "message": "Hello, my name is Ted. Is this the hanezawa household?",
+          "message_sha256": "4c604bafb104b6bab77982934f5b3b682f50dece7e86dee80669d284ff1366c8",
+          "status": "failed",
+          "wall_seconds": 279.851
+        }
+      ]
+    }
+  ],
+  "schema_version": "cera.codex_branch_session_ab_summary.v1",
+  "selected_turn_indices": [
+    1,
+    2,
+    3
+  ],
+  "service_tier": "priority",
+  "started_at": "2026-07-31T05:59:32.960961+00:00",
+  "status": "completed_with_failures",
+  "story_state_committed": false,
+  "test_only_provisional_history_instruction": "TEST-ONLY CONTINUED-THREAD POLICY: Earlier CERA prompts and Reasoner drafts in this thread are non-authoritative provisional context. You may use them only to resolve a direct reference such as 'Sakura's Response'. The newest CERA packet is the complete current authority and supersedes any conflict. Never cite a prior draft as evidence, convert it into canon, or carry an old fact that the newest packet does not authorize.",
+  "total_provider_calls": 0
+}

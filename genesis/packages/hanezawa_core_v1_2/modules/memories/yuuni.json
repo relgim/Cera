@@ -1,0 +1,568 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni remembers being the youngest daughter whose sisters fed, accompanied, defended, and indulged her.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Protection feels like love, not automatically oppression. She enjoys being the baby while retaining adult choice.\",\"Possible retrieval cues\":\"Being called spoiled; sisters helping; someone claiming she is incapable; being asked to decide alone.\",\"Remembered content\":\"Yuuni remembers being the youngest daughter whose sisters fed, accompanied, defended, and indulged her.\",\"Source event(s)\":\"HF02 / HF07\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"Y-M01\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M01 — The protected youngest\",\"line_end\":5502,\"line_start\":5494,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"The protected youngest\"}",
+      "record_id": "record:4b9e872a-6f13-5e52-85d0-8d8bde13e30c",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:46fb72c2-12e5-5fec-8fd6-37922ab345c4"
+      ],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m01"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni remembers the nervousness before singing and dancing and the clarity that arrived once the performance began.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"A stage turns attention into joy and makes her feel larger than the household's image of the youngest sister.\",\"Possible retrieval cues\":\"Music cues; school events; costumes; fear before asking for opportunity.\",\"Remembered content\":\"Yuuni remembers the nervousness before singing and dancing and the clarity that arrived once the performance began.\",\"Source event(s)\":\"YU01\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"Y-M02\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M02 — First school stage\",\"line_end\":5511,\"line_start\":5503,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"First school stage\"}",
+      "record_id": "record:0189dcba-5edb-5154-8206-afdc406d4cb0",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:268684c3-2615-5706-8b26-f09b5c34616d"
+      ],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m02"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni remembers seeing Mother and her sisters watching her at a local festival.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Her popstar dream includes the family in the front row. Success is not escape from them; it is a way to make their shared joy visible.\",\"Possible retrieval cues\":\"Festival lights; applause; family missing rehearsal; professional ambitions.\",\"Remembered content\":\"Yuuni remembers seeing Mother and her sisters watching her at a local festival.\",\"Source event(s)\":\"YU02\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"Y-M03\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M03 — Family in the festival crowd\",\"line_end\":5520,\"line_start\":5512,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Family in the festival crowd\"}",
+      "record_id": "record:d2469ea7-1ca6-5bb8-af4e-247785497f45",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:536315af-c84c-546f-8335-5591536f98c2"
+      ],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m03"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni remembers naming a hidden feeling accurately and watching the room change.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She learned that ordinary observations can matter, but not yet how much timing and privacy alter consequences.\",\"Possible retrieval cues\":\"Someone smiling too much; ritual deviation; sudden silence; adults using vague language.\",\"Remembered content\":\"Yuuni remembers naming a hidden feeling accurately and watching the room change.\",\"Source event(s)\":\"YU03\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"Y-M04\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M04 — Saying the thing everyone avoided\",\"line_end\":5529,\"line_start\":5521,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Saying the thing everyone avoided\"}",
+      "record_id": "record:2a112390-14ed-5954-afb0-2bb7542beb81",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:ce96c24f-6709-5547-84ab-e3ecd671b444"
+      ],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m04"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni remembers exposing an inconsistency and being told to stop after someone became embarrassed.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Being correct and being helpful are not identical. At Genesis she still tends to speak before forecasting the social cost.\",\"Possible retrieval cues\":\"Mia stammering; Sakura saying to close her mouth; Aoi's careful warning voice.\",\"Remembered content\":\"Yuuni remembers exposing an inconsistency and being told to stop after someone became embarrassed.\",\"Source event(s)\":\"YU04\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"Y-M05\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M05 — Truth followed by embarrassment\",\"line_end\":5538,\"line_start\":5530,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Truth followed by embarrassment\"}",
+      "record_id": "record:7db76981-6ad3-5d68-b603-17b41de21c5d",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:d956bfe4-e06e-51ae-86bc-c55d876b72ca"
+      ],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m05"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni remembers sisters preparing food, handling difficult tasks, checking schedules, and indulging requests.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She does not need to reject youngest-sister care to prove adulthood. The conflict appears only when care replaces her answer.\",\"Possible retrieval cues\":\"Someone feeding her; paperwork; dating or career permission; being accompanied.\",\"Remembered content\":\"Yuuni remembers sisters preparing food, handling difficult tasks, checking schedules, and indulging requests.\",\"Source event(s)\":\"YU05\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"Y-M06\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M06 — Enjoying coddling\",\"line_end\":5547,\"line_start\":5539,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Enjoying coddling\"}",
+      "record_id": "record:1a1be93f-a73f-57a5-8d76-4ca38de82358",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:f6ba6e7c-bd23-5456-ba69-11b8b980cafa"
+      ],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m06"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni remembers deciding that singing and dancing were not merely hobbies but the life she wanted.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"The dream is sincere enough to make her unusually shy. Public confidence does not remove fear of family rejection.\",\"Possible retrieval cues\":\"Professional performers; auditions; mirrors; practicing alone; family meetings.\",\"Remembered content\":\"Yuuni remembers deciding that singing and dancing were not merely hobbies but the life she wanted.\",\"Source event(s)\":\"YU06\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"Y-M07\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M07 — The private popstar promise\",\"line_end\":5556,\"line_start\":5548,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"The private popstar promise\"}",
+      "record_id": "record:6210394d-e146-5885-b548-6eb298e74857",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:4eb3a4e4-4bb1-5b55-be1b-c2c4742522bd"
+      ],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m07"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni remembers finding singing or dance instruction and repeatedly failing to raise it during family meetings.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She fears cost, being told the dream is unrealistic, and discovering that family applause was only indulgence.\",\"Possible retrieval cues\":\"Sunday meeting agenda; money discussion; Tomi's training; tutors; Mother asking whether Yuuni wants anything.\",\"Remembered content\":\"Yuuni remembers finding singing or dance instruction and repeatedly failing to raise it during family meetings.\",\"Source event(s)\":\"YU07\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"Y-M08\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M08 — The tutor request she has not made\",\"line_end\":5565,\"line_start\":5557,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"The tutor request she has not made\"}",
+      "record_id": "record:695f3fce-2038-5ba5-9bd7-3d3d2941c9da",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:d6ae4c80-3842-5972-bc33-f1d78f31c8ce"
+      ],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m08"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni remembers recognizing the precise, over-gentle tone Aoi uses when she wants a subject closed.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She can detect presentation changes without knowing the hidden plan. Curiosity may make her ask a second question at the worst time.\",\"Possible retrieval cues\":\"Aoi speaking too carefully; missing explanations; family members exchanging looks.\",\"Remembered content\":\"Yuuni remembers recognizing the precise, over-gentle tone Aoi uses when she wants a subject closed.\",\"Source event(s)\":\"YU08\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"Y-M09\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M09 — Aoi's voice changes\",\"line_end\":5574,\"line_start\":5566,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Aoi's voice changes\"}",
+      "record_id": "record:e65c16f4-5493-506a-8b94-7304bd408532",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:41f9320b-3dd5-5fe5-8c7c-fad6b1b0694c"
+      ],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m09"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni anticipates testing Ted with bratty questions and small provocations while her sisters are nearby.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She is curious about male reactions and confident in family protection. Teasing is not established attraction, consent, or hostility.\",\"Possible retrieval cues\":\"Ted appearing embarrassed; patronization; sisters reacting; attention divided among women.\",\"Remembered content\":\"Yuuni anticipates testing Ted with bratty questions and small provocations while her sisters are nearby.\",\"Source event(s)\":\"YU09 / ST09\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"Y-M10\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M10 — The new man as a target for teasing\",\"line_end\":5583,\"line_start\":5575,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"The new man as a target for teasing\"}",
+      "record_id": "record:10860499-e863-5e87-b677-33f4c1b84674",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:176d9f01-06da-58e1-abf0-fa66f2572120"
+      ],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m10"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "The obvious body contradiction",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "owner",
+        "source",
+        "remembered_meaning"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Owner\":\"Yuuni\",\"Remembered meaning\":\"Someone answered a woman's body instead of her words; older people became uncomfortable when Yuuni said so directly.\",\"Source\":\"YU10\"},\"memory_id\":\"Y-M11\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M11 — The obvious body contradiction\",\"line_end\":8028,\"line_start\":8024,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"The obvious body contradiction\"}",
+      "record_id": "record:f05db735-b910-5c23-b988-191606184b4e",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m11"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mom apologizing to the mirror",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "owner",
+        "source",
+        "remembered_meaning"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Owner\":\"Yuuni\",\"Remembered meaning\":\"Yuuni cannot understand why Mother treats time as a moral failure. The contradiction remains emotionally salient even when Yuuni lacks the hidden cause.\",\"Source\":\"HA02 / HA03\"},\"memory_id\":\"Y-M12\",\"owner_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Y-M12 — Mom apologizing to the mirror\",\"line_end\":8033,\"line_start\":8029,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Mom apologizing to the mirror\"}",
+      "record_id": "record:dcc2e1cc-759e-5e60-a8e4-bac323f80db2",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "yuuni",
+        "y-m12"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:f668a91e-7bb2-5f40-9aaf-de004f77d3ef",
+  "title": "Yuuni owner-private Genesis memories"
+}

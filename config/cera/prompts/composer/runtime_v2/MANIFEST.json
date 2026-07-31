@@ -1,0 +1,190 @@
+{
+  "schema_version": "cera.runtime_prompt_registry.v3",
+  "registry_version": "cera.deepseek_runtime_prompt_registry.v7",
+  "provenance_sha256": "fca74e32462c4687d9810e3bf89d60cda0fbe8cf5b35c569c20dc1de3602f8a4",
+  "runtime_external_path_dependencies": [],
+  "creative_prompt_limit_enforced": false,
+  "fixed_example_count_enforced": false,
+  "modules": [
+    {
+      "module_id": "composer.authority.v6",
+      "layer": "authority",
+      "relative_path": "modules/core/authority_and_boundaries_v6.md",
+      "sha256": "6a01fb790088e9bd5c54b70a49da8341938e2c9c0232aeff7e8ca8983ea843eb",
+      "deterministic_order": 100,
+      "selector_value": null,
+      "source_provenance": "ChatGPT Pro authoring package fca74e... plus Python-owned closed-world protected-user and world-fact continuity contracts from Flash qualifications v23-v26"
+    },
+    {
+      "module_id": "composer.causal_realization.v2",
+      "layer": "causal_realization",
+      "relative_path": "modules/core/causal_realization_v2.md",
+      "sha256": "0110f4de1dc877c13c9cc3d9f6dca47b8c6f0c1b6bc19a31294126205dd15531",
+      "deterministic_order": 200,
+      "selector_value": null,
+      "source_provenance": "Creator behavioral tests plus ChatGPT Pro package, Codex-adapted"
+    },
+    {
+      "module_id": "composer.structured_output.v2",
+      "layer": "structured_output",
+      "relative_path": "modules/core/structured_output_v2.md",
+      "sha256": "3f76216ce25690208d2bd3b1730629d46a95e299f85434477047a4d72cad5e21",
+      "deterministic_order": 300,
+      "selector_value": null,
+      "source_provenance": "ChatGPT Pro package bound by Codex to Composer DTO v6"
+    },
+    {
+      "module_id": "composer.depth.off.v2",
+      "layer": "depth",
+      "relative_path": "modules/depth/off_v2.md",
+      "sha256": "50878e5f372575e0a90cea6a7ed90086db613137e77043fd74ea95d49d2576e5",
+      "deterministic_order": 410,
+      "selector_value": "off",
+      "source_provenance": "ChatGPT Pro package, numeric quotas removed by Codex"
+    },
+    {
+      "module_id": "composer.depth.short.v2",
+      "layer": "depth",
+      "relative_path": "modules/depth/short_v2.md",
+      "sha256": "39a6a455ce188bacba98e472058ffc12c3db2c444835ddf60dfd1223bbb02b3e",
+      "deterministic_order": 415,
+      "selector_value": "short",
+      "source_provenance": "Creator behavioral tests, Codex-authored compact causal profile"
+    },
+    {
+      "module_id": "composer.depth.auto.v2",
+      "layer": "depth",
+      "relative_path": "modules/depth/auto_v2.md",
+      "sha256": "2b2b0f4ba160bc16b17c6d83f30c76290b7c56f525989d11d419585f2433a8a2",
+      "deterministic_order": 420,
+      "selector_value": "auto",
+      "source_provenance": "ChatGPT Pro package plus creator adaptive-depth clarification"
+    },
+    {
+      "module_id": "composer.depth.medium.v2",
+      "layer": "depth",
+      "relative_path": "modules/depth/medium_v2.md",
+      "sha256": "54db3bb9aafe8c42d1eaefcca4ecd2c09f31494b92ed354ae065a18e9ad4f577",
+      "deterministic_order": 425,
+      "selector_value": "medium",
+      "source_provenance": "Creator behavioral tests, Codex-authored developed-scene profile"
+    },
+    {
+      "module_id": "composer.depth.long.v2",
+      "layer": "depth",
+      "relative_path": "modules/depth/long_v2.md",
+      "sha256": "3d4448f832a9f45dfb0658f14fa5d9e93e666d7a616d795139cb753c9d6fba08",
+      "deterministic_order": 430,
+      "selector_value": "long",
+      "source_provenance": "ChatGPT Pro package, numeric quotas removed by Codex"
+    },
+    {
+      "module_id": "composer.depth.epic.v2",
+      "layer": "depth",
+      "relative_path": "modules/depth/epic_v2.md",
+      "sha256": "0643c2747d4ddeff66550dac60f6e5c92d2403b2d0cb0a95f42ac1d5dc1fa778",
+      "deterministic_order": 440,
+      "selector_value": "epic",
+      "source_provenance": "ChatGPT Pro package, numeric quotas removed by Codex"
+    },
+    {
+      "module_id": "composer.adult.off.v2",
+      "layer": "adult",
+      "relative_path": "modules/adult/off_v2.md",
+      "sha256": "0483b10719f274f1c854f787e232738764fdd21ec51453bc991c9f0d1420c1de",
+      "deterministic_order": 510,
+      "selector_value": "off",
+      "source_provenance": "ChatGPT Pro package, Python-owned rendering mode retained"
+    },
+    {
+      "module_id": "composer.adult.on.v2",
+      "layer": "adult",
+      "relative_path": "modules/adult/on_v2.md",
+      "sha256": "0cb9e3a9231635214149e27a859b96f787511a80d527b7952958e6062c7d31fa",
+      "deterministic_order": 520,
+      "selector_value": "on",
+      "source_provenance": "ChatGPT Pro package, Python-owned rendering mode retained"
+    },
+    {
+      "module_id": "composer.adult.ex.v2",
+      "layer": "adult",
+      "relative_path": "modules/adult/ex_v2.md",
+      "sha256": "8ab534ddb669b6fce8a3696669a1910a1faeb1d2c34d361c82cc341188f860a3",
+      "deterministic_order": 530,
+      "selector_value": "ex",
+      "source_provenance": "ChatGPT Pro package, Python-owned rendering mode retained"
+    },
+    {
+      "module_id": "composer.topology.single.v2",
+      "layer": "topology",
+      "relative_path": "modules/topology/single_npc_floor_v2.md",
+      "sha256": "de4c99e5fb8bd2d2927be0452f3becd756d0230f5843c84e60f39f5af8146a8a",
+      "deterministic_order": 610,
+      "selector_value": "single_npc_floor",
+      "source_provenance": "ChatGPT Pro package adapted to behavioral plan v1"
+    },
+    {
+      "module_id": "composer.topology.multi.v2",
+      "layer": "topology",
+      "relative_path": "modules/topology/multi_npc_shared_floor_v2.md",
+      "sha256": "7b98ec7d953bebc83f1066050fbf8b449a90389974fad2acca9f770eb2db5787",
+      "deterministic_order": 620,
+      "selector_value": "multi_npc_shared_floor",
+      "source_provenance": "ChatGPT Pro package adapted to behavioral plan v1"
+    },
+    {
+      "module_id": "composer.topology.npc_exchange.v2",
+      "layer": "topology",
+      "relative_path": "modules/topology/npc_to_npc_exchange_v2.md",
+      "sha256": "5dccd07275dc49a382080ad280982aa7f2b92b99f0ae42d2f5ba902b4154430c",
+      "deterministic_order": 630,
+      "selector_value": "npc_to_npc_exchange",
+      "source_provenance": "ChatGPT Pro package adapted to behavioral plan v1"
+    },
+    {
+      "module_id": "composer.scene.ordinary.v2",
+      "layer": "scene",
+      "relative_path": "modules/scene/ordinary_social_v2.md",
+      "sha256": "7031c6a9c0645c4d2ee7daa39991506c46009d11c9ac398133aec46a77cc9a89",
+      "deterministic_order": 710,
+      "selector_value": "ordinary_social",
+      "source_provenance": "ChatGPT Pro package plus creator behavioral tests"
+    },
+    {
+      "module_id": "composer.scene.vulnerability.v2",
+      "layer": "scene",
+      "relative_path": "modules/scene/emotional_vulnerability_v2.md",
+      "sha256": "b1ac9d832bbd529ca79da34f9feb0a14c850449b90480ed589f40c4211f757d3",
+      "deterministic_order": 720,
+      "selector_value": "emotional_vulnerability",
+      "source_provenance": "ChatGPT Pro package plus creator slow-development clarification"
+    },
+    {
+      "module_id": "composer.scene.confrontation.v2",
+      "layer": "scene",
+      "relative_path": "modules/scene/confrontation_boundary_v2.md",
+      "sha256": "f507a43cb58286b30d38576705a81541d96191a57d2020ca3afa29f46d4a9221",
+      "deterministic_order": 730,
+      "selector_value": "confrontation_boundary",
+      "source_provenance": "ChatGPT Pro package plus creator high-intensity rational-choice clarification"
+    },
+    {
+      "module_id": "composer.scene.urgent.v2",
+      "layer": "scene",
+      "relative_path": "modules/scene/urgent_physical_action_v2.md",
+      "sha256": "4ec53a5e68cf7002d094f02c180ec358cd7d4c839a102c008869aff4c4e2d2f0",
+      "deterministic_order": 740,
+      "selector_value": "urgent_physical_action",
+      "source_provenance": "ChatGPT Pro package adapted to protected-user authority"
+    },
+    {
+      "module_id": "composer.scene.aftermath.v2",
+      "layer": "scene",
+      "relative_path": "modules/scene/aftermath_recovery_v2.md",
+      "sha256": "edd132d13aadc35bc245f4105fa3a790b8eba12eafebdaf95646e40204768aff",
+      "deterministic_order": 750,
+      "selector_value": "aftermath_recovery",
+      "source_provenance": "ChatGPT Pro package adapted to trauma and blocked-scene boundaries"
+    }
+  ]
+}

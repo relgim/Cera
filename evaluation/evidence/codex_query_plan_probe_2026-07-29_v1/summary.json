@@ -1,0 +1,13 @@
+{
+  "automatic_retry_count": 0,
+  "created_at": "2026-07-29T16:42:37.174206+00:00",
+  "error_code": "CERA_EVIDENCE_SERVICE_UNAVAILABLE",
+  "error_message": "Codex MCP evidence lookup failed",
+  "external_provider_calls": 0,
+  "retains_exact_evidence": false,
+  "retains_prompt": false,
+  "retains_raw_output": false,
+  "schema_version": "cera.codex_query_plan_probe.v1",
+  "status": "failed",
+  "story_authority_writes": 0
+}

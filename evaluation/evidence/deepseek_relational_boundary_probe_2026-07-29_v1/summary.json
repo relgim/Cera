@@ -1,0 +1,321 @@
+{
+  "attempts_per_stage": 1,
+  "budget_before": {
+    "accounting_policy": "provider_stage_started_or_governed_probe_dispatch_started_counts_as_one_dispatch",
+    "goal_probes": [
+      {
+        "dispatches": 1,
+        "evidence_directory": "codex_query_plan_probe_2026-07-29_v6",
+        "provider_category": "sol",
+        "status": "passed"
+      }
+    ],
+    "limits": {
+      "deepseek": 500,
+      "sol": 500
+    },
+    "may_begin_next_ten_turn_route": true,
+    "next_ten_turn_requirement": {
+      "deepseek": 10,
+      "sol": 20
+    },
+    "remaining": {
+      "deepseek": 469,
+      "sol": 418
+    },
+    "runs": [
+      {
+        "deepseek_dispatches": 1,
+        "qualification_id": "continuous-ten-turn-v1",
+        "sol_dispatches": 1,
+        "status": "failed",
+        "version": 1
+      },
+      {
+        "deepseek_dispatches": 1,
+        "qualification_id": "continuous-ten-turn-v2",
+        "sol_dispatches": 2,
+        "status": "failed",
+        "version": 2
+      },
+      {
+        "deepseek_dispatches": 1,
+        "qualification_id": "continuous-ten-turn-v3",
+        "sol_dispatches": 2,
+        "status": "failed",
+        "version": 3
+      },
+      {
+        "deepseek_dispatches": 1,
+        "qualification_id": "continuous-ten-turn-v4",
+        "sol_dispatches": 2,
+        "status": "failed",
+        "version": 4
+      },
+      {
+        "deepseek_dispatches": 1,
+        "qualification_id": "continuous-ten-turn-v5",
+        "sol_dispatches": 3,
+        "status": "failed",
+        "version": 5
+      },
+      {
+        "deepseek_dispatches": 1,
+        "qualification_id": "continuous-ten-turn-v6",
+        "sol_dispatches": 1,
+        "status": "failed",
+        "version": 6
+      },
+      {
+        "deepseek_dispatches": 0,
+        "qualification_id": "continuous-ten-turn-v7",
+        "sol_dispatches": 1,
+        "status": "failed",
+        "version": 7
+      },
+      {
+        "deepseek_dispatches": 3,
+        "qualification_id": "continuous-ten-turn-v8",
+        "sol_dispatches": 6,
+        "status": "failed",
+        "version": 8
+      },
+      {
+        "deepseek_dispatches": 3,
+        "qualification_id": "continuous-ten-turn-v9",
+        "sol_dispatches": 6,
+        "status": "failed",
+        "version": 9
+      },
+      {
+        "deepseek_dispatches": 4,
+        "qualification_id": "continuous-ten-turn-v10",
+        "sol_dispatches": 8,
+        "status": "failed",
+        "version": 10
+      },
+      {
+        "deepseek_dispatches": 2,
+        "qualification_id": "continuous-ten-turn-v11",
+        "sol_dispatches": 4,
+        "status": "failed",
+        "version": 11
+      },
+      {
+        "deepseek_dispatches": 4,
+        "qualification_id": "continuous-ten-turn-v12",
+        "sol_dispatches": 9,
+        "status": "failed",
+        "version": 12
+      },
+      {
+        "deepseek_dispatches": 3,
+        "qualification_id": "continuous-ten-turn-v13",
+        "sol_dispatches": 6,
+        "status": "failed",
+        "version": 13
+      },
+      {
+        "deepseek_dispatches": 3,
+        "qualification_id": "continuous-ten-turn-v14",
+        "sol_dispatches": 6,
+        "status": "failed",
+        "version": 14
+      },
+      {
+        "deepseek_dispatches": 2,
+        "qualification_id": "continuous-ten-turn-v15",
+        "sol_dispatches": 4,
+        "status": "failed",
+        "version": 15
+      },
+      {
+        "deepseek_dispatches": 1,
+        "qualification_id": "continuous-ten-turn-v16",
+        "sol_dispatches": 2,
+        "status": "failed",
+        "version": 16
+      }
+    ],
+    "schema_version": "cera.continuous_live_call_budget_audit.v2",
+    "totals": {
+      "deepseek_dispatches": 31,
+      "sol_dispatches": 82
+    },
+    "transport_probes": [
+      {
+        "deepseek_dispatches": 0,
+        "qualification_id": "persistent-codex-transport-probe-v1",
+        "sol_dispatches": 4,
+        "status": "passed",
+        "version": 1
+      },
+      {
+        "deepseek_dispatches": 0,
+        "qualification_id": "persistent-codex-rotation-probe-v2",
+        "sol_dispatches": 4,
+        "status": "passed",
+        "version": 2
+      },
+      {
+        "deepseek_dispatches": 0,
+        "qualification_id": "persistent-codex-tree-cleanup-probe-v3",
+        "sol_dispatches": 4,
+        "status": "passed",
+        "version": 3
+      },
+      {
+        "deepseek_dispatches": 0,
+        "qualification_id": "persistent-codex-verifier-epoch-probe-v4",
+        "sol_dispatches": 6,
+        "status": "passed",
+        "version": 4
+      }
+    ]
+  },
+  "candidate_passed_unchanged": true,
+  "canonical_story_or_genesis_content_used": false,
+  "composer_candidate_sha256": "e8a7340c999fb196f31f29ef5fe3a95fcacf51cbdaa3f70636fee49083a04e5f",
+  "deepseek_dispatches": 1,
+  "deepseek_route_sha256": "75a5e4501124b3bb83eee119fd269919419a8df70296a4ee46469117a0162bc3",
+  "dto_version": "cera.deepseek_composition_draft.v5",
+  "fallback_enabled": false,
+  "finished_at": "2026-07-30T00:43:38.798754+00:00",
+  "goal_authority_id": "D-150",
+  "packet_sha256": "e61bbf38aafaf0908e31a7898a27a6af64df96c7b75f31702aa4dc35fb0666ab",
+  "prompt_version": "cera.deepseek_scene_composer_prompt.v10",
+  "protected_user_semantic_boundary_verified": true,
+  "provider_stages": [
+    {
+      "candidate_sha256": "e8a7340c999fb196f31f29ef5fe3a95fcacf51cbdaa3f70636fee49083a04e5f",
+      "dispatch_started": true,
+      "external_provider_calls_observed": 1,
+      "finished_at": "2026-07-30T00:43:28.635685+00:00",
+      "provider_category": "deepseek",
+      "provider_receipt": {
+        "automatic_retry_count": 0,
+        "cached_input_tokens": 0,
+        "cost_is_estimate": true,
+        "cost_microusd": 1526,
+        "duration_ms": 4289,
+        "external_provider_calls": 1,
+        "input_tokens": 2806,
+        "model_identity_source": "provider_response",
+        "model_identity_verified": true,
+        "model_revision": "deepseek-v4-2026-04-24",
+        "output_sha256": "009350a1208252fbcd6e53e8a5b560a57eb21a23c15e4f79a9f56c930b96cf9f",
+        "output_tokens": 351,
+        "provider": "deepseek",
+        "provider_receipt_id": "provider_receipt:133ddff9-aa41-5461-890b-711e15255ede",
+        "provider_request_id_sha256": "e3697a2384ddf66a4d1decbbfe212a46c859e10fc06d184365467e829e020e73",
+        "quota_metered": false,
+        "reasoning_output_tokens": 0,
+        "request_sha256": "28897bb66d13a6bf4de219942cf8b0de7ec5e0d7cd6095ec6bbbb4033edf7ccd",
+        "requested_model": "deepseek-v4-pro",
+        "retains_private_evidence": false,
+        "retains_prompt": false,
+        "retains_raw_source": false,
+        "retains_secret": false,
+        "retains_story_prose": false,
+        "returned_model": "deepseek-v4-pro",
+        "role": "scene_composer",
+        "route_sha256": "75a5e4501124b3bb83eee119fd269919419a8df70296a4ee46469117a0162bc3",
+        "schema_version": "cera.live_provider_call_receipt.v2",
+        "story_authority_writes": 0,
+        "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+      },
+      "segment_count": 2,
+      "stage": "deepseek_composition",
+      "started_at": "2026-07-30T00:43:24.344985+00:00",
+      "status": "passed"
+    },
+    {
+      "candidate_passed_unchanged": true,
+      "candidate_sha256": "e8a7340c999fb196f31f29ef5fe3a95fcacf51cbdaa3f70636fee49083a04e5f",
+      "dispatch_started": true,
+      "external_provider_calls_observed": 1,
+      "finished_at": "2026-07-30T00:43:38.798249+00:00",
+      "persistent_runner": {
+        "process_launch_count": 1,
+        "request_submission_count": 1
+      },
+      "provider_category": "sol",
+      "provider_receipt": {
+        "automatic_retry_count": 0,
+        "cached_input_tokens": 0,
+        "cost_is_estimate": false,
+        "cost_microusd": 0,
+        "duration_ms": 7689,
+        "external_provider_calls": 1,
+        "input_tokens": 10315,
+        "model_identity_source": "explicit_request",
+        "model_identity_verified": false,
+        "model_revision": "openai-resolver-2026-07-28",
+        "output_sha256": "a6c65b156f025b7d377b4e4c787d484854087c01888ab10acb3d0e577f145091",
+        "output_tokens": 168,
+        "provider": "openai_codex",
+        "provider_receipt_id": "provider_receipt:c524d2ca-f8ee-5f91-809a-a6a142cd1cd4",
+        "provider_request_id_sha256": "b2cc56513a48a7e6d2535a1fb8bf721e94dba2edab73996b6796fb06ff72a842",
+        "quota_metered": true,
+        "reasoning_output_tokens": 41,
+        "request_sha256": "c8956798f7c6478c5d5b2626201be521f8921b8b27fe45d7e43dbd6fc076a74b",
+        "requested_model": "gpt-5.6-sol",
+        "retains_private_evidence": false,
+        "retains_prompt": false,
+        "retains_raw_source": false,
+        "retains_secret": false,
+        "retains_story_prose": false,
+        "returned_model": "gpt-5.6-sol",
+        "role": "scene_realization_verifier",
+        "route_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+        "schema_version": "cera.live_provider_call_receipt.v2",
+        "story_authority_writes": 0,
+        "system_fingerprint_sha256": null
+      },
+      "stage": "sol_verification",
+      "started_at": "2026-07-30T00:43:28.636684+00:00",
+      "status": "passed",
+      "verification_receipt": {
+        "authoritative_store_writes": 0,
+        "candidate_sha256": "e8a7340c999fb196f31f29ef5fe3a95fcacf51cbdaa3f70636fee49083a04e5f",
+        "external_provider_calls": 1,
+        "provider_receipt_id": "provider_receipt:c524d2ca-f8ee-5f91-809a-a6a142cd1cd4",
+        "provider_receipt_sha256": "e7bf7f7f305eec8309b09849f1e2f31b63b9ae847febc9b638001c98524ecbeb",
+        "qualification_eligible": true,
+        "retains_story_prose": false,
+        "schema_version": "cera.scene_realization_verification_receipt.v4",
+        "status": "accepted",
+        "story_text_sha256": "e8a7340c999fb196f31f29ef5fe3a95fcacf51cbdaa3f70636fee49083a04e5f",
+        "verification_id": "realization_verification:d1aa5628-2228-536b-b7de-6a58440ff696",
+        "verification_request_sha256": "3693fcf76e8b4c4ac4d885038219121982c6db6845ca4eb7f2e9698a08edb4a0",
+        "verified_beat_ids": [
+          "beat:fa8cd67e-5e21-5cd0-87f0-d48b751ac60c"
+        ],
+        "verified_boundary_checks": [
+          "protected_user_no_unsupplied_realization"
+        ],
+        "verified_participant_ids": [
+          "character:7a4137de-d5a4-572f-85b1-d2c26f26b3c9"
+        ],
+        "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+        "verifier_adapter_evidence_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+        "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+        "violation_codes": [],
+        "violation_finding_sha256s": []
+      }
+    }
+  ],
+  "qualification_id": "deepseek-relational-protected-user-boundary-v1",
+  "retains_prompt": false,
+  "retains_raw_provider_output": false,
+  "retains_synthetic_candidate_text": false,
+  "retry_enabled": false,
+  "schema_version": "cera.deepseek_relational_boundary_probe.v1",
+  "sol_dispatches": 1,
+  "started_at": "2026-07-30T00:43:24.343985+00:00",
+  "status": "passed",
+  "story_authority_writes": 0,
+  "synthetic_non_story_candidate_used": true,
+  "verifier_candidate_sha256": "e8a7340c999fb196f31f29ef5fe3a95fcacf51cbdaa3f70636fee49083a04e5f",
+  "verifier_route_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25"
+}

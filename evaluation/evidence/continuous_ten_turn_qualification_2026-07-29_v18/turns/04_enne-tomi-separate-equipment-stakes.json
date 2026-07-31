@@ -1,0 +1,573 @@
+{
+  "application_request_sha256": "d004ee3078fd789e01a48f22f4eb4919ed3bce0d99096a5aba262efb979373fb",
+  "assertions": {
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "persistent_no_mcp"
+  },
+  "composer": {
+    "accepted_prose": "Enne glances at the shelf, then back at Ted. \"Before touching a shared device, confirm the charging connector is fully seated and the cable is not undertension. That prevents port wear and intermittent disconnects.\"\n\nTomi shifts her weight and gestures loosely toward the training area. \"Before we start, I need you stretched and warm. Ten minutes of dynamic movement—don't skip it or I'll be on you about cramping halfway through.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "7b012ff4525719321c73f58e16e648161383d74ca50652516ea100bba91dab78",
+      "character_spans": [
+        {
+          "beat_id": "beat:7b8f5334-c407-521f-a3ba-397357c78ccc",
+          "end": 215,
+          "kind": "dialogue",
+          "owner_id": "character:enne_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:8ac3f013-bc57-5273-b44b-9fdddcd28806",
+          "end": 432,
+          "kind": "dialogue",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 217
+        }
+      ],
+      "decision_sha256": "79d2896aa3160d6e2b2b141c72ed2056d5f487466b14941e9e5e84c80535c523",
+      "floor_owner_id": "character:enne_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:267bea6e-8253-5de7-b8c3-e2323407f46a",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "1ce26ab6cc0181684a6abfe100b138032504745c71ac48fbfbd6897a4f490c37",
+          "character_id": "character:enne_hanezawa",
+          "selected_intent_sha256": "f03a463400e8689369a93ae96766805baa2b2a851632974e12898382f9f30813"
+        },
+        {
+          "action_direction_sha256": "f70cf36b9f9abd466050a3c78254af9cfbb5aba253489582b177a1dfc5f46fdc",
+          "character_id": "character:tomi_hanezawa",
+          "selected_intent_sha256": "142d0a66dfe34e1a5130d30b7f61fa72a3e75b6bf350d0b679d6bf1b53fd05a1"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        },
+        {
+          "character_id": "character:tomi_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:7b8f5334-c407-521f-a3ba-397357c78ccc",
+        "beat:8ac3f013-bc57-5273-b44b-9fdddcd28806"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "dd26333e920b148d9b02817c5ef41d00a9717c659dde603f3dff20181c5158f6",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "b9a832be21ce02537d2a79bca41e72c95f0852e3d0182366ba096cd45ef5fa38",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1280,
+      "cost_is_estimate": true,
+      "cost_microusd": 1830,
+      "duration_ms": 4745,
+      "external_provider_calls": 1,
+      "input_tokens": 4820,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "ac7660a9c31dfbb4ddd07b35a145a6878d485a9c7801b4867f9df2cdf7181f4e",
+      "output_tokens": 328,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:8bbfd3ed-7fd8-5b3f-9c50-9d33857091c7",
+      "provider_request_id_sha256": "7d7b2c6c65d13273994cd83250f87ad9db52ebc6ca63b10d99ad6a5beaea88e8",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "5c17cfab4eaa7910baea908b1bb9918e55c16e9b37c6765d12350c55c1afd730",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "e795e7c4dc412df72d8c79dd2828361a6febfd81f63010ff57d72a2f0e03da17",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:enne_hanezawa",
+      "character:tomi_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "efe49572b4030207aa80aff57970f3e57a5540a4ccdad290b01fb541f2cf622e",
+      "assembly_receipt_id": "validation:5038c5c6-2258-50d9-8978-5c0d117b0613",
+      "base_request_sha256": "d0f709c51211210529690f60327ab0074e9a19f76e423d3d8c20ad8e1c63255c",
+      "cumulative_returned_bytes": 6472,
+      "external_provider_calls": 0,
+      "lookup_count": 4,
+      "lookup_receipt_ids": [
+        "lookup_receipt:498e0d9a-4409-590d-9a81-09e4faaf2f71",
+        "lookup_receipt:7f747d4f-14d0-57d5-8b3b-ca5ebd9315c5",
+        "lookup_receipt:f4b9d99d-05ce-5799-9d35-f7b6d30b74b7",
+        "lookup_receipt:92a10352-8b2d-5a78-8ed1-21f1cdddc5e0"
+      ],
+      "realization_context_sha256": "5a2e222cc4ba1a1d26c8478085f21286a12bebe453336a06c7f6ec951ec834f2",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:4b09d0c8-2ff7-52cf-b469-8754e243f9d1",
+        "evidence:5043488b-db8e-5608-bc71-86f9ee7283c4"
+      ],
+      "snapshot_token": "snapshot:fafaa08b-e446-5517-8aa4-d399fa360c0b",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:enne_hanezawa",
+      "character:tomi_hanezawa"
+    ]
+  },
+  "duration_seconds": 63.432,
+  "index": 4,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "01ccfdace907df85710398c85ea96f9beb3c590dea07933a0a866bd95e204d1e",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "e5aad29084b538d52af9c42b4d71db7a028cfdbebb65969dd45e0e44a985b61d",
+      "receipt_id": "validation:827e2a9d-5795-5f3a-99e8-834409db75d8",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "c81b83431826d05e116df7e1f9863aa5eabe838ad3e0886238825968d93b0c48",
+    "receipt_id": "validation:2b94060c-0342-5885-b035-18472e8f7d62",
+    "request_id": "request:618d4757-4f22-5230-b35d-33a8df348828",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 1260,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:29510c3b-fc22-5914-9c2e-0970c4766c88",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1260,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:fafaa08b-e446-5517-8aa4-d399fa360c0b",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2456,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:d91a4d8e-4e19-53c5-bc67-5325f4c1c673",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1196,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:fafaa08b-e446-5517-8aa4-d399fa360c0b",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:29510c3b-fc22-5914-9c2e-0970c4766c88",
+        "lookup_receipt:d91a4d8e-4e19-53c5-bc67-5325f4c1c673"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+          ],
+          "obligation_id": "obligation:7af9e14a-b39d-5a57-9e48-051cd63a48a6",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "obligation_id": "obligation:8f4b0e0e-11c7-57dd-a63a-84138b86cad4",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:b3bf4121-b086-5cff-a26b-ca2abe0d939f",
+      "snapshot_binding_sha256": "4d78ef87631217b2e00fe9eeca7ca23d210bc52b1e94a20f6efed91b9083d771",
+      "snapshot_token": "snapshot:fafaa08b-e446-5517-8aa4-d399fa360c0b"
+    },
+    "snapshot_token": "snapshot:fafaa08b-e446-5517-8aa4-d399fa360c0b",
+    "source_sha256": "df0167dcd9c8a86366562428068e5cf1b7e669089b1a35d363f13f2dbd573731"
+  },
+  "key": "enne-tomi-separate-equipment-stakes",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:f295fc0b-1020-5bb3-bf9e-be5bba426942",
+      "accepted_artifact_sha256": "34df2388b41ba120de2069cfadb1cc8a7df1c6aa9308d2530bfa1373003b139e",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "d004ee3078fd789e01a48f22f4eb4919ed3bce0d99096a5aba262efb979373fb",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:89b67835-8911-5708-8004-41b1b83fba8b",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:d8a922c3-a6ea-584b-a485-f9ad0f38292e",
+      "operational_report_id": "validation:a050ef5b-f19a-5b7f-8241-5a7366b6797d",
+      "operational_report_sha256": "d785c1aa96de3d016a5d52d902ff2d3db5c3bce39c974d0f5446155364d2cbf5",
+      "receipt_id": "validation:9726beda-9133-5718-abe1-6ba8b261ce9e",
+      "request_id": "request:618d4757-4f22-5230-b35d-33a8df348828",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "888504d075ed505856d77f37a080e1dfcef76bb9603d858685497fb8ba714fbd"
+    },
+    "artifact": {
+      "accepted_prose": "Enne glances at the shelf, then back at Ted. \"Before touching a shared device, confirm the charging connector is fully seated and the cable is not undertension. That prevents port wear and intermittent disconnects.\"\n\nTomi shifts her weight and gestures loosely toward the training area. \"Before we start, I need you stretched and warm. Ten minutes of dynamic movement—don't skip it or I'll be on you about cramping halfway through.\"",
+      "artifact_id": "artifact:f295fc0b-1020-5bb3-bf9e-be5bba426942",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:d31129a9-d62d-5bbe-abf8-e0f2fb4954f8",
+      "generation_id": "generation:d8a922c3-a6ea-584b-a485-f9ad0f38292e",
+      "parent_artifact_id": "artifact:6e69be79-a78b-5669-990f-8af5ccd0a611",
+      "prose_sha256": "b9a832be21ce02537d2a79bca41e72c95f0852e3d0182366ba096cd45ef5fa38",
+      "realized_beat_ids": [
+        "beat:7b8f5334-c407-521f-a3ba-397357c78ccc",
+        "beat:8ac3f013-bc57-5273-b44b-9fdddcd28806"
+      ],
+      "responding_npc_ids": [
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:7c41d27f-3553-525f-9fac-b9173eb224b9",
+      "status": "accepted",
+      "transaction_id": "transaction:913dfef2-ac2f-5141-8ddd-661d45ae2b1e",
+      "validation_receipt_id": "validation:0be216b4-8f71-58de-9487-6d9ac2f5ee73"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:89b67835-8911-5708-8004-41b1b83fba8b",
+      "expected_previous_artifact_id": "artifact:6e69be79-a78b-5669-990f-8af5ccd0a611",
+      "external_receipt_ids": [],
+      "generation_after": 4,
+      "generation_before": 3,
+      "inserted_record_ids": [
+        "event:d75ac168-41da-524e-8a4d-c1b810ee5b41"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:29510c3b-fc22-5914-9c2e-0970c4766c88",
+        "lookup_receipt:d91a4d8e-4e19-53c5-bc67-5325f4c1c673",
+        "lookup_receipt:498e0d9a-4409-590d-9a81-09e4faaf2f71",
+        "lookup_receipt:7f747d4f-14d0-57d5-8b3b-ca5ebd9315c5",
+        "lookup_receipt:f4b9d99d-05ce-5799-9d35-f7b6d30b74b7",
+        "lookup_receipt:92a10352-8b2d-5a78-8ed1-21f1cdddc5e0"
+      ],
+      "new_artifact_id": "artifact:f295fc0b-1020-5bb3-bf9e-be5bba426942",
+      "new_artifact_sha256": "34df2388b41ba120de2069cfadb1cc8a7df1c6aa9308d2530bfa1373003b139e",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:d2ca543c-cf66-5530-b0b4-de118827de4c",
+        "provider_receipt:8bbfd3ed-7fd8-5b3f-9c50-9d33857091c7",
+        "provider_receipt:8be2d26b-597d-552e-b509-10a875869de4"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:7c41d27f-3553-525f-9fac-b9173eb224b9",
+      "source_sha256": "ef0c43123dd6fa5ffc3c210f537a73100bf38a75fad98e694f8fa64452022a29",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:913dfef2-ac2f-5141-8ddd-661d45ae2b1e",
+      "transaction_sha256": "888504d075ed505856d77f37a080e1dfcef76bb9603d858685497fb8ba714fbd",
+      "validation_receipt_ids": [
+        "validation:2b94060c-0342-5885-b035-18472e8f7d62",
+        "validation:5038c5c6-2258-50d9-8978-5c0d117b0613",
+        "validation:66ffa562-2b49-5532-905a-56a0c182a777",
+        "realization_verification:62e2f047-dcb3-55da-9f76-614307b1d05e",
+        "validation:0be216b4-8f71-58de-9487-6d9ac2f5ee73",
+        "validation:274cd76a-d771-546b-a43d-3b79abf9e576"
+      ]
+    },
+    "event_record_id": "event:d75ac168-41da-524e-8a4d-c1b810ee5b41",
+    "visible_artifact_count": 4
+  },
+  "qualification_id": "continuous-ten-turn-v18",
+  "raw_message": "When Tomi joins them near the shared charging shelf, Ted asks Enne for one technical rule he should follow before touching a shared device, then asks Tomi only for one timing concern that matters before training. He requests Enne's answer first and Tomi's second.",
+  "raw_message_sha256": "a89147f3cfa8bfb04d6590418085202fdc9df95c3420c51a61382afdda0905ca",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "State one concise technical rule for handling a shared device, without addressing Tomi's separate concern.",
+            "character_id": "character:enne_hanezawa",
+            "evidence_ids": [
+              "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+            ],
+            "knowledge_constraints": [
+              "Use only Enne-owned knowledge and currently observable context.",
+              "Do not access or imply Tomi's private beliefs.",
+              "Do not infer the protected user's motive or next choice."
+            ],
+            "perception": "Enne is aware that her bounded technical answer is requested first.",
+            "selected_intent": "Give a precise, self-contained device-handling rule."
+          },
+          {
+            "action_direction": "Wait for Enne's bounded answer, then state one concise timing concern from Tomi's training responsibility.",
+            "character_id": "character:tomi_hanezawa",
+            "evidence_ids": [
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+            ],
+            "knowledge_constraints": [
+              "Use only Tomi-owned knowledge and currently observable context.",
+              "Do not access or imply Enne's private beliefs.",
+              "Do not infer the protected user's motive or next choice."
+            ],
+            "perception": "Tomi is aware that her bounded timing answer follows Enne's answer.",
+            "selected_intent": "Give one casual but operational pre-training timing concern."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:enne_hanezawa",
+              "beat_id": "beat:7b8f5334-c407-521f-a3ba-397357c78ccc",
+              "evidence_ids": [
+                "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+              ],
+              "neutral_event": "Enne states one concise shared-device rule.",
+              "state": "requested"
+            },
+            {
+              "actor_id": "character:tomi_hanezawa",
+              "beat_id": "beat:8ac3f013-bc57-5273-b44b-9fdddcd28806",
+              "evidence_ids": [
+                "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+              ],
+              "neutral_event": "After Enne finishes, Tomi states one concise pre-training timing concern.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:033b431c-89af-5b03-92b5-356903e646c4",
+          "stop_before": "Stop after Tomi's single timing concern and before the protected user's next unsupplied meaningful choice."
+        },
+        "decision_id": "decision:d31129a9-d62d-5bbe-abf8-e0f2fb4954f8",
+        "floor_owner_id": "character:enne_hanezawa",
+        "future_segments": [],
+        "prohibited_inferences": [
+          "Do not author the protected user's unsupplied action, dialogue, thought, feeling, motive, or decision.",
+          "Do not imply that the protected user follows either answer.",
+          "Do not transfer Enne-owned private evidence to Tomi.",
+          "Do not transfer Tomi-owned private evidence to Enne.",
+          "Do not add technical specifics unsupported by the selected NPC's own knowledge.",
+          "Do not make any later outcome a current fact."
+        ],
+        "responding_npc_ids": [
+          "character:enne_hanezawa",
+          "character:tomi_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Enne gives one device-handling rule first; Tomi gives one pre-training timing concern second.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "The exact rule Enne will select remains NPC-controlled.",
+          "The exact timing concern Tomi will select remains NPC-controlled.",
+          "The protected user's next meaningful choice is unknown.",
+          "Unretrieved private state and future outcomes remain unknown."
+        ],
+        "writer_must_preserve": [
+          "Keep Enne's answer first and limited to one technical rule.",
+          "Keep Tomi's answer second and limited to one timing concern.",
+          "Let neither NPC answer for the other.",
+          "Keep each NPC within her own knowledge ownership.",
+          "Do not restate or directly narrate the protected user's supplied conduct.",
+          "End before any protected-user response or compliance."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61",
+          "record_id": "record:30292a40-f837-5c08-9cf7-c23e70524b75",
+          "record_version": 2
+        },
+        {
+          "evidence_id": "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+          "record_id": "record:77dbdad1-16da-5e7b-b101-1c8b43570e4a",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "evidence_ids": [
+            "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        },
+        {
+          "character_id": "character:tomi_hanezawa",
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "intervention_reason": "direct_stake",
+          "role": "secondary"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 47409,
+      "external_provider_calls": 1,
+      "input_tokens": 13560,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "fa66da3f8e5808ab7cf208bd09e3cdd8f6e739ccf8d1487bade859331f3f65ec",
+      "output_tokens": 1798,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:d2ca543c-cf66-5530-b0b4-de118827de4c",
+      "provider_request_id_sha256": "eb5f6ee57f64ad45dfb27830adf91832d9e3bfd85a9f65d7e6c76835e68f6f1d",
+      "quota_metered": true,
+      "reasoning_output_tokens": 914,
+      "request_sha256": "dd261f42442884087010dd79db450e97d833945e804ff581b41eca1803e48ec8",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "61d37e2564c7fb3db94e8e7b6d68bb63a9458fbf92607a6e11e4b4b02095cfbe",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:d2ca543c-cf66-5530-b0b4-de118827de4c",
+      "provider_receipt_sha256": "11eeb21577c03a5e39a30bf32846b952bf974dcce5943aa344a27a3b8835abf9",
+      "reasoner_request_sha256": "c81b83431826d05e116df7e1f9863aa5eabe838ad3e0886238825968d93b0c48",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:fafaa08b-e446-5517-8aa4-d399fa360c0b",
+      "source_sha256": "df0167dcd9c8a86366562428068e5cf1b7e669089b1a35d363f13f2dbd573731",
+      "source_view_sha256": "5f9970855838c4c234f5862e8129d624fad502b8d7f549520786c2f8775a707d",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Enne and Tomi answer only their own equipment stakes",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 6819,
+      "external_provider_calls": 1,
+      "input_tokens": 10473,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "4c5d6808ea6e19b55e22430dd412ba72794ba60fdd424a480dd34a410f5e803d",
+      "output_tokens": 220,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:8be2d26b-597d-552e-b509-10a875869de4",
+      "provider_request_id_sha256": "649d112adf4f18d64e59c4d9c547a58e0b46c2bc3858e77d6eb0732022eb36f5",
+      "quota_metered": true,
+      "reasoning_output_tokens": 88,
+      "request_sha256": "1fab822474d8a3545d96c40cbd726e8c6241262caaceac9e66afff94d0d1077a",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "7b012ff4525719321c73f58e16e648161383d74ca50652516ea100bba91dab78",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:8be2d26b-597d-552e-b509-10a875869de4",
+      "provider_receipt_sha256": "8d42a069d71d02563428932f7d713a66d8e0a6bdd595168e5ff02d1b81964a4f",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "b9a832be21ce02537d2a79bca41e72c95f0852e3d0182366ba096cd45ef5fa38",
+      "verification_id": "realization_verification:62e2f047-dcb3-55da-9f76-614307b1d05e",
+      "verification_request_sha256": "d5916a9bb3a0745144264ea49bcecaf0e713c368e0acc2e239d4d7a827e9f100",
+      "verified_beat_ids": [
+        "beat:7b8f5334-c407-521f-a3ba-397357c78ccc",
+        "beat:8ac3f013-bc57-5273-b44b-9fdddcd28806"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

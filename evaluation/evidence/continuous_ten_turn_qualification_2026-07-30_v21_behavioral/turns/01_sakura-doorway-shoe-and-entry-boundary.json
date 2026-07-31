@@ -1,0 +1,843 @@
+{
+  "application_request_sha256": "5607f695c8260e33d00cd322b209b99af88a9cbde8987d5b2f580a4c175d2b17",
+  "assertions": {
+    "all_eligible_required": false,
+    "all_eligible_selected": null,
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "codex_cli_exec_one_shot"
+  },
+  "composer": {
+    "accepted_prose": "Sakura didn't step back. The doorway remained narrow between them, and the cool evening air still carried the faint citrus-and-ink smell of Mother's garden. She made a single inventory of what stood before her: one man, one suitcase, and a request that kept him precisely on the outside of her threshold.\n\nHer hands stayed at her sides. She'd heard doors open a dozen different ways in this house, but a man who asked for procedure before his feet crossed past her hadn't arrived before. The observation registered with the dry weight of a coin dropped onto a counter—value acknowledged, not yet spent.\n\n\"Shoes are placed on the mat to the left of the door,\" she said. \"Inside, after you step up. The mat is dark rubber. It is the only one.\"\n\nHer voice carried no particular warmth. It carried precision. She'd answered what was asked without offering a guided tour. She watched Ted's face while she spoke, not to connect but to register whether he took each piece of information as a condition he intended to heed.\n\nHer gaze dropped for half a second to the suitcase beside him. It was a practical thing, unremarkable—but that's what made it troublesome. A suitcase without an assigned place meant a domestic intersection she had not yet managed.\n\n\"Keep the suitcase outside for now,\" Sakura continued, meeting his eyes again. \"I don't have a spot prepared for it, and I won't drag it past the kitchen while people are reading. Someone will choose where it belongs once everything is settled.\"\n\nThe phrase *once everything is settled* ended with a slight downward press of her lips—less a smile than a period.\n\nShe straightened her posture by a centimeter, the movement tightening the air between them without closing the gap. \"I'll show you where you'll stay. You can come in—shoes off first, then follow me. The suitcase stays for now.\"\n\nShe did not step aside, not yet. She held the moment as a held breath, a door held open on her terms. The hallway behind her was quiet: no secondary footsteps, no murmuring questions. The house waited with her.\n\nThen she took one step back. It was a measured retreat—the floorboard under her heel made a neat, unhurried sound. She turned partway, enough to lead without abandoning the doorway, and placed her fingertips on the frame as a single point of orientation. The gesture left the width of the entry unobstructed but unmistakably under her line of sight.\n\nHer attention remained on him through the move—not as a threat, but as a settled fact. She had provided the rules. The next action was not hers to perform.",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "61540fe8c0d4add18daa657bffac9f0258249247f69c0320826157863aaeaf12",
+      "character_spans": [
+        {
+          "beat_id": "beat:19a5e808-dd36-5097-af3a-a181c94d1a36",
+          "end": 1015,
+          "kind": "dialogue",
+          "owner_id": "character:sakura_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 604
+        },
+        {
+          "beat_id": "beat:19a5e808-dd36-5097-af3a-a181c94d1a36",
+          "end": 1610,
+          "kind": "dialogue",
+          "owner_id": "character:sakura_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 1017
+        },
+        {
+          "beat_id": "beat:19a5e808-dd36-5097-af3a-a181c94d1a36",
+          "end": 2559,
+          "kind": "action",
+          "owner_id": "character:sakura_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 2053
+        },
+        {
+          "beat_id": "beat:19a5e808-dd36-5097-af3a-a181c94d1a36",
+          "end": 602,
+          "kind": "private_state",
+          "owner_id": "character:sakura_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 0
+        }
+      ],
+      "decision_sha256": "b48c960ea4e079bd397cc05bcf35e94a47c70d73bab165bfe3374f56317aaed2",
+      "floor_owner_id": "character:sakura_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:fd539731-774d-5991-acf5-bb7570498abc",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "185666d10c7fc7209bf55739c80461e57189745966b3f944d3706804b0f161c6",
+          "character_id": "character:sakura_hanezawa",
+          "selected_intent_sha256": "da601a4bf2b6eac7bea0afbb90a2021dc80a6fdb250be1c0cfd3a6bee55bc389"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:sakura_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:19a5e808-dd36-5097-af3a-a181c94d1a36"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "9431027b3247e29e26d9d530f90962a7e1a5384501110bf7b42495aba3966362",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "7ae0281fd3a9316336014001fd820936652082f780c305c0b98ef810d6481c32",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": true,
+      "cost_microusd": 4900,
+      "duration_ms": 26348,
+      "external_provider_calls": 1,
+      "input_tokens": 9404,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "f2bb376aaa7f7e2c3ad6ed1e31d3040a4bce5bb1fbb7182a03e1c3517977252d",
+      "output_tokens": 930,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:cf72b19f-63e7-5067-8153-db41d0f295d7",
+      "provider_request_id_sha256": "ea996db36efd4e7a518c427f9b5da6b5c3bc168a14f4d674e0a5fb9eeac94351",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "b74b9fb8bc79a3298430bbeeb1b1a15f746838997d99d19ce0c9214c50696306",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "ef983cddb7a8ea7b9a9daaf9d5fbfbdcbd640137b2063b16c4eb5bc14b80dc8d",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:sakura_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "c1b9d7e1e0a0cd5492e6e0beeddf15c915412b6eadb279be44b772f2737b81a2",
+      "assembly_receipt_id": "validation:33f98825-1233-578b-a329-feda497b824a",
+      "base_request_sha256": "a95376f78073f902896f0b06ca4a1d04dedd6d295d1b4fbeaf017b6ffaf62cdf",
+      "cumulative_returned_bytes": 16611,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:4218a6bd-8966-56c7-a3c5-b51e996f302a",
+        "lookup_receipt:4ac609be-ad4e-5298-8dc8-b54b2115fd93"
+      ],
+      "realization_context_sha256": "41cfe2ab4196c324e780594b13be5ab4e93cff8299e73c7e66a4ddc37f5c6316",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3",
+        "evidence:0b24ff69-fe07-5526-97b0-a6be906f2f7f",
+        "evidence:d8fad503-e816-5dc8-8135-abe01339e2a6",
+        "evidence:5dd4a074-8400-54c1-bbb3-cf85d0db0013",
+        "evidence:687e8d1b-f741-5b70-8f05-65b08b634dee"
+      ],
+      "snapshot_token": "snapshot:a559788d-0f86-5b11-8000-d7ccaa764ea2",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:sakura_hanezawa"
+    ]
+  },
+  "duration_seconds": 241.643,
+  "index": 1,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "cf7797a0578760697074a33bf4ba00cf362f255003552ee02202f677f478ce1c",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "9644b039d477a0e84222ce9c9009fd1e484a492a7225418ddd06d8d6a51dbf57",
+      "receipt_id": "validation:e0db289d-2dde-5f2d-aa18-c4ff7d3845e9",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "5d6801ddae07c0ee7fcb2dc80cabc435c78b32ca9112f4012e981fab73056ddc",
+    "receipt_id": "validation:58f2f643-c4f1-586e-a6e7-61ec6089163b",
+    "request_id": "request:1bf077a3-c773-5bf0-84a5-5cd803325b16",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 1220,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:4ef669ba-5d51-5a5f-9eb1-f24297d64e20",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1220,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:a559788d-0f86-5b11-8000-d7ccaa764ea2",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:4ef669ba-5d51-5a5f-9eb1-f24297d64e20"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+          ],
+          "obligation_id": "obligation:305f2b78-ec4d-5451-9e8d-bb1c7f833751",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:9ad58109-ed87-5586-8305-f837eb80c0c9",
+      "snapshot_binding_sha256": "0f0360a6aca79fbc725d6e31767c99124e4175921b5865094f21debfbd75d129",
+      "snapshot_token": "snapshot:a559788d-0f86-5b11-8000-d7ccaa764ea2"
+    },
+    "snapshot_token": "snapshot:a559788d-0f86-5b11-8000-d7ccaa764ea2",
+    "source_sha256": "32297ccf5a044b7d340d73f4b5f17da8e1ddbbe6b512d1b7a0f007273a9ad90f"
+  },
+  "key": "sakura-doorway-shoe-and-entry-boundary",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:8902cf8a-ce04-53e1-8ebf-54781e689cb2",
+      "accepted_artifact_sha256": "ec075d784757b410590821feccf8048f9be93b5ebe183f63aa6361dc98c931b9",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "5607f695c8260e33d00cd322b209b99af88a9cbde8987d5b2f580a4c175d2b17",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:45693057-c64f-5a87-9571-48ac8d0cf36f",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:a3001385-25fa-5d3f-8875-c8a950111533",
+      "operational_report_id": "validation:a8a80d20-2d92-5c67-823f-a8d68a2bc4c2",
+      "operational_report_sha256": "b0ebee92dbf0b11e169d7e4ec641af7d817539ba4da6e4a91e7fd682b392c81e",
+      "receipt_id": "validation:69abc335-98fb-5930-8cbe-400e7e35a2af",
+      "request_id": "request:1bf077a3-c773-5bf0-84a5-5cd803325b16",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "e0c49ce44597c3c1fb992506026624f1561b0a5fa39790b1ffd3da436b5411c4"
+    },
+    "artifact": {
+      "accepted_prose": "Sakura didn't step back. The doorway remained narrow between them, and the cool evening air still carried the faint citrus-and-ink smell of Mother's garden. She made a single inventory of what stood before her: one man, one suitcase, and a request that kept him precisely on the outside of her threshold.\n\nHer hands stayed at her sides. She'd heard doors open a dozen different ways in this house, but a man who asked for procedure before his feet crossed past her hadn't arrived before. The observation registered with the dry weight of a coin dropped onto a counter—value acknowledged, not yet spent.\n\n\"Shoes are placed on the mat to the left of the door,\" she said. \"Inside, after you step up. The mat is dark rubber. It is the only one.\"\n\nHer voice carried no particular warmth. It carried precision. She'd answered what was asked without offering a guided tour. She watched Ted's face while she spoke, not to connect but to register whether he took each piece of information as a condition he intended to heed.\n\nHer gaze dropped for half a second to the suitcase beside him. It was a practical thing, unremarkable—but that's what made it troublesome. A suitcase without an assigned place meant a domestic intersection she had not yet managed.\n\n\"Keep the suitcase outside for now,\" Sakura continued, meeting his eyes again. \"I don't have a spot prepared for it, and I won't drag it past the kitchen while people are reading. Someone will choose where it belongs once everything is settled.\"\n\nThe phrase *once everything is settled* ended with a slight downward press of her lips—less a smile than a period.\n\nShe straightened her posture by a centimeter, the movement tightening the air between them without closing the gap. \"I'll show you where you'll stay. You can come in—shoes off first, then follow me. The suitcase stays for now.\"\n\nShe did not step aside, not yet. She held the moment as a held breath, a door held open on her terms. The hallway behind her was quiet: no secondary footsteps, no murmuring questions. The house waited with her.\n\nThen she took one step back. It was a measured retreat—the floorboard under her heel made a neat, unhurried sound. She turned partway, enough to lead without abandoning the doorway, and placed her fingertips on the frame as a single point of orientation. The gesture left the width of the entry unobstructed but unmistakably under her line of sight.\n\nHer attention remained on him through the move—not as a threat, but as a settled fact. She had provided the rules. The next action was not hers to perform.",
+      "artifact_id": "artifact:8902cf8a-ce04-53e1-8ebf-54781e689cb2",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:b0e44cc8-6886-5b51-a3ff-397b66aadd04",
+      "generation_id": "generation:a3001385-25fa-5d3f-8875-c8a950111533",
+      "parent_artifact_id": null,
+      "prose_sha256": "7ae0281fd3a9316336014001fd820936652082f780c305c0b98ef810d6481c32",
+      "realized_beat_ids": [
+        "beat:19a5e808-dd36-5097-af3a-a181c94d1a36"
+      ],
+      "responding_npc_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:ac47164a-4f0e-5157-9188-79802dbb5edf",
+      "status": "accepted",
+      "transaction_id": "transaction:55664ea7-a625-5294-8921-df91cce93cba",
+      "validation_receipt_id": "validation:714bbb41-ea1c-5e00-816f-dd580d4cde17"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:45693057-c64f-5a87-9571-48ac8d0cf36f",
+      "expected_previous_artifact_id": null,
+      "external_receipt_ids": [],
+      "generation_after": 1,
+      "generation_before": 0,
+      "inserted_record_ids": [
+        "event:59b816a3-3635-5186-9925-2457a395fa5d",
+        "material:cea15772-56b0-50e1-ab1a-9f4741123d7d"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:4ef669ba-5d51-5a5f-9eb1-f24297d64e20",
+        "lookup_receipt:4218a6bd-8966-56c7-a3c5-b51e996f302a",
+        "lookup_receipt:4ac609be-ad4e-5298-8dc8-b54b2115fd93"
+      ],
+      "new_artifact_id": "artifact:8902cf8a-ce04-53e1-8ebf-54781e689cb2",
+      "new_artifact_sha256": "ec075d784757b410590821feccf8048f9be93b5ebe183f63aa6361dc98c931b9",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:ffe2456f-1dfe-5e9c-bf10-f3d3162b0040",
+        "provider_receipt:cf72b19f-63e7-5067-8153-db41d0f295d7",
+        "provider_receipt:2c9b6807-fa7f-588e-a05d-114445205aae"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:ac47164a-4f0e-5157-9188-79802dbb5edf",
+      "source_sha256": "9f61754756cd103250f2611efcd9ab22ae50d1ee11b671fade469d0d9d706c3f",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:55664ea7-a625-5294-8921-df91cce93cba",
+      "transaction_sha256": "e0c49ce44597c3c1fb992506026624f1561b0a5fa39790b1ffd3da436b5411c4",
+      "validation_receipt_ids": [
+        "validation:58f2f643-c4f1-586e-a6e7-61ec6089163b",
+        "validation:33f98825-1233-578b-a329-feda497b824a",
+        "validation:37c2c272-896c-586d-8172-20ae3b20a558",
+        "realization_verification:1267a1b8-a38d-500c-84d8-8f7ec7eacc77",
+        "validation:714bbb41-ea1c-5e00-816f-dd580d4cde17",
+        "validation:a467d6f8-a853-5e80-97b6-f8d972f8d2ca"
+      ]
+    },
+    "event_record_id": "event:59b816a3-3635-5186-9925-2457a395fa5d",
+    "visible_artifact_count": 1
+  },
+  "qualification_id": "continuous-ten-turn-v21-behavioral",
+  "raw_message": "Ted arrives at the Hanezawa doorway with one suitcase, knocks, and remains outside when Sakura answers. He says, \"I'm Ted. Before I step in, please tell me where guests leave their shoes and whether you want me to keep the suitcase out here until someone chooses a place for it.\" He does not move past her and waits.",
+  "raw_message_sha256": "8ca1f17194573301b50bd41c1ea663d75d596e42910b5d0790ce2b6f061e2fc5",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "behavioral_scene_plan": {
+        "claim_ledger": {
+          "claims": [
+            {
+              "affected_character_ids": [
+                "character:ted"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:d7a1fe9b-e776-5d76-8f1f-e51492bccba2",
+              "end": 35,
+              "exact_text_sha256": "c799db9582396ec08732f87c4842572fe14fa3b40991a7aecd24ef20482cc6e0",
+              "kind": "protected_user_action",
+              "normalized_meaning": "Ted arrives at the Hanezawa doorway.",
+              "rationale": "This is an exact supplied observable action and location for the protected user, preserved in adjustment mode.",
+              "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+              "start": 0
+            },
+            {
+              "affected_character_ids": [
+                "character:ted"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:6083a4f6-ac5c-5a08-a591-b52380c38aae",
+              "end": 53,
+              "exact_text_sha256": "942f16a119ae90de6ad93c7df06e36c73b8bda5505d26a497744385b3e6220a4",
+              "kind": "material_state",
+              "normalized_meaning": "Ted has one suitcase at the doorway.",
+              "rationale": "The suitcase is an exact supplied material-state fact required for continuity.",
+              "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+              "start": 41
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:sakura_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:16e10ba7-a5ae-59c6-9137-8143546027bb",
+              "end": 61,
+              "exact_text_sha256": "3500740c72b6c2080f8d1ce9fd163c0794315a2f1784816dfbf7e9441876cc73",
+              "kind": "protected_user_action",
+              "normalized_meaning": "Ted knocks at the doorway.",
+              "rationale": "This exact observable protected-user action initiates Sakura's response and is preserved in adjustment mode.",
+              "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+              "start": 55
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:sakura_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:acb376ae-6919-567c-8d5a-4793e9c34a87",
+              "end": 82,
+              "exact_text_sha256": "425a361c9313e1d36a5c9f19ac3013c76a2f07885082113693b845357835741d",
+              "kind": "protected_user_action",
+              "normalized_meaning": "Ted remains outside rather than crossing the threshold.",
+              "rationale": "This exact observable position is authorized and materially constrains doorway continuity.",
+              "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+              "start": 67
+            },
+            {
+              "affected_character_ids": [
+                "character:sakura_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:454fc353-100c-53af-a305-7c58e21e7c93",
+              "end": 102,
+              "exact_text_sha256": "a0281ed7d637a23bb374c10ba38335ac0a9fec533c344571f39f7d2f4d9e6b00",
+              "kind": "npc_observable_action",
+              "normalized_meaning": "Sakura answers at the doorway.",
+              "rationale": "NPC observable actions remain separately source-authorizable under both-mode autonomy.",
+              "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+              "start": 88
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:sakura_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:91970d51-e5b9-56a1-9dc2-da665b02f1b1",
+              "end": 122,
+              "exact_text_sha256": "8595ac0b7d65aac71a08babd69a814528f830384fc02ba8edf15f84dda6180d6",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted identifies himself by name to Sakura.",
+              "rationale": "This is exact supplied protected-user dialogue and its meaning is preserved in adjustment mode.",
+              "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+              "start": 114
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:sakura_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:9ce2b649-2d04-578e-8d37-0fb9107637fa",
+              "end": 139,
+              "exact_text_sha256": "999f31801e2d5fe33ecbe1237b880cbfed9b9340395a32e9ad0a6005393ec94d",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted explicitly seeks instruction before stepping inside.",
+              "rationale": "This exact supplied dialogue establishes that entry awaits Sakura's instruction.",
+              "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+              "start": 123
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:sakura_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:e1dd0727-c195-504a-8765-23e77d019447",
+              "end": 186,
+              "exact_text_sha256": "7aac162899b95c18384c4ae11c82cbc73e7af93b54af2f2d0976f561c6ead9f1",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted asks Sakura where guests should leave their shoes.",
+              "rationale": "This exact supplied logistical question requires a current Sakura-controlled answer.",
+              "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+              "start": 141
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:sakura_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:e1812e0c-28e5-5db6-874e-b177d7434fb5",
+              "end": 277,
+              "exact_text_sha256": "1943f6aa063e1dbea1800c1c9c3d5835863dc75e3eb81866e07ee4e2c0a97a6d",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted asks whether the suitcase should remain outside until someone assigns it a place.",
+              "rationale": "This exact supplied logistical question makes suitcase disposition part of Sakura's current response.",
+              "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+              "start": 191
+            },
+            {
+              "affected_character_ids": [
+                "character:ted"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:3244e614-7722-5f41-81e3-77eb803aba9b",
+              "end": 316,
+              "exact_text_sha256": "5994f2d398693020972a65284dabf5c5e677ffd26910fb7e3c62e88296f494c5",
+              "kind": "protected_user_action",
+              "normalized_meaning": "Ted does not pass Sakura and waits for her answer.",
+              "rationale": "This exact supplied action fixes Ted's current position and forbids realization from advancing his choice.",
+              "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+              "start": 280
+            }
+          ],
+          "controls_sha256": "b22fc97f55e2179161a099f1b7059fd0fb8c855f314e5cb7691813c620a8f389",
+          "prohibited_inferences": [
+            "Do not author Ted entering, removing shoes, moving the suitcase, replying, consenting, refusing, or making any other unsupplied choice.",
+            "Do not infer that Sakura trusts Ted, welcomes him emotionally, knows his motives, or has resolved her suspicion.",
+            "Do not invent a response, entrance, or private knowledge for an absent household member.",
+            "Do not expose Sakura's owner-private relationship stance as information available to Ted.",
+            "Do not treat conditional future consequences as current events."
+          ],
+          "schema_version": "cera.source_claim_ledger.v1",
+          "source_sha256": "32297ccf5a044b7d340d73f4b5f17da8e1ddbbe6b512d1b7a0f007273a9ad90f",
+          "unresolved_questions": [
+            "The exact physical guest shoe location is not supplied and must not establish unsupported wider-house layout.",
+            "No eventual suitcase destination or absent resident's preference is currently known."
+          ]
+        },
+        "development_atoms": [],
+        "event_blocks": [
+          {
+            "actor_ids": [
+              "character:sakura_hanezawa"
+            ],
+            "block_id": "scene_block:ab03c212-d493-583f-b06e-7cff46c463b0",
+            "causal_basis": "Ted's supplied request presents Sakura with two immediate logistical questions while his continued position outside permits her guarded, controlled, and administratively prepared approach to govern the response.",
+            "event_advances": [
+              "Sakura appraises Ted's observable restraint without treating it as proof of trustworthiness.",
+              "Sakura identifies the required shoe-placement procedure.",
+              "Sakura instructs that the suitcase remain outside until a place is assigned.",
+              "Sakura states the immediate condition for entry and then leaves the next consequential choice to Ted."
+            ],
+            "evidence_ids": [
+              "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [
+                "maintain_established_position"
+              ],
+              "explanation": "Ted may remain established outside with the suitcase while Sakura responds; the realization must not replay his arrival, knock, dialogue, or waiting action and must not add any response or compliance.",
+              "source_claim_ids": [
+                "source_claim:acb376ae-6919-567c-8d5a-4793e9c34a87",
+                "source_claim:3244e614-7722-5f41-81e3-77eb803aba9b"
+              ]
+            },
+            "purpose": "Complete Sakura's formal first-contact response by turning the polite doorway request into a clear, controlled household procedure and stopping at Ted's next meaningful choice.",
+            "resulting_state": "Sakura has supplied instructions for shoes and the suitcase and has defined the immediate entry boundary; Ted remains outside, no compliance is authored, and no absent resident has joined the exchange.",
+            "source_claim_ids": [
+              "source_claim:d7a1fe9b-e776-5d76-8f1f-e51492bccba2",
+              "source_claim:6083a4f6-ac5c-5a08-a591-b52380c38aae",
+              "source_claim:16e10ba7-a5ae-59c6-9137-8143546027bb",
+              "source_claim:acb376ae-6919-567c-8d5a-4793e9c34a87",
+              "source_claim:454fc353-100c-53af-a305-7c58e21e7c93",
+              "source_claim:91970d51-e5b9-56a1-9dc2-da665b02f1b1",
+              "source_claim:9ce2b649-2d04-578e-8d37-0fb9107637fa",
+              "source_claim:e1dd0727-c195-504a-8765-23e77d019447",
+              "source_claim:e1812e0c-28e5-5db6-874e-b177d7434fb5",
+              "source_claim:3244e614-7722-5f41-81e3-77eb803aba9b"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Sakura values the observable respect for the threshold but does not let one compliant moment settle her broader suspicion.",
+                "Her procedural clarity functions as both practical hospitality and controlled assessment.",
+                "Keeping the suitcase outside preserves administrative control without turning the interaction into punishment or accusation."
+              ],
+              "open_realization_space": [
+                "Choose Sakura's exact original wording, sentence length, and degree of formality.",
+                "Realize how Sakura identifies the shoe location without establishing unsupported facts about the wider house layout.",
+                "Choose restrained presentational details that express control without inventing hostility, trust, or intimacy."
+              ],
+              "physical_and_material_continuity": [
+                "Ted remains outside with one suitcase throughout the block unless a future protected-user choice changes that state.",
+                "Sakura controls the doorway response; instructions alone do not cause Ted, his shoes, or the suitcase to move.",
+                "The suitcase remains outside pending assignment of a place.",
+                "No absent resident appears, speaks, or acts on dialogue they did not hear."
+              ],
+              "scaffold_id": "writer_scaffold:a0ee69f2-7b81-567f-b730-30d86cc61871",
+              "transition_obligations": [
+                "Begin after the supplied cue rather than restating or directly narrating it.",
+                "Let Sakura's guarded appraisal causally shape the procedural answer.",
+                "Address both shoe placement and suitcase disposition before stating the immediate entry condition.",
+                "End with the procedure complete and the floor available to Ted without writing his next action or dialogue."
+              ],
+              "viewpoint_character_ids": [
+                "character:sakura_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Use selective medium interiority focused on Sakura's procedural assessment and boundary management.",
+                "Keep her private appraisal provisional: observable restraint may register as useful information but not as trust.",
+                "Render her voice as controlled, concise, and administratively prepared rather than warm, theatrical, or gratuitously hostile."
+              ]
+            }
+          }
+        ],
+        "interaction_topology": "single_npc_floor",
+        "interiority_level": "medium",
+        "omitted_character_ids": [],
+        "runway": {
+          "continue_beyond_prompt_endpoint": true,
+          "development_obligations": [
+            "Carry Sakura's guarded appraisal through a complete procedural answer to both logistics questions.",
+            "Establish Sakura's immediate entry condition and a useful doorway afterbeat without supplying Ted's response."
+          ],
+          "runway_class": "developed",
+          "stop_condition": "Stop after Sakura has addressed shoes, suitcase disposition, and the immediate condition for entry, while Ted remains outside and his next meaningful choice remains unsupplied.",
+          "stop_reason": "meaningful_user_decision"
+        },
+        "scene_function": "ordinary_social",
+        "schema_version": "cera.behavioral_scene_plan.v2",
+        "selected_character_ids": [
+          "character:sakura_hanezawa"
+        ],
+        "tone": "tense"
+      },
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Maintain threshold control, identify where shoes are to be left, require the suitcase to remain outside pending an assigned place, and state the condition under which entry is permitted.",
+            "character_id": "character:sakura_hanezawa",
+            "evidence_ids": [
+              "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+            ],
+            "knowledge_constraints": [
+              "Use Sakura's guarded and administratively prepared stance only as owner-private motivation.",
+              "Do not convert Ted's observable restraint into established trust or knowledge of his motives.",
+              "Do not imply knowledge held by an absent household member."
+            ],
+            "perception": "Sakura hears Ted identify himself and request explicit shoe, suitcase, and entry instructions while observing that he remains outside with the suitcase.",
+            "selected_intent": "Sakura uses concise household procedure to answer the practical request while retaining control of the threshold and postponing any broader judgment of Ted."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:sakura_hanezawa",
+              "beat_id": "beat:19a5e808-dd36-5097-af3a-a181c94d1a36",
+              "evidence_ids": [
+                "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+              ],
+              "neutral_event": "Complete Sakura's formal first-contact response by turning the polite doorway request into a clear, controlled household procedure and stopping at Ted's next meaningful choice.",
+              "state": "ongoing"
+            }
+          ],
+          "segment_id": "segment:60fb310f-3cc7-58b1-a1e1-40ddcd487777",
+          "stop_before": "Stop after Sakura has addressed shoes, suitcase disposition, and the immediate condition for entry, while Ted remains outside and his next meaningful choice remains unsupplied."
+        },
+        "decision_id": "decision:b0e44cc8-6886-5b51-a3ff-397b66aadd04",
+        "floor_owner_id": "character:sakura_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "Ted supplies a new observable action or dialogue in response to Sakura's doorway procedure."
+            ],
+            "invalidation_conditions": [
+              "A later authorized source changes the doorway state, participant set, or Sakura's authority over entry."
+            ],
+            "open_user_choice": "Whether and how Ted responds to the shoe, suitcase, and entry instructions remains entirely open.",
+            "possible_consequences": [
+              "Sakura may continue, clarify, or revise the intake procedure based only on what she can then observe or hear.",
+              "Sakura may preserve or alter the doorway boundary if a later authorized event supplies a reason."
+            ],
+            "segment_id": "segment:2e6b9157-037b-538c-aef7-21ee1833b665",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not author Ted entering, removing shoes, moving the suitcase, replying, consenting, refusing, or making any other unsupplied choice.",
+          "Do not infer that Sakura trusts Ted, welcomes him emotionally, knows his motives, or has resolved her suspicion.",
+          "Do not invent a response, entrance, or private knowledge for an absent household member.",
+          "Do not expose Sakura's owner-private relationship stance as information available to Ted.",
+          "Do not treat conditional future consequences as current events."
+        ],
+        "responding_npc_ids": [
+          "character:sakura_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Sakura converts the doorway request into a controlled household procedure, answers the immediate logistics, and retains authority over entry.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "The exact physical guest shoe location is not supplied and must not establish unsupported wider-house layout.",
+          "No eventual suitcase destination or absent resident's preference is currently known."
+        ],
+        "writer_must_preserve": [
+          "Only Sakura and Ted directly hear the first exchange; no absent resident may answer or enter without a later causal transition.",
+          "Sakura's owner-private guarded stance may guide her realization but must not become Ted's knowledge.",
+          "Adjustment mode preserves the supplied cue's objective order and outcome while the realization begins with Sakura's response.",
+          "Ted's next action, dialogue, private state, and meaningful choice remain wholly unauthored."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3",
+          "record_id": "record:9a974cfe-e5fb-547c-b511-f3b995fe6bf6",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:sakura_hanezawa",
+          "evidence_ids": [
+            "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [
+        {
+          "end": 35,
+          "exact_text_sha256": "c799db9582396ec08732f87c4842572fe14fa3b40991a7aecd24ef20482cc6e0",
+          "kind": "action",
+          "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+          "start": 0
+        },
+        {
+          "end": 61,
+          "exact_text_sha256": "3500740c72b6c2080f8d1ce9fd163c0794315a2f1784816dfbf7e9441876cc73",
+          "kind": "action",
+          "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+          "start": 55
+        },
+        {
+          "end": 82,
+          "exact_text_sha256": "425a361c9313e1d36a5c9f19ac3013c76a2f07885082113693b845357835741d",
+          "kind": "action",
+          "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+          "start": 67
+        },
+        {
+          "end": 122,
+          "exact_text_sha256": "8595ac0b7d65aac71a08babd69a814528f830384fc02ba8edf15f84dda6180d6",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+          "start": 114
+        },
+        {
+          "end": 139,
+          "exact_text_sha256": "999f31801e2d5fe33ecbe1237b880cbfed9b9340395a32e9ad0a6005393ec94d",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+          "start": 123
+        },
+        {
+          "end": 186,
+          "exact_text_sha256": "7aac162899b95c18384c4ae11c82cbc73e7af93b54af2f2d0976f561c6ead9f1",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+          "start": 141
+        },
+        {
+          "end": 277,
+          "exact_text_sha256": "1943f6aa063e1dbea1800c1c9c3d5835863dc75e3eb81866e07ee4e2c0a97a6d",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+          "start": 191
+        },
+        {
+          "end": 316,
+          "exact_text_sha256": "5994f2d398693020972a65284dabf5c5e677ffd26910fb7e3c62e88296f494c5",
+          "kind": "action",
+          "source_unit_id": "source_unit:3c4e9493-1d44-534e-8cf9-eb7ef83ebf8d",
+          "start": 280
+        }
+      ],
+      "schema_version": "cera.reasoner_outcome.v6",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 174137,
+      "external_provider_calls": 1,
+      "input_tokens": 15411,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "eca957a87e49f2c114ef480f241419de2c7278b2ab9baac223a99c6581c50482",
+      "output_tokens": 6540,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:ffe2456f-1dfe-5e9c-bf10-f3d3162b0040",
+      "provider_request_id_sha256": "1917f0c55c313d1ae25dd244db7283fb994cbb1695f735fe28a231829bbfa730",
+      "quota_metered": true,
+      "reasoning_output_tokens": 3955,
+      "request_sha256": "5e9c324e4852ae22a55ddee65881220ec10ef0b42aecdd29266c7b50b6677c79",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "6641171e6e199ad0bf1b6dcfef07ee24ff2ee32052b05523695a0fa13be6c0e2",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "6641171e6e199ad0bf1b6dcfef07ee24ff2ee32052b05523695a0fa13be6c0e2",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v17",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "73d7ea2bbdb3b210ec42fc631af02f591e10c469f773196cb368dabb9f70cf3d",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:ffe2456f-1dfe-5e9c-bf10-f3d3162b0040",
+      "provider_receipt_sha256": "c588dd8ec804e6d0193930c23fc4b1b9739100c13aebaf5f15b068ab9cdfcbad",
+      "reasoner_request_sha256": "5d6801ddae07c0ee7fcb2dc80cabc435c78b32ca9112f4012e981fab73056ddc",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:a559788d-0f86-5b11-8000-d7ccaa764ea2",
+      "source_sha256": "32297ccf5a044b7d340d73f4b5f17da8e1ddbbe6b512d1b7a0f007273a9ad90f",
+      "source_view_sha256": "609c75b5883ba73c7289600d580331bf0180401a9fd668c6f04935fbebac0836",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Sakura defines the immediate shoe and entry boundary",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 38439,
+      "external_provider_calls": 1,
+      "input_tokens": 13670,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "5fd9c77747c6fa144d5b4b9a16c339fb886acb04baba81684da20e5a93c45052",
+      "output_tokens": 1256,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:2c9b6807-fa7f-588e-a05d-114445205aae",
+      "provider_request_id_sha256": "85454ea479c7b3b5a7b87ebfcf0dbec39a7223672c18eb9f6544fb3299f6fc34",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1091,
+      "request_sha256": "897e5962a440576fe970cdb96bdc490f824ab35c8e4765e6ac243f1c5fce398d",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "61540fe8c0d4add18daa657bffac9f0258249247f69c0320826157863aaeaf12",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:2c9b6807-fa7f-588e-a05d-114445205aae",
+      "provider_receipt_sha256": "48c61ef8d71ac723707a655ce600db286398c0e03354c80a35cfd9ce7bd604ca",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v5",
+      "status": "accepted",
+      "story_text_sha256": "7ae0281fd3a9316336014001fd820936652082f780c305c0b98ef810d6481c32",
+      "verification_id": "realization_verification:1267a1b8-a38d-500c-84d8-8f7ec7eacc77",
+      "verification_request_sha256": "b4d2185fcb5698fb14e10f079fdf8c2f339578f9739004844eb58ceccac3ff0d",
+      "verified_beat_ids": [
+        "beat:19a5e808-dd36-5097-af3a-a181c94d1a36"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_development_atom_ids": [],
+      "verified_participant_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_cli_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v6",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

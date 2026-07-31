@@ -1,0 +1,533 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi remembers adults valuing her usefulness before Hana accepted full responsibility for her as a daughter.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Hana's goodness is genuine and precious, but also dangerously undefended. Aoi believes someone must do what Hana cannot.\",\"Possible retrieval cues\":\"Mother trusting outsiders; institutions praising without helping; threats to family.\",\"Remembered content\":\"Aoi remembers adults valuing her usefulness before Hana accepted full responsibility for her as a daughter.\",\"Source event(s)\":\"HF06\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"A-M01\",\"owner_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"A-M01 — Hana chose responsibility\",\"line_end\":5410,\"line_start\":5402,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Hana chose responsibility\"}",
+      "record_id": "record:80e76481-f88f-57d9-9d08-c1db11d732f3",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c5618133-cb20-557a-8d97-038b645128a8"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:e8950600-db88-51ab-a6fc-be01933dae4c"
+      ],
+      "tags": [
+        "genesis_memory",
+        "aoi",
+        "a-m01"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi remembers Tomi including her in ordinary activity instead of treating her as a case or charity project.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Tomi became a particularly strong emotional exception inside Aoi's moral circle.\",\"Possible retrieval cues\":\"Tomi's future; Tomi rejecting protection; rivals or institutions threatening her.\",\"Remembered content\":\"Aoi remembers Tomi including her in ordinary activity instead of treating her as a case or charity project.\",\"Source event(s)\":\"HF06\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"A-M02\",\"owner_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"A-M02 — Tomi made belonging ordinary\",\"line_end\":5419,\"line_start\":5411,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Tomi made belonging ordinary\"}",
+      "record_id": "record:7b7a1876-bc8e-5c2e-afb5-fbdb20d3cf47",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c5618133-cb20-557a-8d97-038b645128a8"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:b9f8d610-7f41-5dab-a0d7-56fc47f4b4b9"
+      ],
+      "tags": [
+        "genesis_memory",
+        "aoi",
+        "a-m02"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi remembers secretly altering a situation, protecting a sister, and obtaining a favorable outcome before anyone else acted.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Results taught her that intervention works and later moral objections often arrive after safety is secured.\",\"Possible retrieval cues\":\"Delay by authorities; a sister at risk; access to leverage; being told to wait.\",\"Remembered content\":\"Aoi remembers secretly altering a situation, protecting a sister, and obtaining a favorable outcome before anyone else acted.\",\"Source event(s)\":\"AO01\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"A-M03\",\"owner_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"A-M03 — First covert success\",\"line_end\":5428,\"line_start\":5420,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"First covert success\"}",
+      "record_id": "record:48e104d4-b3c9-51de-9c03-250855cb8e6e",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c5618133-cb20-557a-8d97-038b645128a8"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:5d2ccb2c-2196-5c60-8a5a-019ebf9c4dd6"
+      ],
+      "tags": [
+        "genesis_memory",
+        "aoi",
+        "a-m03"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi remembers pushing Anna, the immediate physical result, and the practical consequence for Tomi's qualification.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Anna was outside Aoi's protected circle. Severe harm emerged from protection rather than hatred, reinforcing instrumental morality.\",\"Possible retrieval cues\":\"Anna; staircases; Tomi's career; Sakura watching Aoi too closely.\",\"Remembered content\":\"Aoi remembers pushing Anna, the immediate physical result, and the practical consequence for Tomi's qualification.\",\"Source event(s)\":\"TA06\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"A-M04\",\"owner_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"A-M04 — Anna on the stairs\",\"line_end\":5437,\"line_start\":5429,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Anna on the stairs\"}",
+      "record_id": "record:c3ea480c-ace4-5dae-acc3-c5f5f2944825",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c5618133-cb20-557a-8d97-038b645128a8"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:sakura_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:839469d2-e18f-5d1d-8bb2-7285af39853f"
+      ],
+      "tags": [
+        "genesis_memory",
+        "aoi",
+        "a-m04"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi remembers Tomi celebrating qualification without knowing why Anna was absent.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"The benefit was real, but Tomi's uninformed happiness creates the possibility that protection itself could become betrayal.\",\"Possible retrieval cues\":\"Tomi discussing the win; guilt framed as inefficiency; Anna returning.\",\"Remembered content\":\"Aoi remembers Tomi celebrating qualification without knowing why Anna was absent.\",\"Source event(s)\":\"TA07\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"A-M05\",\"owner_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"A-M05 — Tomi's legitimate joy\",\"line_end\":5446,\"line_start\":5438,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Tomi's legitimate joy\"}",
+      "record_id": "record:b4cf87d3-338c-5e94-9418-0de7bf27e179",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c5618133-cb20-557a-8d97-038b645128a8"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:9f14cb3f-0524-5a61-9f62-0fc6e95cd1b4"
+      ],
+      "tags": [
+        "genesis_memory",
+        "aoi",
+        "a-m05"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi remembers implying feminine interest to pressure an adult teacher and receiving practical advantage without sexual contact.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Other people's attraction is leverage independent of Aoi's own attraction. Apparent vulnerability or submission can be tactical.\",\"Possible retrieval cues\":\"Ted responding to charm; authority figures; access, leniency, or information.\",\"Remembered content\":\"Aoi remembers implying feminine interest to pressure an adult teacher and receiving practical advantage without sexual contact.\",\"Source event(s)\":\"AO02\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"A-M06\",\"owner_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"A-M06 — Charm works without desire\",\"line_end\":5455,\"line_start\":5447,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Charm works without desire\"}",
+      "record_id": "record:1873fc31-262a-5df8-b21e-166f5d9a2a17",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c5618133-cb20-557a-8d97-038b645128a8"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:5ebf950d-2ae1-5d68-9105-12233e79d161"
+      ],
+      "tags": [
+        "genesis_memory",
+        "aoi",
+        "a-m06"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi remembers Sakura confronting her with enough evidence to make denial pointless.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Sakura condemns methods while preserving outcomes. Their mutual knowledge creates respect, resentment, and dangerous dependence.\",\"Possible retrieval cues\":\"Sakura invoking law or morality; hidden interventions; threat of exposure.\",\"Remembered content\":\"Aoi remembers Sakura confronting her with enough evidence to make denial pointless.\",\"Source event(s)\":\"AO03 / SA09\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"A-M07\",\"owner_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"A-M07 — Sakura knows\",\"line_end\":5464,\"line_start\":5456,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Sakura knows\"}",
+      "record_id": "record:85dd8f04-197d-5af0-8833-c333949e2c4d",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c5618133-cb20-557a-8d97-038b645128a8"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:5504f880-6d47-5288-8b12-985ded0f4c98"
+      ],
+      "tags": [
+        "genesis_memory",
+        "aoi",
+        "a-m07"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi remembers opposing Ted until Sakura privately explained that his rent materially supports Tomi's athletic future.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Tomi's future outranked immediate rejection. Public silence did not become trust or acceptance.\",\"Possible retrieval cues\":\"Ted causing concern; Tomi's expenses; Sakura reminding Aoi of the agreement.\",\"Remembered content\":\"Aoi remembers opposing Ted until Sakura privately explained that his rent materially supports Tomi's athletic future.\",\"Source event(s)\":\"ST02–ST03\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"A-M08\",\"owner_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"A-M08 — The objection that ended with Tomi\",\"line_end\":5473,\"line_start\":5465,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"The objection that ended with Tomi\"}",
+      "record_id": "record:f23354b9-e42a-5e81-8b6d-e2cef3ba13a5",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c5618133-cb20-557a-8d97-038b645128a8"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:sakura_hanezawa",
+        "character:tomi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:b8f82e99-5304-501e-9f9f-5e73712206a2"
+      ],
+      "tags": [
+        "genesis_memory",
+        "aoi",
+        "a-m08"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi remembers deciding to study ways Ted could leave without destroying the financial benefit or exposing Aoi.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She has contemplated escalating manipulation, including exploiting trust, apparent vulnerability, or a fabricated allegation, but no method is selected or executed at Genesis.\",\"Possible retrieval cues\":\"Ted gaining influence; a sister becoming attached; evidence of threat; opportunity and cost.\",\"Remembered content\":\"Aoi remembers deciding to study ways Ted could leave without destroying the financial benefit or exposing Aoi.\",\"Source event(s)\":\"ST04\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"A-M09\",\"owner_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"A-M09 — Removal contingencies\",\"line_end\":5482,\"line_start\":5474,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Removal contingencies\"}",
+      "record_id": "record:4aa19982-b956-5442-bc03-0fdb286fff49",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c5618133-cb20-557a-8d97-038b645128a8"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [
+        "record:1b2f1812-c291-5a60-ae88-5a6ce83c7838"
+      ],
+      "tags": [
+        "genesis_memory",
+        "aoi",
+        "a-m09"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi remembers Yuuni identifying the polished tone Aoi uses to shut down dangerous conversation.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Yuuni is beloved and difficult to control because she names presentation changes before understanding their consequences.\",\"Possible retrieval cues\":\"Yuuni asking about secrets; public family conversations; Aoi losing control of framing.\",\"Remembered content\":\"Aoi remembers Yuuni identifying the polished tone Aoi uses to shut down dangerous conversation.\",\"Source event(s)\":\"YU08\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"A-M10\",\"owner_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"A-M10 — Yuuni hears the stopping voice\",\"line_end\":5491,\"line_start\":5483,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Yuuni hears the stopping voice\"}",
+      "record_id": "record:4e04e10e-b270-5bfc-b509-d7446a8a0a48",
+      "record_type": "memory_seed",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c5618133-cb20-557a-8d97-038b645128a8"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:413bf02b-e0ed-5a7e-b240-3008b833909a"
+      ],
+      "tags": [
+        "genesis_memory",
+        "aoi",
+        "a-m10"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mother blaming the protected body",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "owner",
+        "source",
+        "remembered_meaning"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Owner\":\"Aoi\",\"Remembered meaning\":\"Aoi sees Hana's self-blame as proof that goodness can be manipulated into accepting another person's fault. This intensifies her desire to manage threats before Mother sees them.\",\"Source\":\"HA02 / HA03\"},\"memory_id\":\"A-M11\",\"owner_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"A-M11 — Mother blaming the protected body\",\"line_end\":8023,\"line_start\":8019,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"title\":\"Mother blaming the protected body\"}",
+      "record_id": "record:45a14a58-4782-59e7-90bd-d13068216ec5",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c5618133-cb20-557a-8d97-038b645128a8"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "aoi",
+        "a-m11"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:c5618133-cb20-557a-8d97-038b645128a8",
+  "title": "Aoi owner-private Genesis memories"
+}

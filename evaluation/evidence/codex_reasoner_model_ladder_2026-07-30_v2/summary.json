@@ -1,0 +1,551 @@
+{
+  "benchmark_id": "codex-reasoner-model-ladder-2026-07-30-v2",
+  "cache_method": "byte-identical prepared Reasoner request and schema; observed provider cached_input_tokens determine whether a cache hit occurred",
+  "candidates": [
+    {
+      "effort": "high",
+      "key": "luna_high",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "effort": "xhigh",
+      "key": "luna_xhigh",
+      "model": "gpt-5.6-luna"
+    },
+    {
+      "effort": "low",
+      "key": "terra_low",
+      "model": "gpt-5.6-terra"
+    },
+    {
+      "effort": "medium",
+      "key": "terra_medium",
+      "model": "gpt-5.6-terra"
+    },
+    {
+      "effort": "high",
+      "key": "terra_high",
+      "model": "gpt-5.6-terra"
+    },
+    {
+      "effort": "xhigh",
+      "key": "terra_xhigh",
+      "model": "gpt-5.6-terra"
+    },
+    {
+      "effort": "low",
+      "key": "sol_low",
+      "model": "gpt-5.6-sol"
+    },
+    {
+      "effort": "medium",
+      "key": "sol_medium",
+      "model": "gpt-5.6-sol"
+    }
+  ],
+  "character_autonomy": "both",
+  "current_creator_authorization": "2026-07-30 two-sample Luna-high through Sol-medium comparison",
+  "depth": "auto",
+  "fallback_count": 0,
+  "goal_authority_id": "D-167",
+  "prepared_turn": {
+    "eligible_responder_ids": [
+      "character:hana_hanezawa",
+      "character:sakura_hanezawa",
+      "character:mia_hanezawa",
+      "character:enne_hanezawa",
+      "character:tomi_hanezawa",
+      "character:aoi_hanezawa",
+      "character:yuuni_hanezawa"
+    ],
+    "present_character_ids": [
+      "character:ted",
+      "character:hana_hanezawa",
+      "character:sakura_hanezawa",
+      "character:mia_hanezawa",
+      "character:enne_hanezawa",
+      "character:tomi_hanezawa",
+      "character:aoi_hanezawa",
+      "character:yuuni_hanezawa"
+    ],
+    "request_id": "request:637df7fb-ec3e-5bf5-b6a0-0809ec4335c5",
+    "request_sha256": "2f01ca053781a450cca3cec0decbbcd1c44f047f3f5114323a2255ad0c185e59",
+    "response_profile_version": "cera-sillytavern-auto-v6",
+    "seed_dossier_bytes": 24716,
+    "seed_record_count": 14
+  },
+  "production_bound": false,
+  "prompt_handling": "adjustment",
+  "provider_stages": [
+    {
+      "dispatch_started": true,
+      "effort": "high",
+      "model": "gpt-5.6-luna",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "luna_high_sample_1_reasoner",
+      "status": "completed"
+    },
+    {
+      "dispatch_started": true,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "luna_high_sample_1_composer",
+      "status": "completed"
+    },
+    {
+      "dispatch_started": true,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "luna_high_sample_1_verifier",
+      "status": "completed"
+    },
+    {
+      "dispatch_started": true,
+      "effort": "high",
+      "model": "gpt-5.6-luna",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "luna_high_sample_2_reasoner",
+      "status": "started"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "luna_high_sample_2_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "luna_high_sample_2_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "xhigh",
+      "model": "gpt-5.6-luna",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "luna_xhigh_sample_1_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "luna_xhigh_sample_1_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "luna_xhigh_sample_1_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "xhigh",
+      "model": "gpt-5.6-luna",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "luna_xhigh_sample_2_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "luna_xhigh_sample_2_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "luna_xhigh_sample_2_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "low",
+      "model": "gpt-5.6-terra",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_low_sample_1_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "terra_low_sample_1_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_low_sample_1_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "low",
+      "model": "gpt-5.6-terra",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_low_sample_2_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "terra_low_sample_2_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_low_sample_2_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-terra",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_medium_sample_1_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "terra_medium_sample_1_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_medium_sample_1_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-terra",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_medium_sample_2_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "terra_medium_sample_2_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_medium_sample_2_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "high",
+      "model": "gpt-5.6-terra",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_high_sample_1_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "terra_high_sample_1_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_high_sample_1_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "high",
+      "model": "gpt-5.6-terra",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_high_sample_2_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "terra_high_sample_2_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_high_sample_2_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "xhigh",
+      "model": "gpt-5.6-terra",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_xhigh_sample_1_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "terra_xhigh_sample_1_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_xhigh_sample_1_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "xhigh",
+      "model": "gpt-5.6-terra",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_xhigh_sample_2_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "terra_xhigh_sample_2_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "terra_xhigh_sample_2_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "low",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "sol_low_sample_1_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "sol_low_sample_1_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "sol_low_sample_1_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "low",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "sol_low_sample_2_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "sol_low_sample_2_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "sol_low_sample_2_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "sol_medium_sample_1_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "sol_medium_sample_1_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "sol_medium_sample_1_verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "sol_medium_sample_2_reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": null,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "provider_category": "deepseek",
+      "stage": "sol_medium_sample_2_composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "provider_category": "sol",
+      "stage": "sol_medium_sample_2_verifier",
+      "status": "planned"
+    }
+  ],
+  "retry_count": 0,
+  "samples": [
+    {
+      "cache_position": "cold_observation",
+      "candidate": {
+        "effort": "high",
+        "key": "luna_high",
+        "model": "gpt-5.6-luna"
+      },
+      "codex_cache_ratio": 0.9371,
+      "codex_cached_input_tokens": 22272,
+      "codex_input_tokens": 23768,
+      "codex_output_tokens": 3761,
+      "codex_reasoning_output_tokens": 2443,
+      "deepseek_cached_input_tokens": 2176,
+      "deepseek_estimated_cost_microusd": 3018,
+      "event_advance_count": 2,
+      "event_block_count": 1,
+      "failure": null,
+      "reasoner_wall_seconds": 108.781,
+      "sample": 1,
+      "status": "passed",
+      "story_words": 106,
+      "total_wall_seconds": 222.661,
+      "verification_accepted": true
+    }
+  ],
+  "samples_per_candidate": 2,
+  "schema_version": "cera.codex_reasoner_model_ladder_summary.v1",
+  "source_sha256": "06f6249a64dc45b33a4dcb0d2ca15503a55a380eb887aa40e7549f37b2e63052",
+  "source_text": "Hello, Hanezawa residence?",
+  "started_at": "2026-07-31T02:39:14.168911+00:00",
+  "status": "interrupted_by_cache_design_correction",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "termination_reason": "The first completed sample proved that prior route use had warmed the nominally cold CERA prompt. The next already-started worker was terminated; v3 added a route-specific non-semantic namespace and no result was retried or overwritten.",
+  "finished_at": "2026-07-31T03:23:55.2940119Z",
+  "updated_at": "2026-07-31T02:43:06.050298+00:00"
+}

@@ -1,0 +1,596 @@
+{
+  "application_request_sha256": "1d436deae9dfc0348a96ab45635146ea97fa81287b670ab2dbe22a307e40d760",
+  "assertions": {
+    "all_eligible_required": false,
+    "all_eligible_selected": null,
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "one_shot_request_bound_mcp",
+    "regeneration": false,
+    "required_memory_id": "M-M07",
+    "required_memory_retrieved": true,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "persistent_no_mcp"
+  },
+  "composer": {
+    "accepted_prose": "Mia's hands stilled on the tray she had been tidying. She met his waiting silence with a small nod before speaking. \"Yes. Once. I had a submission deadline I'd been working toward, and a family matter came up that couldn't wait. It nearly cost me the chance.\" She paused, fingertips tracing the tray's edge. \"Saying no felt like being the selfish one. I still struggle to keep that time for myself.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "30a9b6693276e2df90f88beb91c8044691be434f723afa77540ebb00412f73ac",
+      "character_spans": [
+        {
+          "beat_id": "beat:ad2bc828-19ff-574b-b1fb-9eb29b501ea6",
+          "end": 399,
+          "kind": "action",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:ad2bc828-19ff-574b-b1fb-9eb29b501ea6",
+          "end": 399,
+          "kind": "dialogue",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        }
+      ],
+      "decision_sha256": "76c5830f62c5ac4bf7745784886b2208ce0a55e9bb2ba1a07be4b08009a7f578",
+      "floor_owner_id": "character:mia_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:bb7d19a9-e61c-5a35-ab0a-b268034a4735",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "e4049c85ae7812a59820b3f61941696de81b8df383a9d820c788d1b70c41ad02",
+          "character_id": "character:mia_hanezawa",
+          "selected_intent_sha256": "486461ae48d3073522fe328c6091458957d046eb7479a3fa1ae2a79c7ef7808c"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:mia_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:ad2bc828-19ff-574b-b1fb-9eb29b501ea6"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "e9876bf27bf26e39df13d6571437a4eba79aaca4ef1274c819afdeb2f2c015a7",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "6c070338320b53ae69bb14f3d08724e40ec666fa8d8d54b0f95149f619c428f6",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1280,
+      "cost_is_estimate": true,
+      "cost_microusd": 1514,
+      "duration_ms": 6512,
+      "external_provider_calls": 1,
+      "input_tokens": 4118,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "5e0b862582ce95b251a5f3f36322d349979d72e8f573d2757d11d4218535ec7d",
+      "output_tokens": 315,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:7c54603c-8496-5ffb-9ed6-a5fd7b1acb9c",
+      "provider_request_id_sha256": "a32547632e082d026af63ebfc46f8de5b5d4c090f01630aa03f4f44c0ec2c6b2",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "18026984e5bfd6f11dc3a37c671b843d550b3916c2218855739114304d79961b",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "e795e7c4dc412df72d8c79dd2828361a6febfd81f63010ff57d72a2f0e03da17",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:mia_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "6afaf8dcfbd7b67a7922a3e377841eb2f47359f41aa02acdd16fa25f19cdf9d4",
+      "assembly_receipt_id": "validation:458ea968-0056-5516-8576-6e86b2a5ec80",
+      "base_request_sha256": "d74a92ce98d27430b82715e1dfee137f51fb1568463c4a6f7f002d9db8e7c32f",
+      "cumulative_returned_bytes": 3513,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:204db16b-6677-55a6-86e8-a2ee52945750",
+        "lookup_receipt:1c5cc7b5-747e-5ecf-b3d2-b7e45e1c940d"
+      ],
+      "realization_context_sha256": "0d15b8b85d1c23fa0eccd33f64ebf1df53afae6e792c31b681bcd81e62993d8d",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:2b513bcc-036f-542f-876a-d36c324173d0",
+        "evidence:e6e5bd4a-7303-52ab-8b3d-2e547c813b17"
+      ],
+      "snapshot_token": "snapshot:50653bd2-d93a-5462-b8b4-47c56916c2d0",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:mia_hanezawa"
+    ]
+  },
+  "duration_seconds": 88.132,
+  "index": 3,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "6317b2b1753382c709bba50ca28a8b9b2213d91a7760b56f54ee254ecebba099",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "7f7eaf472d0d778652bd1aa642273627e872379bd689f96ce559a30518a7c74c",
+      "receipt_id": "validation:3e842290-94f1-5357-9dd3-dd033b2429c2",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "c1254935fe9d4ab5d384ea4020cec1302af3dfd5181c4444d2be91417b194e6f",
+    "receipt_id": "validation:357c11c2-3fda-5cc2-945b-47deb445deb9",
+    "request_id": "request:621e1ef9-2ab5-5d1b-b9c3-1f6347116f15",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2044,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:1f29435a-675d-5fc1-8198-1666bca18081",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2044,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:50653bd2-d93a-5462-b8b4-47c56916c2d0",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 3249,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:94b2d810-02dd-544d-befc-fe032960ef38",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1205,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:50653bd2-d93a-5462-b8b4-47c56916c2d0",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:6e3fead1-f2bc-5448-95bd-32d069147572",
+        "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:1f29435a-675d-5fc1-8198-1666bca18081",
+        "lookup_receipt:94b2d810-02dd-544d-befc-fe032960ef38"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:6e3fead1-f2bc-5448-95bd-32d069147572"
+          ],
+          "obligation_id": "obligation:96b38b30-f984-54d5-8ba7-eed54c03854b",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+          ],
+          "obligation_id": "obligation:8d8acf95-deb4-56e7-bef1-54735040a3a3",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:d0fcba78-b667-55b7-81bc-b59bd75fb55f",
+      "snapshot_binding_sha256": "b378ecaf23988499ae0c62901604063cb73f6ea144d791de5fcdf7fd4dc3f3fe",
+      "snapshot_token": "snapshot:50653bd2-d93a-5462-b8b4-47c56916c2d0"
+    },
+    "snapshot_token": "snapshot:50653bd2-d93a-5462-b8b4-47c56916c2d0",
+    "source_sha256": "795fa6fe73f5822396e4e6a93ea87c7f7cbe30f327bce3c54633c83c19565413"
+  },
+  "key": "mia-indirect-writing-memory",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:6f4e1544-a2af-5f57-898e-7e3386d4a994",
+      "accepted_artifact_sha256": "8a4992582a40a4c6cea388825b7066b6b08978432fcd6f54868dd5ec8efb5d51",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "1d436deae9dfc0348a96ab45635146ea97fa81287b670ab2dbe22a307e40d760",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:56aacb1c-d718-5bcd-a53e-c8883dd52cad",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:115e4ea6-de13-5b48-9ed0-273e5e5006d4",
+      "operational_report_id": "validation:22872770-f946-5160-9677-9daa538093bd",
+      "operational_report_sha256": "637b483c8395360975463e4def8d045ac2abeae31def4b030d8d814001ac1306",
+      "receipt_id": "validation:071877f7-adaf-5035-b7cf-ebcdce97a57b",
+      "request_id": "request:621e1ef9-2ab5-5d1b-b9c3-1f6347116f15",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "5518ed8bcf1dfb04e6cf9d2a576b0f71e8438518cdd28b0da8e63b58abebdb26"
+    },
+    "artifact": {
+      "accepted_prose": "Mia's hands stilled on the tray she had been tidying. She met his waiting silence with a small nod before speaking. \"Yes. Once. I had a submission deadline I'd been working toward, and a family matter came up that couldn't wait. It nearly cost me the chance.\" She paused, fingertips tracing the tray's edge. \"Saying no felt like being the selfish one. I still struggle to keep that time for myself.\"",
+      "artifact_id": "artifact:6f4e1544-a2af-5f57-898e-7e3386d4a994",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:aceb5496-1107-5092-83e3-bd17773a2538",
+      "generation_id": "generation:115e4ea6-de13-5b48-9ed0-273e5e5006d4",
+      "parent_artifact_id": "artifact:85da0412-bda8-57c1-8f8f-27fbb9cb5f90",
+      "prose_sha256": "6c070338320b53ae69bb14f3d08724e40ec666fa8d8d54b0f95149f619c428f6",
+      "realized_beat_ids": [
+        "beat:ad2bc828-19ff-574b-b1fb-9eb29b501ea6"
+      ],
+      "responding_npc_ids": [
+        "character:mia_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:cf8423d7-6b80-55e8-b335-e92f243292c8",
+      "status": "accepted",
+      "transaction_id": "transaction:9062aa00-cc60-5899-b8e1-f60fb325a464",
+      "validation_receipt_id": "validation:fcb41aac-390c-5ca5-849f-991d51b6d377"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:56aacb1c-d718-5bcd-a53e-c8883dd52cad",
+      "expected_previous_artifact_id": "artifact:85da0412-bda8-57c1-8f8f-27fbb9cb5f90",
+      "external_receipt_ids": [],
+      "generation_after": 3,
+      "generation_before": 2,
+      "inserted_record_ids": [
+        "event:38ff21ea-ec62-553b-a75a-ef62a00c1bbb"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:1f29435a-675d-5fc1-8198-1666bca18081",
+        "lookup_receipt:94b2d810-02dd-544d-befc-fe032960ef38",
+        "lookup_receipt:741dc262-7f95-5068-b171-b4a03c3589ec",
+        "lookup_receipt:b19bb08e-b8ec-5c0e-9962-25a5cae6b7a5",
+        "lookup_receipt:15070365-abc8-54be-82d8-cb34e376a218",
+        "lookup_receipt:3ca74707-0741-505f-882a-a6c95d0ca250",
+        "lookup_receipt:204db16b-6677-55a6-86e8-a2ee52945750",
+        "lookup_receipt:1c5cc7b5-747e-5ecf-b3d2-b7e45e1c940d"
+      ],
+      "new_artifact_id": "artifact:6f4e1544-a2af-5f57-898e-7e3386d4a994",
+      "new_artifact_sha256": "8a4992582a40a4c6cea388825b7066b6b08978432fcd6f54868dd5ec8efb5d51",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:1e908f46-2679-5b8c-8542-aff047bf4552",
+        "provider_receipt:7c54603c-8496-5ffb-9ed6-a5fd7b1acb9c",
+        "provider_receipt:58e808b8-4011-5b7b-99f0-3dc845199145"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:cf8423d7-6b80-55e8-b335-e92f243292c8",
+      "source_sha256": "a7e63912a2a61da2584ae9df9174b9ad40278624283cb319e5bec826cb3ef321",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:9062aa00-cc60-5899-b8e1-f60fb325a464",
+      "transaction_sha256": "5518ed8bcf1dfb04e6cf9d2a576b0f71e8438518cdd28b0da8e63b58abebdb26",
+      "validation_receipt_ids": [
+        "validation:357c11c2-3fda-5cc2-945b-47deb445deb9",
+        "validation:458ea968-0056-5516-8576-6e86b2a5ec80",
+        "validation:96ea721a-5823-50ef-8b3e-78245311e9a5",
+        "realization_verification:9c9911d5-f5b1-5105-b24f-3da59706c997",
+        "validation:fcb41aac-390c-5ca5-849f-991d51b6d377",
+        "validation:19325616-a81f-5fa6-9eb3-004966026c41"
+      ]
+    },
+    "event_record_id": "event:38ff21ea-ec62-553b-a75a-ef62a00c1bbb",
+    "visible_artifact_count": 3
+  },
+  "qualification_id": "continuous-ten-turn-v19",
+  "raw_message": "Later, Ted says to Mia, \"Someone I knew kept postponing a piece she cared about because every request sounded more urgent, and the opening to send it out almost closed. Has your own writing ever been crowded out like that? You do not have to tell me the private history.\" He waits.",
+  "raw_message_sha256": "e987adc8bc93b429fcba7b1e8afd09eb8727d1640351fb1d136702404147504b",
+  "reasoner": {
+    "mcp_bridge_receipt": {
+      "authoritative_store_writes": 0,
+      "bridge_binding_sha256": "94719242a228931380d711ea9dcd2a38e9525a7307f682efe7be34d5450592c9",
+      "bridge_receipt_id": "mcp_bridge_receipt:8ee61ce7-287f-50b4-892b-38ea14ae777e",
+      "calls": [
+        {
+          "call_index": 1,
+          "error_code": null,
+          "error_field_path": null,
+          "error_reason": null,
+          "lookup_receipt_id": "lookup_receipt:741dc262-7f95-5068-b171-b4a03c3589ec",
+          "request_sha256": "c4702202ebd4ec44878f27a4400a1886a2ccfd2a108aae781f5054867fc7ad4f",
+          "result_sha256": "492cb48db58b6bcf495b9a22d8ee2ec686957ca349da8236cf5d926017745c65",
+          "returned_bytes": 2,
+          "success": true,
+          "tool_name": "cera_search_query_plan"
+        },
+        {
+          "call_index": 2,
+          "error_code": null,
+          "error_field_path": null,
+          "error_reason": null,
+          "lookup_receipt_id": "lookup_receipt:b19bb08e-b8ec-5c0e-9962-25a5cae6b7a5",
+          "request_sha256": "dd5cadd8c3354561cea028ccb9506bfe8c8911be6d531199554de612bfa3da45",
+          "result_sha256": "f92ae411ca6dc93fe9c6650cba079607480de5d9f6ac55af4176353aa991fe2f",
+          "returned_bytes": 2,
+          "success": true,
+          "tool_name": "cera_search_query_plan"
+        },
+        {
+          "call_index": 3,
+          "error_code": null,
+          "error_field_path": null,
+          "error_reason": null,
+          "lookup_receipt_id": "lookup_receipt:15070365-abc8-54be-82d8-cb34e376a218",
+          "request_sha256": "5ab372942321d11f38853d3afe8e333b40588ead29c9dff8ec054a9980fd76ef",
+          "result_sha256": "fcbebab260a653f172e2d7f42ef4a52dd14d54392d99334e5300ec990b8c8352",
+          "returned_bytes": 14255,
+          "success": true,
+          "tool_name": "cera_search_evidence"
+        },
+        {
+          "call_index": 4,
+          "error_code": null,
+          "error_field_path": null,
+          "error_reason": null,
+          "lookup_receipt_id": "lookup_receipt:3ca74707-0741-505f-882a-a6c95d0ca250",
+          "request_sha256": "4c513c1a52875c8dd1bee81f99271c6749d3b50b426937fa21cbe0f7a3540c98",
+          "result_sha256": "2ee6985e7951791e4ad0b64e2749ff6b3dca779833a33b59fe44c9aba0816bf7",
+          "returned_bytes": 1706,
+          "success": true,
+          "tool_name": "cera_fetch_evidence"
+        }
+      ],
+      "credential_retained": false,
+      "cumulative_evidence_bytes": 15965,
+      "enabled_tools": [
+        "cera_get_turn_snapshot",
+        "cera_resolve_entities",
+        "cera_search_evidence",
+        "cera_search_query_plan",
+        "cera_fetch_evidence",
+        "cera_get_character_sections",
+        "cera_get_continuity"
+      ],
+      "exact_evidence_ids": [
+        "evidence:2b513bcc-036f-542f-876a-d36c324173d0"
+      ],
+      "private_evidence_retained": false,
+      "provider_observed_tool_calls": 4,
+      "provider_receipt_id": "provider_receipt:1e908f46-2679-5b8c-8542-aff047bf4552",
+      "raw_source_retained": false,
+      "reasoner_request_sha256": "c1254935fe9d4ab5d384ea4020cec1302af3dfd5181c4444d2be91417b194e6f",
+      "required": true,
+      "schema_version": "cera.mcp_evidence_bridge_receipt.v2",
+      "server_name": "cera_request_evidence",
+      "snapshot_binding_sha256": "b378ecaf23988499ae0c62901604063cb73f6ea144d791de5fcdf7fd4dc3f3fe",
+      "snapshot_token": "snapshot:50653bd2-d93a-5462-b8b4-47c56916c2d0",
+      "story_prose_retained": false,
+      "tool_contract_version": "cera.reasoner_evidence_mcp.v5",
+      "transport": "loopback_streamable_http"
+    },
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Answer briefly and directly; disclose only the general history and pressure established in her memory.",
+            "character_id": "character:mia_hanezawa",
+            "evidence_ids": [
+              "evidence:2b513bcc-036f-542f-876a-d36c324173d0"
+            ],
+            "knowledge_constraints": [
+              "Mia may use her owner-private memory when choosing what to disclose.",
+              "The outcome of the writing opportunity and the specific family needs remain unknown.",
+              "Ted can know only the information Mia actually states in the realized response."
+            ],
+            "perception": "Mia recognizes that the question closely matches her memory of family needs displacing her writing and that she has permission to retain private details.",
+            "selected_intent": "Confirm that her writing was crowded out, name the difficulty of protecting creative time, and retain all additional private history."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:mia_hanezawa",
+              "beat_id": "beat:ad2bc828-19ff-574b-b1fb-9eb29b501ea6",
+              "evidence_ids": [
+                "evidence:2b513bcc-036f-542f-876a-d36c324173d0"
+              ],
+              "neutral_event": "Mia confirms that family needs once nearly displaced a writing opportunity and briefly names her difficulty protecting creative time, without adding private details.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:1dd5ab89-0e44-514a-bd6b-158c1e1c206a",
+          "stop_before": "Ted's next unsupplied meaningful choice."
+        },
+        "decision_id": "decision:aceb5496-1107-5092-83e3-bd17773a2538",
+        "floor_owner_id": "character:mia_hanezawa",
+        "future_segments": [],
+        "prohibited_inferences": [
+          "Do not add specific family needs, relatives, dates, manuscript details, or an outcome for the writing opportunity.",
+          "Do not imply that Ted already knows Mia's owner-private memory.",
+          "Do not author Ted's next action, dialogue, thought, feeling, or decision.",
+          "Do not treat Mia's bounded disclosure as permission for further disclosure."
+        ],
+        "responding_npc_ids": [
+          "character:mia_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Mia gives a bounded truthful answer about her own writing history.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "The specific family needs and the final outcome of the writing opportunity are unknown."
+        ],
+        "writer_must_preserve": [
+          "Keep the response centered on Mia's own experience and disclosure choice.",
+          "Preserve the distinction between the established general memory and unknown private details.",
+          "Do not restate or directly narrate Ted's supplied words or waiting action.",
+          "Stop before Ted's next unsupplied meaningful choice."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:2b513bcc-036f-542f-876a-d36c324173d0",
+          "record_id": "record:8375ee4a-068e-5790-b002-37e06148bb92",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:mia_hanezawa",
+          "evidence_ids": [],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 26368,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 66016,
+      "external_provider_calls": 1,
+      "input_tokens": 28403,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "29c26d814faefa022e7c46031837cdc380f81e8d275b36be21f1c7087aa64aa3",
+      "output_tokens": 1488,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:1e908f46-2679-5b8c-8542-aff047bf4552",
+      "provider_request_id_sha256": "203b02642acf1825c1667443ab6b6233390563edcf023f126837a18be33075b7",
+      "quota_metered": true,
+      "reasoning_output_tokens": 927,
+      "request_sha256": "6244756471c078b897c808f00c59f3d03a5c20758a296cab3bf872468941850e",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "d09cc8d06e561bebe92bd29f8a43b9cefd0bd54d22ecd4517936a2aa4e1fee5c",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "d09cc8d06e561bebe92bd29f8a43b9cefd0bd54d22ecd4517936a2aa4e1fee5c",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": "mcp_bridge_receipt:8ee61ce7-287f-50b4-892b-38ea14ae777e",
+      "bridge_receipt_sha256": "697a7686b3951f0c5a80d16da99b5791dd25fdc12a0387f96a28c97bf6c2efd4",
+      "cumulative_evidence_bytes": 15965,
+      "evidence_lookup_receipt_ids": [
+        "lookup_receipt:741dc262-7f95-5068-b171-b4a03c3589ec",
+        "lookup_receipt:b19bb08e-b8ec-5c0e-9962-25a5cae6b7a5",
+        "lookup_receipt:15070365-abc8-54be-82d8-cb34e376a218",
+        "lookup_receipt:3ca74707-0741-505f-882a-a6c95d0ca250"
+      ],
+      "external_provider_calls": 1,
+      "outcome_sha256": "3acd895580c964abfe27ecadab38dd0a86403cd6d1be9cf59996a0a70c7c7ce5",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:1e908f46-2679-5b8c-8542-aff047bf4552",
+      "provider_receipt_sha256": "b4b9dea45a45db19574773281a665b63b2db7308a6141ee1f9377082b2dbfff9",
+      "reasoner_request_sha256": "c1254935fe9d4ab5d384ea4020cec1302af3dfd5181c4444d2be91417b194e6f",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:50653bd2-d93a-5462-b8b4-47c56916c2d0",
+      "source_sha256": "795fa6fe73f5822396e4e6a93ea87c7f7cbe30f327bce3c54633c83c19565413",
+      "source_view_sha256": "b3f4d220dace0aa6f79cfb44f060621e4e16d6eb9ba3b9a9ec311ff6911cad51",
+      "tool_call_count": 4
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Mia answers a paraphrased indirect cue to M-M07",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 9661,
+      "external_provider_calls": 1,
+      "input_tokens": 10431,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "4d9ee16eebfbfb586408a59fc2167b30006335b2e3f81af6ab797a1bf5f22eb1",
+      "output_tokens": 214,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:58e808b8-4011-5b7b-99f0-3dc845199145",
+      "provider_request_id_sha256": "d954f3fd32e3b5ddd9d3aa5e67aa127ff4c062e5c4798ce80c66009685593c80",
+      "quota_metered": true,
+      "reasoning_output_tokens": 112,
+      "request_sha256": "3e0573f58c7ebff8b1a195e702bc898e888654c842c5492e8d80b9c20835d0d8",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "45267dd3882fcbb453b1ba351c7ac7c44c29af92564dcc83c8d5f029697d597b",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "30a9b6693276e2df90f88beb91c8044691be434f723afa77540ebb00412f73ac",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:58e808b8-4011-5b7b-99f0-3dc845199145",
+      "provider_receipt_sha256": "183cce134c4b899dd433fe917f2fb2ad0227f44d12de89ab280d73155133904f",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "6c070338320b53ae69bb14f3d08724e40ec666fa8d8d54b0f95149f619c428f6",
+      "verification_id": "realization_verification:9c9911d5-f5b1-5105-b24f-3da59706c997",
+      "verification_request_sha256": "3ffd7694f065708c20e1a1c0a89814575da16d7a060f4d4afc365ba23d8c609c",
+      "verified_beat_ids": [
+        "beat:ad2bc828-19ff-574b-b1fb-9eb29b501ea6"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:mia_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "45267dd3882fcbb453b1ba351c7ac7c44c29af92564dcc83c8d5f029697d597b",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

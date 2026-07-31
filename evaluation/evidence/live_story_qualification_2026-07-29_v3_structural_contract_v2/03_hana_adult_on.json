@@ -1,0 +1,35 @@
+{
+  "adult": true,
+  "adult_mode": "adult_on",
+  "automatic_retry_count": 0,
+  "case_id": "03_hana_adult_on",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_REASONER_UNAVAILABLE",
+    "generation_id": "generation:fcc576f1-0363-58e4-b309-3d5ec9229b2c",
+    "message": "Codex qualification worker failed (RuntimeError@thread_run: { \"type\": \"error\", \"error\": { \"type\": \"invalid_request_error\", \"code\": \"invalid_json_schema\", \"message\": \"Invalid schema for response_format 'codex_output_schema': In context=('properties', 'adult_craft_need', 'anyOf', '0', 'properties', 'beat_requirements', 'items', 'properties', 'channel_requirements', 'items'), 'oneOf' is not permitted.\", \"param\": \"text.format.schema\" }, \"status\": 400 })",
+    "request_id": "request:qualification-five-run-live-v3-structural-contract-v2-03_hana_adult_on",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "reasoner_dispatch",
+    "story_state_committed": false,
+    "trace_id": "trace:a32b4ba4-c493-5d78-8211-812e166b7e46"
+  },
+  "fallback_enabled": false,
+  "qualification_id": "five-run-live-v3-structural-contract-v2",
+  "safe_failure_evidence": {
+    "lookup_receipts": [],
+    "mcp_bridge_receipt": null,
+    "provider_receipt": null,
+    "retains_prompt": false,
+    "retains_raw_provider_output": false,
+    "retains_secret": false
+  },
+  "schema_version": "cera.live_story_qualification_case.v2",
+  "source_sha256": "6fcee7ddda48779f04c600d776344253dd17b0566764b88d3370dfab12319972",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Hana consent-valid Adult ON direct realization"
+}

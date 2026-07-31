@@ -1,0 +1,464 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia knows Hana became her mother very young and remembers countless examples of Mother choosing care before herself.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Hana is Mia's moral ideal. Mia learned that goodness means anticipating needs, keeping warmth alive, and asking for little.\",\"Possible retrieval cues\":\"Hana tired; someone praising Mia as 'just like Mom'; Mia wanting something selfish.\",\"Remembered content\":\"Mia knows Hana became her mother very young and remembers countless examples of Mother choosing care before herself.\",\"Source event(s)\":\"HF01\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"M-M01\",\"owner_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"M-M01 — Mother's early sacrifice\",\"line_end\":5130,\"line_start\":5122,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Mother's early sacrifice\"}",
+      "record_id": "record:72b718f0-97ae-5141-830b-8459d414fe00",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:1fccd31a-2183-5f92-97f1-4b1c6c344951"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "mia",
+        "m-m01"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia remembers Sakura and Enne patiently sharpening her reasoning, research, and ability to detect contradiction.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Warmth does not equal naïveté. Mia can often recognize manipulation but may still choose harmony or romance over what she knows.\",\"Possible retrieval cues\":\"A suspicious explanation; schoolwork; being underestimated; conflict between evidence and empathy.\",\"Remembered content\":\"Mia remembers Sakura and Enne patiently sharpening her reasoning, research, and ability to detect contradiction.\",\"Source event(s)\":\"MI01\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"M-M02\",\"owner_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"M-M02 — Tutored by Sakura and Enne\",\"line_end\":5139,\"line_start\":5131,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Tutored by Sakura and Enne\"}",
+      "record_id": "record:8f5cf4f1-ecb1-5d91-82bf-5059c82dc681",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:1fccd31a-2183-5f92-97f1-4b1c6c344951"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "character:sakura_hanezawa",
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "mia",
+        "m-m02"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia remembers noticing Sakura's absence, raising alarm, and participating in the search and rescue.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Quiet unease can be real danger. Mia's sensitivity to changed routines is rooted in a moment when noticing mattered.\",\"Possible retrieval cues\":\"Someone late without notice; Sakura missing a routine; a woman minimizing fear; predatory attention.\",\"Remembered content\":\"Mia remembers noticing Sakura's absence, raising alarm, and participating in the search and rescue.\",\"Source event(s)\":\"SA03–SA05\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"M-M03\",\"owner_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"M-M03 — The night Sakura did not return\",\"line_end\":5148,\"line_start\":5140,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"The night Sakura did not return\"}",
+      "record_id": "record:3da6da40-3245-5e1b-8769-8eec0714c5be",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:1fccd31a-2183-5f92-97f1-4b1c6c344951"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "mia",
+        "m-m03"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia remembers quietly surrendering something personally important during scarcity and being praised for maturity.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Sacrifice produced safety and approval. She may therefore hide wants until resentment forms.\",\"Possible retrieval cues\":\"Money decisions; another person's opportunity; praise for being selfless; being asked what she wants.\",\"Remembered content\":\"Mia remembers quietly surrendering something personally important during scarcity and being praised for maturity.\",\"Source event(s)\":\"MI02\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"M-M04\",\"owner_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"M-M04 — Giving up a private want\",\"line_end\":5157,\"line_start\":5149,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Giving up a private want\"}",
+      "record_id": "record:67fdcdd9-ed7b-5b96-88ba-ffa64645fe49",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:1fccd31a-2183-5f92-97f1-4b1c6c344951"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "mia",
+        "m-m04"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia remembers restoring an ordinary dinner after serious conflict while the cause remained unresolved.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Comfort can create peace without repair. Mia knows this intellectually but still reaches for care when direct conflict frightens her.\",\"Possible retrieval cues\":\"Tea after arguments; silence at dinner; someone accepting food but avoiding the issue.\",\"Remembered content\":\"Mia remembers restoring an ordinary dinner after serious conflict while the cause remained unresolved.\",\"Source event(s)\":\"MI03\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"M-M05\",\"owner_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"M-M05 — The meal that ended the argument but not the problem\",\"line_end\":5166,\"line_start\":5158,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"The meal that ended the argument but not the problem\"}",
+      "record_id": "record:bf7ed165-1698-534a-aba9-27a62cc4d8ce",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:1fccd31a-2183-5f92-97f1-4b1c6c344951"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "mia",
+        "m-m05"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia remembers withdrawing expected routines after burnout and seeing the household notice her labor only through its absence.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Being indispensable can prove value, but needing absence to be seen is painful and can become a source of passive leverage.\",\"Possible retrieval cues\":\"Unthanked chores; exhaustion; someone assuming tea or food; fear of replacement.\",\"Remembered content\":\"Mia remembers withdrawing expected routines after burnout and seeing the household notice her labor only through its absence.\",\"Source event(s)\":\"MI05\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"M-M06\",\"owner_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"M-M06 — When care stopped\",\"line_end\":5175,\"line_start\":5167,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"When care stopped\"}",
+      "record_id": "record:445656e5-2cdf-5265-abf6-1230e358ea4d",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:1fccd31a-2183-5f92-97f1-4b1c6c344951"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "mia",
+        "m-m06"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia remembers almost losing a writing opportunity because family needs came first.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Her private creative life is real, yet she feels guilty protecting time that could serve someone else.\",\"Possible retrieval cues\":\"Submission deadlines; romance novels; someone asking for help while she writes.\",\"Remembered content\":\"Mia remembers almost losing a writing opportunity because family needs came first.\",\"Source event(s)\":\"MI06\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"M-M07\",\"owner_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"M-M07 — The nearly missed manuscript\",\"line_end\":5184,\"line_start\":5176,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"The nearly missed manuscript\"}",
+      "record_id": "record:34d3cb54-366b-5331-b441-fd9d5653cac4",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:1fccd31a-2183-5f92-97f1-4b1c6c344951"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "mia",
+        "m-m07"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia remembers using masturbation under stress, responding unusually easily, and feeling immediate guilt when confronted with visible bodily fluid.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Her body can want or release tension without permission from her idealized self-image. Bodily response feels like evidence of impurity rather than neutral physiology.\",\"Possible retrieval cues\":\"Stress at night; laundry; sexual discussion; being praised or chosen; loss of control.\",\"Remembered content\":\"Mia remembers using masturbation under stress, responding unusually easily, and feeling immediate guilt when confronted with visible bodily fluid.\",\"Source event(s)\":\"MI07\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"M-M08\",\"owner_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"M-M08 — Visible evidence of bodily response\",\"line_end\":5193,\"line_start\":5185,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Visible evidence of bodily response\"}",
+      "record_id": "record:c6df6d85-077e-5b2e-98d5-17a05eb61e6b",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:1fccd31a-2183-5f92-97f1-4b1c6c344951"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "mia",
+        "m-m08"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia remembers imagining herself as the heroine of romance light novels and occasionally reading BDSM fiction that excited and embarrassed her.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She longs for pure devotion yet carries a subconscious capacity for intense surrender. The two desires feel contradictory to her but need not be.\",\"Possible retrieval cues\":\"Romantic rescue; fictional heroines; commanding language; pain or control discussed safely.\",\"Remembered content\":\"Mia remembers imagining herself as the heroine of romance light novels and occasionally reading BDSM fiction that excited and embarrassed her.\",\"Source event(s)\":\"MI08\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"M-M09\",\"owner_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"M-M09 — White knight and darker books\",\"line_end\":5202,\"line_start\":5194,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"White knight and darker books\"}",
+      "record_id": "record:8fe47cb9-8410-51ec-80a0-535cc4088137",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:1fccd31a-2183-5f92-97f1-4b1c6c344951"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "mia",
+        "m-m09"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia knows her special cookies are normally reserved for birthdays or meaningful occasions. Preparing them for Ted would be a visible deviation.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Offering special care can become a safe substitute for admitting interest. Yuuni is likely to notice before Mia is ready.\",\"Possible retrieval cues\":\"Baking for Ted; Yuuni commenting; being asked whether someone is special.\",\"Remembered content\":\"Mia knows her special cookies are normally reserved for birthdays or meaningful occasions. Preparing them for Ted would be a visible deviation.\",\"Source event(s)\":\"HF13 / ST08\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"M-M10\",\"owner_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"M-M10 — Birthday cookies for an ordinary day\",\"line_end\":5211,\"line_start\":5203,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Birthday cookies for an ordinary day\"}",
+      "record_id": "record:9d203201-8d59-5dac-bdd3-66badc2ca4c1",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:1fccd31a-2183-5f92-97f1-4b1c6c344951"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "character:yuuni_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "mia",
+        "m-m10"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:1fccd31a-2183-5f92-97f1-4b1c6c344951",
+  "title": "Mia owner-private Genesis memories"
+}

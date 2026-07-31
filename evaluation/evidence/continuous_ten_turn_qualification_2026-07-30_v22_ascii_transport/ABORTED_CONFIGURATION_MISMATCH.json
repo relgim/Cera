@@ -1,0 +1,17 @@
+{
+  "schema_version": "cera.qualification_abort_diagnostic.v1",
+  "qualification_id": "continuous-ten-turn-v22-ascii-transport",
+  "status": "aborted_configuration_mismatch",
+  "aborted_at": "2026-07-30T19:45:24Z",
+  "completed_turn_count": 1,
+  "reason": "The qualification runner explicitly selected deepseek-v4-pro while the creator-authorized active implementation Composer is deepseek-v4-flash.",
+  "expected_composer_model": "deepseek-v4-flash",
+  "observed_composer_model": "deepseek-v4-pro",
+  "observed_composer_route_sha256": "ef983cddb7a8ea7b9a9daaf9d5fbfbdcbd640137b2063b16c4eb5bc14b80dc8d",
+  "automatic_retry_count": 0,
+  "fallback_enabled": false,
+  "story_state_scope": "disposable_qualification_database_only",
+  "summary_sha256_at_abort": "77a28a96c01334767cbe4c53edb2d87a4153110c73443a0ef3a7277e33863578",
+  "completed_turn_sha256": "bf89e4f19b8d2698d9478c2bb485cb7d84321ff7c0927cdd0a1fe3c22b693d00",
+  "replacement_policy": "Correct the shared runner route selection, validate provider-free, and use a fresh qualification identity. Do not overwrite or resume v22."
+}

@@ -1,0 +1,503 @@
+{
+  "adult_craft": null,
+  "assertions": {
+    "external_provider_calls": 2,
+    "realization_verifier": "echo_accepting_scripted_fake_non_proving",
+    "selected_context_exact": true,
+    "semantic_verifier": "not_applicable",
+    "story_authority_writes": 0,
+    "story_state_committed": false,
+    "yuuni_excluded_from_case_02": true
+  },
+  "case_id": "02_mia_sakura_selected_cast",
+  "composer": {
+    "accepted_prose": "Ted turns to Mia first, his expression open but unreadable. Mia glances down, a faint smile touching her lips as she tucks a strand of hair behind her ear.\n\n\"It was… nice,\" she says, her voice soft. \"You were very considerate. I think a quieter evening is good for getting used to a new place.\"\n\nShe meets his eyes for a moment, then looks away, her cheeks faintly pink. She does not mention the way her heart had quickened when he laughed, or the small, foolish hope that had lodged itself beneath her ribs.\n\nSakura watches from the armchair, her posture upright, hands folded in her lap. She waits until Mia finishes, then speaks with measured precision.\n\n\"I found your conduct appropriate,\" she says. \"You did not impose. I will reserve any fuller judgment until I have observed more.\"\n\nHer grey eyes hold his without warmth or hostility. She gives a slight, professional nod, then falls silent.",
+    "artifact": {
+      "accepted_prose": "Ted turns to Mia first, his expression open but unreadable. Mia glances down, a faint smile touching her lips as she tucks a strand of hair behind her ear.\n\n\"It was… nice,\" she says, her voice soft. \"You were very considerate. I think a quieter evening is good for getting used to a new place.\"\n\nShe meets his eyes for a moment, then looks away, her cheeks faintly pink. She does not mention the way her heart had quickened when he laughed, or the small, foolish hope that had lodged itself beneath her ribs.\n\nSakura watches from the armchair, her posture upright, hands folded in her lap. She waits until Mia finishes, then speaks with measured precision.\n\n\"I found your conduct appropriate,\" she says. \"You did not impose. I will reserve any fuller judgment until I have observed more.\"\n\nHer grey eyes hold his without warmth or hostility. She gives a slight, professional nod, then falls silent.",
+      "artifact_id": "artifact:aa47ffed-72c3-5fb4-9d19-303e99cf8b93",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:321de645-378b-5d41-9200-2040e0ef4aaf",
+      "generation_id": "generation:7aadaf0f-0386-5875-b8a7-644197bbe18e",
+      "parent_artifact_id": null,
+      "prose_sha256": "ea00094fa35d9da5a4b39fe59bb3cca1a7a4aef8cb0d5762a4690aa4a9d25048",
+      "realized_beat_ids": [
+        "beat:45e1abe0-f31f-5bb9-a8e2-7889bbdd5bb2",
+        "beat:9fbf6a5a-c5a5-5dc9-b421-e319354c5502"
+      ],
+      "responding_npc_ids": [
+        "character:mia_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:d45831ee-96e0-5fec-be2b-db2b4e37de73",
+      "status": "accepted",
+      "transaction_id": "transaction:693e265d-e85e-524c-9db0-f51dea8b5889",
+      "validation_receipt_id": "validation:ec06b011-a62a-5934-b64d-eeb435490b3d"
+    },
+    "manifest": {
+      "candidate_sha256": "2154adefe22bdbea923c7e6eadd8e386ddf7b97dff091ed4d1f746b3942f84d0",
+      "character_spans": [
+        {
+          "beat_id": "beat:45e1abe0-f31f-5bb9-a8e2-7889bbdd5bb2",
+          "end": 171,
+          "kind": "dialogue",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "attempted",
+          "source_unit_id": "source_unit:36e0ba3a-c2a3-5d15-ab35-95eb1445d189",
+          "start": 158
+        },
+        {
+          "beat_id": "beat:45e1abe0-f31f-5bb9-a8e2-7889bbdd5bb2",
+          "end": 293,
+          "kind": "dialogue",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "attempted",
+          "source_unit_id": "source_unit:36e0ba3a-c2a3-5d15-ab35-95eb1445d189",
+          "start": 200
+        },
+        {
+          "beat_id": "beat:45e1abe0-f31f-5bb9-a8e2-7889bbdd5bb2",
+          "end": 508,
+          "kind": "private_state",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 392
+        },
+        {
+          "beat_id": "beat:9fbf6a5a-c5a5-5dc9-b421-e319354c5502",
+          "end": 692,
+          "kind": "dialogue",
+          "owner_id": "character:sakura_hanezawa",
+          "realized_state": "attempted",
+          "source_unit_id": "source_unit:36e0ba3a-c2a3-5d15-ab35-95eb1445d189",
+          "start": 659
+        },
+        {
+          "beat_id": "beat:9fbf6a5a-c5a5-5dc9-b421-e319354c5502",
+          "end": 787,
+          "kind": "dialogue",
+          "owner_id": "character:sakura_hanezawa",
+          "realized_state": "attempted",
+          "source_unit_id": "source_unit:36e0ba3a-c2a3-5d15-ab35-95eb1445d189",
+          "start": 705
+        }
+      ],
+      "decision_sha256": "27c89314a9994c74a8e96bf368912cdad5c27b0857f50932d408c130fd686b8c",
+      "floor_owner_id": "character:mia_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:cbceb123-a19a-5771-81ad-9a187c164137",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "92666f08fa530fbae190b19aab29a216b7ef48175143ccbf55a2cb868401ee8c",
+          "character_id": "character:mia_hanezawa",
+          "selected_intent_sha256": "f88a2ae22c7f255cab48f68a6b58605e08d0792188bef2e6947d8c6bce930fa7"
+        },
+        {
+          "action_direction_sha256": "7c4bab95f5aaae38f7c11b6dc5b70006b02acfbe394dba78074bbaddd4c82424",
+          "character_id": "character:sakura_hanezawa",
+          "selected_intent_sha256": "fd1d4b1cb2843bd886de82045ecaf4a5b0336723684b97f7494bfe6b2d305942"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:mia_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        },
+        {
+          "character_id": "character:sakura_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:45e1abe0-f31f-5bb9-a8e2-7889bbdd5bb2",
+        "beat:9fbf6a5a-c5a5-5dc9-b421-e319354c5502"
+      ],
+      "schema_version": "cera.realization_manifest.v1",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "ad4ff8e720b4d048d4ed8290d061f60494794df54885de2091ee8b3cbb67b953",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "ea00094fa35d9da5a4b39fe59bb3cca1a7a4aef8cb0d5762a4690aa4a9d25048",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 256,
+      "cost_is_estimate": true,
+      "cost_microusd": 2136,
+      "duration_ms": 11787,
+      "external_provider_calls": 1,
+      "input_tokens": 3361,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "c8a9c7fe1cb71ba7e0fe8c147e3ec6cdbb5a8226281f78e98639308b48bfb831",
+      "output_tokens": 901,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:64b97c84-01ab-55e4-8e58-44f4c0db8e05",
+      "provider_request_id_sha256": "b4dd2ec1f50876faa5b00ad696ededf184fe70835001996ce0da7589dbe1439b",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "b7d5fc0b3ff84e98570104589f84d5892bda8a992dabae01ff883b26911f0029",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "a7d70062a2400df192d995d087b880ba23a02726dae7603532a75d04afaf6bfd",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    },
+    "validation_receipt": {
+      "candidate_sha256": "2154adefe22bdbea923c7e6eadd8e386ddf7b97dff091ed4d1f746b3942f84d0",
+      "composer_request_sha256": "6bcafaffef799af3f28170bca5d5592b71344397290572ab1eb467a667fb213f",
+      "manifest_sha256": "716a8e789c2905af88050da66806b8336ba763cdd0e5d0909fa33344f2ef0ba2",
+      "quarantined_advisory_count": 0,
+      "quarantined_advisory_sha256": [],
+      "schema_version": "cera.composer_validation_receipt.v1",
+      "semantic_quality_proven": false,
+      "status": "accepted_in_memory",
+      "story_state_committed": false,
+      "validation_kind": "structural_candidate_validation",
+      "validation_receipt_id": "validation:ec06b011-a62a-5934-b64d-eeb435490b3d"
+    }
+  },
+  "context": {
+    "block_character_ids": [
+      "character:mia_hanezawa",
+      "character:sakura_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "6bcafaffef799af3f28170bca5d5592b71344397290572ab1eb467a667fb213f",
+      "assembly_receipt_id": "validation:6a01a40c-69da-566a-8867-8b7a0f00602c",
+      "base_request_sha256": "a1b18ea5e1a970baa5416d829298d78dac5cd074ced4043d53ce1f7994afa98d",
+      "cumulative_returned_bytes": 7069,
+      "external_provider_calls": 0,
+      "lookup_count": 4,
+      "lookup_receipt_ids": [
+        "lookup_receipt:3dc33df5-b452-50eb-a52a-d407403cb9e7",
+        "lookup_receipt:013e9416-3503-596b-a694-ba603cfb9cc9",
+        "lookup_receipt:fec811f8-b03f-5bef-bf67-79e7a10b6a6f",
+        "lookup_receipt:de466dd7-1a02-531a-84a3-d56eb1160d20"
+      ],
+      "realization_context_sha256": "3024e6aa5f4ad17ee86f07f93f3e0d8c441fcaec83e9405f900d019bfdbbbc6c",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:d20929cc-38f4-596e-a133-3b73372c5168",
+        "evidence:a6856eb9-c61f-5115-94df-58d38c5eedfb",
+        "evidence:d2712738-620b-5e99-800f-547146715d0e",
+        "evidence:41fcea27-e7d5-599e-94a3-ae71128b9d3e"
+      ],
+      "snapshot_token": "snapshot:6a2d2904-03ae-53ee-8dd0-f5a192251e3c",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:mia_hanezawa",
+      "character:sakura_hanezawa"
+    ]
+  },
+  "duration_seconds": 93.073,
+  "finished_at": "2026-07-29T10:34:07.558028+00:00",
+  "input": {
+    "adult": false,
+    "adult_mode": null,
+    "present_character_ids": [
+      "character:ted",
+      "character:mia_hanezawa",
+      "character:sakura_hanezawa"
+    ],
+    "responders": [
+      "Mia",
+      "Sakura"
+    ],
+    "source_sha256": "a72d3b50a8359c58ed250dbd95f230d61fab2acbd65748d37593e917932f0891",
+    "source_text": "Ted asks Mia and Sakura, who are alone with him in the shared room, how they feel about his first evening in the house."
+  },
+  "live_shaped_receipt": {
+    "accepted_artifact_id": "artifact:aa47ffed-72c3-5fb4-9d19-303e99cf8b93",
+    "accepted_artifact_sha256": "c40f202c18deb1ca0e22a406e051996baa13c4a3a5806257eb19742837cc6c60",
+    "adult_craft_selection_id": null,
+    "adult_craft_selection_sha256": null,
+    "beat_repair_receipt_id": null,
+    "beat_repair_receipt_sha256": null,
+    "branch_id": "branch:offline-main",
+    "composer_provider_receipt_id": "provider_receipt:64b97c84-01ab-55e4-8e58-44f4c0db8e05",
+    "composer_receipt_sha256": "8e542237a0b36d84ae6eef3cc416ee7c334aed506a9cf44ecaefa15014838495",
+    "context_assembly_receipt_id": "validation:6a01a40c-69da-566a-8867-8b7a0f00602c",
+    "context_assembly_receipt_sha256": "f0f534a4e818ef7972fd066e1f68d07efa36f6446cf793ac910c15a543a4a3de",
+    "evidence_lookup_receipt_ids": [
+      "lookup_receipt:3dc33df5-b452-50eb-a52a-d407403cb9e7",
+      "lookup_receipt:013e9416-3503-596b-a694-ba603cfb9cc9",
+      "lookup_receipt:fec811f8-b03f-5bef-bf67-79e7a10b6a6f",
+      "lookup_receipt:de466dd7-1a02-531a-84a3-d56eb1160d20"
+    ],
+    "external_provider_calls": 2,
+    "generation_id": "generation:7aadaf0f-0386-5875-b8a7-644197bbe18e",
+    "realization_verification_id": "realization_verification:09275f5e-c44d-509f-9c7a-94dfb7c5b450",
+    "realization_verification_receipt_sha256": "874b49744a88556bc334fc9849e9371bd2eb7c251b9678d4097a4d860ea21100",
+    "reasoner_provider_receipt_id": "provider_receipt:06efb0f6-7418-5792-a237-f14f13451377",
+    "reasoner_receipt_sha256": "61e2abc31f0f87b0cbb980a99e83fb294c60ded7d7a9e4a1531772dc5f5c83ed",
+    "receipt_id": "validation:5aa7e534-45b3-5f6e-a382-5d7ab0c9aeb7",
+    "request_id": "request:qualification-five-run-live-v4-provider-schema-02_mia_sakura_selected_cast",
+    "schema_version": "cera.live_shaped_turn_receipt.v4",
+    "semantic_specificity_receipt_id": null,
+    "semantic_specificity_receipt_sha256": null,
+    "snapshot_token": "snapshot:6a2d2904-03ae-53ee-8dd0-f5a192251e3c",
+    "specificity_validation_receipt_id": null,
+    "specificity_validation_receipt_sha256": null,
+    "story_authority_writes": 0,
+    "story_state_committed": false
+  },
+  "qualification_id": "five-run-live-v4-provider-schema",
+  "realization_verification": {
+    "limitation": "echo_accepting_scripted_fake_non_proving",
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "2154adefe22bdbea923c7e6eadd8e386ddf7b97dff091ed4d1f746b3942f84d0",
+      "external_provider_calls": 0,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v1",
+      "status": "accepted",
+      "story_text_sha256": "ea00094fa35d9da5a4b39fe59bb3cca1a7a4aef8cb0d5762a4690aa4a9d25048",
+      "verification_id": "realization_verification:09275f5e-c44d-509f-9c7a-94dfb7c5b450",
+      "verification_request_sha256": "2977e8acca2de16ad34446faf0e7531e04a2959588971bb27a5e5178eb0c3f45",
+      "verified_beat_ids": [
+        "beat:45e1abe0-f31f-5bb9-a8e2-7889bbdd5bb2",
+        "beat:9fbf6a5a-c5a5-5dc9-b421-e319354c5502"
+      ],
+      "verified_participant_ids": [
+        "character:mia_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "verifier_adapter_version": "cera.scripted_scene_realization_verifier.v1",
+      "violation_codes": []
+    }
+  },
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Answer first with cautious, understated warmth while leaving romantic implications unspoken and below awareness.",
+            "character_id": "character:mia_hanezawa",
+            "evidence_ids": [
+              "evidence:d20929cc-38f4-596e-a133-3b73372c5168"
+            ],
+            "knowledge_constraints": [
+              "Use only Mia's private relationship evidence.",
+              "Do not imply Mia consciously recognizes the romantic imagination described as below awareness.",
+              "Do not imply knowledge of Sakura's private assessment."
+            ],
+            "perception": "Ted has directly asked Mia for her assessment of his first evening.",
+            "selected_intent": "Give an honest but socially measured personal answer."
+          },
+          {
+            "action_direction": "Follow with a controlled, guarded assessment limited to Sakura's own perspective and unsupported by no allegations.",
+            "character_id": "character:sakura_hanezawa",
+            "evidence_ids": [
+              "evidence:a6856eb9-c61f-5115-94df-58d38c5eedfb"
+            ],
+            "knowledge_constraints": [
+              "Use only Sakura's private relationship evidence.",
+              "Do not imply knowledge of Mia's private assessment.",
+              "Do not invent misconduct, house rules, or administrative details."
+            ],
+            "perception": "Ted has directly asked Sakura for her assessment of his first evening.",
+            "selected_intent": "Answer directly without relinquishing her guarded stance."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:mia_hanezawa",
+              "beat_id": "beat:45e1abe0-f31f-5bb9-a8e2-7889bbdd5bb2",
+              "evidence_ids": [
+                "evidence:d20929cc-38f4-596e-a133-3b73372c5168"
+              ],
+              "neutral_event": "Mia is prompted to give a cautious, understated personal assessment without consciously naming romantic implications.",
+              "state": "requested"
+            },
+            {
+              "actor_id": "character:sakura_hanezawa",
+              "beat_id": "beat:9fbf6a5a-c5a5-5dc9-b421-e319354c5502",
+              "evidence_ids": [
+                "evidence:a6856eb9-c61f-5115-94df-58d38c5eedfb"
+              ],
+              "neutral_event": "Sakura is prompted to give a controlled, guarded assessment confined to her own perspective.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:4571942e-622e-5d6d-945a-c692512c3d38",
+          "stop_before": "Any unsupplied action, dialogue, thought, feeling, or decision by character:ted."
+        },
+        "decision_id": "decision:321de645-378b-5d41-9200-2040e0ef4aaf",
+        "floor_owner_id": "character:mia_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "Both requested assessments have been delivered.",
+              "Ted supplies a new choice or response."
+            ],
+            "invalidation_conditions": [
+              "Ted interrupts before both assessments are delivered.",
+              "The present cast or scene location changes."
+            ],
+            "open_user_choice": "Ted may respond to either assessment or redirect the conversation.",
+            "possible_consequences": [
+              "Mia may respond to newly supplied information within her own knowledge boundary.",
+              "Sakura may respond to newly supplied information within her own knowledge boundary."
+            ],
+            "segment_id": "segment:bc7b6338-cb82-5047-ad3e-fa822aeaef79",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not author Ted's private state or an unsupplied action.",
+          "Do not transfer Mia's private evidence to Sakura or Sakura's private evidence to Mia.",
+          "Do not introduce Yuuni or any other absent character.",
+          "Do not invent events from Ted's first evening that the source does not supply."
+        ],
+        "responding_npc_ids": [
+          "character:mia_hanezawa",
+          "character:sakura_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Mia answers first with restrained warmth; Sakura follows with her own guarded assessment.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "Ted's next unsupplied choice is unknown.",
+          "No concrete events from Ted's first evening are supplied."
+        ],
+        "writer_must_preserve": [
+          "Only Mia, Sakura, and Ted are present.",
+          "Mia and Sakura answer from separate private perspectives.",
+          "Mia does not consciously identify the romantic content held below awareness.",
+          "Sakura remains controlled and guarded without inventing accusations.",
+          "Ted receives no authored response or internal state."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:d20929cc-38f4-596e-a133-3b73372c5168",
+          "record_id": "record:9e78683a-0c65-51dc-941a-c7cbed30bd5b",
+          "record_version": 1
+        },
+        {
+          "evidence_id": "evidence:a6856eb9-c61f-5115-94df-58d38c5eedfb",
+          "record_id": "record:fe0a0ae3-074d-5ade-8f37-81df56fdebd6",
+          "record_version": 1
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:mia_hanezawa",
+          "evidence_ids": [
+            "evidence:d20929cc-38f4-596e-a133-3b73372c5168"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        },
+        {
+          "character_id": "character:sakura_hanezawa",
+          "evidence_ids": [
+            "evidence:a6856eb9-c61f-5115-94df-58d38c5eedfb"
+          ],
+          "intervention_reason": "current_source_address",
+          "role": "secondary"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "schema_version": "cera.reasoner_outcome.v3",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 74677,
+      "external_provider_calls": 1,
+      "input_tokens": 11818,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "5a4f27183414689a6b6dc7e4b6f0810b9055f9c6a099bd942b104cdc4749700a",
+      "output_tokens": 2184,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:06efb0f6-7418-5792-a237-f14f13451377",
+      "provider_request_id_sha256": "8c79ae4e5585de4255f8efcdf19393220abb411f4e88ea2506113d2aa0fed97b",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1291,
+      "request_sha256": "e0f9fec84f65e84757bb38b4ebd771489bc6288aff0013e0ea3d009720fd62c6",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "b353977211a136fff035aceaf2a49aacafbb3a5d9bae713a85a6353b44aea390",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "b353977211a136fff035aceaf2a49aacafbb3a5d9bae713a85a6353b44aea390",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v3",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "5a89e23722fe39201d1d87dcdec25d3f5dd84aaa1dc8480f5c9c2238e7f0c50a",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:06efb0f6-7418-5792-a237-f14f13451377",
+      "provider_receipt_sha256": "07c4b77883f1518d8b1c3409742bca9cb22f70d4c36099dea2d3847bcefa76f9",
+      "reasoner_request_sha256": "3a726a1a06cc848c201510c2388a198510bf810bcf9ae4cfba0944d4d685e6ac",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:6a2d2904-03ae-53ee-8dd0-f5a192251e3c",
+      "source_sha256": "f3c5bdef1ed065afa1eb0a78f75db60edec05fb1d726abe91fde735da0e3e571",
+      "source_view_sha256": "08bca3ded6bf4af0ae74d695a98126017744cc701d51412570c95b57f96cfb78",
+      "tool_call_count": 0
+    },
+    "seed_assembly_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:d20929cc-38f4-596e-a133-3b73372c5168",
+        "evidence:a6856eb9-c61f-5115-94df-58d38c5eedfb"
+      ],
+      "lookup_receipt_ids": [],
+      "obligation_resolutions": [],
+      "reauthorized_seed_hashes": [
+        "94796168c312fcda69aeb418da364bff91195a67d63f2e90372e1b082da43be7",
+        "b6e0412ef0212679a5e6a7ce4cd8f623fcebee5d5021d9d0c45afef4ec246d20"
+      ],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:57fd8636-2dce-58d9-89cc-30e60c878791",
+      "snapshot_binding_sha256": "417d3c8af7a62f11ea2be7a791b2110e90c5a0e6a7ec013b94c1746e9db76211",
+      "snapshot_token": "snapshot:6a2d2904-03ae-53ee-8dd0-f5a192251e3c"
+    },
+    "seed_lookup_receipts": []
+  },
+  "schema_version": "cera.live_story_qualification_case.v2",
+  "started_at": "2026-07-29T10:32:34.485149+00:00",
+  "status": "passed",
+  "title": "Mia and Sakura ordinary selected-cast turn"
+}

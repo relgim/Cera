@@ -1,0 +1,53 @@
+{
+  "schema_version": "cera.hanezawa_source_package_integrity.v1",
+  "status": "immutable_creator_package_provenance",
+  "source_archive": {
+    "path": "HANEZAWA_CORE_GENESIS_V1_2_COMPLETE_PACKAGE.zip",
+    "bytes": 166913,
+    "sha256": "2dae15af672af68fb800ad6c5aa9a285d5113add3f4cabbe85226cce56ef68a4"
+  },
+  "archive_entries": [
+    {
+      "path": "genesis/cera_authority/HANEZAWA_CORE_GENESIS_V1_2.md",
+      "bytes": 450465,
+      "sha256": "76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a"
+    },
+    {
+      "path": "genesis/cera_authority/HANEZAWA_VISUAL_CANON_ANIMA_V1.json",
+      "bytes": 48033,
+      "sha256": "58cbb3231ce5d09434f830b57f430171ff69479848b0795f40f92a86407d6da9"
+    },
+    {
+      "path": "genesis/cera_authority/UserResponse.txt",
+      "bytes": 3300,
+      "sha256": "76295fa15a5b2c687dd760932276b06140911d6a7bd3586244c46252817073c8"
+    },
+    {
+      "path": "docs/implementation/HANEZAWA_V1_2_SPEECHSTYLE_IMPLEMENTATION_BRIEF.md",
+      "bytes": 11745,
+      "sha256": "524238309c39d320a1f06fb02febe33eae0f338b26ec786c51cf14e1cdc60a43"
+    },
+    {
+      "path": "config/cera/prompts/character_specific_speech_realization_v1_2.txt",
+      "bytes": 4135,
+      "sha256": "e61c8b9a287e6be1223e4a2a2aebcbd8d5da5e5433bee8de781d833149cc11cf"
+    },
+    {
+      "path": ".chatgpt/codex-runs/2026-07-29T130000Z-hanezawa-v1-2-embodied-identity-speech-v1/PROMPT.md",
+      "bytes": 15547,
+      "sha256": "e27afe2c5bba2718770ad87aba78b7ff0bf0a5eaee6fd710f3d75aba718dc450"
+    },
+    {
+      "path": ".chatgpt/codex-runs/2026-07-29T130000Z-hanezawa-v1-2-embodied-identity-speech-v1/COPY_PROMPT.ps1",
+      "bytes": 402,
+      "sha256": "589a075168c4d3b3a10ed391c660adcfb67ce5b9e52425cce4113ad0a45acdfa"
+    },
+    {
+      "path": "genesis/cera_authority/HANEZAWA_V1_2_FINAL_ARTIFACT_MANIFEST.json",
+      "bytes": 3043,
+      "sha256": "7990511e6eacf63d651cee2208c3e15685bce0638078c48cfcb0b814401f2017"
+    }
+  ],
+  "runtime_dependency": false,
+  "v1_1_mutated": false
+}

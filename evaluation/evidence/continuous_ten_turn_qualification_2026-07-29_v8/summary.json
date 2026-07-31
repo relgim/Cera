@@ -1,0 +1,41 @@
+{
+  "attempts_per_stage": 1,
+  "failed_turn": 3,
+  "failure_stage": "application_execution_or_acceptance",
+  "fallback_enabled": false,
+  "finished_at": "2026-07-29T18:27:57.543147+00:00",
+  "genesis_revision": "v1_2",
+  "qualification_id": "continuous-ten-turn-v8",
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-29T18:24:27.226919+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": [
+    {
+      "artifact_id": "artifact:1ab60230-8526-5bda-a1ab-5759e516d64c",
+      "duration_seconds": 53.997,
+      "index": 1,
+      "key": "doorway-gift-arrival",
+      "prose_sha256": "1316f093954b47cd83c6cf69846df99261fc1f81fae29c4e8327d70d7db04a80",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:52f9ddbb-b499-5257-aaa1-780b33ef07fe",
+      "duration_seconds": 73.075,
+      "index": 2,
+      "key": "first-gift-timing-question",
+      "prose_sha256": "e0cced74f3763ff4ea5fc8a5ac0c4773a85d1915d433c3e58313001eb74a4acb",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "status": "passed"
+    }
+  ]
+}

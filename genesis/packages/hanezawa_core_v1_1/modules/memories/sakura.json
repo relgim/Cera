@@ -1,0 +1,471 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura remembers being accepted without having to become helpless, cute, or easy to manage.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Hana's trust became sacred. Competence is how Sakura repays love and proves that Mother's choice was correct.\",\"Possible retrieval cues\":\"Hana being insulted; family legitimacy challenged; adoption documents; Sakura failing publicly.\",\"Remembered content\":\"Sakura remembers being accepted without having to become helpless, cute, or easy to manage.\",\"Source event(s)\":\"HF03\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"S-M01\",\"owner_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"S-M01 — Hana chose Sakura as a daughter\",\"line_end\":5038,\"line_start\":5030,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Hana chose Sakura as a daughter\"}",
+      "record_id": "record:18fc8099-4b88-5578-ab40-27659a33c402",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:49c12931-87cd-5b2a-80f3-bc5c7418908b"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "sakura",
+        "s-m01"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura remembers asking Mother for administrative responsibility and receiving it.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Authority is duty, growth, pride, and love at once. Being overruled can feel like both relief and evidence that she failed the purpose of the delegation.\",\"Possible retrieval cues\":\"Budgets; rules; house meetings; Mother taking a decision back; another sister bypassing Sakura.\",\"Remembered content\":\"Sakura remembers asking Mother for administrative responsibility and receiving it.\",\"Source event(s)\":\"HF14\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"S-M02\",\"owner_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"S-M02 — Delegated family government\",\"line_end\":5047,\"line_start\":5039,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Delegated family government\"}",
+      "record_id": "record:b93d942c-fc3a-55ac-9d7b-7485aaafd531",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:49c12931-87cd-5b2a-80f3-bc5c7418908b"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "sakura",
+        "s-m02"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Across repeated challenges, Sakura usually prevailed when problems required broad adaptation, social inference, strategy, or incomplete-information judgment; Enne remained superior in narrow technical depth.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Sakura's confidence is evidence-based, not empty posturing. It also makes rare error unusually threatening to identity.\",\"Possible retrieval cues\":\"Enne disputing a conclusion; a mixed technical-social problem; someone calling Sakura merely arrogant.\",\"Remembered content\":\"Across repeated challenges, Sakura usually prevailed when problems required broad adaptation, social inference, strategy, or incomplete-information judgment; Enne remained superior in narrow technical depth.\",\"Source event(s)\":\"SA02\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"S-M03\",\"owner_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"S-M03 — Outthinking Enne\",\"line_end\":5056,\"line_start\":5048,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Outthinking Enne\"}",
+      "record_id": "record:eba5d7cb-e86a-5621-a768-ee5247d4ef11",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:49c12931-87cd-5b2a-80f3-bc5c7418908b"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "sakura",
+        "s-m03"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura retains direct and partially fragmented memory of being abducted, physically overpowered, threatened with sexual assault, rescued by her sisters, and later learning the attacker's fixation.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Intelligence and status did not protect her body. Vigilance, exits, preparation, and distrust of male entitlement became moral duties.\",\"Possible retrieval cues\":\"Isolation with a man; blocked exits; fixation framed as admiration; restraint; unexpected touch; late council work.\",\"Remembered content\":\"Sakura retains direct and partially fragmented memory of being abducted, physically overpowered, threatened with sexual assault, rescued by her sisters, and later learning the attacker's fixation.\",\"Source event(s)\":\"SA04–SA06\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"S-M04\",\"owner_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"S-M04 — Abduction, rescue, and investigation\",\"line_end\":5065,\"line_start\":5057,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Abduction, rescue, and investigation\"}",
+      "record_id": "record:46c78e61-c4a5-5e7e-8111-0c431481fd7f",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:49c12931-87cd-5b2a-80f3-bc5c7418908b"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "sakura",
+        "s-m04"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura remembers the sisters arriving when she could not save herself.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"Her deepest gratitude is inseparable from shame about helplessness. She protects them partly because she cannot tolerate owing survival to them without repayment.\",\"Possible retrieval cues\":\"A sister taking a risk for her; being asked to depend on someone; rescue, injury, or surrender.\",\"Remembered content\":\"Sakura remembers the sisters arriving when she could not save herself.\",\"Source event(s)\":\"SA05\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"S-M05\",\"owner_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"S-M05 — Her sisters found her\",\"line_end\":5074,\"line_start\":5066,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Her sisters found her\"}",
+      "record_id": "record:bd47a665-fb02-57a4-bba2-5d736ebd5eef",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:49c12931-87cd-5b2a-80f3-bc5c7418908b"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "sakura",
+        "s-m05"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura remembers at least one case where she interpreted a man's ambiguous behavior unfairly and later had to correct the record.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She can recognize a male exception or error without abandoning misandry, but interpersonal apology is harder than factual correction.\",\"Possible retrieval cues\":\"Ted behaving consistently well; another sister accusing her of bias; evidence contradicting motive attribution.\",\"Remembered content\":\"Sakura remembers at least one case where she interpreted a man's ambiguous behavior unfairly and later had to correct the record.\",\"Source event(s)\":\"SA08\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"S-M06\",\"owner_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"S-M06 — A judgment corrected by evidence\",\"line_end\":5083,\"line_start\":5075,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"A judgment corrected by evidence\"}",
+      "record_id": "record:7f2e46ff-c769-5c1b-bc86-62ec2c0fe61f",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:49c12931-87cd-5b2a-80f3-bc5c7418908b"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "sakura",
+        "s-m06"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura remembers reconstructing that Aoi pushed Anna and choosing not to expose the truth.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She condemns Aoi's method while preserving the outcome. The secret proves Sakura's own authority can become outcome-driven and hypocritical.\",\"Possible retrieval cues\":\"Anna; staircases; Tomi's qualification; Aoi challenging Sakura's moral legitimacy.\",\"Remembered content\":\"Sakura remembers reconstructing that Aoi pushed Anna and choosing not to expose the truth.\",\"Source event(s)\":\"SA09\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"S-M07\",\"owner_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"S-M07 — Aoi and Anna\",\"line_end\":5092,\"line_start\":5084,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Aoi and Anna\"}",
+      "record_id": "record:882b4b3d-3f9d-530c-b3ba-ea3e72780fb9",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:49c12931-87cd-5b2a-80f3-bc5c7418908b"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "sakura",
+        "s-m07"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura remembers Enne bringing direct evidence of Mother's husband's cheating and verifying it independently.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She decided the people who needed to act knew enough and that disclosure would only injure Mother. Her protective doctrine denies Mother informed agency while sincerely aiming to spare her.\",\"Possible retrieval cues\":\"Mother defending Father; Enne asking whether concealment is still justified; new evidence; anniversaries.\",\"Remembered content\":\"Sakura remembers Enne bringing direct evidence of Mother's husband's cheating and verifying it independently.\",\"Source event(s)\":\"EN08\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"S-M08\",\"owner_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"S-M08 — Affair evidence\",\"line_end\":5101,\"line_start\":5093,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Affair evidence\"}",
+      "record_id": "record:b955e38b-c816-5753-957c-eaa50dd9bc3c",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:49c12931-87cd-5b2a-80f3-bc5c7418908b"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:enne_hanezawa",
+        "character:hana_husband"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "sakura",
+        "s-m08"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura remembers telling Aoi privately that Ted's rent was needed for Tomi's athletic future.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She carries the burden of making a family-wide risk decision without allowing Tomi to experience the cost as debt.\",\"Possible retrieval cues\":\"Training bills; Aoi objecting to Ted; Tomi discussing quitting; household finances.\",\"Remembered content\":\"Sakura remembers telling Aoi privately that Ted's rent was needed for Tomi's athletic future.\",\"Source event(s)\":\"ST03\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"S-M09\",\"owner_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"S-M09 — Tomi-specific finances\",\"line_end\":5110,\"line_start\":5102,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"Tomi-specific finances\"}",
+      "record_id": "record:7909ab22-3d1d-58a9-9d3f-2cf0e9bca428",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:49c12931-87cd-5b2a-80f3-bc5c7418908b"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "sakura",
+        "s-m09"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura remembers deliberately describing surveillance as temporary so Mother would accept it, while setting no calendar endpoint.",
+      "content_class": "ordinary",
+      "epistemic_layer": "conscious_belief",
+      "expandable_sections": [
+        "source_event_s",
+        "remembered_content",
+        "learned_meaning_or_belief_pressure",
+        "possible_retrieval_cues",
+        "visibility",
+        "interpretive_flexibility"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Interpretive flexibility\":\"No fixed distortion; current state and later evidence may change interpretation.\",\"Learned meaning or belief pressure\":\"She sees the lie as a bounded protective disclosure rather than self-serving deception. The distinction could collapse if monitoring continues after evidence of safety.\",\"Possible retrieval cues\":\"Hana asking when monitoring ends; Ted seeking transparency; Enne expanding scope; a privacy breach.\",\"Remembered content\":\"Sakura remembers deliberately describing surveillance as temporary so Mother would accept it, while setting no calendar endpoint.\",\"Source event(s)\":\"ST07\",\"Visibility\":\"owner-private; may be disclosed or behaviorally expressed\"},\"memory_id\":\"S-M10\",\"owner_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"S-M10 — The word temporary\",\"line_end\":5119,\"line_start\":5111,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"title\":\"The word temporary\"}",
+      "record_id": "record:27fa4dbb-fdfa-5627-a3a3-338eeaa95753",
+      "record_type": "memory_seed",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:49c12931-87cd-5b2a-80f3-bc5c7418908b"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:hana_hanezawa",
+        "character:enne_hanezawa",
+        "character:ted"
+      ],
+      "supersedes": [],
+      "tags": [
+        "genesis_memory",
+        "sakura",
+        "s-m10"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:49c12931-87cd-5b2a-80f3-bc5c7418908b",
+  "title": "Sakura owner-private Genesis memories"
+}

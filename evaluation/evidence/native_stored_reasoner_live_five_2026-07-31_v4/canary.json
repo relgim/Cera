@@ -1,0 +1,27 @@
+{
+  "archived_thread_sha256": [
+    "21920b7e193f402dda7cd1c9c5f59d5b38f66128ca1e731975f23804ef56a75a",
+    "641b7e5aeb49ab9cf8d30cbc3ed950799a7d39da4dca7c8448688f374b32855d"
+  ],
+  "bridge_receipt_sha256": "b988d6c18ee0e781d45aaba567d425b0831d99ce9e1581397a070360a782de26",
+  "cached_input_tokens": 7936,
+  "candidate_thread_sha256": "21920b7e193f402dda7cd1c9c5f59d5b38f66128ca1e731975f23804ef56a75a",
+  "cleanup_status": "archived_leaf_first",
+  "duration_seconds": 7.403,
+  "fallback_count": 0,
+  "finished_at": "2026-07-31T11:09:38.430600+00:00",
+  "input_tokens": 8536,
+  "output_tokens": 47,
+  "payload_valid": true,
+  "provider_calls": 1,
+  "reasoning_output_tokens": 0,
+  "resume_after_turn": true,
+  "retry_count": 0,
+  "root_thread_sha256": "641b7e5aeb49ab9cf8d30cbc3ed950799a7d39da4dca7c8448688f374b32855d",
+  "schema_version": "cera.native_stored_reasoner_canary.v4",
+  "started_at": "2026-07-31T11:09:23.925242+00:00",
+  "status": "passed",
+  "story_state_committed": false,
+  "tool_call_count": 1,
+  "wall_seconds": 14.503
+}

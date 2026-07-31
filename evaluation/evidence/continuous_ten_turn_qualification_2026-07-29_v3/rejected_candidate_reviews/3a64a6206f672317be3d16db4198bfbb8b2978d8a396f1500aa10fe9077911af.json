@@ -1,0 +1,33 @@
+{
+  "access_scope": "creator_local_qualification_review",
+  "authoritative_store_writes": 0,
+  "branch_id": "branch:offline-main",
+  "candidate_sha256": "efca670d5321b50d301bc568cd8bf154d68d77f3b5f7bbf6929a96ecd8206141",
+  "excerpts": [
+    {
+      "end": 357,
+      "excerpt": "ped lightly into the entryway, wiping her hands on her apron as she caught sight of Ted standing at the threshold with his travel bag and closed umbrella. \"Oh, you made it through the rain. Yes, the umbrella can rest in the stand just to the right of the door, and your shoes can go on the rack beside it—there's a space for you. Leave your bag the",
+      "excerpt_sha256": "9d66a87b3e9ce668c2761328846f555c654480ef0c78b4311763f43f064a11f2",
+      "finding_code": "protected_user_unsupplied_realization",
+      "start": 9
+    }
+  ],
+  "finding_sha256s": [
+    "18c59412cd86536bb58333854627ab9dc3087694075148f7c8181f2235aee56d"
+  ],
+  "generation_id": "generation:49ec9831-2b26-5b18-897a-517209af1f47",
+  "qualification_only": true,
+  "request_id": "request:0cf220a3-92e9-5a51-94d5-db3976319b00",
+  "retains_story_prose": true,
+  "retention_policy": "manual_delete_after_adjudication",
+  "review_id": "review_packet:4a6ce138-97f2-55f5-bf64-51810120e3ab",
+  "reviewer_status": "pending_creator_review",
+  "runtime_receipt_forbidden": true,
+  "schema_version": "cera.rejected_candidate_review_artifact.v1",
+  "status": "rejected",
+  "story_state_committed": false,
+  "verification_request_sha256": "7f2a8395cb94140bd10f326c6910fc88900e22303f87d35cc594de972c079c8a",
+  "violation_codes": [
+    "protected_user_unsupplied_realization"
+  ]
+}

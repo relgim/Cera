@@ -1,0 +1,35 @@
+{
+  "adult": false,
+  "adult_mode": null,
+  "automatic_retry_count": 0,
+  "case_id": "02_mia_sakura_selected_cast",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_REASONER_UNAVAILABLE",
+    "generation_id": "generation:ee21f6df-5058-5b9e-bd0a-85e148445cb7",
+    "message": "Codex qualification worker failed (RuntimeError@thread_run: { \"type\": \"error\", \"error\": { \"type\": \"invalid_request_error\", \"code\": \"invalid_json_schema\", \"message\": \"Invalid schema for response_format 'codex_output_schema': In context=('properties', 'adult_craft_need', 'anyOf', '0', 'properties', 'beat_requirements', 'items', 'properties', 'channel_requirements', 'items'), 'oneOf' is not permitted.\", \"param\": \"text.format.schema\" }, \"status\": 400 })",
+    "request_id": "request:qualification-five-run-live-v3-structural-contract-v2-02_mia_sakura_selected_cast",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "reasoner_dispatch",
+    "story_state_committed": false,
+    "trace_id": "trace:a44471ef-3fc1-5d11-bfba-414676cb7015"
+  },
+  "fallback_enabled": false,
+  "qualification_id": "five-run-live-v3-structural-contract-v2",
+  "safe_failure_evidence": {
+    "lookup_receipts": [],
+    "mcp_bridge_receipt": null,
+    "provider_receipt": null,
+    "retains_prompt": false,
+    "retains_raw_provider_output": false,
+    "retains_secret": false
+  },
+  "schema_version": "cera.live_story_qualification_case.v2",
+  "source_sha256": "a72d3b50a8359c58ed250dbd95f230d61fab2acbd65748d37593e917932f0891",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Mia and Sakura ordinary selected-cast turn"
+}

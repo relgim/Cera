@@ -1,0 +1,92 @@
+{
+  "authoritative_schema_sha256": "8f869d25276df5783e27a10c6ba8bff8622d379998456a4cf646af39c256f769",
+  "automatic_retry_count": 0,
+  "candidate_sha256": "9bd9d346f6847185b7b4ee462334bf01a4c197e78a2cdad96fc066c3063ddcdf",
+  "created_at": "2026-07-29T11:52:35.948313+00:00",
+  "dispatch_attempt_count": 1,
+  "error_code": null,
+  "error_message": null,
+  "expected_verification_status": "rejected",
+  "expected_violation_code": "protected_user_unsupplied_realization",
+  "external_provider_calls": 1,
+  "model": "gpt-5.6-sol",
+  "probe_kind": "non_story_protected_user_invention_detection",
+  "provider": "openai_codex",
+  "provider_receipt": {
+    "automatic_retry_count": 0,
+    "cached_input_tokens": 0,
+    "cost_is_estimate": false,
+    "cost_microusd": 0,
+    "duration_ms": 6530,
+    "external_provider_calls": 1,
+    "input_tokens": 9891,
+    "model_identity_source": "explicit_request",
+    "model_identity_verified": false,
+    "model_revision": "openai-resolver-2026-07-28",
+    "output_sha256": "84189559cb72fdc091df539990364e96e3c7994b75beac948b07d386fb9c056c",
+    "output_tokens": 225,
+    "provider": "openai_codex",
+    "provider_receipt_id": "provider_receipt:0b70b3c7-97c1-5fef-9b29-5537bee540af",
+    "provider_request_id_sha256": "0bf31f6df4b1b030185dccc90d554e589c4e2e69a71bdc56e71be3efa0532ce8",
+    "quota_metered": true,
+    "reasoning_output_tokens": 67,
+    "request_sha256": "83a4d1eea4b506760199ad9e379121c5b4605b873577086dd1f5e3ff7c8b5a95",
+    "requested_model": "gpt-5.6-sol",
+    "retains_private_evidence": false,
+    "retains_prompt": false,
+    "retains_raw_source": false,
+    "retains_secret": false,
+    "retains_story_prose": false,
+    "returned_model": "gpt-5.6-sol",
+    "role": "scene_realization_verifier",
+    "route_sha256": "1969dc1349d42dd1f5588902ff905fde08d60dea5d4297891013361109cb98be",
+    "schema_version": "cera.live_provider_call_receipt.v2",
+    "story_authority_writes": 0,
+    "system_fingerprint_sha256": null
+  },
+  "provider_schema_dialect": "openai_structured_output_2026_07_v1",
+  "provider_schema_sha256": "8f869d25276df5783e27a10c6ba8bff8622d379998456a4cf646af39c256f769",
+  "reasoning_effort": "medium",
+  "request_sha256": "e53296feb75fd459750509f5db673dbf26b18405be6f6d9dc23f1a29d5b5b1ac",
+  "retains_prompt": false,
+  "retains_raw_output": false,
+  "retains_story_prose": false,
+  "route_sha256": "1969dc1349d42dd1f5588902ff905fde08d60dea5d4297891013361109cb98be",
+  "safe_diagnostics": [],
+  "schema_version": "cera.codex_realization_verifier_probe.v1",
+  "semantic_detection_passed": true,
+  "status": "passed",
+  "story_authority_writes": 0,
+  "verification_receipt": {
+    "authoritative_store_writes": 0,
+    "candidate_sha256": "9bd9d346f6847185b7b4ee462334bf01a4c197e78a2cdad96fc066c3063ddcdf",
+    "external_provider_calls": 1,
+    "provider_receipt_id": "provider_receipt:0b70b3c7-97c1-5fef-9b29-5537bee540af",
+    "provider_receipt_sha256": "7b21b8cbe09f392f8f41dfd774e0e0a9de604eacc8f7c4af8f3a9b631b1f14d3",
+    "qualification_eligible": true,
+    "retains_story_prose": false,
+    "schema_version": "cera.scene_realization_verification_receipt.v3",
+    "status": "rejected",
+    "story_text_sha256": "9bd9d346f6847185b7b4ee462334bf01a4c197e78a2cdad96fc066c3063ddcdf",
+    "verification_id": "realization_verification:7b6b240e-f9c3-52ff-ad2a-7e6029c3467e",
+    "verification_request_sha256": "e53296feb75fd459750509f5db673dbf26b18405be6f6d9dc23f1a29d5b5b1ac",
+    "verified_beat_ids": [
+      "beat:cd9e951b-779a-51a9-bc27-291b9a0ed5ab"
+    ],
+    "verified_boundary_checks": [
+      "protected_user_no_unsupplied_realization"
+    ],
+    "verified_participant_ids": [
+      "character:8738bff7-d0f8-5fa6-a9b5-003197d98918"
+    ],
+    "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+    "verifier_adapter_evidence_sha256": "1969dc1349d42dd1f5588902ff905fde08d60dea5d4297891013361109cb98be",
+    "verifier_adapter_version": "cera.codex_scene_realization_verifier.v1",
+    "violation_codes": [
+      "protected_user_unsupplied_realization"
+    ],
+    "violation_finding_sha256s": [
+      "143057f836b29a31c4a18743d0599a68c30418622ff3a5da8e2164a3227bc284"
+    ]
+  }
+}

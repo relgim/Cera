@@ -1,0 +1,284 @@
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://127.0.0.1:11434/api/embed failed, reason: connect ECONNREFUSED 127.0.0.1:11434
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:521:24)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://127.0.0.1:11434/api/embed failed, reason: connect ECONNREFUSED 127.0.0.1:11434
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:521:24)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://127.0.0.1:11434/api/embed failed, reason: connect ECONNREFUSED 127.0.0.1:11434
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:521:24)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+Chat completion request error:  Bad Request {"error":{"message":"CERA session marker is missing or ambiguous","type":"cera_error","code":"cera_turn_failed","stage":"sillytavern_adapter","retryable":false,"fallback_used":false}}
+
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://192.168.0.202:8188/object_info failed, reason: connect ECONNREFUSED 192.168.0.202:8188
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:509:28)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+FetchError: request to http://127.0.0.1:11434/api/embed failed, reason: connect ECONNREFUSED 127.0.0.1:11434
+    at ClientRequest.<anonymous> (file:///E:/AIChatBot/SillyTavern/node_modules/node-fetch/src/index.js:108:11)
+    at ClientRequest.emit (node:events:521:24)
+    at emitErrorEvent (node:_http_client:109:11)
+    at Socket.socketErrorListener (node:_http_client:593:5)
+    at Socket.emit (node:events:509:28)
+    at emitErrorNT (node:internal/streams/destroy:170:8)
+    at emitErrorCloseNT (node:internal/streams/destroy:129:3)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  type: 'system',
+  errno: 'ECONNREFUSED',
+  code: 'ECONNREFUSED',
+  erroredSysCall: 'connect'
+}
+Chat completion request error:  Bad Request {"error":{"message":"CERA session marker is missing or ambiguous","type":"cera_error","code":"cera_turn_failed","stage":"sillytavern_adapter","retryable":false,"fallback_used":false}}
+

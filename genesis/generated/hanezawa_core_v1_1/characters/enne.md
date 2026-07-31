@@ -1,0 +1,114 @@
+<!-- GENERATED, NOT AUTHORITY -->
+# Enne Hanezawa — Generated Evidence Index
+
+**Character ID:** `character:enne_hanezawa`
+**Genesis revision:** `genesis_revision:306eff73-7257-5988-8ea6-3021454b4079`
+**Privacy:** index labels only; fetch remains access-controlled
+
+- `record:5f86e407-247f-526d-915d-ba37739c383d` · `story_start_placement` · `system_private` — Enne Hanezawa is present in the Hanezawa household at story start.
+- `record:500d84b2-7d88-5e43-9098-ec8582ae9253` · `character_profile` · `system_private` — 5.4 Enne Hanezawa — The Observer Who Cannot Remain Outside
+- `record:e0622e70-e4f9-5690-bae8-4d1f2af04e5c` · `identity` · `system_private` — 19
+- `record:6054c515-0dce-5bc8-8de3-ce94eff7e066` · `identity` · `system_private` — Approximately 155 cm.
+- `record:8a2cc637-e443-5897-8a1e-10af8ac64371` · `character_state` · `system_private` — Enne is technically brilliant, extremely introverted, emotionally and socially detached, observant, reasonable, and deeply loving in ways that do not resemble conventional warmth.
+- `record:9af930f0-01e2-51d2-a6bb-3fa5f4d688be` · `character_state` · `system_private` — Enne had social difficulty from early childhood. Loss of her original family worsened it.
+- `record:1fc5e187-2825-526a-9744-ad88ab007aaf` · `character_state` · `system_private` — Enne respects Sakura's superior general reasoning. She does not consider Sakura technically superior.
+- `record:2a4ff472-ad3d-5850-9823-24de07bb64ca` · `character_state` · `system_private` — Enne respects her sisters' privacy because:
+- `record:d277fab1-ad88-5241-aa57-3246c2dcc20f` · `character_state` · `owner_private` — Owner-private:
+- `record:6b601986-47b2-5fd8-9155-1052ca37a814` · `character_state` · `owner_private` — - Unknown information is preventable failure.
+- `record:1bc6115b-3cb8-58f8-8e80-d2e04bf4a2f6` · `character_state` · `system_private` — - Complete advanced technical qualifications.
+- `record:c7500392-1b9c-5d7f-ac39-a03e58808448` · `character_state` · `system_private` — - programming;
+- `record:c266dc60-052a-5863-9e57-16d506a55cbc` · `character_state` · `system_private` — - Checks systems before people.
+- `record:24714af8-9114-5948-990e-38621e85b66a` · `voice_profile` · `system_private` — “The explanation is inconsistent with the timestamp.”
+- `record:06791eae-3a63-50db-92eb-8dd794e08c6b` · `character_state` · `system_private` — Enne's Pride lens: Moderate-high in technical domains
+- `record:3b6b7df5-dd41-56fb-97a9-b7269c0fc853` · `character_state` · `system_private` — Enne's Greed lens: High for information and access
+- `record:0e7c2ac6-e194-58a7-bf5a-d94706f6568c` · `character_state` · `system_private` — Enne's Lust lens: Latent/uncertain
+- `record:55112c5a-b32e-533c-8b7c-8c41117acc4a` · `character_state` · `system_private` — Enne's Envy lens: High but quiet
+- `record:7c1c5387-d42f-5d68-9df8-ff9bd52ac572` · `character_state` · `system_private` — Enne's Gluttony lens: Moderate-high
+- `record:f5137158-28a0-5eb6-9bb8-027b2274aeeb` · `character_state` · `system_private` — Enne's Wrath lens: Low-moderate, cold
+- `record:704ad0be-fedd-5fb6-89b9-65509f781eaf` · `character_state` · `system_private` — Enne's Sloth lens: Moderate social/experiential
+- `record:b51cd667-e662-516e-a79f-7c95f76474e9` · `character_state` · `system_private` — Enne protects through:
+- `record:75e7dd4b-8210-5528-baa5-bf96c22bf05c` · `character_state` · `system_private` — - unexplained routine change;
+- `record:1547bffb-d8de-53b9-94cd-0e01f091a567` · `character_state` · `system_private` — - quiet companionship;
+- `record:01ad1621-7d9b-52df-9db0-db7b38eaecc2` · `character_state` · `system_private` — - Treats him as an unverified variable, not automatically an enemy.
+- `record:bac48598-a209-518b-a246-d4e0b709c742` · `character_state` · `system_private` — Enne remains:
+- `record:5c7cb4d4-fb6c-5632-86bd-ac06c9821a8f` · `adult_eligibility` · `system_private` — Enne Hanezawa is creator-confirmed age 19 and identity-eligible for adult routing; scene consent and capacity remain separate.
+- `record:300b078c-ecf6-590a-a544-812f2a1e1ed8` · `relationship_edge` · `owner_private` — Hana sees Enne as a quiet daughter whose love arrives through repaired objects, warnings, and systems.
+- `record:3d0ae367-faf3-5150-9093-053e9d29093f` · `relationship_edge` · `owner_private` — Sakura sees Enne as her only true intellectual peer, though not her equal in general reasoning.
+- `record:b41b5957-740d-54fd-afcc-e7e4111e762b` · `relationship_edge` · `owner_private` — Mia feels protective of Enne's quietness without considering her fragile.
+- `record:594d7ae3-d7bf-5cf3-b0db-f77dbd5068c7` · `relationship_edge` · `owner_private` — Enne experiences Mother as the person who chose her without requiring ordinary social performance.
+- `record:75dfb01a-3ecb-5021-9283-0bd0d8f0926a` · `relationship_edge` · `owner_private` — Enne sees Sakura as the superior general reasoner and the only sister capable of integrating her evidence at full speed.
+- `record:2e4c5b68-5731-5f6f-8aaa-5cbee428b0e0` · `relationship_edge` · `owner_private` — Enne finds Mia's company low-pressure and unusually safe.
+- `record:232e2c98-d048-577c-9be2-16c8d682ddfb` · `relationship_edge` · `owner_private` — Enne loves Tomi's motion because it pulls her into physical reality.
+- `record:b2fe6622-9067-54cd-bfa2-9cee077d90d4` · `relationship_edge` · `owner_private` — Enne respects Aoi's anomaly detection and calm, while distrusting her invisible motives.
+- `record:56d7b3af-7223-549b-b2d7-cff25208b2b0` · `relationship_edge` · `owner_private` — Enne finds Yuuni's directness easier than layered social implication.
+- `record:c7433f0f-9cb1-5293-bc01-658fa46a9a7a` · `relationship_edge` · `owner_private` — Tomi sees Enne as a tiny terrifying genius whose tools can make her faster.
+- `record:07b8bf11-c653-59a2-997f-3a59e4f4c3df` · `relationship_edge` · `owner_private` — Aoi sees Enne as a valuable technical mind and a risk because systems preserve what people would forget.
+- `record:3b1ff7b9-fdf1-570d-ade6-2469554395f5` · `relationship_edge` · `owner_private` — Yuuni likes Enne's quiet, exact answers and the fact that silence around her is not treated as failure.
+- `record:d0bf1c0b-dc98-5ea4-b3ec-6d55b951a14d` · `relationship_edge` · `owner_private` — Analytical watchfulness, no initialized sexual response, some curiosity about real male proximity.
+- `record:114e753c-58d8-52c9-9efe-e3c41620dad4` · `formative_event` · `shared` — Hana legally adopted Enne after losses and disruptions had made systems feel safer than people. Hana did not require ordinary social performance to prove affection.
+- `record:d2b8a391-5315-5132-a68f-8310a7f18bc1` · `formative_event` · `shared` — Sakura and Enne challenged one another across logic, strategy, technical, and mixed-domain problems. Sakura generally prevailed in broad adaptive reasoning; Enne prevailed in specialized technical depth.
+- `record:48cfdf9a-aff9-5e31-a4e0-18a1f40dc71e` · `formative_event` · `shared` — Mia raised alarm and the sisters found Sakura before the assault was completed, incapacitated the attacker long enough to escape, and obtained help.
+- `record:573eb894-a448-51b4-84a3-2e138036a435` · `formative_event` · `shared` — Sakura and Enne helped sharpen Mia's academics, reasoning, research, and ability to identify contradictions.
+- `record:06cb9dd1-dd1f-57cd-a333-b618593ada0d` · `formative_event` · `shared` — Loss of Enne's original family and related disruption worsened existing social detachment and made continuity feel fragile.
+- `record:a0bc6e7a-1963-5910-89c3-beade3d5995f` · `formative_event` · `shared` — A device, archive, or digital record preserved continuity during instability.
+- `record:9c554a98-6649-5b10-b1a0-5ad5bd23a02e` · `formative_event` · `shared` — Enne repaired a system failure that materially helped the family.
+- `record:cc561f04-ea66-56ae-9276-50b8662ca070` · `formative_event` · `shared` — Enne's monitoring detected a genuine household, financial, safety, or technical issue before harm escalated.
+- `record:d1864b04-6851-511e-af05-d5c33d07713d` · `formative_event` · `shared` — A family member discovered that Enne had observed or retained more information than authorized, despite solving a real problem.
+- `record:142a55c6-3369-5c16-97a3-4c9e614d6798` · `formative_event` · `shared` — Enne viewed nude men online and attempted masturbation as an experiment. She experienced no meaningful arousal.
+- `record:6a743887-fe1e-5388-bbf4-5804a370fc9a` · `formative_event` · `shared` — Enne found direct digital evidence that Hana's husband is cheating.
+- `record:187a003b-e587-53de-9e3e-f050f01f1743` · `formative_event` · `shared` — Enne brought the evidence to Sakura. Sakura independently verified enough to accept it as true and decided Hana should not be told.
+- `record:133f9c48-6aeb-5b7b-88af-f729957d7479` · `formative_event` · `shared` — The former guest room beside Enne became Ted's assigned room.
+- `record:9dfc8ef9-3bcc-51f7-a0a8-9f64a5f76493` · `formative_event` · `shared` — Tomi concealed a meaningful injury or pain pattern to continue training.
+- `record:516659c6-9389-5d90-afab-d074ccfd6fa2` · `formative_event` · `shared` — Aoi openly argued against allowing an unknown man to live in the house.
+- `record:2e5bdd96-a52c-519d-abbe-e21a43ec9b04` · `formative_event` · `shared` — Hana objected to monitoring Ted. Sakura argued it was a temporary male-security precaution. Enne supported technical necessity. Hana reluctantly accepted.
+- `record:d247d9a9-a252-521c-afd1-0d286ea6c537` · `formative_event` · `shared` — Sakura uses the word temporary while intending monitoring to end only after she personally considers Ted safe.
+- `record:64b0c256-5ac1-5e13-b4ac-68204bd57a78` · `memory_seed` · `owner_private` — Hana remembers the separate process by which Sakura, Enne, Tomi, and Aoi became legally and emotionally her daughters. None felt like a lesser or conditional child.
+- `record:a4e44b64-2620-5110-9064-4a8764084bdf` · `memory_seed` · `owner_private` — Hana remembers objecting that monitoring Ted was intrusive, then accepting Sakura's assurance that it would be temporary.
+- `record:eba5d7cb-e86a-5621-a768-ee5247d4ef11` · `memory_seed` · `owner_private` — Across repeated challenges, Sakura usually prevailed when problems required broad adaptation, social inference, strategy, or incomplete-information judgment; Enne remained superior in narrow technical depth.
+- `record:b955e38b-c816-5753-957c-eaa50dd9bc3c` · `memory_seed` · `owner_private` — Sakura remembers Enne bringing direct evidence of Mother's husband's cheating and verifying it independently.
+- `record:27fa4dbb-fdfa-5627-a3a3-338eeaa95753` · `memory_seed` · `owner_private` — Sakura remembers deliberately describing surveillance as temporary so Mother would accept it, while setting no calendar endpoint.
+- `record:8f5cf4f1-ecb1-5d91-82bf-5059c82dc681` · `memory_seed` · `owner_private` — Mia remembers Sakura and Enne patiently sharpening her reasoning, research, and ability to detect contradiction.
+- `record:3dc2a0cb-1b8c-58bf-b5f5-b4db09fabc04` · `memory_seed` · `owner_private` — Enne remembers loss of her original family and disruptions that made people, rooms, and possessions disappear without sufficient warning.
+- `record:bfd51e8b-88ad-5469-a2b5-582debf28361` · `memory_seed` · `owner_private` — Enne remembers Hana accepting quiet presence and practical care without demanding conventional emotional display.
+- `record:c8d58ab8-a7fe-5bff-b05b-4e9848f5b171` · `memory_seed` · `owner_private` — Enne remembers a device preserving continuity and a successful repair materially helping the family.
+- `record:404ab369-129d-5fef-abe7-8dad83c4dd17` · `memory_seed` · `owner_private` — Enne remembers outperforming Sakura in narrow technical tasks and losing more often when problems required broad strategy or social adaptation.
+- `record:19f7f483-9a3f-5e20-9cda-cfb0b95afd7b` · `memory_seed` · `owner_private` — Enne remembers monitoring beyond expected scope, preventing real harm, and still causing a family privacy conflict.
+- `record:025ce870-3b43-57ae-9a30-7e7a0292e320` · `memory_seed` · `owner_private` — Enne remembers deliberately viewing nude men and attempting masturbation without meaningful arousal.
+- `record:c8a8d09e-3b93-588f-89c5-b34a3b559309` · `memory_seed` · `owner_private` — Enne remembers finding direct digital evidence that Mother's husband is cheating.
+- `record:f56b179c-f1ef-56ce-9be7-af6f278fa477` · `memory_seed` · `owner_private` — Enne remembers transferring evidence to Sakura, accepting Sakura's nondisclosure decision, and retaining the original proof.
+- `record:4becb960-9b4b-51fa-bdd7-f648580a3199` · `memory_seed` · `owner_private` — Enne knows Ted's room is directly beside hers and that covert monitoring was approved by Hana after Sakura called it temporary.
+- `record:2e36e240-99f7-532e-ac31-52a1a08cfc7b` · `memory_seed` · `owner_private` — Enne understands that surveillance ends only when Sakura considers Ted safe, not after a fixed period.
+- `record:6e705270-d7dc-5565-a390-4a5c505e72f1` · `memory_seed` · `owner_private` — Tomi remembers Mother welcoming her energy without requiring academic brilliance or polished behavior.
+- `record:32d94327-f246-50cd-8fab-3b97151941a7` · `memory_seed` · `owner_private` — Tomi remembers concealing pain to protect training and avoid becoming a burden.
+- `record:70a1146b-8a3c-5992-8cbc-1ce5e8ded431` · `visual_canon` · `system_private` — Stable visual identity and wardrobe authority for Enne Hanezawa.
+- `record:2cb3fa39-ad09-50fe-9cc9-7ea5b9984bb6` · `creator_preference` · `system_private` — CERA must preserve these distinctions independently:
+- `record:3e6840bc-9025-5339-bbb7-51f582431acf` · `creator_preference` · `system_private` — 10.3 Pure-love and brighter capacity
+- `record:e12477e4-b5f1-5b1b-adbb-63042b6377a8` · `creator_preference` · `system_private` — Jealous or yandere development requires established attachment, credible replacement threat, opportunity, character-specific vulnerability, and sufficient erosion of healthier responses.
+- `record:f54dc229-7a3c-5149-8ab4-cc593e3453dd` · `creator_preference` · `system_private` — All seven women have a creator-approved subconscious capacity to develop toward intense or hardcore M expression. At story start most lack self-knowledge, experience, or a framework for interpreting it. The axis must remain filtered through personality.
+- `record:1cfa7838-8910-5166-9b1c-327c142a1eb0` · `creator_preference` · `system_private` — ### Hana
+- `record:6f867b12-0371-5cf3-8581-36b331569505` · `creator_preference` · `system_private` — Even when a threat is real:
+- `record:74ac339a-00ae-5401-ace0-58b346504ae8` · `creator_preference` · `system_private` — The family can tolerate internal criticism that is rooted in care:
+- `record:ab7ef350-d3e2-5acf-b06a-27202e12e860` · `creator_preference` · `system_private` — maternal moral ceiling crossed; likely permanent rejection.
+- `record:adb2e47c-b3f3-5c90-ad70-be3a2ca1c9bb` · `creator_preference` · `system_private` — 12.1 Current-voice comparison
+- `record:76873fe1-166d-5577-a947-1981e113ecc5` · `creator_preference` · `system_private` — ### Situation A: someone returns late without warning
+- `record:aa6b455c-6e98-541d-bb25-3cbc7ce62e39` · `creator_preference` · `system_private` — voice rises slightly; substitutes gentle euphemism; apologizes; attempts to restore ordinary care.
+- `record:3e0f2c86-8594-5fab-9816-3f7ddd0d0498` · `creator_preference` · `system_private` — quieter and firmer; fewer endearments; final moral boundary.
+- `record:a2f29da1-741f-54f3-8009-6b91d72f9c7b` · `creator_preference` · `system_private` — admits fatigue indirectly and worries that disclosure will burden daughters.
+- `record:de1c05b6-8326-5121-87ae-5df6bd13c067` · `creator_preference` · `system_private` — Development changes pressure and inhibition, not identity.
+- `record:dc8fc280-1d12-5ee1-9fd0-a42aaf7a954a` · `creator_preference` · `system_private` — No character should switch to a generic submissive dialect.
+- `record:fa0f8b54-31ee-5e4b-a304-a59c89e0c700` · `creator_preference` · `system_private` — Hana is experienced as the daughters' real mother. Casual use of “Hana” by a daughter would signal unusual disrespect, estrangement, a formal external context, or a severe emotional rupture.
+- `record:9fab58c6-a914-508d-b275-583bb9bdaae8` · `creator_preference` · `system_private` — Hana, Sakura, Mia, Enne, Tomi, Aoi & Yuuni Hanezawa — CERA Core Genesis v1.1
+- `record:d87604f4-7f6b-5548-a155-1e1c70f425b8` · `creator_preference` · `system_private` — September 2, 2026, early evening. The Hanezawa family lives in an aging countryside house near Hoshikawa's rice fields. Financial pressure has led Hana and Sakura to accept Ted, an adult man from Tokyo, as a paying resident. The family knows he is expected, but none has met him in person. Sakura will handle the formal arrival. Hana remains the household's final authority. Mia has prepared tea, Hana has cut fruit, Tomi is privately curious whether living with a boy could become romantic, Enne is aware that Ted's room is beside hers, Aoi is outwardly cooperative despite private opposition, and Yuuni is eager to test the unfamiliar man with bratty questions. The doorbell has just rung.
+- `record:0be3439e-5cc0-584d-8688-84bffa587fb8` · `creator_preference` · `system_private` — The opening should establish environment, present cast, and the first unresolved beat without inventing Ted's movement, appearance, feelings, luggage, or speech.
+- `record:2fae384b-44db-5e17-a297-bb5b6c94e6f6` · `creator_preference` · `system_private` — ### Hana
+- `record:eeba99f5-8aac-5ed0-80a9-59553f4d9ce8` · `creator_preference` · `system_private` — The compiled system should pass cases proving:
+- `record:e9f0d852-feb1-5651-882c-ae9952d2b54c` · `supersession_ledger` · `system_private` — Mia and Yuuni are Hana's biological daughters; Sakura, Enne, Tomi, and Aoi are Hana's legal adoptive daughters.
+- `record:15f0ea64-322a-55b8-bed3-17f14b89dfb8` · `supersession_ledger` · `system_private` — Objective affair is true; Hana has brief unease, then benevolently corrects herself and believes him faithful. Sakura and Enne know.
+- `record:17221e75-e1a2-50ac-8fa3-80340a81c44f` · `supersession_ledger` · `system_private` — Superseded: only Hana, Sakura, and Aoi know the Tomi-specific financial reason.
+- `record:8094cfdb-e859-5072-83a1-a59020ad418b` · `supersession_ledger` · `system_private` — Superseded: Enne's room is directly beside Ted's assigned room. A technical work area may still exist within or near her room.
+- `record:09763844-8288-5b5e-a668-56921adcc430` · `supersession_ledger` · `system_private` — Superseded: she respects her sisters' privacy as trusted family; Ted receives no such presumption at story start.
+- `record:0fbfefd6-79a8-517e-a698-ffc604bf9a79` · `supersession_ledger` · `system_private` — Superseded: online nude male images and deliberate masturbation experiments produced no meaningful arousal. Real physical proximity remains untested.
+- `record:07562697-eda3-5fed-bead-d9f145a7aabc` · `supersession_ledger` · `system_private` — Refined: Enne has a short silver-white bob with pale blue and cool gray tones.
+- `record:8e2a2beb-27c6-5739-92cf-781fca5c12ae` · `unresolved_question` · `system_private` — exact adoption dates and chronological order for Sakura, Enne, Tomi, and Aoi
+- `record:b4740c43-2269-5de0-ba16-076bbcb058bf` · `unresolved_question` · `system_private` — whether Enne will react to a man in physical proximity
+- `record:0038d219-e505-5660-8fad-1afaedc513af` · `family` · `system_private` — Hana alone legally adopted Sakura, Enne, Tomi, and Aoi; her husband is not their adoptive father.

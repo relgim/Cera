@@ -1,0 +1,1 @@
+CERA_CONTINUOUS_RESULT={"error_class":"OrdinaryApplicationFailure","failed_turn":1,"failure_stage":"application_execution_or_acceptance","message":"scene realization was not independently verified: protected_user_unsupplied_realization","status":"failed"}

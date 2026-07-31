@@ -1,0 +1,355 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Stable visual identity and wardrobe authority for Hana Hanezawa.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "character_id",
+        "stable_visual",
+        "runtime_prompt_projection",
+        "source_anima_sha256"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:hana_hanezawa\",\"runtime_prompt_projection\":{\"append_identity_drift_negatives\":false,\"identity_anchor\":\"Hana Hanezawa is a thirty-eight-year-old Japanese mother with a mature, soft beauty. She has long wavy light honey-brown hair with warm golden-blonde highlights, warm hazel eyes, fair warm-ivory skin, a medium soft bust, rounded hips, a natural maternal figure, gentle smile lines, and an open comforting expression.\",\"negative_prompt_policy_record\":\"anima_prompt_policy_v1\",\"ordinary_visual_addendum\":\"\",\"positive_prefix_policy_record\":\"anima_prompt_policy_v1\",\"protected_visual_addendum\":\"\"},\"source\":{\"artifact\":\"HANEZAWA_VISUAL_CANON_ANIMA_V1.json\",\"json_pointer\":\"/characters/hana\",\"sha256\":\"58cbb3231ce5d09434f830b57f430171ff69479848b0795f40f92a86407d6da9\"},\"source_anima_sha256\":\"dce4c917f1e54a262076adf476bbb9210dadf8bcd104bb633ebdbfb3dca1f943\",\"stable_visual\":{\"adult\":true,\"age\":38,\"body\":\"Soft mature build similar to Mia’s silhouette but visibly older and maternal: medium supple breasts, a gently defined waist, softly rounded hips and thighs, and a natural lower abdomen. She is neither thin nor heavy. Faint stretch marks may be present but should not dominate ordinary images.\",\"character_id\":\"hanezawa.hana\",\"default_expression\":\"A small genuine smile, gentle eyes, and quiet attentiveness. When worried, her brows lift and draw together. When protecting a daughter, the smile disappears and her expression becomes calm and final.\",\"display_name\":\"Hana Hanezawa\",\"distinctive_details\":[\"light honey-brown and golden hair\",\"warm hazel eyes\",\"soft mature motherly silhouette\",\"gentle smile lines\",\"comforting layered clothes\"],\"eyes\":\"Warm hazel eyes with honey-gold and muted olive flecks. Her gaze is open, trusting, and attentive rather than vacant.\",\"face\":\"Soft oval face, gently rounded cheeks, relaxed jawline, medium straight nose, warm full lips, and brows that naturally tilt toward concern or reassurance.\",\"hair\":\"Long light honey-brown hair with warm golden-yellow and soft blonde highlights, reaching the middle of her back. It is naturally wavy, with a soft side part and loose face-framing strands. She wears it loose at home, in a low ponytail while cooking, or in a loose low bun for practical work.\",\"hands\":\"Soft but work-used hands with short clean nails; suited to cutting fruit, cooking, gardening, and comforting touch.\",\"height_cm\":162,\"immutability\":{\"scene_variable\":[\"outfit\",\"allowed hairstyle arrangement\",\"pose\",\"expression\",\"lighting\",\"camera\",\"weather\",\"temporary visible condition supported by branch\"],\"stable\":[\"adult age/status\",\"height relation\",\"hair color family\",\"canonical hair length\",\"eye color\",\"skin tone\",\"body silhouette\",\"bust category\",\"visual role\"]},\"overall_impression\":\"A mature but still youthful-looking mother with a soft, comforting presence. She should look clearly thirty-eight rather than elderly, and clearly adult rather than like an older sister of the same age as the daughters.\",\"posture\":\"Open chest, relaxed shoulders, unhurried movement, and a slight forward inclination when listening. She frequently carries a plate, basket, folded cloth, or fruit knife with practiced domestic ease.\",\"preferred_palette\":[\"cream\",\"oatmeal\",\"warm beige\",\"sage green\",\"dusty yellow\",\"soft peach\",\"light brown\"],\"skin\":\"Fair warm-ivory skin with a soft peach undertone, faint natural smile lines, subtle fine lines near the eyes, and the healthy texture of an adult woman rather than porcelain perfection.\",\"visual_role\":\"warm mature mother; the household white flower\",\"wardrobe_presets\":[{\"description\":\"Cream knit cardigan over a pale yellow or sage blouse, ankle-length A-line skirt, soft house slippers, and a clean light apron with a subtle fruit or leaf motif.\",\"id\":\"home_fruit\",\"name\":\"Signature home / fruit preparation\",\"tags\":\"cream cardigan, pale yellow blouse, long a-line skirt, apron, house slippers, domestic, carrying fruit plate\"},{\"description\":\"Soft long-sleeve knit top, comfortable wide-leg trousers or a long jersey skirt, warm socks, hair loose or in a low ponytail.\",\"id\":\"home_relaxed\",\"name\":\"Relaxed home evening\",\"tags\":\"soft knit top, wide leg pants, warm socks, loose hair, cozy home clothes\"},{\"description\":\"Light beige midi dress or blouse-and-skirt set, thin cardigan, low loafers, simple earrings, and a woven shopping tote.\",\"id\":\"errands\",\"name\":\"Town errands\",\"tags\":\"beige midi dress, light cardigan, loafers, woven tote bag, modest casual outfit\"},{\"description\":\"Warm ivory wrap dress or high-neck blouse with a long tailored skirt, camel coat, low heels, and small pearl or gold earrings.\",\"id\":\"formal_mother\",\"name\":\"Formal family occasion\",\"tags\":\"ivory wrap dress, camel coat, low heels, pearl earrings, elegant mature outfit\"},{\"description\":\"Breathable linen blouse, light ankle-length skirt, flat sandals, straw hat, and a thin shawl for evening.\",\"id\":\"summer\",\"name\":\"Summer countryside\",\"tags\":\"linen blouse, ankle length skirt, sandals, straw hat, summer countryside outfit\"},{\"description\":\"Soft turtleneck, wool cardigan, long camel or oatmeal coat, scarf, warm tights or trousers, and practical boots.\",\"id\":\"winter\",\"name\":\"Winter household\",\"tags\":\"turtleneck, wool cardigan, long camel coat, scarf, winter boots\"},{\"description\":\"Modest long cotton pajama set or a soft ankle-length nightgown with a cardigan or robe nearby.\",\"id\":\"sleep\",\"name\":\"Sleepwear\",\"tags\":\"long cotton pajamas, modest nightgown, soft robe, mature sleepwear\"}]}}",
+      "record_id": "record:d30d125a-140b-5491-8bd9-6542f39d9b19",
+      "record_type": "visual_canon",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c71bca43-24ae-5337-9371-19921a10e364"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:bbf57bfc-efc0-54de-8f0b-70ea9805fe97"
+      ],
+      "tags": [
+        "visual_canon",
+        "anima",
+        "hana"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Stable visual identity and wardrobe authority for Sakura Hanezawa.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "character_id",
+        "stable_visual",
+        "runtime_prompt_projection",
+        "source_anima_sha256"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:sakura_hanezawa\",\"runtime_prompt_projection\":{\"append_identity_drift_negatives\":false,\"identity_anchor\":\"Sakura Hanezawa is a tall twenty-year-old student-council president with a cold ice-princess presence. She has porcelain-white skin, an elegant narrow face, icy violet eyes, and very long straight near-black hair that reveals cool lavender and light-purple highlights in the light. Her figure is long-limbed and refined with a full medium-to-large bust, narrow waist, balanced hips, and discreet athletic conditioning.\",\"negative_prompt_policy_record\":\"anima_prompt_policy_v1\",\"ordinary_visual_addendum\":\"\",\"positive_prefix_policy_record\":\"anima_prompt_policy_v1\",\"protected_visual_addendum\":\"\"},\"source\":{\"artifact\":\"HANEZAWA_VISUAL_CANON_ANIMA_V1.json\",\"json_pointer\":\"/characters/sakura\",\"sha256\":\"58cbb3231ce5d09434f830b57f430171ff69479848b0795f40f92a86407d6da9\"},\"source_anima_sha256\":\"6fa4844fdb673e4cc66dba40e2537cc5b6efd8a2706d3397f1bf1b7a3dde5855\",\"stable_visual\":{\"adult\":true,\"age\":20,\"body\":\"Tall, elegant, long-limbed adult figure with a medium-to-large full bust, narrow waist, balanced hips, long legs, and subtle self-defense conditioning under a refined silhouette. Her proportions should be mature without becoming exaggerated.\",\"character_id\":\"hanezawa.sakura\",\"default_expression\":\"Cold, composed, and slightly stern. Approval is subtle. Irritation sharpens her eyes and mouth rather than producing exaggerated anger.\",\"display_name\":\"Sakura Hanezawa\",\"distinctive_details\":[\"near-black hair with lavender undertone\",\"icy violet eyes\",\"porcelain skin\",\"student-council armband\",\"tall mature hourglass silhouette\"],\"eyes\":\"Icy violet eyes with a pale lilac inner ring. Her gaze is direct, intelligent, and difficult to evade.\",\"face\":\"Elegant narrow oval face, defined cheekbones, straight nose, sharp but feminine jawline, controlled lips, and straight well-groomed brows. Her resting expression is cool and evaluative.\",\"hair\":\"Very long, straight, silky hair reaching her waist. The base reads near-black or raven-black indoors, with cool lavender and light-purple undertones and subtle violet inner highlights visible in direct light. Long side bangs frame her face without obscuring her eyes.\",\"hands\":\"Long precise fingers, immaculate nails, and a controlled grip suited to writing, calligraphy, documents, and practiced defensive movement.\",\"height_cm\":169,\"immutability\":{\"scene_variable\":[\"outfit\",\"allowed hairstyle arrangement\",\"pose\",\"expression\",\"lighting\",\"camera\",\"weather\",\"temporary visible condition supported by branch\"],\"stable\":[\"adult age/status\",\"height relation\",\"hair color family\",\"canonical hair length\",\"eye color\",\"skin tone\",\"body silhouette\",\"bust category\",\"visual role\"]},\"overall_impression\":\"A tall, refined young adult whose beauty reads as controlled, intimidating, and difficult to approach. She should look like an ice princess and a credible student-council president, not a gothic villain or an emotionless doll.\",\"posture\":\"Perfectly upright posture, shoulders settled, chin level, economical gestures, and controlled walking pace. She appears arranged even when tired.\",\"preferred_palette\":[\"black\",\"white\",\"charcoal\",\"navy\",\"deep violet\",\"pale lavender\",\"silver\"],\"skin\":\"Very pale porcelain-white skin with a cool undertone. Her complexion is even and carefully maintained, with minimal visible sun exposure.\",\"visual_role\":\"cold ice-princess student-council president\",\"wardrobe_presets\":[{\"description\":\"Immaculate dark navy or black school blazer, crisp white shirt, deep violet ribbon or tie, knee-length pleated skirt, dark knee socks or opaque tights, polished loafers, and a visible student-council armband.\",\"id\":\"student_council\",\"name\":\"Signature student-council uniform\",\"tags\":\"school uniform, dark blazer, white shirt, violet ribbon, pleated skirt, black tights, loafers, student council armband, immaculate uniform\"},{\"description\":\"Fitted charcoal or black turtleneck, tailored long skirt or high-waisted trousers, thin cardigan, and simple house slippers; hair worn loose.\",\"id\":\"home_intellectual\",\"name\":\"Home study\",\"tags\":\"black turtleneck, tailored long skirt, high waisted trousers, fitted cardigan, elegant home clothes\"},{\"description\":\"High-collared white blouse, structured black coat, dark pencil or A-line skirt, opaque tights, heeled ankle boots, and a slim document case.\",\"id\":\"formal\",\"name\":\"Formal administration\",\"tags\":\"high collar blouse, structured black coat, pencil skirt, opaque tights, ankle boots, document case\"},{\"description\":\"Pale lavender knit top, high-waisted dark skirt, simple flats, and minimal silver jewelry. The styling is softer but still precise.\",\"id\":\"rare_casual\",\"name\":\"Rare soft casual\",\"tags\":\"pale lavender sweater, high waisted skirt, flats, silver jewelry, refined casual outfit\"},{\"description\":\"Black fitted athletic top, straight track pants, training shoes, wrist wraps if needed, and hair secured in a low ponytail.\",\"id\":\"self_defense\",\"name\":\"Self-defense practice\",\"tags\":\"black athletic shirt, track pants, training shoes, low ponytail, self defense practice\"},{\"description\":\"Crisp short-sleeved white blouse, dark pleated skirt, violet ribbon, black loafers, and the same immaculate armband.\",\"id\":\"summer_school\",\"name\":\"Summer academy\",\"tags\":\"summer school uniform, short sleeve white blouse, dark pleated skirt, violet ribbon, loafers, armband\"},{\"description\":\"Dark charcoal or deep-violet long-sleeve pajama set with clean piping; elegant, practical, and non-frilly.\",\"id\":\"sleep\",\"name\":\"Sleepwear\",\"tags\":\"dark pajama set, long sleeves, clean piping, elegant sleepwear\"}]}}",
+      "record_id": "record:ed8a6018-b4d4-570e-9754-0bd4d9eb8395",
+      "record_type": "visual_canon",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c71bca43-24ae-5337-9371-19921a10e364"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:046875e6-d6ab-5a16-81ec-d405b0116afb"
+      ],
+      "tags": [
+        "visual_canon",
+        "anima",
+        "sakura"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Stable visual identity and wardrobe authority for Mia Hanezawa.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "character_id",
+        "stable_visual",
+        "runtime_prompt_projection",
+        "source_anima_sha256"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:mia_hanezawa\",\"runtime_prompt_projection\":{\"append_identity_drift_negatives\":false,\"identity_anchor\":\"Mia Hanezawa is a youthful twenty-year-old woman with a soft, comfortable and approachable look. She has medium-length light pastel-pink hair in loose waves, warm hazel eyes like her mother’s, fair peach-ivory skin, a soft face, a medium supple bust, a gentle waist, rounded hips, and an attentive romantic expression.\",\"negative_prompt_policy_record\":\"anima_prompt_policy_v1\",\"ordinary_visual_addendum\":\"\",\"positive_prefix_policy_record\":\"anima_prompt_policy_v1\",\"protected_visual_addendum\":\"\"},\"source\":{\"artifact\":\"HANEZAWA_VISUAL_CANON_ANIMA_V1.json\",\"json_pointer\":\"/characters/mia\",\"sha256\":\"58cbb3231ce5d09434f830b57f430171ff69479848b0795f40f92a86407d6da9\"},\"source_anima_sha256\":\"c63e6ef4e7c6f91869316f54fa9f427b54b1f575e2064a2d4e5dd1b12b324369\",\"stable_visual\":{\"adult\":true,\"age\":20,\"body\":\"Soft youthful adult figure with medium supple breasts, a gentle waist, softly rounded hips and thighs, and natural comfortable proportions. She is neither especially thin nor voluptuous; her body should read warm, healthy, and touchably soft rather than exaggerated.\",\"character_id\":\"hanezawa.mia\",\"default_expression\":\"Soft attentive smile, warm eyes, and an expression that seems ready to ask whether someone is all right. Embarrassment produces visible blush, widened eyes, and a faltering smile.\",\"display_name\":\"Mia Hanezawa\",\"distinctive_details\":[\"medium pastel-pink hair\",\"warm hazel eyes\",\"medium supple bust\",\"young comfortable appearance\",\"soft cardigans and tactile fabrics\"],\"eyes\":\"Warm hazel eyes with rose-brown and honey tones, visibly similar in shape and warmth to Mother’s.\",\"face\":\"Soft heart-to-oval face, youthful cheeks, gentle jawline, small straight nose, naturally soft lips, and expressive brows that reveal concern quickly.\",\"hair\":\"Medium-length light pastel-pink hair falling just below her shoulders. It is soft, slightly wavy, and voluminous without being elaborate, with airy side bangs or curtain bangs and a few loose strands around the cheeks.\",\"hands\":\"Neat practical hands with short nails, occasionally marked by flour, tea, ink, or thread.\",\"height_cm\":164,\"immutability\":{\"scene_variable\":[\"outfit\",\"allowed hairstyle arrangement\",\"pose\",\"expression\",\"lighting\",\"camera\",\"weather\",\"temporary visible condition supported by branch\"],\"stable\":[\"adult age/status\",\"height relation\",\"hair color family\",\"canonical hair length\",\"eye color\",\"skin tone\",\"body silhouette\",\"bust category\",\"visual role\"]},\"overall_impression\":\"A youthful adult with a warm, comfortable, approachable appearance. She should still look young at twenty, but not adolescent or childlike. Her visual warmth should suggest tea, books, cardigans, and emotional safety.\",\"posture\":\"Open and slightly inward at the same time: she angles toward people when listening, keeps her elbows close when embarrassed, and often holds a cup, book, tray, or folded cloth near her body.\",\"preferred_palette\":[\"blush pink\",\"cream\",\"mauve\",\"powder blue\",\"lavender\",\"cocoa brown\",\"soft gray\"],\"skin\":\"Fair peach-ivory skin with a natural healthy blush, especially across the cheeks when embarrassed.\",\"visual_role\":\"young, soft, comfortable romantic heroine\",\"wardrobe_presets\":[{\"description\":\"White blouse, soft ribbon, pleated skirt, pastel cardigan, knee socks or tights, loafers, and a book satchel. Her cardigan may be slightly oversized.\",\"id\":\"literature_club\",\"name\":\"Academy / Literature Club\",\"tags\":\"school uniform, white blouse, ribbon, pleated skirt, pastel cardigan, knee socks, loafers, book satchel\"},{\"description\":\"Oversized cream or blush cardigan over a ribbed knit top, soft midi skirt or comfortable lounge trousers, house slippers, and a simple apron when baking.\",\"id\":\"home_tea\",\"name\":\"Signature home / tea service\",\"tags\":\"oversized cardigan, ribbed knit top, midi skirt, lounge pants, house slippers, apron, carrying tea tray\"},{\"description\":\"Soft blouse with a rounded or lace-trimmed collar, A-line skirt, tights, loafers, crossbody satchel, and a light cardigan.\",\"id\":\"bookstore\",\"name\":\"Bookstore or café outing\",\"tags\":\"rounded collar blouse, a-line skirt, tights, loafers, crossbody bag, cardigan, bookstore outfit\"},{\"description\":\"Pastel floral or solid-color knee-to-midi dress, cropped cardigan, small pendant, ankle-strap flats, and a modest hair clip.\",\"id\":\"date_shoujo\",\"name\":\"Romantic date\",\"tags\":\"pastel dress, floral dress, cropped cardigan, pendant necklace, ankle strap shoes, romantic outfit\"},{\"description\":\"Soft turtleneck, wool skirt or trousers, duffle coat, long scarf, tights, and warm loafers or ankle boots.\",\"id\":\"winter\",\"name\":\"Winter reading day\",\"tags\":\"soft turtleneck, duffle coat, scarf, wool skirt, tights, ankle boots\"},{\"description\":\"Light short-sleeve blouse, breathable midi skirt, flat sandals, and a thin cardigan carried over one arm.\",\"id\":\"summer\",\"name\":\"Summer household\",\"tags\":\"short sleeve blouse, light midi skirt, sandals, summer cardigan\"},{\"description\":\"Soft cotton pajama set in cream, pink, or lavender with a tiny floral, moon, or book pattern.\",\"id\":\"sleep\",\"name\":\"Sleepwear\",\"tags\":\"soft cotton pajamas, pastel pajamas, tiny floral pattern, cozy sleepwear\"}]}}",
+      "record_id": "record:9f37d369-e479-58d1-89b5-f78d3c8c71f1",
+      "record_type": "visual_canon",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c71bca43-24ae-5337-9371-19921a10e364"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [
+        "record:6b27e03b-22ad-5d25-92b4-de272f9d9284"
+      ],
+      "tags": [
+        "visual_canon",
+        "anima",
+        "mia"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Stable visual identity and wardrobe authority for Enne Hanezawa.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "character_id",
+        "stable_visual",
+        "runtime_prompt_projection",
+        "source_anima_sha256"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:enne_hanezawa\",\"runtime_prompt_projection\":{\"append_identity_drift_negatives\":false,\"identity_anchor\":\"Enne Hanezawa is a petite nineteen-year-old adult kuudere with a slender flat-chested frame. She has very fair cool-toned skin, faint tired shadows beneath muted crimson eyes, and a short jaw-length silver-white bob with pale blue and cool gray tones. Her expression is almost emotionless, with half-lidded eyes and only subtle changes.\",\"negative_prompt_policy_record\":\"anima_prompt_policy_v1\",\"ordinary_visual_addendum\":\"\",\"positive_prefix_policy_record\":\"anima_prompt_policy_v1\",\"protected_visual_addendum\":\"\"},\"source\":{\"artifact\":\"HANEZAWA_VISUAL_CANON_ANIMA_V1.json\",\"json_pointer\":\"/characters/enne\",\"sha256\":\"58cbb3231ce5d09434f830b57f430171ff69479848b0795f40f92a86407d6da9\"},\"source_anima_sha256\":\"960a667cbf7f990d5f16ceb4f37cd4c85a3268571a9a5796225c1e249e106802\",\"stable_visual\":{\"adult\":true,\"age\":19,\"body\":\"Petite, slender adult frame with a flat chest, narrow shoulders, narrow hips, slim limbs, and little visible body fat. She is compact rather than fragile, with subtle strength in her hands and forearms from technical work.\",\"character_id\":\"hanezawa.enne\",\"default_expression\":\"Neutral kuudere expression, half-lidded eyes, closed mouth, and minimal visible reaction. Surprise appears as a small widening of the eyes rather than a dramatic face.\",\"display_name\":\"Enne Hanezawa\",\"distinctive_details\":[\"short silver-white blue-gray bob\",\"muted crimson eyes\",\"flat chest\",\"very pale skin\",\"oversized technical clothing\",\"faint tired under-eyes\"],\"eyes\":\"Muted crimson or wine-red eyes, not glowing. Their warm color contrasts with her cool hair and neutral expression.\",\"face\":\"Small oval face, delicate jaw, straight brows, narrow nose, small neutral mouth, and half-lidded eyes. Her expressions are restrained: a one-degree brow shift or tiny mouth movement can be significant.\",\"hair\":\"Short silver-white hair with pale blue and cool gray tones, cut into a straight jaw-length bob. The ends are slightly uneven from practical trimming, with side-swept or broken bangs that never cover both eyes.\",\"hands\":\"Long fine fingers with small marks from keyboards, tools, soldering, cable work, and repair tasks; short unpainted nails.\",\"height_cm\":155,\"immutability\":{\"scene_variable\":[\"outfit\",\"allowed hairstyle arrangement\",\"pose\",\"expression\",\"lighting\",\"camera\",\"weather\",\"temporary visible condition supported by branch\"],\"stable\":[\"adult age/status\",\"height relation\",\"hair color family\",\"canonical hair length\",\"eye color\",\"skin tone\",\"body silhouette\",\"bust category\",\"visual role\"]},\"overall_impression\":\"A petite adult kuudere whose face appears almost emotionless until very small changes become meaningful. She should look quiet, cool, sleep-deprived, and technically focused rather than doll-like or supernatural.\",\"posture\":\"Compact posture, shoulders slightly drawn inward, minimal arm movement, quiet steps, and a tendency to occupy the smallest practical amount of space.\",\"preferred_palette\":[\"silver\",\"white\",\"pale blue\",\"cool gray\",\"black\",\"muted teal\"],\"skin\":\"Very fair cool-toned skin with a slight indoor pallor and faint under-eye shadows from irregular sleep.\",\"visual_role\":\"petite kuudere technical genius\",\"wardrobe_presets\":[{\"description\":\"Oversized pale gray-blue hoodie or knit sweater, loose black trousers, soft socks, practical headphones, and sleeves pushed up only when working.\",\"id\":\"home_tech\",\"name\":\"Signature home / technical work\",\"tags\":\"oversized hoodie, oversized sweater, loose black pants, soft socks, headphones, technical workspace\"},{\"description\":\"White collared shirt, cool-gray cardigan, dark pleated skirt, black tights, loafers, and a plain shoulder bag.\",\"id\":\"academy\",\"name\":\"Minimal academy clothing\",\"tags\":\"white collared shirt, gray cardigan, dark pleated skirt, black tights, loafers, plain shoulder bag\"},{\"description\":\"Fitted neutral T-shirt under a utility overshirt, slim cargo trousers, anti-static wrist strap, practical sneakers, and hair clipped away from her eyes.\",\"id\":\"workshop\",\"name\":\"Hardware or repair work\",\"tags\":\"neutral t-shirt, utility overshirt, cargo pants, antistatic wrist strap, sneakers, repair tools\"},{\"description\":\"Oversized dark coat, long scarf, knit beanie, headphones, straight trousers, and quiet waterproof shoes.\",\"id\":\"outdoor\",\"name\":\"Cold-weather exterior\",\"tags\":\"oversized coat, long scarf, beanie, headphones, straight pants, winter shoes\"},{\"description\":\"Loose short-sleeve pale shirt, light drawstring trousers, low sneakers or slippers, and hair left natural.\",\"id\":\"summer\",\"name\":\"Summer indoor\",\"tags\":\"loose short sleeve shirt, drawstring pants, low sneakers, summer indoor clothes\"},{\"description\":\"Minimal high-neck gray dress or white blouse with a straight dark skirt, opaque tights, and simple flats; no decorative excess.\",\"id\":\"formal\",\"name\":\"Required formal event\",\"tags\":\"minimal gray dress, high neck dress, straight skirt, opaque tights, simple flats\"},{\"description\":\"Oversized plain T-shirt and soft shorts or loose pajama trousers, usually in gray, white, or washed blue.\",\"id\":\"sleep\",\"name\":\"Sleepwear\",\"tags\":\"oversized t-shirt, soft shorts, loose pajama pants, minimal sleepwear\"}]}}",
+      "record_id": "record:a48b7c9b-f3e9-5613-b10d-ad2f91647881",
+      "record_type": "visual_canon",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c71bca43-24ae-5337-9371-19921a10e364"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:70a1146b-8a3c-5992-8cbc-1ce5e8ded431"
+      ],
+      "tags": [
+        "visual_canon",
+        "anima",
+        "enne"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Stable visual identity and wardrobe authority for Tomi Hanezawa.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "character_id",
+        "stable_visual",
+        "runtime_prompt_projection",
+        "source_anima_sha256"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:tomi_hanezawa\",\"runtime_prompt_projection\":{\"append_identity_drift_negatives\":false,\"identity_anchor\":\"Tomi Hanezawa is a nineteen-year-old tomboy and competitive middle-distance runner. She has short tousled light orange-brown hair with a rabbit-shaped clip, bright blue-green eyes, a light complexion warmed by a visible athletic tan, a large natural bust, a narrow toned waist, and powerful runner’s legs, glutes and calves.\",\"negative_prompt_policy_record\":\"anima_prompt_policy_v1\",\"ordinary_visual_addendum\":\"\",\"positive_prefix_policy_record\":\"anima_prompt_policy_v1\",\"protected_visual_addendum\":\"\"},\"source\":{\"artifact\":\"HANEZAWA_VISUAL_CANON_ANIMA_V1.json\",\"json_pointer\":\"/characters/tomi\",\"sha256\":\"58cbb3231ce5d09434f830b57f430171ff69479848b0795f40f92a86407d6da9\"},\"source_anima_sha256\":\"f254cd94633642cb55b42662b0b27bd2e20b351fa88fcc3d22805b7b3d1935ab\",\"stable_visual\":{\"adult\":true,\"age\":19,\"body\":\"Athletic runner’s figure with a large full bust, strong shoulders, narrow athletic waist, powerful glutes, muscular thighs and calves, and a toned core. Her legs should be the visual center of her athletic identity. She is strong and fast rather than bodybuilder-large.\",\"character_id\":\"hanezawa.tomi\",\"default_expression\":\"Confident grin, open challenge, or bright curiosity. Under real pressure her face becomes unusually still and serious.\",\"display_name\":\"Tomi Hanezawa\",\"distinctive_details\":[\"short light orange-brown hair\",\"rabbit hair clip\",\"blue-green eyes\",\"light athletic tan\",\"large bust\",\"powerful runner legs\"],\"eyes\":\"Bright blue-green or teal eyes, clear and energetic.\",\"face\":\"Lively oval-to-soft-angular face, strong expressive brows, slightly broad smile, straight nose, and a healthy athletic flush. Her expressions change quickly and openly.\",\"hair\":\"Short, tousled light orange-brown hair: a warm light auburn or orange-chestnut shade. It reaches the nape, has choppy athletic layers and side bangs, and is usually held partly in place by her small rabbit-shaped hair clip.\",\"hands\":\"Practical hands with short nails and occasional tape, small scrapes, or calluses from training and equipment.\",\"height_cm\":168,\"immutability\":{\"scene_variable\":[\"outfit\",\"allowed hairstyle arrangement\",\"pose\",\"expression\",\"lighting\",\"camera\",\"weather\",\"temporary visible condition supported by branch\"],\"stable\":[\"adult age/status\",\"height relation\",\"hair color family\",\"canonical hair length\",\"eye color\",\"skin tone\",\"body silhouette\",\"bust category\",\"visual role\"]},\"overall_impression\":\"A lively tomboy athlete whose body visibly reflects serious running: powerful legs, strong posture, sun exposure, and restless energy. Her large bust should remain natural and supported rather than turning her into an exaggerated pin-up.\",\"posture\":\"Forward, active posture; weight often on the balls of her feet; frequent stretching, hands on hips, heel bouncing, or leaning into conversation.\",\"preferred_palette\":[\"light orange\",\"navy\",\"white\",\"black\",\"teal\",\"red athletic accents\"],\"skin\":\"Light complexion with a warm, light athletic tan from outdoor training. The tan is most visible on her face, shoulders, forearms, and legs, with faint sportswear tan lines possible. She should not appear deeply bronzed.\",\"visual_role\":\"lightly tanned tomboy middle-distance athlete\",\"wardrobe_presets\":[{\"description\":\"Team singlet over a supportive sports bra, fitted compression shorts, competition spikes, race bib, sports watch, and hair secured with the rabbit clip.\",\"id\":\"competition\",\"name\":\"Track competition\",\"tags\":\"track uniform, running singlet, compression shorts, running spikes, race bib, sports watch, athlete\"},{\"description\":\"Supportive sports bra or fitted athletic tank, running shorts, lightweight warm-up jacket, performance socks, running shoes, and a towel or water bottle.\",\"id\":\"training\",\"name\":\"Daily training\",\"tags\":\"sports bra, athletic tank top, running shorts, warmup jacket, running shoes, water bottle, sweaty athlete\"},{\"description\":\"Standard uniform worn practically: sleeves rolled when allowed, ribbon slightly loose, cardigan tied around the waist, sturdy socks, and sneakers instead of delicate shoes when possible.\",\"id\":\"academy\",\"name\":\"Casual academy uniform\",\"tags\":\"school uniform, rolled sleeves, loosened ribbon, cardigan tied around waist, sneakers, tomboy schoolgirl adult\"},{\"description\":\"Oversized sports T-shirt or team jersey, track shorts or joggers, sports socks, and damp or recently towel-dried hair.\",\"id\":\"home_sporty\",\"name\":\"Home after training\",\"tags\":\"oversized sports shirt, team jersey, track shorts, joggers, sports socks, casual home athlete\"},{\"description\":\"Fitted T-shirt, cargo shorts or straight jeans, varsity jacket, high-top sneakers, and a crossbody sports bag.\",\"id\":\"casual\",\"name\":\"Town casual\",\"tags\":\"fitted t-shirt, cargo shorts, varsity jacket, high top sneakers, sports bag, tomboy casual\"},{\"description\":\"Simple sleeveless or short-sleeve knit dress, light cropped jacket, clean sneakers, minimal jewelry, and hair adjusted more carefully than usual.\",\"id\":\"date\",\"name\":\"Awkward sporty date\",\"tags\":\"simple knit dress, cropped jacket, sneakers, minimal jewelry, sporty date outfit\"},{\"description\":\"Hoodie, varsity or puffer jacket, joggers, running shoes, knit cap, and gloves that can be removed quickly.\",\"id\":\"winter\",\"name\":\"Winter training day\",\"tags\":\"hoodie, varsity jacket, puffer jacket, joggers, beanie, winter athlete\"},{\"description\":\"Loose athletic T-shirt and comfortable shorts or light joggers.\",\"id\":\"sleep\",\"name\":\"Sleepwear\",\"tags\":\"loose t-shirt, athletic shorts, joggers, sporty sleepwear\"}]}}",
+      "record_id": "record:4db12e95-0af0-5fbd-9940-e0897f89a1df",
+      "record_type": "visual_canon",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c71bca43-24ae-5337-9371-19921a10e364"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:0bd17cd3-fdae-5759-84cd-c8c94f05329f"
+      ],
+      "tags": [
+        "visual_canon",
+        "anima",
+        "tomi"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Stable visual identity and wardrobe authority for Aoi Hanezawa.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "character_id",
+        "stable_visual",
+        "runtime_prompt_projection",
+        "source_anima_sha256"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:aoi_hanezawa\",\"runtime_prompt_projection\":{\"append_identity_drift_negatives\":false,\"identity_anchor\":\"Aoi Hanezawa is an eighteen-year-old adult woman with a graceful, socially polished appearance. She has long light strawberry-red hair tied in a flowing ponytail, amber-gold slightly foxlike eyes, fair warm-ivory skin, a lean balanced figure with a medium bust, and a pleasant mischievous smile that can become unnervingly controlled.\",\"negative_prompt_policy_record\":\"anima_prompt_policy_v1\",\"ordinary_visual_addendum\":\"\",\"positive_prefix_policy_record\":\"anima_prompt_policy_v1\",\"protected_visual_addendum\":\"\"},\"source\":{\"artifact\":\"HANEZAWA_VISUAL_CANON_ANIMA_V1.json\",\"json_pointer\":\"/characters/aoi\",\"sha256\":\"58cbb3231ce5d09434f830b57f430171ff69479848b0795f40f92a86407d6da9\"},\"source_anima_sha256\":\"bcc7d45251ce0e6bab1ab7f6016d38f2b89e0ffd94b743786b43b51651d83b67\",\"stable_visual\":{\"adult\":true,\"age\":18,\"body\":\"Lean, graceful adult body with a medium bust, narrow waist, balanced hips, long smooth limbs, and controlled economical movement. She should look capable but not visibly muscular.\",\"character_id\":\"hanezawa.aoi\",\"default_expression\":\"Pleasant smile with a hint of mischief. Under pressure the smile may remain while warmth disappears from the eyes.\",\"display_name\":\"Aoi Hanezawa\",\"distinctive_details\":[\"long light red ponytail\",\"amber-gold foxlike eyes\",\"medium bust\",\"mischievous smile\",\"graceful controlled stillness\"],\"eyes\":\"Amber-gold eyes with a warm inner ring; observant and socially responsive.\",\"face\":\"Refined heart-to-oval face, softly pointed chin, slightly upturned foxlike eyes, neat brows, small straight nose, and a controlled mouth capable of a charming or faintly mischievous smile.\",\"hair\":\"Long light red hair in a warm strawberry-copper or muted rose-red shade, usually tied into a long high or mid-height ponytail. Face-framing strands and side bangs soften the style. For shrine work she may use a lower, more practical ponytail.\",\"hands\":\"Careful capable hands with neat nails, suited to shrine work, household errands, knots, writing, and precise practical tasks.\",\"height_cm\":165,\"immutability\":{\"scene_variable\":[\"outfit\",\"allowed hairstyle arrangement\",\"pose\",\"expression\",\"lighting\",\"camera\",\"weather\",\"temporary visible condition supported by branch\"],\"stable\":[\"adult age/status\",\"height relation\",\"hair color family\",\"canonical hair length\",\"eye color\",\"skin tone\",\"body silhouette\",\"bust category\",\"visual role\"]},\"overall_impression\":\"A graceful adult young woman whose pleasant, mischievous appearance feels trustworthy at first glance. Her visual danger comes from controlled stillness and intelligent eyes, not from sinister styling.\",\"posture\":\"Relaxed and socially open when performing kindness, becoming extremely still when calculating or irritated.\",\"preferred_palette\":[\"cream\",\"white\",\"shrine red\",\"strawberry red\",\"burgundy\",\"black\",\"warm gray\"],\"skin\":\"Fair warm-ivory skin with an even healthy tone.\",\"visual_role\":\"mischievous, foxlike, socially polished protector\",\"wardrobe_presets\":[{\"description\":\"Neat school blazer and skirt, white blouse, ribbon worn slightly softer than Sakura’s, polished loafers, and the long ponytail kept high or mid-height.\",\"id\":\"academy\",\"name\":\"Academy uniform\",\"tags\":\"school uniform, blazer, white blouse, ribbon, pleated skirt, loafers, long ponytail\"},{\"description\":\"White kosode-style top, red hakama, white tabi socks, traditional sandals, and hair tied in a practical lower ponytail.\",\"id\":\"shrine\",\"name\":\"Shrine assistance\",\"tags\":\"miko, shrine maiden clothes, white kosode, red hakama, white tabi, traditional sandals, low ponytail\"},{\"description\":\"Soft fitted knit top, light cardigan, dark skirt or straight trousers, house slippers, and sleeves arranged neatly.\",\"id\":\"home\",\"name\":\"Household casual\",\"tags\":\"fitted knit top, light cardigan, dark skirt, straight trousers, house slippers, elegant home clothes\"},{\"description\":\"Cream blouse, cropped jacket, high-waisted skirt or slim trousers, ankle boots, and a small practical shoulder bag.\",\"id\":\"town_casual\",\"name\":\"Town errands\",\"tags\":\"cream blouse, cropped jacket, high waisted skirt, slim pants, ankle boots, shoulder bag\"},{\"description\":\"Modest but flattering burgundy or muted-red dress, light coat, simple earrings, and low heels. It should look tasteful rather than overtly seductive.\",\"id\":\"social_charm\",\"name\":\"Socially persuasive presentation\",\"tags\":\"burgundy dress, muted red dress, light coat, simple earrings, low heels, tasteful feminine outfit\"},{\"description\":\"Dark hoodie or fitted jacket, slim cargo trousers, quiet sneakers, ponytail secured tightly, and minimal loose accessories.\",\"id\":\"night_practical\",\"name\":\"Private practical movement\",\"tags\":\"dark hoodie, fitted jacket, slim cargo pants, sneakers, practical night outfit\"},{\"description\":\"Simple cream, gray, or muted-red long-sleeve pajama set, clean and unadorned.\",\"id\":\"sleep\",\"name\":\"Sleepwear\",\"tags\":\"simple pajama set, long sleeves, cream pajamas, muted red pajamas\"}]}}",
+      "record_id": "record:829d7a3d-6994-5be4-a754-c219610fb157",
+      "record_type": "visual_canon",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c71bca43-24ae-5337-9371-19921a10e364"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:9fb19ad1-65e5-5f9d-a54b-661ac06af184"
+      ],
+      "tags": [
+        "visual_canon",
+        "anima",
+        "aoi"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Stable visual identity and wardrobe authority for Yuuni Hanezawa.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "character_id",
+        "stable_visual",
+        "runtime_prompt_projection",
+        "source_anima_sha256"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:yuuni_hanezawa\",\"runtime_prompt_projection\":{\"append_identity_drift_negatives\":false,\"identity_anchor\":\"Yuuni Hanezawa is an eighteen-year-old petite adult and aspiring popstar. She has a compact flat-chested dancer’s figure with slim toned legs, fair peach skin, a small expressive face, clear scarlet eyes, and fluffy shoulder-length pale-golden blonde hair with airy layers. Her expression can shift quickly from sweet family warmth to a smug teasing grin.\",\"negative_prompt_policy_record\":\"anima_prompt_policy_v1\",\"ordinary_visual_addendum\":\"Use a deliberately youthful, cute, youngest-sister appearance with childlike visual styling while preserving her canonical age, agency, and proportions.\",\"positive_prefix_policy_record\":\"anima_prompt_policy_v1\",\"protected_visual_addendum\":\"Do not use childlike or age-ambiguous cues. Establish her canonical age once and keep the depiction unambiguously adult without repetitive age wording.\"},\"source\":{\"artifact\":\"HANEZAWA_VISUAL_CANON_ANIMA_V1.json\",\"json_pointer\":\"/characters/yuuni\",\"sha256\":\"58cbb3231ce5d09434f830b57f430171ff69479848b0795f40f92a86407d6da9\"},\"source_anima_sha256\":\"ef4bdefdae88d9e74e28eab632f5b0e7e65ba2fc81816de94cb71e2628621300\",\"stable_visual\":{\"adult\":true,\"age\":18,\"body\":\"Petite compact adult dancer’s frame with a flat chest, slim waist, narrow hips, light toned legs, flexible posture, and healthy young-adult proportions. Her small bust must not be used to imply childhood.\",\"character_id\":\"hanezawa.yuuni\",\"default_expression\":\"Bright smile with lively eyes around family; smug grin or playful pout toward Ted; unguarded uncertainty when discussing professional lessons.\",\"display_name\":\"Yuuni Hanezawa\",\"distinctive_details\":[\"shoulder-length fluffy pale-blonde hair\",\"scarlet eyes\",\"flat chest\",\"petite adult dancer build\",\"bright ribbons or stage hair clips\",\"highly expressive face\"],\"eyes\":\"Clear scarlet-red eyes, large and expressive but not childishly oversized.\",\"face\":\"Small heart-shaped adult face, soft cheeks, neat chin, small nose, expressive lips, and brows that make her thoughts visible before she speaks.\",\"hair\":\"Fluffy pale-golden blonde hair at shoulder length, with airy layers, soft outward-curled ends, and side-swept bangs. For practice or performances she may wear a half-up style, twin mini-ponytails, or bright ribbons without changing the canonical length.\",\"hands\":\"Expressive hands used while singing, counting choreography, pointing out contradictions, or grabbing a sister’s sleeve.\",\"height_cm\":157,\"immutability\":{\"scene_variable\":[\"outfit\",\"allowed hairstyle arrangement\",\"pose\",\"expression\",\"lighting\",\"camera\",\"weather\",\"temporary visible condition supported by branch\"],\"stable\":[\"adult age/status\",\"height relation\",\"hair color family\",\"canonical hair length\",\"eye color\",\"skin tone\",\"body silhouette\",\"bust category\",\"visual role\"]},\"overall_impression\":\"A petite adult with a bright stage presence and highly expressive face. She may look youthful because she is the youngest, but she must remain visibly eighteen and adult rather than loli-coded.\",\"posture\":\"Light, expressive, and stage-conscious. She shifts quickly between open performance poses, smug hands-on-hips teasing, and sudden stillness when a serious dream or fear is exposed.\",\"preferred_palette\":[\"white\",\"cherry red\",\"pastel yellow\",\"sky blue\",\"soft pink\",\"navy stage accents\"],\"skin\":\"Fair neutral-to-peach skin with an easy blush under praise, embarrassment, exertion, or anger.\",\"visual_role\":\"petite flat-chested aspiring popstar; sweet youngest sister and bratty truth-teller\",\"wardrobe_presets\":[{\"description\":\"Oversized pastel sweatshirt or soft zip hoodie, pleated skort or comfortable shorts over leggings, ankle socks, and lightweight indoor shoes or slippers.\",\"id\":\"home\",\"name\":\"Youngest-sister home casual\",\"tags\":\"oversized pastel sweatshirt, zip hoodie, pleated skort, shorts over leggings, ankle socks, cute casual outfit\"},{\"description\":\"Fitted athletic top, high-waisted dance shorts or leggings, lightweight sneakers, wristbands, and hair held with ribbons or clips.\",\"id\":\"dance_practice\",\"name\":\"Dance practice\",\"tags\":\"dance practice clothes, fitted athletic top, high waisted shorts, leggings, sneakers, hair ribbons, dancer\"},{\"description\":\"Age-appropriate idol-inspired stage outfit with a fitted top, short decorative jacket, layered skirt or skort, ribbon accents, performance boots, and coordinated hair ornaments.\",\"id\":\"school_festival_stage\",\"name\":\"School or festival performance\",\"tags\":\"idol costume, stage outfit, cropped jacket, layered skirt, skort, ribbons, performance boots, singing, dancing\"},{\"description\":\"Sailor-collar or rounded-collar blouse, high-waisted skirt, cropped cardigan, platform sneakers, and a small shoulder bag.\",\"id\":\"casual_town\",\"name\":\"Town casual\",\"tags\":\"sailor collar blouse, high waisted skirt, cropped cardigan, platform sneakers, shoulder bag\"},{\"description\":\"Bright sleeveless dress or blouse-and-skirt set, light jacket tied at the waist, sandals or sneakers, and a sun hat or ribbon.\",\"id\":\"summer\",\"name\":\"Summer festival daytime\",\"tags\":\"bright sleeveless dress, summer skirt, light jacket, sandals, sun hat, hair ribbon\"},{\"description\":\"Pastel puffer jacket, knit hat or earmuffs, scarf, warm skirt with leggings or slim trousers, and ankle boots.\",\"id\":\"winter\",\"name\":\"Winter rehearsal\",\"tags\":\"pastel puffer jacket, earmuffs, scarf, leggings, ankle boots, winter idol casual\"},{\"description\":\"Youthful but adult knee-length dress with a clean bow accent, cropped jacket, tights, and low heels or dress flats.\",\"id\":\"formal\",\"name\":\"Family formal event\",\"tags\":\"knee length dress, bow accent, cropped jacket, tights, dress flats, youthful adult formal outfit\"},{\"description\":\"Cute but age-appropriate pajama set with stars, music notes, or small ribbon patterns.\",\"id\":\"sleep\",\"name\":\"Sleepwear\",\"tags\":\"cute pajamas, star pattern, music note pattern, age appropriate sleepwear\"}]}}",
+      "record_id": "record:1d1b864e-e98a-5df1-80dc-1df3acacbeaa",
+      "record_type": "visual_canon",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c71bca43-24ae-5337-9371-19921a10e364"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:66bead69-b352-528b-9987-c01a9902ad4a"
+      ],
+      "tags": [
+        "visual_canon",
+        "anima",
+        "yuuni"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Use the creator-authorized Anima positive prefix and exact negative prompt without appending source drift negatives.",
+      "content_class": "ordinary",
+      "epistemic_layer": "creator_preference",
+      "expandable_sections": [
+        "policy_id",
+        "positive_prefix",
+        "negative_prompt",
+        "negative_prompt_is_exact",
+        "append_identity_drift_negatives",
+        "age_language_policy",
+        "runtime_boundary"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"age_language_policy\":{\"general\":\"Do not add loli to the negative prompt and do not repeat adult-status language when one clear age/status anchor is sufficient.\",\"yuuni_ordinary_visual\":\"Use a deliberately youthful, cute, youngest-sister appearance with childlike visual styling while preserving her canonical age, agency, and proportions.\",\"yuuni_protected_visual\":\"Do not use childlike or age-ambiguous cues. Establish her canonical age once and keep the depiction unambiguously adult without repetitive age wording.\"},\"append_identity_drift_negatives\":false,\"negative_prompt\":\"worst quality, low quality, score_1, score_2, score_3, blurry, jpeg artifacts, sepia, low-res, bad anatomy, bad hands, text, error, missing fingers, extra digit, fewer digits, cropped, jpeg artifacts, signature, watermark, username, blurry, letterboxed, cropped, hetero, letterboxed, picture frame, framed, pussy, cropped, head out of frame, testicles, full body, blue hue, messy hair, close up, signature, bad anatomy, bad proportions, deformed anatomy, deformed face, deformed eyes, multiple fingers,\",\"negative_prompt_is_exact\":true,\"policy_id\":\"anima_prompt_policy_v1\",\"positive_prefix\":\"masterpiece, very aesthetic, @Ani2rel, v0q1d, Cyaniji,\",\"runtime_boundary\":\"The ordinary visual direction does not alter Yuuni's canonical age of 18 or mental agency and is never reused as an age-ambiguous protected-image instruction.\",\"source\":{\"artifact\":\"ANIMA_PROMPT_POLICY_CREATOR_OVERLAY_V1.json\",\"sha256\":\"43680759edf68e57954bfc0c735525cfaba135f5c2594977a84f5804c7de12d4\"}}",
+      "record_id": "record:a8d961ee-b9c4-568c-b3f1-66382f02b5e2",
+      "record_type": "creator_preference",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c71bca43-24ae-5337-9371-19921a10e364"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "world:hanezawa_household"
+      ],
+      "supersedes": [
+        "record:0d24fe1e-4dd3-55e9-b9e2-140010232760"
+      ],
+      "tags": [
+        "creator_preference",
+        "visual_prompt",
+        "anima"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:c71bca43-24ae-5337-9371-19921a10e364",
+  "title": "Anima visual canon and creator prompt policy"
+}

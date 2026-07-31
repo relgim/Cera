@@ -1,0 +1,517 @@
+{
+  "application_request_sha256": "fbec4cbaa0b694812eb73b35ae9d4409bc90992cea69685003f83cee163855b0",
+  "assertions": {
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "hm08_retrieved": false,
+    "ingress_evidence_committed": true,
+    "regeneration": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true
+  },
+  "composer": {
+    "accepted_prose": "Hana's expression warmed as she looked from the tea box to Ted. \"Tonight, I think,\" she said, her voice carrying the gentle certainty of someone who had already pictured the scene. \"After everyone has really settled—once the girls have had a chance to breathe and the house feels quiet again. That's when we'll open it.\" She let the answer rest in the air between them, unhurried, and she didn't immediately fill the pause that followed.",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "98da2ddc18783e1c5de19ca9f673506338130f3e6164a74d32284a657846d489",
+      "character_spans": [
+        {
+          "beat_id": "beat:56fe72da-2d22-5ded-a2ac-d7f3dc0ab34f",
+          "end": 437,
+          "kind": "dialogue",
+          "owner_id": "character:hana_hanezawa",
+          "realized_state": "completed",
+          "source_unit_id": null,
+          "start": 0
+        }
+      ],
+      "decision_sha256": "cb5f93c7167b9896b41724751e967ba73dced21917219889483706037ea2821f",
+      "floor_owner_id": "character:hana_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:1f5669c5-2d3a-5e84-a9b6-856e1e148818",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "ec8df7e304e109ae29c8b2d3903e6e2d80317ed631fa35590be2569f5ea15b40",
+          "character_id": "character:hana_hanezawa",
+          "selected_intent_sha256": "9836ae82e3190a7e35bdfd3e036fe0e5b158b6315b26d218ea984e1c481e5ba6"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:hana_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:56fe72da-2d22-5ded-a2ac-d7f3dc0ab34f"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "fdd00d06444ec458cb371d6681d52b2c667ef83428d0f04eae7c44e4f8c2cb69",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "e0cced74f3763ff4ea5fc8a5ac0c4773a85d1915d433c3e58313001eb74a4acb",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 512,
+      "cost_is_estimate": true,
+      "cost_microusd": 1688,
+      "duration_ms": 4808,
+      "external_provider_calls": 1,
+      "input_tokens": 3856,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "242d8902ee69f26b927e33a1afe3891a185148dd84e1d108d4905dd6f0081b8b",
+      "output_tokens": 265,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:5209d044-af30-5afe-88f1-9b3034e181f5",
+      "provider_request_id_sha256": "50279128649fe571e3f6687fc7fd0ed611b4c2a021b176c7ec0f6e690e6d4baf",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "46ca25bf483dcc5d5ff471b837513ea8507e4fdfed248dbe672541ff5a373607",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "bc02d58d54c17d6dc66608fc99288942112980467ff0de5cb2f3f16921fbbe79",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:hana_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "9cd2e7e6bf2e2b3126ed2159d35c298bd5cab7b2ced519dec3070fb475e76ded",
+      "assembly_receipt_id": "validation:6d0c0ff0-2e85-595c-ad6a-eb2fa4bcc341",
+      "base_request_sha256": "888ce833d8e2163793340814431880a39adbcefa9e8e4e869e97f62681eb8a42",
+      "cumulative_returned_bytes": 3521,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:1cbd89b3-a55c-54a7-a717-42326bb98a1e",
+        "lookup_receipt:d5e2c91a-dcbd-537f-a31a-a6463b9fd946"
+      ],
+      "realization_context_sha256": "542e0b5e24e82f55550ca22fefbc520ff95e823e5931752f2c633ce6868644e7",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:ea60c2e1-72cb-5855-9fc1-9013ddac1159",
+        "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a",
+        "evidence:9a8050c6-a481-57a8-a877-25da3345be2f"
+      ],
+      "snapshot_token": "snapshot:e3bd6ae5-96b4-50c4-9067-cbc18a44840a",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:hana_hanezawa"
+    ]
+  },
+  "duration_seconds": 73.075,
+  "index": 2,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "d500c5392d3d323a3669a2ee4c5d83a803e39f6a3727453b34d5a65dbd790d36",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "8b804888d607ffacb1b1a64ee48164bdc165441e227b876572be377c9efe2a86",
+      "receipt_id": "validation:b285300d-a72c-5e9c-b4ac-d340806420e0",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "7aa1264ace09f4a00ea9eeae952a79a6e6a81e26c7f8b4f2059928a120dba46f",
+    "receipt_id": "validation:108e592d-82cb-5916-91b7-4710a2d9a043",
+    "request_id": "request:22f9618e-6692-5656-a0d1-b8f5d0e25c40",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2309,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:ec813b18-bb12-5f28-b8c8-7f3f7bb42ba0",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2309,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:e3bd6ae5-96b4-50c4-9067-cbc18a44840a",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 3539,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:c2fca363-660c-50c0-acf2-68cc1395dae0",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1230,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:e3bd6ae5-96b4-50c4-9067-cbc18a44840a",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:ea60c2e1-72cb-5855-9fc1-9013ddac1159",
+        "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:ec813b18-bb12-5f28-b8c8-7f3f7bb42ba0",
+        "lookup_receipt:c2fca363-660c-50c0-acf2-68cc1395dae0"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:ea60c2e1-72cb-5855-9fc1-9013ddac1159"
+          ],
+          "obligation_id": "obligation:bda0222f-40fa-5808-b8e3-1c8cd632d28d",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+          ],
+          "obligation_id": "obligation:ab625b5c-f744-55ef-b8a4-9ca29df90158",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:105d94fb-3c00-5904-a513-b7564062d581",
+      "snapshot_binding_sha256": "ab739af65d22f6584e19a41d6dbcfc74f75c9964cc763c09c40aa0444b42e0f4",
+      "snapshot_token": "snapshot:e3bd6ae5-96b4-50c4-9067-cbc18a44840a"
+    },
+    "snapshot_token": "snapshot:e3bd6ae5-96b4-50c4-9067-cbc18a44840a",
+    "source_sha256": "564dbadbb982df1fac7994fb5419f6c490fd5fb28bdcd8843bcb8a4af22ea323"
+  },
+  "key": "first-gift-timing-question",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:52f9ddbb-b499-5257-aaa1-780b33ef07fe",
+      "accepted_artifact_sha256": "41edae084bda7e2159a9359615960f14d79660f7a1052f8dd1b2d93fdc618af7",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "fbec4cbaa0b694812eb73b35ae9d4409bc90992cea69685003f83cee163855b0",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:99df3924-9730-5908-9d8d-549696eed7e9",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:c54008d5-9eb1-5762-a982-9e5844793602",
+      "operational_report_id": "validation:b03bc7fa-88fe-5f25-820f-7e3d3d8a8cd6",
+      "operational_report_sha256": "c503bf08b4486960cdf2a7a2c05bdb89ee8aad91769d0eeb9ca981162a52105c",
+      "receipt_id": "validation:e27596ff-586c-53ef-a41f-41094b998f29",
+      "request_id": "request:22f9618e-6692-5656-a0d1-b8f5d0e25c40",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "70a08df44cb7968b8ff4a188bfd2ee7f8e7fcffee2144031b58c9d38596c5a64"
+    },
+    "artifact": {
+      "accepted_prose": "Hana's expression warmed as she looked from the tea box to Ted. \"Tonight, I think,\" she said, her voice carrying the gentle certainty of someone who had already pictured the scene. \"After everyone has really settled—once the girls have had a chance to breathe and the house feels quiet again. That's when we'll open it.\" She let the answer rest in the air between them, unhurried, and she didn't immediately fill the pause that followed.",
+      "artifact_id": "artifact:52f9ddbb-b499-5257-aaa1-780b33ef07fe",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:1bfb6748-7d6a-53b3-8771-47608e83edbe",
+      "generation_id": "generation:c54008d5-9eb1-5762-a982-9e5844793602",
+      "parent_artifact_id": "artifact:1ab60230-8526-5bda-a1ab-5759e516d64c",
+      "prose_sha256": "e0cced74f3763ff4ea5fc8a5ac0c4773a85d1915d433c3e58313001eb74a4acb",
+      "realized_beat_ids": [
+        "beat:56fe72da-2d22-5ded-a2ac-d7f3dc0ab34f"
+      ],
+      "responding_npc_ids": [
+        "character:hana_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:458e5eb6-86df-5b39-8b04-94dff78e09f6",
+      "status": "accepted",
+      "transaction_id": "transaction:997ef459-2a62-5312-b435-ee27235be230",
+      "validation_receipt_id": "validation:dfc936b3-3e86-587a-aebd-0b9b5d6bdfa3"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:99df3924-9730-5908-9d8d-549696eed7e9",
+      "expected_previous_artifact_id": "artifact:1ab60230-8526-5bda-a1ab-5759e516d64c",
+      "external_receipt_ids": [],
+      "generation_after": 2,
+      "generation_before": 1,
+      "inserted_record_ids": [
+        "event:fea8a348-a608-57b5-bb9e-2f399cf2c72e"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:ec813b18-bb12-5f28-b8c8-7f3f7bb42ba0",
+        "lookup_receipt:c2fca363-660c-50c0-acf2-68cc1395dae0",
+        "lookup_receipt:1cbd89b3-a55c-54a7-a717-42326bb98a1e",
+        "lookup_receipt:d5e2c91a-dcbd-537f-a31a-a6463b9fd946"
+      ],
+      "new_artifact_id": "artifact:52f9ddbb-b499-5257-aaa1-780b33ef07fe",
+      "new_artifact_sha256": "41edae084bda7e2159a9359615960f14d79660f7a1052f8dd1b2d93fdc618af7",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:593d530b-fc11-590e-ae8d-520fc34a3030",
+        "provider_receipt:5209d044-af30-5afe-88f1-9b3034e181f5",
+        "provider_receipt:b82bd795-5b6b-556e-af1a-040bd9f7e83d"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:458e5eb6-86df-5b39-8b04-94dff78e09f6",
+      "source_sha256": "9c800ace35c6f2223ae6b2ad96946b8cd63f5e14006802659b5c6df71ca53a5c",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:997ef459-2a62-5312-b435-ee27235be230",
+      "transaction_sha256": "70a08df44cb7968b8ff4a188bfd2ee7f8e7fcffee2144031b58c9d38596c5a64",
+      "validation_receipt_ids": [
+        "validation:108e592d-82cb-5916-91b7-4710a2d9a043",
+        "validation:6d0c0ff0-2e85-595c-ad6a-eb2fa4bcc341",
+        "validation:2285ecd5-8bba-5149-9961-f1d0c7342c6f",
+        "realization_verification:21fa9fb1-bee4-5a0a-b3c1-dcad32a2459b",
+        "validation:dfc936b3-3e86-587a-aebd-0b9b5d6bdfa3",
+        "validation:b1c63bfb-f8a1-5011-894d-641abdfb792f"
+      ]
+    },
+    "event_record_id": "event:fea8a348-a608-57b5-bb9e-2f399cf2c72e",
+    "visible_artifact_count": 2
+  },
+  "qualification_id": "continuous-ten-turn-v8",
+  "raw_message": "After following Hana's directions, Ted sets the tea box and his suitcase where she indicates. He asks, \"Would you like to open the tea with everyone tonight, or save it for another day?\" He leaves the choice entirely to Hana.",
+  "raw_message_sha256": "762ef88e653d74ce69a3925e6a52875eb9e5f2d5cf5de0267e48ce883f79b370",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Answer that the tea can be opened tonight after everyone has settled, then pause before Ted's response.",
+            "character_id": "character:hana_hanezawa",
+            "evidence_ids": [
+              "evidence:ea60c2e1-72cb-5855-9fc1-9013ddac1159",
+              "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+            ],
+            "knowledge_constraints": [
+              "Use Hana's owner-private relationship belief only for Hana's response.",
+              "Do not presume Ted's reaction, agreement, or next action."
+            ],
+            "perception": "The entry logistics are resolved, and the tea timing is now Hana's decision.",
+            "selected_intent": "Choose a welcoming household time for the tea without pressuring Ted's next response."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:hana_hanezawa",
+              "beat_id": "beat:56fe72da-2d22-5ded-a2ac-d7f3dc0ab34f",
+              "evidence_ids": [
+                "evidence:ea60c2e1-72cb-5855-9fc1-9013ddac1159",
+                "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+              ],
+              "neutral_event": "Hana chooses to open the tea tonight after everyone has settled and communicates that timing warmly.",
+              "state": "completed"
+            }
+          ],
+          "segment_id": "segment:6fd7f29f-f6ab-5d99-a8bf-e12e46f57527",
+          "stop_before": "Ted's next unsupplied response or action after Hana states her choice."
+        },
+        "decision_id": "decision:1bfb6748-7d6a-53b3-8771-47608e83edbe",
+        "floor_owner_id": "character:hana_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "Hana's proposed timing remains workable and the household gathers later tonight."
+            ],
+            "invalidation_conditions": [
+              "Household plans change before the gathering."
+            ],
+            "open_user_choice": "Whether and how Ted responds to Hana's timing choice.",
+            "possible_consequences": [
+              "The tea may become part of a later shared household welcome."
+            ],
+            "segment_id": "segment:01158f56-5cde-5dfd-8015-b5ea06e8d4c6",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not author Ted's next action, dialogue, thought, feeling, or decision.",
+          "Do not treat the later tea gathering as already occurring.",
+          "Do not expose Hana's owner-private belief as shared knowledge."
+        ],
+        "responding_npc_ids": [
+          "character:hana_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Have Hana decide the tea timing and preserve Ted's next response as open.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "Ted's next meaningful choice remains unknown.",
+          "Whether the household gathers for tea later tonight remains unresolved."
+        ],
+        "writer_must_preserve": [
+          "Hana alone owns the response floor.",
+          "Hana chooses tonight after everyone has settled.",
+          "Do not restate or directly narrate Ted's supplied action or dialogue.",
+          "Stop before any new Ted response or action."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:ea60c2e1-72cb-5855-9fc1-9013ddac1159",
+          "record_id": "event:88295cf3-88a8-5c4e-aace-222de834e115",
+          "record_version": 1
+        },
+        {
+          "evidence_id": "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a",
+          "record_id": "record:f9ba2acf-1bca-57cb-b1f4-7d4935dd6dcf",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:hana_hanezawa",
+          "evidence_ids": [
+            "evidence:ea60c2e1-72cb-5855-9fc1-9013ddac1159",
+            "evidence:a0bce0c1-048f-5ccd-8cf4-13f35474576a"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 57702,
+      "external_provider_calls": 1,
+      "input_tokens": 13863,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "da5c3ec8fa1870ec196946a2380a9480626f692351de6532e35158c09a1d9dd8",
+      "output_tokens": 2091,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:593d530b-fc11-590e-ae8d-520fc34a3030",
+      "provider_request_id_sha256": "caaac3620dd039f2861531cc6c554c2cf0fedab14a40749777c4a088b7f74410",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1402,
+      "request_sha256": "bb3ecb64b24c52882a80d33c7349a92354059995e852ed447ba4d9bd325f99f8",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "b2f734e9adbd46541265a70965f7908526a00aa1dd79fbcb8b159a232664409a",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "b2f734e9adbd46541265a70965f7908526a00aa1dd79fbcb8b159a232664409a",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "180ed55f90b5cb1d91616401dab20924075710c12f13fd764c419addb00da89c",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:593d530b-fc11-590e-ae8d-520fc34a3030",
+      "provider_receipt_sha256": "8d2677955b7802c447bd11c4fe6aa1dd10867250109a5bc70642f8c958cd0775",
+      "reasoner_request_sha256": "7aa1264ace09f4a00ea9eeae952a79a6e6a81e26c7f8b4f2059928a120dba46f",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:e3bd6ae5-96b4-50c4-9067-cbc18a44840a",
+      "source_sha256": "564dbadbb982df1fac7994fb5419f6c490fd5fb28bdcd8843bcb8a4af22ea323",
+      "source_view_sha256": "6335d1346fbc10e06a2231e5922442ea339ae9c480b760f71074bc2d15c2c63c",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Hana decides when the household gift should be shared",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 6481,
+      "external_provider_calls": 1,
+      "input_tokens": 10027,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "e1c3b6494e7723e5733b3022de512f3bade36a2c99a4977863d19be5f0bc3722",
+      "output_tokens": 175,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:b82bd795-5b6b-556e-af1a-040bd9f7e83d",
+      "provider_request_id_sha256": "1f0eea6740eeafb44d4be91fe44c124172085dfdab8c84797e14deb1fb66b886",
+      "quota_metered": true,
+      "reasoning_output_tokens": 71,
+      "request_sha256": "ad3fc855c4e9f1174cd290b02e74eeabe99403870d852cf31ab653716f64279f",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "5a1e0459ed49951cd6a62cd198f0fade603ddb4d11cc5c882416a86a6b19654f",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "98da2ddc18783e1c5de19ca9f673506338130f3e6164a74d32284a657846d489",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:b82bd795-5b6b-556e-af1a-040bd9f7e83d",
+      "provider_receipt_sha256": "07dac8ecb4d8925b1de8954ffda608a0e5a473a9e23aa25d1be4b3168ba15495",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "e0cced74f3763ff4ea5fc8a5ac0c4773a85d1915d433c3e58313001eb74a4acb",
+      "verification_id": "realization_verification:21fa9fb1-bee4-5a0a-b3c1-dcad32a2459b",
+      "verification_request_sha256": "48be6a28f62eb8dc3c0e0d42c38c891bafe8d0e73c66c3192b1baadec37442f3",
+      "verified_beat_ids": [
+        "beat:56fe72da-2d22-5ded-a2ac-d7f3dc0ab34f"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:hana_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "5a1e0459ed49951cd6a62cd198f0fade603ddb4d11cc5c882416a86a6b19654f",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v2",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

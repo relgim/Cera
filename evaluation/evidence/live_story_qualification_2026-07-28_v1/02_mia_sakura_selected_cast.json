@@ -1,0 +1,17 @@
+{
+  "adult": false,
+  "adult_mode": null,
+  "automatic_retry_count": 0,
+  "case_id": "02_mia_sakura_selected_cast",
+  "error": {
+    "class": "RuntimeError",
+    "message": "selected realization context changed requested responders"
+  },
+  "fallback_enabled": false,
+  "schema_version": "cera.live_story_qualification_case.v1",
+  "source_sha256": "a72d3b50a8359c58ed250dbd95f230d61fab2acbd65748d37593e917932f0891",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Mia and Sakura ordinary selected-cast turn"
+}

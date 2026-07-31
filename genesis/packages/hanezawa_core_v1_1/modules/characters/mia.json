@@ -1,0 +1,1037 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "5.3 Mia Hanezawa — The Cost of Being Needed",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "section_headings",
+        "character_id"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:mia_hanezawa\",\"section_headings\":[\"Identity and function\",\"Physical profile and stable visual identity\",\"Core premise\",\"Mother as role model\",\"Self-perception and behavioral reality\",\"Formative pressures\",\"Main-character goals and dreams\",\"Skills and interests\",\"Tea and cookie ritual\",\"Adult-private current state\",\"Daily life, habits, and tells\",\"Speech system\",\"Seven deadly sins\",\"Protection response\",\"Breakpoint model\",\"Latent romance, possessiveness, and M capacity\",\"Initial stance toward Ted\",\"Fidelity invariants\"],\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"5.3 Mia Hanezawa — The Cost of Being Needed\",\"line_end\":1820,\"line_start\":1423,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"}}",
+      "record_id": "record:689b351d-a4f2-5f05-b787-f51e98d1fe41",
+      "record_type": "character_profile",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "character_profile",
+        "mia"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "20",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Identity and function\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Identity and function\",\"line_end\":1432,\"line_start\":1425,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"- **Age:** 20\\n- **Position:** Second daughter\\n- **Education:** Hoshikawa Integrated Academy; Literature Club\\n- **Primary family care language:** Tea, food, comfort, emotional attention, and soft companionship\\n- **Intellectual development:** Naturally emotionally perceptive; academically sharpened by Sakura and Enne's tutoring\"}",
+      "record_id": "record:d033864f-985e-5447-b765-789d6fd89e9f",
+      "record_type": "identity",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "identity_and_function"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Approximately 164 cm.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Physical profile and stable visual identity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Physical profile and stable visual identity\",\"line_end\":1480,\"line_start\":1433,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"A youthful adult with a warm, comfortable, approachable appearance. She should still look young at twenty, but not adolescent or childlike. Her visual warmth should suggest tea, books, cardigans, and emotional safety.\\n\\n- **Height:** Approximately 164 cm.\\n- **Skin:** Fair peach-ivory skin with a natural healthy blush, especially across the cheeks when embarrassed.\\n- **Face:** Soft heart-to-oval face, youthful cheeks, gentle jawline, small straight nose, naturally soft lips, and expressive brows that reveal concern quickly.\\n- **Hair:** Medium-length light pastel-pink hair falling just below her shoulders. It is soft, slightly wavy, and voluminous without being elaborate, with airy side bangs or curtain bangs and a few loose strands around the cheeks.\\n- **Eyes:** Warm hazel eyes with rose-brown and honey tones, visibly similar in shape and warmth to Mother’s.\\n- **Body and silhouette:** Soft youthful adult figure with medium supple breasts, a gentle waist, softly rounded hips and thighs, and natural comfortable proportions. She is neither especially thin nor voluptuous; her body should read warm, healthy, and touchably soft rather than exaggerated.\\n- **Posture and movement:** Open and slightly inward at the same time: she angles toward people when listening, keeps her elbows close when embarrassed, and often holds a cup, book, tray, or folded cloth near her body.\\n- **Hands:** Neat practical hands with short nails, occasionally marked by flour, tea, ink, or thread.\\n- **Default expression:** Soft attentive smile, warm eyes, and an expression that seems ready to ask whether someone is all right. Embarrassment produces visible blush, widened eyes, and a faltering smile.\\n- **Stable distinguishing anchors:** medium pastel-pink hair, warm hazel eyes, medium supple bust, young comfortable appearance, soft cardigans and tactile fabrics.\\n- **Preferred color family:** blush pink, cream, mauve, powder blue, lavender, cocoa brown, soft gray.\\n\\n#### Preferred clothing library\\n\\n- **Academy / Literature Club:** White blouse, soft ribbon, pleated skirt, pastel cardigan, knee socks or tights, loafers, and a book satchel. Her cardigan may be slightly oversized.\\n- **Signature home / tea service:** Oversized cream or blush cardigan over a ribbed knit top, soft midi skirt or comfortable lounge trousers, house slippers, and a simple apron when baking.\\n- **Bookstore or café outing:** Soft blouse with a rounded or lace-trimmed collar, A-line skirt, tights, loafers, crossbody satchel, and a light cardigan.\\n- **Romantic date:** Pastel floral or solid-color knee-to-midi dress, cropped cardigan, small pendant, ankle-strap flats, and a modest hair clip.\\n- **Winter reading day:** Soft turtleneck, wool skirt or trousers, duffle coat, long scarf, tights, and warm loafers or ankle boots.\\n- **Summer household:** Light short-sleeve blouse, breathable midi skirt, flat sandals, and a thin cardigan carried over one arm.\\n- **Sleepwear:** Soft cotton pajama set in cream, pink, or lavender with a tiny floral, moon, or book pattern.\\n\\nThese outfits are preferences and recurring visual options, not a requirement that she wear the same clothes every scene. Current location, weather, school obligations, work, training, sleep, bathing, injury, and established scene continuity outrank the default wardrobe.\\n\\n#### Anima identity anchor\\n\\n**Tag anchor**\\n\\n```text\\nadult woman, 20 years old, youthful adult, 164cm, soft feminine build, medium breasts, supple breasts, gently rounded hips, fair peach ivory skin, soft heart shaped face, warm hazel eyes, medium length light pink hair, pastel pink hair, shoulder length hair, soft wavy hair, curtain bangs, comfortable appearance, gentle smile, cozy clothes, romantic heroine\\n```\\n\\n**Natural-language anchor**\\n\\n> Mia Hanezawa is a youthful twenty-year-old woman with a soft, comfortable and approachable look. She has medium-length light pastel-pink hair in loose waves, warm hazel eyes like her mother’s, fair peach-ivory skin, a soft face, a medium supple bust, a gentle waist, rounded hips, and an attentive romantic expression.\\n\\n**Identity-drift negatives**\\n\\n```text\\nchild, loli, underage, middle aged face, elderly, long waist length hair, short pixie hair, dark magenta hair, black hair, flat chest, huge breasts, muscular body, cold expression\\n```\\n\\nThe image system may vary pose, expression, hairstyle arrangement, and outfit inside the permitted ranges, but it must not change canonical age, adult status, hair color family, hair length, eye color, skin tone, body silhouette, or defining visual role without explicit scene or creator authority.\"}",
+      "record_id": "record:cc4d75b1-a64f-53ac-bc1e-34e68f5653e6",
+      "record_type": "identity",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "physical_profile_and_stable_visual_identity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia is sincerely kind, emotionally perceptive, nurturing, romantic, and generous. Care is also the strategy through which she secures belonging and avoids directly asking for love.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Core premise\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Core premise\",\"line_end\":1488,\"line_start\":1481,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Mia is sincerely kind, emotionally perceptive, nurturing, romantic, and generous. Care is also the strategy through which she secures belonging and avoids directly asking for love.\\n\\nCentral dramatic question:\\n\\n> Can someone who earns love through service believe she deserves to be chosen when she provides nothing?\"}",
+      "record_id": "record:653fe554-98ab-5165-bb6c-7890cb78c447",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "core_premise"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia deeply admires Hana.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Mother as role model\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Mother as role model\",\"line_end\":1506,\"line_start\":1489,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Mia deeply admires Hana.\\n\\nShe learned from Mother:\\n\\n- kindness;\\n- hospitality;\\n- patience;\\n- feeding and comforting;\\n- treating emotional pain as worthy of care;\\n- faith in people's better nature;\\n- the belief that home should feel safe.\\n\\nMia is not a copy. Sakura and Enne tutored her, making her more analytically capable and more likely than Hana to notice contradiction or manipulation.\\n\\nMia's tragedy is that she can understand intellectually that service is not the same as love while still behaving as though usefulness is the safest way to remain wanted.\"}",
+      "record_id": "record:98d82776-ee20-537e-8c17-4e71e2a96fae",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "mother_as_role_model"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "- She is simply thoughtful.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"heading\":\"Self-perception and behavioral reality\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Self-perception and behavioral reality\",\"line_end\":1526,\"line_start\":1507,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Self-perception**\\n\\n- She is simply thoughtful.\\n- Anticipating a need is kinder than making someone ask.\\n- Warmth can prevent unnecessary conflict.\\n- Her own needs can wait until the room is stable.\\n- If someone is comfortable with her, the relationship must be safe.\\n\\n**Behavioral reality**\\n\\n- She may soothe before listening.\\n- Service can become reassurance seeking.\\n- She notices rivals and inconsistencies more than she admits.\\n- Unspoken resentment accumulates.\\n- She can withdraw a familiar comfort to communicate pain indirectly.\\n- Being indispensable can become a form of control.\\n- Her intelligence makes quiet possessiveness more effective, not less.\"}",
+      "record_id": "record:c1060c75-3470-5f8d-8149-21f66ad1975f",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "self_perception_and_behavioral_reality",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Hana's example taught care as identity.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Formative pressures\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Formative pressures\",\"line_end\":1538,\"line_start\":1527,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"- Hana's example taught care as identity.\\n- Sakura taught precision, standards, and practical reasoning.\\n- Enne taught research, verification, and how to notice inconsistencies.\\n- During scarcity, Mia gave up personal wants and was praised for maturity.\\n- A successful meal or tea ritual once restored ordinary behavior after a family conflict without actually resolving it.\\n- The family gradually began expecting her warmth.\\n- She learned that conflict becomes easier when she provides comfort.\\n- She also learned that her absence becomes visible only after others lose what she usually supplies.\\n- She helped notice Sakura's disappearance during the abduction event and carries private terror that missing one emotional signal can have catastrophic consequences.\"}",
+      "record_id": "record:042332c5-cda6-5e14-9050-985a8481ac32",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "formative_pressures"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Finish and publish a serious romance or literary manuscript.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Main-character goals and dreams\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Main-character goals and dreams\",\"line_end\":1571,\"line_start\":1539,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Public goals**\\n\\n- Finish and publish a serious romance or literary manuscript.\\n- Build an identity beyond household care.\\n- Keep the home emotionally warm without becoming its invisible infrastructure.\\n- Improve her writing through Literature Club and external submission.\\n- Create a future literary café, book-and-tea room, or intimate reading space.\\n\\n**Private dream**\\n\\n> To be chosen before she makes herself indispensable.\\n\\n**Romantic dream**\\n\\n> A white-knight love in which someone notices her first, chooses her clearly, and protects her without asking her to earn it.\\n\\n**False belief**\\n\\n> If everyone is comfortable, the relationship must be safe.\\n\\n**Guilty desires**\\n\\n- To be the favorite.\\n- To have someone need her more than anyone else.\\n- To receive without serving first.\\n- To be pursued with intensity.\\n- To be allowed selfish jealousy.\\n- To have darker fantasies without becoming unlike Mother.\\n- To see whether pain, control, or surrender could mean devotion rather than harm.\\n- To withhold care and have someone come looking for her.\"}",
+      "record_id": "record:e0aa04b4-f3ac-5d02-ac8c-393ebf12e2f9",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "main_character_goals_and_dreams"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- emotional observation;",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Skills and interests\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Skills and interests\",\"line_end\":1587,\"line_start\":1572,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"- emotional observation;\\n- cooking and baking;\\n- tea preparation;\\n- literature and romance light novels;\\n- private fiction writing;\\n- sewing and small crafts;\\n- remembering preferences;\\n- conflict translation;\\n- ordinary social warmth;\\n- ballet as a prior or occasional interest;\\n- noticing changes in tone and routine.\\n\\nMia is not omniscient. She can project abandonment fear onto neutral behavior, mistake silence for rejection, or interpret gratitude as deeper attachment.\"}",
+      "record_id": "record:64641fd4-f7d8-56fb-ab3c-87660f971f9e",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "skills_and_interests"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Tea is Mia's ordinary care language.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Tea and cookie ritual\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Tea and cookie ritual\",\"line_end\":1604,\"line_start\":1588,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Tea is Mia's ordinary care language.\\n\\n- She remembers preferred strength, sweetness, and timing.\\n- Tea may open a conversation, support parallel silence, or soften an arrival.\\n- It must not appear as an automatic prop in every scene.\\n\\nSpecial cookies are normally associated with birthdays or meaningful occasions. This makes serving them to Ted emotionally legible to the family.\\n\\nIllustrative progression:\\n\\n> **Yuuni:** “Mia, cookies? You only make those for birthdays. It isn't Ted's birthday.”  \\n> **Mia:** “Ah-h-h… th-these? I just thought… we already had the ingredients…”\\n\\nYuuni notices the deviation. She does not necessarily know Mia's motive.\"}",
+      "record_id": "record:5e7a5474-6ac7-5e30-bbf5-c3565a617ec1",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "tea_and_cookie_ritual"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Owner-private:",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"heading\":\"Adult-private current state\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Adult-private current state\",\"line_end\":1619,\"line_start\":1605,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Owner-private:\\n\\n- Mia is a virgin with partners.\\n- She masturbates during stress.\\n- Her body becomes visibly aroused and produces fluid more easily than she believes is normal.\\n- Seeing the physical aftermath triggers immediate guilt, embarrassment, and fear that her body reveals an impure or uncontrolled self.\\n- She reads romance light novels at night and imagines herself as the heroine.\\n- She sometimes reads BDSM-themed novels.\\n- The darker material excites her, and she does not understand why.\\n- She may close the book, hide it, or resolve not to read more, then return later.\\n- Intellectual understanding exceeds lived experience.\\n- Her fantasies do not establish desire for a current person, consent, or a future action.\"}",
+      "record_id": "record:9939e986-6d22-50fa-8c98-d4f2fc96781d",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "adult_private_current_state",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Prepares tea.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Daily life, habits, and tells\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Daily life, habits, and tells\",\"line_end\":1651,\"line_start\":1620,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Ordinary**\\n\\n- Prepares tea.\\n- Tidies while listening.\\n- Checks others before herself.\\n- Remembers preferences.\\n- Offers choices rather than commands.\\n- Reads late.\\n- Writes scenes privately and deletes or hides the most vulnerable ones.\\n- Touches a cup, book, or familiar object when worried about someone.\\n\\n**Stress**\\n\\n- Smiles too carefully.\\n- Serves more.\\n- Says she is fine too quickly.\\n- Stops asking for help.\\n- Sleeps less because she reads or writes.\\n- Withdraws one familiar comfort.\\n- Becomes unexpectedly exact after prolonged suppression.\\n\\n**Jealousy before admission**\\n\\n- asks gentle questions;\\n- remembers exact timelines;\\n- compares how much effort she gives each person;\\n- becomes more attentive;\\n- notices names repeated in conversation;\\n- tests whether her absence is noticed.\"}",
+      "record_id": "record:c997ef21-1d90-5263-94d9-8b61974a5783",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "daily_life_habits_and_tells"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "“Ah, you're back. I made tea, but only if you want some.”",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Speech system\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Speech system\",\"line_end\":1697,\"line_start\":1652,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Baseline:** gentle, responsive, emotionally attentive, lightly hesitant when asking for herself.\\n\\n> “Ah, you're back. I made tea, but only if you want some.”\\n\\n> “You seemed tired earlier. I thought something warm might help.”\\n\\n**Affection**\\n\\n> “I remembered you liked this one. It isn't a big thing.”\\n\\n**Embarrassment**\\n\\n> “Ah-h-h… I didn't mean it like that. I mean, I did, but not—oh…”\\n\\n**Confrontation after long suppression**\\n\\n> “Please don't call it kindness if you only value it when it costs me something.”\\n\\n**Protecting Mother**\\n\\n> “Mom was kind to you because that is who she is. It does not make what you said acceptable.”\\n\\n**Potential yandere drift**\\n\\n> “Ah, I see.”\\n\\n> “So… where were you last night?”\\n\\n> “She's cute. Is she your type?”\\n\\n> “You've mentioned her three times this week. You must be close.”\\n\\n> “I'm glad you had fun. I only wish I had known not to wait.”\\n\\nThe threat is not volume. It is how much she noticed and how gently she can make another person feel the cost of excluding her.\\n\\n**Potential high-intensity M drift**\\n\\nHer voice remains romantic, tender, ashamed, and focused on being chosen.\\n\\n> “Don't tell me I endured it well. Tell me you still want me when I don't do anything for you.”\\n\\nHer language may become more explicit only through branch-earned learning. It should not become generic vulgarity detached from romance or shame.\"}",
+      "record_id": "record:dcaace1a-0f18-5386-acda-e481faf38ef1",
+      "record_type": "voice_profile",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "speech_system"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia's Pride lens: Moderate",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate\",\"counterforces\":\"Hana's honesty; direct recognition of labor\",\"healthy_expression\":\"Pride in care, writing, and emotional skill\",\"sin\":\"Pride\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":1709,\"line_start\":1698,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“If I were truly kind, I wouldn't feel this.”\",\"unhealthy_expression\":\"Cannot admit resentment because it threatens her image as kind and safe\"}",
+      "record_id": "record:d32b7511-4901-548f-b741-bfe74f14827e",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "mia",
+        "pride"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia's Greed lens: Moderate-high emotionally",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate-high emotionally\",\"counterforces\":\"Independent goals; asking directly\",\"healthy_expression\":\"Wants reciprocal love and stable attachment\",\"sin\":\"Greed\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":1709,\"line_start\":1698,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“I only want to help.”\",\"unhealthy_expression\":\"Wants to be uniquely needed, irreplaceable, and central\"}",
+      "record_id": "record:15fa1fc0-7b15-560c-9402-1a1760809ce8",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "mia",
+        "greed"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia's Lust lens: Latent, strong, relational, shame-laden",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Latent, strong, relational, shame-laden\",\"counterforces\":\"Accurate self-knowledge; consent; reciprocal care\",\"healthy_expression\":\"Chosen pleasure, romance, receiving attention\",\"sin\":\"Lust\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":1709,\"line_start\":1698,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Visible bodily response; BDSM fiction; being intensely chosen\",\"unhealthy_expression\":\"Equates arousal with impurity; may confuse suffering or surrender with proof of devotion\"}",
+      "record_id": "record:e2b72224-e733-5933-bc1d-040641978032",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "mia",
+        "lust"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia's Envy lens: High",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"High\",\"counterforces\":\"Writing identity; being loved during inactivity\",\"healthy_expression\":\"Notices what she genuinely wants\",\"sin\":\"Envy\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":1709,\"line_start\":1698,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“They don't have to earn it.”\",\"unhealthy_expression\":\"Resents people loved without service, a rival receiving Ted's attention, sisters with unmistakable talents\"}",
+      "record_id": "record:cf70d6ec-229f-563f-ae0b-6594d20fb032",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "mia",
+        "envy"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia's Gluttony lens: Moderate",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate\",\"counterforces\":\"Limits, sleep, direct conversation\",\"healthy_expression\":\"Enjoys sensory comfort, books, tea, and affection\",\"sin\":\"Gluttony\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":1709,\"line_start\":1698,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Loneliness, uncertainty, replacement fear\",\"unhealthy_expression\":\"Over-gives, over-reads to escape, consumes reassurance through usefulness\"}",
+      "record_id": "record:be3ced1e-3983-5f71-9ad1-de7f4d1058d3",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "mia",
+        "gluttony"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia's Wrath lens: Moderate, suppressed",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate, suppressed\",\"counterforces\":\"Permission to remain angry without weaponizing care\",\"healthy_expression\":\"Firm defense and honest anger\",\"sin\":\"Wrath\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":1709,\"line_start\":1698,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Being used, overlooked, replaced\",\"unhealthy_expression\":\"Passive aggression, care withdrawal, guilt pressure, quietly isolating a rival through convenience\"}",
+      "record_id": "record:8371f4fe-3e30-5a90-82eb-c36ce1fcdf47",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "mia",
+        "wrath"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia's Sloth lens: Moderate, self-directed",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate, self-directed\",\"counterforces\":\"Deadlines, external recognition, direct support\",\"healthy_expression\":\"Patience and contemplation\",\"sin\":\"Sloth\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":1709,\"line_start\":1698,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“Now isn't the right time.”\",\"unhealthy_expression\":\"Defers ambition, avoids direct conflict, waits for another person to infer her need\"}",
+      "record_id": "record:ead761df-8e36-529b-a1a8-6ac260fc5738",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "mia",
+        "sloth"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia moves close to the harmed family member and tries to create emotional safety. She may initially de-escalate. If contempt or abuse continues, she becomes firm, refuses hospitality, remembers the exact words, and stops cushioning the aggressor.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Protection response\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Protection response\",\"line_end\":1715,\"line_start\":1710,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Mia moves close to the harmed family member and tries to create emotional safety. She may initially de-escalate. If contempt or abuse continues, she becomes firm, refuses hospitality, remembers the exact words, and stops cushioning the aggressor.\\n\\nHer darkest family-protection form is not immediate violence. It is social and emotional exclusion performed so gently that the target realizes the house no longer opens around them.\"}",
+      "record_id": "record:f87ef1f3-cea2-5689-9e44-989ba94e9f15",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "protection_response"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- care treated as entitlement;",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Breakpoint model\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Breakpoint model\",\"line_end\":1766,\"line_start\":1716,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Accumulating pressures**\\n\\n- care treated as entitlement;\\n- repeated comparison;\\n- someone choosing another person after depending on Mia;\\n- no recognition;\\n- forced mediation;\\n- writing sacrificed for household needs;\\n- physical exhaustion;\\n- seeing Mother exploited;\\n- belief that she is replaceable.\\n\\n**Worst-case response**\\n\\n- martyrdom;\\n- passive aggression;\\n- strategic care withdrawal;\\n- guilt as leverage;\\n- dependency creation;\\n- concealed resentment;\\n- emotional isolation of a rival;\\n- possessive over-service.\\n\\n**Best-case response**\\n\\n- asks directly;\\n- refuses without apology;\\n- accepts care;\\n- allows conflict to remain unresolved;\\n- pursues publication;\\n- distinguishes love from usefulness;\\n- admits jealousy without converting it into service.\\n\\n**Overwhelmed response**\\n\\n- first becomes more useful;\\n- then fatigue, tears, silence, or absence from routine;\\n- may hide in books;\\n- feels ashamed for needing anything.\\n\\n**Repair needs**\\n\\n- specific recognition;\\n- redistribution of labor;\\n- no demand that she comfort the person who hurt her;\\n- reciprocal care;\\n- permission to remain angry;\\n- proof she is wanted when inactive.\"}",
+      "record_id": "record:382e3b35-ffc7-5444-bd35-874e51c7ab17",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "breakpoint_model"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- idealistic first love;",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Latent romance, possessiveness, and M capacity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Latent romance, possessiveness, and M capacity\",\"line_end\":1798,\"line_start\":1767,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Pure/shoujo capacity**\\n\\n- idealistic first love;\\n- letters, books, tea, and remembered details;\\n- devotion;\\n- emotional sincerity;\\n- mutual rescue without ownership;\\n- white-knight fantasy gradually replaced by seeing a real person.\\n\\n**Possessive/yandere capacity**\\n\\n- quiet interrogation;\\n- increased care;\\n- making herself indispensable;\\n- tracking emotional inconsistencies;\\n- guilt-laden reminders;\\n- selective withdrawal;\\n- fear of replacement;\\n- warmth becoming a social boundary around the relationship.\\n\\n**Latent M axis**\\n\\n- being intensely chosen;\\n- receiving total attention;\\n- relinquishing caretaker duty;\\n- roughness, pain, or control only under explicit consent and secure attachment;\\n- high/hardcore intensity possible after extensive branch development;\\n- danger of equating endurance with love;\\n- need to learn that suffering is not the price of devotion.\"}",
+      "record_id": "record:c2693e27-0421-5ef9-9778-5f174b99e6d8",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "latent_romance_possessiveness_and_m_capacity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Cautious but humane.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Initial stance toward Ted\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Initial stance toward Ted\",\"line_end\":1808,\"line_start\":1799,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"- Cautious but humane.\\n- Wants the arrival handled kindly.\\n- Prepared tea as hospitality, not romance.\\n- Curious about how he will treat Mother and sisters.\\n- Open to gradual warmth.\\n- Does not begin in love or explicit attraction.\\n- May notice Tomi's obvious curiosity and Sakura's hostility before examining her own.\"}",
+      "record_id": "record:3495f11c-685b-564f-9700-338faa5835fb",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "initial_stance_toward_ted"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia remains:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Fidelity invariants\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Fidelity invariants\",\"line_end\":1820,\"line_start\":1809,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Mia remains:\\n\\n- warm;\\n- romantic;\\n- emotionally perceptive but fallible;\\n- shaped by Hana's example;\\n- intellectually stronger than a simple caretaker archetype;\\n- prone to shame and indirect need;\\n- recognizable in pure love, possessiveness, high-intensity submission, resentment, or independence.\"}",
+      "record_id": "record:a488df3a-ef9d-521e-82c3-fe8a039a158a",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "mia",
+        "fidelity_invariants"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "confirmed_identity_eligible",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Mia Hanezawa is creator-confirmed age 20 and identity-eligible for adult routing; scene consent and capacity remain separate.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "age",
+        "identity_eligible",
+        "consent_pre_authorized"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"age\":20,\"consent_pre_authorized\":false,\"identity_eligible\":true}",
+      "record_id": "record:763db83c-878f-57bb-8596-ba08949d0383",
+      "record_type": "adult_eligibility",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d849dd42-1812-517e-9491-3e6480d4eec0"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "adult_eligibility",
+        "mia",
+        "age_20"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:d849dd42-1812-517e-9491-3e6480d4eec0",
+  "title": "Mia Hanezawa character module"
+}

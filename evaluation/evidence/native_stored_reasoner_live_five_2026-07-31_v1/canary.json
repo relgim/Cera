@@ -1,0 +1,16 @@
+{
+  "cleanup_error_message": "JSON-RPC error -32600: no rollout found for thread id [stored-thread-id-redacted]",
+  "cleanup_error_type": "InvalidRequestError",
+  "cleanup_status": "failed",
+  "error_message": "stored parent checkpoint could not be resumed",
+  "error_type": "RuntimeError",
+  "fallback_count": 0,
+  "finished_at": "2026-07-31T09:29:56.021892+00:00",
+  "provider_calls": 0,
+  "retry_count": 0,
+  "schema_version": "cera.native_stored_reasoner_canary.v1",
+  "started_at": "2026-07-31T09:29:54.398745+00:00",
+  "status": "failed",
+  "story_state_committed": false,
+  "wall_seconds": 1.621
+}

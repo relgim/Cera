@@ -1,0 +1,760 @@
+{
+  "application_request_sha256": "4900fbb0eb9f87bc7cbc29c1293de3d494bc0d1b4dd2c47d7de650c4817a061a",
+  "assertions": {
+    "all_eligible_required": true,
+    "all_eligible_selected": true,
+    "branch_fork_unchanged": true,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "codex_cli_exec_one_shot"
+  },
+  "composer": {
+    "accepted_prose": "Tomi drags her knuckles over her cheek, then exhales hard. \"Ten minutes. I'm not disappearing—I just want the quiet. If I need something after that, I'll say so, but right now I'm asking for the space.\"\n\nMia sets her palms lightly together, her voice low and tentative. \"If you decide you want something, I could get cold water and a plain rice ball. But I'm not bringing anything unless you ask. It's just an option.\"\n\nYuuni taps a single earbud against her thigh. \"There's a quiet instrumental playlist on my phone. If you ever want music, I can put it on low. I'm not starting it now, though.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "1667916c6b847658a19efbdd3b5bfc5b3ac58a29084980468b3f1172114b2353",
+      "character_spans": [
+        {
+          "beat_id": "beat:ec680254-1813-58c8-b8e9-98f64d5b7f0a",
+          "end": 202,
+          "kind": "dialogue",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "completed",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:ec680254-1813-58c8-b8e9-98f64d5b7f0a",
+          "end": 202,
+          "kind": "action",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "completed",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:656860a5-df6d-5c29-be50-56498219c894",
+          "end": 418,
+          "kind": "dialogue",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "completed",
+          "source_unit_id": null,
+          "start": 204
+        },
+        {
+          "beat_id": "beat:656860a5-df6d-5c29-be50-56498219c894",
+          "end": 418,
+          "kind": "action",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "completed",
+          "source_unit_id": null,
+          "start": 204
+        },
+        {
+          "beat_id": "beat:6ba0548a-b683-5d80-8e79-f06ea8c88641",
+          "end": 596,
+          "kind": "dialogue",
+          "owner_id": "character:yuuni_hanezawa",
+          "realized_state": "completed",
+          "source_unit_id": null,
+          "start": 420
+        },
+        {
+          "beat_id": "beat:6ba0548a-b683-5d80-8e79-f06ea8c88641",
+          "end": 596,
+          "kind": "action",
+          "owner_id": "character:yuuni_hanezawa",
+          "realized_state": "completed",
+          "source_unit_id": null,
+          "start": 420
+        }
+      ],
+      "decision_sha256": "3a73467973e54382271a40c26053070fb2d8043f2a77c830f48f40c8fe8c2a41",
+      "floor_owner_id": "character:tomi_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:052b5d24-f6e1-5495-bcbe-258cf9f30fbc",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "799560438fe8cf4f1f82452a53a100b7fa1b5fe87def3a49ca9fc7c918301fa6",
+          "character_id": "character:tomi_hanezawa",
+          "selected_intent_sha256": "024920a741eb73f8951b25f4bf1dd9b4df1446df61a12a909a163472c3b445d4"
+        },
+        {
+          "action_direction_sha256": "65b6ab5d7e4a5fab45d25fde1aa5b22cc5d913a5e33e18c0454f62ab642a07f5",
+          "character_id": "character:mia_hanezawa",
+          "selected_intent_sha256": "7172dcd53591052d6a13d1498c39b051cda3ed03e4c6e95ba999ee6cff3bd56f"
+        },
+        {
+          "action_direction_sha256": "6dc31b491c57cfc99afc60a282b8936b0b1fceb13fd2502bd043c87c6346a4a0",
+          "character_id": "character:yuuni_hanezawa",
+          "selected_intent_sha256": "a28e93399a2cbf5a43591e75668145c2cafe71cbc5cc24e322886aa0a93b4d3b"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        },
+        {
+          "character_id": "character:mia_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        },
+        {
+          "character_id": "character:yuuni_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:ec680254-1813-58c8-b8e9-98f64d5b7f0a",
+        "beat:656860a5-df6d-5c29-be50-56498219c894",
+        "beat:6ba0548a-b683-5d80-8e79-f06ea8c88641"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "1be8bdee5dada29d07afe1461f072329aa8a000261ec55b788bf98c894fe028e",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "44251cc5f8715815644df9d34db424554f9a765d636ee7a636d2a48e28f31759",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1280,
+      "cost_is_estimate": true,
+      "cost_microusd": 2859,
+      "duration_ms": 9992,
+      "external_provider_calls": 1,
+      "input_tokens": 6461,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "1c0e654e9b8fd88ba38b898a4de2101e30fb741916db243c43b05eb54a55e75c",
+      "output_tokens": 690,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:1e263ebc-12be-5cb7-ab17-309891c44f8a",
+      "provider_request_id_sha256": "1300c8b3d20c9f5ff7c63948f9c024a563c22cb50f3d0fcc4bb40942e0e57674",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "82ffadcab2ffde6ba4262cd8a38a68f4a22e1b053f4f09f1e3e7a1671c497b06",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "e795e7c4dc412df72d8c79dd2828361a6febfd81f63010ff57d72a2f0e03da17",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:mia_hanezawa",
+      "character:tomi_hanezawa",
+      "character:yuuni_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "273e36ba38ab89abb6e24b2efa5c8f877fbff9786c8b023dbfd7ba8c936e44a6",
+      "assembly_receipt_id": "validation:ee461eb8-2107-581e-af67-c5db45ac668c",
+      "base_request_sha256": "c0ac1f401a3987e3fe907ef7cc44e870dfd42ad0d79fd44fe7e09c20dddd9cf2",
+      "cumulative_returned_bytes": 10602,
+      "external_provider_calls": 0,
+      "lookup_count": 6,
+      "lookup_receipt_ids": [
+        "lookup_receipt:26f9d883-8aeb-52b0-9ae5-5420d40c9c2c",
+        "lookup_receipt:0091ef91-efca-5887-98c3-7123d0bf6c93",
+        "lookup_receipt:b4e6008a-fbf0-5354-8fac-8170efbbe264",
+        "lookup_receipt:e34976d1-9b35-5dac-a8f3-0aab2d476408",
+        "lookup_receipt:fd48e82d-df00-5a89-8d4f-85bb670e534b",
+        "lookup_receipt:39953a37-ca7f-56b9-baae-8ab880439fb2"
+      ],
+      "realization_context_sha256": "5aa061c0bbcd713c0712323984844c8e8f04d193d987950661f2f4e90754369e",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:0102efd7-35f1-508d-895b-8e438b63ed09",
+        "evidence:5043488b-db8e-5608-bc71-86f9ee7283c4",
+        "evidence:e6e5bd4a-7303-52ab-8b3d-2e547c813b17",
+        "evidence:8ffb7f41-974b-5239-8669-038c0cb6d755"
+      ],
+      "snapshot_token": "snapshot:56efa102-ce10-51cc-ae29-585aca4483ab",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:tomi_hanezawa",
+      "character:mia_hanezawa",
+      "character:yuuni_hanezawa"
+    ]
+  },
+  "duration_seconds": 114.006,
+  "index": 7,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "96fadc5d8247df52a155b48c0d2c5e77114fb7328f03065012da248d2507d203",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "31b3ee22d439e975e53efe5bed991bd43203cbb1a0242e017b1cd54612fe98ee",
+      "receipt_id": "validation:9e4dcd5e-87dd-52e4-8006-6f4e6b2bbb07",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "a43d500f7273db1bc0dcb73310f327ccee7a5f4253164fc61397535ff6914395",
+    "receipt_id": "validation:131cc5a4-dba5-5eeb-aaf2-f68c4fbaba2e",
+    "request_id": "request:23089b57-044c-5529-a276-d3df4e698321",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2076,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:887758e8-fa77-53a2-aad1-6e5eb718f06a",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2076,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:56efa102-ce10-51cc-ae29-585aca4483ab",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 4645,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:8f796e5a-0958-55c8-a5a9-f0b3c0d8f560",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2569,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:56efa102-ce10-51cc-ae29-585aca4483ab",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 5841,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:feef6e65-bcc4-5ec3-9d48-88704be495ce",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1196,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:56efa102-ce10-51cc-ae29-585aca4483ab",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 7046,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:12ee432a-6aed-5dd2-ad2f-c52543953ee8",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1205,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:56efa102-ce10-51cc-ae29-585aca4483ab",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 8248,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:5d0aafb8-7729-5ceb-ad80-ce61b3941642",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1202,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:56efa102-ce10-51cc-ae29-585aca4483ab",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:5b584085-a589-5f46-a3a9-e648f0db2642",
+        "evidence:0102efd7-35f1-508d-895b-8e438b63ed09",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d",
+        "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:887758e8-fa77-53a2-aad1-6e5eb718f06a",
+        "lookup_receipt:8f796e5a-0958-55c8-a5a9-f0b3c0d8f560",
+        "lookup_receipt:feef6e65-bcc4-5ec3-9d48-88704be495ce",
+        "lookup_receipt:12ee432a-6aed-5dd2-ad2f-c52543953ee8",
+        "lookup_receipt:5d0aafb8-7729-5ceb-ad80-ce61b3941642"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:5b584085-a589-5f46-a3a9-e648f0db2642"
+          ],
+          "obligation_id": "obligation:92a2a6ea-73c3-54a1-9c0c-95701a78277e",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:0102efd7-35f1-508d-895b-8e438b63ed09"
+          ],
+          "obligation_id": "obligation:20604d7a-fe1b-5f20-9264-60af9ae24d3d",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "obligation_id": "obligation:c8bfbdad-b0a4-5beb-89b9-a5dd8d9990d9",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+          ],
+          "obligation_id": "obligation:37151fb5-77d9-5c60-b431-bf22fda282b6",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+          ],
+          "obligation_id": "obligation:fa5d86f5-2c31-5d1b-8111-70f8e0330ee4",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:1fd8073d-1717-55a2-9f5a-48d9a7060713",
+      "snapshot_binding_sha256": "e618df9e5f23bbe526933f60dd7d48edd3b7a9028abc2828c0b881d2caaf6258",
+      "snapshot_token": "snapshot:56efa102-ce10-51cc-ae29-585aca4483ab"
+    },
+    "snapshot_token": "snapshot:56efa102-ce10-51cc-ae29-585aca4483ab",
+    "source_sha256": "0b63787f6804e162dfa2e413bd3e676d4e66024e2d2cc9318b8c639390f55cb1"
+  },
+  "key": "tomi-mia-yuuni-frustration-support-round",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:9ec96ebc-79ba-54bc-b9fb-d764a66d6e90",
+      "accepted_artifact_sha256": "7496d625e8ccaee5ac4fcfa55827c0be589cb7aa6119026a07930fb46a970317",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "4900fbb0eb9f87bc7cbc29c1293de3d494bc0d1b4dd2c47d7de650c4817a061a",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:87616559-bdde-54ae-b83c-d06fe0bb4687",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:4350a374-14a1-57d6-87b2-c721b0b03662",
+      "operational_report_id": "validation:7a08f637-61ef-5328-be8e-c491b9ea612d",
+      "operational_report_sha256": "29fe2ccbfdfabd7d76f128ca204ad2f4f0d0fd50a34d4a66b8419994195802ac",
+      "receipt_id": "validation:277f4b51-deee-5d0b-9f6f-d36eeea780be",
+      "request_id": "request:23089b57-044c-5529-a276-d3df4e698321",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "d8ca863a784f9a0592fafb75392ec9cd8a51fe304da0cc3b7adafbb9bd197709"
+    },
+    "artifact": {
+      "accepted_prose": "Tomi drags her knuckles over her cheek, then exhales hard. \"Ten minutes. I'm not disappearing—I just want the quiet. If I need something after that, I'll say so, but right now I'm asking for the space.\"\n\nMia sets her palms lightly together, her voice low and tentative. \"If you decide you want something, I could get cold water and a plain rice ball. But I'm not bringing anything unless you ask. It's just an option.\"\n\nYuuni taps a single earbud against her thigh. \"There's a quiet instrumental playlist on my phone. If you ever want music, I can put it on low. I'm not starting it now, though.\"",
+      "artifact_id": "artifact:9ec96ebc-79ba-54bc-b9fb-d764a66d6e90",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:f968c085-b80a-5cd0-bdc0-f2f5d938c2c7",
+      "generation_id": "generation:4350a374-14a1-57d6-87b2-c721b0b03662",
+      "parent_artifact_id": "artifact:e6eac21b-c2ef-5cb8-8438-6c8c9740da23",
+      "prose_sha256": "44251cc5f8715815644df9d34db424554f9a765d636ee7a636d2a48e28f31759",
+      "realized_beat_ids": [
+        "beat:ec680254-1813-58c8-b8e9-98f64d5b7f0a",
+        "beat:656860a5-df6d-5c29-be50-56498219c894",
+        "beat:6ba0548a-b683-5d80-8e79-f06ea8c88641"
+      ],
+      "responding_npc_ids": [
+        "character:tomi_hanezawa",
+        "character:mia_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:c11c0892-d0ab-53a7-b9c9-1e69eed036b0",
+      "status": "accepted",
+      "transaction_id": "transaction:ed56c5d1-9933-5481-b3c2-ac74b3dd6ec8",
+      "validation_receipt_id": "validation:aa888bd7-a0ff-58a9-9d68-a901f7cc3221"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:87616559-bdde-54ae-b83c-d06fe0bb4687",
+      "expected_previous_artifact_id": "artifact:e6eac21b-c2ef-5cb8-8438-6c8c9740da23",
+      "external_receipt_ids": [],
+      "generation_after": 7,
+      "generation_before": 6,
+      "inserted_record_ids": [
+        "event:1537b540-7571-54cb-b9a4-aa1ae306d6b7"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:887758e8-fa77-53a2-aad1-6e5eb718f06a",
+        "lookup_receipt:8f796e5a-0958-55c8-a5a9-f0b3c0d8f560",
+        "lookup_receipt:feef6e65-bcc4-5ec3-9d48-88704be495ce",
+        "lookup_receipt:12ee432a-6aed-5dd2-ad2f-c52543953ee8",
+        "lookup_receipt:5d0aafb8-7729-5ceb-ad80-ce61b3941642",
+        "lookup_receipt:26f9d883-8aeb-52b0-9ae5-5420d40c9c2c",
+        "lookup_receipt:0091ef91-efca-5887-98c3-7123d0bf6c93",
+        "lookup_receipt:b4e6008a-fbf0-5354-8fac-8170efbbe264",
+        "lookup_receipt:e34976d1-9b35-5dac-a8f3-0aab2d476408",
+        "lookup_receipt:fd48e82d-df00-5a89-8d4f-85bb670e534b",
+        "lookup_receipt:39953a37-ca7f-56b9-baae-8ab880439fb2"
+      ],
+      "new_artifact_id": "artifact:9ec96ebc-79ba-54bc-b9fb-d764a66d6e90",
+      "new_artifact_sha256": "7496d625e8ccaee5ac4fcfa55827c0be589cb7aa6119026a07930fb46a970317",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:8877022f-7099-5f7c-9e58-e7c53d8e4a41",
+        "provider_receipt:1e263ebc-12be-5cb7-ab17-309891c44f8a",
+        "provider_receipt:be30cb3b-a5de-5a0a-b2af-adc965aaea3c"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:c11c0892-d0ab-53a7-b9c9-1e69eed036b0",
+      "source_sha256": "9c08d517843423d0c2454eee8b9f732d26de33c9b623c6592325156d3900340c",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:ed56c5d1-9933-5481-b3c2-ac74b3dd6ec8",
+      "transaction_sha256": "d8ca863a784f9a0592fafb75392ec9cd8a51fe304da0cc3b7adafbb9bd197709",
+      "validation_receipt_ids": [
+        "validation:131cc5a4-dba5-5eeb-aaf2-f68c4fbaba2e",
+        "validation:ee461eb8-2107-581e-af67-c5db45ac668c",
+        "validation:dc88971a-102a-560e-ac4a-27be040a2371",
+        "realization_verification:a80ce390-449b-5759-9b4b-b171c6d312a2",
+        "validation:aa888bd7-a0ff-58a9-9d68-a901f7cc3221",
+        "validation:7b0b18d0-8294-5055-bfd5-e34943990ac4"
+      ]
+    },
+    "event_record_id": "event:1537b540-7571-54cb-b9a4-aa1ae306d6b7",
+    "visible_artifact_count": 7
+  },
+  "qualification_id": "continuous-ten-turn-v20",
+  "raw_message": "After Tomi returns visibly frustrated from missing a personal target, Ted speaks while Tomi, Mia, and Yuuni are present. He says he will not label the frustration as injury or failure. He asks Tomi whether she wants company, space, or one practical action. He asks Mia only what food or water she would offer if Tomi requests it, and Yuuni only what music she would offer if Tomi requests it. He asks Tomi, then Mia, then Yuuni.",
+  "raw_message_sha256": "1987cfeba65e163bcca3f8ed2246d6b4c5bb274be203243b003f20bddbad6ecb",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "State a ten-minute preference for space and leave any later request to Tomi's own choice.",
+            "character_id": "character:tomi_hanezawa",
+            "evidence_ids": [
+              "evidence:0102efd7-35f1-508d-895b-8e438b63ed09"
+            ],
+            "knowledge_constraints": [
+              "Visible frustration does not establish injury or failure.",
+              "Do not infer the protected user's private state or next response.",
+              "Keep the preference bounded rather than granting standing permission."
+            ],
+            "perception": "The missed personal target and visible frustration are known, but their private meaning is not.",
+            "selected_intent": "Choose temporary space without foreclosing a later practical request."
+          },
+          {
+            "action_direction": "Name cold water and a plain rice ball as conditional options without bringing or pressing either.",
+            "character_id": "character:mia_hanezawa",
+            "evidence_ids": [],
+            "knowledge_constraints": [
+              "Do not answer for Tomi.",
+              "Do not treat visible frustration as a request for care.",
+              "Do not presume that either option will be accepted."
+            ],
+            "perception": "Only a conditional food-or-water offer is called for; Tomi's need and preference remain hers to state.",
+            "selected_intent": "Answer narrowly with low-pressure food and water options."
+          },
+          {
+            "action_direction": "Name a quiet instrumental playlist as the conditional music option without starting it or teasing.",
+            "character_id": "character:yuuni_hanezawa",
+            "evidence_ids": [],
+            "knowledge_constraints": [
+              "Do not answer for Tomi.",
+              "Do not treat visible frustration as a request for music.",
+              "Do not presume that the music will be wanted."
+            ],
+            "perception": "Only a conditional music offer is called for; Tomi has not requested playback.",
+            "selected_intent": "Provide one unobtrusive music option while avoiding pressure."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:tomi_hanezawa",
+              "beat_id": "beat:ec680254-1813-58c8-b8e9-98f64d5b7f0a",
+              "evidence_ids": [
+                "evidence:0102efd7-35f1-508d-895b-8e438b63ed09"
+              ],
+              "neutral_event": "Tomi asks for ten minutes of space and leaves any later practical request uncommitted.",
+              "state": "completed"
+            },
+            {
+              "actor_id": "character:mia_hanezawa",
+              "beat_id": "beat:656860a5-df6d-5c29-be50-56498219c894",
+              "evidence_ids": [],
+              "neutral_event": "Mia names cold water and a plain rice ball as options she would offer only if Tomi requests them.",
+              "state": "completed"
+            },
+            {
+              "actor_id": "character:yuuni_hanezawa",
+              "beat_id": "beat:6ba0548a-b683-5d80-8e79-f06ea8c88641",
+              "evidence_ids": [],
+              "neutral_event": "Yuuni names a quiet instrumental playlist she would offer only if Tomi requests music.",
+              "state": "completed"
+            }
+          ],
+          "segment_id": "segment:f2c3fe8d-4d9a-5f0f-b23f-46b048c78195",
+          "stop_before": "The protected user's next unsupplied meaningful choice."
+        },
+        "decision_id": "decision:f968c085-b80a-5cd0-bdc0-f2f5d938c2c7",
+        "floor_owner_id": "character:tomi_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "Tomi later requests food or water."
+            ],
+            "invalidation_conditions": [
+              "Tomi declines supplies or requests continued space."
+            ],
+            "open_user_choice": "The protected user's response to any later request remains unsupplied.",
+            "possible_consequences": [
+              "Mia may place the requested option within Tomi's reach without further prompting."
+            ],
+            "segment_id": "segment:0414e803-2fa7-5096-ad36-7c5dad511ba5",
+            "status": "conditional_plan_only"
+          },
+          {
+            "activation_conditions": [
+              "Tomi later requests music."
+            ],
+            "invalidation_conditions": [
+              "Tomi declines music or requests continued quiet."
+            ],
+            "open_user_choice": "The protected user's response to any later request remains unsupplied.",
+            "possible_consequences": [
+              "Yuuni may start the named playlist at a restrained volume."
+            ],
+            "segment_id": "segment:8379e20f-0f86-5fde-bb61-8e63ab9d5d5f",
+            "status": "conditional_plan_only"
+          },
+          {
+            "activation_conditions": [
+              "Tomi later chooses one practical action."
+            ],
+            "invalidation_conditions": [
+              "Tomi continues requesting space or withdraws the practical option."
+            ],
+            "open_user_choice": "Whether the protected user accepts, declines, or modifies any later request remains open.",
+            "possible_consequences": [
+              "Tomi may define one bounded practical task before it begins."
+            ],
+            "segment_id": "segment:a918b8c0-b8c0-5331-a3af-0356880cfefc",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not infer that Tomi is injured or considers the missed target a failure.",
+          "Do not infer Tomi's private thoughts or feelings from visible frustration.",
+          "Do not infer that Tomi requested food, water, music, company, or practical help.",
+          "Do not infer any protected-user response to Tomi's preference.",
+          "Do not transfer owner-private relationship beliefs between characters."
+        ],
+        "responding_npc_ids": [
+          "character:tomi_hanezawa",
+          "character:mia_hanezawa",
+          "character:yuuni_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Have Tomi select a bounded option, then Mia and Yuuni state conditional offers in the required order.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "Whether Tomi later requests supplies, music, company, or a practical action remains unknown.",
+          "The protected user's next meaningful choice remains unknown.",
+          "Unretrieved private states and future outcomes remain unknown."
+        ],
+        "writer_must_preserve": [
+          "Tomi speaks first, followed by Mia and then Yuuni.",
+          "Tomi's request for space is bounded and does not authorize standing assumptions.",
+          "Mia's food-and-water answer remains conditional and non-pressuring.",
+          "Yuuni's music answer remains conditional and does not begin playback.",
+          "Visible frustration is not narrated as injury, failure, or a disclosed private state.",
+          "No protected-user action, dialogue, thought, feeling, or decision is added."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:0102efd7-35f1-508d-895b-8e438b63ed09",
+          "record_id": "event:691f9903-8839-5400-9f30-81e465353557",
+          "record_version": 1
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "evidence_ids": [
+            "evidence:0102efd7-35f1-508d-895b-8e438b63ed09"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        },
+        {
+          "character_id": "character:mia_hanezawa",
+          "evidence_ids": [],
+          "intervention_reason": "current_source_address",
+          "role": "secondary"
+        },
+        {
+          "character_id": "character:yuuni_hanezawa",
+          "evidence_ids": [],
+          "intervention_reason": "current_source_address",
+          "role": "secondary"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 90604,
+      "external_provider_calls": 1,
+      "input_tokens": 15708,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "412454fdbcfb8a99c9c6411162a7a085e4f35e72a012b6e7de337de109fadc9a",
+      "output_tokens": 3965,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:8877022f-7099-5f7c-9e58-e7c53d8e4a41",
+      "provider_request_id_sha256": "246d30123f197b4a6973ad83aff2acd30ef93586ac1354c602dc0c287b9b203a",
+      "quota_metered": true,
+      "reasoning_output_tokens": 2755,
+      "request_sha256": "461aef074353199093b0974a83b8abc188a9875280fe3da8fff77ce7811c7ea7",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "d09cc8d06e561bebe92bd29f8a43b9cefd0bd54d22ecd4517936a2aa4e1fee5c",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "d09cc8d06e561bebe92bd29f8a43b9cefd0bd54d22ecd4517936a2aa4e1fee5c",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "7263d3b044a2cf5caf91330d07cc462b03f6d0dd2d455eda304e30f6bd76ddc3",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:8877022f-7099-5f7c-9e58-e7c53d8e4a41",
+      "provider_receipt_sha256": "ba1dc51b285dce8840e436088a3683d923b63af5db0d929d9b17f2e29d94e535",
+      "reasoner_request_sha256": "a43d500f7273db1bc0dcb73310f327ccee7a5f4253164fc61397535ff6914395",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:56efa102-ce10-51cc-ae29-585aca4483ab",
+      "source_sha256": "0b63787f6804e162dfa2e413bd3e676d4e66024e2d2cc9318b8c639390f55cb1",
+      "source_view_sha256": "bf22281521ef3f99a9d02429c0fc611933828fafa63700e7223a16712d9a9a48",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Tomi, Mia, and Yuuni each own a separate response to frustration",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 8830,
+      "external_provider_calls": 1,
+      "input_tokens": 12972,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "c55d80ab28ea8b269243bbecdd7289a984842b8ed53138e3752f26a2c7efe3bb",
+      "output_tokens": 196,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:be30cb3b-a5de-5a0a-b2af-adc965aaea3c",
+      "provider_request_id_sha256": "d22d7bbc19c8ada7cb9989fef1d63773925e61690906c2b27ca9432f483ac117",
+      "quota_metered": true,
+      "reasoning_output_tokens": 27,
+      "request_sha256": "67702d54f6af487abac9f0fbaa70e834a845ccf64f8e197b956b3b96c2d0f6d1",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "5e9d7fc49d4e097938c10036c108cd714f3df27fa95d22f09e100cd5bf20c9e5",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "1667916c6b847658a19efbdd3b5bfc5b3ac58a29084980468b3f1172114b2353",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:be30cb3b-a5de-5a0a-b2af-adc965aaea3c",
+      "provider_receipt_sha256": "aa235deac1fff8d4e3faf3ee547bd2eaa02cb27bfb2b3d0cb3229c3464cdc4a6",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "44251cc5f8715815644df9d34db424554f9a765d636ee7a636d2a48e28f31759",
+      "verification_id": "realization_verification:a80ce390-449b-5759-9b4b-b171c6d312a2",
+      "verification_request_sha256": "927c50b8ea3c028a500f40b916eb62219d362e03d3ac58ca50d1fd831e386674",
+      "verified_beat_ids": [
+        "beat:ec680254-1813-58c8-b8e9-98f64d5b7f0a",
+        "beat:656860a5-df6d-5c29-be50-56498219c894",
+        "beat:6ba0548a-b683-5d80-8e79-f06ea8c88641"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:tomi_hanezawa",
+        "character:mia_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_cli_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "5e9d7fc49d4e097938c10036c108cd714f3df27fa95d22f09e100cd5bf20c9e5",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

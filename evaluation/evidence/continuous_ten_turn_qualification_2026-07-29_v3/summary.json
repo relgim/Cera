@@ -1,0 +1,15 @@
+{
+  "attempts_per_stage": 1,
+  "failed_turn": 1,
+  "fallback_enabled": false,
+  "finished_at": "2026-07-29T17:43:05.889511+00:00",
+  "genesis_revision": "v1_2",
+  "qualification_id": "continuous-ten-turn-v3",
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-29T17:41:57.512989+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": []
+}

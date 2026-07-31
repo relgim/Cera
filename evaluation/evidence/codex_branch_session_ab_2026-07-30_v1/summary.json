@@ -1,0 +1,301 @@
+{
+  "aggregate": {
+    "fresh_each_turn": {
+      "cached_input_tokens": 0,
+      "completed_turns": 2,
+      "duration_seconds": 139.829,
+      "input_tokens": 22056,
+      "output_tokens": 6597,
+      "provider_calls": 2,
+      "reasoning_output_tokens": 3258,
+      "status": "failed",
+      "thread_start_count": 2,
+      "uncached_input_tokens": 22056,
+      "wall_seconds": 178.959
+    }
+  },
+  "benchmark_id": "codex-branch-session-ab-2026-07-30-v1",
+  "depth": "long",
+  "effort": "medium",
+  "fallback_count": 0,
+  "finished_at": "2026-07-31T04:00:48.200566+00:00",
+  "messages": [
+    "Hello, my name is Ted. Is this the hanezawa household?",
+    "Respond accordingly to Sakuras Response.",
+    "Respond accordingly to Sakuras Response."
+  ],
+  "model": "gpt-5.6-sol",
+  "policies": [
+    {
+      "description": "one warm Codex process; a fresh ephemeral thread for every turn",
+      "key": "fresh_each_turn",
+      "reuse_thread": false
+    },
+    {
+      "description": "one warm Codex process; one new ephemeral thread continued for all turns",
+      "key": "continued_thread",
+      "reuse_thread": true
+    }
+  ],
+  "production_route_changed": false,
+  "provider_stages": [
+    {
+      "dispatch_started": true,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "policy": "fresh_each_turn",
+      "provider": "openai_codex",
+      "turn": 1
+    },
+    {
+      "dispatch_started": true,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "policy": "fresh_each_turn",
+      "provider": "openai_codex",
+      "turn": 2
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "policy": "fresh_each_turn",
+      "provider": "openai_codex",
+      "turn": 3
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "policy": "continued_thread",
+      "provider": "openai_codex",
+      "turn": 1
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "policy": "continued_thread",
+      "provider": "openai_codex",
+      "turn": 2
+    },
+    {
+      "dispatch_started": false,
+      "effort": "medium",
+      "model": "gpt-5.6-sol",
+      "policy": "continued_thread",
+      "provider": "openai_codex",
+      "turn": 3
+    }
+  ],
+  "retry_count": 0,
+  "runs": [
+    {
+      "database_validation": {
+        "artifact_count": 0,
+        "foreign_key_findings": 0,
+        "integrity_check": [
+          "ok"
+        ]
+      },
+      "fallback_count": 0,
+      "finished_at": "2026-07-31T04:00:48.148026+00:00",
+      "policy": {
+        "description": "one warm Codex process; a fresh ephemeral thread for every turn",
+        "key": "fresh_each_turn",
+        "reuse_thread": false
+      },
+      "provider_calls": 2,
+      "retry_count": 0,
+      "schema_version": "cera.codex_branch_session_ab_run.v1",
+      "started_at": "2026-07-31T03:57:46.489780+00:00",
+      "status": "failed",
+      "story_state_committed": false,
+      "thread_start_count": 2,
+      "turns": [
+        {
+          "cached_input_tokens": 0,
+          "duration_seconds": 139.829,
+          "index": 1,
+          "input_tokens": 22056,
+          "message": "Hello, my name is Ted. Is this the hanezawa household?",
+          "message_sha256": "4c604bafb104b6bab77982934f5b3b682f50dece7e86dee80669d284ff1366c8",
+          "outcome": {
+            "event_blocks": [
+              {
+                "causal_basis": "Ted's exact self-introduction and household question meet the shared facts that a paying resident named Ted is expected and Sakura handles the formal arrival.",
+                "event_advances": [
+                  "Sakura confirms that this is the Hanezawa household.",
+                  "She identifies herself and establishes her role in handling the arrival.",
+                  "She acknowledges that the supplied name matches the expected resident while avoiding any claim of independent verification.",
+                  "Her welcome remains controlled rather than needlessly hostile."
+                ],
+                "purpose": "Answer Ted's question and establish Sakura's disciplined control of the formal arrival.",
+                "resulting_state": "Ted's immediate question has been answered, the arrival is recognized but not completed, and Sakura retains the conversational floor at the doorway."
+              },
+              {
+                "causal_basis": "The expected paying resident has reached the household, Sakura is the formal arrival handler, and Hana is the household's final authority.",
+                "event_advances": [
+                  "Sakura directs a brief notification of Ted's arrival toward the interior.",
+                  "She preserves the doorway boundary and her formal lead while making Hana's participation causally reachable.",
+                  "The notification conveys only the supported fact that the person identifying himself as Ted has arrived."
+                ],
+                "purpose": "Create a causal entrance for Hana rather than treating the entire candidate household as already assembled.",
+                "resulting_state": "Hana has a direct reason to join the doorway exchange, while no other household member has been summoned or introduced."
+              },
+              {
+                "causal_basis": "Sakura has notified Hana that the person self-identifying as the expected resident is at the door; Hana is final household authority and holds maternal hospitality with mild caution toward Ted.",
+                "event_advances": [
+                  "Hana enters the active doorway scene from the interior because of Sakura's notification.",
+                  "She confirms that Ted has reached the correct household and that his arrival is expected.",
+                  "She offers a genuinely warm and patient welcome under her own authority.",
+                  "She supports rather than publicly undermines Sakura's responsibility for the formal arrival."
+                ],
+                "purpose": "Add the household authority's sincere welcome and soften the arrival without erasing Sakura's legitimate caution.",
+                "resulting_state": "The expected resident has received both formal recognition and an authoritative household welcome, while the threshold decision remains open."
+              },
+              {
+                "causal_basis": "Sakura remains responsible for the formal arrival, and Hana has now supplied authoritative confirmation that the expected resident is welcome.",
+                "event_advances": [
+                  "Sakura resumes the practical lead after Hana's welcome.",
+                  "She extends a controlled invitation for Ted to enter so the arrival can continue.",
+                  "She does not invent or explain unsupported intake procedures.",
+                  "She pauses without assuming Ted accepts, moves, answers, or shares any reciprocal behavior."
+                ],
+                "purpose": "Translate the completed doorstep recognition into a clear next option and stop at Ted's first necessary meaningful choice.",
+                "resulting_state": "The NPC-controlled arrival response is complete through recognition, authority involvement, welcome, and invitation; further current progression requires Ted's choice."
+              }
+            ],
+            "floor_owner_id": "character:sakura_hanezawa",
+            "future_segments": [
+              {
+                "activation_conditions": [
+                  "Ted supplies an action or dialogue accepting Sakura's invitation to enter."
+                ],
+                "invalidation_conditions": [
+                  "Ted declines, leaves, raises a concern that must be resolved first, or otherwise withholds acceptance."
+                ],
+                "open_user_choice": "Whether and how Ted responds to the invitation remains entirely open.",
+                "possible_consequences": [
+                  "Sakura may continue the formal arrival at the supported level without inventing household procedures.",
+                  "Hana may sustain a warm authoritative welcome while Sakura retains the administrative lead."
+                ],
+                "segment_id": "segment:7beb17d4-82d3-56e7-91d4-308aabd7f285",
+                "status": "conditional_plan_only"
+              }
+            ],
+            "hard_citation_count": 4,
+            "insufficiencies": [],
+            "responding_npc_ids": [
+              "character:sakura_hanezawa",
+              "character:hana_hanezawa"
+            ],
+            "runway": {
+              "continue_beyond_prompt_endpoint": true,
+              "development_obligations": [
+                "Move beyond Sakura's first answer into a causally justified notification of Hana.",
+                "Realize Hana's distinct authoritative welcome without transferring Sakura's private stance to her.",
+                "Return the practical floor to Sakura for an invitation that creates the protected-user handoff.",
+                "Avoid padding, invented household procedure, and appearances by unneeded family members."
+              ],
+              "runway_class": "domino",
+              "stop_condition": "Stop once Sakura has offered Ted entry after Hana's authoritative welcome; whether Ted accepts or otherwise responds is the next protected-user choice.",
+              "stop_reason": "meaningful_user_decision"
+            },
+            "scene_intent": "Have Sakura answer and control the expected arrival, causally bring Hana in for an authoritative welcome, then leave Ted a clear invitation to enter without supplying his response.",
+            "status": "decision_ready"
+          },
+          "output_tokens": 6597,
+          "packet_bytes": 21754,
+          "packet_sha256": "7c80ef50ea8eef182cc8260ea9751bf6dcbb60ffdcf43fb3485e346748a0f23c",
+          "prompt_bytes": 37504,
+          "prompt_sha256": "95709ed670e40dde886f838620c1ae258713d187d9b40928b48ff35d9c81101c",
+          "provider_receipt": {
+            "automatic_retry_count": 0,
+            "cached_input_tokens": 0,
+            "cost_is_estimate": false,
+            "cost_microusd": 0,
+            "duration_ms": 139829,
+            "external_provider_calls": 1,
+            "input_tokens": 22056,
+            "model_identity_source": "explicit_request",
+            "model_identity_verified": false,
+            "model_revision": "openai-resolver-2026-07-28",
+            "output_sha256": "b88ece0d270af1479935fdb0a0bc14a545d60efe8205675a5daa3958698f444a",
+            "output_tokens": 6597,
+            "provider": "openai_codex",
+            "provider_receipt_id": "provider_receipt:f6242641-0b56-5b74-8fe2-f919634b16b5",
+            "provider_request_id_sha256": "61f2b9fbbdc0e0b40975e2f265a5216184e64c92ecb24d45506fe6dc8c425107",
+            "quota_metered": true,
+            "reasoning_output_tokens": 3258,
+            "request_sha256": "8533cd741dfaf2c9b0a64550b0622e9feafbb57c721d02247ca3e7046cebc611",
+            "requested_model": "gpt-5.6-sol",
+            "retains_private_evidence": false,
+            "retains_prompt": false,
+            "retains_raw_source": false,
+            "retains_secret": false,
+            "retains_story_prose": false,
+            "returned_model": "gpt-5.6-sol",
+            "role": "scene_reasoner",
+            "route_sha256": "ad43a26883d2b3e64d324a2545a0c3f83350d06e40cd45612505383b7775636a",
+            "schema_version": "cera.live_provider_call_receipt.v2",
+            "story_authority_writes": 0,
+            "system_fingerprint_sha256": null
+          },
+          "reasoning_output_tokens": 3258,
+          "request_sha256": "1b7aa5e67342a0a7b2bfbb366591d6a2c790954b1fab0310ee073844c4b49f18",
+          "status": "passed",
+          "uncached_input_tokens": 22056,
+          "wall_seconds": 147.799
+        },
+        {
+          "error_message": "Codex reasoner output failed typed decoding: reasoner draft violates status or semantic-set contract: source_claims:forbidden_for_non_ready_status",
+          "error_type": "SceneReasonerPortFailure",
+          "index": 2,
+          "message": "Respond accordingly to Sakuras Response.",
+          "message_sha256": "f250492cb9b0fd9a3a41efef4e63514b2939072f6cf4e2fb0bf77bef692c7cf4",
+          "provider_receipt": {
+            "automatic_retry_count": 0,
+            "cached_input_tokens": 0,
+            "cost_is_estimate": false,
+            "cost_microusd": 0,
+            "duration_ms": 22309,
+            "external_provider_calls": 1,
+            "input_tokens": 22044,
+            "model_identity_source": "explicit_request",
+            "model_identity_verified": false,
+            "model_revision": "openai-resolver-2026-07-28",
+            "output_sha256": "e6ec698ecc96c1888cdd3ecf6d11bdc884844cae26492a854857fcafbd277d5a",
+            "output_tokens": 1028,
+            "provider": "openai_codex",
+            "provider_receipt_id": "provider_receipt:fd34b4cd-fc7e-596e-98f4-7d8ca6d09a28",
+            "provider_request_id_sha256": "e55800179f4b790e7f4042c7e4a4d84fb0260535ebd8c2e0afd6584cd2f37b31",
+            "quota_metered": true,
+            "reasoning_output_tokens": 668,
+            "request_sha256": "dcbbf1d683834b77f9aa0d5f8c27af2239ac4da443e4521e14115633f13c0c45",
+            "requested_model": "gpt-5.6-sol",
+            "retains_private_evidence": false,
+            "retains_prompt": false,
+            "retains_raw_source": false,
+            "retains_secret": false,
+            "retains_story_prose": false,
+            "returned_model": "gpt-5.6-sol",
+            "role": "scene_reasoner",
+            "route_sha256": "ad43a26883d2b3e64d324a2545a0c3f83350d06e40cd45612505383b7775636a",
+            "schema_version": "cera.live_provider_call_receipt.v2",
+            "story_authority_writes": 0,
+            "system_fingerprint_sha256": null
+          },
+          "status": "failed",
+          "wall_seconds": 31.16
+        }
+      ]
+    }
+  ],
+  "schema_version": "cera.codex_branch_session_ab_summary.v1",
+  "started_at": "2026-07-31T03:57:46.488780+00:00",
+  "status": "completed_with_failures",
+  "story_state_committed": false,
+  "test_only_provisional_history_instruction": "TEST-ONLY CONTINUED-THREAD POLICY: Earlier CERA prompts and Reasoner drafts in this thread are non-authoritative provisional context. You may use them only to resolve a direct reference such as 'Sakura's Response'. The newest CERA packet is the complete current authority and supersedes any conflict. Never cite a prior draft as evidence, convert it into canon, or carry an old fact that the newest packet does not authorize.",
+  "total_provider_calls": 2
+}

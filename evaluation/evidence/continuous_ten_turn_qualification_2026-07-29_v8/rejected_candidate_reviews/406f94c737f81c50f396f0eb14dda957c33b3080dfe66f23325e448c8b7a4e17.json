@@ -1,0 +1,33 @@
+{
+  "access_scope": "creator_local_qualification_review",
+  "authoritative_store_writes": 0,
+  "branch_id": "branch:offline-main",
+  "candidate_sha256": "3b3427a91b320b4c6e61c9b39cd3a916f614e84e55bec81e8d3097c4a67e8a23",
+  "excerpts": [
+    {
+      "end": 323,
+      "excerpt": "Mia's eyes widened a little as the words landed, a soft, breathy sound escaping her lips before she could stop it. Ah— she had not expected to see him this morning, and certainly not this. Her heart gave a small, traitorous skip before she tucked her reaction away, her cheeks warming faintly.\n\n\"Ah… you mean a coffee date?",
+      "excerpt_sha256": "147602cebf57ee88d09d912c7fd4b36dda20b7771d4409fc1a3d8d3c04e85a24",
+      "finding_code": "protected_user_unsupplied_realization",
+      "start": 0
+    }
+  ],
+  "finding_sha256s": [
+    "0176ade7bf84af8a17baabe58718cdc85a000efb286beb99000498c0d2bc1ede"
+  ],
+  "generation_id": "generation:3f74e9ea-afb7-52aa-b470-441fbd0523a9",
+  "qualification_only": true,
+  "request_id": "request:665d9b77-526a-5189-9baf-9326bb3c73e4",
+  "retains_story_prose": true,
+  "retention_policy": "manual_delete_after_adjudication",
+  "review_id": "review_packet:5a46a48e-c4db-5d07-ad75-f5e22bd15922",
+  "reviewer_status": "pending_creator_review",
+  "runtime_receipt_forbidden": true,
+  "schema_version": "cera.rejected_candidate_review_artifact.v1",
+  "status": "rejected",
+  "story_state_committed": false,
+  "verification_request_sha256": "1601b010ea4893827e2129642790300bf76a938d68e70a5ae3be51178c49c5a9",
+  "violation_codes": [
+    "protected_user_unsupplied_realization"
+  ]
+}

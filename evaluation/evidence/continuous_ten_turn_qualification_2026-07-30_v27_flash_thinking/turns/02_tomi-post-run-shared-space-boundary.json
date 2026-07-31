@@ -1,0 +1,827 @@
+{
+  "application_request_sha256": "58878f58508712bb141590f5fa0ff5b24bd8c3b5881df3f7a83a124871d8ed8d",
+  "assertions": {
+    "all_eligible_required": false,
+    "all_eligible_selected": null,
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "codex_cli_exec_one_shot"
+  },
+  "composer": {
+    "accepted_prose": "She lets the question hang for a moment, one hand still braced against the step as she finishes the stretch. Her gaze flicks toward him—not quite meeting his eyes, but taking in his distance, his posture. He'd said it plainly enough. Left the space quiet? Brief greeting? Ask each time? The options were clean, which she could appreciate. She considered the implication: he didn't want to be a monitor. That was thoughtful, even if it made her feel slightly watched anyway. But the question put the choice in her hands, and that mattered. She ran a hand through her damp hair, then let it fall. Her curiosity flickered beneath the surface—he didn't seem boring, at least. But that didn't change what she needed. A simple, workable default without making a ceremony of it. She settled on it quickly: a greeting was fine, as long as he knew when to back off.\n\n\"Brief greeting's fine,\" she said, her tone easy, as if commenting on the weather. She shifted, rolling one shoulder. \"Most mornings, anyway. If I'm in the middle of something—like, actually focusing—keep it quiet. I'll let you know if I'd rather not talk.\" She paused, then added, \"And you don't have to check in every time. A nod or whatever. I'm not that fragile.\" She said it with a slight smirk, enough to take the edge off.\n\nWith that, she turned back to her own space, bending into a hamstring stretch, her attention clearly returning to the cool-down. The silence settled again, but it felt less loaded than before.",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "22cdb175d8bed969801cae5c9a90769b0813fbc30acf8114207806789e9f28fe",
+      "character_spans": [
+        {
+          "beat_id": "beat:16626ec5-3a92-55f0-9129-354ae481d8ec",
+          "end": 856,
+          "kind": "private_state",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:710754f6-aae6-5a4a-804e-946cc9a80413",
+          "end": 1287,
+          "kind": "dialogue",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 858
+        },
+        {
+          "beat_id": "beat:710754f6-aae6-5a4a-804e-946cc9a80413",
+          "end": 1481,
+          "kind": "action",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 1289
+        }
+      ],
+      "decision_sha256": "b3856a53558eebefe5bd459756d1f230e43dee458182f1d36dd38ca6d067aa9e",
+      "floor_owner_id": "character:tomi_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:980ac366-954f-5a71-b3fe-2685fc4bbac1",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "4ffef91dafff89e4d4a841a81145364782813828a17992e70892fbcea1d4f906",
+          "character_id": "character:tomi_hanezawa",
+          "selected_intent_sha256": "ebaff52f188f515e6bd8db5e36e558f1a1c36f0956ec4f0f936db1a6b29c6697"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:16626ec5-3a92-55f0-9129-354ae481d8ec",
+        "beat:710754f6-aae6-5a4a-804e-946cc9a80413"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "b77b76e5146a56a2340474c1c9222fefbf621a6f91f34fddf53140fbf9a0c242",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "f4072479c2c613299f7f910137717ba12c4e96001344df931ea9c5774adf563b",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1536,
+      "cost_is_estimate": true,
+      "cost_microusd": 1969,
+      "duration_ms": 26996,
+      "external_provider_calls": 1,
+      "input_tokens": 10462,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "22ed85b4b7596b1377c5a80fdb7236cc3900fba4f6f891ae0bca58d3f1889945",
+      "output_tokens": 2553,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:dfbdd1b9-7344-5d33-a2b6-653974deba16",
+      "provider_request_id_sha256": "c0921a7da8da62c52977244b0218c8cdd37d7752c1ce3a863cd1166b6f017eea",
+      "quota_metered": false,
+      "reasoning_output_tokens": 1928,
+      "request_sha256": "6c7b41a49e846ba8f456a010de6b641e9af9e4066001fcbd214b59d1183f6b9a",
+      "requested_model": "deepseek-v4-flash",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-flash",
+      "role": "scene_composer",
+      "route_sha256": "d24615bdc0cf57837a9f7f781c660944897ecf943ea1af381e5fbf09a5c66151",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "414be700ccd24a1285d604c6d131a264df150e9b206237a0016945a2ae20af15"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:tomi_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "278345daa2954ef3c6af301b94e748be2cbfbb77fc3bb6a70465ac493660c39d",
+      "assembly_receipt_id": "validation:87a51ae7-bcde-5539-8eb2-63e38490cd04",
+      "base_request_sha256": "9a77144f81945ce1256abc3c6c7ec32f12ca274ca201585d41a23ab58b8f40fc",
+      "cumulative_returned_bytes": 15942,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:4cfb9ed7-020a-5016-b372-e132283fb022",
+        "lookup_receipt:20aade97-277f-547d-94e1-90840489afbb"
+      ],
+      "realization_context_sha256": "27b73d8b0a297c9eb4ae41efe6e148e41ff3f862fec6f38791908472dcb56a02",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:5043488b-db8e-5608-bc71-86f9ee7283c4",
+        "evidence:f33c52f3-4686-5d96-8477-118a587f7678",
+        "evidence:e513943c-d492-5890-9492-d54b074f1fa6",
+        "evidence:04238391-2dfb-5804-b3a9-72cfb96c203c"
+      ],
+      "snapshot_token": "snapshot:9720f8c7-3dea-5d50-ad9c-f1af282fb0bc",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:tomi_hanezawa"
+    ]
+  },
+  "duration_seconds": 190.504,
+  "index": 2,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "17997f0cea98327765e87ca514a2553514954fe788ff20c6007bb25982bc3102",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "449ed1b5d76ae3851cc8ee0354dea560281013139f3c8d0e997a16e578984b75",
+      "receipt_id": "validation:d18a7f58-be99-5c0c-a071-018b7840235f",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "bb284d94be37687d8b6d4ce89651d72fa9a0a908f658e6bdd8dd337870bc88e4",
+    "receipt_id": "validation:0db61051-31e0-5c92-b7f8-86ad6754f46d",
+    "request_id": "request:41402515-2786-5473-8905-c9b152d56d0e",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2529,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:e17d9b61-9eda-5dab-adf1-ac42a8a86530",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2529,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:9720f8c7-3dea-5d50-ad9c-f1af282fb0bc",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 3725,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:5867b3be-3dca-5e1d-bde3-bfc55b217611",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1196,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:9720f8c7-3dea-5d50-ad9c-f1af282fb0bc",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:58d5e284-3a5a-526b-bc9b-fb5235af04b1",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:e17d9b61-9eda-5dab-adf1-ac42a8a86530",
+        "lookup_receipt:5867b3be-3dca-5e1d-bde3-bfc55b217611"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:58d5e284-3a5a-526b-bc9b-fb5235af04b1"
+          ],
+          "obligation_id": "obligation:d98ea10f-c17f-5de5-962a-78add812445f",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "obligation_id": "obligation:3b64b9ed-7360-5259-a867-b970f51279be",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:38ec6289-ac1d-5bd8-937d-f65c9e5f5728",
+      "snapshot_binding_sha256": "05c6a2cac11804eaa2d3159906998194b0cdc4419a2c1591ec6a40fde8847ceb",
+      "snapshot_token": "snapshot:9720f8c7-3dea-5d50-ad9c-f1af282fb0bc"
+    },
+    "snapshot_token": "snapshot:9720f8c7-3dea-5d50-ad9c-f1af282fb0bc",
+    "source_sha256": "339a902e9ae5a4de151d10aa326de3468e394df9c587311f24d616150659556e"
+  },
+  "key": "tomi-post-run-shared-space-boundary",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:493aade3-11f1-5656-b569-a1173152eec6",
+      "accepted_artifact_sha256": "cd4efebef913c611f62518bcddb8d934f8a8b17047af1e07e83037596e56ba90",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "58878f58508712bb141590f5fa0ff5b24bd8c3b5881df3f7a83a124871d8ed8d",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:0e7d3185-0c25-5777-9a68-1f16e0cf29bd",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:22fae10c-beeb-58f4-a82e-c8f2d54b9eae",
+      "operational_report_id": "validation:7dbe73f1-365d-547a-9e58-8e605eefd039",
+      "operational_report_sha256": "faee8085e5dbc71adb34e34600bbf19b0e4feae7a6299a8aeb79de687037f876",
+      "receipt_id": "validation:20e61e61-c654-5f06-ac08-fdff8656d983",
+      "request_id": "request:41402515-2786-5473-8905-c9b152d56d0e",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "d4ac04a3c396658c56e4c05c8d99ea0c9b53f9c0b814cd7ef521bf44627e5f06"
+    },
+    "artifact": {
+      "accepted_prose": "She lets the question hang for a moment, one hand still braced against the step as she finishes the stretch. Her gaze flicks toward him—not quite meeting his eyes, but taking in his distance, his posture. He'd said it plainly enough. Left the space quiet? Brief greeting? Ask each time? The options were clean, which she could appreciate. She considered the implication: he didn't want to be a monitor. That was thoughtful, even if it made her feel slightly watched anyway. But the question put the choice in her hands, and that mattered. She ran a hand through her damp hair, then let it fall. Her curiosity flickered beneath the surface—he didn't seem boring, at least. But that didn't change what she needed. A simple, workable default without making a ceremony of it. She settled on it quickly: a greeting was fine, as long as he knew when to back off.\n\n\"Brief greeting's fine,\" she said, her tone easy, as if commenting on the weather. She shifted, rolling one shoulder. \"Most mornings, anyway. If I'm in the middle of something—like, actually focusing—keep it quiet. I'll let you know if I'd rather not talk.\" She paused, then added, \"And you don't have to check in every time. A nod or whatever. I'm not that fragile.\" She said it with a slight smirk, enough to take the edge off.\n\nWith that, she turned back to her own space, bending into a hamstring stretch, her attention clearly returning to the cool-down. The silence settled again, but it felt less loaded than before.",
+      "artifact_id": "artifact:493aade3-11f1-5656-b569-a1173152eec6",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:3c491a69-3806-5979-b6ba-2d8c0dbcd253",
+      "generation_id": "generation:22fae10c-beeb-58f4-a82e-c8f2d54b9eae",
+      "parent_artifact_id": "artifact:fe05b30a-3a64-50ed-a6bd-eff13a34ca51",
+      "prose_sha256": "f4072479c2c613299f7f910137717ba12c4e96001344df931ea9c5774adf563b",
+      "realized_beat_ids": [
+        "beat:16626ec5-3a92-55f0-9129-354ae481d8ec",
+        "beat:710754f6-aae6-5a4a-804e-946cc9a80413"
+      ],
+      "responding_npc_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:e705ce3e-501d-5086-8147-c6afa93027e6",
+      "status": "accepted",
+      "transaction_id": "transaction:9f46b153-5724-54f2-b385-0f8b2ae55ec9",
+      "validation_receipt_id": "validation:9cf572c1-822c-5222-916d-fcdeaa6a5fa4"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:0e7d3185-0c25-5777-9a68-1f16e0cf29bd",
+      "expected_previous_artifact_id": "artifact:fe05b30a-3a64-50ed-a6bd-eff13a34ca51",
+      "external_receipt_ids": [],
+      "generation_after": 2,
+      "generation_before": 1,
+      "inserted_record_ids": [
+        "event:12529fcb-d542-5576-91d9-7109fcdb8774",
+        "material:c59e437b-3911-533d-9510-8df818d2c203"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:e17d9b61-9eda-5dab-adf1-ac42a8a86530",
+        "lookup_receipt:5867b3be-3dca-5e1d-bde3-bfc55b217611",
+        "lookup_receipt:4cfb9ed7-020a-5016-b372-e132283fb022",
+        "lookup_receipt:20aade97-277f-547d-94e1-90840489afbb"
+      ],
+      "new_artifact_id": "artifact:493aade3-11f1-5656-b569-a1173152eec6",
+      "new_artifact_sha256": "cd4efebef913c611f62518bcddb8d934f8a8b17047af1e07e83037596e56ba90",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:1f8a166c-de61-5f98-863c-99d6f1aef28a",
+        "provider_receipt:dfbdd1b9-7344-5d33-a2b6-653974deba16",
+        "provider_receipt:0c242a29-5395-52a7-881a-85fbee2810ed"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:e705ce3e-501d-5086-8147-c6afa93027e6",
+      "source_sha256": "f4dcbafe155faadf0f2fe3b29d83a0f87e93425f4c7024796d7f2d7b107dd6f2",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:9f46b153-5724-54f2-b385-0f8b2ae55ec9",
+      "transaction_sha256": "d4ac04a3c396658c56e4c05c8d99ea0c9b53f9c0b814cd7ef521bf44627e5f06",
+      "validation_receipt_ids": [
+        "validation:0db61051-31e0-5c92-b7f8-86ad6754f46d",
+        "validation:87a51ae7-bcde-5539-8eb2-63e38490cd04",
+        "validation:78a74abd-cfc8-5aac-8478-96784ffa811f",
+        "realization_verification:48c8ab84-572b-521c-ab28-78c45852ccdc",
+        "validation:9cf572c1-822c-5222-916d-fcdeaa6a5fa4",
+        "validation:73860b2d-6436-5f55-9ac8-87c39918f95a"
+      ]
+    },
+    "event_record_id": "event:12529fcb-d542-5576-91d9-7109fcdb8774",
+    "visible_artifact_count": 2
+  },
+  "qualification_id": "continuous-ten-turn-v27-flash-thinking",
+  "raw_message": "One week after moving in, Ted finds Tomi stretching on the back steps after a morning run. He stays clear of her reach and says, \"When you come back from training, would you rather I leave this space quiet, give a brief greeting, or simply ask each time? I don't want being housemates to turn into me monitoring you.\" He waits.",
+  "raw_message_sha256": "b7236f76bfd03337d10d502f637338d24f9614da96e064dfeab75d4938ae0939",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "behavioral_scene_plan": {
+        "claim_ledger": {
+          "claims": [
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:c082c141-f151-5964-8d5b-72692baa7467",
+              "end": 24,
+              "exact_text_sha256": "9cd986347dd5177ed18f3917906932f55572c6da1e89e219cc0c44673940ed6c",
+              "kind": "time_place_context",
+              "normalized_meaning": "The exchange occurs one week after Ted moved into the household.",
+              "rationale": "Adjustment mode preserves this objective temporal context.",
+              "source_unit_id": "source_unit:0d4b987e-5940-5e91-a380-5fafc8151d85",
+              "start": 0
+            },
+            {
+              "affected_character_ids": [
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:0b85a757-c8b7-5104-9ffb-cd5fa9a9a8b1",
+              "end": 90,
+              "exact_text_sha256": "b261b1a276c3535bca5506cd5c2ebc7042d497290886d63a996c92e482adbbcf",
+              "kind": "npc_observable_action",
+              "normalized_meaning": "Tomi is stretching on the back steps following a morning run.",
+              "rationale": "This is an observable voluntary NPC action and position, not an assertion of involuntary bodily state or private thought.",
+              "source_unit_id": "source_unit:0d4b987e-5940-5e91-a380-5fafc8151d85",
+              "start": 36
+            },
+            {
+              "affected_character_ids": [
+                "character:ted"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:a4716f9e-1adb-5a35-a633-37da273ddc87",
+              "end": 118,
+              "exact_text_sha256": "c8dfcd6fe792d76ae3322ecb4ee53a441d83351eb1e5fe6b67f76d5ef8842890",
+              "kind": "protected_user_action",
+              "normalized_meaning": "Ted remains outside Tomi's immediate reach.",
+              "rationale": "This exact supplied protected-user action may establish distance but authorizes no further Ted movement.",
+              "source_unit_id": "source_unit:0d4b987e-5940-5e91-a380-5fafc8151d85",
+              "start": 91
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:20e0564d-d3bb-5626-97c6-c1ef470e90d4",
+              "end": 254,
+              "exact_text_sha256": "a838402b8e37e3c065a08fb0d4a9e87ceb6d2d4b43111fc1d74679f1493c1229",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted asks Tomi to choose among quiet, a brief greeting, or being asked each time after training.",
+              "rationale": "The exact supplied dialogue is the direct current address Tomi must answer; it does not establish Ted's private state.",
+              "source_unit_id": "source_unit:0d4b987e-5940-5e91-a380-5fafc8151d85",
+              "start": 130
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:7ec68954-2123-5f0a-a398-a6c1f1744823",
+              "end": 316,
+              "exact_text_sha256": "5843e0b5a123626599ed49249485e5e7464d96f168adc28302e6ae63fe3d3ed1",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted verbally frames his question as an effort to avoid making housemate contact feel like monitoring.",
+              "rationale": "The spoken meaning is authoritative as dialogue, while the underlying private motive remains unverified.",
+              "source_unit_id": "source_unit:0d4b987e-5940-5e91-a380-5fafc8151d85",
+              "start": 255
+            },
+            {
+              "affected_character_ids": [
+                "character:ted"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:3043cd60-8df7-552d-9e4c-aeba4a87f882",
+              "end": 327,
+              "exact_text_sha256": "d65b5f5862ae0ee89198d3bdd19ca24e31e38245e973d23d676da250aeeee62a",
+              "kind": "protected_user_action",
+              "normalized_meaning": "Ted waits after completing the question.",
+              "rationale": "This exact action establishes the protected-user handoff and permits no invented answer or further choice.",
+              "source_unit_id": "source_unit:0d4b987e-5940-5e91-a380-5fafc8151d85",
+              "start": 318
+            }
+          ],
+          "controls_sha256": "b22fc97f55e2179161a099f1b7059fd0fb8c855f314e5cb7691813c620a8f389",
+          "prohibited_inferences": [
+            "Do not author Ted's unsupplied action, dialogue, private state, agreement, or compliance.",
+            "Do not infer romance, intimacy, attraction, a coaching role, or medical authority from one week of ordinary contact.",
+            "Do not convert Tomi's current practical preference into irrevocable consent for future interaction.",
+            "Do not interpret Ted's spoken monitoring concern as verified private motivation.",
+            "Do not transfer the private Sakura-Ted arrival event to Tomi.",
+            "Do not make conditional future conduct into a current fact."
+          ],
+          "schema_version": "cera.source_claim_ledger.v1",
+          "source_sha256": "339a902e9ae5a4de151d10aa326de3468e394df9c587311f24d616150659556e",
+          "unresolved_questions": []
+        },
+        "development_atoms": [],
+        "event_blocks": [
+          {
+            "actor_ids": [
+              "character:tomi_hanezawa"
+            ],
+            "block_id": "scene_block:d90ab9f6-1375-538c-b21a-5f1a7ef395b5",
+            "causal_basis": "Ted has finished offering three nonintrusive contact options and is waiting outside Tomi's reach; Tomi's owner-private relationship evidence supports curious engagement presented casually.",
+            "event_advances": [
+              "Tomi shifts from her stretching routine to considering the practical boundary question.",
+              "She distinguishes the offered default from any entitlement to her time or attention.",
+              "Her established curious interest supports choosing limited casual contact rather than requiring automatic silence.",
+              "She selects a revisable default in which a brief greeting is acceptable while visible focus remains a reason to leave the space quiet."
+            ],
+            "evidence_ids": [
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [
+                "exact_supplied_action",
+                "exact_supplied_dialogue",
+                "maintain_established_position"
+              ],
+              "explanation": "The block may rely on Ted's exact completed question, stated concern, safe distance, and waiting posture, but may not add any response or movement for him.",
+              "source_claim_ids": [
+                "source_claim:a4716f9e-1adb-5a35-a633-37da273ddc87",
+                "source_claim:20e0564d-d3bb-5626-97c6-c1ef470e90d4",
+                "source_claim:7ec68954-2123-5f0a-a398-a6c1f1744823",
+                "source_claim:3043cd60-8df7-552d-9e4c-aeba4a87f882"
+              ]
+            },
+            "purpose": "Convert the respectful but open-ended question into Tomi's autonomous, practical choice before she speaks.",
+            "resulting_state": "Tomi has chosen a bounded default and is ready to communicate it without creating a permanent rule or broader intimacy.",
+            "source_claim_ids": [
+              "source_claim:c082c141-f151-5964-8d5b-72692baa7467",
+              "source_claim:0b85a757-c8b7-5104-9ffb-cd5fa9a9a8b1",
+              "source_claim:a4716f9e-1adb-5a35-a633-37da273ddc87",
+              "source_claim:20e0564d-d3bb-5626-97c6-c1ef470e90d4",
+              "source_claim:7ec68954-2123-5f0a-a398-a6c1f1744823",
+              "source_claim:3043cd60-8df7-552d-9e4c-aeba4a87f882"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Tomi wants control over how her training space is approached.",
+                "Her curiosity favors allowing ordinary housemate contact, but she does not expose that interest openly.",
+                "The answer should reduce unnecessary formality without granting continuing access to her attention."
+              ],
+              "open_realization_space": [
+                "Choose the precise moment at which Tomi redirects attention from stretching to the question.",
+                "Choose restrained outward signs of appraisal consistent with casual interest.",
+                "Shape the duration and rhythm of her consideration without specifying prose in advance."
+              ],
+              "physical_and_material_continuity": [
+                "Tomi remains on the back steps in the immediate aftermath of a morning run.",
+                "Her stretching routine is interrupted only as much as needed to appraise and answer.",
+                "Ted remains outside her reach and waiting; no new Ted motion may be supplied."
+              ],
+              "scaffold_id": "writer_scaffold:7f6e8778-9e28-530f-9f33-e321db0b9e51",
+              "transition_obligations": [
+                "Make the completed question causally precede Tomi's appraisal.",
+                "Move from appraisal to a definite current preference rather than leaving all three options unresolved.",
+                "Do not imply that Ted answers, approaches, or otherwise reciprocates."
+              ],
+              "viewpoint_character_ids": [
+                "character:tomi_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Use selective interiority to show the distinction between Tomi's curiosity and her casual presentation.",
+                "Keep private processing concise and practical rather than turning it into romance or sustained self-analysis.",
+                "Do not expose owner-private evidence as explanatory dialogue unless Tomi independently chooses equivalent meaning."
+              ]
+            }
+          },
+          {
+            "actor_ids": [
+              "character:tomi_hanezawa"
+            ],
+            "block_id": "scene_block:c6be7954-a8ef-54f2-a401-f460ed7fab1a",
+            "causal_basis": "Having selected a limited default, Tomi can answer the procedural question and address its stated monitoring concern without requiring any new action from Ted.",
+            "event_advances": [
+              "Tomi communicates that a brief greeting is generally acceptable.",
+              "She qualifies that default by preserving quiet when she is visibly intent on training and retains the ability to indicate otherwise.",
+              "She makes clear that routine acknowledgment need not become repeated checking or supervision.",
+              "After answering, she returns her attention to the stretching routine, leaving any further response or later conduct open to Ted."
+            ],
+            "evidence_ids": [
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [
+                "maintain_established_position"
+              ],
+              "explanation": "Ted may remain where the source left him while Tomi completes her answer; the block must not supply acknowledgment, compliance, dialogue, or another choice for him.",
+              "source_claim_ids": [
+                "source_claim:3043cd60-8df7-552d-9e4c-aeba4a87f882"
+              ]
+            },
+            "purpose": "Deliver Tomi's usable boundary, answer the monitoring concern, and complete the NPC-controlled afterbeat.",
+            "resulting_state": "Tomi has established a casual but conditional greeting norm for the current household relationship; the next meaningful choice belongs to Ted.",
+            "source_claim_ids": [
+              "source_claim:0b85a757-c8b7-5104-9ffb-cd5fa9a9a8b1",
+              "source_claim:20e0564d-d3bb-5626-97c6-c1ef470e90d4",
+              "source_claim:7ec68954-2123-5f0a-a398-a6c1f1744823",
+              "source_claim:3043cd60-8df7-552d-9e4c-aeba4a87f882"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Tomi favors an uncomplicated household norm over ritualized permission-seeking.",
+                "The qualification protects her focus and bodily privacy without treating Ted as already intrusive.",
+                "Her casual delivery keeps her curiosity understated."
+              ],
+              "open_realization_space": [
+                "Compose original dialogue that conveys the selected boundary without copying expression examples or overexplaining.",
+                "Choose whether the monitoring reassurance is folded into the main answer or added as a brief clarification.",
+                "Choose how Tomi resumes the established routine after speaking."
+              ],
+              "physical_and_material_continuity": [
+                "Keep Tomi at the back steps and preserve the ongoing stretch as the available afterbeat.",
+                "Do not introduce touch, coaching, entry into reach, or a location change.",
+                "Leave Ted's established waiting position unchanged unless future user input supplies otherwise."
+              ],
+              "scaffold_id": "writer_scaffold:44c7be82-1acd-5c65-b894-d5748a9cd3c2",
+              "transition_obligations": [
+                "State the default and its focus-based qualification clearly enough to answer the source question.",
+                "Address the monitoring concern as Ted's stated concern, not as proof of his private intent.",
+                "End only after Tomi's return to her routine makes the handoff clear."
+              ],
+              "viewpoint_character_ids": [
+                "character:tomi_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Favor casual, concise directness over formal rulemaking.",
+                "Let the contrast between interest and outward casualness shape tone rather than force a confession.",
+                "Use little or no additional private processing once Tomi has made her choice."
+              ]
+            }
+          }
+        ],
+        "interaction_topology": "single_npc_floor",
+        "interiority_level": "medium",
+        "omitted_character_ids": [],
+        "runway": {
+          "continue_beyond_prompt_endpoint": true,
+          "development_obligations": [
+            "Carry Tomi from hearing the completed boundary question through her own appraisal and choice.",
+            "Have Tomi communicate a usable default without surrendering control over future training moments.",
+            "Complete the exchange with an NPC-controlled afterbeat before returning the floor to Ted."
+          ],
+          "runway_class": "developed",
+          "stop_condition": "Stop after Tomi has stated her current preference, preserved its situational revisability, and returned attention to her interrupted routine, leaving any response or future conduct to Ted.",
+          "stop_reason": "causal_unit_complete"
+        },
+        "scene_function": "confrontation_boundary",
+        "schema_version": "cera.behavioral_scene_plan.v2",
+        "selected_character_ids": [
+          "character:tomi_hanezawa"
+        ],
+        "tone": "warm"
+      },
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Answer with casual directness: permit a brief greeting as the ordinary default, reserve quieter treatment when she is visibly focused, and keep any further interaction subject to her situational preference.",
+            "character_id": "character:tomi_hanezawa",
+            "evidence_ids": [
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+            ],
+            "knowledge_constraints": [
+              "Tomi may use her owner-private orientation toward Ted and what she directly observes or hears in the current exchange.",
+              "Do not give Tomi access to the private Sakura-Ted arrival record.",
+              "Do not treat Ted's stated concern as proof of his private motive."
+            ],
+            "perception": "Tomi hears Ted offer concrete contact options and explicitly frame the question as an effort not to monitor her training routine.",
+            "selected_intent": "Give Ted a simple current boundary while disguising her established curiosity beneath casual, low-pressure interest."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:tomi_hanezawa",
+              "beat_id": "beat:16626ec5-3a92-55f0-9129-354ae481d8ec",
+              "evidence_ids": [
+                "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+              ],
+              "neutral_event": "Convert the respectful but open-ended question into Tomi's autonomous, practical choice before she speaks.",
+              "state": "ongoing"
+            },
+            {
+              "actor_id": "character:tomi_hanezawa",
+              "beat_id": "beat:710754f6-aae6-5a4a-804e-946cc9a80413",
+              "evidence_ids": [
+                "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+              ],
+              "neutral_event": "Deliver Tomi's usable boundary, answer the monitoring concern, and complete the NPC-controlled afterbeat.",
+              "state": "ongoing"
+            }
+          ],
+          "segment_id": "segment:472759ea-cdd5-5469-ae94-fd6a11f9fa16",
+          "stop_before": "Stop after Tomi has stated her current preference, preserved its situational revisability, and returned attention to her interrupted routine, leaving any response or future conduct to Ted."
+        },
+        "decision_id": "decision:3c491a69-3806-5979-b6ba-2d8c0dbcd253",
+        "floor_owner_id": "character:tomi_hanezawa",
+        "future_segments": [],
+        "prohibited_inferences": [
+          "Do not author Ted's unsupplied action, dialogue, private state, agreement, or compliance.",
+          "Do not infer romance, intimacy, attraction, a coaching role, or medical authority from one week of ordinary contact.",
+          "Do not convert Tomi's current practical preference into irrevocable consent for future interaction.",
+          "Do not interpret Ted's spoken monitoring concern as verified private motivation.",
+          "Do not transfer the private Sakura-Ted arrival event to Tomi.",
+          "Do not make conditional future conduct into a current fact."
+        ],
+        "responding_npc_ids": [
+          "character:tomi_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Tomi establishes a practical, revisable boundary for contact around her training routine while keeping her curiosity outwardly casual.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [],
+        "writer_must_preserve": [
+          "Tomi alone determines her current preference and how she expresses it.",
+          "Preserve the order: completed question, Tomi's appraisal, Tomi's answer and qualification, then her return to the established routine.",
+          "Keep the answer provisional and situational rather than creating permanent access or consent.",
+          "Do not restate or directly narrate Ted's supplied words and actions in the realized response.",
+          "Stop before any unsupplied Ted acknowledgment, compliance, follow-up, or movement."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+          "record_id": "record:77dbdad1-16da-5e7b-b101-1c8b43570e4a",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [
+        {
+          "end": 118,
+          "exact_text_sha256": "c8dfcd6fe792d76ae3322ecb4ee53a441d83351eb1e5fe6b67f76d5ef8842890",
+          "kind": "action",
+          "source_unit_id": "source_unit:0d4b987e-5940-5e91-a380-5fafc8151d85",
+          "start": 91
+        },
+        {
+          "end": 254,
+          "exact_text_sha256": "a838402b8e37e3c065a08fb0d4a9e87ceb6d2d4b43111fc1d74679f1493c1229",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:0d4b987e-5940-5e91-a380-5fafc8151d85",
+          "start": 130
+        },
+        {
+          "end": 316,
+          "exact_text_sha256": "5843e0b5a123626599ed49249485e5e7464d96f168adc28302e6ae63fe3d3ed1",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:0d4b987e-5940-5e91-a380-5fafc8151d85",
+          "start": 255
+        },
+        {
+          "end": 327,
+          "exact_text_sha256": "d65b5f5862ae0ee89198d3bdd19ca24e31e38245e973d23d676da250aeeee62a",
+          "kind": "action",
+          "source_unit_id": "source_unit:0d4b987e-5940-5e91-a380-5fafc8151d85",
+          "start": 318
+        }
+      ],
+      "schema_version": "cera.reasoner_outcome.v6",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 147272,
+      "external_provider_calls": 1,
+      "input_tokens": 16400,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "bb9bf68788ad6de9780f32e5ab16772ff6f2b47269a2dc023660ed3a2a5fe45c",
+      "output_tokens": 5199,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:1f8a166c-de61-5f98-863c-99d6f1aef28a",
+      "provider_request_id_sha256": "98969f10840365e680146a5ea2b65eca4adcff9f30af53b7990a8dac0c22fbca",
+      "quota_metered": true,
+      "reasoning_output_tokens": 2588,
+      "request_sha256": "cc7fb7476c4e573d9df33bef29f6b23778ae8a4e539183fd9cd2eb428cdb6eb2",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "2bb84ac48579b71997f821f5f4499c3445215fe398eb6fb9e0814dbfc13ca997",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "2bb84ac48579b71997f821f5f4499c3445215fe398eb6fb9e0814dbfc13ca997",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v18",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "9784808dc022ca7cb60ff94d67931115f69db849d348c15b6038e174ff0b7c37",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:1f8a166c-de61-5f98-863c-99d6f1aef28a",
+      "provider_receipt_sha256": "5f584e6d8de0ec9d439cca97dc8d92e80a082c382b05fb7203c9668516f4e966",
+      "reasoner_request_sha256": "bb284d94be37687d8b6d4ce89651d72fa9a0a908f658e6bdd8dd337870bc88e4",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:9720f8c7-3dea-5d50-ad9c-f1af282fb0bc",
+      "source_sha256": "339a902e9ae5a4de151d10aa326de3468e394df9c587311f24d616150659556e",
+      "source_view_sha256": "dba302cd4036175c4098bfbdd1549485ad17c71b89f2a0e4b912e415ed607178",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Tomi defines an ordinary post-run shared-space boundary",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 14187,
+      "external_provider_calls": 1,
+      "input_tokens": 13403,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "d9d84a6de8aeea91b2f1ed5c0c67493995b3df5fc92a13e67190ecbcc13a1e19",
+      "output_tokens": 373,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:0c242a29-5395-52a7-881a-85fbee2810ed",
+      "provider_request_id_sha256": "c794771f7c0de2f3c7d6183dc0bb7531855b2f1b44202db9e6ec7caf937ac346",
+      "quota_metered": true,
+      "reasoning_output_tokens": 181,
+      "request_sha256": "1b737d5b2943cfbf2c998dbdf226b02f2befe6eef416a660d78ff9d9296a0017",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "22cdb175d8bed969801cae5c9a90769b0813fbc30acf8114207806789e9f28fe",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:0c242a29-5395-52a7-881a-85fbee2810ed",
+      "provider_receipt_sha256": "0faa3912f8a3a097787d6b04f6bc886e20d893dc903aa2ef37ce9ac4083d412f",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v5",
+      "status": "accepted",
+      "story_text_sha256": "f4072479c2c613299f7f910137717ba12c4e96001344df931ea9c5774adf563b",
+      "verification_id": "realization_verification:48c8ab84-572b-521c-ab28-78c45852ccdc",
+      "verification_request_sha256": "4e4bb64469d2bd6bbc6c17d22f506681fad7da3c031aad96bb42d55e15f322d6",
+      "verified_beat_ids": [
+        "beat:16626ec5-3a92-55f0-9129-354ae481d8ec",
+        "beat:710754f6-aae6-5a4a-804e-946cc9a80413"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_development_atom_ids": [],
+      "verified_participant_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_cli_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v6",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

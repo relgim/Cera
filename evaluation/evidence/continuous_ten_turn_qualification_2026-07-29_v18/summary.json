@@ -1,0 +1,180 @@
+{
+  "attempts_per_stage": 1,
+  "codex_sdk_compatibility": {
+    "activation_contract": "provider_receipt_requires_successful_worker_installation",
+    "compatibility_id": "cera.codex_sdk_early_completion_buffer.v1",
+    "route_notification_source_sha256": "8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1",
+    "sdk_version": "0.144.4"
+  },
+  "failed_turn": 9,
+  "failure_stage": "application_execution_or_acceptance",
+  "fallback_enabled": false,
+  "finished_at": "2026-07-30T02:15:52.068139+00:00",
+  "genesis_revision": "v1_2",
+  "persistent_codex_transport": {
+    "qualification_id": "persistent-codex-transport-probe-v1",
+    "reasoner_calls": 2,
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_qualification_evidence.v1",
+    "summary_sha256": "f92a08e5cda04c701c74b3d1ddd98fe1abc0da733959f56545c0eb43cd07f5f3",
+    "verifier_calls": 2
+  },
+  "persistent_codex_tree_cleanup": {
+    "cleanup_policy": "force_full_tree_before_replacement",
+    "maximum_requests_per_process": 2,
+    "process_launches": 2,
+    "qualification_id": "persistent-codex-tree-cleanup-probe-v3",
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_tree_cleanup_qualification_evidence.v1",
+    "summary_sha256": "d477cade6580dcc3d5df9e445047f57a8c9b74e6f24bb21b2a109afb0d4124d8",
+    "verifier_calls": 4
+  },
+  "persistent_codex_verifier_epoch": {
+    "cleanup_policy": "force_full_tree_before_replacement",
+    "maximum_requests_per_process": 2,
+    "process_launches": 3,
+    "qualification_id": "persistent-codex-verifier-epoch-probe-v4",
+    "requested_model": "gpt-5.6-sol",
+    "route_notification_source_sha256": "8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1",
+    "schema_version": "cera.persistent_codex_verifier_epoch_qualification_evidence.v1",
+    "sdk_compatibility_id": "cera.codex_sdk_early_completion_buffer.v1",
+    "sdk_version": "0.144.4",
+    "summary_sha256": "d08a18bc970c788ab0f9f8bdcdf647c42bd5c42e7fef3e20d51ed25ab2c84b9b",
+    "verifier_calls": 6
+  },
+  "persistent_transport_sessions": {
+    "scene_realization_verifier": {
+      "process_launch_count": 5,
+      "request_submission_count": 9
+    },
+    "scene_reasoner": {
+      "process_launch_count": 4,
+      "request_submission_count": 8
+    }
+  },
+  "qualification_id": "continuous-ten-turn-v18",
+  "reasoner_transport_policy": "persistent_no_mcp_except_request_bound_mcp_one_shot",
+  "relational_protected_user_boundary": {
+    "candidate_sha256": "4fa1f668c4cca11ebbda8fa573443ec10e8bee1b9192f7bbb0379ef8ae82e590",
+    "composer_dto_version": "cera.deepseek_composition_draft.v5",
+    "composer_model": "deepseek-v4-pro",
+    "composer_prompt_version": "cera.deepseek_scene_composer_prompt.v12",
+    "deepseek_calls": 1,
+    "qualification_id": "deepseek-relational-protected-user-boundary-v4",
+    "schema_version": "cera.relational_boundary_qualification_evidence.v1",
+    "sol_calls": 1,
+    "summary_sha256": "d18e1397eafe1e845e2722100268a7fa0cc7b514be30d710a02d76637981940c",
+    "verifier_model": "gpt-5.6-sol"
+  },
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-30T02:00:49.290996+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": [
+    {
+      "artifact_id": "artifact:f7e97397-457b-56f7-9544-ae01157e39f6",
+      "duration_seconds": 63.406,
+      "index": 1,
+      "key": "sakura-doorway-entry-authority",
+      "prose_sha256": "436383ca16b7bced322c4d1be1e54c3416cbeda99504943a18c70e3a5c8ee212",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:c207c9ca-609b-5936-a682-4876eed654dd",
+      "duration_seconds": 75.81,
+      "index": 2,
+      "key": "enne-adjacent-room-boundary",
+      "prose_sha256": "6e972617cc246f61668b3656f368f424d0d592b76872140189843e311aa3ff20",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:enne_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:6e69be79-a78b-5669-990f-8af5ccd0a611",
+      "duration_seconds": 90.552,
+      "index": 3,
+      "key": "enne-indirect-repair-memory",
+      "prose_sha256": "89c2d3ebda6dab307c6f4db01ff306514b4b53bfd6886b7942545c9b9821f99c",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:enne_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:f295fc0b-1020-5bb3-bf9e-be5bba426942",
+      "duration_seconds": 63.432,
+      "index": 4,
+      "key": "enne-tomi-separate-equipment-stakes",
+      "prose_sha256": "b9a832be21ce02537d2a79bca41e72c95f0852e3d0182366ba096cd45ef5fa38",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:75122866-1bfc-5a3f-90ae-caf3305e4e13",
+      "duration_seconds": 69.696,
+      "index": 5,
+      "key": "enne-repair-role-followup",
+      "prose_sha256": "cf753657ffc9afd9fd23c84b51d52fe418f5a36e63d318447f7cf206800ef8bc",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:enne_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:14a6b43a-8fe3-5bb1-a158-ee4a02b3b9ee",
+      "duration_seconds": 60.887,
+      "index": 6,
+      "key": "enne-aoi-separate-privacy-stakes",
+      "prose_sha256": "7c2a3196aabfc0c1bdabd30700583023f9f58b73ead6b06e8be75c9042dfee62",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:enne_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:3b41c3d9-fcf5-596a-a4ae-475027a27eb1",
+      "duration_seconds": 87.23,
+      "index": 7,
+      "key": "device-boundary-household-round",
+      "prose_sha256": "c1857ace2848237eecbc0335b0694bc5e67569b620c1c5ef4377603644687ba2",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:enne_hanezawa",
+        "character:aoi_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:edac18db-a5a6-56fe-b3f0-4b3b78c64e59",
+      "duration_seconds": 105.965,
+      "index": 8,
+      "key": "reversible-device-support-trial",
+      "prose_sha256": "f330a766c716881a66f584e860a48e61b64d2cab62768c6a6b62c7ab0d81f9c0",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:enne_hanezawa",
+        "character:aoi_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "status": "passed"
+    }
+  ],
+  "verifier_transport_policy": "persistent_no_mcp"
+}

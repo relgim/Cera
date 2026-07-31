@@ -1,0 +1,495 @@
+{
+  "application_request_sha256": "9573d06c8d91ca4102797cc0ce86281318b0da1c2d1a67d4771c7f6991d63525",
+  "assertions": {
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "persistent_no_mcp"
+  },
+  "composer": {
+    "accepted_prose": "Enne regards him without stepping closer. \"My devices and network are off-limits without my explicit permission. That includes wall-closeness—I will know if you try a promiscuous scan.\" She does not elaborate.",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "587268753183c4ce6266802431de7273bd8f9fb22c038249761bdd3ee30c4dd4",
+      "character_spans": [
+        {
+          "beat_id": "beat:bced69ce-8e5f-50ed-b8d2-df6f9dfd4942",
+          "end": 209,
+          "kind": "dialogue",
+          "owner_id": "character:enne_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        }
+      ],
+      "decision_sha256": "51e09036a30c79bf17e78c964829e2e66d7dac2e9b81412fe0c8271276de44c0",
+      "floor_owner_id": "character:enne_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:c2a02448-9896-586b-b59a-0e8a11e804db",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "f22c9de17e7ca42d9f2556b0f7232b23af32f240b9f4256c539bcc840aa0a70c",
+          "character_id": "character:enne_hanezawa",
+          "selected_intent_sha256": "ae17793f6f8bca64a19bbe5c6630340267ad055d1a996de54eb31a870cf050dc"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:bced69ce-8e5f-50ed-b8d2-df6f9dfd4942"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "72e6be9cbcb42ed380996c28201472c402fc51c22dd4b8f50bbc83ef2204a239",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "6e972617cc246f61668b3656f368f424d0d592b76872140189843e311aa3ff20",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1280,
+      "cost_is_estimate": true,
+      "cost_microusd": 1339,
+      "duration_ms": 3354,
+      "external_provider_calls": 1,
+      "input_tokens": 3935,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "ad420fef3c0e3dc95fe3fac08abfdbf0e44b95527cfda3fd74cf420b06a2cca5",
+      "output_tokens": 206,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:142e4a5d-e530-5b2e-908e-be208404c137",
+      "provider_request_id_sha256": "443e47469f97cebe071e8982c7d6da5c0a5d843911dd43cc5bdd44e71d50ae02",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "5e23f0502c592dd6e4ffad3061ab99d5e9e9f63b0c165edb61bd08ad508445a2",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "e795e7c4dc412df72d8c79dd2828361a6febfd81f63010ff57d72a2f0e03da17",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:enne_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "b7405f96f35733313e336dfee754cea6ac523a9ab4eeeca2378d42664528c362",
+      "assembly_receipt_id": "validation:96670f00-ebb3-5420-8436-0393c59783c4",
+      "base_request_sha256": "45c1c3b8cc0f3c679b5b0c23fb095c45589673335b7bb9c4b4c9f733a02f64dc",
+      "cumulative_returned_bytes": 3197,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:5ccd2778-f366-5ab2-85fa-a6b5e64bca8d",
+        "lookup_receipt:840acaff-8c84-5b49-a6c3-930d8f08efbe"
+      ],
+      "realization_context_sha256": "c1fc437520b37426d9bfec5c0b473526f94578bb2153fa540103a712b6062457",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61",
+        "evidence:4b09d0c8-2ff7-52cf-b469-8754e243f9d1"
+      ],
+      "snapshot_token": "snapshot:cb0affd3-5f57-5188-877d-b0d56cfcbffc",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:enne_hanezawa"
+    ]
+  },
+  "duration_seconds": 75.81,
+  "index": 2,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "aeae4eaa74f39a7f8540e4c52531e8563fc23fbd9f000df60468f4134db12237",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "7e1869b62a1ff86b57d02e7d9fda3782f6704ee918446d435734859bbb50d66e",
+      "receipt_id": "validation:a690319a-3076-559d-b0ef-5f1f1a88a42e",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "0a67806557755db7b1ea66532df86ef6444b97cae06f89a4366279b34e496841",
+    "receipt_id": "validation:0689c413-faf1-5fbb-b401-ff8810d18bd1",
+    "request_id": "request:49af5599-d1d9-5cee-a19b-4c27db251e65",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2096,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:41dcfc27-b2e6-5b84-96a3-b957219d098c",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2096,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:cb0affd3-5f57-5188-877d-b0d56cfcbffc",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 3356,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:474166e3-a807-52ce-a7e5-737ccbec9167",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1260,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:cb0affd3-5f57-5188-877d-b0d56cfcbffc",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:db3c9117-315c-5e76-9a0e-616dcf952621",
+        "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:41dcfc27-b2e6-5b84-96a3-b957219d098c",
+        "lookup_receipt:474166e3-a807-52ce-a7e5-737ccbec9167"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:db3c9117-315c-5e76-9a0e-616dcf952621"
+          ],
+          "obligation_id": "obligation:0d3b8a29-0276-5a48-8e1f-5adc9dcd5863",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+          ],
+          "obligation_id": "obligation:58b765c1-b231-573c-928b-1d4b99978532",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:e5f1cb37-c1f2-53f7-b98d-8c9e75e6b227",
+      "snapshot_binding_sha256": "1932dd235f4490d645895f9d6c38467e7a772d6fd39d73bdb7fcdd46dab41ab9",
+      "snapshot_token": "snapshot:cb0affd3-5f57-5188-877d-b0d56cfcbffc"
+    },
+    "snapshot_token": "snapshot:cb0affd3-5f57-5188-877d-b0d56cfcbffc",
+    "source_sha256": "2031bfa5f3e399c7b5755805fe52ff3d8d1a9ca68814d672d670997e044d1850"
+  },
+  "key": "enne-adjacent-room-boundary",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:c207c9ca-609b-5936-a682-4876eed654dd",
+      "accepted_artifact_sha256": "4338be4eafa391f793680aa0d5df176ece719c9b5701eafca817ab5ba627a22f",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "9573d06c8d91ca4102797cc0ce86281318b0da1c2d1a67d4771c7f6991d63525",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:12c82fc4-aaff-5607-bf97-6bd8451484b4",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:1860d14c-1eb9-5421-8865-a8b55df1a1f0",
+      "operational_report_id": "validation:f26aca6b-4a54-5330-945d-1f418f1e889b",
+      "operational_report_sha256": "30c072bebeb962ad90014051395454c9acb6a293b77589d61b20ee36e36d6b5c",
+      "receipt_id": "validation:d4a69919-9fb7-5567-87cb-aad8aec66413",
+      "request_id": "request:49af5599-d1d9-5cee-a19b-4c27db251e65",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "52f8d84d86f5d9f92d7d364fd1a61c89857c074429a62dd608ef40d397458093"
+    },
+    "artifact": {
+      "accepted_prose": "Enne regards him without stepping closer. \"My devices and network are off-limits without my explicit permission. That includes wall-closeness—I will know if you try a promiscuous scan.\" She does not elaborate.",
+      "artifact_id": "artifact:c207c9ca-609b-5936-a682-4876eed654dd",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:51f9a10b-3bf7-5e9c-a749-bbde4ddd4d68",
+      "generation_id": "generation:1860d14c-1eb9-5421-8865-a8b55df1a1f0",
+      "parent_artifact_id": "artifact:f7e97397-457b-56f7-9544-ae01157e39f6",
+      "prose_sha256": "6e972617cc246f61668b3656f368f424d0d592b76872140189843e311aa3ff20",
+      "realized_beat_ids": [
+        "beat:bced69ce-8e5f-50ed-b8d2-df6f9dfd4942"
+      ],
+      "responding_npc_ids": [
+        "character:enne_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:aea56cd8-2cf8-5285-854e-3e4eed78e60b",
+      "status": "accepted",
+      "transaction_id": "transaction:732d82d0-d8cd-57ab-9e45-324220d829d5",
+      "validation_receipt_id": "validation:7f258406-17dd-54d0-ab9f-5f952947eecf"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:12c82fc4-aaff-5607-bf97-6bd8451484b4",
+      "expected_previous_artifact_id": "artifact:f7e97397-457b-56f7-9544-ae01157e39f6",
+      "external_receipt_ids": [],
+      "generation_after": 2,
+      "generation_before": 1,
+      "inserted_record_ids": [
+        "event:f8e81a1f-efa1-5f9e-a594-72a881483683"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:41dcfc27-b2e6-5b84-96a3-b957219d098c",
+        "lookup_receipt:474166e3-a807-52ce-a7e5-737ccbec9167",
+        "lookup_receipt:5ccd2778-f366-5ab2-85fa-a6b5e64bca8d",
+        "lookup_receipt:840acaff-8c84-5b49-a6c3-930d8f08efbe"
+      ],
+      "new_artifact_id": "artifact:c207c9ca-609b-5936-a682-4876eed654dd",
+      "new_artifact_sha256": "4338be4eafa391f793680aa0d5df176ece719c9b5701eafca817ab5ba627a22f",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:9b565d9a-ec34-5f37-892a-3335b378e577",
+        "provider_receipt:142e4a5d-e530-5b2e-908e-be208404c137",
+        "provider_receipt:25bf750f-40f6-586e-8938-7858a985c2e3"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:aea56cd8-2cf8-5285-854e-3e4eed78e60b",
+      "source_sha256": "b60be18741517305a6eb6dc78a4dc2489b6be17fa81d457297bc576c447ba309",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:732d82d0-d8cd-57ab-9e45-324220d829d5",
+      "transaction_sha256": "52f8d84d86f5d9f92d7d364fd1a61c89857c074429a62dd608ef40d397458093",
+      "validation_receipt_ids": [
+        "validation:0689c413-faf1-5fbb-b401-ff8810d18bd1",
+        "validation:96670f00-ebb3-5420-8436-0393c59783c4",
+        "validation:36b25e25-c403-5ee9-9a3f-0cdeb947c322",
+        "realization_verification:24bc32c2-1b0c-5f0c-a2f6-7ad068886691",
+        "validation:7f258406-17dd-54d0-ab9f-5f952947eecf",
+        "validation:d03c226d-720d-54e6-af95-06aa8fb4763e"
+      ]
+    },
+    "event_record_id": "event:f8e81a1f-efa1-5f9e-a594-72a881483683",
+    "visible_artifact_count": 2
+  },
+  "qualification_id": "continuous-ten-turn-v18",
+  "raw_message": "After following Sakura's entry instruction, Ted encounters Enne in the hallway near their adjacent rooms. He says, \"Since our rooms share a wall, I would rather ask than guess. What is one noise, device, or network boundary you want me to follow from the start?\" He waits without entering her room.",
+  "raw_message_sha256": "0e3928a153f1b487aefd4d2363333285c1c44a4d56408eaf2d3cd246d84a7726",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "State the rule briefly and with analytical control, without disclosing private curiosity or granting broader access.",
+            "character_id": "character:enne_hanezawa",
+            "evidence_ids": [
+              "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+            ],
+            "knowledge_constraints": [
+              "Keep Enne's owner-private watchfulness and curiosity private.",
+              "Do not imply knowledge of owner-private facts held by Ted or Sakura."
+            ],
+            "perception": "The hallway setting leaves her room, devices, and network under her control.",
+            "selected_intent": "Set a clear no-access rule for her devices and network."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:enne_hanezawa",
+              "beat_id": "beat:bced69ce-8e5f-50ed-b8d2-df6f9dfd4942",
+              "evidence_ids": [
+                "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+              ],
+              "neutral_event": "Enne states that her devices and network are off-limits without her explicit permission.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:4e3c9e09-f2cc-5ed7-a310-fb5b99145c99",
+          "stop_before": "Stop before the protected user's next response, movement, compliance, refusal, or other meaningful choice."
+        },
+        "decision_id": "decision:51f9a10b-3bf7-5e9c-a749-bbde4ddd4d68",
+        "floor_owner_id": "character:enne_hanezawa",
+        "future_segments": [],
+        "prohibited_inferences": [
+          "Do not author any protected-user response, movement, compliance, refusal, thought, or commitment.",
+          "Do not imply that Enne's boundary grants access to her room, devices, or network.",
+          "Do not infer monitoring, intimacy, or future outcomes from the adjacent rooms.",
+          "Do not expose Enne's owner-private watchfulness or curiosity as shared knowledge or explicit self-disclosure."
+        ],
+        "responding_npc_ids": [
+          "character:enne_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Enne states a no-access rule for her devices and network.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "The protected user's next unsupplied meaningful choice is unknown.",
+          "Unretrieved private state and future outcomes remain unknown."
+        ],
+        "writer_must_preserve": [
+          "Enne's statement must establish that her devices and network are off-limits without her explicit permission.",
+          "Keep the delivery concise and analytically controlled.",
+          "Do not narrate or restate the protected user's supplied action or dialogue.",
+          "End before any protected-user response or movement."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61",
+          "record_id": "record:30292a40-f837-5c08-9cf7-c23e70524b75",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "evidence_ids": [],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 58912,
+      "external_provider_calls": 1,
+      "input_tokens": 13921,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "3e908e76c03b9532f2fc532cc632d374f0fed92862207b372ce41d4d5f57d983",
+      "output_tokens": 2658,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:9b565d9a-ec34-5f37-892a-3335b378e577",
+      "provider_request_id_sha256": "91fac094437394b1194b9b22cf120dd59e22788098e3eadbd769c6d7b1ea2d79",
+      "quota_metered": true,
+      "reasoning_output_tokens": 2110,
+      "request_sha256": "707d6d16050d7140689db5b24a5de7c65808a7dad9bf6710968b61d88a5a9d02",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "5155f221f752786db54bfa5f6041062faba426802726683729f25d9bad90fd22",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:9b565d9a-ec34-5f37-892a-3335b378e577",
+      "provider_receipt_sha256": "663fd0423be99167063200a3a526eb06e42e620f2fd80da0f19b1cef475798e7",
+      "reasoner_request_sha256": "0a67806557755db7b1ea66532df86ef6444b97cae06f89a4366279b34e496841",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:cb0affd3-5f57-5188-877d-b0d56cfcbffc",
+      "source_sha256": "2031bfa5f3e399c7b5755805fe52ff3d8d1a9ca68814d672d670997e044d1850",
+      "source_view_sha256": "d7b87a050aa4579a5623bff4ce99aab7c12420b7ffc75ef0a38623592fc8afdb",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Enne defines one practical adjacent-room boundary",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 8344,
+      "external_provider_calls": 1,
+      "input_tokens": 10325,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "7fca447d553af0e33bef075598625057011f541e6269e66d225a3179e4ce2940",
+      "output_tokens": 220,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:25bf750f-40f6-586e-8938-7858a985c2e3",
+      "provider_request_id_sha256": "55256b9f7db670a37714ef071f207222ddc40f4bff43c3307caebcaf7633ae18",
+      "quota_metered": true,
+      "reasoning_output_tokens": 115,
+      "request_sha256": "915f0a992d246647f7372fe19ebe28e58f20f16c3b4c0f090182c531e9fa9c94",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "587268753183c4ce6266802431de7273bd8f9fb22c038249761bdd3ee30c4dd4",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:25bf750f-40f6-586e-8938-7858a985c2e3",
+      "provider_receipt_sha256": "6dba22117db45ae492a1115c27b89bd1a2d1797fa3646f39e949b7f53a71a708",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "6e972617cc246f61668b3656f368f424d0d592b76872140189843e311aa3ff20",
+      "verification_id": "realization_verification:24bc32c2-1b0c-5f0c-a2f6-7ad068886691",
+      "verification_request_sha256": "08765fae8525e9b132d2130c6429d98d2bbb34ce7b3fd46b6dcce915c1d095ae",
+      "verified_beat_ids": [
+        "beat:bced69ce-8e5f-50ed-b8d2-df6f9dfd4942"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:enne_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

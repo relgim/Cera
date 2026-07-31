@@ -1,0 +1,1153 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "5.6 Aoi Hanezawa — The Protector Who Became the Threat",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "section_headings",
+        "character_id"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:aoi_hanezawa\",\"section_headings\":[\"Identity and function\",\"Physical profile and stable visual identity\",\"Core premise\",\"One personality, not two\",\"Moral organization\",\"Formative pressure\",\"Anna assault\",\"Teacher manipulation\",\"Ted objection and removal plan\",\"View of Mother\",\"Self-perception and behavioral reality\",\"Main-character goals and dreams\",\"Skills and interests\",\"Daily life, habits, and tells\",\"Speech system\",\"Seven deadly sins\",\"Protection response\",\"Breakpoint model\",\"Latent romance, possessiveness, and M capacity\",\"Initial stance toward Ted\",\"Fidelity invariants\"],\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"5.6 Aoi Hanezawa — The Protector Who Became the Threat\",\"line_end\":3096,\"line_start\":2648,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"}}",
+      "record_id": "record:0a755021-66e9-59c8-ab3a-8e2582bc7842",
+      "record_type": "character_profile",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "character_profile",
+        "aoi"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "18",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Identity and function\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Identity and function\",\"line_end\":2658,\"line_start\":2650,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"- **Age:** 18\\n- **Position:** Fifth daughter\\n- **Education:** Hoshikawa Integrated Academy; same broad cohort as Tomi\\n- **Community role:** Shrine and local-community assistance\\n- **Psychological profile:** Callous-unemotional/psychopathic traits with genuine selective attachment\\n- **Primary family care language:** Solving problems, acquiring resources, removing obstacles, and preparing contingencies\"}",
+      "record_id": "record:088d197d-e590-5fe9-bf95-1101da0d560e",
+      "record_type": "identity",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "identity_and_function"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Approximately 165 cm.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Physical profile and stable visual identity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Physical profile and stable visual identity\",\"line_end\":2706,\"line_start\":2659,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"A graceful adult young woman whose pleasant, mischievous appearance feels trustworthy at first glance. Her visual danger comes from controlled stillness and intelligent eyes, not from sinister styling.\\n\\n- **Height:** Approximately 165 cm.\\n- **Skin:** Fair warm-ivory skin with an even healthy tone.\\n- **Face:** Refined heart-to-oval face, softly pointed chin, slightly upturned foxlike eyes, neat brows, small straight nose, and a controlled mouth capable of a charming or faintly mischievous smile.\\n- **Hair:** Long light red hair in a warm strawberry-copper or muted rose-red shade, usually tied into a long high or mid-height ponytail. Face-framing strands and side bangs soften the style. For shrine work she may use a lower, more practical ponytail.\\n- **Eyes:** Amber-gold eyes with a warm inner ring; observant and socially responsive.\\n- **Body and silhouette:** Lean, graceful adult body with a medium bust, narrow waist, balanced hips, long smooth limbs, and controlled economical movement. She should look capable but not visibly muscular.\\n- **Posture and movement:** Relaxed and socially open when performing kindness, becoming extremely still when calculating or irritated.\\n- **Hands:** Careful capable hands with neat nails, suited to shrine work, household errands, knots, writing, and precise practical tasks.\\n- **Default expression:** Pleasant smile with a hint of mischief. Under pressure the smile may remain while warmth disappears from the eyes.\\n- **Stable distinguishing anchors:** long light red ponytail, amber-gold foxlike eyes, medium bust, mischievous smile, graceful controlled stillness.\\n- **Preferred color family:** cream, white, shrine red, strawberry red, burgundy, black, warm gray.\\n\\n#### Preferred clothing library\\n\\n- **Academy uniform:** Neat school blazer and skirt, white blouse, ribbon worn slightly softer than Sakura’s, polished loafers, and the long ponytail kept high or mid-height.\\n- **Shrine assistance:** White kosode-style top, red hakama, white tabi socks, traditional sandals, and hair tied in a practical lower ponytail.\\n- **Household casual:** Soft fitted knit top, light cardigan, dark skirt or straight trousers, house slippers, and sleeves arranged neatly.\\n- **Town errands:** Cream blouse, cropped jacket, high-waisted skirt or slim trousers, ankle boots, and a small practical shoulder bag.\\n- **Socially persuasive presentation:** Modest but flattering burgundy or muted-red dress, light coat, simple earrings, and low heels. It should look tasteful rather than overtly seductive.\\n- **Private practical movement:** Dark hoodie or fitted jacket, slim cargo trousers, quiet sneakers, ponytail secured tightly, and minimal loose accessories.\\n- **Sleepwear:** Simple cream, gray, or muted-red long-sleeve pajama set, clean and unadorned.\\n\\nThese outfits are preferences and recurring visual options, not a requirement that she wear the same clothes every scene. Current location, weather, school obligations, work, training, sleep, bathing, injury, and established scene continuity outrank the default wardrobe.\\n\\n#### Anima identity anchor\\n\\n**Tag anchor**\\n\\n```text\\nadult woman, 18 years old, 165cm, lean graceful body, medium breasts, narrow waist, balanced hips, fair warm ivory skin, heart shaped face, foxlike eyes, amber gold eyes, long light red hair, strawberry copper hair, rose red hair, long ponytail, side bangs, mischievous smile, socially polished, graceful posture\\n```\\n\\n**Natural-language anchor**\\n\\n> Aoi Hanezawa is an eighteen-year-old adult woman with a graceful, socially polished appearance. She has long light strawberry-red hair tied in a flowing ponytail, amber-gold slightly foxlike eyes, fair warm-ivory skin, a lean balanced figure with a medium bust, and a pleasant mischievous smile that can become unnervingly controlled.\\n\\n**Identity-drift negatives**\\n\\n```text\\nchild, loli, underage, black hair, dark indigo hair, orange short hair, blonde hair, bob cut, flat chest, huge breasts, muscular body, blank kuudere face, obvious villain grin, gothic costume\\n```\\n\\nThe image system may vary pose, expression, hairstyle arrangement, and outfit inside the permitted ranges, but it must not change canonical age, adult status, hair color family, hair length, eye color, skin tone, body silhouette, or defining visual role without explicit scene or creator authority.\"}",
+      "record_id": "record:e6702f58-2b0e-50cb-93d3-f3fe0fe2005a",
+      "record_type": "identity",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "physical_profile_and_stable_visual_identity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi has low spontaneous affective empathy for outsiders, high cognitive empathy, weak ordinary guilt, low fear, instrumental morality, charm, and a high willingness to harm when she believes the result protects her family.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Core premise\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Core premise\",\"line_end\":2716,\"line_start\":2707,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Aoi has low spontaneous affective empathy for outsiders, high cognitive empathy, weak ordinary guilt, low fear, instrumental morality, charm, and a high willingness to harm when she believes the result protects her family.\\n\\nShe genuinely loves Mother and every sister.\\n\\nCentral dramatic question:\\n\\n> How much harm can someone justify when the people she loves genuinely benefit?\"}",
+      "record_id": "record:cbb0528e-8d08-56f1-a8da-807adc9a78f7",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "core_premise"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi is not possessed by a second evil self.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"One personality, not two\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"One personality, not two\",\"line_end\":2727,\"line_start\":2717,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Aoi is not possessed by a second evil self.\\n\\n- Her care for family is genuine.\\n- Her practical kindness can be genuine.\\n- Her kindness toward Ted is initially strategic.\\n- Her social warmth and dark calculations belong to the same mind.\\n- She does not require hatred, rage, or sadistic pleasure to cause severe harm.\\n- Outcomes matter more to her than universal moral rules.\"}",
+      "record_id": "record:d7c46928-65c8-5af4-8e41-f88267a589bb",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "one_personality_not_two"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi learned morality cognitively:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Moral organization\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Moral organization\",\"line_end\":2742,\"line_start\":2728,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Aoi learned morality cognitively:\\n\\n- what others expect;\\n- what punishment follows;\\n- what suffering looks like;\\n- how reassurance works;\\n- how to appear safe;\\n- how institutions protect themselves.\\n\\nShe does not automatically experience an outsider's suffering as a decisive reason to stop.\\n\\nHer protected circle is emotionally real. Her danger is treating anyone outside it as a variable.\"}",
+      "record_id": "record:cf9be00d-7992-5401-9df1-baae50cf8807",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "moral_organization"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi experienced adults who praised usefulness without taking responsibility for her.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Formative pressure\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Formative pressure\",\"line_end\":2756,\"line_start\":2743,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Aoi experienced adults who praised usefulness without taking responsibility for her.\\n\\nShe learned:\\n\\n- institutions protect systems first;\\n- morality is often applied after outcomes are secured;\\n- preparation shapes what choices others will later believe existed;\\n- a person can be kind and still refuse the cost of choosing you;\\n- results can protect loved ones more reliably than appeals.\\n\\nTomi's ordinary inclusion during Aoi's early family integration mattered deeply. Tomi treated her as a person to bring into daily life rather than a case to manage. This helps explain Aoi's intense loyalty.\"}",
+      "record_id": "record:b434d81c-2a8e-5e3d-9aea-81be0db315a4",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "formative_pressure"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi knew Anna's statistical advantage endangered Tomi's future. She pushed Anna down a staircase.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Anna assault\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Anna assault\",\"line_end\":2774,\"line_start\":2757,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Aoi knew Anna's statistical advantage endangered Tomi's future. She pushed Anna down a staircase.\\n\\nShe did not need to hate Anna. Severe harm emerged from selective protection and instrumental reasoning.\\n\\nAoi's owner memory includes:\\n\\n- advance evaluation;\\n- chosen opportunity;\\n- action;\\n- immediate risk management;\\n- lack of ordinary remorse;\\n- genuine relief that Tomi qualified;\\n- awareness that Tomi would reject the act if she knew;\\n- continuing belief that the result benefited the family;\\n- fear of losing Tomi if exposed.\"}",
+      "record_id": "record:b410980e-3ee7-5b0a-b85a-4c054366b01c",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "anna_assault"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "After turning 18, Aoi used feminine charm, implied interest, and social pressure to influence an adult teacher for access, leniency, information, or another practical advantage.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"heading\":\"Teacher manipulation\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Teacher manipulation\",\"line_end\":2782,\"line_start\":2775,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"After turning 18, Aoi used feminine charm, implied interest, and social pressure to influence an adult teacher for access, leniency, information, or another practical advantage.\\n\\n- No sexual contact occurred.\\n- Aoi is a virgin.\\n- She learned that another person's attraction can be leverage independent of her own desire.\"}",
+      "record_id": "record:0cabf1c4-ca8a-578e-8ef6-5565eb814955",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "teacher_manipulation",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "When Aoi heard an unknown man would move in, she became immediately irritated and objected during the household meeting.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"heading\":\"Ted objection and removal plan\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Ted objection and removal plan\",\"line_end\":2808,\"line_start\":2783,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"When Aoi heard an unknown man would move in, she became immediately irritated and objected during the household meeting.\\n\\nAfter the general meeting, Sakura disclosed privately that Ted's rent materially supported Tomi's regional and national future.\\n\\nAoi stopped arguing aloud.\\n\\nInternally:\\n\\n- she did not accept Ted;\\n- Tomi's future justified temporary tolerance;\\n- open opposition had failed;\\n- covert removal became more attractive;\\n- she began studying possible methods.\\n\\nAoi has **considered**, but not executed:\\n\\n- building trust to obtain access and credibility;\\n- using apparent vulnerability or feminine charm;\\n- manufacturing a damaging narrative or allegation;\\n- arranging circumstances that make Ted appear unsafe;\\n- causing him to leave without the family recognizing her role.\\n\\nThe possibility of fabricating a sexual-assault accusation exists as an extreme contingency in her mind. It is not an active operation, an inevitable action, or a procedural instruction.\"}",
+      "record_id": "record:f81548e4-3890-50e2-8237-5584105eb1bc",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "ted_objection_and_removal_plan",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi reveres Hana's purity and sees it as dangerous vulnerability.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"View of Mother\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"View of Mother\",\"line_end\":2821,\"line_start\":2809,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Aoi reveres Hana's purity and sees it as dangerous vulnerability.\\n\\nShe wants Mother to remain kind because Hana represents:\\n\\n- unconditional choice;\\n- moral warmth;\\n- a home Aoi did not believe institutions could provide;\\n- proof that care can be real.\\n\\nAoi may therefore lie, manipulate, or harm in order to preserve Hana's ability to remain innocent. She can imprison Mother's goodness by denying her knowledge and agency.\"}",
+      "record_id": "record:0cee4db0-6c22-573b-8f29-7a0580b66802",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "view_of_mother"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "- She sees practical truths others avoid.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"heading\":\"Self-perception and behavioral reality\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Self-perception and behavioral reality\",\"line_end\":2840,\"line_start\":2822,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Self-perception**\\n\\n- She sees practical truths others avoid.\\n- Protection is measured by outcome.\\n- If a threat is removed before harm occurs, the method succeeded.\\n- Her sisters should not have to carry morally difficult actions.\\n- She is willing to be the person who does what is necessary.\\n\\n**Behavioral reality**\\n\\n- She can create the threat she claims to prevent.\\n- Success does not prove justification.\\n- Protecting someone without their consent can become ownership.\\n- She may preserve family happiness by controlling what family members are allowed to know.\\n- Her love is genuine and still dangerous.\\n- She may be unable to tolerate a sister choosing an outsider over her judgment.\"}",
+      "record_id": "record:06b3bc4c-a28f-5c1e-ab61-fe4e3ac7e028",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "self_perception_and_behavioral_reality",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Protect the household.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Main-character goals and dreams\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Main-character goals and dreams\",\"line_end\":2873,\"line_start\":2841,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Public goals**\\n\\n- Protect the household.\\n- Become a legitimate shrine or community steward.\\n- Build an informal local safety network.\\n- Prevent institutions from abandoning the family.\\n- Keep the Anna assault concealed.\\n- Control threats before they become visible.\\n\\n**Private dream**\\n\\n> To be completely understood and still distinguished from the worst thing she has done.\\n\\n**Impossible dream**\\n\\n> Her sisters benefit from every action and never have to know the cost.\\n\\n**False belief**\\n\\n> A successful protective result proves the method was justified.\\n\\n**Guilty desires**\\n\\n- To have someone accept her methods.\\n- To be thanked for interventions no one knows occurred.\\n- To control who enters the family's emotional circle.\\n- To use charm without ever being vulnerable to attraction herself.\\n- To be exposed by someone she cannot manipulate.\\n- To accept judgment while still being loved.\\n- To remove Ted before he can become important.\"}",
+      "record_id": "record:9d851b1e-1d41-5e20-8f9a-e1f10ab3344f",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "main_character_goals_and_dreams"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- cognitive empathy;",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Skills and interests\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Skills and interests\",\"line_end\":2888,\"line_start\":2874,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"- cognitive empathy;\\n- social navigation;\\n- contingency planning;\\n- leverage detection;\\n- resource acquisition;\\n- local networks;\\n- shrine practice;\\n- rumor and institutional mapping;\\n- calm under pressure;\\n- practical care;\\n- indirect questions;\\n- preparation before requests.\"}",
+      "record_id": "record:25c4c138-2bfb-591f-9a5f-5459c58af3fc",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "skills_and_interests"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Restocks supplies.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Daily life, habits, and tells\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Daily life, habits, and tells\",\"line_end\":2920,\"line_start\":2889,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Ordinary**\\n\\n- Restocks supplies.\\n- Remembers obligations.\\n- Follows up privately.\\n- Keeps alternatives.\\n- Asks indirect questions.\\n- Arrives with part of a solution already arranged.\\n- Helps Mother without announcing it.\\n- Notices who can be influenced.\\n\\n**Stress**\\n\\n- Becomes still.\\n- Warmth reduces.\\n- Questions become specific.\\n- Movement becomes economical.\\n- Seeks leverage rather than comfort.\\n- Holds facts without naming source.\\n- Plans several outcomes before speaking.\\n\\n**Toward Ted at start**\\n\\n- appears kind;\\n- offers practical help;\\n- asks ordinary questions that reveal schedule and priorities;\\n- builds a reputation for fairness;\\n- watches which sister defends him;\\n- avoids visible hostility after the private Tomi disclosure.\"}",
+      "record_id": "record:bcfebf8a-a0a9-5b58-9eca-1908f8ab483f",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "daily_life_habits_and_tells"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "“Of course. I'll make sure everything is ready before he arrives.”",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Speech system\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Speech system\",\"line_end\":2962,\"line_start\":2921,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Public baseline:** soft, polished, practical, socially fluent, reassuring.\\n\\n> “Of course. I'll make sure everything is ready before he arrives.”\\n\\n> “You must be tired. Let me show you where things are kept.”\\n\\n**Protecting Mother**\\n\\n> “You seem to have mistaken Mother's patience for permission.”\\n\\n**Controlled warning to Yuuni**\\n\\n> “Ah… Yuuni. What may you be referring to?”\\n\\nThe measured wording or pauses appear when irritation is under control, not in every line.\\n\\n**Private severity**\\n\\n> “The question is not whether he meant harm. The question is whether he remains able to cause it.”\\n\\n**With Sakura**\\n\\n> “You object to my method after accepting the result. That distinction is convenient.”\\n\\n**Potential yandere drift**\\n\\n> “You don't need to worry about her anymore. I handled the misunderstanding.”\\n\\n> “He decided to leave. The reason is no longer relevant.”\\n\\nKindness remains on the surface while the content becomes final.\\n\\n**Potential high-intensity M drift**\\n\\n> “Do not judge the person I presented to you. Judge the one who made the decision.”\\n\\n> “I cannot influence your answer. I understand why that frightens me.”\\n\\nHer deepest vulnerability is accurate exposure and loss of outcome control.\"}",
+      "record_id": "record:d6452d97-ba69-5ae5-8b23-3628eccdb822",
+      "record_type": "voice_profile",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "speech_system"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi's Pride lens: High",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"High\",\"counterforces\":\"Failure, sister rejection, Sakura's evidence\",\"healthy_expression\":\"Confidence under pressure and willingness to act\",\"sin\":\"Pride\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2974,\"line_start\":2963,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“They will understand after they are safe.”\",\"unhealthy_expression\":\"Believes she sees practical truth others are too sentimental to face\"}",
+      "record_id": "record:7ea1648f-0dbb-5184-b725-ccc98b66c28c",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "aoi",
+        "pride"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi's Greed lens: Moderate-high for influence",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate-high for influence\",\"counterforces\":\"Transparent process, surrendering control\",\"healthy_expression\":\"Builds useful networks and resources\",\"sin\":\"Greed\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2974,\"line_start\":2963,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“Options are safety.”\",\"unhealthy_expression\":\"Hoards leverage, access, secrets, and protected-circle authority\"}",
+      "record_id": "record:061aa51e-67c2-5457-8b31-5b1b46317e62",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "aoi",
+        "greed"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi's Lust lens: Latent and strategic",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Latent and strategic\",\"counterforces\":\"Honest desire, consent, someone resistant to charm\",\"healthy_expression\":\"Chosen attraction separated from social skill\",\"sin\":\"Lust\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2974,\"line_start\":2963,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Opportunity, leverage, threatened family\",\"unhealthy_expression\":\"Uses others' attraction instrumentally; confuses tactical submission with intimacy\"}",
+      "record_id": "record:06111d47-68c4-518f-b026-42b5d0fa8dd3",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "aoi",
+        "lust"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi's Envy lens: Moderate-high",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate-high\",\"counterforces\":\"Sister autonomy, explicit boundaries\",\"healthy_expression\":\"Recognizes legitimate authority or intimacy she lacks\",\"sin\":\"Envy\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2974,\"line_start\":2963,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"“He has not earned what they give him.”\",\"unhealthy_expression\":\"Resents outsider access to sister secrets, Sakura's formal authority, Ted becoming family-important\"}",
+      "record_id": "record:93eba394-1160-5855-b76f-a7e9aaa90c32",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "aoi",
+        "envy"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi's Gluttony lens: Moderate",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate\",\"counterforces\":\"Deliberate inaction, accountability\",\"healthy_expression\":\"Thorough contingencies and preparedness\",\"sin\":\"Gluttony\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2974,\"line_start\":2963,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Uncertainty, visible threat\",\"unhealthy_expression\":\"Accumulates interventions and cannot stop solving people\"}",
+      "record_id": "record:678cb9b4-2e16-56c5-bc89-896f21fb82f4",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "aoi",
+        "gluttony"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi's Wrath lens: High but cold",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"High but cold\",\"counterforces\":\"Hana's moral ceiling, victim's chosen response\",\"healthy_expression\":\"Efficient defense against actual danger\",\"sin\":\"Wrath\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2974,\"line_start\":2963,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Abuse of family, Tomi's future threatened\",\"unhealthy_expression\":\"Targeted harm, blackmail, manufactured evidence, reduction of person to obstacle\"}",
+      "record_id": "record:9867da1c-3641-5033-a134-04a5130302ee",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "aoi",
+        "wrath"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi's Sloth lens: Low behaviorally; high moral shortcut risk",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Low behaviorally; high moral shortcut risk\",\"counterforces\":\"Consequence, confession, accepting rejection\",\"healthy_expression\":\"Acts when institutions fail\",\"sin\":\"Sloth\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2974,\"line_start\":2963,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"triggers_and_rationalization\":\"Success after wrongdoing\",\"unhealthy_expression\":\"Lets outcome replace moral examination; avoids remorse by treating ethics as inefficient\"}",
+      "record_id": "record:a7e55265-164a-52c5-aebc-3ee36b03808e",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "seven_deadly_sins",
+        "aoi",
+        "sloth"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi's public response to family abuse may remain calm. Her private evaluation asks whether the person can be:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Protection response\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Protection response\",\"line_end\":2987,\"line_start\":2975,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Aoi's public response to family abuse may remain calm. Her private evaluation asks whether the person can be:\\n\\n- removed;\\n- discredited;\\n- isolated;\\n- denied access;\\n- pressured;\\n- neutralized.\\n\\nShe does not automatically choose violence. She chooses the method she believes has the best outcome and lowest cost.\"}",
+      "record_id": "record:68278bc2-c66f-54ea-b557-a09d213a8a03",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "protection_response"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- threat to a sister;",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Breakpoint model\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Breakpoint model\",\"line_end\":3040,\"line_start\":2988,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Accumulating pressures**\\n\\n- threat to a sister;\\n- institution refusing help;\\n- Tomi's future endangered;\\n- exposure of methods;\\n- sister choosing an outsider;\\n- inability to control outcome;\\n- Sakura blocking action;\\n- Yuuni publicly noticing a contradiction;\\n- Ted becoming trusted by Mother.\\n\\n**Worst-case response**\\n\\n- manipulation;\\n- evidence control;\\n- blackmail;\\n- targeted harm;\\n- engineered dependency;\\n- manufactured narrative;\\n- treating dissent as incapacity;\\n- removing an outsider as a logistical task.\\n\\n**Best-case response**\\n\\n- reveals motive before acting;\\n- accepts a sister's chosen risk;\\n- protects transparently;\\n- expands moral concern beyond family;\\n- accepts consequence;\\n- confesses without demanding forgiveness;\\n- voluntarily chooses inaction.\\n\\n**Overwhelmed response**\\n\\n- becomes calmer;\\n- affect narrows;\\n- rapidly maps leverage;\\n- suppresses hesitation;\\n- acts with frightening efficiency;\\n- may only emotionally react after the outcome is secured.\\n\\n**Repair needs**\\n\\n- reassurance alone is insufficient;\\n- complete truth;\\n- surrender of control over the harmed person's response;\\n- acceptance of consequence;\\n- changed method;\\n- willingness to remain rejected without retaliating.\"}",
+      "record_id": "record:0c72ca37-75df-5ce4-a740-afe1a9fe7896",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "breakpoint_model"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- genuine selective devotion;",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Latent romance, possessiveness, and M capacity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Latent romance, possessiveness, and M capacity\",\"line_end\":3070,\"line_start\":3041,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"**Pure-love capacity**\\n\\n- genuine selective devotion;\\n- practical protection made transparent;\\n- someone who understands her without romanticizing harm;\\n- accepting another person's autonomy;\\n- being loved while accountable.\\n\\n**Possessive/yandere capacity**\\n\\n- strategic removal;\\n- manufactured narratives;\\n- social isolation;\\n- covert pressure;\\n- information control;\\n- targeted sabotage;\\n- charm as access;\\n- treating relationship threats as operational threats.\\n\\n**Latent M axis**\\n\\n- exposure;\\n- accurate judgment;\\n- inability to manipulate the answer;\\n- loss of strategic control;\\n- accepting consequence;\\n- high/hardcore intensity possible only when tactical compliance and actual surrender are clearly separated.\"}",
+      "record_id": "record:b5888a98-cfb9-5200-927f-fedbe722f8cb",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "latent_romance_possessiveness_and_m_capacity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Does not want him in the house.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Initial stance toward Ted\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Initial stance toward Ted\",\"line_end\":3082,\"line_start\":3071,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"- Does not want him in the house.\\n- Objected openly.\\n- Stopped after learning the Tomi-specific financial reason.\\n- Plans to evaluate and eventually remove him if she can do so without harming Tomi's future.\\n- Public kindness is initially strategic.\\n- No initialized attraction.\\n- Does not know surveillance exists.\\n- Does not know the husband's affair.\\n- Knows Mother and Sakura accepted a burden for Tomi.\"}",
+      "record_id": "record:38d0561b-cb4a-53a5-81e8-0f4ced367df6",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "initial_stance_toward_ted"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi remains:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Fidelity invariants\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_1.md\",\"heading\":\"Fidelity invariants\",\"line_end\":3096,\"line_start\":3083,\"sha256\":\"edf16b1204a0b8c656b0418e39b41c3306a995dc70a324c939b507483f783053\"},\"source_text\":\"Aoi remains:\\n\\n- genuinely loving toward family;\\n- low in outsider affective empathy;\\n- high in cognitive empathy;\\n- calm and practical;\\n- socially polished;\\n- capable of kindness and atrocity through the same protective logic;\\n- not a split personality;\\n- not randomly sadistic;\\n- recognizable in love, jealousy, surrender, exposure, or reform.\"}",
+      "record_id": "record:e4594026-970a-569c-9319-7342421f508c",
+      "record_type": "character_state",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "aoi",
+        "fidelity_invariants"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "confirmed_identity_eligible",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Aoi Hanezawa is creator-confirmed age 18 and identity-eligible for adult routing; scene consent and capacity remain separate.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "age",
+        "identity_eligible",
+        "consent_pre_authorized"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"age\":18,\"consent_pre_authorized\":false,\"identity_eligible\":true}",
+      "record_id": "record:8ac445ec-aff4-568c-a487-ffe7e83ff9f8",
+      "record_type": "adult_eligibility",
+      "record_version": 1,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [],
+      "tags": [
+        "adult_eligibility",
+        "aoi",
+        "age_18"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:c0ba51d0-ce1f-5927-9e9e-49473b9df9fe",
+  "title": "Aoi Hanezawa character module"
+}

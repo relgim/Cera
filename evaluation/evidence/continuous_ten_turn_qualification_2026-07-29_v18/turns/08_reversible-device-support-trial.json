@@ -1,0 +1,716 @@
+{
+  "application_request_sha256": "5b9107a2756049436c59e5c1a9c9888d714306cf0d2e004b3bd0ffa5ba771381",
+  "assertions": {
+    "branch_fork_unchanged": true,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "persistent_no_mcp"
+  },
+  "composer": {
+    "accepted_prose": "I am willing to proceed under those conditions. Before I decide whether I can assist, I will need the exact error message.\n\nThat's perfectly clear. The account credentials are personal and they stay that way, so no worries there.\n\nUnderstood. I will limit any intervention to a genuine policy dispute. Access to a device or data requires scope-specific approval, not a standing permission.",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "fb8060d14c1db238a535390c3dd581d4c5353f71b76533f0f59a356804a90c94",
+      "character_spans": [
+        {
+          "beat_id": "beat:6e8a3a79-165d-51db-8432-7fe690b714ef",
+          "end": 122,
+          "kind": "dialogue",
+          "owner_id": "character:enne_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:288267b3-8010-5712-93b9-bd05c637aa34",
+          "end": 229,
+          "kind": "dialogue",
+          "owner_id": "character:aoi_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 124
+        },
+        {
+          "beat_id": "beat:c8759adc-d097-5d4c-8ec6-770d4618fbb2",
+          "end": 389,
+          "kind": "dialogue",
+          "owner_id": "character:sakura_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 231
+        }
+      ],
+      "decision_sha256": "33162ec6674cab8affd2a5f42835e0aaa0112e8c443d43ee3c460ab98133fe23",
+      "floor_owner_id": "character:enne_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:eb04427a-be87-5b80-b86f-a0580ecb14e3",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "6d4d65db8e3eb05b73ece2892eb60c4bac1fa063d6bc73cf22d79fe24be1baaa",
+          "character_id": "character:enne_hanezawa",
+          "selected_intent_sha256": "c58879d3901c8979aef8b9a2a76f408c09f9f42465e09a591a62a7abeb59914f"
+        },
+        {
+          "action_direction_sha256": "99858bdc00d5a87378830893c8f00beb47d5dc55a80a86ce71ea76d3db90e5a6",
+          "character_id": "character:aoi_hanezawa",
+          "selected_intent_sha256": "8978c766a5b3e7730ebaa8d88eb6504082d4114c42867799f133d3599ee3e998"
+        },
+        {
+          "action_direction_sha256": "d1e7f5d5e02ae00648467ad30fd0376be29bfcb6aeec9010cab38d304a07dd53",
+          "character_id": "character:sakura_hanezawa",
+          "selected_intent_sha256": "16829de84521d4b3502bf19a263fc073276eac0d0df4f6314415b9e1f5621b8b"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        },
+        {
+          "character_id": "character:aoi_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        },
+        {
+          "character_id": "character:sakura_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:6e8a3a79-165d-51db-8432-7fe690b714ef",
+        "beat:288267b3-8010-5712-93b9-bd05c637aa34",
+        "beat:c8759adc-d097-5d4c-8ec6-770d4618fbb2"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "f0f0414a0e1f34aa177f681c31b5cdc0756ab310b4b363c59d0f3c5236ba8d58",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "f330a766c716881a66f584e860a48e61b64d2cab62768c6a6b62c7ab0d81f9c0",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1280,
+      "cost_is_estimate": true,
+      "cost_microusd": 2651,
+      "duration_ms": 5866,
+      "external_provider_calls": 1,
+      "input_tokens": 6507,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "2c077ce1db1f5db11f8866574113e5eaebc3a04a6ca845039effedb21833086d",
+      "output_tokens": 428,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:8a4c9983-0563-5f93-a974-abaf95c7b097",
+      "provider_request_id_sha256": "e7ebc4c42584c6bccbb324b1c938e3bd2d98bb71b9071e287da4e6bb9d447a31",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "c1c60874746e736138a48b76194f57a01ad44c2b745f1f3935895f914675a61a",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "e795e7c4dc412df72d8c79dd2828361a6febfd81f63010ff57d72a2f0e03da17",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:aoi_hanezawa",
+      "character:enne_hanezawa",
+      "character:sakura_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "f2022f1c971fe287bdc58c42fae574a6e962549480311dfa1a1619e5657391ff",
+      "assembly_receipt_id": "validation:fc4cc8e8-5258-5dce-a2a5-6dff2b7d7178",
+      "base_request_sha256": "98890b29aeda810c6f465962f17f440de926746758290c9b750594b7e61f92ab",
+      "cumulative_returned_bytes": 10081,
+      "external_provider_calls": 0,
+      "lookup_count": 6,
+      "lookup_receipt_ids": [
+        "lookup_receipt:73abe288-f835-5290-8d6c-e3dd9f6f3042",
+        "lookup_receipt:499bcbec-d336-5328-be93-59db3616e59c",
+        "lookup_receipt:1d6c5320-5a01-5214-821a-3ee39138dfbd",
+        "lookup_receipt:19c8a26d-49d0-5e40-aa1a-9d00fc842087",
+        "lookup_receipt:141bf60a-ac52-55c2-8f37-c825857d202d",
+        "lookup_receipt:51cc9c9a-39df-5207-8a6d-05b5784fce23"
+      ],
+      "realization_context_sha256": "fe643aa4f7532c5ffc38120766c2e1666047147bba96dad9c45bf1023c11b94c",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+        "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61",
+        "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55",
+        "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3",
+        "evidence:4b09d0c8-2ff7-52cf-b469-8754e243f9d1",
+        "evidence:a2900f9d-9e2f-5d3a-b6f9-fa10761602c4",
+        "evidence:0b24ff69-fe07-5526-97b0-a6be906f2f7f"
+      ],
+      "snapshot_token": "snapshot:b886fe44-5bc3-549a-8634-bc860384cae7",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:enne_hanezawa",
+      "character:aoi_hanezawa",
+      "character:sakura_hanezawa"
+    ]
+  },
+  "duration_seconds": 105.965,
+  "index": 8,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "4c56d8a93ab226319a923dab0b4f71b52584257b78b4b7d52672d574c1bc507d",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "d70ebde9f5282e24d278f6a10658f7e80fbbbbcc81f007526da0450165f25e9c",
+      "receipt_id": "validation:79fb3bed-737b-5ba1-ac19-697df1ca48a1",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "36f5f27b29e06d4cc89f2d79dba98e5daa95e8cc2e1dd2038182ef15aa73dd5b",
+    "receipt_id": "validation:2b674425-ac97-57e9-b49f-6180d1a74b04",
+    "request_id": "request:87615475-9991-51cc-859a-07e437d1633c",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2812,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:61e1f6a5-ab78-5166-b7fe-cd528792a346",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2812,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:b886fe44-5bc3-549a-8634-bc860384cae7",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 4072,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:81241e74-2849-5cdd-a84e-a14b651dd072",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1260,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:b886fe44-5bc3-549a-8634-bc860384cae7",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 5249,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:40ff8c85-777d-54f7-8ecd-21a3c31826e4",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1177,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:b886fe44-5bc3-549a-8634-bc860384cae7",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 6469,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:dd3eb014-d203-5573-8981-030c237d9041",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1220,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:b886fe44-5bc3-549a-8634-bc860384cae7",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+        "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61",
+        "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55",
+        "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:61e1f6a5-ab78-5166-b7fe-cd528792a346",
+        "lookup_receipt:81241e74-2849-5cdd-a84e-a14b651dd072",
+        "lookup_receipt:40ff8c85-777d-54f7-8ecd-21a3c31826e4",
+        "lookup_receipt:dd3eb014-d203-5573-8981-030c237d9041"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:d2541a16-b04e-5949-984b-69f8962405ac"
+          ],
+          "obligation_id": "obligation:97425e97-b445-580e-8539-9ca5a51a8f14",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+          ],
+          "obligation_id": "obligation:28e90bf6-9ebc-5205-baf2-3abd4baba500",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+          ],
+          "obligation_id": "obligation:a06911e3-f698-581f-aea8-657ef32577cf",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+          ],
+          "obligation_id": "obligation:4c2fb9f5-7aad-55ed-bbb1-e35f9df2cf32",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:1b63eebe-d50e-5481-a7ab-b7bac9f2bb36",
+      "snapshot_binding_sha256": "5f17eb8d6d3aaec4ea56b82233c1e2a1d75559babd1b06631badb1dc4790eae4",
+      "snapshot_token": "snapshot:b886fe44-5bc3-549a-8634-bc860384cae7"
+    },
+    "snapshot_token": "snapshot:b886fe44-5bc3-549a-8634-bc860384cae7",
+    "source_sha256": "5a9147586760bdc3cc10dd0516768f9456243072f3f7e46630ece71c37c78a4f"
+  },
+  "key": "reversible-device-support-trial",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:edac18db-a5a6-56fe-b3f0-4b3b78c64e59",
+      "accepted_artifact_sha256": "dd0ab3eecd06479662d52e8522e1c53b2ae198585c81e98a277f9261bada4049",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "5b9107a2756049436c59e5c1a9c9888d714306cf0d2e004b3bd0ffa5ba771381",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:26a9bf48-0617-5b39-b2f0-675a5cfe206a",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:9dbd8100-38e6-5b1a-bf8d-6c1f64f42332",
+      "operational_report_id": "validation:dbd57485-b6a2-5bd1-90ea-58813a05a9a0",
+      "operational_report_sha256": "197cca1e6aedfbddace55daae4a37ad38ddf9eb1d7201261558414c49bf1133c",
+      "receipt_id": "validation:0e10e59e-d949-50a1-8b3d-a71bd71f2670",
+      "request_id": "request:87615475-9991-51cc-859a-07e437d1633c",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "127453c608f416193b36b94ef9464f2fbd3f1bfb95a556a9e6df631b676064c7"
+    },
+    "artifact": {
+      "accepted_prose": "I am willing to proceed under those conditions. Before I decide whether I can assist, I will need the exact error message.\n\nThat's perfectly clear. The account credentials are personal and they stay that way, so no worries there.\n\nUnderstood. I will limit any intervention to a genuine policy dispute. Access to a device or data requires scope-specific approval, not a standing permission.",
+      "artifact_id": "artifact:edac18db-a5a6-56fe-b3f0-4b3b78c64e59",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:b9379998-741a-5477-95f1-67fd47fcd399",
+      "generation_id": "generation:9dbd8100-38e6-5b1a-bf8d-6c1f64f42332",
+      "parent_artifact_id": "artifact:3b41c3d9-fcf5-596a-a4ae-475027a27eb1",
+      "prose_sha256": "f330a766c716881a66f584e860a48e61b64d2cab62768c6a6b62c7ab0d81f9c0",
+      "realized_beat_ids": [
+        "beat:6e8a3a79-165d-51db-8432-7fe690b714ef",
+        "beat:288267b3-8010-5712-93b9-bd05c637aa34",
+        "beat:c8759adc-d097-5d4c-8ec6-770d4618fbb2"
+      ],
+      "responding_npc_ids": [
+        "character:enne_hanezawa",
+        "character:aoi_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:0de5a431-386b-5c86-8daf-ca643b832c1c",
+      "status": "accepted",
+      "transaction_id": "transaction:884c7791-ec3e-58a0-a272-472cb55aace0",
+      "validation_receipt_id": "validation:15edacfe-cbbc-5b0a-8900-cd304bae1284"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:26a9bf48-0617-5b39-b2f0-675a5cfe206a",
+      "expected_previous_artifact_id": "artifact:3b41c3d9-fcf5-596a-a4ae-475027a27eb1",
+      "external_receipt_ids": [],
+      "generation_after": 8,
+      "generation_before": 7,
+      "inserted_record_ids": [
+        "event:1b1bd9d7-c96b-56ac-bad9-064737e66e72"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:61e1f6a5-ab78-5166-b7fe-cd528792a346",
+        "lookup_receipt:81241e74-2849-5cdd-a84e-a14b651dd072",
+        "lookup_receipt:40ff8c85-777d-54f7-8ecd-21a3c31826e4",
+        "lookup_receipt:dd3eb014-d203-5573-8981-030c237d9041",
+        "lookup_receipt:73abe288-f835-5290-8d6c-e3dd9f6f3042",
+        "lookup_receipt:499bcbec-d336-5328-be93-59db3616e59c",
+        "lookup_receipt:1d6c5320-5a01-5214-821a-3ee39138dfbd",
+        "lookup_receipt:19c8a26d-49d0-5e40-aa1a-9d00fc842087",
+        "lookup_receipt:141bf60a-ac52-55c2-8f37-c825857d202d",
+        "lookup_receipt:51cc9c9a-39df-5207-8a6d-05b5784fce23"
+      ],
+      "new_artifact_id": "artifact:edac18db-a5a6-56fe-b3f0-4b3b78c64e59",
+      "new_artifact_sha256": "dd0ab3eecd06479662d52e8522e1c53b2ae198585c81e98a277f9261bada4049",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:b0a33954-f5f5-5140-be9a-95241202cf91",
+        "provider_receipt:8a4c9983-0563-5f93-a974-abaf95c7b097",
+        "provider_receipt:f24f5d50-cb79-57e0-9244-da5cfb81bd84"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:0de5a431-386b-5c86-8daf-ca643b832c1c",
+      "source_sha256": "31060968e43612ca850de246e2a0149481865699092a29609eb8f87f06a44042",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:884c7791-ec3e-58a0-a272-472cb55aace0",
+      "transaction_sha256": "127453c608f416193b36b94ef9464f2fbd3f1bfb95a556a9e6df631b676064c7",
+      "validation_receipt_ids": [
+        "validation:2b674425-ac97-57e9-b49f-6180d1a74b04",
+        "validation:fc4cc8e8-5258-5dce-a2a5-6dff2b7d7178",
+        "validation:7dca3411-1cb0-56a3-972a-2c0201a5d3b2",
+        "realization_verification:fa967303-56c4-562b-9a1a-995a36d64f26",
+        "validation:15edacfe-cbbc-5b0a-8900-cd304bae1284",
+        "validation:f489b089-e2ca-565a-9172-fc569ad3e41c"
+      ]
+    },
+    "event_record_id": "event:1b1bd9d7-c96b-56ac-bad9-064737e66e72",
+    "visible_artifact_count": 8
+  },
+  "qualification_id": "continuous-ten-turn-v18",
+  "raw_message": "Ted suggests a reversible one-week trial: the device owner reports the problem, Enne chooses whether to help and requests only the minimum diagnostic information, Aoi's named private-data category remains closed, and Sakura handles only a genuine policy dispute. He asks whether that division works for each of them.",
+  "raw_message_sha256": "3de3b5bbd06e210ec250a5e64beeef0bf1ac5be3da3bd3bbd33481b03a0c135e",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Answer first, keep assistance optional, and require the exact error message as the initial diagnostic fact.",
+            "character_id": "character:enne_hanezawa",
+            "evidence_ids": [
+              "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+              "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+            ],
+            "knowledge_constraints": [
+              "Use only the accepted shared event and Enne-owned private belief.",
+              "Do not infer a current device problem or access permission."
+            ],
+            "perception": "The proposed trial preserves Enne's discretion and limits initial diagnostic information.",
+            "selected_intent": "State conditional willingness while establishing the minimum diagnostic prerequisite."
+          },
+          {
+            "action_direction": "State that account credentials remain closed and disclose no private data.",
+            "character_id": "character:aoi_hanezawa",
+            "evidence_ids": [
+              "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+              "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+            ],
+            "knowledge_constraints": [
+              "Use only the accepted shared event and Aoi-owned private belief.",
+              "Do not reveal Aoi's private irritation or infer another character's attitude."
+            ],
+            "perception": "Account credentials remain outside the proposed diagnostic scope.",
+            "selected_intent": "Confirm the privacy boundary with publicly warm delivery."
+          },
+          {
+            "action_direction": "Limit intervention to a genuine policy dispute and require scope-specific approval for any device or data access.",
+            "character_id": "character:sakura_hanezawa",
+            "evidence_ids": [
+              "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+              "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+            ],
+            "knowledge_constraints": [
+              "Use only the accepted shared event and Sakura-owned private belief.",
+              "Do not create general inspection authority or presume a dispute exists."
+            ],
+            "perception": "Sakura's proposed role is confined to genuine policy disputes without standing access authority.",
+            "selected_intent": "State the approval rule and preserve the narrow administrative scope."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:enne_hanezawa",
+              "beat_id": "beat:6e8a3a79-165d-51db-8432-7fe690b714ef",
+              "evidence_ids": [
+                "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+                "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+              ],
+              "neutral_event": "Enne conditionally accepts the limited trial, retains discretion to help, and requires the exact error message before troubleshooting.",
+              "state": "requested"
+            },
+            {
+              "actor_id": "character:aoi_hanezawa",
+              "beat_id": "beat:288267b3-8010-5712-93b9-bd05c637aa34",
+              "evidence_ids": [
+                "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+                "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+              ],
+              "neutral_event": "Aoi confirms that account credentials remain outside the trial and discloses no private data.",
+              "state": "requested"
+            },
+            {
+              "actor_id": "character:sakura_hanezawa",
+              "beat_id": "beat:c8759adc-d097-5d4c-8ec6-770d4618fbb2",
+              "evidence_ids": [
+                "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+                "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+              ],
+              "neutral_event": "Sakura limits intervention to genuine policy disputes and requires scope-specific approval for device or data access.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:cff51c8a-6e57-5076-805e-afef3a802cb0",
+          "stop_before": "The protected user's next unsupplied meaningful choice."
+        },
+        "decision_id": "decision:b9379998-741a-5477-95f1-67fd47fcd399",
+        "floor_owner_id": "character:enne_hanezawa",
+        "future_segments": [
+          {
+            "activation_conditions": [
+              "A later exact protected-user source supplies a choice authorizing the trial."
+            ],
+            "invalidation_conditions": [
+              "A later refusal or narrower protected-user limit leaves the trial inactive."
+            ],
+            "open_user_choice": "Whether to authorize, narrow, or decline the proposed trial.",
+            "possible_consequences": [
+              "Enne may choose whether to provide limited troubleshooting.",
+              "Aoi may continue withholding account credentials.",
+              "Sakura may address a genuine policy dispute within approved scope."
+            ],
+            "segment_id": "segment:f5068973-b768-5623-bfad-d17b3b5bb506",
+            "status": "conditional_plan_only"
+          }
+        ],
+        "prohibited_inferences": [
+          "Do not author the protected user's next action, dialogue, thought, feeling, or decision.",
+          "Do not convert NPC acceptance into protected-user agreement or trial activation.",
+          "Do not infer disclosure of account credentials or any other private data.",
+          "Do not transfer owner-private attitudes between characters.",
+          "Do not invent a current device problem, access request, or policy dispute.",
+          "Do not commit a conditional future segment as a current fact."
+        ],
+        "responding_npc_ids": [
+          "character:enne_hanezawa",
+          "character:aoi_hanezawa",
+          "character:sakura_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Each NPC states distinct operational limits for the proposed trial.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "The protected user's next unsupplied meaningful choice is unknown.",
+          "Unretrieved private state and future outcomes remain unknown."
+        ],
+        "writer_must_preserve": [
+          "Enne's assistance remains optional and begins with the exact error message only.",
+          "Aoi's account credentials remain private.",
+          "Sakura acts only on a genuine policy dispute and requires scope-specific approval for access.",
+          "No surveillance, compulsory labor, or general inspection authority is created.",
+          "Stop before any protected-user reply or trial-activation choice."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+          "record_id": "event:12f87a78-f2b7-567e-954d-c37ca6cee5f3",
+          "record_version": 1
+        },
+        {
+          "evidence_id": "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61",
+          "record_id": "record:30292a40-f837-5c08-9cf7-c23e70524b75",
+          "record_version": 2
+        },
+        {
+          "evidence_id": "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55",
+          "record_id": "record:f2db0a5b-facb-58e4-a664-feccb99d3490",
+          "record_version": 2
+        },
+        {
+          "evidence_id": "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3",
+          "record_id": "record:9a974cfe-e5fb-547c-b511-f3b995fe6bf6",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:enne_hanezawa",
+          "evidence_ids": [
+            "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+            "evidence:e050b27a-cf84-51b4-8e08-9fa4e5566f61"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        },
+        {
+          "character_id": "character:aoi_hanezawa",
+          "evidence_ids": [
+            "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+            "evidence:e9ea771e-c38f-5db6-9183-d283257a8b55"
+          ],
+          "intervention_reason": "protection",
+          "role": "secondary"
+        },
+        {
+          "character_id": "character:sakura_hanezawa",
+          "evidence_ids": [
+            "evidence:d2541a16-b04e-5949-984b-69f8962405ac",
+            "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+          ],
+          "intervention_reason": "correction",
+          "role": "secondary"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 81868,
+      "external_provider_calls": 1,
+      "input_tokens": 14967,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "26504d2476c1ffd42b1c3c1b4d5a8ba1dc0691814cb99aa9f29479659d0c4ead",
+      "output_tokens": 3330,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:b0a33954-f5f5-5140-be9a-95241202cf91",
+      "provider_request_id_sha256": "1262057f1eba15a45fe0f15f3da9d92422a5530f49a72c571baf4dabd2096584",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1933,
+      "request_sha256": "a85e9e58fcddd5db1136f31960aa5336801016122d9f3491f9b9ef365b1bbb27",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "b934ea6f40610aff9c066f967f045d7700d56129f4e5ee311c0942effa527521",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:b0a33954-f5f5-5140-be9a-95241202cf91",
+      "provider_receipt_sha256": "d3ab1387c791e343ff264dbb5b1dd63ee3ae94862fe5edde9d5dffe5af365563",
+      "reasoner_request_sha256": "36f5f27b29e06d4cc89f2d79dba98e5daa95e8cc2e1dd2038182ef15aa73dd5b",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:b886fe44-5bc3-549a-8634-bc860384cae7",
+      "source_sha256": "5a9147586760bdc3cc10dd0516768f9456243072f3f7e46630ece71c37c78a4f",
+      "source_view_sha256": "cb2b75423307ee2eed54b06650e38f3a1a66dc779443f70138f34a2689a301e3",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "The group considers a reversible opt-in support trial",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 12367,
+      "external_provider_calls": 1,
+      "input_tokens": 10626,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "baac84d4c9e2f2338f03c6bc2e1579a76c5e926af76810dfa7dd6848df7a0a2d",
+      "output_tokens": 329,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:f24f5d50-cb79-57e0-9244-da5cfb81bd84",
+      "provider_request_id_sha256": "98a2b01cb76a32954ea8985e7e10fc8cf61ecfd5b7d29de82dc7d38305454c86",
+      "quota_metered": true,
+      "reasoning_output_tokens": 162,
+      "request_sha256": "19aaf6ed66207fc3d0586a32ad43f14ae2b2c515161317f4318216b191235cf0",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "fb8060d14c1db238a535390c3dd581d4c5353f71b76533f0f59a356804a90c94",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:f24f5d50-cb79-57e0-9244-da5cfb81bd84",
+      "provider_receipt_sha256": "f9703daa096e4fe3624fc2cdae4843838cdc63e9ab3facd84aabe96ae5ea1fe5",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "f330a766c716881a66f584e860a48e61b64d2cab62768c6a6b62c7ab0d81f9c0",
+      "verification_id": "realization_verification:fa967303-56c4-562b-9a1a-995a36d64f26",
+      "verification_request_sha256": "40bfff1101877c3a08cfb41301de2fba7f818eef9055c57004d143929fa21938",
+      "verified_beat_ids": [
+        "beat:6e8a3a79-165d-51db-8432-7fe690b714ef",
+        "beat:288267b3-8010-5712-93b9-bd05c637aa34",
+        "beat:c8759adc-d097-5d4c-8ec6-770d4618fbb2"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:enne_hanezawa",
+        "character:aoi_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

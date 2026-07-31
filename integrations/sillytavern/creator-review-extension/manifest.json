@@ -1,0 +1,11 @@
+{
+  "display_name": "CERA Creator Review",
+  "loading_order": 4,
+  "requires": [],
+  "optional": [],
+  "js": "index.js",
+  "css": "style.css",
+  "author": "CERA",
+  "version": "1.3.0",
+  "homePage": ""
+}

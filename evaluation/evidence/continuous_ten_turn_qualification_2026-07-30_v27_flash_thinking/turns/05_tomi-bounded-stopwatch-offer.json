@@ -1,0 +1,866 @@
+{
+  "application_request_sha256": "1683092b6535d4b650bc90e14070dab4979201be430e152df312976831ee5f85",
+  "assertions": {
+    "all_eligible_required": false,
+    "all_eligible_selected": null,
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "codex_cli_exec_one_shot"
+  },
+  "composer": {
+    "accepted_prose": "Tomi blinked, processing his words. The offer was oddly specific—and oddly careful. She leaned against the arm of the couch, one eyebrow lifting as she considered it. \"Huh.\" She tapped her fingers on the cushion. \"One loop, just holding a stopwatch, no coaching, no deciding whether I should train.\" She repeated the terms back, testing them. It was a narrow thing, almost absurdly limited. But that was exactly what made it feel safe. \"I mean... yeah, actually, it could be useful.\" She shrugged, a half-smile flickering. \"I've been trying to beat my reaction time on the recovery sets without pushing into sloppy form. Having someone call the start and stop cleanly—without telling me how to run—that's kind of what I need.\" She held up a finger. \"But it's once, and I give the instructions. You just press the button. Got it?\" Her tone was light but firm—a boundary drawn in chalk, not stone. She let the silence settle afterward, watching him to see if he understood.",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "a72b6b7860b05cda5861e7356b685c93035a045408a4c36068fb0b31e9fe7072",
+      "character_spans": [
+        {
+          "beat_id": "beat:a3cc8680-08ef-5214-9197-035acc678dcd",
+          "end": 971,
+          "kind": "reaction",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 0
+        }
+      ],
+      "decision_sha256": "0f14521f04f8fbb713ad224bb31c8de462556d75dbbce7570fb655125ed310e8",
+      "floor_owner_id": "character:tomi_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:8a3f24c0-f747-5f57-b718-61a1a31710bc",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "2c2eb67a25508ee5541be7670abea3bc4159bfabdbeb51c878eed034ef9aa60f",
+          "character_id": "character:tomi_hanezawa",
+          "selected_intent_sha256": "2705eec4670414bddc2bc432b264257dec4b6cda38b4db319cc911c408b7b8d9"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "speaks": false,
+          "visibly_acts": true
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:a3cc8680-08ef-5214-9197-035acc678dcd"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "32cab2639a0365f7167add4e7fd900dbd56a9801007dd7f2a2daaaab38a43d09",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "fe57089ccae23347157471d35d19c2bab240e45fd1949f0afbfad6a6038d17d3",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1792,
+      "cost_is_estimate": true,
+      "cost_microusd": 1836,
+      "duration_ms": 16363,
+      "external_provider_calls": 1,
+      "input_tokens": 11619,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "6c9b58bc6695f9afad50e5370b73f485c9eddfaed30d863baf1dbcefec3e1fd8",
+      "output_tokens": 1623,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:633adb94-eaa7-5b00-95ae-b604301e0b0e",
+      "provider_request_id_sha256": "6dbbc4199fa89a16787c08ff913906f9f64ff701dff3249f64a7a4105c128f25",
+      "quota_metered": false,
+      "reasoning_output_tokens": 1256,
+      "request_sha256": "98b04501590a55ecb81255ee59eb021115e1177e1a89bb12ff180141839c4193",
+      "requested_model": "deepseek-v4-flash",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-flash",
+      "role": "scene_composer",
+      "route_sha256": "d24615bdc0cf57837a9f7f781c660944897ecf943ea1af381e5fbf09a5c66151",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "414be700ccd24a1285d604c6d131a264df150e9b206237a0016945a2ae20af15"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:tomi_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "89601e3ad9109fde350b5abb8441759c0156bae9684f25b161e78e269c904fad",
+      "assembly_receipt_id": "validation:6f0a3407-0058-5c00-9ac5-fdd7056dcd60",
+      "base_request_sha256": "fc70d132cd2925dba72c11336e6622167501755a4d621f7370c196b3dcb94b73",
+      "cumulative_returned_bytes": 15942,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:0f65ea25-564f-5be3-aa2b-210f2781c781",
+        "lookup_receipt:5e8396fc-c60e-57b8-ab94-fc775a221ed9"
+      ],
+      "realization_context_sha256": "2b806c013694b9d59bc23a8fa65c8a5dddbfc16517d2daf7c2a67e7cdacde45a",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:33448af2-0227-5828-9938-c41cb320a799",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:5043488b-db8e-5608-bc71-86f9ee7283c4",
+        "evidence:f33c52f3-4686-5d96-8477-118a587f7678",
+        "evidence:e513943c-d492-5890-9492-d54b074f1fa6",
+        "evidence:04238391-2dfb-5804-b3a9-72cfb96c203c"
+      ],
+      "snapshot_token": "snapshot:2884f944-4162-502b-befa-85ecf943d6d5",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:tomi_hanezawa"
+    ]
+  },
+  "duration_seconds": 186.384,
+  "index": 5,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "0a5c02721f4cb51db490ea5fcf454e15aa2864db8a91773b3719320f6b621c48",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "848f9ad33a0b09bb981d5a4fa5ee2b2e5eaf5e208ee6cc1a5ee4fec54ce4fc87",
+      "receipt_id": "validation:41f97233-72eb-50f3-ad9d-c4879608d4d4",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "8b34639d247ef2cc521603f729f293970e946847f27c1c7eb46909415160ffe3",
+    "receipt_id": "validation:63c6e013-43c6-5e48-83be-4e84cfb8c7c9",
+    "request_id": "request:284f0437-f6ea-5620-ad7d-469d0eeb3806",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2703,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:eaeae979-0ca1-582a-b37f-db957e408ab0",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2703,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:2884f944-4162-502b-befa-85ecf943d6d5",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 3899,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:06d206f9-c12d-5c92-b5d3-eda4e1aa0809",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1196,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:2884f944-4162-502b-befa-85ecf943d6d5",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:33448af2-0227-5828-9938-c41cb320a799",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:eaeae979-0ca1-582a-b37f-db957e408ab0",
+        "lookup_receipt:06d206f9-c12d-5c92-b5d3-eda4e1aa0809"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:33448af2-0227-5828-9938-c41cb320a799"
+          ],
+          "obligation_id": "obligation:f08c27fc-efda-5131-8548-3309708e759e",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "obligation_id": "obligation:887f239f-f877-541d-96c3-9b906700332f",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:6f6070f0-1b24-566f-9a6c-a384a78ffdd6",
+      "snapshot_binding_sha256": "4f610bd50bc8ea436f1555bb619ced7e4dab5c6f72bcd9f767245ed809580d3f",
+      "snapshot_token": "snapshot:2884f944-4162-502b-befa-85ecf943d6d5"
+    },
+    "snapshot_token": "snapshot:2884f944-4162-502b-befa-85ecf943d6d5",
+    "source_sha256": "d55e6a90b469af90a1f563124735c312d7085c7b9bf3f869394f481c998d1af9"
+  },
+  "key": "tomi-bounded-stopwatch-offer",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:b8aa85fe-ce01-59ca-9541-c9f47c9d8b31",
+      "accepted_artifact_sha256": "ba8ff4ea7007257192e2d0c4fe8ba6605dd209bc430c9c882754496b994b00dd",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "1683092b6535d4b650bc90e14070dab4979201be430e152df312976831ee5f85",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:c27e2ff0-c6c5-57a0-b713-48566597ec5a",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:68ba37fe-387f-5414-a081-ef33c24d8dd4",
+      "operational_report_id": "validation:93acf874-bced-5b3a-9491-e6608b0d7d5f",
+      "operational_report_sha256": "f45cfe007f9eb259a7fb14ee4cb446990985d2cf9d82a5b0ddc34ba30e5ec6e5",
+      "receipt_id": "validation:20b3de7c-6b35-58b7-91af-fe2851c55ef6",
+      "request_id": "request:284f0437-f6ea-5620-ad7d-469d0eeb3806",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "6e81809220c9088f5eefb304ec76c9d7902ac4824f2cca22687141d48c998278"
+    },
+    "artifact": {
+      "accepted_prose": "Tomi blinked, processing his words. The offer was oddly specific—and oddly careful. She leaned against the arm of the couch, one eyebrow lifting as she considered it. \"Huh.\" She tapped her fingers on the cushion. \"One loop, just holding a stopwatch, no coaching, no deciding whether I should train.\" She repeated the terms back, testing them. It was a narrow thing, almost absurdly limited. But that was exactly what made it feel safe. \"I mean... yeah, actually, it could be useful.\" She shrugged, a half-smile flickering. \"I've been trying to beat my reaction time on the recovery sets without pushing into sloppy form. Having someone call the start and stop cleanly—without telling me how to run—that's kind of what I need.\" She held up a finger. \"But it's once, and I give the instructions. You just press the button. Got it?\" Her tone was light but firm—a boundary drawn in chalk, not stone. She let the silence settle afterward, watching him to see if he understood.",
+      "artifact_id": "artifact:b8aa85fe-ce01-59ca-9541-c9f47c9d8b31",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:e59d0838-3975-552b-826d-6afca6522d8e",
+      "generation_id": "generation:68ba37fe-387f-5414-a081-ef33c24d8dd4",
+      "parent_artifact_id": "artifact:b6ec811c-5960-5abf-aa07-811944da6e0c",
+      "prose_sha256": "fe57089ccae23347157471d35d19c2bab240e45fd1949f0afbfad6a6038d17d3",
+      "realized_beat_ids": [
+        "beat:a3cc8680-08ef-5214-9197-035acc678dcd"
+      ],
+      "responding_npc_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:b56df73d-2faf-5f5e-bf16-dfff3ee72dcd",
+      "status": "accepted",
+      "transaction_id": "transaction:8ff6d5a1-7f87-528a-b9ad-ed03fce84b52",
+      "validation_receipt_id": "validation:3d688ceb-d349-5f29-8754-8afe8f1afb63"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:c27e2ff0-c6c5-57a0-b713-48566597ec5a",
+      "expected_previous_artifact_id": "artifact:b6ec811c-5960-5abf-aa07-811944da6e0c",
+      "external_receipt_ids": [],
+      "generation_after": 5,
+      "generation_before": 4,
+      "inserted_record_ids": [
+        "event:fb0b42cc-21be-5b29-9150-672f408c25c1",
+        "material:f7695c78-c640-5121-b2d7-af90389bbd58"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:eaeae979-0ca1-582a-b37f-db957e408ab0",
+        "lookup_receipt:06d206f9-c12d-5c92-b5d3-eda4e1aa0809",
+        "lookup_receipt:0f65ea25-564f-5be3-aa2b-210f2781c781",
+        "lookup_receipt:5e8396fc-c60e-57b8-ab94-fc775a221ed9"
+      ],
+      "new_artifact_id": "artifact:b8aa85fe-ce01-59ca-9541-c9f47c9d8b31",
+      "new_artifact_sha256": "ba8ff4ea7007257192e2d0c4fe8ba6605dd209bc430c9c882754496b994b00dd",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:881ca0cf-832e-5ef5-9f20-366f00550e10",
+        "provider_receipt:633adb94-eaa7-5b00-95ae-b604301e0b0e",
+        "provider_receipt:2b1491ff-c2a7-5c36-b9a5-1c71f4b2b73e"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:b56df73d-2faf-5f5e-bf16-dfff3ee72dcd",
+      "source_sha256": "76891edd09e834a1c7c0ebe654f0295d7feacfadb2ee16e54c4ce7836f2ff254",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:8ff6d5a1-7f87-528a-b9ad-ed03fce84b52",
+      "transaction_sha256": "6e81809220c9088f5eefb304ec76c9d7902ac4824f2cca22687141d48c998278",
+      "validation_receipt_ids": [
+        "validation:63c6e013-43c6-5e48-83be-4e84cfb8c7c9",
+        "validation:6f0a3407-0058-5c00-9ac5-fdd7056dcd60",
+        "validation:956d2c29-c53f-56bd-ae09-d4c1788fce0c",
+        "realization_verification:31b77bd0-8091-5634-802b-d73e8b262839",
+        "validation:3d688ceb-d349-5f29-8754-8afe8f1afb63",
+        "validation:45b2b2ce-4505-5803-ad4c-b6417c298dde"
+      ]
+    },
+    "event_record_id": "event:fb0b42cc-21be-5b29-9150-672f408c25c1",
+    "visible_artifact_count": 5
+  },
+  "qualification_id": "continuous-ten-turn-v27-flash-thinking",
+  "raw_message": "The next morning, Ted speaks with Tomi in the common room and says, \"If you ever want someone to hold a stopwatch for one easy recovery loop, I can do that once and follow your instructions. I am not offering coaching, deciding whether you should train, or assuming the offer stays open. Would that ever be useful, or would you rather I stay out of training entirely?\" He waits.",
+  "raw_message_sha256": "22950018df148fa72e8567532970f240f74e376965620df6a7ae3586acacdaed",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "behavioral_scene_plan": {
+        "claim_ledger": {
+          "claims": [
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:2d38cb4c-4bc3-52f4-86a8-936fc257dd53",
+              "end": 16,
+              "exact_text_sha256": "1a6edd4cad1c45d30649bda9a2292c832044de7a43a04dba49256e4ae9ac8267",
+              "kind": "time_place_context",
+              "normalized_meaning": "The exchange occurs on the following morning.",
+              "rationale": "The source directly establishes the scene's time.",
+              "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+              "start": 0
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:922d3e2f-0932-58c9-a4a3-cbed64148c90",
+              "end": 57,
+              "exact_text_sha256": "e31f06512d31e8c09c3e0f5e028b105be042b0836475a5113caf29cee9c2e73a",
+              "kind": "time_place_context",
+              "normalized_meaning": "Ted and Tomi are in the common room for the exchange.",
+              "rationale": "The source directly establishes the current location.",
+              "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+              "start": 39
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:1200bde4-fa0f-51c8-b7ec-1256c69b0bc1",
+              "end": 38,
+              "exact_text_sha256": "ed623a24d7de64c2e9cc9148bcbdb79ed73a639f4441dfe190328bc3834b9a84",
+              "kind": "protected_user_action",
+              "normalized_meaning": "Ted directly addresses Tomi.",
+              "rationale": "This is an exact supplied observable action by the protected user.",
+              "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+              "start": 18
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:6c966a10-a2ca-5015-8821-6b3f124b29c0",
+              "end": 140,
+              "exact_text_sha256": "53fca9f7a51d347d6abff2583ed66d82c69392b72e3cdf54c2df7f9d5922b682",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted offers only to operate a stopwatch for one easy recovery loop.",
+              "rationale": "This exact supplied dialogue defines the proposed task.",
+              "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+              "start": 97
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:b32b75b7-1857-5d99-816a-9d091cf5f8cf",
+              "end": 189,
+              "exact_text_sha256": "4e816d5af0d4fe8e465b273516c93311b5614c1f42adf1692ca03c3f277d8893",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted limits the offer to one occasion and agrees to follow Tomi's instructions.",
+              "rationale": "This exact supplied dialogue establishes singular scope and Tomi's operational control.",
+              "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+              "start": 148
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:c1fdd7a2-86d3-53b3-810e-22c7ce2af642",
+              "end": 217,
+              "exact_text_sha256": "8366efe653a495f01587366f9b2da9e87f354eaadda27414de8f841a48589070",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted expressly disclaims a coaching role.",
+              "rationale": "This exact supplied limitation prevents the offer from becoming training authority.",
+              "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+              "start": 191
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:28845523-a358-5cdd-a7fd-1c641801479d",
+              "end": 252,
+              "exact_text_sha256": "0f7a074e4865fa4e779f6d5956abb3a7ee04861b34091998377f918e1c6db2b8",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted disclaims deciding whether Tomi should train.",
+              "rationale": "This exact supplied limitation preserves Tomi's ownership of the training decision.",
+              "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+              "start": 219
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:1ec7a0f3-f1d7-5837-9375-387738b7bdd9",
+              "end": 286,
+              "exact_text_sha256": "fdf4034e580cccdab1442873f212ee7211a8acfbcddc56d6b63c8b889c2cf30d",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted does not presume that the offer remains available indefinitely.",
+              "rationale": "The surrounding negation makes the offer expressly non-permanent and revocable.",
+              "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+              "start": 257
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:20817dc7-4cb8-537b-8408-84297d9b377f",
+              "end": 313,
+              "exact_text_sha256": "7a0e352fb6a09025f839401a316aae1fdd946dcf179656961103165df4d4e75c",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted asks Tomi whether the limited help could ever be useful to her.",
+              "rationale": "This exact supplied question creates the practical issue Tomi must assess.",
+              "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+              "start": 288
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:3ecaefab-f92a-5310-baba-6682f9407d1d",
+              "end": 366,
+              "exact_text_sha256": "330fd9849fb1399e89b154bae1471c3ce0b5ecbe1928741a954f2664d2f6b1d1",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted explicitly gives Tomi the alternative of excluding him from training entirely.",
+              "rationale": "This exact supplied alternative requires Tomi's self-owned boundary answer.",
+              "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+              "start": 318
+            },
+            {
+              "affected_character_ids": [
+                "character:ted"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:6b25cba1-6998-59fc-ab16-a24a91668a80",
+              "end": 378,
+              "exact_text_sha256": "d65b5f5862ae0ee89198d3bdd19ca24e31e38245e973d23d676da250aeeee62a",
+              "kind": "protected_user_action",
+              "normalized_meaning": "After asking, Ted waits without supplying a further action or response.",
+              "rationale": "This exact supplied action establishes the protected user's endpoint and permits Tomi to hold the floor.",
+              "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+              "start": 369
+            }
+          ],
+          "controls_sha256": "b22fc97f55e2179161a099f1b7059fd0fb8c855f314e5cb7691813c620a8f389",
+          "prohibited_inferences": [
+            "Do not author Ted's next action, dialogue, thought, feeling, motive, or decision.",
+            "Do not infer that Tomi accepts the offer because she is curious about Ted.",
+            "Do not treat a favorable answer as consent to coaching, broader training involvement, intimacy, or recurring assistance.",
+            "Do not treat an unfavorable answer as rejection of Ted beyond the stated training boundary.",
+            "Do not introduce Yuuni or continue the prior sequence through an absent participant.",
+            "Do not begin a recovery loop or create a stopwatch handoff in the current reply.",
+            "Do not reveal Tomi's owner-private relationship evidence to Ted as character knowledge.",
+            "Do not make any later use of the offer a current fact."
+          ],
+          "schema_version": "cera.source_claim_ledger.v1",
+          "source_sha256": "d55e6a90b469af90a1f563124735c312d7085c7b9bf3f869394f481c998d1af9",
+          "unresolved_questions": [
+            "Whether Tomi finds the offer practically useful is intentionally not predetermined by the available evidence and must remain an autonomous realization choice.",
+            "Ted's response after Tomi answers is unknown."
+          ]
+        },
+        "development_atoms": [],
+        "event_blocks": [
+          {
+            "actor_ids": [
+              "character:tomi_hanezawa"
+            ],
+            "block_id": "scene_block:a6321c06-77af-5603-9d0a-b310e00aa322",
+            "causal_basis": "Ted has directly presented a singular, instruction-bound stopwatch offer, disclaimed coaching and decision authority, acknowledged revocability, and asked Tomi to choose whether it would be useful or whether he should remain outside training. Validated event evidence requires Tomi's autonomous first answer without predetermining its polarity.",
+            "event_advances": [
+              "Tomi shows at most a brief reaction that may reflect contained curiosity but does not predetermine her decision.",
+              "She independently appraises whether the narrowly defined stopwatch role has practical value for her training.",
+              "She gives a clear answer owned by her: either the limited role could be useful under her control or she wants Ted to remain outside training.",
+              "She allows the answer to settle without initiating a loop, assigning Ted a task, or supplying his response."
+            ],
+            "evidence_ids": [
+              "evidence:33448af2-0227-5828-9938-c41cb320a799",
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [
+                "maintain_established_position"
+              ],
+              "explanation": "Ted may remain in the already supplied waiting position only; the realization must not repeat his offer, add movement or dialogue, or determine his reaction.",
+              "source_claim_ids": [
+                "source_claim:6b25cba1-6998-59fc-ab16-a24a91668a80"
+              ]
+            },
+            "purpose": "Complete the practical question with Tomi's autonomous assessment while separating her curiosity from consent, usefulness, and training authority.",
+            "resulting_state": "Tomi's own position on the offer is explicit, no training assistance has begun, the offer creates no authority or obligation, and Ted's next meaningful choice remains open.",
+            "source_claim_ids": [
+              "source_claim:6c966a10-a2ca-5015-8821-6b3f124b29c0",
+              "source_claim:b32b75b7-1857-5d99-816a-9d091cf5f8cf",
+              "source_claim:c1fdd7a2-86d3-53b3-810e-22c7ce2af642",
+              "source_claim:28845523-a358-5cdd-a7fd-1c641801479d",
+              "source_claim:1ec7a0f3-f1d7-5837-9375-387738b7bdd9",
+              "source_claim:20817dc7-4cb8-537b-8408-84297d9b377f",
+              "source_claim:3ecaefab-f92a-5310-baba-6682f9407d1d",
+              "source_claim:6b25cba1-6998-59fc-ab16-a24a91668a80"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Tomi protects ownership of her training decision rather than rewarding or rejecting Ted for relational reasons.",
+                "Her established excited curiosity may sit beneath a casual presentation, but it cannot determine whether the offer is useful.",
+                "The answer should address practical utility and boundaries rather than imply intimacy, obligation, or coaching authority."
+              ],
+              "open_realization_space": [
+                "Choose Tomi's exact wording and small observable mannerisms.",
+                "Determine the answer's polarity autonomously, provided it is clear and not inferred from curiosity alone.",
+                "Vary how directly she states any boundary while preserving the supplied offer's narrow scope and revocability."
+              ],
+              "physical_and_material_continuity": [
+                "Keep the exchange in the common room the next morning.",
+                "Ted remains only in his established waiting position; do not supply a new action for him.",
+                "No stopwatch use, recovery loop, training transition, or other material outcome begins in this block."
+              ],
+              "scaffold_id": "writer_scaffold:f6dce62a-5347-5b26-87a2-cf06a76e1be4",
+              "transition_obligations": [
+                "Enter on Tomi's response rather than recapping or narrating Ted's supplied speech.",
+                "Move from a non-determinative reaction into practical appraisal and then a clear answer.",
+                "End after the answer settles, before Ted's unsupplied response or any training activity."
+              ],
+              "viewpoint_character_ids": [
+                "character:tomi_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Use Tomi's casual surface presentation with selective access to the appraisal behind it.",
+                "Keep interiority focused on evaluating practical usefulness and retaining control.",
+                "Do not expose evidence labels, over-explain her reasoning, or convert curiosity into attraction, consent, or acceptance."
+              ]
+            }
+          }
+        ],
+        "interaction_topology": "single_npc_floor",
+        "interiority_level": "medium",
+        "omitted_character_ids": [],
+        "runway": {
+          "continue_beyond_prompt_endpoint": true,
+          "development_obligations": [
+            "Tomi's non-determinative initial reaction",
+            "Tomi's autonomous appraisal of the offer's practical usefulness",
+            "A clear self-owned answer that preserves her control of training",
+            "An immediate settling beat without beginning a training session"
+          ],
+          "runway_class": "atomic",
+          "stop_condition": "Stop after Tomi has clearly stated her own assessment and the exchange has settled without inventing Ted's response or starting the proposed activity.",
+          "stop_reason": "causal_unit_complete"
+        },
+        "scene_function": "ordinary_social",
+        "schema_version": "cera.behavioral_scene_plan.v2",
+        "selected_character_ids": [
+          "character:tomi_hanezawa"
+        ],
+        "tone": "warm"
+      },
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "State a definite self-owned assessment of the practical offer; preserve the offered limits if she finds it useful, or clearly exclude Ted from training if she does not.",
+            "character_id": "character:tomi_hanezawa",
+            "evidence_ids": [
+              "evidence:33448af2-0227-5828-9938-c41cb320a799",
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+            ],
+            "knowledge_constraints": [
+              "Tomi directly heard the offer and its limitations.",
+              "Only Tomi may use her owner-private relationship evidence.",
+              "Curiosity toward Ted does not establish consent to training involvement or practical usefulness.",
+              "Yuuni is not currently present and must not be introduced.",
+              "Ted's private state and next response remain unknown."
+            ],
+            "perception": "Tomi receives a narrowly limited, revocable offer to time one easy recovery loop under her instructions, together with an explicit option to keep Ted out of training.",
+            "selected_intent": "Resolve the question according to her own training preferences, give an unambiguous practical answer, and keep any visible curiosity understated rather than allowing it to decide the answer."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:tomi_hanezawa",
+              "beat_id": "beat:a3cc8680-08ef-5214-9197-035acc678dcd",
+              "evidence_ids": [
+                "evidence:33448af2-0227-5828-9938-c41cb320a799",
+                "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+              ],
+              "neutral_event": "Complete the practical question with Tomi's autonomous assessment while separating her curiosity from consent, usefulness, and training authority.",
+              "state": "ongoing"
+            }
+          ],
+          "segment_id": "segment:e6af6560-2b7b-594f-bc7f-cefd24064081",
+          "stop_before": "Stop after Tomi has clearly stated her own assessment and the exchange has settled without inventing Ted's response or starting the proposed activity."
+        },
+        "decision_id": "decision:e59d0838-3975-552b-826d-6afca6522d8e",
+        "floor_owner_id": "character:tomi_hanezawa",
+        "future_segments": [],
+        "prohibited_inferences": [
+          "Do not author Ted's next action, dialogue, thought, feeling, motive, or decision.",
+          "Do not infer that Tomi accepts the offer because she is curious about Ted.",
+          "Do not treat a favorable answer as consent to coaching, broader training involvement, intimacy, or recurring assistance.",
+          "Do not treat an unfavorable answer as rejection of Ted beyond the stated training boundary.",
+          "Do not introduce Yuuni or continue the prior sequence through an absent participant.",
+          "Do not begin a recovery loop or create a stopwatch handoff in the current reply.",
+          "Do not reveal Tomi's owner-private relationship evidence to Ted as character knowledge.",
+          "Do not make any later use of the offer a current fact."
+        ],
+        "responding_npc_ids": [
+          "character:tomi_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Tomi independently evaluates the limited practical offer, states her own clear position, and retains sole control over whether Ted has any role in her training.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "Whether Tomi finds the offer practically useful is intentionally not predetermined by the available evidence and must remain an autonomous realization choice.",
+          "Ted's response after Tomi answers is unknown."
+        ],
+        "writer_must_preserve": [
+          "Tomi must give a clear self-owned answer rather than defer the question indefinitely.",
+          "Tomi's established curiosity must remain semantically separate from consent, acceptance, and practical usefulness.",
+          "The offer remains singular, instruction-bound, non-coaching, non-authoritative, and revocable.",
+          "Only Tomi responds in the current scene; Yuuni remains omitted.",
+          "The realization must not restate Ted's supplied speech or invent his next behavior.",
+          "The reply stops after Tomi's answer and its immediate settling beat, before any training activity or protected-user decision."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:33448af2-0227-5828-9938-c41cb320a799",
+          "record_id": "event:f869abf2-a774-5138-b687-105c5813c119",
+          "record_version": 1
+        },
+        {
+          "evidence_id": "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+          "record_id": "record:77dbdad1-16da-5e7b-b101-1c8b43570e4a",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "evidence_ids": [
+            "evidence:33448af2-0227-5828-9938-c41cb320a799",
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [
+        {
+          "end": 38,
+          "exact_text_sha256": "ed623a24d7de64c2e9cc9148bcbdb79ed73a639f4441dfe190328bc3834b9a84",
+          "kind": "action",
+          "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+          "start": 18
+        },
+        {
+          "end": 140,
+          "exact_text_sha256": "53fca9f7a51d347d6abff2583ed66d82c69392b72e3cdf54c2df7f9d5922b682",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+          "start": 97
+        },
+        {
+          "end": 189,
+          "exact_text_sha256": "4e816d5af0d4fe8e465b273516c93311b5614c1f42adf1692ca03c3f277d8893",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+          "start": 148
+        },
+        {
+          "end": 217,
+          "exact_text_sha256": "8366efe653a495f01587366f9b2da9e87f354eaadda27414de8f841a48589070",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+          "start": 191
+        },
+        {
+          "end": 252,
+          "exact_text_sha256": "0f7a074e4865fa4e779f6d5956abb3a7ee04861b34091998377f918e1c6db2b8",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+          "start": 219
+        },
+        {
+          "end": 286,
+          "exact_text_sha256": "fdf4034e580cccdab1442873f212ee7211a8acfbcddc56d6b63c8b889c2cf30d",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+          "start": 257
+        },
+        {
+          "end": 313,
+          "exact_text_sha256": "7a0e352fb6a09025f839401a316aae1fdd946dcf179656961103165df4d4e75c",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+          "start": 288
+        },
+        {
+          "end": 366,
+          "exact_text_sha256": "330fd9849fb1399e89b154bae1471c3ce0b5ecbe1928741a954f2664d2f6b1d1",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+          "start": 318
+        },
+        {
+          "end": 378,
+          "exact_text_sha256": "d65b5f5862ae0ee89198d3bdd19ca24e31e38245e973d23d676da250aeeee62a",
+          "kind": "action",
+          "source_unit_id": "source_unit:76205b78-549f-5bb1-9033-522af5ccc8ef",
+          "start": 369
+        }
+      ],
+      "schema_version": "cera.reasoner_outcome.v6",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 157457,
+      "external_provider_calls": 1,
+      "input_tokens": 16442,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "b4435223f509ced2daee6714c53fe41d4d4ca4105c59f1ba600a411f1f481fc5",
+      "output_tokens": 5961,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:881ca0cf-832e-5ef5-9f20-366f00550e10",
+      "provider_request_id_sha256": "78b3143276fd1d0f913ce8a918ff9851650cc7dbe29872eba7ae9434eaa149f1",
+      "quota_metered": true,
+      "reasoning_output_tokens": 3242,
+      "request_sha256": "a4bdaa1dc66db19f7c455d4731d20ff5a0d1ed3b258a3f9f5da0d4a32da66d8d",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "2bb84ac48579b71997f821f5f4499c3445215fe398eb6fb9e0814dbfc13ca997",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "2bb84ac48579b71997f821f5f4499c3445215fe398eb6fb9e0814dbfc13ca997",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v18",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "2f2dfc40f2f301d6b647d2e6ab22ecec6a33087067b81294cd5e5ecf26cbdec9",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:881ca0cf-832e-5ef5-9f20-366f00550e10",
+      "provider_receipt_sha256": "e4abc8cce93427af1bff6409b758857bc258e82f3ce727631cfa8b8604210587",
+      "reasoner_request_sha256": "8b34639d247ef2cc521603f729f293970e946847f27c1c7eb46909415160ffe3",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:2884f944-4162-502b-befa-85ecf943d6d5",
+      "source_sha256": "d55e6a90b469af90a1f563124735c312d7085c7b9bf3f869394f481c998d1af9",
+      "source_view_sha256": "8503752425aac692d449bd1afcb318a999ee25d39f69b612799a55727163fe27",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Tomi receives a bounded practical stopwatch offer",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 10861,
+      "external_provider_calls": 1,
+      "input_tokens": 13147,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "24d47542d616d67515f3969428c5963e344994150bf4dbc3989b6eb7b32484fc",
+      "output_tokens": 426,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:2b1491ff-c2a7-5c36-b9a5-1c71f4b2b73e",
+      "provider_request_id_sha256": "093859bb4bbdddb724213f6cc9313d065dee8d601c177df09dffc213460496c9",
+      "quota_metered": true,
+      "reasoning_output_tokens": 256,
+      "request_sha256": "f55faf21703e7e508b752c3ac008bbd72a86c8f46690efec737fe1ec429df76a",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "a72b6b7860b05cda5861e7356b685c93035a045408a4c36068fb0b31e9fe7072",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:2b1491ff-c2a7-5c36-b9a5-1c71f4b2b73e",
+      "provider_receipt_sha256": "f914f3ef71591bbc17b53b854c95fce0840a8d762d5fa8d6989db9e2e0b32712",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v5",
+      "status": "accepted",
+      "story_text_sha256": "fe57089ccae23347157471d35d19c2bab240e45fd1949f0afbfad6a6038d17d3",
+      "verification_id": "realization_verification:31b77bd0-8091-5634-802b-d73e8b262839",
+      "verification_request_sha256": "1c0183b42054eaea36d3778ae3199ef3888668e01ec8be530e70fc650ede0591",
+      "verified_beat_ids": [
+        "beat:a3cc8680-08ef-5214-9197-035acc678dcd"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_development_atom_ids": [],
+      "verified_participant_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_cli_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v6",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

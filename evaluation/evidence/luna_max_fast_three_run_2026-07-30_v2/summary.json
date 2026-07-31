@@ -1,0 +1,128 @@
+{
+  "benchmark_id": "cera-luna-max-fast-three-run-2026-07-30-v2",
+  "capability": {
+    "display_name": "GPT-5.6-Luna",
+    "model": "gpt-5.6-luna",
+    "selected_reasoning_effort": "max",
+    "selected_service_tier": "priority",
+    "selected_service_tier_display": "Fast",
+    "service_tier_request_verified_by_receipt": false,
+    "service_tiers": [
+      {
+        "description": "1.5x speed, increased usage",
+        "id": "priority",
+        "name": "Fast"
+      }
+    ],
+    "supported_reasoning_efforts": [
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max"
+    ],
+    "verification_note": "The app-server capability list advertises the tier and accepted the explicit turn request; the current provider receipt does not echo the served service tier."
+  },
+  "composer": {
+    "model": "deepseek-v4-flash",
+    "thinking": false
+  },
+  "depth": "long",
+  "fallback_count": 0,
+  "planned_runs": 3,
+  "production_route_changed": false,
+  "provider_stages": [
+    {
+      "dispatch_started": true,
+      "model": "gpt-5.6-luna",
+      "provider": "openai_codex",
+      "sample": 1,
+      "stage": "reasoner",
+      "status": "started"
+    },
+    {
+      "dispatch_started": false,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "sample": 1,
+      "stage": "composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "sample": 1,
+      "stage": "verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "model": "gpt-5.6-luna",
+      "provider": "openai_codex",
+      "sample": 2,
+      "stage": "reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "sample": 2,
+      "stage": "composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "sample": 2,
+      "stage": "verifier",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "model": "gpt-5.6-luna",
+      "provider": "openai_codex",
+      "sample": 3,
+      "stage": "reasoner",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "model": "deepseek-v4-flash",
+      "provider": "deepseek",
+      "sample": 3,
+      "stage": "composer",
+      "status": "planned"
+    },
+    {
+      "dispatch_started": false,
+      "model": "gpt-5.6-sol",
+      "provider": "openai_codex",
+      "sample": 3,
+      "stage": "verifier",
+      "status": "planned"
+    }
+  ],
+  "reasoner": {
+    "effort": "max",
+    "model": "gpt-5.6-luna",
+    "service_tier": "priority",
+    "service_tier_display": "Fast"
+  },
+  "retry_count": 0,
+  "samples": [],
+  "schema_version": "cera.luna_max_fast_three_run_summary.v1",
+  "source_sha256": "4c604bafb104b6bab77982934f5b3b682f50dece7e86dee80669d284ff1366c8",
+  "source_text": "Hello, my name is Ted. Is this the hanezawa household?",
+  "started_at": "2026-07-31T05:25:04.536994+00:00",
+  "status": "running",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "supersedes_pre_dispatch_harness_failure": "evaluation/evidence/luna_max_fast_three_run_2026-07-30_v1",
+  "verifier": {
+    "effort": "medium",
+    "model": "gpt-5.6-sol"
+  }
+}

@@ -1,0 +1,36 @@
+.........................................................................................F................................................................................................................StreamableHTTP session manager started
+HTTP Request: POST http://127.0.0.1:56975/mcp "HTTP/1.1 401 Unauthorized"
+Terminating session: None
+HTTP Request: POST http://127.0.0.1:56975/mcp "HTTP/1.1 200 OK"
+Negotiated protocol version: 2025-11-25
+Terminating session: None
+HTTP Request: POST http://127.0.0.1:56975/mcp "HTTP/1.1 202 Accepted"
+Processing request of type ListToolsRequest
+Terminating session: None
+HTTP Request: POST http://127.0.0.1:56975/mcp "HTTP/1.1 200 OK"
+Processing request of type CallToolRequest
+HTTP Request: POST http://127.0.0.1:56975/mcp "HTTP/1.1 200 OK"
+Terminating session: None
+StreamableHTTP session manager shutting down
+..........................................................................
+======================================================================
+FAIL: test_authoritative_documentation_is_complete_and_linked (test_documentation.DocumentationTests.test_authoritative_documentation_is_complete_and_linked)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "D:\AIChatBot\Cera\tests\test_documentation.py", line 15, in test_authoritative_documentation_is_complete_and_linked
+    self.assertEqual(validate_documentation(PROJECT_ROOT), ())
+AssertionError: Tuples differ: (DocumentationFinding(code='DOC_LINK', pat[80 chars]t'),) != ()
+
+First tuple contains 1 additional elements.
+First extra element 0:
+DocumentationFinding(code='DOC_LINK', path='.venv/Lib/site-packages/win32comext/mapi/NOTICE.md', detail='../../License.txt')
+
++ ()
+- (DocumentationFinding(code='DOC_LINK',
+-                       path='.venv/Lib/site-packages/win32comext/mapi/NOTICE.md',
+-                       detail='../../License.txt'),)
+
+----------------------------------------------------------------------
+Ran 276 tests in 234.469s
+
+FAILED (failures=1)

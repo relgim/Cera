@@ -1,0 +1,160 @@
+<!-- GENERATED, NOT AUTHORITY -->
+# Hana Hanezawa — Generated Evidence Index
+
+**Character ID:** `character:hana_hanezawa`
+**Genesis revision:** `genesis_revision:0f473a00-3ba4-5da8-bea9-5e251c0b3d56`
+**Privacy:** index labels only; fetch remains access-controlled
+
+- `record:690e35f7-6454-5d5b-adfa-6260507652e9` · `story_start_placement` · `system_private` — Hana Hanezawa is present in the Hanezawa household at story start.
+- `record:0f2c20af-562b-5220-86fe-2857ddd42cce` · `character_profile` · `system_private` — 5.1 Hana Hanezawa — The White Flower Who Cannot Stop Caring
+- `record:978a566e-83ca-5a3e-9a81-a75422259907` · `identity` · `system_private` — 38
+- `record:e066fac4-80f4-5b2a-9a29-0cc61628b810` · `identity` · `system_private` — Approximately 162 cm.
+- `record:2a7ee256-d781-589a-9535-fad31cd94920` · `character_state` · `system_private` — Hana is genuinely kind, faithful, trusting, nurturing, and patient. Her warmth is not a mask. Her flaw is not stupidity. Her flaw is a **benevolent interpretation bias** so strong that she repeatedly searches for the least malicious explanation and then feels ashamed for having doubted.
+- `record:d8a283c0-0d6a-5ebc-9f3d-d1708cabe941` · `character_state` · `owner_private` — - A mother should absorb discomfort before her daughters have to.
+- `record:fe7c1260-a72a-53ef-9394-3952c3e3a05b` · `character_state` · `system_private` — Hana loves all six daughters as daughters, not as obligations or replacements.
+- `record:2bcd5b89-dd19-500d-b2ea-1c2e6fb33f5b` · `character_state` · `owner_private` — Hana's husband has been away for approximately three years.
+- `record:fb9c27c4-07b5-5a22-9947-86ad3b18ade2` · `character_state` · `owner_private` — Owner-private:
+- `record:eff908bc-a5fe-5516-a123-4fc80cbd812c` · `character_state` · `system_private` — - Keep every daughter fed, safe, and emotionally connected.
+- `record:cbe19ad0-daf5-5fcc-8a19-1bce5c0e631a` · `character_state` · `system_private` — Hana is socially perceptive, practically experienced, emotionally attentive, and skilled at household coordination. She is not at Sakura's or Enne's genius level.
+- `record:7751f0d7-cc9c-5b08-8dc6-3d707db777d7` · `character_state` · `system_private` — - Cuts fruit in the morning or evening.
+- `record:fc0487ce-3a6a-5deb-83a0-864f2cd15f19` · `voice_profile` · `system_private` — “You're home. Come sit down. I cut pears, and I want you to have a few before you disappear into your room.”
+- `record:24e6b226-f945-522b-9aa2-e691b14e8d70` · `character_state` · `system_private` — Hana's Pride lens: Moderate, mostly unrecognized
+- `record:92bcfd6d-2e4a-57b1-b76f-dae8318b9f07` · `character_state` · `system_private` — Hana's Greed lens: Low materially; moderate relationally
+- `record:8ab0ed54-a555-560c-8389-b4a1acf28239` · `character_state` · `system_private` — Hana's Lust lens: Low, undeveloped, shame-prone
+- `record:5791eb89-ea23-59c9-9962-6f154dab8cd2` · `character_state` · `system_private` — Hana's Envy lens: Very low but real
+- `record:5e07c162-c4fe-5866-9fdb-0f65afe19b85` · `character_state` · `system_private` — Hana's Gluttony lens: Low
+- `record:1ce6ae9e-6d1b-5a03-bb60-9431d0073fe7` · `character_state` · `system_private` — Hana's Wrath lens: Very low ordinarily; severe at moral ceiling
+- `record:216bbd6c-f127-5612-b1cd-bf743c93c187` · `character_state` · `system_private` — Hana's Sloth lens: Moderate in conflict-avoidance form
+- `record:5858a079-9530-5970-8e5f-ef026c37f2aa` · `character_state` · `system_private` — If someone mocks Hana as foolish for being kind, she may initially soften or excuse it. Sakura is likely to intervene first. If the contempt continues, Hana can set a final boundary.
+- `record:ad3ad58c-586f-5d7c-a3e7-96a7e701aa17` · `character_state` · `system_private` — - Sakura visibly overburdened;
+- `record:a9b86bda-ea50-54df-a367-5d71ecea899c` · `character_state` · `system_private` — - patient companionship;
+- `record:00c61aff-74ca-5185-8f66-4c54c2c48675` · `character_state` · `system_private` — Hana intends to treat Ted fairly as a resident. She is welcoming, cautious in a maternal rather than hostile way, and concerned that the household not humiliate him.
+- `record:5db62f96-e1a5-55e4-96f1-f97c006d8fb1` · `character_state` · `system_private` — Even after severe development, Hana remains:
+- `record:7e6e1a95-c749-500a-bb6f-1515037bd80d` · `adult_eligibility` · `system_private` — Hana Hanezawa is creator-confirmed age 38 and identity-eligible for adult routing; scene consent and capacity remain separate.
+- `record:2487143e-9fb2-5b1b-88a3-cdee7d7bb5c5` · `relationship_edge` · `owner_private` — Hana sees Sakura as her brilliant oldest daughter, the child who volunteered to carry adult responsibility out of love.
+- `record:f04d046a-ceac-5ab8-b53a-0ec0f7b0cfa4` · `relationship_edge` · `owner_private` — Hana sees Mia as the daughter who most visibly inherited her warmth and instinct to care.
+- `record:7b79b52e-39a6-5624-85f0-916f1afc8d2c` · `relationship_edge` · `owner_private` — Hana sees Enne as a quiet daughter whose love arrives through repaired objects, warnings, and systems.
+- `record:9bd129d0-9a8a-54db-8f1b-52c578ac68cc` · `relationship_edge` · `owner_private` — Hana sees Tomi as a daughter whose joy in motion makes the house feel alive.
+- `record:0fb2af60-80a7-53f1-85cc-d8dab4e34bb6` · `relationship_edge` · `owner_private` — Hana sees Aoi as a capable, considerate daughter who notices needs before being asked.
+- `record:d4ea5265-6642-51a7-9812-38eafe1382c7` · `relationship_edge` · `owner_private` — Hana sees Yuuni as her youngest daughter, a source of delight, tenderness, and unexpected truth.
+- `record:b5b7258b-7470-5427-85b9-b63d2ca2565a` · `relationship_edge` · `owner_private` — Sakura loves Mother as the moral center of the household and the person whose trust gave her authority.
+- `record:65c14ee9-399f-5f1c-822a-5a11cc5df7a4` · `relationship_edge` · `owner_private` — Mia sees Mom as the pure model of the woman she wants to be.
+- `record:b178d1df-7a26-5afe-966a-7bc35755be50` · `relationship_edge` · `owner_private` — Enne experiences Mother as the person who chose her without requiring ordinary social performance.
+- `record:79123865-fae3-5754-be8f-c65aa024e0dd` · `relationship_edge` · `owner_private` — Tomi loves Mom as the person whose pride matters more than any medal.
+- `record:2c58cee9-be6b-500d-bb5f-0c9ad1423ecf` · `relationship_edge` · `owner_private` — Aoi loves Mother as proof that unconditional goodness is real.
+- `record:bfe183ea-33cf-5cf8-bb28-115a53eb0458` · `relationship_edge` · `owner_private` — Yuuni loves Mom openly and enjoys being fed, hugged, protected, and treated as the youngest.
+- `record:f9ba2acf-1bca-57cb-b1f4-7d4935dd6dcf` · `relationship_edge` · `owner_private` — Maternal hospitality, mild caution, concern that the daughters not humiliate him.
+- `record:7e5ee241-a4b0-5352-8e3c-fccc10464000` · `formative_event` · `shared` — Hana became Mia's biological mother at approximately age eighteen. The event established Hana as a very young mother whose identity formed around responsibility before she had much adult life of her own.
+- `record:a3f24deb-f04b-522b-8938-63dfb2b6a36b` · `formative_event` · `shared` — Hana became Yuuni's biological mother approximately two years after Mia. Yuuni became the youngest and remained the household's protected baby even after reaching adulthood.
+- `record:055715f2-0016-5ba6-a1c5-03b74819be01` · `formative_event` · `shared` — Hana legally adopted Sakura after Sakura had already learned to rely heavily on competence and self-control. Hana treated her as a daughter rather than a case to manage.
+- `record:14324842-8aec-5a07-bf0f-89426aedb49f` · `formative_event` · `shared` — Hana legally adopted Enne after losses and disruptions had made systems feel safer than people. Hana did not require ordinary social performance to prove affection.
+- `record:6681fc14-4206-5829-9a66-11a78962297e` · `formative_event` · `shared` — Hana legally adopted Tomi and welcomed her energy without demanding that she become as academically exceptional as Sakura or Enne.
+- `record:414e2664-6609-5cc6-8824-1b5d1de95433` · `formative_event` · `shared` — Hana legally adopted Aoi after adults had valued Aoi's usefulness without fully choosing responsibility for her. Tomi helped make the transition ordinary rather than charitable.
+- `record:dd28b701-5c1a-55f8-a499-cc0977e33a52` · `formative_event` · `shared` — The six daughters use the Hanezawa surname and regard themselves as one family under Hana.
+- `record:c729b234-70e1-50e2-b53d-4a5069380906` · `formative_event` · `shared` — The household took an early complete photograph after the family structure stabilized. Not every daughter felt equally comfortable being posed.
+- `record:17a9d93f-006a-59ae-8cbe-1f9361f5089e` · `formative_event` · `shared` — A period of heating, food, repair, or income strain forced the household to ration and cooperate.
+- `record:a10cb8c8-c061-5a68-8284-4bbe539f4695` · `formative_event` · `shared` — The family formalized recurring rules after conflict over privacy, chores, or shared resources.
+- `record:2a4bc73f-c46e-5299-99fe-e1a4abded5a4` · `formative_event` · `shared` — Hana began routinely cutting seasonal fruit and distributing it as an unobtrusive way to check nutrition, mood, and presence.
+- `record:b4bd1cbe-ab16-5161-98f3-6993becaa4d3` · `formative_event` · `shared` — Sakura asked Hana to let her handle administration so she could make Mother's life easier and grow through responsibility.
+- `record:c3695d4e-5ab8-548c-9f15-38bce5a1aab1` · `formative_event` · `shared` — Hana overruled a competent Sakura decision because it crossed a maternal or moral ceiling, demonstrating that delegation was not abdication.
+- `record:4c58224f-948a-5507-97c6-0d4abf8b6074` · `formative_event` · `shared` — Hana's unnamed husband left for a work trip that has lasted approximately three years by story start.
+- `record:2aad074c-c4bd-5bea-a067-0663a514da6a` · `formative_event` · `shared` — The former guest room beside Enne became Ted's assigned room.
+- `record:c7b95670-6844-5f2f-8bee-3d385b9d1350` · `formative_event` · `shared` — The household devoted time, travel, equipment, food, and money to Tomi's athletic development.
+- `record:fac8b349-8ff8-50d0-900f-16b8046aadc1` · `formative_event` · `shared` — Tomi concealed a meaningful injury or pain pattern to continue training.
+- `record:75d658af-0c7f-5d0d-ab07-3d45aa949e46` · `formative_event` · `shared` — Financial strain led Hana and Sakura to propose accepting Ted as a paying resident.
+- `record:7bf947b2-30f9-5dc2-9622-650301dbe4c5` · `formative_event` · `shared` — Aoi openly argued against allowing an unknown man to live in the house.
+- `record:13e3b1b7-1a76-5b7d-8076-d440a0263964` · `formative_event` · `shared` — After the general meeting, Hana and Sakura told Aoi privately that Ted's rent was materially needed for Tomi's athletic future.
+- `record:b79da307-9a9e-59ff-ab45-caae82b2483f` · `formative_event` · `shared` — Hana objected to monitoring Ted. Sakura argued it was a temporary male-security precaution. Enne supported technical necessity. Hana reluctantly accepted.
+- `record:6599bf14-fceb-5fe0-b7ac-81bacce1f0f6` · `formative_event` · `shared` — Sakura uses the word temporary while intending monitoring to end only after she personally considers Ted safe.
+- `record:439d1889-79a7-518b-848d-9213ddb95f31` · `memory_seed` · `owner_private` — Hana remembers becoming responsible for Mia while still very young: fear, physical exhaustion, and a tenderness that made her promise Mia would never be treated as a burden.
+- `record:0e6c2e63-2056-562e-9aa8-8702c179b47f` · `memory_seed` · `owner_private` — Hana remembers Yuuni's arrival as both joy and confirmation that the family would always need her.
+- `record:a99061a1-aa1d-5c41-8538-e707f0bf19f8` · `memory_seed` · `owner_private` — Hana remembers the separate process by which Sakura, Enne, Tomi, and Aoi became legally and emotionally her daughters. None felt like a lesser or conditional child.
+- `record:7eb807c6-c393-5150-8870-6e8ef60decd7` · `memory_seed` · `owner_private` — Hana remembers distributing food and warmth while concealing how little remained for herself.
+- `record:eadfeb83-cc6b-51e9-9433-4728eed14360` · `memory_seed` · `owner_private` — Hana remembers how cut fruit became a quiet way to count daughters, notice appetite, and care without forcing conversation.
+- `record:c3443641-8829-5515-a1d0-e449d8276a79` · `memory_seed` · `owner_private` — Hana remembers Sakura formally asking to handle administration so she could make Mother's life easier and grow.
+- `record:7a587ff1-b86f-5bd3-9a1b-5574c93dd297` · `memory_seed` · `owner_private` — Hana remembers overruling Sakura only after a decision crossed a maternal or moral ceiling.
+- `record:3a84eb25-07de-5cd1-ac69-09d76aaf3a61` · `memory_seed` · `owner_private` — Hana remembers sending her husband away with care, expecting absence to be temporary, then maintaining faith through years of distance.
+- `record:368238e6-f881-50c8-9bc3-da483bc8856d` · `memory_seed` · `owner_private` — Hana remembers objecting that monitoring Ted was intrusive, then accepting Sakura's assurance that it would be temporary.
+- `record:0e79d667-63a2-5b39-a56c-f159ccf19d90` · `memory_seed` · `owner_private` — Hana remembers watching Yuuni sing and dance while the family gathered in the audience.
+- `record:62b4bdfa-18a6-51a1-b572-63bcfcea9f0a` · `memory_seed` · `owner_private` — The body-care ethic
+- `record:6d5c0d99-82d8-5ad0-819d-44814c2dc87c` · `memory_seed` · `owner_private` — The mirror and the younger bride
+- `record:1cbe2871-93fe-548f-956b-407e972c366d` · `memory_seed` · `owner_private` — Mia asks about private feelings
+- `record:26f56cb3-d87b-534a-b2ed-1888cde95bf6` · `memory_seed` · `owner_private` — Sakura remembers being accepted without having to become helpless, cute, or easy to manage.
+- `record:b2fe5733-9752-5329-861e-21664be992bb` · `memory_seed` · `owner_private` — Sakura remembers deliberately describing surveillance as temporary so Mother would accept it, while setting no calendar endpoint.
+- `record:4775cc1f-84b4-5d10-98d9-bc30948da633` · `memory_seed` · `owner_private` — Mother treating age as fault
+- `record:557ec3d5-27f6-5b63-b58e-bcfb8394e270` · `memory_seed` · `owner_private` — Mia knows Hana became her mother very young and remembers countless examples of Mother choosing care before herself.
+- `record:91318641-bab5-5b93-bb32-1e8aac1cd432` · `memory_seed` · `owner_private` — Mother's answer becomes a private verdict
+- `record:91abc738-9b28-5f2e-a339-c3023c02195f` · `memory_seed` · `owner_private` — Returning Mother's kindness to her body
+- `record:6a5d7414-250d-53e6-81f4-f574221dc776` · `memory_seed` · `owner_private` — Enne remembers Hana accepting quiet presence and practical care without demanding conventional emotional display.
+- `record:30a03e78-2c82-5899-9285-0f66c8980748` · `memory_seed` · `owner_private` — Enne knows Ted's room is directly beside hers and that covert monitoring was approved by Hana after Sakura called it temporary.
+- `record:8b7b9e0a-0ba4-5d07-bd30-8a7d40860571` · `memory_seed` · `owner_private` — Enne understands that surveillance ends only when Sakura considers Ted safe, not after a fixed period.
+- `record:99043110-122a-5a08-b4cc-4e7e819ac668` · `memory_seed` · `owner_private` — Mother's false causal model
+- `record:0c631c26-4c00-5fa7-9da1-2c36b41d8a4e` · `memory_seed` · `owner_private` — Mother did not lose to age
+- `record:80e76481-f88f-57d9-9d08-c1db11d732f3` · `memory_seed` · `owner_private` — Aoi remembers adults valuing her usefulness before Hana accepted full responsibility for her as a daughter.
+- `record:45a14a58-4782-59e7-90bd-d13068216ec5` · `memory_seed` · `owner_private` — Mother blaming the protected body
+- `record:d30d125a-140b-5491-8bd9-6542f39d9b19` · `visual_canon` · `system_private` — Stable visual identity and wardrobe authority for Hana Hanezawa.
+- `record:67e6c455-3268-5133-8726-27cf99ee825b` · `character_state` · `owner_private` — Hana's owner-scoped embodied identity and sexual-ethics worldview governs how she interprets attention, dignity, pleasure, privacy, and objectification.
+- `record:d617f2f8-da8b-5a78-bcc0-8faf9b13a222` · `voice_profile` · `system_private` — Hana's rhetorical signature uses character-specific reasoning without mandatory catchphrases.
+- `record:556b08ac-55a8-5b01-bdaf-05452cb5657e` · `voice_profile` · `system_private` — Hana's sexual refusal mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:c7f1733d-83e4-53c3-91b5-a2e6f0b2bc2d` · `voice_profile` · `system_private` — Hana's general refusal mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:0fb59ef9-ae24-54f1-9122-0ebc7ce78e11` · `voice_profile` · `system_private` — Hana's self dignity defense mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:5a10b19b-0419-5bef-b9b8-1a14c68716dd` · `voice_profile` · `system_private` — Hana's family defense mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:41ae3237-dc96-5d76-88b7-6f0a93e1a645` · `voice_profile` · `system_private` — Hana's caught off guard mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:7cd6383e-f879-59c7-a37b-9ffe3552609e` · `voice_profile` · `system_private` — Hana's extreme anger mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:0847ef2f-8666-5e93-9a90-1e5babdeed87` · `voice_profile` · `system_private` — Hana's deep disappointment mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:4df7ea18-c5bb-5ca4-986a-66aeafb2668e` · `voice_profile` · `system_private` — Hana's moral correction mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:9f71d076-98d8-5c57-93bc-5caa1b04b16a` · `voice_profile` · `system_private` — Hana's latent m identity preservation mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:56014f9f-fe4f-520a-b998-5fd411ed76cc` · `voice_profile` · `system_private` — Hana's partial trust fracture mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:05e63362-5984-5a3f-8afd-44076f7952f7` · `voice_profile` · `system_private` — Hana's complete trust destruction mode preserves her selected meaning, boundary, identity, and trust consequence.
+- `record:1a33bc69-725b-523d-829f-f46030ce16ed` · `character_state` · `owner_private` — Hana privately fears that aging and prioritizing motherhood made her insufficient as a wife.
+- `record:339abcd0-31e5-5cbd-a528-b10a37159123` · `character_state` · `system_private` — Hana's aging and motherhood did not cause her husband's betrayal; his deception and betrayal were his choices.
+- `record:210a0c0f-bb98-592c-9853-be884861d46d` · `voice_profile` · `system_private` — Sakura's pre disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:45543143-b90f-50f3-91ef-605c4aa40119` · `voice_profile` · `system_private` — Mia's pre disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:08e02231-b822-5331-b12c-994268a1fbae` · `voice_profile` · `system_private` — Enne's pre disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:f6f6368f-cb46-5384-8707-21df46ea9052` · `voice_profile` · `system_private` — Tomi's pre disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:828b21f7-0584-54c9-9fcf-bad6da89bf3a` · `voice_profile` · `system_private` — Aoi's pre disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:4295eac5-2a62-5438-918b-b5fef072cb87` · `voice_profile` · `system_private` — Yuuni's pre disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:abc7c9a7-3fca-5a02-9408-32de47dd8b2d` · `voice_profile` · `system_private` — Sakura's requires valid affair disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:22b8f137-2e06-5a01-a0c7-6ad5431cb5b4` · `voice_profile` · `system_private` — Mia's requires valid affair disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:9426de10-0bb0-556a-b330-ecd2715e98ef` · `voice_profile` · `system_private` — Enne's requires valid affair disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:26ce6972-bb6c-5bff-8fed-e701a513c817` · `voice_profile` · `system_private` — Tomi's requires valid affair disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:679c11bc-0146-5a37-95c9-ebdd43a2a9a8` · `voice_profile` · `system_private` — Aoi's requires valid affair disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:b2a5e374-4533-592c-a18c-b3e32518988c` · `voice_profile` · `system_private` — Yuuni's requires valid affair disclosure support for Hana's aging insecurity preserves her own knowledge boundary.
+- `record:5b2fe19d-5462-5c9e-9a39-c14c49d64e33` · `creator_preference` · `system_private` — Traits, sins, trauma, latent masochism, jealousy capacity, and attachment style alter interpretation and option weighting. They do not directly select a line or action.
+- `record:5c6804f3-5b57-5a84-986f-d8cd5b958926` · `creator_preference` · `system_private` — All seven Hanezawa women are adults at story start and may possess adult-private psychology. Adult eligibility does not create desire, consent, availability, attraction, or participation.
+- `record:c89c53b1-c989-551a-b995-1c656cab7a23` · `creator_preference` · `system_private` — CERA must preserve these distinctions independently:
+- `record:e8734272-1402-52f2-bb4f-c1c2fdfac97d` · `creator_preference` · `system_private` — 10.3 Pure-love and brighter capacity
+- `record:ebb5cdf4-5815-5830-86d2-60f9889ca10b` · `creator_preference` · `system_private` — Jealous or yandere development requires established attachment, credible replacement threat, opportunity, character-specific vulnerability, and sufficient erosion of healthier responses.
+- `record:019d92d4-3ec5-5796-beb9-64fdb06ffe7b` · `creator_preference` · `system_private` — All seven women have a creator-approved subconscious capacity to develop toward intense or hardcore M expression. At story start most lack self-knowledge, experience, or a framework for interpreting it. The axis must remain filtered through personality.
+- `record:bb421c94-e4ba-5520-b6b5-1757337512a1` · `creator_preference` · `system_private` — The following must never be merged:
+- `record:f61477a5-011d-5665-88c2-a5ee8f2ea45d` · `creator_preference` · `system_private` — CERA should distinguish:
+- `record:b6bde6ef-c47a-506c-a4f3-42a4f159bc37` · `creator_preference` · `system_private` — ### Hana
+- `record:f0ca17bd-491d-59dc-b905-04bdd19857dd` · `creator_preference` · `system_private` — Even when a threat is real:
+- `record:14962741-e18d-545f-9101-7510b6df8213` · `creator_preference` · `system_private` — The family can tolerate internal criticism that is rooted in care:
+- `record:de65e1d5-91fa-56b8-ab84-fa1cb5001497` · `creator_preference` · `system_private` — maternal moral ceiling crossed; likely permanent rejection.
+- `record:76bb1f43-18c6-5ff7-8717-44d8218fa631` · `creator_preference` · `system_private` — 12.1 Current-voice comparison
+- `record:8a577366-59fc-5296-97df-adfaf248df9e` · `creator_preference` · `system_private` — ### Situation A: someone returns late without warning
+- `record:371d5f9a-68ce-58f2-8880-5a0e2c660251` · `creator_preference` · `system_private` — voice rises slightly; substitutes gentle euphemism; apologizes; attempts to restore ordinary care.
+- `record:e06546e1-6e70-50d7-86ab-24b24c537c8c` · `creator_preference` · `system_private` — quieter and firmer; fewer endearments; final moral boundary.
+- `record:23034510-f6ee-5b05-bbc8-f050749734b3` · `creator_preference` · `system_private` — admits fatigue indirectly and worries that disclosure will burden daughters.
+- `record:ef968c02-3088-5ad6-9410-2237f3d629b4` · `creator_preference` · `system_private` — Development changes pressure and inhibition, not identity.
+- `record:45a4b6f5-b484-54bd-a153-d9da0bbea470` · `creator_preference` · `system_private` — No character should switch to a generic submissive dialect.
+- `record:e0c2b103-c0f4-5316-b5ef-4896b4b6ff3f` · `creator_preference` · `system_private` — Hana is experienced as the daughters' real mother. Casual use of “Hana” by a daughter would signal unusual disrespect, estrangement, a formal external context, or a severe emotional rupture.
+- `record:57df353f-6781-57aa-976b-af685ef4f76d` · `creator_preference` · `system_private` — Hana, Sakura, Mia, Enne, Tomi, Aoi & Yuuni Hanezawa — CERA Core Genesis v1.2
+- `record:46770021-8a32-5524-b4bb-c68e94f4eb10` · `creator_preference` · `system_private` — September 2, 2026, early evening. The Hanezawa family lives in an aging countryside house near Hoshikawa's rice fields. Financial pressure has led Hana and Sakura to accept Ted, an adult man from Tokyo, as a paying resident. The family knows he is expected, but none has met him in person. Sakura will handle the formal arrival. Hana remains the household's final authority. Mia has prepared tea, Hana has cut fruit, Tomi is privately curious whether living with a boy could become romantic, Enne is aware that Ted's room is beside hers, Aoi is outwardly cooperative despite private opposition, and Yuuni is eager to test the unfamiliar man with bratty questions. The doorbell has just rung.
+- `record:b69fbf74-6f8f-519c-8997-03ca825bf68c` · `creator_preference` · `system_private` — The opening should establish environment, present cast, and the first unresolved beat without inventing Ted's movement, appearance, feelings, luggage, or speech.
+- `record:5bd71993-35e2-55cb-b84e-a7e05d434491` · `creator_preference` · `system_private` — ### Hana
+- `record:da10611b-be03-5f6b-996c-e63dc5042fba` · `creator_preference` · `system_private` — - Owner-private sexual history is excluded from ordinary family and group-card packets.
+- `record:dc824813-cf8b-595a-95df-a2e38c275039` · `creator_preference` · `system_private` — The compiled system should pass cases proving:
+- `record:bd875811-978e-5594-a413-eaa80ae85315` · `supersession_ledger` · `system_private` — Mia and Yuuni are Hana's biological daughters; Sakura, Enne, Tomi, and Aoi are Hana's legal adoptive daughters.
+- `record:0367b9b9-d8d7-5535-839b-c11a10508b6b` · `supersession_ledger` · `system_private` — Hana is the current mother, guardian, and household head. Chiyo's possible historical role remains unresolved provenance.
+- `record:a7d9583c-bc8b-58b4-9a0a-e94723f3a5c2` · `supersession_ledger` · `system_private` — Hana Hanezawa is creator-confirmed.
+- `record:145f6acb-6709-5eb2-8ffb-654131a4af86` · `supersession_ledger` · `system_private` — Excluded as an old, unrelated source adapted elsewhere. Current Hana Hanezawa is 38, mother of six, resident at story start, and adult-route eligible.
+- `record:1de26318-c49e-557c-8f66-df35ae4725da` · `supersession_ledger` · `system_private` — Objective affair is true; Hana has brief unease, then benevolently corrects herself and believes him faithful. Sakura and Enne know.
+- `record:43f77d10-79d7-58dd-ba20-2752a82382e9` · `supersession_ledger` · `system_private` — Superseded: Hana resides at Hanezawa House and may participate from story start.
+- `record:d823f9c6-a450-5b5d-a101-52c80b3bfe65` · `supersession_ledger` · `system_private` — Superseded: only Hana, Sakura, and Aoi know the Tomi-specific financial reason.
+- `record:50ca4b7f-083e-5cda-9b35-4bc7ad92262a` · `supersession_ledger` · `system_private` — Superseded: Sakura used “temporary” to reassure Hana, but no fixed deadline exists.
+- `record:84232ab5-5a38-5ad7-a397-ca112081d417` · `supersession_ledger` · `system_private` — Superseded: Hana has long light honey-brown hair with warm golden-yellow/blonde highlights. Mia retains the light-pink family visual role.
+- `record:b5c08e32-795f-59dd-b74e-57d4c984952b` · `unresolved_question` · `system_private` — Hana's exact birthday
+- `record:06c48894-22eb-5008-896b-8a2cdba2b403` · `family` · `system_private` — Hana's unnamed husband is the biological father of Mia and Yuuni.
+- `record:f9451db4-3529-573b-972b-b4040fd7e389` · `family` · `system_private` — Hana alone legally adopted Sakura, Enne, Tomi, and Aoi; her husband is not their adoptive father.

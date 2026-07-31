@@ -1,0 +1,92 @@
+{
+  "adult": false,
+  "adult_mode": null,
+  "automatic_retry_count": 0,
+  "case_id": "01_hana_indirect_memory",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_EVIDENCE_SERVICE_UNAVAILABLE",
+    "generation_id": "generation:92e0c443-d5c8-5d6e-bc6b-273b9e4e1c23",
+    "message": "Codex MCP evidence lookup failed; safe_failed_tool_trace=4:cera_search_evidence:CERA_EVIDENCE_BRIDGE_CONTRACT_INVALID",
+    "request_id": "request:qualification-five-run-live-v6-structural-contract-v3-01_hana_indirect_memory",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "reasoner_evidence",
+    "story_state_committed": false,
+    "trace_id": "trace:1b6a89e1-0404-5be1-86cf-ec278d32823c"
+  },
+  "fallback_enabled": false,
+  "qualification_id": "five-run-live-v6-structural-contract-v3",
+  "safe_failure_evidence": {
+    "all_prior_stage_receipt_handles": [],
+    "all_prior_stage_receipt_payloads": [],
+    "lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2,
+        "followup_search_count": 1,
+        "lookup_receipt_id": "lookup_receipt:13ff4d26-724b-5ab3-a453-6470ebfcd0f7",
+        "operation": "search_evidence",
+        "returned_bytes": 2,
+        "returned_count": 0,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:99fe72f1-50a3-5555-bf1e-a2515635a186",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2872,
+        "followup_search_count": 2,
+        "lookup_receipt_id": "lookup_receipt:80503131-306f-5550-9185-bb965391f409",
+        "operation": "search_evidence",
+        "returned_bytes": 2870,
+        "returned_count": 2,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:99fe72f1-50a3-5555-bf1e-a2515635a186",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 4506,
+        "followup_search_count": 2,
+        "lookup_receipt_id": "lookup_receipt:e3229256-dc72-5ad3-8320-bdc28ba53ad5",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1634,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:99fe72f1-50a3-5555-bf1e-a2515635a186",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 18597,
+        "followup_search_count": 3,
+        "lookup_receipt_id": "lookup_receipt:8a9fa2f6-f2e8-56fd-b919-e7f8fb5e09eb",
+        "operation": "search_evidence",
+        "returned_bytes": 14091,
+        "returned_count": 10,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:99fe72f1-50a3-5555-bf1e-a2515635a186",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "mcp_bridge_receipt": null,
+    "provider_receipt": null,
+    "rejected_candidate_review_handle": null,
+    "retains_prompt": false,
+    "retains_raw_provider_output": false,
+    "retains_secret": false,
+    "stage_failure_bundle": null
+  },
+  "schema_version": "cera.live_story_qualification_case.v4",
+  "source_sha256": "5b3c76c007b8985be1c49c2a8ce60c7f00b355653fece87193e493848dab1eec",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Hana ordinary turn with indirect missed-calls memory"
+}

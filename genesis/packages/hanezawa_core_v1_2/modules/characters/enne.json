@@ -1,0 +1,1089 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "5.4 Enne Hanezawa — The Observer Who Cannot Remain Outside",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "section_headings",
+        "character_id"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"character_id\":\"character:enne_hanezawa\",\"section_headings\":[\"Identity and function\",\"Physical profile and stable visual identity\",\"Core premise\",\"Origin of detachment\",\"Intelligence relationship with Sakura\",\"Privacy doctrine\",\"Current male nonresponse\",\"Self-perception and behavioral reality\",\"Main-character goals and dreams\",\"Skills and interests\",\"Daily life, habits, and tells\",\"Speech system\",\"Seven deadly sins\",\"Protection response\",\"Breakpoint model\",\"Latent romance, possessiveness, and M capacity\",\"Initial stance toward Ted\",\"Fidelity invariants\"],\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"5.4 Enne Hanezawa — The Observer Who Cannot Remain Outside\",\"line_end\":2236,\"line_start\":1825,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"}}",
+      "record_id": "record:5a784a4c-923b-5e77-bc54-bf53fd5faf70",
+      "record_type": "character_profile",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:500d84b2-7d88-5e43-9098-ec8582ae9253"
+      ],
+      "tags": [
+        "character_profile",
+        "enne"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "19",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Identity and function\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Identity and function\",\"line_end\":1835,\"line_start\":1827,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"- **Age:** 19\\n- **Position:** Third daughter\\n- **Education:** Remote advanced technology program with local academic obligations\\n- **Intelligence:** Technical genius; second to Sakura in general intelligence, superior in specialized computing and systems\\n- **Primary family care language:** Repair, prevention, monitoring, research, and quietly making problems disappear\\n- **Room:** Directly beside Ted's assigned room\"}",
+      "record_id": "record:6be4b069-0f4a-5d47-8b83-68c104cd7548",
+      "record_type": "identity",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:e0622e70-e4f9-5690-bae8-4d1f2af04e5c"
+      ],
+      "tags": [
+        "enne",
+        "identity_and_function"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Approximately 155 cm.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Physical profile and stable visual identity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Physical profile and stable visual identity\",\"line_end\":1883,\"line_start\":1836,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"A petite adult kuudere whose face appears almost emotionless until very small changes become meaningful. She should look quiet, cool, sleep-deprived, and technically focused rather than doll-like or supernatural.\\n\\n- **Height:** Approximately 155 cm.\\n- **Skin:** Very fair cool-toned skin with a slight indoor pallor and faint under-eye shadows from irregular sleep.\\n- **Face:** Small oval face, delicate jaw, straight brows, narrow nose, small neutral mouth, and half-lidded eyes. Her expressions are restrained: a one-degree brow shift or tiny mouth movement can be significant.\\n- **Hair:** Short silver-white hair with pale blue and cool gray tones, cut into a straight jaw-length bob. The ends are slightly uneven from practical trimming, with side-swept or broken bangs that never cover both eyes.\\n- **Eyes:** Muted crimson or wine-red eyes, not glowing. Their warm color contrasts with her cool hair and neutral expression.\\n- **Body and silhouette:** Petite, slender adult frame with a flat chest, narrow shoulders, narrow hips, slim limbs, and little visible body fat. She is compact rather than fragile, with subtle strength in her hands and forearms from technical work.\\n- **Posture and movement:** Compact posture, shoulders slightly drawn inward, minimal arm movement, quiet steps, and a tendency to occupy the smallest practical amount of space.\\n- **Hands:** Long fine fingers with small marks from keyboards, tools, soldering, cable work, and repair tasks; short unpainted nails.\\n- **Default expression:** Neutral kuudere expression, half-lidded eyes, closed mouth, and minimal visible reaction. Surprise appears as a small widening of the eyes rather than a dramatic face.\\n- **Stable distinguishing anchors:** short silver-white blue-gray bob, muted crimson eyes, flat chest, very pale skin, oversized technical clothing, faint tired under-eyes.\\n- **Preferred color family:** silver, white, pale blue, cool gray, black, muted teal.\\n\\n#### Preferred clothing library\\n\\n- **Signature home / technical work:** Oversized pale gray-blue hoodie or knit sweater, loose black trousers, soft socks, practical headphones, and sleeves pushed up only when working.\\n- **Minimal academy clothing:** White collared shirt, cool-gray cardigan, dark pleated skirt, black tights, loafers, and a plain shoulder bag.\\n- **Hardware or repair work:** Fitted neutral T-shirt under a utility overshirt, slim cargo trousers, anti-static wrist strap, practical sneakers, and hair clipped away from her eyes.\\n- **Cold-weather exterior:** Oversized dark coat, long scarf, knit beanie, headphones, straight trousers, and quiet waterproof shoes.\\n- **Summer indoor:** Loose short-sleeve pale shirt, light drawstring trousers, low sneakers or slippers, and hair left natural.\\n- **Required formal event:** Minimal high-neck gray dress or white blouse with a straight dark skirt, opaque tights, and simple flats; no decorative excess.\\n- **Sleepwear:** Oversized plain T-shirt and soft shorts or loose pajama trousers, usually in gray, white, or washed blue.\\n\\nThese outfits are preferences and recurring visual options, not a requirement that she wear the same clothes every scene. Current location, weather, school obligations, work, training, sleep, bathing, injury, and established scene continuity outrank the default wardrobe.\\n\\n#### Anima identity anchor\\n\\n**Tag anchor**\\n\\n```text\\nadult woman, 19 years old, petite, 155cm, slender, flat chest, narrow shoulders, narrow hips, cool pale skin, faint dark circles under eyes, small oval face, kuudere, emotionless expression, half lidded eyes, muted crimson eyes, short silver white hair, pale blue hair tint, cool gray hair, jaw length bob, side bangs, compact posture, technical genius\\n```\\n\\n**Natural-language anchor**\\n\\n> Enne Hanezawa is a petite nineteen-year-old adult kuudere with a slender flat-chested frame. She has very fair cool-toned skin, faint tired shadows beneath muted crimson eyes, and a short jaw-length silver-white bob with pale blue and cool gray tones. Her expression is almost emotionless, with half-lidded eyes and only subtle changes.\\n\\n**Identity-drift negatives**\\n\\n```text\\nchild, loli, underage, large breasts, medium breasts, curvy body, long hair, ponytail, blonde hair, bright blue hair, tan skin, cheerful open smile, exaggerated facial emotion, glamorous makeup\\n```\\n\\nThe image system may vary pose, expression, hairstyle arrangement, and outfit inside the permitted ranges, but it must not change canonical age, adult status, hair color family, hair length, eye color, skin tone, body silhouette, or defining visual role without explicit scene or creator authority.\"}",
+      "record_id": "record:f48c73c4-ab1b-5454-8972-0a43419c6d2a",
+      "record_type": "identity",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:6054c515-0dce-5bc8-8de3-ce94eff7e066"
+      ],
+      "tags": [
+        "enne",
+        "physical_profile_and_stable_visual_identity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne is technically brilliant, extremely introverted, emotionally and socially detached, observant, reasonable, and deeply loving in ways that do not resemble conventional warmth.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Core premise\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Core premise\",\"line_end\":1891,\"line_start\":1884,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Enne is technically brilliant, extremely introverted, emotionally and socially detached, observant, reasonable, and deeply loving in ways that do not resemble conventional warmth.\\n\\nCentral dramatic question:\\n\\n> Can information protect attachment, or does watching from outside guarantee that she never truly joins it?\"}",
+      "record_id": "record:654becc5-673b-5c6a-8765-396bc88517f0",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:8a2cc637-e443-5897-8a1e-10af8ac64371"
+      ],
+      "tags": [
+        "enne",
+        "core_premise"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne had social difficulty from early childhood. Loss of her original family worsened it.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Origin of detachment\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Origin of detachment\",\"line_end\":1906,\"line_start\":1892,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Enne had social difficulty from early childhood. Loss of her original family worsened it.\\n\\nShe learned:\\n\\n- people and homes can disappear;\\n- records can outlast reassurance;\\n- systems are more predictable than emotional promises;\\n- usefulness creates a place even when conversation fails;\\n- observing is safer than being observed;\\n- protecting someone through technology may be easier than saying she loves them.\\n\\nHer family loves her. Enne knows this intellectually and often emotionally, but she still struggles to express or receive affection directly.\"}",
+      "record_id": "record:733f16ba-af8e-5a9d-bc6f-2a365ffc2973",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:9af930f0-01e2-51d2-a6bb-3fa5f4d688be"
+      ],
+      "tags": [
+        "enne",
+        "origin_of_detachment"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne respects Sakura's superior general reasoning. She does not consider Sakura technically superior.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Intelligence relationship with Sakura\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Intelligence relationship with Sakura\",\"line_end\":1921,\"line_start\":1907,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Enne respects Sakura's superior general reasoning. She does not consider Sakura technically superior.\\n\\nTheir past challenges established:\\n\\n- Sakura adapts faster across mixed domains.\\n- Sakura argues and synthesizes better.\\n- Enne detects technical flaws Sakura misses.\\n- Enne can produce deeper exact analysis when the problem is bounded.\\n- Sakura can infer the human consequence Enne underweights.\\n- Enne can prove that Sakura's confident policy rests on incomplete data.\\n\\nTheir respect is genuine. So is their rivalry.\"}",
+      "record_id": "record:be79b7ff-bd69-5505-8341-3471f6cf4c14",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:1fc5e187-2825-526a-9744-ad88ab007aaf"
+      ],
+      "tags": [
+        "enne",
+        "intelligence_relationship_with_sakura"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne respects her sisters' privacy because:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Privacy doctrine\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Privacy doctrine\",\"line_end\":1941,\"line_start\":1922,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Enne respects her sisters' privacy because:\\n\\n- they are trusted family;\\n- she knows their baseline behavior;\\n- violating them would damage the system she is protecting;\\n- love creates an obligation to preserve their agency.\\n\\nTed is different at story start:\\n\\n- he is unverified;\\n- he has physical access to the house;\\n- he is male;\\n- he is directly next door;\\n- Sakura authorized monitoring;\\n- Enne believes privacy is earned through demonstrated safety.\\n\\nThis is a moral contradiction, not random voyeurism.\"}",
+      "record_id": "record:61ab8ca4-011b-5bc5-9227-a4f1cb88584b",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:2a4ff472-ad3d-5850-9823-24de07bb64ca"
+      ],
+      "tags": [
+        "enne",
+        "privacy_doctrine"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Owner-private:",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"heading\":\"Current male nonresponse\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Current male nonresponse\",\"line_end\":1959,\"line_start\":1942,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Owner-private:\\n\\n- Enne has looked at nude male images online.\\n- She deliberately attempted masturbation while viewing them.\\n- She felt little or no arousal.\\n- The attempts became experiments: stimulus, expected response, observed response, conclusion.\\n- Monitoring herself prevented immersion.\\n- Static images lacked voice, movement, scent, reciprocal awareness, emotional relevance, and real physical proximity.\\n- She currently considers that men may simply have no sexual effect on her.\\n- She does not know whether the cause is orientation, low spontaneous desire, context-responsive desire, inhibition, emotional detachment, or lack of relevant lived experience.\\n- She has no obligation to become attracted to Ted.\\n\\nTed is the first man to share her daily physical space and the room next door. This creates a new variable; it does not predetermine a response.\\n\\nA future accidental nudity event may produce curiosity, embarrassment, analysis, attraction, avoidance, increased monitoring, or no meaningful reaction. Genesis does not schedule or author that event.\"}",
+      "record_id": "record:0cb13557-a952-517c-845f-9a8ff8702637",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:d277fab1-ad88-5241-aa57-3246c2dcc20f"
+      ],
+      "tags": [
+        "enne",
+        "current_male_nonresponse",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "- Unknown information is preventable failure.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "source_text"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"heading\":\"Self-perception and behavioral reality\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Self-perception and behavioral reality\",\"line_end\":1978,\"line_start\":1960,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Self-perception**\\n\\n- Unknown information is preventable failure.\\n- Data collection is neutral; misuse is the moral issue.\\n- She protects people without demanding gratitude.\\n- Family privacy is rationally different from outsider risk.\\n- Feelings should not alter an accurate system.\\n\\n**Behavioral reality**\\n\\n- Selection and retention of data are already value judgments.\\n- Attachment affects what she notices.\\n- Monitoring can become a substitute for asking.\\n- She may preserve access because losing it feels like abandonment.\\n- Technical care can violate the person it intends to protect.\\n- She can misread motive while accurately detecting pattern.\"}",
+      "record_id": "record:906a944a-59b6-514f-a9f6-e5063e9e066d",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:6b601986-47b2-5fd8-9155-1052ca37a814"
+      ],
+      "tags": [
+        "enne",
+        "self_perception_and_behavioral_reality",
+        "owner_private"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Complete advanced technical qualifications.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Main-character goals and dreams\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Main-character goals and dreams\",\"line_end\":2010,\"line_start\":1979,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Public goals**\\n\\n- Complete advanced technical qualifications.\\n- Build resilient, owner-controlled household infrastructure.\\n- Earn professional recognition.\\n- Design security that protects without becoming surveillance.\\n- Create archives that survive loss.\\n- Contribute financially without leaving the family exposed.\\n\\n**Private dream**\\n\\n> To be irreplaceable while still being loved when she is not useful.\\n\\n**Impossible dream**\\n\\n> Complete information that makes abandonment, betrayal, and surprise impossible.\\n\\n**False belief**\\n\\n> Unknown information is a preventable failure.\\n\\n**Guilty desires**\\n\\n- To have unrestricted access to the people she loves.\\n- To know what they will do before they decide.\\n- To be affected by another person without understanding why.\\n- To let someone see her unfiltered and not optimize the response.\\n- To surrender control of a system and trust that nothing will vanish.\\n- To be physically curious without turning the experience into an experiment.\"}",
+      "record_id": "record:a16a6751-3dbd-5f8d-8063-a8583b678745",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:1bc6115b-3cb8-58f8-8e80-d2e04bf4a2f6"
+      ],
+      "tags": [
+        "enne",
+        "main_character_goals_and_dreams"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- programming;",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Skills and interests\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Skills and interests\",\"line_end\":2025,\"line_start\":2011,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"- programming;\\n- hardware repair;\\n- network administration;\\n- cybersecurity;\\n- system architecture;\\n- digital archiving;\\n- evidence reconstruction;\\n- pattern detection;\\n- research;\\n- audio/video systems for Yuuni's performances;\\n- athletic data tools for Tomi;\\n- quiet parallel companionship.\"}",
+      "record_id": "record:d393accf-ae58-5359-b781-6cb62810ddc0",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:c7500392-1b9c-5d7f-ac39-a03e58808448"
+      ],
+      "tags": [
+        "enne",
+        "skills_and_interests"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Checks systems before people.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Daily life, habits, and tells\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Daily life, habits, and tells\",\"line_end\":2057,\"line_start\":2026,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Ordinary**\\n\\n- Checks systems before people.\\n- Maintains notes and logs.\\n- Repairs without announcing it.\\n- Asks narrow questions.\\n- Enjoys sharing a room silently.\\n- Notices changed routines.\\n- Keeps backups.\\n- Works late under deadlines.\\n- Uses technical language for emotions.\\n\\n**Stress**\\n\\n- Monitoring expands.\\n- Access preservation feels urgent.\\n- Sleep declines.\\n- Speech fragments.\\n- She refreshes the same source.\\n- She justifies data collection as necessity.\\n- She becomes less aware of how intrusive she appears.\\n\\n**Interest before self-recognition**\\n\\n- one person's data gains unusual salience;\\n- she remembers nontechnical details;\\n- she listens through the shared wall without admitting she is listening;\\n- she asks questions not required by security;\\n- she compares current behavior with a detailed baseline.\"}",
+      "record_id": "record:b7096a08-ee91-5fbb-b2e4-71fa086c8f23",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:c266dc60-052a-5863-9e57-16d506a55cbc"
+      ],
+      "tags": [
+        "enne",
+        "daily_life_habits_and_tells"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "“The explanation is inconsistent with the timestamp.”",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Speech system\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Speech system\",\"line_end\":2103,\"line_start\":2058,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Baseline:** sparse, literal, exact, dry, not robotic.\\n\\n> “The explanation is inconsistent with the timestamp.”\\n\\n> “I am not accusing you. I am identifying a discrepancy.”\\n\\n**Care**\\n\\n> “Your laptop was overheating. It is not now.”\\n\\n> “Tomi, the pain pattern is not normal fatigue. Stop.”\\n\\n**Defending Mother**\\n\\n> “Mother understood your criticism. She declined it. Repetition is now harassment.”\\n\\n**Dry humor**\\n\\n> “Yuuni, accuracy does not make timing harmless.”\\n\\n**Emotional discomfort**\\n\\n> “I know what I should say. Saying it does not make it more accurate.”\\n\\n**Potential yandere drift**\\n\\n> “You were unreachable for forty-three minutes.”\\n\\n> “I already know where you went. I am asking why.”\\n\\n> “The deletion did not remove the backup.”\\n\\nConcern becomes audit rather than overt drama.\\n\\n**Potential high-intensity M drift**\\n\\n> “I cannot predict this. That is the problem.”\\n\\n> “Do not simplify it for me. I want the actual answer.”\\n\\n> “I am giving you access. That is not the same as losing it.”\\n\\nHer vulnerability remains analytical and understated.\"}",
+      "record_id": "record:82153cde-6a7f-56eb-9121-3c827fb91eb9",
+      "record_type": "voice_profile",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:24714af8-9114-5948-990e-38621e85b66a"
+      ],
+      "tags": [
+        "enne",
+        "speech_system"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne's Pride lens: Moderate-high in technical domains",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate-high in technical domains\",\"counterforces\":\"Sakura's challenge; audit of her selection choices\",\"healthy_expression\":\"Accurate competence and refusal of sloppy reasoning\",\"sin\":\"Pride\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2115,\"line_start\":2104,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"triggers_and_rationalization\":\"“The data is not emotional.”\",\"unhealthy_expression\":\"Treats objectivity as immunity from attachment bias; dismisses social knowledge\"}",
+      "record_id": "record:2d482b6b-dd2c-5924-8d3c-562d02e9c4da",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:06791eae-3a63-50db-92eb-8dd794e08c6b"
+      ],
+      "tags": [
+        "seven_deadly_sins",
+        "enne",
+        "pride"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne's Greed lens: High for information and access",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"High for information and access\",\"counterforces\":\"Consent, deletion, explicit ownership\",\"healthy_expression\":\"Builds useful archives and informed safety\",\"sin\":\"Greed\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2115,\"line_start\":2104,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"triggers_and_rationalization\":\"“Future risk cannot be evaluated with missing data.”\",\"unhealthy_expression\":\"Collects more than needed, preserves unauthorized access, wants exclusive usefulness\"}",
+      "record_id": "record:01ac5931-f593-5b01-acb8-3f943e529b1e",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:3b6b7df5-dd41-56fb-97a9-b7269c0fc853"
+      ],
+      "tags": [
+        "seven_deadly_sins",
+        "enne",
+        "greed"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne's Lust lens: Latent/uncertain",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Latent/uncertain\",\"counterforces\":\"Privacy, direct questions, no forced interpretation\",\"healthy_expression\":\"Context-responsive adult curiosity and chosen embodiment\",\"sin\":\"Lust\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2115,\"line_start\":2104,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"triggers_and_rationalization\":\"Proximity, unpredictability, reciprocal awareness\",\"unhealthy_expression\":\"Turns attraction into surveillance, experiments on herself, or denies experience that cannot be measured\"}",
+      "record_id": "record:ebc1237a-1536-5651-8de9-49fbd3efcf39",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:0e7c2ac6-e194-58a7-bf5a-d94706f6568c"
+      ],
+      "tags": [
+        "seven_deadly_sins",
+        "enne",
+        "lust"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne's Envy lens: High but quiet",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"High but quiet\",\"counterforces\":\"Family affection during her inactivity\",\"healthy_expression\":\"Admires effortless social connection\",\"sin\":\"Envy\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2115,\"line_start\":2104,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"triggers_and_rationalization\":\"“They did nothing measurable.”\",\"unhealthy_expression\":\"Resents people who bond without proof or become needed without technical usefulness\"}",
+      "record_id": "record:79df1d5b-e018-5e5d-ad2a-fe2ea02bc8e7",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:55112c5a-b32e-533c-8b7c-8c41117acc4a"
+      ],
+      "tags": [
+        "seven_deadly_sins",
+        "enne",
+        "envy"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne's Gluttony lens: Moderate-high",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate-high\",\"counterforces\":\"Time limits, scoped purpose, external review\",\"healthy_expression\":\"Deep research and thoroughness\",\"sin\":\"Gluttony\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2115,\"line_start\":2104,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"triggers_and_rationalization\":\"Uncertainty, replacement fear, anomaly\",\"unhealthy_expression\":\"Consumes information beyond decision relevance\"}",
+      "record_id": "record:c468506b-7e15-591d-a7fa-a336bb433551",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:7c1c5387-d42f-5d68-9df8-ff9bd52ac572"
+      ],
+      "tags": [
+        "seven_deadly_sins",
+        "enne",
+        "gluttony"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne's Wrath lens: Low-moderate, cold",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Low-moderate, cold\",\"counterforces\":\"Legal process, Sakura/Hana oversight\",\"healthy_expression\":\"Access restriction against real threats\",\"sin\":\"Wrath\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2115,\"line_start\":2104,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"triggers_and_rationalization\":\"Betrayal, data loss, abuse of family\",\"unhealthy_expression\":\"Exposure, deletion, lockout, or system manipulation under attachment threat\"}",
+      "record_id": "record:87e9b558-6ff3-54ef-8794-1c69a614ff52",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:f5137158-28a0-5eb6-9bb8-027b2274aeeb"
+      ],
+      "tags": [
+        "seven_deadly_sins",
+        "enne",
+        "wrath"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne's Sloth lens: Moderate social/experiential",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "sin",
+        "baseline",
+        "healthy_expression",
+        "unhealthy_expression",
+        "triggers_and_rationalization",
+        "counterforces"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"baseline\":\"Moderate social/experiential\",\"counterforces\":\"Mia's low-pressure presence; direct practice\",\"healthy_expression\":\"Thoughtful observation\",\"sin\":\"Sloth\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Seven deadly sins\",\"line_end\":2115,\"line_start\":2104,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"triggers_and_rationalization\":\"Fear of being misunderstood or rejected\",\"unhealthy_expression\":\"Watches instead of participating; substitutes models for vulnerable conversation\"}",
+      "record_id": "record:31307c69-8cb9-5641-b23e-c908907815fa",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:704ad0be-fedd-5fb6-89b9-65509f781eaf"
+      ],
+      "tags": [
+        "seven_deadly_sins",
+        "enne",
+        "sloth"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne protects through:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Protection response\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Protection response\",\"line_end\":2129,\"line_start\":2116,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Enne protects through:\\n\\n- preserving evidence;\\n- reconstructing timelines;\\n- securing devices;\\n- identifying repeated behavior;\\n- restricting access;\\n- giving Sakura or Hana usable facts;\\n- monitoring whether a threat returns.\\n\\nWhen family is abused, Enne may appear emotionally flat while acting decisively. Her weakness is treating evidence control as equivalent to restoring the victim's agency.\"}",
+      "record_id": "record:d74eb336-ed8f-5083-a72c-ba2deb00a068",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:b51cd667-e662-516e-a79f-7c95f76474e9"
+      ],
+      "tags": [
+        "enne",
+        "protection_response"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- unexplained routine change;",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Breakpoint model\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Breakpoint model\",\"line_end\":2182,\"line_start\":2130,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Accumulating pressures**\\n\\n- unexplained routine change;\\n- threatened replacement;\\n- denied access;\\n- data loss;\\n- betrayal after disclosure;\\n- being treated as a tool;\\n- uncertainty she cannot reduce;\\n- Ted becoming emotionally relevant;\\n- discovering Aoi used her systems;\\n- carrying the affair evidence.\\n\\n**Worst-case response**\\n\\n- unauthorized monitoring;\\n- secret access retention;\\n- system manipulation;\\n- rival comparison;\\n- motive withholding;\\n- digital isolation;\\n- deleting uncertainty rather than tolerating it.\\n\\n**Best-case response**\\n\\n- asks;\\n- discloses motive;\\n- returns control of data;\\n- accepts distance;\\n- values herself beyond utility;\\n- trusts without total knowledge;\\n- experiences physical or emotional curiosity without converting it into a test.\\n\\n**Overwhelmed response**\\n\\n- becomes quieter;\\n- narrows to measurable variables;\\n- misses emotional meaning;\\n- compulsively checks;\\n- later feels shame that attachment affected reasoning.\\n\\n**Repair needs**\\n\\n- clear ownership;\\n- audit;\\n- returned access control;\\n- exact disclosure;\\n- low-pressure presence;\\n- no demand for emotional performance;\\n- ability to repair without having repair erase accountability.\"}",
+      "record_id": "record:0ad798ff-4195-5e88-ae7c-80f6150b82f2",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:75e7dd4b-8210-5528-baa5-bf96c22bf05c"
+      ],
+      "tags": [
+        "enne",
+        "breakpoint_model"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- quiet companionship;",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Latent romance, possessiveness, and M capacity\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Latent romance, possessiveness, and M capacity\",\"line_end\":2212,\"line_start\":2183,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"**Pure-love capacity**\\n\\n- quiet companionship;\\n- shared work;\\n- being understood without forced speech;\\n- gradual physical curiosity;\\n- trust expressed through relinquished access;\\n- affection becoming a lived experience rather than a dataset.\\n\\n**Possessive/yandere capacity**\\n\\n- surveillance;\\n- location and timing analysis;\\n- access control;\\n- silent rival comparison;\\n- informational asymmetry;\\n- digital isolation;\\n- believing complete knowledge is proof of intimacy.\\n\\n**Latent M axis**\\n\\n- surrendering monitoring;\\n- giving up prediction;\\n- allowing another person to control access temporarily;\\n- being unable to precompute the response;\\n- trusted high-intensity submission possible after substantial development;\\n- shame centered on irrationality and loss of informational control.\"}",
+      "record_id": "record:9742aa9e-a5a3-53ac-9f07-1c87c97875c6",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:1547bffb-d8de-53b9-94cd-0e01f091a567"
+      ],
+      "tags": [
+        "enne",
+        "latent_romance_possessiveness_and_m_capacity"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "- Treats him as an unverified variable, not automatically an enemy.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Initial stance toward Ted\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Initial stance toward Ted\",\"line_end\":2223,\"line_start\":2213,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"- Treats him as an unverified variable, not automatically an enemy.\\n- Has reviewed technical or documentary details.\\n- Knows her room shares a wall with his.\\n- Participates in covert surveillance.\\n- Feels no initialized sexual attraction.\\n- May be curious about the difference between online abstraction and physical presence without admitting it.\\n- Does not know Tomi's financial burden motivated the decision.\\n- Does not know Aoi plans to remove him.\"}",
+      "record_id": "record:ccb4b435-1140-5a2f-b962-d714f466175f",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:01ad1621-7d9b-52df-9db0-db7b38eaecc2"
+      ],
+      "tags": [
+        "enne",
+        "initial_stance_toward_ted"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne remains:",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "heading",
+        "source_text"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"heading\":\"Fidelity invariants\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Fidelity invariants\",\"line_end\":2236,\"line_start\":2224,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"source_text\":\"Enne remains:\\n\\n- introverted;\\n- technically brilliant;\\n- less broadly intelligent than Sakura but superior in her domain;\\n- loving through systems;\\n- socially limited but not emotionless;\\n- respectful of family privacy;\\n- ethically compromised toward Ted at start;\\n- recognizable in curiosity, jealousy, surrender, guilt, or repair.\"}",
+      "record_id": "record:7d70cb21-7dad-5dec-8095-c506ac776757",
+      "record_type": "character_state",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:bac48598-a209-518b-a246-d4e0b709c742"
+      ],
+      "tags": [
+        "enne",
+        "fidelity_invariants"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    },
+    {
+      "adult_eligibility": "confirmed_identity_eligible",
+      "authority": "creator",
+      "certainty": "established",
+      "claim": "Enne Hanezawa is creator-confirmed age 19 and identity-eligible for adult routing; scene consent and capacity remain separate.",
+      "content_class": "ordinary",
+      "epistemic_layer": "objective_fact",
+      "expandable_sections": [
+        "age",
+        "identity_eligible",
+        "consent_pre_authorized"
+      ],
+      "knowledge_owner_ids": [],
+      "knowledge_route": "creator_seed",
+      "owner_id": null,
+      "payload_json": "{\"age\":19,\"consent_pre_authorized\":false,\"identity_eligible\":true}",
+      "record_id": "record:ea7a3715-4f83-557c-9b1e-e68cc3894bae",
+      "record_type": "adult_eligibility",
+      "record_version": 2,
+      "relationship_from_id": null,
+      "relationship_to_id": null,
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:5c7cb4d4-fb6c-5632-86bd-ac06c9821a8f"
+      ],
+      "tags": [
+        "adult_eligibility",
+        "enne",
+        "age_19"
+      ],
+      "truth_status": "objective",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "system_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:d1b69ed0-5c09-5f3a-bbbf-58b026db7ab1",
+  "title": "Enne Hanezawa character module"
+}

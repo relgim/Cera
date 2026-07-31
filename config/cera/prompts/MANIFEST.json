@@ -1,0 +1,19 @@
+{
+  "schema_version": "cera.prompt_source_manifest.v1",
+  "artifacts": [
+    {
+      "path": "config/cera/prompts/character_specific_speech_realization_v1_2.txt",
+      "sha256": "e61c8b9a287e6be1223e4a2a2aebcbd8d5da5e5433bee8de781d833149cc11cf",
+      "contract_version": "cera.character_specific_speech_realization.v1_2",
+      "role": "creator_authorized_advisory_prompt_source",
+      "runtime_binding": {
+        "module": "cera.composer.deepseek",
+        "prompt_version": "cera.deepseek_scene_composer_prompt.v19",
+        "source_hash_constant": "CHARACTER_EXPRESSION_SOURCE_SHA256"
+      },
+      "authority": "The source defines realization quality and invariants. Python-owned decisions, validation, privacy, consent, and publication remain authoritative.",
+      "examples_are_non_executable_and_noncopyable": true,
+      "runtime_filesystem_dependency": false
+    }
+  ]
+}

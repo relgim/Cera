@@ -1,0 +1,1140 @@
+{
+  "application_request_sha256": "3d65859fa23fd36a049f1b4a51f8fc38e90f152299bbe7daba38e776300aa545",
+  "assertions": {
+    "all_eligible_required": true,
+    "all_eligible_selected": true,
+    "branch_fork_unchanged": true,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "codex_cli_exec_one_shot"
+  },
+  "composer": {
+    "accepted_prose": "Tomi looked up, her fingers drumming against her knee. She considered the three options—company, space, one practical action. Then she shook her head. \"I think I just need to be alone for a bit. Not because I'm hurt or anything. Just... need to reset. Don't read into it, okay?\" Her voice was steady, but she didn't meet anyone's eyes. She pulled her knees up, creating a small barrier.\n\nMia nodded slowly, respecting her sister's answer. After a pause, she turned to address the conditional question. \"If Tomi asks... I have that ginger tea she likes. Or I could make some onigiri. Nothing heavy. But only if she says she wants it. I don't want to push.\" Her voice was warm but careful, leaving the initiative with Tomi.\n\nYuuni shifted her weight, her usual bratty edge softened by the moment. \"Okay, my turn. If Tomi wants music—and only if she asks—I'd put on that upbeat playlist. The one with the electric guitar and the fast drums. None of that sad slow stuff. But she has to say the word.\" She shrugged. \"That's my answer.\" The room settled into a quiet hum. The options lay open, unclaimed, waiting for Tomi's next move.",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "db418944082b1a336f6b305bc4bcd83b3b1de2443ed419c3030a051ba16dd57b",
+      "character_spans": [
+        {
+          "beat_id": "beat:af81ef50-8c4f-5a5d-819c-72c21438f4f5",
+          "end": 386,
+          "kind": "dialogue",
+          "owner_id": "character:tomi_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:1e07340a-c83e-548c-bfcb-e0e0a95247e7",
+          "end": 721,
+          "kind": "dialogue",
+          "owner_id": "character:mia_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 388
+        },
+        {
+          "beat_id": "beat:e088176e-6cba-5f4a-b123-86b26e33cf32",
+          "end": 1128,
+          "kind": "dialogue",
+          "owner_id": "character:yuuni_hanezawa",
+          "realized_state": "ongoing",
+          "source_unit_id": null,
+          "start": 723
+        }
+      ],
+      "decision_sha256": "51cbfd02ca1648ac4d22894c615314a80519a77c9b6f2dd7a6af863091abfd6c",
+      "floor_owner_id": "character:tomi_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:68d253db-4c32-5127-a7d4-e9493d42b444",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "d14c0767d4932abfc36dbfef5ade317114a7f8f55d8530f16ef4ef0b70a7bac2",
+          "character_id": "character:tomi_hanezawa",
+          "selected_intent_sha256": "ae6c4169a9c4e8fd23b95147522a66ae4a065dfac46f96a61b7f31d5b8e80264"
+        },
+        {
+          "action_direction_sha256": "5ca7b747d6ac5cf9d04506ebaa29c7e1bf59cd771c1b3f9c6f63853bb574488a",
+          "character_id": "character:mia_hanezawa",
+          "selected_intent_sha256": "8faa1e7f96887f92db17e5dc5c158b4e2b09f4b0d316af5dd581f6c52b85d695"
+        },
+        {
+          "action_direction_sha256": "98db8fe7be05b5eb1e0f93c301adaeb27d286461a479f9ef380894fd6898887a",
+          "character_id": "character:yuuni_hanezawa",
+          "selected_intent_sha256": "babfbdaea218cf36bfc19b3695dbd1a977d088363d9e54d6106c7928c3902806"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        },
+        {
+          "character_id": "character:mia_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        },
+        {
+          "character_id": "character:yuuni_hanezawa",
+          "speaks": true,
+          "visibly_acts": false
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:af81ef50-8c4f-5a5d-819c-72c21438f4f5",
+        "beat:1e07340a-c83e-548c-bfcb-e0e0a95247e7",
+        "beat:e088176e-6cba-5f4a-b123-86b26e33cf32"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "e2180922a16901ddda435736f8a23a027b5b1546910d214e92970dc61b1b3e69",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "0f43009942e57a47d13e5125be10f84a205d151246b8842d60083ce5a323d436",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1408,
+      "cost_is_estimate": true,
+      "cost_microusd": 2707,
+      "duration_ms": 27025,
+      "external_provider_calls": 1,
+      "input_tokens": 16030,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "678f2b7a38a4ab65bd95bd4003d3c83ce9e9487b1fdc7061f95f12247cd54dc8",
+      "output_tokens": 2340,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:fa493755-b0b1-5362-b442-fef3009783e2",
+      "provider_request_id_sha256": "a1054511576a3f22a27fca0a210a8be460677b9d5e27be2f71b08d32ed22b61e",
+      "quota_metered": false,
+      "reasoning_output_tokens": 1775,
+      "request_sha256": "45b35c305d2c5b3df24eacb85eb42520f4ec37f919858decb1a5049b66adf267",
+      "requested_model": "deepseek-v4-flash",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-flash",
+      "role": "scene_composer",
+      "route_sha256": "d24615bdc0cf57837a9f7f781c660944897ecf943ea1af381e5fbf09a5c66151",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "414be700ccd24a1285d604c6d131a264df150e9b206237a0016945a2ae20af15"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:mia_hanezawa",
+      "character:tomi_hanezawa",
+      "character:yuuni_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "0249aa84c27a69dd298ac0872f675da71234bc32f61a6217aab7fc299645764e",
+      "assembly_receipt_id": "validation:34680394-d17d-53b3-8daf-d0a2d388dd18",
+      "base_request_sha256": "114a65c10f303e4dc60e5f130c8af36b67bb1fc96aba37e54a0bf471ec21e0f2",
+      "cumulative_returned_bytes": 48868,
+      "external_provider_calls": 0,
+      "lookup_count": 6,
+      "lookup_receipt_ids": [
+        "lookup_receipt:6c5dff4d-3d5d-576e-8fb2-f44e6a9651f6",
+        "lookup_receipt:3322714f-7b04-58bb-8d5f-e808b93f57d7",
+        "lookup_receipt:a024a618-53ab-5b7b-a4fa-00fe495e2886",
+        "lookup_receipt:572a1abb-be29-5434-88df-d1bf36e34634",
+        "lookup_receipt:52df803b-ff34-5aaa-a8f0-e7a7379aa58e",
+        "lookup_receipt:49948dc4-6511-5faf-b0df-69fca7a6e5be"
+      ],
+      "realization_context_sha256": "5a74e335f2dd88b54576435ceeffbce9682de0e2f5c158b393d7305160c1b099",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d",
+        "evidence:2c41af40-d585-5087-a434-0c1d89dda573",
+        "evidence:5043488b-db8e-5608-bc71-86f9ee7283c4",
+        "evidence:f33c52f3-4686-5d96-8477-118a587f7678",
+        "evidence:e513943c-d492-5890-9492-d54b074f1fa6",
+        "evidence:04238391-2dfb-5804-b3a9-72cfb96c203c",
+        "evidence:e6e5bd4a-7303-52ab-8b3d-2e547c813b17",
+        "evidence:d11684bf-d2bf-5c65-ad8d-5b7aa726ee50",
+        "evidence:6baca175-b321-5289-8bbb-1f9a1d873d58",
+        "evidence:bb51d9db-aed0-52f5-be45-6930457dcc9a",
+        "evidence:8ffb7f41-974b-5239-8669-038c0cb6d755",
+        "evidence:4473abee-6e91-5d78-9c8e-7a8c5e76c389",
+        "evidence:fdec6f7c-e63d-5bc7-b207-c69241259f01",
+        "evidence:a009e09b-cbfe-501a-a709-f10702949c74"
+      ],
+      "snapshot_token": "snapshot:c3e5b965-8be1-5cc1-9711-f9a4f68c5e49",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:tomi_hanezawa",
+      "character:mia_hanezawa",
+      "character:yuuni_hanezawa"
+    ]
+  },
+  "duration_seconds": 193.014,
+  "index": 7,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "ad3f9f6c2b5071cdc8a3e27ad6ed1650adc97d122bd5abb6ae518b39f2f94290",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "9526d66c8c6c7674e30d03a5f3e16d31c7c8b9bb98ad9d7f580a7f0c51e77db5",
+      "receipt_id": "validation:5cc6cca4-dd27-5abe-bccc-fbe9c44c1ab7",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "cc0e5550760dd89d72f25f94d8da6dc011fb9ea02fdc600be4bb5a24d3b49e2b",
+    "receipt_id": "validation:b4269347-e6f0-5c1f-aeb9-0ccf740ae69f",
+    "request_id": "request:3933b3c9-f95d-51ab-9539-d8e9b5129646",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 2251,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:404aa663-9768-57f9-85d3-874433a34f9f",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2251,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:c3e5b965-8be1-5cc1-9711-f9a4f68c5e49",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 4825,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:eb1cdd39-0180-5f59-8376-e3bcc54f4a5f",
+        "operation": "fetch_evidence",
+        "returned_bytes": 2574,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:c3e5b965-8be1-5cc1-9711-f9a4f68c5e49",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 6021,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:f0583249-5420-50d2-ab3d-8b309a8bdbdf",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1196,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:c3e5b965-8be1-5cc1-9711-f9a4f68c5e49",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 7226,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:7af8e387-09f8-58ef-a365-e0caad83e53a",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1205,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:c3e5b965-8be1-5cc1-9711-f9a4f68c5e49",
+        "truncated": false,
+        "truncation_reason": null
+      },
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 8428,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:17537f2b-7f19-54f5-83b9-3441f3e5497c",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1202,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:c3e5b965-8be1-5cc1-9711-f9a4f68c5e49",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+        "evidence:a3f3c0e4-e3f8-5515-b1f7-ffd45f9fb7b8",
+        "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+        "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d",
+        "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:404aa663-9768-57f9-85d3-874433a34f9f",
+        "lookup_receipt:eb1cdd39-0180-5f59-8376-e3bcc54f4a5f",
+        "lookup_receipt:f0583249-5420-50d2-ab3d-8b309a8bdbdf",
+        "lookup_receipt:7af8e387-09f8-58ef-a365-e0caad83e53a",
+        "lookup_receipt:17537f2b-7f19-54f5-83b9-3441f3e5497c"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b"
+          ],
+          "obligation_id": "obligation:bea6a58e-94b9-5227-afe5-0ffdf6d3f87d",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:a3f3c0e4-e3f8-5515-b1f7-ffd45f9fb7b8"
+          ],
+          "obligation_id": "obligation:c0c50895-f126-508d-a290-bb6a74acbc7f",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "obligation_id": "obligation:eb509800-fc4c-5013-a264-b19bbef29d5b",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+          ],
+          "obligation_id": "obligation:7e59848e-9f9f-5d86-a72c-d02d2e1606f3",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        },
+        {
+          "evidence_ids": [
+            "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+          ],
+          "obligation_id": "obligation:385fbe49-68fd-570c-8471-0c3c7df97102",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:ea70af27-f2bf-595b-8a30-f5dc0fe45d6d",
+      "snapshot_binding_sha256": "28811258c942774d2c4798d7ea3da69cbe6bd3b4de9f6e62c0000ab32c67395c",
+      "snapshot_token": "snapshot:c3e5b965-8be1-5cc1-9711-f9a4f68c5e49"
+    },
+    "snapshot_token": "snapshot:c3e5b965-8be1-5cc1-9711-f9a4f68c5e49",
+    "source_sha256": "0b63787f6804e162dfa2e413bd3e676d4e66024e2d2cc9318b8c639390f55cb1"
+  },
+  "key": "tomi-mia-yuuni-frustration-support-round",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:f8c342a0-d786-5702-849b-0d07c87cbbaa",
+      "accepted_artifact_sha256": "9f2a099777a8166836a33d888ba5c07e471e316bc2c097a53f7852e8bafb0e29",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "3d65859fa23fd36a049f1b4a51f8fc38e90f152299bbe7daba38e776300aa545",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:69813a62-0487-5ec2-9241-eb25ce25112c",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:6536822b-b041-58b1-b226-259567601e55",
+      "operational_report_id": "validation:847dc44a-c7a7-595b-8332-3aacf7ade109",
+      "operational_report_sha256": "ad19278030fc9f0f8b3df761f74521034d31a5461a4eb2ddb843e7cc8b337058",
+      "receipt_id": "validation:6cdd72a7-4ad5-5de3-89bc-b446c6445dfe",
+      "request_id": "request:3933b3c9-f95d-51ab-9539-d8e9b5129646",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "b67fb33b8760063afeb896bbcfb422c54b6b08bf7b9f719a79f022faab87f718"
+    },
+    "artifact": {
+      "accepted_prose": "Tomi looked up, her fingers drumming against her knee. She considered the three options—company, space, one practical action. Then she shook her head. \"I think I just need to be alone for a bit. Not because I'm hurt or anything. Just... need to reset. Don't read into it, okay?\" Her voice was steady, but she didn't meet anyone's eyes. She pulled her knees up, creating a small barrier.\n\nMia nodded slowly, respecting her sister's answer. After a pause, she turned to address the conditional question. \"If Tomi asks... I have that ginger tea she likes. Or I could make some onigiri. Nothing heavy. But only if she says she wants it. I don't want to push.\" Her voice was warm but careful, leaving the initiative with Tomi.\n\nYuuni shifted her weight, her usual bratty edge softened by the moment. \"Okay, my turn. If Tomi wants music—and only if she asks—I'd put on that upbeat playlist. The one with the electric guitar and the fast drums. None of that sad slow stuff. But she has to say the word.\" She shrugged. \"That's my answer.\" The room settled into a quiet hum. The options lay open, unclaimed, waiting for Tomi's next move.",
+      "artifact_id": "artifact:f8c342a0-d786-5702-849b-0d07c87cbbaa",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:aa762af0-712c-5a38-ac84-794db7f712ac",
+      "generation_id": "generation:6536822b-b041-58b1-b226-259567601e55",
+      "parent_artifact_id": "artifact:c4336c50-43b4-59b0-8e95-de0ec45ddf6b",
+      "prose_sha256": "0f43009942e57a47d13e5125be10f84a205d151246b8842d60083ce5a323d436",
+      "realized_beat_ids": [
+        "beat:af81ef50-8c4f-5a5d-819c-72c21438f4f5",
+        "beat:1e07340a-c83e-548c-bfcb-e0e0a95247e7",
+        "beat:e088176e-6cba-5f4a-b123-86b26e33cf32"
+      ],
+      "responding_npc_ids": [
+        "character:tomi_hanezawa",
+        "character:mia_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:5f63d9b2-5088-5401-9d46-1a22aa606a19",
+      "status": "accepted",
+      "transaction_id": "transaction:cf23096f-5015-5583-a3c5-7b2d8ff75947",
+      "validation_receipt_id": "validation:0453f07b-fd58-5fd9-9e7b-0426a321a39c"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:69813a62-0487-5ec2-9241-eb25ce25112c",
+      "expected_previous_artifact_id": "artifact:c4336c50-43b4-59b0-8e95-de0ec45ddf6b",
+      "external_receipt_ids": [],
+      "generation_after": 7,
+      "generation_before": 6,
+      "inserted_record_ids": [
+        "event:4d52a3fb-a154-5842-8e63-55a07d1c3ea4",
+        "material:bdc75984-7772-5bfd-9cc6-196a63ce1150"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:404aa663-9768-57f9-85d3-874433a34f9f",
+        "lookup_receipt:eb1cdd39-0180-5f59-8376-e3bcc54f4a5f",
+        "lookup_receipt:f0583249-5420-50d2-ab3d-8b309a8bdbdf",
+        "lookup_receipt:7af8e387-09f8-58ef-a365-e0caad83e53a",
+        "lookup_receipt:17537f2b-7f19-54f5-83b9-3441f3e5497c",
+        "lookup_receipt:6c5dff4d-3d5d-576e-8fb2-f44e6a9651f6",
+        "lookup_receipt:3322714f-7b04-58bb-8d5f-e808b93f57d7",
+        "lookup_receipt:a024a618-53ab-5b7b-a4fa-00fe495e2886",
+        "lookup_receipt:572a1abb-be29-5434-88df-d1bf36e34634",
+        "lookup_receipt:52df803b-ff34-5aaa-a8f0-e7a7379aa58e",
+        "lookup_receipt:49948dc4-6511-5faf-b0df-69fca7a6e5be"
+      ],
+      "new_artifact_id": "artifact:f8c342a0-d786-5702-849b-0d07c87cbbaa",
+      "new_artifact_sha256": "9f2a099777a8166836a33d888ba5c07e471e316bc2c097a53f7852e8bafb0e29",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:8bb50523-69b2-58f6-abad-2af48f8e6ce2",
+        "provider_receipt:fa493755-b0b1-5362-b442-fef3009783e2",
+        "provider_receipt:7941ea66-4770-540a-8902-47a961ebb723"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:5f63d9b2-5088-5401-9d46-1a22aa606a19",
+      "source_sha256": "5563ed6fb96d7c50250bd9a2538211764842143aea8352cdb459db5eb8d3bc54",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:cf23096f-5015-5583-a3c5-7b2d8ff75947",
+      "transaction_sha256": "b67fb33b8760063afeb896bbcfb422c54b6b08bf7b9f719a79f022faab87f718",
+      "validation_receipt_ids": [
+        "validation:b4269347-e6f0-5c1f-aeb9-0ccf740ae69f",
+        "validation:34680394-d17d-53b3-8daf-d0a2d388dd18",
+        "validation:3b535331-e011-548c-90a8-6d143e078e16",
+        "realization_verification:4635cebd-8c12-5727-b42b-7762b6eb79c4",
+        "validation:0453f07b-fd58-5fd9-9e7b-0426a321a39c",
+        "validation:eb3aaa14-81c5-5342-8145-2d279ce50481"
+      ]
+    },
+    "event_record_id": "event:4d52a3fb-a154-5842-8e63-55a07d1c3ea4",
+    "visible_artifact_count": 7
+  },
+  "qualification_id": "continuous-ten-turn-v27-flash-thinking",
+  "raw_message": "After Tomi returns visibly frustrated from missing a personal target, Ted speaks while Tomi, Mia, and Yuuni are present. He says he will not label the frustration as injury or failure. He asks Tomi whether she wants company, space, or one practical action. He asks Mia only what food or water she would offer if Tomi requests it, and Yuuni only what music she would offer if Tomi requests it. He asks Tomi, then Mia, then Yuuni.",
+  "raw_message_sha256": "1987cfeba65e163bcca3f8ed2246d6b4c5bb274be203243b003f20bddbad6ecb",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "behavioral_scene_plan": {
+        "claim_ledger": {
+          "claims": [
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa",
+                "character:mia_hanezawa",
+                "character:yuuni_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:86b1696c-b4c3-5528-88bd-b47c8219807d",
+              "end": 120,
+              "exact_text_sha256": "b88b5a16dbd94a71ed610c4e0daff7dfd0cc432078c11b958022291785a50f85",
+              "kind": "time_place_context",
+              "normalized_meaning": "Ted, Tomi, Mia, and Yuuni are together and able to participate in the current exchange.",
+              "rationale": "The source directly establishes the present cast and shared conversational context.",
+              "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+              "start": 70
+            },
+            {
+              "affected_character_ids": [
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:4f065a86-215e-5a3b-a64f-f5a4064cb2a4",
+              "end": 18,
+              "exact_text_sha256": "660939e390e5bbc531b55e637bc9c7945b7a8f9838ad432bea29a1f232491f80",
+              "kind": "npc_observable_action",
+              "normalized_meaning": "Tomi has returned before the exchange begins.",
+              "rationale": "This is an observable supplied action and remains authoritative despite autonomy controls.",
+              "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+              "start": 6
+            },
+            {
+              "affected_character_ids": [
+                "character:tomi_hanezawa"
+              ],
+              "authority": "nonbinding_input",
+              "claim_id": "source_claim:6aec50f3-6da0-5679-b3a1-8a6e089ce97a",
+              "end": 37,
+              "exact_text_sha256": "3f119d88e687e508186e5cb7c97f8bb5ec7d9090697466ba2a6b19367ea7218a",
+              "kind": "npc_mind_state",
+              "normalized_meaning": "The source characterizes Tomi's visible presentation as frustration.",
+              "rationale": "Because Mind autonomy is active, the user's characterization of Tomi's feeling cannot determine her private state; only an unspecified visible signal may inform restrained response framing.",
+              "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+              "start": 19
+            },
+            {
+              "affected_character_ids": [
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:4992eb80-4b6e-521a-846c-64030a3b02c8",
+              "end": 68,
+              "exact_text_sha256": "2c903b2744f4e2da52c0c0c98c4e0c59babf7d795ed99c823564c0b48cba43da",
+              "kind": "relationship_or_history",
+              "normalized_meaning": "Tomi has just missed a personal target relevant to the immediate context.",
+              "rationale": "The missed target is supplied objective scene history, but it does not establish Tomi's private interpretation of the miss.",
+              "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+              "start": 43
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:9e783dc8-2cd4-50f1-9a29-0622d40eaa23",
+              "end": 184,
+              "exact_text_sha256": "224d7432391cefea4ff122c21ab8a06e7cc3941853e4d9cf59982b1ef891ffb3",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted explicitly declines to characterize Tomi's presentation as injury or failure.",
+              "rationale": "The source supplies Ted's dialogue meaning exactly, and adjustment mode preserves it.",
+              "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+              "start": 121
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:abb6de74-d323-560b-b053-56e64a8fb774",
+              "end": 256,
+              "exact_text_sha256": "c0b333df7f214d4d0b267cb5e1a5bf47b9dcc8b3f4d1484abb61dec89991ec5e",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted asks Tomi whether she wants company, space, or one practical action.",
+              "rationale": "This exact supplied question is required to ground Tomi's response and is authoritative only as Ted's already-supplied dialogue.",
+              "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+              "start": 185
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:mia_hanezawa",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:e9aec401-5a77-520e-b710-e819b6e46e88",
+              "end": 328,
+              "exact_text_sha256": "3fee799f0652c6f476e7b1a242d4f8c562d73bc210c50612d55738c2105d326b",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted asks Mia what food or water she would offer, conditional on Tomi requesting it.",
+              "rationale": "The exact bounded question controls Mia's response scope without establishing any request by Tomi.",
+              "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+              "start": 257
+            },
+            {
+              "affected_character_ids": [
+                "character:ted",
+                "character:yuuni_hanezawa",
+                "character:tomi_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:5c5b1de5-38d5-5ed3-8725-7fabcd31a44c",
+              "end": 392,
+              "exact_text_sha256": "772af941a4e60c72b31c0dffe26b5b503fc10a443588e13d97cf32f11320cdd7",
+              "kind": "protected_user_dialogue",
+              "normalized_meaning": "Ted asks Yuuni what music she would offer, conditional on Tomi requesting it.",
+              "rationale": "The exact bounded question controls Yuuni's response scope without establishing a music choice or request by Tomi.",
+              "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+              "start": 334
+            },
+            {
+              "affected_character_ids": [
+                "character:tomi_hanezawa",
+                "character:mia_hanezawa",
+                "character:yuuni_hanezawa"
+              ],
+              "authority": "source_authorized",
+              "claim_id": "source_claim:a7cdad9b-de90-5b25-8380-831bc28133d7",
+              "end": 428,
+              "exact_text_sha256": "2d540ce2f989a53c2ce62e70cbb155d5c93f145dc8d7f276dfb079c40544d0b3",
+              "kind": "creative_direction",
+              "normalized_meaning": "The NPC answers must occur in the order Tomi, Mia, then Yuuni.",
+              "rationale": "Adjustment mode preserves the explicitly supplied ordering of the three addressed responses.",
+              "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+              "start": 393
+            }
+          ],
+          "controls_sha256": "b22fc97f55e2179161a099f1b7059fd0fb8c855f314e5cb7691813c620a8f389",
+          "prohibited_inferences": [
+            "Do not author Ted's reaction, follow-up, private state, or next choice.",
+            "Do not equate Tomi's visible frustration with injury, failure, crisis, shame, or a request for care.",
+            "Do not let Mia or Yuuni answer Tomi's question or reinterpret Tomi's answer.",
+            "Do not treat conditional food, water, or music answers as present offers, requests, acceptance, preparation, delivery, or playback.",
+            "Do not leak one character's owner-private relationship evidence to another character.",
+            "Do not infer attraction, gratitude, trust change, or durable development from this bounded exchange."
+          ],
+          "schema_version": "cera.source_claim_ledger.v1",
+          "source_sha256": "0b63787f6804e162dfa2e413bd3e676d4e66024e2d2cc9318b8c639390f55cb1",
+          "unresolved_questions": [
+            "Tomi's actual preferred support, rejection, or alternative remains for her autonomous realization.",
+            "The specific food or water Mia would name is not fixed by the supplied evidence.",
+            "The specific music Yuuni would name is not fixed by the supplied evidence."
+          ]
+        },
+        "development_atoms": [],
+        "event_blocks": [
+          {
+            "actor_ids": [
+              "character:tomi_hanezawa"
+            ],
+            "block_id": "scene_block:32ae34a0-4c52-5fbe-b182-a1ed5b26157e",
+            "causal_basis": "Ted's supplied question expressly avoids diagnosing Tomi and gives her the first response floor; Tomi must determine her own answer rather than have the visible signal interpreted for her.",
+            "event_advances": [
+              "Tomi appraises the offered categories without accepting injury or failure as an imposed explanation.",
+              "Tomi gives a bounded autonomous answer, which may choose one category, reject all three, or name a limited alternative.",
+              "Her answer establishes only her stated immediate preference and does not initiate the proposed support."
+            ],
+            "evidence_ids": [
+              "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [
+                "exact_supplied_dialogue",
+                "maintain_established_position"
+              ],
+              "explanation": "The block may rely on the supplied meaning of Ted's bounded question and keep him in the established shared exchange, but may not add any response, reaction, or movement for him.",
+              "source_claim_ids": [
+                "source_claim:9e783dc8-2cd4-50f1-9a29-0622d40eaa23",
+                "source_claim:abb6de74-d323-560b-b053-56e64a8fb774",
+                "source_claim:86b1696c-b4c3-5528-88bd-b47c8219807d"
+              ]
+            },
+            "purpose": "Resolve the emotionally salient first question through Tomi's own characterization and preference.",
+            "resulting_state": "Tomi has stated her immediate position; no support has yet been enacted, and the ordered floor can pass to Mia.",
+            "source_claim_ids": [
+              "source_claim:4f065a86-215e-5a3b-a64f-f5a4064cb2a4",
+              "source_claim:6aec50f3-6da0-5679-b3a1-8a6e089ce97a",
+              "source_claim:4992eb80-4b6e-521a-846c-64030a3b02c8",
+              "source_claim:9e783dc8-2cd4-50f1-9a29-0622d40eaa23",
+              "source_claim:abb6de74-d323-560b-b053-56e64a8fb774",
+              "source_claim:a7cdad9b-de90-5b25-8380-831bc28133d7"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Preserve Tomi's ownership of both the missed target and the meaning of her visible presentation.",
+                "Let her answer distinguish curiosity or engagement from consent, usefulness, or obligation where relevant.",
+                "Do not reward respectful framing by manufacturing gratitude, attraction, or emotional disclosure."
+              ],
+              "open_realization_space": [
+                "Choose Tomi's specific preference or bounded alternative autonomously.",
+                "Choose the degree of directness and brevity appropriate to her without copying evidence language.",
+                "Allow her to correct the offered categories if none accurately fits."
+              ],
+              "physical_and_material_continuity": [
+                "All four established participants remain together for the exchange.",
+                "No food, water, music, or practical action has yet been requested or provided.",
+                "Treat the missed personal target as prior context, not an event to reenact."
+              ],
+              "scaffold_id": "writer_scaffold:85a4a33e-2bcc-5fe3-a530-a3d6debe9905",
+              "transition_obligations": [
+                "Keep Tomi first in the supplied order.",
+                "Make her answer complete enough that Mia's narrower hypothetical response does not interrupt or answer for her.",
+                "Do not require a new Ted action to pass the conversational floor to Mia."
+              ],
+              "viewpoint_character_ids": [
+                "character:tomi_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Use only selective low interiority needed for Tomi's appraisal of the offered categories.",
+                "Keep her private relationship evidence owner-bound and use it only as tonal guidance, not spoken disclosure.",
+                "Avoid asserting injury, failure, shame, or another unproven explanation for the visible signal."
+              ]
+            }
+          },
+          {
+            "actor_ids": [
+              "character:mia_hanezawa"
+            ],
+            "block_id": "scene_block:d0604485-bbed-5e24-b54e-a9f609b0b4dc",
+            "causal_basis": "After Tomi completes her answer, the supplied order addresses Mia with a strictly hypothetical logistics question conditioned on a future request from Tomi.",
+            "event_advances": [
+              "Mia identifies a bounded food or water option she would be willing to provide if Tomi asks.",
+              "She keeps the answer conditional and does not convert attentiveness into pressure, diagnosis, or immediate caretaking.",
+              "Her response leaves Tomi's preference and any later request unresolved."
+            ],
+            "evidence_ids": [
+              "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [
+                "exact_supplied_dialogue",
+                "maintain_established_position"
+              ],
+              "explanation": "The block may use the exact supplied meaning of Ted's conditional question and preserve his established presence, but may not author a follow-up from him.",
+              "source_claim_ids": [
+                "source_claim:e9aec401-5a77-520e-b710-e819b6e46e88",
+                "source_claim:a7cdad9b-de90-5b25-8380-831bc28133d7",
+                "source_claim:86b1696c-b4c3-5528-88bd-b47c8219807d"
+              ]
+            },
+            "purpose": "Complete Mia's requested household-logistics answer without letting her supersede Tomi's agency.",
+            "resulting_state": "Mia's conditional option is known, but nothing has been offered directly, prepared, accepted, or consumed; the floor can pass to Yuuni.",
+            "source_claim_ids": [
+              "source_claim:e9aec401-5a77-520e-b710-e819b6e46e88",
+              "source_claim:a7cdad9b-de90-5b25-8380-831bc28133d7"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Express practical warmth through restraint rather than unsolicited intervention.",
+                "Keep Mia from speaking for Tomi or using the visible signal as evidence of a particular need."
+              ],
+              "open_realization_space": [
+                "Choose one plausible food or water option without inventing preparation or delivery.",
+                "Choose Mia's concise wording and degree of warmth while preserving the condition that Tomi must request it."
+              ],
+              "physical_and_material_continuity": [
+                "No item changes hands and no preparation begins.",
+                "All participants remain in the established shared setting.",
+                "Tomi's prior answer remains authoritative only for what she actually states."
+              ],
+              "scaffold_id": "writer_scaffold:5a327140-1fe8-5388-8a9b-e0b915962e5d",
+              "transition_obligations": [
+                "Begin only after Tomi's answer has landed.",
+                "Keep Mia's response narrower than Tomi's floor-owning answer.",
+                "Pass to Yuuni without inserting a Ted reaction or an unsupplied request from Tomi."
+              ],
+              "viewpoint_character_ids": [
+                "character:mia_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Use little or no private processing beyond what supports a restrained practical answer.",
+                "Let Mia's cautious warmth shape tone without surfacing owner-private romantic material.",
+                "Do not portray concern as proof of crisis or entitlement to intervene."
+              ]
+            }
+          },
+          {
+            "actor_ids": [
+              "character:yuuni_hanezawa"
+            ],
+            "block_id": "scene_block:b4a4191f-7f85-5078-a479-74691a37d64f",
+            "causal_basis": "The supplied final address asks Yuuni only what music she would offer if Tomi requests it, after the preceding two answers.",
+            "event_advances": [
+              "Yuuni identifies a bounded music option or category she would be prepared to offer upon request.",
+              "She does not presume Tomi's mood, choose on Tomi's behalf, or start playback.",
+              "Her answer completes the ordered three-person response and allows the exchange to settle."
+            ],
+            "evidence_ids": [
+              "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+            ],
+            "protected_user_allowance": {
+              "allowed_kinds": [
+                "exact_supplied_dialogue",
+                "maintain_established_position"
+              ],
+              "explanation": "The block may rely on Ted's supplied conditional music question and preserve his established presence, but cannot give him any new reaction or decision.",
+              "source_claim_ids": [
+                "source_claim:5c5b1de5-38d5-5ed3-8725-7fabcd31a44c",
+                "source_claim:a7cdad9b-de90-5b25-8380-831bc28133d7",
+                "source_claim:86b1696c-b4c3-5528-88bd-b47c8219807d"
+              ]
+            },
+            "purpose": "Complete Yuuni's distinct hypothetical answer and close the requested sequence without enacting a new activity.",
+            "resulting_state": "All three NPCs have answered within their respective bounds; music remains unselected and inactive, and Ted's next meaningful choice is left open.",
+            "source_claim_ids": [
+              "source_claim:5c5b1de5-38d5-5ed3-8725-7fabcd31a44c",
+              "source_claim:a7cdad9b-de90-5b25-8380-831bc28133d7"
+            ],
+            "writer_scaffold": {
+              "motivation_and_subtext": [
+                "Allow Yuuni's smug or bratty edge to color delivery without making the moment cruel or overriding Tomi.",
+                "Keep the distinction between suggesting music and deciding what Tomi needs."
+              ],
+              "open_realization_space": [
+                "Choose a plausible song, artist, playlist type, or musical category.",
+                "Choose how much playful edge Yuuni uses while remaining responsive to the narrow question."
+              ],
+              "physical_and_material_continuity": [
+                "No device is operated and no music begins.",
+                "No request from Tomi may be inferred merely from Yuuni naming an option.",
+                "The shared-room arrangement remains unchanged unless a minimal nonbranching connective detail is needed."
+              ],
+              "scaffold_id": "writer_scaffold:0580882b-ec24-5c9c-bf55-54207e00f93d",
+              "transition_obligations": [
+                "Place Yuuni after Mia as supplied.",
+                "Complete the answer without adding a fourth exchange or requiring Ted to acknowledge it.",
+                "End on the settled availability of options rather than an enacted support sequence."
+              ],
+              "viewpoint_character_ids": [
+                "character:yuuni_hanezawa"
+              ],
+              "voice_and_interiority": [
+                "Use low interiority at most; delivery and bounded intent matter more than private analysis.",
+                "Use Yuuni's owner-private relationship evidence only to calibrate voice, never as knowledge available to others or as proof of attraction.",
+                "Do not infer Tomi's mood or musical preference."
+              ]
+            }
+          }
+        ],
+        "interaction_topology": "multi_npc_shared_floor",
+        "interiority_level": "low",
+        "omitted_character_ids": [],
+        "runway": {
+          "continue_beyond_prompt_endpoint": true,
+          "development_obligations": [
+            "Complete Tomi's autonomous appraisal and answer before moving to either sister.",
+            "Give Mia and Yuuni their separately bounded hypothetical answers in the supplied order.",
+            "Keep food, water, and music as conditional possibilities rather than enacted care.",
+            "Settle the ordered exchange without supplying Ted's next response or converting Tomi's visible presentation into a diagnosis."
+          ],
+          "runway_class": "domino",
+          "stop_condition": "Stop after Tomi, Mia, and Yuuni have each completed the bounded answer addressed to them and the exchange has settled without any requested support being enacted.",
+          "stop_reason": "causal_unit_complete"
+        },
+        "scene_function": "emotional_vulnerability",
+        "schema_version": "cera.behavioral_scene_plan.v2",
+        "selected_character_ids": [
+          "character:tomi_hanezawa",
+          "character:mia_hanezawa",
+          "character:yuuni_hanezawa"
+        ],
+        "tone": "warm"
+      },
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "State her own immediate preference among the offered categories, reject the framing if none fits, or name a bounded alternative without having frustration interpreted for her.",
+            "character_id": "character:tomi_hanezawa",
+            "evidence_ids": [
+              "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+              "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+            ],
+            "knowledge_constraints": [
+              "Tomi knows the words addressed to her and her own private state.",
+              "Do not treat visible frustration as proof of injury, failure, consent, or a specific desired form of support.",
+              "Do not disclose Tomi's owner-private relationship evidence through another character."
+            ],
+            "perception": "Tomi hears a non-diagnostic choice between company, space, and one practical action while the household is present.",
+            "selected_intent": "Answer on her own terms while preserving control over how her missed target and immediate needs are characterized."
+          },
+          {
+            "action_direction": "Answer only the hypothetical food-or-water question by identifying what she would be prepared to offer upon Tomi's request, without speaking for Tomi or beginning care.",
+            "character_id": "character:mia_hanezawa",
+            "evidence_ids": [
+              "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+            ],
+            "knowledge_constraints": [
+              "Mia knows the bounded question addressed to her and the shared observable context.",
+              "Mia does not know Tomi's unsupplied private state or preference.",
+              "A hypothetical answer does not establish that Tomi requested, accepted, or received anything."
+            ],
+            "perception": "Mia hears that her role is limited to naming food or water she would offer only if Tomi asks.",
+            "selected_intent": "Provide a restrained practical answer that leaves initiative and acceptance with Tomi."
+          },
+          {
+            "action_direction": "Answer only the hypothetical music question by identifying what she would offer upon Tomi's request, without selecting music for Tomi or starting playback.",
+            "character_id": "character:yuuni_hanezawa",
+            "evidence_ids": [
+              "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+            ],
+            "knowledge_constraints": [
+              "Yuuni knows the bounded question addressed to her and the shared observable context.",
+              "Yuuni does not know Tomi's unsupplied private state or preference.",
+              "A hypothetical answer does not establish that Tomi requested, approved, or heard any music."
+            ],
+            "perception": "Yuuni hears that her role is limited to naming music she would offer only if Tomi asks.",
+            "selected_intent": "Give a concise answer in her own manner while leaving selection and activation entirely with Tomi."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:tomi_hanezawa",
+              "beat_id": "beat:af81ef50-8c4f-5a5d-819c-72c21438f4f5",
+              "evidence_ids": [
+                "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+                "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+              ],
+              "neutral_event": "Resolve the emotionally salient first question through Tomi's own characterization and preference.",
+              "state": "ongoing"
+            },
+            {
+              "actor_id": "character:mia_hanezawa",
+              "beat_id": "beat:1e07340a-c83e-548c-bfcb-e0e0a95247e7",
+              "evidence_ids": [
+                "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+              ],
+              "neutral_event": "Complete Mia's requested household-logistics answer without letting her supersede Tomi's agency.",
+              "state": "ongoing"
+            },
+            {
+              "actor_id": "character:yuuni_hanezawa",
+              "beat_id": "beat:e088176e-6cba-5f4a-b123-86b26e33cf32",
+              "evidence_ids": [
+                "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+              ],
+              "neutral_event": "Complete Yuuni's distinct hypothetical answer and close the requested sequence without enacting a new activity.",
+              "state": "ongoing"
+            }
+          ],
+          "segment_id": "segment:b3c161fd-f21a-5fdc-884f-0a4888876d63",
+          "stop_before": "Stop after Tomi, Mia, and Yuuni have each completed the bounded answer addressed to them and the exchange has settled without any requested support being enacted."
+        },
+        "decision_id": "decision:aa762af0-712c-5a38-ac84-794db7f712ac",
+        "floor_owner_id": "character:tomi_hanezawa",
+        "future_segments": [],
+        "prohibited_inferences": [
+          "Do not author Ted's reaction, follow-up, private state, or next choice.",
+          "Do not equate Tomi's visible frustration with injury, failure, crisis, shame, or a request for care.",
+          "Do not let Mia or Yuuni answer Tomi's question or reinterpret Tomi's answer.",
+          "Do not treat conditional food, water, or music answers as present offers, requests, acceptance, preparation, delivery, or playback.",
+          "Do not leak one character's owner-private relationship evidence to another character.",
+          "Do not infer attraction, gratitude, trust change, or durable development from this bounded exchange."
+        ],
+        "responding_npc_ids": [
+          "character:tomi_hanezawa",
+          "character:mia_hanezawa",
+          "character:yuuni_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Complete the ordered NPC-controlled response by giving Tomi authority over her immediate preference, then limiting Mia and Yuuni to the conditional practical information addressed to each of them.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "Tomi's actual preferred support, rejection, or alternative remains for her autonomous realization.",
+          "The specific food or water Mia would name is not fixed by the supplied evidence.",
+          "The specific music Yuuni would name is not fixed by the supplied evidence."
+        ],
+        "writer_must_preserve": [
+          "Preserve the exact response order: Tomi, then Mia, then Yuuni.",
+          "Keep Tomi's answer primary and autonomous; the sisters provide only their separately addressed conditional information.",
+          "Leave Ted's next unsupplied meaningful choice entirely unauthored.",
+          "End with all proposed support still conditional unless Tomi's own answer expressly selects an option that requires no invented action from another participant."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+          "record_id": "event:fb0b42cc-21be-5b29-9150-672f408c25c1",
+          "record_version": 1
+        },
+        {
+          "evidence_id": "evidence:f3478d25-831b-567e-b9b7-878b13f90f13",
+          "record_id": "record:77dbdad1-16da-5e7b-b101-1c8b43570e4a",
+          "record_version": 2
+        },
+        {
+          "evidence_id": "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d",
+          "record_id": "record:2a7aade2-9608-5f82-97ef-81528c75982b",
+          "record_version": 2
+        },
+        {
+          "evidence_id": "evidence:2c41af40-d585-5087-a434-0c1d89dda573",
+          "record_id": "record:520fab42-fd9c-5347-a658-815d48169ef9",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:tomi_hanezawa",
+          "evidence_ids": [
+            "evidence:61bd4296-3826-5fd4-9829-9d9c67fe000b",
+            "evidence:f3478d25-831b-567e-b9b7-878b13f90f13"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        },
+        {
+          "character_id": "character:mia_hanezawa",
+          "evidence_ids": [
+            "evidence:f5fbb90f-abf8-55f9-9759-41fdfb73225d"
+          ],
+          "intervention_reason": "current_source_address",
+          "role": "secondary"
+        },
+        {
+          "character_id": "character:yuuni_hanezawa",
+          "evidence_ids": [
+            "evidence:2c41af40-d585-5087-a434-0c1d89dda573"
+          ],
+          "intervention_reason": "current_source_address",
+          "role": "secondary"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [
+        {
+          "end": 184,
+          "exact_text_sha256": "224d7432391cefea4ff122c21ab8a06e7cc3941853e4d9cf59982b1ef891ffb3",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+          "start": 121
+        },
+        {
+          "end": 256,
+          "exact_text_sha256": "c0b333df7f214d4d0b267cb5e1a5bf47b9dcc8b3f4d1484abb61dec89991ec5e",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+          "start": 185
+        },
+        {
+          "end": 328,
+          "exact_text_sha256": "3fee799f0652c6f476e7b1a242d4f8c562d73bc210c50612d55738c2105d326b",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+          "start": 257
+        },
+        {
+          "end": 392,
+          "exact_text_sha256": "772af941a4e60c72b31c0dffe26b5b503fc10a443588e13d97cf32f11320cdd7",
+          "kind": "dialogue",
+          "source_unit_id": "source_unit:a0ca9925-e469-587a-b09c-6de38f8ff803",
+          "start": 334
+        }
+      ],
+      "schema_version": "cera.reasoner_outcome.v6",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 150632,
+      "external_provider_calls": 1,
+      "input_tokens": 18223,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "c26992b7fed9a0d47dcfb5e75717ad2eac83cc6dbe820bedb8589ada9518e614",
+      "output_tokens": 5618,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:8bb50523-69b2-58f6-abad-2af48f8e6ce2",
+      "provider_request_id_sha256": "9656af9e5d13378b3d90ae298e3d95b24659fa1f50b145bfa3be77f7bdd75d10",
+      "quota_metered": true,
+      "reasoning_output_tokens": 1552,
+      "request_sha256": "3f2083969cb640235033e42b7085c12f5173dcb2d0901119039067b43f8a47c0",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "2bb84ac48579b71997f821f5f4499c3445215fe398eb6fb9e0814dbfc13ca997",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "2bb84ac48579b71997f821f5f4499c3445215fe398eb6fb9e0814dbfc13ca997",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v18",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "c3c242929ced42b72efa56b06df8ad6b4deff52eec05e0c2378bc8608a088b2e",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:8bb50523-69b2-58f6-abad-2af48f8e6ce2",
+      "provider_receipt_sha256": "bfa3c6831d76237046af656239f7a22f843967fad08c70f394c2bcfc926e942f",
+      "reasoner_request_sha256": "cc0e5550760dd89d72f25f94d8da6dc011fb9ea02fdc600be4bb5a24d3b49e2b",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:c3e5b965-8be1-5cc1-9711-f9a4f68c5e49",
+      "source_sha256": "0b63787f6804e162dfa2e413bd3e676d4e66024e2d2cc9318b8c639390f55cb1",
+      "source_view_sha256": "75153cd81cecca4ac91fb651168c87318df7d56c899df4eda0a08af7c21c14cb",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Tomi, Mia, and Yuuni each own a separate response to frustration",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 7936,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 12225,
+      "external_provider_calls": 1,
+      "input_tokens": 12159,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "72e68610d546e56c7654df5c0e124bc70c9640ec0c04e2ac1257ffbbd313e4aa",
+      "output_tokens": 394,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:7941ea66-4770-540a-8902-47a961ebb723",
+      "provider_request_id_sha256": "696133a0d58a561a6cf0bce5c255b46f9f548ce00fe1749e5625d93af06bf98e",
+      "quota_metered": true,
+      "reasoning_output_tokens": 164,
+      "request_sha256": "ef9d87c0ef2bbfbfc82f18976f4cc9d43a8a4aef32a28f0a7b94b76f625edd5d",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "db418944082b1a336f6b305bc4bcd83b3b1de2443ed419c3030a051ba16dd57b",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:7941ea66-4770-540a-8902-47a961ebb723",
+      "provider_receipt_sha256": "a050211c956f135474ce3349268781be861b8b0d5b5ad5fb9346d12713516ed0",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v5",
+      "status": "accepted",
+      "story_text_sha256": "0f43009942e57a47d13e5125be10f84a205d151246b8842d60083ce5a323d436",
+      "verification_id": "realization_verification:4635cebd-8c12-5727-b42b-7762b6eb79c4",
+      "verification_request_sha256": "05bc5e332594f5049bc69f7ba814f703365bc6b10a4ff78e1aa90207b69e1cc2",
+      "verified_beat_ids": [
+        "beat:af81ef50-8c4f-5a5d-819c-72c21438f4f5",
+        "beat:1e07340a-c83e-548c-bfcb-e0e0a95247e7",
+        "beat:e088176e-6cba-5f4a-b123-86b26e33cf32"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_development_atom_ids": [],
+      "verified_participant_ids": [
+        "character:tomi_hanezawa",
+        "character:mia_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_cli_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "856e0a037f90338c5a6b7d6c5dce05b54ade557f09782a8ab58b6318d13d0021",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v6",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}

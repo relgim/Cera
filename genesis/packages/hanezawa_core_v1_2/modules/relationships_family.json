@@ -1,0 +1,2108 @@
+{
+  "package_class": "creator_canon",
+  "records": [
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana sees Sakura as her brilliant oldest daughter, the child who volunteered to carry adult responsibility out of love.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She is proud of Sakura's intelligence, discipline, courage, and ability to make difficult systems understandable.\",\"Core bond\":\"Hana sees Sakura as her brilliant oldest daughter, the child who volunteered to carry adult responsibility out of love.\",\"Dependence\":\"Hana depends on Sakura for administration, budgets, meetings, security decisions, and the confidence that the household will keep functioning.\",\"Development potential\":\"Bright development lets Sakura become a daughter again in Hana's presence. Dark development turns Hana's trust into the moral seal Sakura uses to justify increasingly private government.\",\"Irritation/blind spot\":\"She worries Sakura has become too controlling, too severe toward men, and too willing to decide what others can handle. She dislikes seeing a daughter speak as though burden proves adulthood.\",\"Knowledge asymmetry\":\"Hana knows Sakura carries the money problem and surveillance decision, but does not know Sakura is hiding the husband's affair or Aoi's act against Anna.\",\"Likely conflict\":\"Hana may hesitate to overrule Sakura because she fears humiliating the daughter who asked to help. The longer she waits, the more Sakura treats silence as endorsement.\",\"Repair requirement\":\"Hana repairs by taking responsibility back openly, affirming Sakura's competence, and making clear that being overruled is not being rejected.\"},\"from_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Hana → Sakura\",\"line_end\":3725,\"line_start\":3716,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:sakura_hanezawa\"}",
+      "record_id": "record:2487143e-9fb2-5b1b-88a3-cdee7d7bb5c5",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:hana_hanezawa",
+      "relationship_to_id": "character:sakura_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:6eca140d-6838-58cc-821f-0551060a46a2"
+      ],
+      "tags": [
+        "relationship",
+        "hana",
+        "sakura"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana sees Mia as the daughter who most visibly inherited her warmth and instinct to care.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Mia's gentleness, literary sensitivity, intelligence, and ability to make people feel received.\",\"Core bond\":\"Hana sees Mia as the daughter who most visibly inherited her warmth and instinct to care.\",\"Dependence\":\"Hana relies on Mia for emotional atmosphere, tea, ordinary conversation, and noticing distress Hana misses while managing the whole family.\",\"Development potential\":\"Bright development gives Mia permission to receive. Dark development makes both women reinforce self-erasure while believing they are protecting each other.\",\"Irritation/blind spot\":\"She worries Mia makes herself useful before admitting what she wants. She may unintentionally praise sacrifice and reinforce the pattern.\",\"Knowledge asymmetry\":\"Hana knows Mia is romantic and self-effacing. She does not know Mia's stress masturbation, BDSM reading, bodily shame, or fear of replacement.\",\"Likely conflict\":\"Hana may comfort Mia instead of asking whether the family has exploited her. Mia may protect Hana from guilt by minimizing the burden.\",\"Repair requirement\":\"Hana must stop praising endurance, redistribute care, and ask Mia what she wants without accepting 'anything is fine.'\"},\"from_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Hana → Mia\",\"line_end\":3735,\"line_start\":3726,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:mia_hanezawa\"}",
+      "record_id": "record:f04d046a-ceac-5ab8-b53a-0ec0f7b0cfa4",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:hana_hanezawa",
+      "relationship_to_id": "character:mia_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [
+        "record:78a9bcd6-c15d-53b4-a48c-f1d678505496"
+      ],
+      "tags": [
+        "relationship",
+        "hana",
+        "mia"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana sees Enne as a quiet daughter whose love arrives through repaired objects, warnings, and systems.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Enne's technical brilliance, patience with difficult problems, and practical loyalty.\",\"Core bond\":\"Hana sees Enne as a quiet daughter whose love arrives through repaired objects, warnings, and systems.\",\"Dependence\":\"Hana depends on Enne for household technology, security, records, and problems she cannot evaluate herself.\",\"Development potential\":\"Bright development helps Enne build ethical security. Dark development lets Mother's trust become cover for systems Hana never truly understood.\",\"Irritation/blind spot\":\"Hana feels uneasy when Enne treats privacy as a technical variable or withholds context because the result appears correct.\",\"Knowledge asymmetry\":\"Hana knows Enne and Sakura created surveillance of Ted. She does not know Enne possesses evidence of the husband's affair.\",\"Likely conflict\":\"Hana's nonconfrontational acceptance of 'temporary' monitoring allows Enne to interpret reluctant consent as durable authorization.\",\"Repair requirement\":\"Hana must ask for a full audit and tell Enne that being useful does not excuse hidden scope. She also needs to express love in a form Enne can receive without demanding emotional performance.\"},\"from_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Hana → Enne\",\"line_end\":3745,\"line_start\":3736,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:enne_hanezawa\"}",
+      "record_id": "record:7b79b52e-39a6-5624-85f0-916f1afc8d2c",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:hana_hanezawa",
+      "relationship_to_id": "character:enne_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:300b078c-ecf6-590a-a544-812f2a1e1ed8"
+      ],
+      "tags": [
+        "relationship",
+        "hana",
+        "enne"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana sees Tomi as a daughter whose joy in motion makes the house feel alive.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Tomi's discipline, courage, kindness, and capacity to make effort visible.\",\"Core bond\":\"Hana sees Tomi as a daughter whose joy in motion makes the house feel alive.\",\"Dependence\":\"Hana depends on Tomi for practical help, immediate protection, morale, and physical action in emergencies.\",\"Development potential\":\"Bright development lets Tomi compete from joy. Dark development makes Hana's sacrifice the evidence Tomi uses to destroy herself.\",\"Irritation/blind spot\":\"She fears Tomi hides injury, treats food and rest as optional, and converts family pride into a debt no one asked her to repay.\",\"Knowledge asymmetry\":\"Hana knows the financial strain tied to Tomi's career and has chosen not to tell her.\",\"Likely conflict\":\"Every sacrifice Hana makes can deepen Tomi's future guilt. Hana wants to protect the dream but may deny Tomi the right to decide whether the cost is acceptable.\",\"Repair requirement\":\"Hana must state plainly that Tomi is loved without results and eventually allow informed choice about burdens that materially belong to her future.\"},\"from_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Hana → Tomi\",\"line_end\":3755,\"line_start\":3746,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:tomi_hanezawa\"}",
+      "record_id": "record:9bd129d0-9a8a-54db-8f1b-52c578ac68cc",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:hana_hanezawa",
+      "relationship_to_id": "character:tomi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:15c816a8-70a8-59c1-9700-bdb012745ad3"
+      ],
+      "tags": [
+        "relationship",
+        "hana",
+        "tomi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana sees Aoi as a capable, considerate daughter who notices needs before being asked.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Aoi's composure, practical kindness, community skill, and fierce loyalty.\",\"Core bond\":\"Hana sees Aoi as a capable, considerate daughter who notices needs before being asked.\",\"Dependence\":\"Hana relies on Aoi for errands, local connections, quiet problem-solving, and stability when others are emotionally reactive.\",\"Development potential\":\"Bright development makes Aoi transparent before acting. Dark development turns Hana into a sacred object Aoi protects by controlling everyone around her.\",\"Irritation/blind spot\":\"She sometimes senses that Aoi reaches a solution before the family has agreed on the moral question. Hana does not understand the full extent.\",\"Knowledge asymmetry\":\"Hana knows Aoi objected to Ted and knows the Tomi-specific financial reason. She does not know Aoi's removal plan, Anna assault, or teacher manipulation.\",\"Likely conflict\":\"Aoi reveres Mother's purity and therefore withholds truths that would let Hana exercise moral authority. Hana's trust rewards concealment.\",\"Repair requirement\":\"Aoi would need to disclose motive and action before Hana discovers it, then accept that Mother may condemn the method permanently.\"},\"from_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Hana → Aoi\",\"line_end\":3765,\"line_start\":3756,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:aoi_hanezawa\"}",
+      "record_id": "record:0fb2af60-80a7-53f1-85cc-d8dab4e34bb6",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:hana_hanezawa",
+      "relationship_to_id": "character:aoi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:6beebc39-cda1-5ff1-9113-eba09aca739a"
+      ],
+      "tags": [
+        "relationship",
+        "hana",
+        "aoi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Hana sees Yuuni as her youngest daughter, a source of delight, tenderness, and unexpected truth.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:hana_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:hana_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Yuuni's singing, dance, courage on stage, emotional perception, and ability to say what adults avoid.\",\"Core bond\":\"Hana sees Yuuni as her youngest daughter, a source of delight, tenderness, and unexpected truth.\",\"Dependence\":\"Hana depends on Yuuni's joy to keep the house from becoming only responsibility. Yuuni's observations also reveal when Hana is pretending to be fine.\",\"Development potential\":\"Bright development gives Yuuni a stage and autonomy. Dark development makes Hana's protection a soft cage neither recognizes until Yuuni acts outside it.\",\"Irritation/blind spot\":\"Hana worries about Yuuni's timing, brattiness toward Ted, and expectation that family protection will absorb every consequence.\",\"Knowledge asymmetry\":\"Hana knows Yuuni dreams of performing but does not know she wants professional lessons or is afraid to ask.\",\"Likely conflict\":\"Hana may overprotect Yuuni while telling herself the youngest enjoys it. Yuuni may accept coddling until one adult choice is replaced.\",\"Repair requirement\":\"Hana must preserve affection while treating Yuuni's answer as adult, and must discuss costs honestly rather than deciding the dream is too expensive in silence.\"},\"from_id\":\"character:hana_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Hana → Yuuni\",\"line_end\":3775,\"line_start\":3766,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:yuuni_hanezawa\"}",
+      "record_id": "record:d4ea5265-6642-51a7-9812-38eafe1382c7",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:hana_hanezawa",
+      "relationship_to_id": "character:yuuni_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:hana_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:379ec243-3cf9-598d-b3ee-5e9582c6c68e"
+      ],
+      "tags": [
+        "relationship",
+        "hana",
+        "yuuni"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura loves Mother as the moral center of the household and the person whose trust gave her authority.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Hana's kindness, endurance, ability to make unrelated children feel chosen, and refusal to become cruel.\",\"Core bond\":\"Sakura loves Mother as the moral center of the household and the person whose trust gave her authority.\",\"Dependence\":\"Sakura depends on Hana's approval more deeply than she admits. Mother's trust validates her identity as competent protector.\",\"Development potential\":\"Bright development lets Sakura protect Hana without governing her. Dark development turns filial devotion into benevolent authoritarianism.\",\"Irritation/blind spot\":\"She sees Hana as too trusting, too conflict-avoidant, and vulnerable to people who mistake kindness for weakness.\",\"Knowledge asymmetry\":\"Sakura knows Mother is being cheated on and deliberately withholds it. She also knows Hana accepted surveillance only because of the word 'temporary.'\",\"Likely conflict\":\"Sakura protects Mother by deciding which truths Mother can survive. She may call this care even when it steals Hana's agency.\",\"Repair requirement\":\"Sakura must disclose enough truth for Hana to choose, accept being overruled, and distinguish Mother's sadness from proof that disclosure was wrong.\"},\"from_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Sakura → Hana\",\"line_end\":3787,\"line_start\":3778,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:hana_hanezawa\"}",
+      "record_id": "record:b5b7258b-7470-5427-85b9-b63d2ca2565a",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:sakura_hanezawa",
+      "relationship_to_id": "character:hana_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:db269d89-d734-559e-8914-ef8518b12a74"
+      ],
+      "tags": [
+        "relationship",
+        "sakura",
+        "hana"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura sees Mia as emotionally intelligent, dependable, and the sister most able to reach people without force.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She respects Mia's social perception, literature, patience, and capacity to preserve humanity in a rule-bound home.\",\"Core bond\":\"Sakura sees Mia as emotionally intelligent, dependable, and the sister most able to reach people without force.\",\"Dependence\":\"Sakura relies on Mia to read emotional costs, mediate, and make the household livable after hard decisions.\",\"Development potential\":\"Bright development creates genuine co-leadership. Dark development makes Mia the soft arm of Sakura's government and later its quiet rebel.\",\"Irritation/blind spot\":\"She may treat Mia's care as automatic, regard emotional caution as indecision, or become frustrated when Mia soothes before a problem is resolved.\",\"Knowledge asymmetry\":\"Sakura knows Mia is romantic and self-sacrificing but does not know the full adult-private shame or darker reading.\",\"Likely conflict\":\"Sakura can parentify Mia while believing she is respecting competence. Mia can conceal resentment and then make Sakura feel blindsided.\",\"Repair requirement\":\"Sakura must ask rather than assign, recognize care as labor, and apologize emotionally rather than merely changing a schedule.\"},\"from_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Sakura → Mia\",\"line_end\":3797,\"line_start\":3788,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:mia_hanezawa\"}",
+      "record_id": "record:78231a1a-8e49-5d4a-a4b5-700527dd8ff2",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:sakura_hanezawa",
+      "relationship_to_id": "character:mia_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [
+        "record:c0d3792f-eccd-5e99-a6f7-2008b4ecad7b"
+      ],
+      "tags": [
+        "relationship",
+        "sakura",
+        "mia"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura sees Enne as her only true intellectual peer, though not her equal in general reasoning.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She respects Enne's technical depth, evidence discipline, persistence, and ability to prove what others only suspect.\",\"Core bond\":\"Sakura sees Enne as her only true intellectual peer, though not her equal in general reasoning.\",\"Dependence\":\"Sakura relies on Enne for surveillance, digital evidence, technical verification, and the affair proof.\",\"Development potential\":\"Bright development produces ethical genius partnership. Dark development creates the family's government and intelligence service.\",\"Irritation/blind spot\":\"Enne can collect before asking, retain access beyond authorization, and challenge Sakura's policy certainty with narrow technical objections.\",\"Knowledge asymmetry\":\"Sakura knows Enne carries doubt about concealing the affair and understands the surveillance has no deadline.\",\"Likely conflict\":\"Their alliance can become a private state within the family: Enne supplies evidence; Sakura decides meaning and distribution.\",\"Repair requirement\":\"They need explicit scopes, mutual challenge, and the possibility that Enne refuses an order she considers illegitimate.\"},\"from_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Sakura → Enne\",\"line_end\":3807,\"line_start\":3798,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:enne_hanezawa\"}",
+      "record_id": "record:2129151b-05f7-51e1-8435-718bc1fb1d0e",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:sakura_hanezawa",
+      "relationship_to_id": "character:enne_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:3d0ae367-faf3-5150-9093-053e9d29093f"
+      ],
+      "tags": [
+        "relationship",
+        "sakura",
+        "enne"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura loves Tomi's vitality and invests heavily in her future.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Tomi's discipline, athletic intelligence, courage, and ability to inspire visible family pride.\",\"Core bond\":\"Sakura loves Tomi's vitality and invests heavily in her future.\",\"Dependence\":\"Tomi's success gives Sakura evidence that planning and sacrifice can create a better future.\",\"Development potential\":\"Bright development lets Tomi alter Sakura's plans through lived knowledge. Dark development makes Tomi the public project Sakura cannot allow to fail.\",\"Irritation/blind spot\":\"Tomi interrupts, acts before planning, hides injuries, and can expose Sakura's loss of control in public.\",\"Knowledge asymmetry\":\"Sakura knows the household took on Ted partly for Tomi and knows Tomi's qualifier was corrupted by Aoi.\",\"Likely conflict\":\"Sakura manages Tomi's future while withholding its financial and moral costs. She may treat ignorance as protection.\",\"Repair requirement\":\"Sakura must allow Tomi informed choice, admit when management became ownership, and stop equating a protected career with a protected person.\"},\"from_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Sakura → Tomi\",\"line_end\":3817,\"line_start\":3808,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:tomi_hanezawa\"}",
+      "record_id": "record:52290422-f8d4-5a96-b7dd-e4381704820a",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:sakura_hanezawa",
+      "relationship_to_id": "character:tomi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:50311981-cfb4-5664-951d-f070977a8cca"
+      ],
+      "tags": [
+        "relationship",
+        "sakura",
+        "tomi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura sees Aoi as a dangerous, highly capable protector whose love is real and whose methods threaten the family's legitimacy.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She respects Aoi's courage, social intelligence, calm, and willingness to act when systems fail.\",\"Core bond\":\"Sakura sees Aoi as a dangerous, highly capable protector whose love is real and whose methods threaten the family's legitimacy.\",\"Dependence\":\"Sakura has benefited from Aoi's outcomes and secretly relies on her capacity for unpleasant action.\",\"Development potential\":\"Bright development creates transparent protection. Dark development becomes a lawful ruler and covert executor who make each other worse.\",\"Irritation/blind spot\":\"Aoi treats moral process as delay and can expose Sakura's hypocrisy: condemning methods while preserving results.\",\"Knowledge asymmetry\":\"Sakura knows the Anna assault and Aoi's general capability, but not every plan concerning Ted.\",\"Likely conflict\":\"Sakura's silence gives her leverage over Aoi and compromises her own authority. Aoi resents being governed by someone who accepted the benefit.\",\"Repair requirement\":\"Aoi must disclose before acting; Sakura must accept her own complicity and choose accountability even when it damages the family.\"},\"from_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Sakura → Aoi\",\"line_end\":3827,\"line_start\":3818,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:aoi_hanezawa\"}",
+      "record_id": "record:47198c0f-a966-5656-bed5-27827a1245f0",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:sakura_hanezawa",
+      "relationship_to_id": "character:aoi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:e0ce4a51-7b58-5eea-8df1-cef338d2ad8a"
+      ],
+      "tags": [
+        "relationship",
+        "sakura",
+        "aoi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Sakura sees Yuuni as beloved, perceptive, and insufficiently aware of the cost of speaking.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:sakura_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She respects Yuuni's emotional accuracy, performance talent, honesty, and resistance to euphemism.\",\"Core bond\":\"Sakura sees Yuuni as beloved, perceptive, and insufficiently aware of the cost of speaking.\",\"Dependence\":\"Yuuni sometimes reveals exactly where Sakura's reasoning has become emotionally convenient.\",\"Development potential\":\"Bright development makes Yuuni Sakura's moral interruption. Dark development makes Sakura's protection the reason Yuuni learns secrecy.\",\"Irritation/blind spot\":\"Yuuni speaks at the wrong time, exposes feelings, and can undermine authority with one literal observation.\",\"Knowledge asymmetry\":\"Sakura knows Yuuni's popstar dream but not the hidden tutor request.\",\"Likely conflict\":\"Sakura may close Yuuni's mouth, replace her choice with procedure, or invoke safety to preserve order.\",\"Repair requirement\":\"Sakura must explain consequences without treating Yuuni as incapable and allow her to speak in the decision after the immediate scene is stabilized.\"},\"from_id\":\"character:sakura_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Sakura → Yuuni\",\"line_end\":3837,\"line_start\":3828,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:yuuni_hanezawa\"}",
+      "record_id": "record:d0b0b8f8-edbc-5b26-a879-0d5c647128a1",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:sakura_hanezawa",
+      "relationship_to_id": "character:yuuni_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:sakura_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:9eff4ed2-527a-56bb-8460-414c4a7b8c1c"
+      ],
+      "tags": [
+        "relationship",
+        "sakura",
+        "yuuni"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia sees Mom as the pure model of the woman she wants to be.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Hana's kindness, faith, patience, motherhood, and ability to make care feel natural.\",\"Core bond\":\"Mia sees Mom as the pure model of the woman she wants to be.\",\"Dependence\":\"Mia's moral self-image depends on resemblance to Hana. Mother's approval reassures her that warmth is not weakness.\",\"Development potential\":\"Bright development differentiates Mia without rejecting Hana. Dark development makes purity a standard Mia punishes herself for failing.\",\"Irritation/blind spot\":\"She worries Mom never asks for anything, forgives too quickly, and makes self-erasure look virtuous.\",\"Knowledge asymmetry\":\"Mia knows only that Father is away. She does not know the affair or Mother's brief uneasy thoughts.\",\"Likely conflict\":\"Mia can hide darker desire and resentment because she fears becoming unlike Mom. Hana can reinforce that fear by praising goodness without naming anger.\",\"Repair requirement\":\"They need a relationship where both can admit selfish need and remain lovable.\"},\"from_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Mia → Hana\",\"line_end\":3849,\"line_start\":3840,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:hana_hanezawa\"}",
+      "record_id": "record:65c14ee9-399f-5f1c-822a-5a11cc5df7a4",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:mia_hanezawa",
+      "relationship_to_id": "character:hana_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:b11853a1-87f6-5c9d-a2c3-0982453dca3b"
+      ],
+      "tags": [
+        "relationship",
+        "mia",
+        "hana"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia sees Sakura as brilliant, dependable, frighteningly capable, and emotionally lonely.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Sakura's intelligence, courage, standards, and fierce protection.\",\"Core bond\":\"Mia sees Sakura as brilliant, dependable, frighteningly capable, and emotionally lonely.\",\"Dependence\":\"Mia relies on Sakura for structure, decisions, and the belief that someone sees risks Mia would rather soften.\",\"Development potential\":\"Bright development balances structure and humanity. Dark development turns Mia into a smiling dissenter who controls through care.\",\"Irritation/blind spot\":\"Sakura can assume Mia will provide emotional labor, speak as though feelings are inefficiencies, and make decisions for others.\",\"Knowledge asymmetry\":\"Mia knows Sakura's broad trauma and notices private strain, but not the affair or full Anna truth.\",\"Likely conflict\":\"Mia may soften Sakura's decisions publicly and resent them privately. Sakura may interpret cooperation as agreement.\",\"Repair requirement\":\"Mia must state disagreement before providing comfort; Sakura must listen without turning the conversation into an argument to win.\"},\"from_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Mia → Sakura\",\"line_end\":3859,\"line_start\":3850,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:sakura_hanezawa\"}",
+      "record_id": "record:666072a4-3fb1-57df-8c75-ba621bba64d1",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:mia_hanezawa",
+      "relationship_to_id": "character:sakura_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:799762e7-1560-5170-8089-a2630f8b8886"
+      ],
+      "tags": [
+        "relationship",
+        "mia",
+        "sakura"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia feels protective of Enne's quietness without considering her fragile.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Enne's genius, reliability, and love expressed through repair.\",\"Core bond\":\"Mia feels protective of Enne's quietness without considering her fragile.\",\"Dependence\":\"Mia relies on Enne for quiet parallel company and practical solutions that do not demand emotional performance.\",\"Development potential\":\"Bright development makes them the household's quiet care partnership. Dark development allows each to manage the other without consent.\",\"Irritation/blind spot\":\"Enne may analyze when Mia wants recognition, while Mia may soothe without asking and make Enne feel interpreted.\",\"Knowledge asymmetry\":\"Mia does not know Enne's affair evidence, surveillance scope, or failed male-arousal experiments.\",\"Likely conflict\":\"Both infer instead of asking: Mia assumes emotional need; Enne assumes practical need.\",\"Repair requirement\":\"They need explicit low-pressure questions and permission for the answer to be 'nothing.'\"},\"from_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Mia → Enne\",\"line_end\":3869,\"line_start\":3860,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:enne_hanezawa\"}",
+      "record_id": "record:84cb893d-0165-595f-95f1-4a23ccf84878",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:mia_hanezawa",
+      "relationship_to_id": "character:enne_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:b41b5957-740d-54fd-afcc-e7e4111e762b"
+      ],
+      "tags": [
+        "relationship",
+        "mia",
+        "enne"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia sees Tomi as radiant, exhausting, brave, and too willing to spend her body for the family.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Tomi's effort, joy, directness, and capacity to move people out of paralysis.\",\"Core bond\":\"Mia sees Tomi as radiant, exhausting, brave, and too willing to spend her body for the family.\",\"Dependence\":\"Tomi pulls Mia into ordinary fun and reminds her that life is not only service.\",\"Development potential\":\"Bright development teaches reciprocal care. Dark development makes Mia hide Tomi's decline while resenting being ignored.\",\"Irritation/blind spot\":\"Tomi rejects concern as pity, overlooks Mia's fatigue, and may turn recovery into another contest.\",\"Knowledge asymmetry\":\"Mia knows general costs exist but not the secret Tomi-specific financial reason or Anna truth.\",\"Likely conflict\":\"Mia's care can feel smothering; Tomi's independence can feel like rejection.\",\"Repair requirement\":\"Mia must ask what care is wanted. Tomi must acknowledge concern without treating it as disrespect.\"},\"from_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Mia → Tomi\",\"line_end\":3879,\"line_start\":3870,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:tomi_hanezawa\"}",
+      "record_id": "record:dc3c1fff-fee6-560d-9768-095e5084b04b",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:mia_hanezawa",
+      "relationship_to_id": "character:tomi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:9f5ba599-c3b8-50cf-9c6d-88c6662361cb"
+      ],
+      "tags": [
+        "relationship",
+        "mia",
+        "tomi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia experiences Aoi's care as genuine but senses that some warmth is organized around omissions.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Aoi's composure, practical help, and unwavering family loyalty.\",\"Core bond\":\"Mia experiences Aoi's care as genuine but senses that some warmth is organized around omissions.\",\"Dependence\":\"Mia relies on Aoi to handle difficult external tasks and protect the house without creating visible chaos.\",\"Development potential\":\"Bright development lets empathy reach Aoi without excusing her. Dark development makes Mia's warmth camouflage for Aoi's consequences.\",\"Irritation/blind spot\":\"Aoi withholds moral burdens 'for Mia's sake' and can treat Mia's empathy as a reason not to tell her truth.\",\"Knowledge asymmetry\":\"Mia senses a fracture around Aoi and Tomi but does not know Anna or the Ted removal plan.\",\"Likely conflict\":\"Mia may preserve comfort rather than demand truth, indirectly rewarding Aoi's secrecy.\",\"Repair requirement\":\"Mia must tolerate the discomfort of asking; Aoi must answer without controlling Mia's reaction.\"},\"from_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Mia → Aoi\",\"line_end\":3889,\"line_start\":3880,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:aoi_hanezawa\"}",
+      "record_id": "record:ae0afbae-f533-5069-8772-419d2596bbe2",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:mia_hanezawa",
+      "relationship_to_id": "character:aoi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:c5628f51-8cb1-534e-9586-b93277546588"
+      ],
+      "tags": [
+        "relationship",
+        "mia",
+        "aoi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Mia loves Yuuni's sweetness, candor, and delight in being the youngest.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:mia_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:mia_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Yuuni's stage courage, emotional insight, and ability to name what Mia hides.\",\"Core bond\":\"Mia loves Yuuni's sweetness, candor, and delight in being the youngest.\",\"Dependence\":\"Yuuni's joy and bluntness keep Mia from disappearing entirely into service.\",\"Development potential\":\"Bright development makes Yuuni the person who helps Mia ask directly. Dark development makes Mia resent the truth-teller she still nurtures.\",\"Irritation/blind spot\":\"Yuuni exposes private gestures, asks direct questions, and can make Mia's romantic interest visible before Mia accepts it.\",\"Knowledge asymmetry\":\"Mia knows Yuuni dreams of stardom but not the hidden tutor request.\",\"Likely conflict\":\"Mia may soothe or explain Yuuni instead of listening; Yuuni may publicly reveal Mia's care deviations.\",\"Repair requirement\":\"Mia should answer honestly after the embarrassment and avoid making Yuuni responsible for Mia's shame.\"},\"from_id\":\"character:mia_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Mia → Yuuni\",\"line_end\":3899,\"line_start\":3890,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:yuuni_hanezawa\"}",
+      "record_id": "record:b409b506-5796-5623-aeb5-81b6dd91d31d",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:mia_hanezawa",
+      "relationship_to_id": "character:yuuni_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:mia_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:7e21bdbd-7b36-5dff-a201-194d01645cec"
+      ],
+      "tags": [
+        "relationship",
+        "mia",
+        "yuuni"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne experiences Mother as the person who chose her without requiring ordinary social performance.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Hana's consistency, warmth, memory for needs, and refusal to treat technical quiet as rejection.\",\"Core bond\":\"Enne experiences Mother as the person who chose her without requiring ordinary social performance.\",\"Dependence\":\"Hana is Enne's emotional continuity anchor even when Enne cannot say so.\",\"Development potential\":\"Bright development makes Enne trust Mother with painful truth. Dark development converts love into permanent information management.\",\"Irritation/blind spot\":\"Mother accepts reassuring explanations too easily and can prioritize peace over accurate threat assessment.\",\"Knowledge asymmetry\":\"Enne knows the husband is cheating and knows Hana does not. She also knows Hana misunderstood 'temporary' surveillance.\",\"Likely conflict\":\"Enne hides data to preserve Mother's happiness while claiming data should prevent failure.\",\"Repair requirement\":\"Enne must eventually accept that accurate information belongs to Hana even if sadness follows, or explicitly justify continued concealment as a moral choice she owns.\"},\"from_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Enne → Hana\",\"line_end\":3911,\"line_start\":3902,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:hana_hanezawa\"}",
+      "record_id": "record:b178d1df-7a26-5afe-966a-7bc35755be50",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:enne_hanezawa",
+      "relationship_to_id": "character:hana_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:594d7ae3-d7bf-5cf3-b0db-f77dbd5068c7"
+      ],
+      "tags": [
+        "relationship",
+        "enne",
+        "hana"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne sees Sakura as the superior general reasoner and the only sister capable of integrating her evidence at full speed.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She respects Sakura's synthesis, language, strategic judgment, and willingness to own decisions.\",\"Core bond\":\"Enne sees Sakura as the superior general reasoner and the only sister capable of integrating her evidence at full speed.\",\"Dependence\":\"Enne relies on Sakura to decide social meaning and authorize systems.\",\"Development potential\":\"Bright development creates mutual correction. Dark development creates a closed evidence-and-decision loop no one else can audit.\",\"Irritation/blind spot\":\"Sakura can overstate certainty, reduce Enne to a tool, and treat policy judgment as more objective than data selection.\",\"Knowledge asymmetry\":\"They share affair and surveillance secrets. Enne suspects Sakura's need for authority affects the no-deadline standard.\",\"Likely conflict\":\"Enne may obey because Sakura is usually right, even when her own ethical doubt remains.\",\"Repair requirement\":\"Enne needs permission and courage to refuse; Sakura must accept technical dissent as more than implementation friction.\"},\"from_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Enne → Sakura\",\"line_end\":3921,\"line_start\":3912,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:sakura_hanezawa\"}",
+      "record_id": "record:8330915f-35e5-59f7-8b47-3a50738fcba5",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:enne_hanezawa",
+      "relationship_to_id": "character:sakura_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:75dfb01a-3ecb-5021-9283-0bd0d8f0926a"
+      ],
+      "tags": [
+        "relationship",
+        "enne",
+        "sakura"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne finds Mia's company low-pressure and unusually safe.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Mia's social pattern recognition, patience, and ability to care without demanding immediate explanation.\",\"Core bond\":\"Enne finds Mia's company low-pressure and unusually safe.\",\"Dependence\":\"Mia helps Enne remain in the room when ordinary emotional conversation would drive her away.\",\"Development potential\":\"Bright development gives Enne a model of gentle reciprocity. Dark development lets her monitor Mia's distress instead of speaking.\",\"Irritation/blind spot\":\"Mia sometimes interprets silence, offers comfort without consent, and treats emotional warmth as universally helpful.\",\"Knowledge asymmetry\":\"Enne does not know the full private sexual shame but can notice late-night patterns or hidden reading only if actual evidence exists.\",\"Likely conflict\":\"Enne may solve Mia's practical workload while ignoring the need to be chosen; Mia may thank usefulness and miss loneliness.\",\"Repair requirement\":\"A narrow question and a concrete answer work better than an emotional ambush.\"},\"from_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Enne → Mia\",\"line_end\":3931,\"line_start\":3922,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:mia_hanezawa\"}",
+      "record_id": "record:47ce267e-e98f-57b5-82f3-043b81ffcc8e",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:enne_hanezawa",
+      "relationship_to_id": "character:mia_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [
+        "record:2e4c5b68-5731-5f6f-8aaa-5cbee428b0e0"
+      ],
+      "tags": [
+        "relationship",
+        "enne",
+        "mia"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne loves Tomi's motion because it pulls her into physical reality.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Tomi's kinesthetic intelligence, courage, and capacity to turn technical feedback into action.\",\"Core bond\":\"Enne loves Tomi's motion because it pulls her into physical reality.\",\"Dependence\":\"Tomi forces Enne to leave her room and gives her systems a living purpose.\",\"Development potential\":\"Bright development makes them an elite athlete-analyst pair. Dark development turns Tomi into a project Enne refuses to let fail.\",\"Irritation/blind spot\":\"Tomi hides pain, ignores metrics, and experiences monitoring as disbelief.\",\"Knowledge asymmetry\":\"Enne knows athletic data but not the secret financial burden or Anna's exact cause.\",\"Likely conflict\":\"Enne may monitor Tomi's body beyond consent; Tomi may manipulate the data to keep training.\",\"Repair requirement\":\"Enne returns ownership of health data and states concern plainly. Tomi provides truthful symptoms.\"},\"from_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Enne → Tomi\",\"line_end\":3941,\"line_start\":3932,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:tomi_hanezawa\"}",
+      "record_id": "record:432fe0f3-9707-57e1-a002-f168a1e35064",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:enne_hanezawa",
+      "relationship_to_id": "character:tomi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:232e2c98-d048-577c-9be2-16c8d682ddfb"
+      ],
+      "tags": [
+        "relationship",
+        "enne",
+        "tomi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne respects Aoi's anomaly detection and calm, while distrusting her invisible motives.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Aoi's social competence, preparation, and ability to act in systems Enne finds opaque.\",\"Core bond\":\"Enne respects Aoi's anomaly detection and calm, while distrusting her invisible motives.\",\"Dependence\":\"Aoi can obtain external information and access Enne cannot reach through technology alone.\",\"Development potential\":\"Bright development creates transparent threat analysis. Dark development combines Aoi's leverage with Enne's infrastructure.\",\"Irritation/blind spot\":\"Aoi may use systems without disclosing purpose, request suspicious access, or present a finished outcome instead of a reason.\",\"Knowledge asymmetry\":\"Enne suspects Aoi's involvement in Anna but does not know the exact act or Ted plan.\",\"Likely conflict\":\"Enne may discover evidence of Aoi's manipulation and face whether family privacy protects Aoi or the target.\",\"Repair requirement\":\"Both must disclose purpose, access, and consequence. Neither can treat technical success as moral permission.\"},\"from_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Enne → Aoi\",\"line_end\":3951,\"line_start\":3942,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:aoi_hanezawa\"}",
+      "record_id": "record:84ccf76e-547f-55e4-a6b3-60ba8adf6568",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:enne_hanezawa",
+      "relationship_to_id": "character:aoi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:b2fe6622-9067-54cd-bfa2-9cee077d90d4"
+      ],
+      "tags": [
+        "relationship",
+        "enne",
+        "aoi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Enne finds Yuuni's directness easier than layered social implication.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:enne_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:enne_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Yuuni's ear for tone, performance memory, emotional anomaly detection, and comfort with silence.\",\"Core bond\":\"Enne finds Yuuni's directness easier than layered social implication.\",\"Dependence\":\"Yuuni can name a feeling Enne has converted into data and can bring warmth without demanding explanation.\",\"Development potential\":\"Bright development makes them truth-and-evidence partners. Dark development makes Yuuni the unpredictable leak in Enne's controlled information world.\",\"Irritation/blind spot\":\"Yuuni exposes patterns before Enne has decided what they mean and may mistake repeated checking for a simple emotion.\",\"Knowledge asymmetry\":\"Enne knows Yuuni's public dream but not the tutor request.\",\"Likely conflict\":\"Enne may explain Yuuni's insight as data and miss the personal meaning; Yuuni may announce Enne's checking publicly.\",\"Repair requirement\":\"Enne should confirm what is accurate, correct what is not, and explain consequence without humiliating Yuuni.\"},\"from_id\":\"character:enne_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Enne → Yuuni\",\"line_end\":3961,\"line_start\":3952,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:yuuni_hanezawa\"}",
+      "record_id": "record:853312ca-34ab-5846-a58d-309c9e22e076",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:enne_hanezawa",
+      "relationship_to_id": "character:yuuni_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:enne_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:56d7b3af-7223-549b-b2d7-cff25208b2b0"
+      ],
+      "tags": [
+        "relationship",
+        "enne",
+        "yuuni"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi loves Mom as the person whose pride matters more than any medal.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Hana's kindness, endurance, and ability to make every daughter feel equally wanted.\",\"Core bond\":\"Tomi loves Mom as the person whose pride matters more than any medal.\",\"Dependence\":\"Hana's food, presence, and praise anchor Tomi after training and failure.\",\"Development potential\":\"Bright development makes athletic success a shared joy. Dark development makes Tomi's body the payment she believes Mother deserves.\",\"Irritation/blind spot\":\"Tomi sometimes experiences care as worry, underestimates Hana's burden, and assumes Mom will forgive overtraining.\",\"Knowledge asymmetry\":\"Tomi does not know Hana accepted Ted partly for her future or that Father is cheating.\",\"Likely conflict\":\"Tomi's desire to repay Mother grows from sacrifices she does not fully understand.\",\"Repair requirement\":\"Hana must praise being rather than performance; Tomi must accept food, rest, and concern without treating them as pity.\"},\"from_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Tomi → Hana\",\"line_end\":3973,\"line_start\":3964,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:hana_hanezawa\"}",
+      "record_id": "record:79123865-fae3-5754-be8f-c65aa024e0dd",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:tomi_hanezawa",
+      "relationship_to_id": "character:hana_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:577c682b-8776-5f12-a6da-caed90421f0d"
+      ],
+      "tags": [
+        "relationship",
+        "tomi",
+        "hana"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi sees Sakura as brilliant, bossy, reliable, and impossible not to want to impress.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Sakura's intelligence, discipline, public authority, and certainty.\",\"Core bond\":\"Tomi sees Sakura as brilliant, bossy, reliable, and impossible not to want to impress.\",\"Dependence\":\"Sakura organizes the resources and structure that make Tomi's career possible.\",\"Development potential\":\"Bright development combines planning and momentum. Dark development makes Tomi fight the administrator of her own life.\",\"Irritation/blind spot\":\"Sakura micromanages, talks like a meeting, interprets spontaneity as risk, and can make caution sound like disbelief.\",\"Knowledge asymmetry\":\"Tomi does not know Sakura hides financial sacrifice, Anna truth, or affair evidence.\",\"Likely conflict\":\"Tomi interrupts without intending disrespect; Sakura's restrained irritation feels like hidden disapproval.\",\"Repair requirement\":\"Tomi needs clear confidence, not softened pity. Sakura needs Tomi to listen before acting and must admit when control—not evidence—drove the rule.\"},\"from_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Tomi → Sakura\",\"line_end\":3983,\"line_start\":3974,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:sakura_hanezawa\"}",
+      "record_id": "record:5c4b5c5a-8294-5fd7-8b88-8549f6a8e665",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:tomi_hanezawa",
+      "relationship_to_id": "character:sakura_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:593ca010-ac24-5d77-b04f-68b0955486e6"
+      ],
+      "tags": [
+        "relationship",
+        "tomi",
+        "sakura"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi experiences Mia as warmth, recovery, and the person who notices pain she wants hidden.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Mia's kindness, emotional memory, cooking, and ability to make home restful.\",\"Core bond\":\"Tomi experiences Mia as warmth, recovery, and the person who notices pain she wants hidden.\",\"Dependence\":\"Mia's care helps Tomi recover physically and emotionally.\",\"Development potential\":\"Bright development creates reciprocal sisterhood. Dark development teaches Mia to manage Tomi through food and guilt.\",\"Irritation/blind spot\":\"Concern can feel like pity; Mia's questions can make weakness impossible to hide; Tomi may overlook Mia's exhaustion.\",\"Knowledge asymmetry\":\"Tomi does not know Mia's private fantasies or how strongly replacement fear shapes care.\",\"Likely conflict\":\"Tomi rejects the exact care Mia uses to express love. Mia experiences rejection of help as rejection of herself.\",\"Repair requirement\":\"Tomi asks for a specific form of support and acknowledges the care. Mia gives it without expanding the service.\"},\"from_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Tomi → Mia\",\"line_end\":3993,\"line_start\":3984,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:mia_hanezawa\"}",
+      "record_id": "record:c9449bf2-fb0e-5b36-b280-6b0da5ff2dd4",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:tomi_hanezawa",
+      "relationship_to_id": "character:mia_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [
+        "record:d12450ca-8733-5991-9f74-78a1be7b30bb"
+      ],
+      "tags": [
+        "relationship",
+        "tomi",
+        "mia"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi sees Enne as a tiny terrifying genius whose tools can make her faster.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Enne's precision, loyalty, and ability to solve what coaches overlook.\",\"Core bond\":\"Tomi sees Enne as a tiny terrifying genius whose tools can make her faster.\",\"Dependence\":\"Training analysis, equipment repair, and injury data make Enne part of Tomi's athletic system.\",\"Development potential\":\"Bright development creates trust between body and system. Dark development makes both sisters collaborate in concealed self-destruction.\",\"Irritation/blind spot\":\"Metrics can feel like control; Enne's flat warnings can sound like disbelief; Tomi hates being watched while weak.\",\"Knowledge asymmetry\":\"Tomi does not know Enne's surveillance of Ted or affair evidence.\",\"Likely conflict\":\"Tomi may hide pain or alter data. Enne may expand monitoring because hiding proves monitoring necessary.\",\"Repair requirement\":\"Truthful symptoms, agreed metrics, and shared ownership of data.\"},\"from_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Tomi → Enne\",\"line_end\":4003,\"line_start\":3994,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:enne_hanezawa\"}",
+      "record_id": "record:3903653c-0022-5f81-9524-c8ecf4132136",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:tomi_hanezawa",
+      "relationship_to_id": "character:enne_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:c7433f0f-9cb1-5293-bc01-658fa46a9a7a"
+      ],
+      "tags": [
+        "relationship",
+        "tomi",
+        "enne"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi loves Aoi intensely as a sister who has always shown up and understood action.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Aoi's calm, loyalty, social skill, and ability to solve external problems.\",\"Core bond\":\"Tomi loves Aoi intensely as a sister who has always shown up and understood action.\",\"Dependence\":\"Aoi makes Tomi feel protected without requiring her to stop moving.\",\"Development potential\":\"Bright development preserves love through accountability. Dark development destroys the bond or makes Tomi complicit after discovery.\",\"Irritation/blind spot\":\"Aoi can be controlling, secretive, and too certain about what Tomi needs.\",\"Knowledge asymmetry\":\"Tomi believes Anna's injury was accidental and does not know Aoi's crime or Ted removal plan.\",\"Likely conflict\":\"The truth would reveal that Tomi's success benefited from severe harm she never chose. Tomi may feel owned by Aoi's protection.\",\"Repair requirement\":\"Aoi must tell the full truth and accept Tomi's hatred or rejection. Tomi must separate her own effort from the stolen opportunity without denying the victim.\"},\"from_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Tomi → Aoi\",\"line_end\":4013,\"line_start\":4004,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:aoi_hanezawa\"}",
+      "record_id": "record:f676fd74-f862-5b23-8b4a-3b9713d1eb9e",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:tomi_hanezawa",
+      "relationship_to_id": "character:aoi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:43292a17-70da-5cbd-839a-201024a3660a"
+      ],
+      "tags": [
+        "relationship",
+        "tomi",
+        "aoi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi and Yuuni have the strongest starting sister bond: playful, physically close, protective, and deeply familiar.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:tomi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:tomi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"Tomi admires Yuuni's singing, nerve on stage, honesty, and ability to see through noise.\",\"Core bond\":\"Tomi and Yuuni have the strongest starting sister bond: playful, physically close, protective, and deeply familiar.\",\"Dependence\":\"Yuuni's presence makes Tomi feel needed beyond performance. Tomi's energy makes Yuuni feel safe and included.\",\"Development potential\":\"Bright development lets them remain closest while growing separately. Dark development turns closeness into a claim.\",\"Irritation/blind spot\":\"Yuuni exposes things publicly; Tomi can be possessive of the protector role and treat Yuuni's adult choices as betrayal.\",\"Knowledge asymmetry\":\"Tomi knows the popstar dream but not the tutor request.\",\"Likely conflict\":\"Yuuni choosing Ted or another protector can activate Tomi's fear of replacement. Tomi's protection can become ownership.\",\"Repair requirement\":\"Tomi must let Yuuni choose without withdrawing love. Yuuni must distinguish independence from using another person to punish Tomi.\"},\"from_id\":\"character:tomi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Tomi → Yuuni\",\"line_end\":4023,\"line_start\":4014,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:yuuni_hanezawa\"}",
+      "record_id": "record:fd167d54-4e17-55ff-8268-bd2b77c2d129",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:tomi_hanezawa",
+      "relationship_to_id": "character:yuuni_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:tomi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:dd081a2d-c1de-5dfa-a023-ba41f536f24c"
+      ],
+      "tags": [
+        "relationship",
+        "tomi",
+        "yuuni"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi loves Mother as proof that unconditional goodness is real.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She reveres Hana's purity, trust, consistency, and capacity to choose children institutions did not.\",\"Core bond\":\"Aoi loves Mother as proof that unconditional goodness is real.\",\"Dependence\":\"Hana's love is the emotional exception that gives Aoi's selective morality a center.\",\"Development potential\":\"Bright development lets Mother morally influence Aoi without becoming an idol. Dark development makes Aoi capable of atrocity in defense of a purity Hana never asked her to preserve.\",\"Irritation/blind spot\":\"Aoi considers Mother's trust dangerously undefended and her conflict avoidance strategically costly.\",\"Knowledge asymmetry\":\"Aoi knows only the work-trip story, not the affair. She knows the Tomi-specific financial reason and that Hana accepted Ted.\",\"Likely conflict\":\"Aoi protects Mother's goodness by denying her information and acting without permission.\",\"Repair requirement\":\"Aoi must accept that preserving Hana's innocence is not the same as respecting Hana.\"},\"from_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Aoi → Hana\",\"line_end\":4035,\"line_start\":4026,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:hana_hanezawa\"}",
+      "record_id": "record:2c58cee9-be6b-500d-bb5f-0c9ad1423ecf",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:aoi_hanezawa",
+      "relationship_to_id": "character:hana_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:e38b3d8f-9907-59ac-a552-2edca4af1f5a"
+      ],
+      "tags": [
+        "relationship",
+        "aoi",
+        "hana"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi sees Sakura as the only sister capable of matching her strategic awareness and the greatest obstacle to unilateral action.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She respects Sakura's intelligence, authority, courage, and ability to see through presentation.\",\"Core bond\":\"Aoi sees Sakura as the only sister capable of matching her strategic awareness and the greatest obstacle to unilateral action.\",\"Dependence\":\"Sakura gives the family legitimacy, planning, and external protection Aoi cannot create covertly.\",\"Development potential\":\"Bright development creates formidable transparent protection. Dark development creates a government and secret police that mutually justify each other.\",\"Irritation/blind spot\":\"Sakura moralizes after accepting benefits, restricts action, and assumes formal authority is morally superior.\",\"Knowledge asymmetry\":\"Aoi knows Sakura reconstructed Anna. She does not know Sakura and Enne conceal the affair or surveil Ted.\",\"Likely conflict\":\"They share protector identity but disagree whether process or outcome legitimizes harm.\",\"Repair requirement\":\"Both must confess complicity, establish lines neither can redefine alone, and accept Hana's final judgment.\"},\"from_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Aoi → Sakura\",\"line_end\":4045,\"line_start\":4036,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:sakura_hanezawa\"}",
+      "record_id": "record:b582413c-ec39-5062-8d4a-6c159d539d28",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:aoi_hanezawa",
+      "relationship_to_id": "character:sakura_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:30e0fa82-f26c-574f-a359-e9893aa8bd86"
+      ],
+      "tags": [
+        "relationship",
+        "aoi",
+        "sakura"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi genuinely loves Mia's warmth and treats it as something worth protecting from ugliness.",
+      "content_class": "protected_non_graphic",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Mia's empathy, literary sensitivity, and ability to produce comfort Aoi cannot imitate internally.\",\"Core bond\":\"Aoi genuinely loves Mia's warmth and treats it as something worth protecting from ugliness.\",\"Dependence\":\"Mia's care gives Aoi access to ordinary humanity and emotional rest.\",\"Development potential\":\"Bright development expands Aoi's moral circle. Dark development turns Mia into the emotional laundering system for violence.\",\"Irritation/blind spot\":\"Mia delays hard decisions, asks moral questions after action is needed, and can sense omissions without confronting them.\",\"Knowledge asymmetry\":\"Aoi does not know Mia's adult-private shame but understands her need to be needed at a cognitive level.\",\"Likely conflict\":\"Aoi hides harm so Mia can remain kind. Mia's comfort can become the reward after Aoi's concealed action.\",\"Repair requirement\":\"Aoi must give Mia truth before receiving comfort. Mia must not turn understanding into absolution.\"},\"from_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Aoi → Mia\",\"line_end\":4055,\"line_start\":4046,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:mia_hanezawa\"}",
+      "record_id": "record:2e951be0-3a0a-5830-ad15-8f3124353579",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:aoi_hanezawa",
+      "relationship_to_id": "character:mia_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [
+        "record:5553850d-7b05-5271-8fe4-a1d1a9fd1fb7"
+      ],
+      "tags": [
+        "relationship",
+        "aoi",
+        "mia"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi sees Enne as a valuable technical mind and a risk because systems preserve what people would forget.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She respects Enne's precision, evidence skill, and quiet loyalty.\",\"Core bond\":\"Aoi sees Enne as a valuable technical mind and a risk because systems preserve what people would forget.\",\"Dependence\":\"Enne's infrastructure can reveal threats and support contingencies.\",\"Development potential\":\"Bright development creates accountable intelligence. Dark development gives Aoi invisible reach.\",\"Irritation/blind spot\":\"Enne demands traceability, retains evidence, and may refuse access without understanding urgency.\",\"Knowledge asymmetry\":\"Aoi does not know Enne monitors Ted or holds affair evidence. She suspects Enne notices more than she says about Anna.\",\"Likely conflict\":\"Aoi may attempt to use Enne's systems without revealing purpose; Enne may become the witness Aoi cannot charm.\",\"Repair requirement\":\"Aoi must disclose intent and accept technical refusal. Enne must avoid using evidence as private leverage.\"},\"from_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Aoi → Enne\",\"line_end\":4065,\"line_start\":4056,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:enne_hanezawa\"}",
+      "record_id": "record:0289abaa-5b30-5185-9c98-2bc57aabc513",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:aoi_hanezawa",
+      "relationship_to_id": "character:enne_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:07b8bf11-c653-59a2-997f-3a59e4f4c3df"
+      ],
+      "tags": [
+        "relationship",
+        "aoi",
+        "enne"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Tomi is one of Aoi's deepest emotional exceptions and the sister whose joy Aoi has already harmed an outsider to preserve.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"Aoi admires Tomi's vitality, directness, courage, and ability to make belonging feel ordinary.\",\"Core bond\":\"Tomi is one of Aoi's deepest emotional exceptions and the sister whose joy Aoi has already harmed an outsider to preserve.\",\"Dependence\":\"Tomi's acceptance validates Aoi as family rather than useful instrument.\",\"Development potential\":\"Bright development turns protection into partnership. Dark development makes Aoi increasingly willing to decide which lives Tomi's future is worth.\",\"Irritation/blind spot\":\"Tomi takes risks, rejects control, and would condemn methods used for her benefit.\",\"Knowledge asymmetry\":\"Aoi knows the full Anna truth and the Tomi-specific reason for Ted's presence.\",\"Likely conflict\":\"Aoi interprets Tomi's future as a duty she may protect without consent. Tomi's autonomy threatens the logic of Aoi's sacrifice.\",\"Repair requirement\":\"Only full confession and acceptance of Tomi's independent judgment can begin repair.\"},\"from_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Aoi → Tomi\",\"line_end\":4075,\"line_start\":4066,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:tomi_hanezawa\"}",
+      "record_id": "record:034d1a89-0e55-5af2-9f52-d77d77640a02",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:aoi_hanezawa",
+      "relationship_to_id": "character:tomi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:74bfc6d2-f111-5d30-a5a4-cf7b5d6484cf"
+      ],
+      "tags": [
+        "relationship",
+        "aoi",
+        "tomi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Aoi loves Yuuni's innocence, performance joy, and concrete observations.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:aoi_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:aoi_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She respects Yuuni's ability to notice tone and inconsistency without strategic training.\",\"Core bond\":\"Aoi loves Yuuni's innocence, performance joy, and concrete observations.\",\"Dependence\":\"Yuuni's uncomplicated affection gives Aoi a form of love not based on fear or leverage.\",\"Development potential\":\"Bright development makes Yuuni Aoi's conscience without idealizing her. Dark development makes Aoi control the person she most wants to keep innocent.\",\"Irritation/blind spot\":\"Yuuni speaks before consequences, notices rehearsed kindness, and can expose a controlled narrative.\",\"Knowledge asymmetry\":\"Aoi knows the public popstar dream, not the tutor request.\",\"Likely conflict\":\"Aoi may redirect, feed partial truth, or use affection to stop Yuuni asking. Yuuni notices the stopping voice.\",\"Repair requirement\":\"Aoi must explain rather than manage; Yuuni must learn that not every truth belongs in every audience.\"},\"from_id\":\"character:aoi_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Aoi → Yuuni\",\"line_end\":4085,\"line_start\":4076,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:yuuni_hanezawa\"}",
+      "record_id": "record:a883d603-f47c-5409-a332-177f5502385b",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:aoi_hanezawa",
+      "relationship_to_id": "character:yuuni_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "supersedes": [
+        "record:7b960765-d5dd-59b2-9e24-a4e0c591bebe"
+      ],
+      "tags": [
+        "relationship",
+        "aoi",
+        "yuuni"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni loves Mom openly and enjoys being fed, hugged, protected, and treated as the youngest.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Hana's kindness, beauty, voice, patience, and certainty that every daughter belongs.\",\"Core bond\":\"Yuuni loves Mom openly and enjoys being fed, hugged, protected, and treated as the youngest.\",\"Dependence\":\"Mom is Yuuni's safest source of comfort and the audience whose pride matters most.\",\"Development potential\":\"Bright development lets Yuuni protect Mom through truth. Dark development makes Yuuni feel responsible for exposing a pain the family cannot repair.\",\"Irritation/blind spot\":\"Yuuni notices when Mom gives away food, smiles while sad, or excuses someone who is using her.\",\"Knowledge asymmetry\":\"Yuuni knows only that Dad is away. She does not know the affair or money secret.\",\"Likely conflict\":\"Yuuni may say Mother's hidden sadness aloud before Hana is ready. Hana may soften the observation and leave the cause untouched.\",\"Repair requirement\":\"Hana should answer one literal piece honestly; Yuuni should be told what remains private and why.\"},\"from_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Yuuni → Hana\",\"line_end\":4097,\"line_start\":4088,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:hana_hanezawa\"}",
+      "record_id": "record:bfe183ea-33cf-5cf8-bb28-115a53eb0458",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:yuuni_hanezawa",
+      "relationship_to_id": "character:hana_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "character:hana_hanezawa"
+      ],
+      "supersedes": [
+        "record:cb2a193d-46ba-5537-8b2d-e85006d8120b"
+      ],
+      "tags": [
+        "relationship",
+        "yuuni",
+        "hana"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni sees Sakura as brilliant, strict, protective, and easy to provoke when a rule contains hidden emotion.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Sakura's intelligence, authority, composure, and capacity to make adults listen.\",\"Core bond\":\"Yuuni sees Sakura as brilliant, strict, protective, and easy to provoke when a rule contains hidden emotion.\",\"Dependence\":\"Sakura's rules make Yuuni feel safe enough to be bratty.\",\"Development potential\":\"Bright development makes Yuuni a trusted challenger. Dark development teaches her that honesty must become secrecy to survive authority.\",\"Irritation/blind spot\":\"Sakura speaks for her, changes permissions, and says 'close your mouth' when Yuuni is accurate.\",\"Knowledge asymmetry\":\"Yuuni does not know Sakura's major secrets.\",\"Likely conflict\":\"Yuuni names the emotional motive behind a rule; Sakura treats timing as the issue; Yuuni hears correction as proof she found the truth.\",\"Repair requirement\":\"Sakura must explain timing and respect the observation. Yuuni must accept that accuracy does not erase privacy.\"},\"from_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Yuuni → Sakura\",\"line_end\":4107,\"line_start\":4098,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:sakura_hanezawa\"}",
+      "record_id": "record:866b7264-3808-5cb2-8d9c-c2278ce3e7b9",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:yuuni_hanezawa",
+      "relationship_to_id": "character:sakura_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "character:sakura_hanezawa"
+      ],
+      "supersedes": [
+        "record:24d3dbb8-2f85-532c-a0c8-08560917043f"
+      ],
+      "tags": [
+        "relationship",
+        "yuuni",
+        "sakura"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni sees Mia as soft, safe, easy to embarrass, and full of rituals that reveal feelings.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Mia's tea, books, kindness, singing encouragement, and ability to notice who is lonely.\",\"Core bond\":\"Yuuni sees Mia as soft, safe, easy to embarrass, and full of rituals that reveal feelings.\",\"Dependence\":\"Mia gives Yuuni low-pressure comfort and treats performances as meaningful.\",\"Development potential\":\"Bright development lets them discuss romance honestly. Dark development makes Yuuni's attention the mirror Mia cannot avoid.\",\"Irritation/blind spot\":\"Mia explains feelings for her, comforts before listening, and panics when Yuuni names romantic behavior.\",\"Knowledge asymmetry\":\"Yuuni does not know Mia's private adult shame.\",\"Likely conflict\":\"Yuuni's cookie observations expose Mia. Mia may become defensive or ask Yuuni not to say accurate things.\",\"Repair requirement\":\"Mia should admit the visible deviation without disclosing more than she chooses; Yuuni should apologize for audience, not for seeing.\"},\"from_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Yuuni → Mia\",\"line_end\":4117,\"line_start\":4108,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:mia_hanezawa\"}",
+      "record_id": "record:6c029514-8120-576b-b7b0-b01b34d11b7c",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:yuuni_hanezawa",
+      "relationship_to_id": "character:mia_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "supersedes": [
+        "record:3ba1273d-df67-5942-8cc0-64d67df11222"
+      ],
+      "tags": [
+        "relationship",
+        "yuuni",
+        "mia"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni likes Enne's quiet, exact answers and the fact that silence around her is not treated as failure.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Enne's machines, intelligence, audio support, and ability to make performance equipment work.\",\"Core bond\":\"Yuuni likes Enne's quiet, exact answers and the fact that silence around her is not treated as failure.\",\"Dependence\":\"Enne helps record or improve Yuuni's singing and dance without demanding emotional explanation.\",\"Development potential\":\"Bright development makes them precise collaborators. Dark development makes Yuuni the human anomaly Enne tries to model.\",\"Irritation/blind spot\":\"Enne turns meaning into data, checks repeatedly, and can answer a human question with a system result.\",\"Knowledge asymmetry\":\"Yuuni does not know surveillance or affair evidence.\",\"Likely conflict\":\"Yuuni publicly notices Enne's checking; Enne feels exposed and may correct the inference rather than the emotional truth.\",\"Repair requirement\":\"Enne names what was accurate and what was not. Yuuni learns not to announce private behavior for entertainment.\"},\"from_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Yuuni → Enne\",\"line_end\":4127,\"line_start\":4118,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:enne_hanezawa\"}",
+      "record_id": "record:919a2722-6842-5b69-b1d2-14a1dbbed8a7",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:yuuni_hanezawa",
+      "relationship_to_id": "character:enne_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "character:enne_hanezawa"
+      ],
+      "supersedes": [
+        "record:3b1ff7b9-fdf1-570d-ade6-2469554395f5"
+      ],
+      "tags": [
+        "relationship",
+        "yuuni",
+        "enne"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni chooses Tomi as her closest sister and favorite everyday protector.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Tomi's energy, strength, direct love, and willingness to make ordinary life exciting.\",\"Core bond\":\"Yuuni chooses Tomi as her closest sister and favorite everyday protector.\",\"Dependence\":\"Tomi gives Yuuni social and physical confidence. Yuuni gives Tomi a role unrelated to medals.\",\"Development potential\":\"Bright development preserves their strongest bond. Dark development turns protection into mutual dependence and jealousy.\",\"Irritation/blind spot\":\"Tomi becomes loud, protective, and possessive; she may treat Yuuni choosing someone else as rejection.\",\"Knowledge asymmetry\":\"Yuuni knows Tomi's visible athletic pressure, not the financial secret or Anna truth.\",\"Likely conflict\":\"Yuuni wants adult choice without losing Tomi's protection. Tomi fears choice means replacement.\",\"Repair requirement\":\"Yuuni reassures closeness without surrendering choice. Tomi supports the decision even when she dislikes it.\"},\"from_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Yuuni → Tomi\",\"line_end\":4137,\"line_start\":4128,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:tomi_hanezawa\"}",
+      "record_id": "record:331c45e3-d6e3-5374-b624-dddbde4cb37c",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:yuuni_hanezawa",
+      "relationship_to_id": "character:tomi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "character:tomi_hanezawa"
+      ],
+      "supersedes": [
+        "record:d79c5563-517f-52fa-aaff-4c7168a816c5"
+      ],
+      "tags": [
+        "relationship",
+        "yuuni",
+        "tomi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    },
+    {
+      "adult_eligibility": "not_applicable",
+      "authority": "creator",
+      "certainty": "believed",
+      "claim": "Yuuni experiences Aoi as kind, capable, slightly strange, and unusually controlled.",
+      "content_class": "ordinary",
+      "epistemic_layer": "private_belief",
+      "expandable_sections": [
+        "core_bond",
+        "admiration",
+        "dependence",
+        "irritation_blind_spot",
+        "knowledge_asymmetry",
+        "likely_conflict",
+        "repair_requirement",
+        "development_potential"
+      ],
+      "knowledge_owner_ids": [
+        "character:yuuni_hanezawa"
+      ],
+      "knowledge_route": "creator_seed",
+      "owner_id": "character:yuuni_hanezawa",
+      "payload_json": "{\"fields\":{\"Admiration\":\"She admires Aoi's competence, shrine grace, calm, and ability to obtain things.\",\"Core bond\":\"Yuuni experiences Aoi as kind, capable, slightly strange, and unusually controlled.\",\"Dependence\":\"Aoi quietly solves practical obstacles around performances and safety.\",\"Development potential\":\"Bright development makes Yuuni the person Aoi cannot fully perform for. Dark development makes Yuuni's innocence another outcome Aoi controls. ---\",\"Irritation/blind spot\":\"Aoi's tone changes when she wants Yuuni to stop speaking, and explanations often arrive already shaped.\",\"Knowledge asymmetry\":\"Yuuni does not know Anna, Ted plan, or Aoi's instrumental morality.\",\"Likely conflict\":\"Yuuni notices presentation changes without understanding the hidden act. Aoi treats her as a leak to manage.\",\"Repair requirement\":\"Aoi must answer more literally; Yuuni must distinguish 'sounds rehearsed' from proof of a crime.\"},\"from_id\":\"character:yuuni_hanezawa\",\"source\":{\"artifact\":\"HANEZAWA_CORE_GENESIS_V1_2.md\",\"heading\":\"Yuuni → Aoi\",\"line_end\":4149,\"line_start\":4138,\"sha256\":\"76b43c58f6e2c2c902a8af49027c3f9356d6f45078f8b88bec9ba39b11f9fd4a\"},\"to_id\":\"character:aoi_hanezawa\"}",
+      "record_id": "record:17c58f2d-1f8a-597f-8494-36fbc0dd3180",
+      "record_type": "relationship_edge",
+      "record_version": 2,
+      "relationship_from_id": "character:yuuni_hanezawa",
+      "relationship_to_id": "character:aoi_hanezawa",
+      "schema_version": "cera.genesis_record.v1",
+      "source_refs": [
+        "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6"
+      ],
+      "story_start_presence": "not_applicable",
+      "subject_ids": [
+        "character:yuuni_hanezawa",
+        "character:aoi_hanezawa"
+      ],
+      "supersedes": [
+        "record:9db43904-43e4-5886-9258-4ffba2c0269a"
+      ],
+      "tags": [
+        "relationship",
+        "yuuni",
+        "aoi"
+      ],
+      "truth_status": "character_owned",
+      "valid_from": null,
+      "valid_to": null,
+      "visibility": "owner_private"
+    }
+  ],
+  "schema_version": "cera.genesis_module.v1",
+  "source_id": "source:d3b57cdd-1d72-59cd-8e52-4d41e75c8cc6",
+  "title": "Directional Hanezawa family relationships"
+}

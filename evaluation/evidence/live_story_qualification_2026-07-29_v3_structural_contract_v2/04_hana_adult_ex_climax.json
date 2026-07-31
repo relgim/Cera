@@ -1,0 +1,35 @@
+{
+  "adult": true,
+  "adult_mode": "adult_ex",
+  "automatic_retry_count": 0,
+  "case_id": "04_hana_adult_ex_climax",
+  "error": {
+    "branch_id": "branch:offline-main",
+    "details": [],
+    "error_code": "CERA_REASONER_UNAVAILABLE",
+    "generation_id": "generation:f7219922-0e98-5fbd-8e13-77686ae24bd1",
+    "message": "Codex qualification worker failed (RuntimeError@thread_run: { \"type\": \"error\", \"error\": { \"type\": \"invalid_request_error\", \"code\": \"invalid_json_schema\", \"message\": \"Invalid schema for response_format 'codex_output_schema': In context=('properties', 'adult_craft_need', 'anyOf', '0', 'properties', 'beat_requirements', 'items', 'properties', 'channel_requirements', 'items'), 'oneOf' is not permitted.\", \"param\": \"text.format.schema\" }, \"status\": 400 })",
+    "request_id": "request:qualification-five-run-live-v3-structural-contract-v2-04_hana_adult_ex_climax",
+    "retry_mode": "manual_after_review",
+    "schema_version": "cera.error.v1",
+    "stage": "reasoner_dispatch",
+    "story_state_committed": false,
+    "trace_id": "trace:7e51d8ea-f28f-5baf-9b89-4e92fd3b5a4c"
+  },
+  "fallback_enabled": false,
+  "qualification_id": "five-run-live-v3-structural-contract-v2",
+  "safe_failure_evidence": {
+    "lookup_receipts": [],
+    "mcp_bridge_receipt": null,
+    "provider_receipt": null,
+    "retains_prompt": false,
+    "retains_raw_provider_output": false,
+    "retains_secret": false
+  },
+  "schema_version": "cera.live_story_qualification_case.v2",
+  "source_sha256": "9b522d1cc7b35ffc89e63884d0e40177fdd71c4f074a935ca06fd0cf30e5f117",
+  "status": "failed",
+  "story_authority_writes": 0,
+  "story_state_committed": false,
+  "title": "Hana consent-valid Adult EX buildup and climax"
+}

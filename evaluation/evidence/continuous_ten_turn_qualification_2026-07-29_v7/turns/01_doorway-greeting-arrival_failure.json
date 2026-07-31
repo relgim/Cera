@@ -1,0 +1,188 @@
+{
+  "failure_stage": "application_execution_or_acceptance",
+  "index": 1,
+  "key": "doorway-greeting-arrival",
+  "qualification_id": "continuous-ten-turn-v7",
+  "raw_message_sha256": "8f1cea915904fd723e42802a8c9e7cf95b2713459b5e3a5d6409ebed6ca08ce7",
+  "safe_failure": {
+    "automatic_retry_count": 0,
+    "error": {
+      "branch_id": "branch:offline-main",
+      "details": [],
+      "error_code": "CERA_REASONER_CONTRACT_INVALID",
+      "generation_id": "generation:7f18addf-94d7-50b4-86b5-b49b16e58ad3",
+      "message": "Codex reasoner output failed typed decoding: reasoner draft cites evidence that was never exactly authorized",
+      "request_id": "request:867a9939-b215-5df3-8949-b3a7f44d89e7",
+      "retry_mode": "manual_after_review",
+      "schema_version": "cera.error.v1",
+      "stage": "reasoner_validation",
+      "story_state_committed": false,
+      "trace_id": "trace:eb66ffac-91db-5d91-a460-520fb9079bc9"
+    },
+    "failure_evidence_bundle": {
+      "authoritative_store_writes": 0,
+      "branch_id": "branch:offline-main",
+      "error_code": "CERA_REASONER_CONTRACT_INVALID",
+      "external_provider_calls_observed": 1,
+      "failure_bundle_id": "failure_bundle:d15f264d-97c6-568c-a2cc-ad3794abbdf7",
+      "generation_id": "generation:7f18addf-94d7-50b4-86b5-b49b16e58ad3",
+      "input_sha256": "63abcf9112ea451ec0251ce08f8ddc2407ab3505b7cff84b4eaa0028d12d0f14",
+      "output_sha256": "6397ce3d7d6cb35a1347cc318a3ab43624c1c683c3ce6f05693cac8cdf58ccb0",
+      "request_id": "request:867a9939-b215-5df3-8949-b3a7f44d89e7",
+      "retained_evidence": [
+        {
+          "evidence_id": "provider_receipt:dd62b2b9-0125-5a49-aa9c-60507985ab0a",
+          "evidence_kind": "provider_call_receipt",
+          "evidence_sha256": "f90ff382e97b6656f0037062c9da48233d21949178f27e590ef1dad4be4ac18d"
+        }
+      ],
+      "retained_receipt_payloads": [
+        {
+          "evidence_id": "provider_receipt:dd62b2b9-0125-5a49-aa9c-60507985ab0a",
+          "evidence_kind": "provider_call_receipt",
+          "evidence_sha256": "f90ff382e97b6656f0037062c9da48233d21949178f27e590ef1dad4be4ac18d",
+          "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":false,\"cost_microusd\":0,\"duration_ms\":31222,\"external_provider_calls\":1,\"input_tokens\":12844,\"model_identity_source\":\"explicit_request\",\"model_identity_verified\":false,\"model_revision\":\"openai-resolver-2026-07-28\",\"output_sha256\":\"6397ce3d7d6cb35a1347cc318a3ab43624c1c683c3ce6f05693cac8cdf58ccb0\",\"output_tokens\":1075,\"provider\":\"openai_codex\",\"provider_receipt_id\":\"provider_receipt:dd62b2b9-0125-5a49-aa9c-60507985ab0a\",\"provider_request_id_sha256\":\"f22cf1bc90405bae3f86f141ff5a72806f551005a91e8213c94ab3aeb52078b6\",\"quota_metered\":true,\"reasoning_output_tokens\":430,\"request_sha256\":\"a6b6b6ea6e48924963141c0f05c98f433b205c5ba312d043fba4db7eeb12f9b3\",\"requested_model\":\"gpt-5.6-sol\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"gpt-5.6-sol\",\"role\":\"scene_reasoner\",\"route_sha256\":\"8fa06ca8d0eb484996914e725a99ce62448394d12be6b795b9d2951edf979e91\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":null}",
+          "payload_sha256": "f21831041f5285f43712e73b600f8a7285286ec58d8939ec39b436f868017108",
+          "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+        }
+      ],
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "safe_message": "scene reasoner failed before typed acceptance",
+      "schema_version": "cera.turn_failure_evidence_bundle.v2",
+      "stage": "scene_reasoner",
+      "story_state_committed": false
+    },
+    "fallback_enabled": false,
+    "mcp_bridge_receipt": null,
+    "privacy_safe_receipt_payloads": [
+      {
+        "evidence_id": "provider_receipt:dd62b2b9-0125-5a49-aa9c-60507985ab0a",
+        "evidence_kind": "provider_call_receipt",
+        "evidence_sha256": "f90ff382e97b6656f0037062c9da48233d21949178f27e590ef1dad4be4ac18d",
+        "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":false,\"cost_microusd\":0,\"duration_ms\":31222,\"external_provider_calls\":1,\"input_tokens\":12844,\"model_identity_source\":\"explicit_request\",\"model_identity_verified\":false,\"model_revision\":\"openai-resolver-2026-07-28\",\"output_sha256\":\"6397ce3d7d6cb35a1347cc318a3ab43624c1c683c3ce6f05693cac8cdf58ccb0\",\"output_tokens\":1075,\"provider\":\"openai_codex\",\"provider_receipt_id\":\"provider_receipt:dd62b2b9-0125-5a49-aa9c-60507985ab0a\",\"provider_request_id_sha256\":\"f22cf1bc90405bae3f86f141ff5a72806f551005a91e8213c94ab3aeb52078b6\",\"quota_metered\":true,\"reasoning_output_tokens\":430,\"request_sha256\":\"a6b6b6ea6e48924963141c0f05c98f433b205c5ba312d043fba4db7eeb12f9b3\",\"requested_model\":\"gpt-5.6-sol\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"gpt-5.6-sol\",\"role\":\"scene_reasoner\",\"route_sha256\":\"8fa06ca8d0eb484996914e725a99ce62448394d12be6b795b9d2951edf979e91\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":null}",
+        "payload_sha256": "f21831041f5285f43712e73b600f8a7285286ec58d8939ec39b436f868017108",
+        "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+      }
+    ],
+    "provider_call_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 31222,
+      "external_provider_calls": 1,
+      "input_tokens": 12844,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "6397ce3d7d6cb35a1347cc318a3ab43624c1c683c3ce6f05693cac8cdf58ccb0",
+      "output_tokens": 1075,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:dd62b2b9-0125-5a49-aa9c-60507985ab0a",
+      "provider_request_id_sha256": "f22cf1bc90405bae3f86f141ff5a72806f551005a91e8213c94ab3aeb52078b6",
+      "quota_metered": true,
+      "reasoning_output_tokens": 430,
+      "request_sha256": "a6b6b6ea6e48924963141c0f05c98f433b205c5ba312d043fba4db7eeb12f9b3",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "8fa06ca8d0eb484996914e725a99ce62448394d12be6b795b9d2951edf979e91",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "retained_evidence_handles": [
+      {
+        "evidence_id": "provider_receipt:dd62b2b9-0125-5a49-aa9c-60507985ab0a",
+        "evidence_kind": "provider_call_receipt",
+        "evidence_sha256": "f90ff382e97b6656f0037062c9da48233d21949178f27e590ef1dad4be4ac18d"
+      }
+    ],
+    "retains_prompt": false,
+    "retains_secret": false,
+    "stage_journal": [
+      {
+        "branch_id": "branch:offline-main",
+        "external_provider_calls_observed": 0,
+        "failure_bundle_id": null,
+        "generation_id": "generation:7f18addf-94d7-50b4-86b5-b49b16e58ad3",
+        "input_sha256": "63abcf9112ea451ec0251ce08f8ddc2407ab3505b7cff84b4eaa0028d12d0f14",
+        "journal_id": "stage_journal:5cd239f4-af80-579e-9ffe-19fb7baf1beb",
+        "output_sha256": null,
+        "request_id": "request:867a9939-b215-5df3-8949-b3a7f44d89e7",
+        "schema_version": "cera.turn_stage_audit_entry.v1",
+        "sequence": 1,
+        "stage": "scene_reasoner",
+        "status": "started",
+        "story_state_committed": false
+      },
+      {
+        "branch_id": "branch:offline-main",
+        "external_provider_calls_observed": 1,
+        "failure_bundle_id": "failure_bundle:d15f264d-97c6-568c-a2cc-ad3794abbdf7",
+        "generation_id": "generation:7f18addf-94d7-50b4-86b5-b49b16e58ad3",
+        "input_sha256": "63abcf9112ea451ec0251ce08f8ddc2407ab3505b7cff84b4eaa0028d12d0f14",
+        "journal_id": "stage_journal:c5a896fa-4e67-5576-bc20-3d233af1413d",
+        "output_sha256": "6397ce3d7d6cb35a1347cc318a3ab43624c1c683c3ce6f05693cac8cdf58ccb0",
+        "request_id": "request:867a9939-b215-5df3-8949-b3a7f44d89e7",
+        "schema_version": "cera.turn_stage_audit_entry.v1",
+        "sequence": 2,
+        "stage": "scene_reasoner",
+        "status": "failed",
+        "story_state_committed": false
+      }
+    ],
+    "stored_failure_bundles": [
+      {
+        "authoritative_store_writes": 0,
+        "branch_id": "branch:offline-main",
+        "error_code": "CERA_REASONER_CONTRACT_INVALID",
+        "external_provider_calls_observed": 1,
+        "failure_bundle_id": "failure_bundle:d15f264d-97c6-568c-a2cc-ad3794abbdf7",
+        "generation_id": "generation:7f18addf-94d7-50b4-86b5-b49b16e58ad3",
+        "input_sha256": "63abcf9112ea451ec0251ce08f8ddc2407ab3505b7cff84b4eaa0028d12d0f14",
+        "output_sha256": "6397ce3d7d6cb35a1347cc318a3ab43624c1c683c3ce6f05693cac8cdf58ccb0",
+        "request_id": "request:867a9939-b215-5df3-8949-b3a7f44d89e7",
+        "retained_evidence": [
+          {
+            "evidence_id": "provider_receipt:dd62b2b9-0125-5a49-aa9c-60507985ab0a",
+            "evidence_kind": "provider_call_receipt",
+            "evidence_sha256": "f90ff382e97b6656f0037062c9da48233d21949178f27e590ef1dad4be4ac18d"
+          }
+        ],
+        "retained_receipt_payloads": [
+          {
+            "evidence_id": "provider_receipt:dd62b2b9-0125-5a49-aa9c-60507985ab0a",
+            "evidence_kind": "provider_call_receipt",
+            "evidence_sha256": "f90ff382e97b6656f0037062c9da48233d21949178f27e590ef1dad4be4ac18d",
+            "payload_json": "{\"automatic_retry_count\":0,\"cached_input_tokens\":0,\"cost_is_estimate\":false,\"cost_microusd\":0,\"duration_ms\":31222,\"external_provider_calls\":1,\"input_tokens\":12844,\"model_identity_source\":\"explicit_request\",\"model_identity_verified\":false,\"model_revision\":\"openai-resolver-2026-07-28\",\"output_sha256\":\"6397ce3d7d6cb35a1347cc318a3ab43624c1c683c3ce6f05693cac8cdf58ccb0\",\"output_tokens\":1075,\"provider\":\"openai_codex\",\"provider_receipt_id\":\"provider_receipt:dd62b2b9-0125-5a49-aa9c-60507985ab0a\",\"provider_request_id_sha256\":\"f22cf1bc90405bae3f86f141ff5a72806f551005a91e8213c94ab3aeb52078b6\",\"quota_metered\":true,\"reasoning_output_tokens\":430,\"request_sha256\":\"a6b6b6ea6e48924963141c0f05c98f433b205c5ba312d043fba4db7eeb12f9b3\",\"requested_model\":\"gpt-5.6-sol\",\"retains_private_evidence\":false,\"retains_prompt\":false,\"retains_raw_source\":false,\"retains_secret\":false,\"retains_story_prose\":false,\"returned_model\":\"gpt-5.6-sol\",\"role\":\"scene_reasoner\",\"route_sha256\":\"8fa06ca8d0eb484996914e725a99ce62448394d12be6b795b9d2951edf979e91\",\"schema_version\":\"cera.live_provider_call_receipt.v2\",\"story_authority_writes\":0,\"system_fingerprint_sha256\":null}",
+            "payload_sha256": "f21831041f5285f43712e73b600f8a7285286ec58d8939ec39b436f868017108",
+            "receipt_schema_version": "cera.live_provider_call_receipt.v2"
+          }
+        ],
+        "retains_private_evidence": false,
+        "retains_prompt": false,
+        "retains_raw_source": false,
+        "retains_secret": false,
+        "retains_story_prose": false,
+        "safe_message": "scene reasoner failed before typed acceptance",
+        "schema_version": "cera.turn_failure_evidence_bundle.v2",
+        "stage": "scene_reasoner",
+        "story_state_committed": false
+      }
+    ],
+    "story_state_committed": false
+  },
+  "schema_version": "cera.continuous_qualification_failure.v1",
+  "status": "failed",
+  "title": "Hana decides how Ted should enter the family evening"
+}

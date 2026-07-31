@@ -1,0 +1,58 @@
+{
+  "access_scope": "creator_local_qualification_review",
+  "artifact": {
+    "access_scope": "creator_local_qualification_review",
+    "authoritative_store_writes": 0,
+    "branch_id": "branch:offline-main",
+    "candidate_sha256": "1c401c825d93d85591a04a65cc9c4f16211eaecfb8c6d9357336f6a1e1e5f24a",
+    "excerpts": [
+      {
+        "end": 1307,
+        "excerpt": " used to, but I think it's the kind of quiet that might feel familiar if you give it time.\" A small, almost imperceptible smile touched her lips as she added, \"And you didn't seem to need anyone to fill the silence for you. That's… not a small thing.\"\n\nShe didn't say what she truly wanted to—that his presence had made the ordinary hours feel less ordinary, that she'd found herself",
+        "excerpt_sha256": "897bd5681532181ca5aa2d962b563b6f0f435bd576109975c5f4a5beafe71c48",
+        "finding_code": "protected_user_unsupplied_realization",
+        "start": 924
+      },
+      {
+        "end": 2636,
+        "excerpt": "led and unadorned.\n\n\"Your first evening was functionally adequate,\" Sakura said, her tone precise and level. \"You respected the household's physical boundaries—you didn't wander into restricted areas, you didn't create unnecessary noise after the usual quiet hour. That is more than I expected from someone unfamiliar with our routines.\" She paused, her gaze direct but not unkind. \"The real test is whether that considerati",
+        "excerpt_sha256": "a33171febe1d8baddd7ed27bc3ab819f914bc3db11cda379a9681b92688fdd4a",
+        "finding_code": "protected_user_unsupplied_realization",
+        "start": 2212
+      },
+      {
+        "end": 3081,
+        "excerpt": "sideration persists when no one is actively observing you. Words are easy. Consistent behavior is what matters.\"\n\nShe didn't voice the rest—the way she'd noted his willingness to let Mia lead the conversation earlier, the small signs of restraint that could be respect or could be calculation. Sakura didn't trust easily; trust was a resource to be allocated, not a gift. But she could acknowledge the absence of obvious failure, and for now, that was e",
+        "excerpt_sha256": "f9d2a404af5641ec36b1c1739201a8090b9d247dd0a629e07a3c7ff5ceee00f4",
+        "finding_code": "protected_user_unsupplied_realization",
+        "start": 2628
+      }
+    ],
+    "finding_sha256s": [
+      "d797551153e43f9588f18a55d11ad61ce93568bda35a65581df484585c9e1c24",
+      "0ad3b5c5919b1bcc00b4e5897a5220f4b6e25a5f83b2c124fe64fdcf4f9d57a1",
+      "848cd7bdc2b776ed6b6bd2efbdff7e2c9efb14efdadd2e2e757d38efde3a5d72"
+    ],
+    "generation_id": "generation:93b4a810-de29-5d63-b8f8-e224a4cc074d",
+    "qualification_only": true,
+    "request_id": "request:qualification-five-run-live-v6-structural-contract-v3-02_mia_sakura_selected_cast",
+    "retains_story_prose": true,
+    "retention_policy": "manual_delete_after_adjudication",
+    "review_id": "review_packet:c601c892-e650-5a3c-9d49-a160bf35cf3e",
+    "reviewer_status": "pending_creator_review",
+    "runtime_receipt_forbidden": true,
+    "schema_version": "cera.rejected_candidate_review_artifact.v1",
+    "status": "rejected",
+    "story_state_committed": false,
+    "verification_request_sha256": "865d45e3bbaa14be70fa7b5b4d121bbe64c94fd7595e16c11300835ee1ab5f5e",
+    "violation_codes": [
+      "protected_user_unsupplied_realization"
+    ]
+  },
+  "authoritative_store_writes": 0,
+  "retention_policy": "manual_delete_after_adjudication",
+  "review_sha256": "8a6d92008021c990fea7263b25541d7a83211a1721d4a0970ff8fb8958aa2b53",
+  "runtime_receipt_forbidden": true,
+  "schema_version": "cera.qualification_rejected_candidate_review_export.v1",
+  "story_state_committed": false
+}

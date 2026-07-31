@@ -1,0 +1,115 @@
+{
+  "attempts_per_stage": 1,
+  "codex_sdk_compatibility": {
+    "activation_contract": "provider_receipt_requires_successful_worker_installation",
+    "compatibility_id": "cera.codex_sdk_completion_registration.v2",
+    "route_notification_source_sha256": "8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1",
+    "sdk_version": "0.144.4"
+  },
+  "failed_turn": 4,
+  "failure_stage": "application_execution_or_acceptance",
+  "fallback_enabled": false,
+  "finished_at": "2026-07-30T02:56:12.915381+00:00",
+  "genesis_revision": "v1_2",
+  "persistent_codex_completion_registration": {
+    "cleanup_policy": "force_full_tree_before_replacement",
+    "maximum_requests_per_process": 2,
+    "process_launches": 5,
+    "qualification_id": "persistent-codex-verifier-epoch-probe-v5",
+    "requested_model": "gpt-5.6-sol",
+    "route_notification_source_sha256": "8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1",
+    "route_sha256": "45267dd3882fcbb453b1ba351c7ac7c44c29af92564dcc83c8d5f029697d597b",
+    "schema_version": "cera.persistent_codex_completion_registration_qualification_evidence.v1",
+    "sdk_compatibility_id": "cera.codex_sdk_completion_registration.v2",
+    "sdk_version": "0.144.4",
+    "summary_sha256": "1e5f7f09f0ed6b29211fe40c8ac998e6344103b84fe1ef0f4bd0b496c40c56f1",
+    "verifier_calls": 10
+  },
+  "persistent_codex_transport": {
+    "qualification_id": "persistent-codex-transport-probe-v1",
+    "reasoner_calls": 2,
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_qualification_evidence.v1",
+    "summary_sha256": "f92a08e5cda04c701c74b3d1ddd98fe1abc0da733959f56545c0eb43cd07f5f3",
+    "verifier_calls": 2
+  },
+  "persistent_codex_tree_cleanup": {
+    "cleanup_policy": "force_full_tree_before_replacement",
+    "maximum_requests_per_process": 2,
+    "process_launches": 2,
+    "qualification_id": "persistent-codex-tree-cleanup-probe-v3",
+    "requested_model": "gpt-5.6-sol",
+    "schema_version": "cera.persistent_codex_tree_cleanup_qualification_evidence.v1",
+    "summary_sha256": "d477cade6580dcc3d5df9e445047f57a8c9b74e6f24bb21b2a109afb0d4124d8",
+    "verifier_calls": 4
+  },
+  "persistent_transport_sessions": {
+    "scene_realization_verifier": {
+      "process_launch_count": 2,
+      "request_submission_count": 4
+    },
+    "scene_reasoner": {
+      "process_launch_count": 2,
+      "request_submission_count": 3
+    }
+  },
+  "qualification_id": "continuous-ten-turn-v19",
+  "reasoner_transport_policy": "persistent_no_mcp_except_request_bound_mcp_one_shot",
+  "relational_protected_user_boundary": {
+    "candidate_sha256": "4fa1f668c4cca11ebbda8fa573443ec10e8bee1b9192f7bbb0379ef8ae82e590",
+    "composer_dto_version": "cera.deepseek_composition_draft.v5",
+    "composer_model": "deepseek-v4-pro",
+    "composer_prompt_version": "cera.deepseek_scene_composer_prompt.v12",
+    "deepseek_calls": 1,
+    "qualification_id": "deepseek-relational-protected-user-boundary-v4",
+    "schema_version": "cera.relational_boundary_qualification_evidence.v1",
+    "sol_calls": 1,
+    "summary_sha256": "d18e1397eafe1e845e2722100268a7fa0cc7b514be30d710a02d76637981940c",
+    "verifier_model": "gpt-5.6-sol"
+  },
+  "retry_enabled": false,
+  "route_turn_count": 10,
+  "schema_version": "cera.continuous_ten_turn_qualification.v1",
+  "started_at": "2026-07-30T02:48:10.609051+00:00",
+  "status": "failed",
+  "story_database_retained": false,
+  "turns": [
+    {
+      "artifact_id": "artifact:8d018783-c3e5-53f7-b368-96c723b81c02",
+      "duration_seconds": 75.75,
+      "index": 1,
+      "key": "sakura-doorway-waiting-boundary",
+      "prose_sha256": "f6320c1222434932364e057b962fe80b96e2276aa2e237367065d798a7146c3b",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:85da0412-bda8-57c1-8f8f-27fbb9cb5f90",
+      "duration_seconds": 65.533,
+      "index": 2,
+      "key": "mia-reciprocal-care-boundary",
+      "prose_sha256": "41b87acef26925aad8651aca530ad4f34848d0dfea5b3de9ba6eb869c8303c2a",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:mia_hanezawa"
+      ],
+      "status": "passed"
+    },
+    {
+      "artifact_id": "artifact:6f4e1544-a2af-5f57-898e-7e3386d4a994",
+      "duration_seconds": 88.132,
+      "index": 3,
+      "key": "mia-indirect-writing-memory",
+      "prose_sha256": "6c070338320b53ae69bb14f3d08724e40ec666fa8d8d54b0f95149f619c428f6",
+      "provider_calls": 3,
+      "selected_npc_ids": [
+        "character:mia_hanezawa"
+      ],
+      "status": "passed"
+    }
+  ],
+  "verifier_transport_policy": "persistent_no_mcp"
+}

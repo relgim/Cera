@@ -1,0 +1,483 @@
+{
+  "application_request_sha256": "23bc1e30ca9e17cb2f03965d0c583858926475697066eb2071699079f9564e1a",
+  "assertions": {
+    "branch_fork_unchanged": false,
+    "exactly_one_call_per_provider_stage": true,
+    "ingress_evidence_committed": true,
+    "reasoner_transport_mode": "persistent_no_mcp",
+    "regeneration": false,
+    "required_memory_id": null,
+    "required_memory_retrieved": false,
+    "restart_before_turn": false,
+    "selected_context_only": true,
+    "story_state_committed": true,
+    "verifier_transport_mode": "persistent_no_mcp"
+  },
+  "composer": {
+    "accepted_prose": "Sakura regards him through the narrow opening, her hand resting on the door frame as a barrier. \"I decide where it goes,\" she says, the words crisp and measured. \"Leave the suitcase outside and come through to the entryway. You will wait there.\"",
+    "manifest": {
+      "adult_specificity_coverage": [],
+      "candidate_sha256": "baff54aeefc9789f3f0e1dfe9e61c0130518cd8d43439728584b666f75c8eb20",
+      "character_spans": [
+        {
+          "beat_id": "beat:98fc9985-8150-5e16-8513-99428537e517",
+          "end": 245,
+          "kind": "dialogue",
+          "owner_id": "character:sakura_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        },
+        {
+          "beat_id": "beat:98fc9985-8150-5e16-8513-99428537e517",
+          "end": 245,
+          "kind": "action",
+          "owner_id": "character:sakura_hanezawa",
+          "realized_state": "requested",
+          "source_unit_id": null,
+          "start": 0
+        }
+      ],
+      "decision_sha256": "1398e11cc772cc025e002a7b81742b96eed0c032f48516d232cd473bb76490db",
+      "floor_owner_id": "character:sakura_hanezawa",
+      "introduced_major_objective_or_participant": false,
+      "manifest_id": "realization_manifest:739947f8-fbe8-5f37-9c89-8170dfd76c01",
+      "move_realizations": [
+        {
+          "action_direction_sha256": "83646d419ca0968af1fc5cd67d9ca7da7ab50eb9671525d13c5e7a19b5df1cec",
+          "character_id": "character:sakura_hanezawa",
+          "selected_intent_sha256": "811e14c29b1154a4ddf7bea3f37143f01f0b8c9f3ee99cfbb67d276c1eb0e11a"
+        }
+      ],
+      "participant_realizations": [
+        {
+          "character_id": "character:sakura_hanezawa",
+          "speaks": true,
+          "visibly_acts": true
+        }
+      ],
+      "realized_beat_ids": [
+        "beat:98fc9985-8150-5e16-8513-99428537e517"
+      ],
+      "schema_version": "cera.realization_manifest.v2",
+      "semantic_inferences": [],
+      "sequence_plan_sha256": "5118808037532e9edf5ecc8084dadfb0b9ccc10c11b22cd03ee67c81efb58905",
+      "source_unit_coverage": [],
+      "stops_before_protected_user_choice": true,
+      "terminal_state_preserved": true
+    },
+    "prose_sha256": "436383ca16b7bced322c4d1be1e54c3416cbeda99504943a18c70e3a5c8ee212",
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 1280,
+      "cost_is_estimate": true,
+      "cost_microusd": 1431,
+      "duration_ms": 12365,
+      "external_provider_calls": 1,
+      "input_tokens": 3993,
+      "model_identity_source": "provider_response",
+      "model_identity_verified": true,
+      "model_revision": "deepseek-v4-2026-04-24",
+      "output_sha256": "0d81b51542296d561975eb9b9018431f3ccf8cb6d51c16aeff4398e8bda5eb3a",
+      "output_tokens": 282,
+      "provider": "deepseek",
+      "provider_receipt_id": "provider_receipt:e603ad76-f0c1-532d-adf0-e278a219e6b1",
+      "provider_request_id_sha256": "81f2a0f647b42b9de353479024ed1db857b7eb5207620b658caebbed6da6c258",
+      "quota_metered": false,
+      "reasoning_output_tokens": 0,
+      "request_sha256": "359a46fa009c200d0b4631ec3d20c24ea816ece53fcf0dba315b71fb271f5a55",
+      "requested_model": "deepseek-v4-pro",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "deepseek-v4-pro",
+      "role": "scene_composer",
+      "route_sha256": "e795e7c4dc412df72d8c79dd2828361a6febfd81f63010ff57d72a2f0e03da17",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": "2d31bd7982663c98f89fba568105a84495c347eb98e6bfc5d7765769f1d34627"
+    }
+  },
+  "context": {
+    "context_character_ids": [
+      "character:sakura_hanezawa"
+    ],
+    "receipt": {
+      "assembled_request_sha256": "ae3d4bf0c88b34832b93ff0a9d9bfa0bcbc454b0e01243bb2948f9dfe2684e8a",
+      "assembly_receipt_id": "validation:c460608c-a774-5e63-9ec6-51559894482c",
+      "base_request_sha256": "ffdd53af68d04f2d30b6a0a4742522b7eb5a3ca662f7cb6fcd3f2ece5b2854f9",
+      "cumulative_returned_bytes": 3556,
+      "external_provider_calls": 0,
+      "lookup_count": 2,
+      "lookup_receipt_ids": [
+        "lookup_receipt:a52bfd5c-a4d3-544a-a3bd-39ecebf23a93",
+        "lookup_receipt:d536ebd3-aeb3-56f8-b25b-5cc786abebc7"
+      ],
+      "realization_context_sha256": "9f77bfae48a670b62fe9357d45226b7dcf6aab7573aebc795995e5d98733e90d",
+      "schema_version": "cera.composer_context_assembly_receipt.v1",
+      "selected_craft_reference_ids": [],
+      "selected_evidence_ids": [
+        "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3",
+        "evidence:0b24ff69-fe07-5526-97b0-a6be906f2f7f"
+      ],
+      "snapshot_token": "snapshot:8efffc1c-af19-5091-afa7-4d7b2da104d6",
+      "story_authority_writes": 0
+    },
+    "selected_npc_ids": [
+      "character:sakura_hanezawa"
+    ]
+  },
+  "duration_seconds": 63.406,
+  "index": 1,
+  "ingress_evidence": {
+    "authoritative_store_writes": 0,
+    "interpretation_receipt": {
+      "adapter_version": "cera.contextual_raw_turn_projection.v1",
+      "authoritative_store_writes": 0,
+      "envelope_sha256": "583e98f4402428db6cf8edd05b7f941d13174431a1bb57dbcc831dcdd31c9c43",
+      "external_provider_calls": 0,
+      "interpretation_sha256": "7bcfa1f062a5c1120f61223a050bf4ad9a8480fc67fe5b4540310c62bc6a0ee8",
+      "receipt_id": "validation:3b927051-b6fe-55f3-b306-dcc67d37dec3",
+      "schema_version": "cera.intent_interpretation_receipt.v1"
+    },
+    "reasoner_request_sha256": "6b4df6f9e8fa0ad836dffaccc24d964231df89cacd5e498fa295d239c0d6e3ee",
+    "receipt_id": "validation:c032efd2-1354-5586-92ef-72bd083643ad",
+    "request_id": "request:8c59ad8b-f3e3-5bfc-a29e-ebebddc87497",
+    "schema_version": "cera.ingress_publication_evidence.v1",
+    "seed_lookup_receipts": [
+      {
+        "authoritative_store_writes": 0,
+        "cumulative_snapshot_bytes": 1220,
+        "followup_search_count": 0,
+        "lookup_receipt_id": "lookup_receipt:bd627295-c3a3-5f87-ba73-77526671e996",
+        "operation": "fetch_evidence",
+        "returned_bytes": 1220,
+        "returned_count": 1,
+        "schema_version": "cera.evidence_lookup_receipt.v1",
+        "snapshot_token": "snapshot:8efffc1c-af19-5091-afa7-4d7b2da104d6",
+        "truncated": false,
+        "truncation_reason": null
+      }
+    ],
+    "seed_receipt": {
+      "authoritative_store_writes": 0,
+      "exact_evidence_ids": [
+        "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:bd627295-c3a3-5f87-ba73-77526671e996"
+      ],
+      "obligation_resolutions": [
+        {
+          "evidence_ids": [
+            "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+          ],
+          "obligation_id": "obligation:2b2bd929-25ce-54c9-817b-0c45f743e463",
+          "reason": "exact evidence authorized under immutable snapshot",
+          "status": "satisfied"
+        }
+      ],
+      "reauthorized_seed_hashes": [],
+      "schema_version": "cera.seed_dossier_receipt.v1",
+      "seed_receipt_id": "seed_receipt:3a897190-2299-57dc-b0e6-6fbeff349774",
+      "snapshot_binding_sha256": "53d9262b7cffb346cd4b0ae33932cdcf3fa8c44dafdd124df3d5d7824077c6ca",
+      "snapshot_token": "snapshot:8efffc1c-af19-5091-afa7-4d7b2da104d6"
+    },
+    "snapshot_token": "snapshot:8efffc1c-af19-5091-afa7-4d7b2da104d6",
+    "source_sha256": "1e11fa36d9f015523e5a1d0de9d1f0ddb3f0a78f2d30df54b5b92d7fd757c5b3"
+  },
+  "key": "sakura-doorway-entry-authority",
+  "publication": {
+    "application_receipt": {
+      "accepted_artifact_id": "artifact:f7e97397-457b-56f7-9544-ae01157e39f6",
+      "accepted_artifact_sha256": "6a1045ae5e1ccf03da308f16be32c0aa86414f65f1de1fef39957791c689db40",
+      "adapter_call_count": 3,
+      "adult_route_activated": false,
+      "application_request_sha256": "23bc1e30ca9e17cb2f03965d0c583858926475697066eb2071699079f9564e1a",
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:5348161d-51a2-599d-938e-ce4b18dbbc62",
+      "downstream_failure_count": 0,
+      "exact_replay": false,
+      "generation_id": "generation:e7db3b8f-6aad-5d42-9c64-01903cbc16ed",
+      "operational_report_id": "validation:f5781614-36d9-5078-9a2d-b0f268845d3a",
+      "operational_report_sha256": "2f01bde999d9ce30d9133788aa11871dc138d13d8892b844be18a2c78e4c0b88",
+      "receipt_id": "validation:caa96a2a-61a8-5285-a151-a4c2d1d87c94",
+      "request_id": "request:8c59ad8b-f3e3-5bfc-a29e-ebebddc87497",
+      "schema_version": "cera.ordinary_application_receipt.v1",
+      "story_state_committed": true,
+      "transaction_sha256": "0f291e6a58fe3e0242dda7784852461ce2cd3191cb5f68d0ed137a54e1761477"
+    },
+    "artifact": {
+      "accepted_prose": "Sakura regards him through the narrow opening, her hand resting on the door frame as a barrier. \"I decide where it goes,\" she says, the words crisp and measured. \"Leave the suitcase outside and come through to the entryway. You will wait there.\"",
+      "artifact_id": "artifact:f7e97397-457b-56f7-9544-ae01157e39f6",
+      "branch_id": "branch:offline-main",
+      "decision_id": "decision:c0f2e991-0e81-588d-9161-4e3a4ecb6f91",
+      "generation_id": "generation:e7db3b8f-6aad-5d42-9c64-01903cbc16ed",
+      "parent_artifact_id": null,
+      "prose_sha256": "436383ca16b7bced322c4d1be1e54c3416cbeda99504943a18c70e3a5c8ee212",
+      "realized_beat_ids": [
+        "beat:98fc9985-8150-5e16-8513-99428537e517"
+      ],
+      "responding_npc_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "schema_version": "cera.accepted_story_artifact.v1",
+      "source_id": "source:609e52bd-d0f3-5c81-9df2-f19d57977acc",
+      "status": "accepted",
+      "transaction_id": "transaction:f0775050-621f-5460-b757-7fd1218bc903",
+      "validation_receipt_id": "validation:5f07e943-7251-5a57-b142-34434dee5e35"
+    },
+    "commit_receipt": {
+      "branch_id": "branch:offline-main",
+      "commit_id": "commit:5348161d-51a2-599d-938e-ce4b18dbbc62",
+      "expected_previous_artifact_id": null,
+      "external_receipt_ids": [],
+      "generation_after": 1,
+      "generation_before": 0,
+      "inserted_record_ids": [
+        "event:ed83445e-f0f3-58b8-a436-4cb2f07dae04"
+      ],
+      "lookup_receipt_ids": [
+        "lookup_receipt:bd627295-c3a3-5f87-ba73-77526671e996",
+        "lookup_receipt:a52bfd5c-a4d3-544a-a3bd-39ecebf23a93",
+        "lookup_receipt:d536ebd3-aeb3-56f8-b25b-5cc786abebc7"
+      ],
+      "new_artifact_id": "artifact:f7e97397-457b-56f7-9544-ae01157e39f6",
+      "new_artifact_sha256": "6a1045ae5e1ccf03da308f16be32c0aa86414f65f1de1fef39957791c689db40",
+      "outcome": "committed",
+      "provider_receipt_ids": [
+        "provider_receipt:23bb439b-86c6-5e3e-aa61-d7c4158c87ca",
+        "provider_receipt:e603ad76-f0c1-532d-adf0-e278a219e6b1",
+        "provider_receipt:507b0baf-bc10-5212-8379-68f24abda6b8"
+      ],
+      "schema_version": "cera.commit_receipt.v2",
+      "source_id": "source:609e52bd-d0f3-5c81-9df2-f19d57977acc",
+      "source_sha256": "9390f9515f723f96a2de6b42c6a4b8f715609806820085c320492b8d1ccaa11e",
+      "superseded_record_ids": [],
+      "transaction_id": "transaction:f0775050-621f-5460-b757-7fd1218bc903",
+      "transaction_sha256": "0f291e6a58fe3e0242dda7784852461ce2cd3191cb5f68d0ed137a54e1761477",
+      "validation_receipt_ids": [
+        "validation:c032efd2-1354-5586-92ef-72bd083643ad",
+        "validation:c460608c-a774-5e63-9ec6-51559894482c",
+        "validation:5455822e-9127-5127-903f-6c984403bf00",
+        "realization_verification:9a95c199-487e-5e5e-b58f-101a308c2f82",
+        "validation:5f07e943-7251-5a57-b142-34434dee5e35",
+        "validation:85faef4d-5a61-56fb-a897-f4fd8219ef78"
+      ]
+    },
+    "event_record_id": "event:ed83445e-f0f3-58b8-a436-4cb2f07dae04",
+    "visible_artifact_count": 1
+  },
+  "qualification_id": "continuous-ten-turn-v18",
+  "raw_message": "Ted knocks once and remains outside the Hanezawa doorway with his suitcase upright beside him. When Sakura opens the door, he says, \"I'm Ted. I was told to arrive today, but I won't cross the threshold or move this suitcase until you tell me who decides where it goes and what I should do first.\" He waits outside.",
+  "raw_message_sha256": "97338af9ed1baaec378e2dcaf7e5672e475a0fb22ea8bf732a5fad46571e0216",
+  "reasoner": {
+    "mcp_bridge_receipt": null,
+    "outcome": {
+      "adult_craft_need": null,
+      "advisory_state_deltas": [],
+      "blocker_code": null,
+      "decision": {
+        "advisory_state_candidates": [],
+        "character_moves": [
+          {
+            "action_direction": "Sakura uses a guarded, administrative tone, states her immediate entry authority, and gives one clear first instruction.",
+            "character_id": "character:sakura_hanezawa",
+            "evidence_ids": [
+              "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+            ],
+            "knowledge_constraints": [
+              "Owner-private evidence may shape Sakura's response only.",
+              "No other resident may receive knowledge of the exchange."
+            ],
+            "perception": "The doorway situation calls for Sakura's formal first-contact authority.",
+            "selected_intent": "Maintain controlled first-contact procedure while providing an actionable instruction."
+          }
+        ],
+        "current_segment": {
+          "ordered_beats": [
+            {
+              "actor_id": "character:sakura_hanezawa",
+              "beat_id": "beat:98fc9985-8150-5e16-8513-99428537e517",
+              "evidence_ids": [
+                "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+              ],
+              "neutral_event": "Sakura delivers a guarded, administratively controlled doorway instruction.",
+              "state": "requested"
+            }
+          ],
+          "segment_id": "segment:ddff9aae-e848-51a0-aa20-ae296099d018",
+          "stop_before": "Stop before the protected user's next response, movement, compliance, refusal, or other meaningful choice."
+        },
+        "decision_id": "decision:c0f2e991-0e81-588d-9161-4e3a4ecb6f91",
+        "floor_owner_id": "character:sakura_hanezawa",
+        "future_segments": [],
+        "prohibited_inferences": [
+          "Do not author protected-user compliance, dialogue, thought, emotion, motive, destination, or commitment.",
+          "Do not expose Sakura's owner-private belief as shared or objectively established fact.",
+          "Do not introduce a response from any resident who did not hear the exchange.",
+          "Do not convert a conditional future possibility into a current event."
+        ],
+        "responding_npc_ids": [
+          "character:sakura_hanezawa"
+        ],
+        "route": "ordinary",
+        "scene_intent": "Sakura establishes immediate entry procedure and issues the first instruction.",
+        "schema_version": "cera.scene_decision.v1",
+        "uncertainties": [
+          "The protected user's next meaningful choice remains unknown.",
+          "Unretrieved private state and future outcomes remain unknown."
+        ],
+        "writer_must_preserve": [
+          "Sakura is the sole NPC responder and floor owner.",
+          "Sakura's manner remains guarded, suspicious, controlled, and administratively prepared.",
+          "Sakura retains formal first-contact and immediate entry authority.",
+          "The response supplies one clear actionable instruction without narrating any protected-user reaction.",
+          "Only Sakura and the protected user directly hear this exchange."
+        ]
+      },
+      "hard_citations": [
+        {
+          "evidence_id": "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3",
+          "record_id": "record:9a974cfe-e5fb-547c-b511-f3b995fe6bf6",
+          "record_version": 2
+        }
+      ],
+      "insufficiencies": [],
+      "participation": [
+        {
+          "character_id": "character:sakura_hanezawa",
+          "evidence_ids": [
+            "evidence:6333f422-cfd1-53b8-8263-6ee8db38cfc3"
+          ],
+          "intervention_reason": "floor_owner",
+          "role": "lead"
+        }
+      ],
+      "protected_user_boundary_acknowledged": true,
+      "protected_user_source_claims": [],
+      "schema_version": "cera.reasoner_outcome.v5",
+      "status": "decision_ready"
+    },
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 39726,
+      "external_provider_calls": 1,
+      "input_tokens": 13134,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "963dc47c9410581bcc67cd187f4395eae8331ced21792cbdbe75bbd2b468bc6f",
+      "output_tokens": 1500,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:23bb439b-86c6-5e3e-aa61-d7c4158c87ca",
+      "provider_request_id_sha256": "7f35fbe580ffa7e95f1820f63f699564fb68c304d7fa5f249b14d1b5474c4444",
+      "quota_metered": true,
+      "reasoning_output_tokens": 943,
+      "request_sha256": "f745239d074d9d64a7bc72dc00bac92ba7690f2a909192fc6d1115e503c85d3f",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_reasoner",
+      "route_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "adapter_evidence_id": "codex_reasoner_gpt-5.6-sol_medium",
+      "adapter_evidence_sha256": "e5c75845a3c1a320c9064905961890064831e50651c2e6df6fb110091cdface7",
+      "adapter_role": "codex_scene_reasoner",
+      "adapter_version": "cera.codex_scene_reasoner.v9",
+      "bridge_receipt_id": null,
+      "bridge_receipt_sha256": null,
+      "cumulative_evidence_bytes": 0,
+      "evidence_lookup_receipt_ids": [],
+      "external_provider_calls": 1,
+      "outcome_sha256": "2458e0abdeab2b1fdc41acfe25807c05da6f5a001e932360d58b3ba6ad66ebd2",
+      "outcome_status": "decision_ready",
+      "provider_receipt_id": "provider_receipt:23bb439b-86c6-5e3e-aa61-d7c4158c87ca",
+      "provider_receipt_sha256": "fc34a9a09b08b8eda5e120bca7c04d8f0ec761df2e88a5b8e4b744746894d082",
+      "reasoner_request_sha256": "6b4df6f9e8fa0ad836dffaccc24d964231df89cacd5e498fa295d239c0d6e3ee",
+      "schema_version": "cera.scene_reasoner_receipt.v2",
+      "snapshot_token": "snapshot:8efffc1c-af19-5091-afa7-4d7b2da104d6",
+      "source_sha256": "1e11fa36d9f015523e5a1d0de9d1f0ddb3f0a78f2d30df54b5b92d7fd757c5b3",
+      "source_view_sha256": "45cdc2f5e754dbd1a830cd9abdda0b0fefa0e52b9764956b5126dabdbb088ff5",
+      "tool_call_count": 0
+    }
+  },
+  "schema_version": "cera.continuous_qualification_turn.v1",
+  "status": "passed",
+  "title": "Sakura defines the immediate entry authority",
+  "verifier": {
+    "provider_receipt": {
+      "automatic_retry_count": 0,
+      "cached_input_tokens": 0,
+      "cost_is_estimate": false,
+      "cost_microusd": 0,
+      "duration_ms": 6425,
+      "external_provider_calls": 1,
+      "input_tokens": 10387,
+      "model_identity_source": "explicit_request",
+      "model_identity_verified": false,
+      "model_revision": "openai-resolver-2026-07-28",
+      "output_sha256": "9ed8d24cc5f5032b1277ae5bac9a3dd63d4e709719cd1f59244240adfc362a57",
+      "output_tokens": 150,
+      "provider": "openai_codex",
+      "provider_receipt_id": "provider_receipt:507b0baf-bc10-5212-8379-68f24abda6b8",
+      "provider_request_id_sha256": "f869cc6152218b5fd3a5eb8a28f549099a5d1299daf097b485ee59b1d9fd0e78",
+      "quota_metered": true,
+      "reasoning_output_tokens": 49,
+      "request_sha256": "8ee72836fc2bae1a7c1f4e379bcc1c7c087dc8fe80ddd6883ec966086496102f",
+      "requested_model": "gpt-5.6-sol",
+      "retains_private_evidence": false,
+      "retains_prompt": false,
+      "retains_raw_source": false,
+      "retains_secret": false,
+      "retains_story_prose": false,
+      "returned_model": "gpt-5.6-sol",
+      "role": "scene_realization_verifier",
+      "route_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "schema_version": "cera.live_provider_call_receipt.v2",
+      "story_authority_writes": 0,
+      "system_fingerprint_sha256": null
+    },
+    "receipt": {
+      "authoritative_store_writes": 0,
+      "candidate_sha256": "baff54aeefc9789f3f0e1dfe9e61c0130518cd8d43439728584b666f75c8eb20",
+      "external_provider_calls": 1,
+      "provider_receipt_id": "provider_receipt:507b0baf-bc10-5212-8379-68f24abda6b8",
+      "provider_receipt_sha256": "c84676d9868fe2f01e7aabad5c205749345a30c0b26dfb0ef7a98112ef36ea9b",
+      "qualification_eligible": true,
+      "retains_story_prose": false,
+      "schema_version": "cera.scene_realization_verification_receipt.v4",
+      "status": "accepted",
+      "story_text_sha256": "436383ca16b7bced322c4d1be1e54c3416cbeda99504943a18c70e3a5c8ee212",
+      "verification_id": "realization_verification:9a95c199-487e-5e5e-b58f-101a308c2f82",
+      "verification_request_sha256": "268560202b4687df68c8d9655cbe717772c48147ba8e47dc8a16cd38ded13d89",
+      "verified_beat_ids": [
+        "beat:98fc9985-8150-5e16-8513-99428537e517"
+      ],
+      "verified_boundary_checks": [
+        "protected_user_no_unsupplied_realization"
+      ],
+      "verified_participant_ids": [
+        "character:sakura_hanezawa"
+      ],
+      "verifier_adapter_evidence_id": "codex_realization_verifier_gpt-5.6-sol_medium",
+      "verifier_adapter_evidence_sha256": "875026f164d4ddbe5d9a4ab4a86490e0b4334227eec7c79f0cf00008bbbbad25",
+      "verifier_adapter_version": "cera.codex_scene_realization_verifier.v4",
+      "violation_codes": [],
+      "violation_finding_sha256s": []
+    }
+  }
+}
