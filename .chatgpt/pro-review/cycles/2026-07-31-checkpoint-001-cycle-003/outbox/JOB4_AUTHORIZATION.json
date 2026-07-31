@@ -1,0 +1,13 @@
+{
+  "schema_version": "cera.pro_review_job4_authorization.v1",
+  "cycle_id": "2026-07-31-checkpoint-001-cycle-003",
+  "task_id": "repository-cycle-corrected-full-verification-v2",
+  "scope": "Independently run the prompt-required compilation, focused and complete provider-free test suites, PowerShell parse, documentation/source validation, Git diff/status audit, and side-effect audit for the corrected repository-local Pro review cycle; record exact results without modifying runtime, provider, story, database, route, deployment, remote, or push state.",
+  "scope_sha256": "f946ee0be30625bcd95b71c091b153800e76cca6d9e6d0b0caa5b6f69f7ea733",
+  "expected_result_relative_path": "source/JOB4_RESULT.json",
+  "authority_source_path": "D:\\AIChatBot\\Cera\\.chatgpt\\codex-runs\\2026-07-31T211941Z-cera-shared-repository-overlapped-pro-codex-review-loop-v2\\PROMPT.md",
+  "authority_source_sha256": "aec4b9ac19483b597e3afd97da1eda33319f07015325f78a98fd5e15bae53e1c",
+  "explicit_exclusions": [
+    "no unauthorized provider, story, database, runtime, route, deployment, remote, or push effects"
+  ]
+}

@@ -26,9 +26,33 @@
   is provider-free: compilation, focused checks, documentation/source drift
   checks, and the complete 575/575 suite pass. A later live qualification
   requires separate creator authority.
-- The creator authorized a provider-free Downloads file bridge for checkpoint
-  review transport. It changes no active runtime identity or route, and an
-  imported Pro response remains advisory until separate creator authorization.
+- D-182 makes the shared-repository overlapped review cycle primary. The cycle
+  binds checkpoint/Git/evidence/task identities, publishes Jobs 1-3, starts only
+  a pre-authorized Job 4, stable-reads the exact Pro repository response after
+  Job 4, and carries that Job 4 result separately into the next package.
+- The installed app can activate an existing ChatGPT review chat through its
+  supported follow-up operation. The receipt binds the generated message and
+  caller-supplied successful app result by hash; it is not independent delivery
+  proof. Repository publication alone is not a trigger. The app audit plus a
+  matching Pro repository response establishes the tested end-to-end cycle.
+  The Downloads bridge remains functional only as a manual emergency fallback.
+- A consumed Pro response remains advisory. It can guide work already inside
+  creator authority but cannot open a new gate or approve itself.
+- D-182 cycle 002 completed a real no-Ted app-trigger/repository-response loop
+  and returned `corrections_required`. Its accepted response is preserved under
+  `.chatgpt/pro-review/cycles/2026-07-31-checkpoint-001-cycle-002/`.
+  Codex accepted the in-scope integrity findings. Cycle 003 is preserved as
+  failed source-freeze evidence after Pro returned `blocked`; cycle 004 is
+  preserved as superseded because the late cycle-003 connector response changed
+  its frozen inventory. Cycle 005 passed 53/53 focused and 628/628 complete
+  provider-free tests and consumed Pro's second `corrections_required`
+  response. Its one remaining trigger/recovery/completion predecessor mismatch
+  is now corrected with exact retry idempotency and conflict rejection. The
+  focused suite passes 55/55. Final cycle 006 then recovered from the actual
+  trigger receipt, completed its Job 4, passed 55/55 focused and 630/630
+  complete provider-free tests, consumed the exact identity-bound Pro response,
+  and recovered/discovered the consumed cycle. Pro returned `accepted`; Codex
+  reconciled it under the existing creator authority. D-182 is complete locally.
 - Adult ON/EX live publication, production binding, route promotion,
   deployment, and external-handler work remain closed.
 

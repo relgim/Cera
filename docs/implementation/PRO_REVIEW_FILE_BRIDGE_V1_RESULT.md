@@ -14,6 +14,11 @@ transport-only. It cannot call a provider, modify story data, change a route,
 promote a checkpoint, deploy, or convert advisory review into creator
 authorization.
 
+This historical V1 result remains correct for the implementation it verified,
+but D-182 supersedes its role as a normal workflow. It is now a manual emergency
+fallback. The primary no-relay path is documented in
+`../operations/PRO_REVIEW_REPOSITORY_CYCLE.md`.
+
 The implementation provides four explicit modes:
 
 - `Export`: validate the checkpoint identity and evidence ZIP, copy the exact

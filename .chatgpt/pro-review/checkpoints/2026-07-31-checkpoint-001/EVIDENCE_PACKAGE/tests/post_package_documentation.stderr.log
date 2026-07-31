@@ -1,0 +1,8 @@
+test_authoritative_documentation_is_complete_and_linked (test_documentation.DocumentationTests.test_authoritative_documentation_is_complete_and_linked) ... ok
+test_current_runtime_validator_rejects_stale_marked_claims (test_documentation.DocumentationTests.test_current_runtime_validator_rejects_stale_marked_claims) ... ok
+test_validator_detects_reference_runtime_dependency_in_source (test_documentation.DocumentationTests.test_validator_detects_reference_runtime_dependency_in_source) ... ok
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.128s
+
+OK

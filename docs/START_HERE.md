@@ -71,8 +71,9 @@ not canon.
 
 | Document | Role |
 |---|---|
-| `CODEX_PROGRESS_REVIEW_PROTOCOL.md` | Permanent bounded Codex-to-Pro checkpoint and review workflow |
-| `PRO_REVIEW_FILE_BRIDGE.md` | Provider-free Downloads transport for hash-bound Pro review packages and responses |
+| `CODEX_PROGRESS_REVIEW_PROTOCOL.md` | Permanent bounded, overlapped Codex-to-Pro checkpoint and review workflow |
+| `PRO_REVIEW_REPOSITORY_CYCLE.md` | Primary repository-local mailbox, pre-authorized Job 4 overlap, response validation, and trigger boundary |
+| `PRO_REVIEW_FILE_BRIDGE.md` | Manual emergency Downloads fallback for hash-bound Pro review packages and responses |
 | `CERA_OWNER_ARCHITECTURE.md` | Product and architectural authority |
 | `CREATOR_FACTS_AND_PREFERENCES.md` | Accepted seed facts and craft preferences |
 | `DECISIONS_AND_SUPERSESSIONS.md` | Decision log and explicit conflict resolution |

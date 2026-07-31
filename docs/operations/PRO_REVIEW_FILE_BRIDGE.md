@@ -1,13 +1,17 @@
 # CERA ChatGPT Pro Review File Bridge
 
-**Status:** creator-authorized provider-free transport
+**Status:** manual emergency fallback; not the primary review workflow
 **Owner:** deterministic local PowerShell tooling
 **Authority:** transport only; imported recommendations remain advisory
 
-Use this bridge when desktop Codex and ChatGPT Pro cannot directly exchange
-repository files. It copies one hash-verified evidence ZIP through Ted's
-Downloads folder and imports one identity-bound Markdown response without
-changing its bytes.
+Use this bridge only when the primary repository cycle and supported app trigger
+are unavailable and Ted explicitly chooses the manual emergency path. The
+ordinary workflow is `PRO_REVIEW_REPOSITORY_CYCLE.md`; it requires no Downloads,
+renaming, Wait/Import command, or message relay by Ted.
+
+This fallback copies one hash-verified evidence ZIP through Ted's Downloads
+folder and imports one identity-bound Markdown response without changing its
+bytes. Its historical Checkpoint 001 evidence and commands remain valid.
 
 ## Commands
 
@@ -70,4 +74,5 @@ identical repeat is idempotent; a different existing destination requires Ted.
 An exported package does not authorize Pro. An imported review does not
 authorize Codex. After import, Codex reconciles any previously authorized
 isolated bridge progression and stops for Ted's explicit decision. No fourth
-task may be invented while waiting.
+task may be invented while waiting. Using this fallback is an explicit
+exception; it must never be presented as the normal no-user-action cycle.

@@ -1,0 +1,13 @@
+{
+  "schema_version": "cera.pro_review_job4_authorization.v1",
+  "cycle_id": "<cycle-id>",
+  "task_id": "<job-4-task-id>",
+  "scope": "<exact bounded independent scope>",
+  "scope_sha256": "<sha256-of-exact-utf8-scope>",
+  "expected_result_relative_path": "source/JOB4_RESULT.json",
+  "authority_source_path": "D:\\AIChatBot\\Cera\\<creator-authority-source>",
+  "authority_source_sha256": "<64-lowercase-hex>",
+  "explicit_exclusions": [
+    "no unauthorized provider, story, database, runtime, route, deployment, remote, or push effects"
+  ]
+}

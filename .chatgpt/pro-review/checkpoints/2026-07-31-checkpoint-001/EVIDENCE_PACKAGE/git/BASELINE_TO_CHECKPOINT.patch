@@ -1,0 +1,2036 @@
+diff --git a/.chatgpt/codex-runs/2026-07-31-cera-stabilization-checkpoint-001/PROMPT.md b/.chatgpt/codex-runs/2026-07-31-cera-stabilization-checkpoint-001/PROMPT.md
+new file mode 100644
+index 0000000..afeead4
+--- /dev/null
++++ b/.chatgpt/codex-runs/2026-07-31-cera-stabilization-checkpoint-001/PROMPT.md
+@@ -0,0 +1,235 @@
++# CODEX TASK — CERA governed stabilization cycle, checkpoint 1
++
++Repository: `D:\AIChatBot\Cera`
++
++## Creator instruction
++
++Begin a repeating Codex ↔ ChatGPT Pro repair cycle. Work in small tranches of no more than three substantial progressions. After this tranche, create a tested local Git checkpoint, send ChatGPT Pro the exact review packet, and stop. Do not begin the next tranche until ChatGPT Pro has completed its review and selected the next two or three progressions.
++
++ChatGPT Pro may reply in the connected conversation and/or write `PRO_RESPONSE.md` beside the checkpoint request. Do not demand an immediate answer, an exact acceptance token, or approval. Do not continue while waiting.
++
++## Governing objective
++
++Stabilize CERA before further prompt architecture, Adult activation, production binding, deployment, or broad model ladders. The present priority is truthful change control and one coherent active runtime identity.
++
++This task authorizes **zero live provider calls**, zero production/story-world migration, zero Adult ON/EX publication, zero deployment, zero remote Git operations, zero push, zero fallback, and zero automatic retry.
++
++## Mandatory first reading
++
++Read, in order:
++
++1. `D:\AIChatBot\Cera\AGENTS.md`
++2. `D:\AIChatBot\Cera\docs\START_HERE.md`
++3. `D:\AIChatBot\Cera\docs\handoff\CURRENT.md`
++4. `D:\AIChatBot\Cera\docs\authority\CERA_OWNER_ARCHITECTURE.md`
++5. `D:\AIChatBot\Cera\docs\authority\DECISIONS_AND_SUPERSESSIONS.md`
++6. `D:\AIChatBot\Cera\docs\implementation\ROADMAP_AND_GATE.md`
++7. `D:\AIChatBot\Cera\src\cera\providers\routes.py`
++8. `D:\AIChatBot\Cera\src\cera\reasoner\codex.py`
++9. `D:\AIChatBot\Cera\src\cera\reasoner_session\runtime.py`
++10. `D:\AIChatBot\Cera\src\cera\reasoner\mcp_bridge.py`
++11. Related provider/session/documentation tests
++12. The supplied protocol text, then install it at `D:\AIChatBot\Cera\docs\authority\CODEX_PROGRESS_REVIEW_PROTOCOL.md`
++
++Inspect all current files before editing. Preserve unrelated changes and immutable evidence.
++
++## Prerequisite — safe Git bootstrap
++
++CERA currently lacks Git metadata. Establish auditable local source control before the three progressions.
++
++1. Create and verify a lossless sibling backup, outside `D:\AIChatBot\Cera`.
++2. Inventory every file and directory. Classify source/authority, immutable evidence, generated output, runtime/database/log state, secret-risk material, and intentionally untracked material.
++3. Do not use blind `git add .` before reviewing the inventory.
++4. Do not delete, relocate, rewrite, truncate, or compress historical evidence to simplify Git.
++5. Update `.gitignore` only from the explicit inventory. Preserve a tracked manifest for intentionally ignored/untracked evidence and runtime paths, including preservation location and rationale.
++6. Initialize local Git. Add no remote. Do not push.
++7. Create a clean baseline commit representing the pre-stabilization D-180 implementation.
++8. Record the backup path, inventory/manifest path, baseline commit SHA, included paths, excluded paths, and secret scan result.
++
++Forbidden during bootstrap: `git clean`, destructive reset, stash, checkout-overwrite, force operations, remote operations, or destructive cleanup.
++
++If a safe baseline cannot be established, write a blocker request to ChatGPT Pro and stop. Do not continue unversioned.
++
++## Progression 1 — strengthen the standing Codex governance document
++
++Review `AGENTS.md` against the failures already observed in CERA: architecture churn, self-review, test-count overclaiming, stale current documentation, active identity drift, broad ladders before exact-route qualification, and feature work before creator-quality evidence.
++
++Implement the smallest durable governance correction:
++
++1. Install `docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md` using the supplied protocol, correcting only what actual repository contracts require.
++2. Update `AGENTS.md` so every Codex session must read the protocol and obey the maximum-three-progression checkpoint cycle.
++3. Add the protocol to `docs/START_HERE.md` mandatory every-session reading and document roles.
++4. Create `.chatgpt/pro-review/README.md` and a reusable `REQUEST_TEMPLATE.md` matching the protocol.
++5. Preserve Codex as technical implementer and ChatGPT Pro as an independent checkpoint reviewer. Do not let either reviewer silently grant creator authority.
++6. State that a tranche may stop after one or two progressions on a terminal blocker; “three” is a maximum, not a reason to bundle unrelated work.
++7. Require a clean local checkpoint commit, a real diff, and a full stop after the review request.
++
++Acceptance:
++
++- the protocol is mandatory and discoverable;
++- no conflict exists with owner architecture or current authority precedence;
++- no exact acceptance token is demanded from Pro;
++- no fourth progression is permitted;
++- documentation tests cover the mandatory protocol path.
++
++## Progression 2 — eliminate the active v24/v25 and MCP identity conflict
++
++Treat this as an active correctness defect, not documentation cleanup.
++
++Current evidence includes:
++
++- `src/cera/reasoner/codex.py` declares Reasoner adapter/prompt v25 and packet v14;
++- `src/cera/providers/routes.py::codex_reasoner_candidate()` still reports adapter/prompt v24;
++- stored-session compatibility imports v25 constants but dispatches through the v24-labeled route;
++- some tests and current documentation still assert v24 and MCP v6 while D-180 describes v25 aliases and MCP v7.
++
++Create one canonical typed active-runtime identity source, or an equally strong smallest seam, for the active local ordinary route. Codex chooses the exact implementation after inspection, but it must avoid adding another duplicate status object.
++
++The source must bind at least:
++
++- Reasoner model and allowed efforts;
++- Reasoner adapter, packet, prompt, provider-schema, MCP/tool-contract, transport, and base-instruction identity;
++- stored-session mode and compatibility inputs;
++- Composer model, adapter, packet, prompt, DTO, thinking mode, and transport identity;
++- verifier model, effort, adapter, prompt, request/schema, and transport identity;
++- owner-architecture/privacy-profile identity where compatibility depends on them.
++
++Make routes, stored-session compatibility, receipts/evaluation identities, health/status output, active tests, and current-status generation/validation consume the same source.
++
++Acceptance:
++
++- an active call cannot be labeled v24 in one layer and v25 in another;
++- MCP v6/v7 drift is impossible or caught before dispatch;
++- changing an active identity component changes the compatibility/route hash deterministically;
++- historical v24 evidence remains immutable and readable as historical evidence;
++- tests deliberately mutate one identity field and prove drift is rejected;
++- no live provider call occurs.
++
++Do not bump versions again unless the contract itself changes. Correcting stale route metadata to the already-active v25 identity is not a reason to invent v26.
++
++## Progression 3 — make current status truthful and machine-validated
++
++Repair only the current sources of truth. Do not rewrite historical result/evidence documents merely because they describe an older route.
++
++At minimum inspect and correct:
++
++- `README.md` current status;
++- `docs/START_HERE.md` phase/current gate;
++- the active/current section of `docs/handoff/CURRENT.md`;
++- the header/current-state section of `docs/implementation/ROADMAP_AND_GATE.md`;
++- health/status metadata;
++- documentation validation.
++
++Requirements:
++
++1. Current sections must identify D-180 and the canonical active profile rather than D-165/D-177/D-179 or v24/MCP v6.
++2. Current sections must state Flash non-thinking, stored-session status, current test evidence, unresolved limitations, and the absence of current full-route D-180 end-to-end qualification.
++3. Historical results such as v27 Flash-thinking qualification remain unchanged and clearly historical.
++4. `CURRENT.md` must lead with concise current truth. Move or clearly segregate superseded history; do not leave contradictory “current versions” later in the same active section.
++5. Extend documentation/current-status validation so code/config identity drift, stale phase ID, stale thinking mode, and stale active version assertions fail tests. Link checking alone is insufficient.
++6. Prefer generating or validating current status from the canonical profile rather than manually copying strings into several files.
++
++Acceptance:
++
++- one command produces the canonical active identity and status hash;
++- current docs, health output, routes, session compatibility, and tests agree exactly;
++- stale current values cause a deterministic test failure;
++- historical documents remain intact;
++- no live provider call occurs.
++
++## Verification
++
++Run focused tests after each progression. After all three pass, run at minimum:
++
++```powershell
++Set-Location "D:\AIChatBot\Cera"
++& ".\.venv\Scripts\python.exe" --version
++& ".\.venv\Scripts\python.exe" -m compileall -q src tests scripts
++& ".\.venv\Scripts\python.exe" -m unittest tests.test_documentation -q
++& ".\.venv\Scripts\python.exe" -m unittest tests.test_provider_qualification tests.test_codex_scene_reasoner tests.test_codex_stored_thread_session tests.test_native_stored_reasoner_runtime tests.test_mcp_evidence_bridge -q
++& ".\.venv\Scripts\python.exe" -m unittest discover -s tests -q
++
++git diff --check
++git status --short --branch
++git diff --stat <BASELINE_SHA>..HEAD
++git diff <BASELINE_SHA>..HEAD -- AGENTS.md docs README.md src tests
++```
++
++Adapt test module names only when actual repository structure requires it. Record exact commands and results. Do not hide a skipped or failing test behind a total.
++
++## Checkpoint commit and review handoff
++
++After the three progressions:
++
++1. Inspect the complete diff.
++2. Confirm no secret, runtime database, unrelated log, or unintended historical evidence entered Git.
++3. Create one local checkpoint commit:
++
++```text
++cera(checkpoint 1): establish governed stabilization baseline
++```
++
++4. Create:
++
++```text
++D:\AIChatBot\Cera\.chatgpt\pro-review\checkpoints\2026-07-31-checkpoint-001\REQUEST.md
++```
++
++5. Include:
++
++```md
++# CERA ChatGPT Pro Checkpoint Review Request
++checkpoint: 001
++creator_goal:
++starting_baseline_sha:
++ending_checkpoint_sha:
++backup_and_inventory:
++progression_1_governance:
++progression_2_active_identity:
++progression_3_current_truth:
++changed_files:
++diff_summary:
++focused_tests:
++complete_suite:
++active_profile_before:
++active_profile_after:
++provider_calls_and_cost:
++retry_and_fallback:
++story_database_and_branch_effects:
++user_visible_effect:
++historical_evidence_integrity:
++unresolved_defects:
++uncertainty_and_risks:
++codex_advisory_next_candidates:
++questions_for_chatgpt_pro:
++```
++
++6. Message ChatGPT Pro with the exact request path and ending commit SHA. Ask it to inspect the actual diff/source/tests, judge each progression independently, write `PRO_RESPONSE.md` if useful, and choose the next two or three progressions.
++7. Stop. Do not begin current-route live qualification, verifier recovery, corpus work, latency work, refactoring, Adult work, or any other fourth progression until ChatGPT Pro responds.
++
++## Likely future work, not authorized in this tranche
++
++These are context only, not permission:
++
++- exact D-180 full-route qualification;
++- interrupted background-verifier recovery;
++- participant realization metadata correction;
++- stored-thread retention/privacy policy;
++- creator-labeled 20–30-turn quality corpus;
++- model/effort and verifier-value comparisons;
++- maintainability refactoring and CI;
++- Adult ON/EX or production work.
++
++ChatGPT Pro will select and bound the next tranche after checkpoint 001.
++
++## Completion message
++
++Return only a concise checkpoint summary containing:
++
++- baseline SHA;
++- checkpoint SHA;
++- the three completed progressions;
++- focused/full test results;
++- provider/story/database effects;
++- review request path;
++- confirmation that work stopped pending ChatGPT Pro review.
+diff --git a/.chatgpt/pro-review/README.md b/.chatgpt/pro-review/README.md
+new file mode 100644
+index 0000000..1d23490
+--- /dev/null
++++ b/.chatgpt/pro-review/README.md
+@@ -0,0 +1,13 @@
++# CERA ChatGPT Pro Checkpoint Reviews
++
++This tree contains checkpoint review handoffs governed by
++`docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md`.
++
++Each checkpoint directory contains Codex's `REQUEST.md` and may later contain
++ChatGPT Pro's `PRO_RESPONSE.md`. Requests cite the exact local checkpoint SHA,
++real diff, source, tests, provider/database effects, and remaining uncertainty.
++ChatGPT Pro reviews independently and proposes the next bounded tranche;
++neither its response nor Codex's recommendation silently grants creator
++authority.
++
++After sending a request, Codex stops. Silence is not authorization.
+diff --git a/.chatgpt/pro-review/REQUEST_TEMPLATE.md b/.chatgpt/pro-review/REQUEST_TEMPLATE.md
+new file mode 100644
+index 0000000..4fad87d
+--- /dev/null
++++ b/.chatgpt/pro-review/REQUEST_TEMPLATE.md
+@@ -0,0 +1,31 @@
++# CERA ChatGPT Pro Checkpoint Review Request
++
++checkpoint:
++creator_goal:
++starting_baseline_or_prior_checkpoint_sha:
++ending_checkpoint_sha:
++backup_and_inventory:
++progressions_completed:
++selection_rationale:
++changed_files:
++diff_summary:
++focused_tests:
++complete_suite:
++active_profile_before:
++active_profile_after:
++provider_calls_and_cost:
++retry_and_fallback:
++story_database_and_branch_effects:
++user_visible_effect:
++historical_evidence_integrity:
++unresolved_defects:
++uncertainty_and_risks:
++disagreement_with_prior_review:
++codex_advisory_next_candidates:
++questions_for_chatgpt_pro:
++
++Please inspect the actual checkpoint diff, active source, tests, and named
++evidence. Judge each completed progression independently, distinguish proven
++behavior from structural or self-reported claims, and select the next two or
++three substantial progressions with explicit exclusions and any live-call
++ceilings. Do not infer creator authority from this request.
+diff --git a/AGENTS.md b/AGENTS.md
+index 2025cf1..4d4e1e3 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -5,10 +5,11 @@ These instructions apply to every future Codex session working in `D:\AIChatBot\
+ ## Mandatory start
+ 
+ 1. Read `docs/START_HERE.md`.
+-2. Read `docs/handoff/CURRENT.md`.
+-3. Read every document marked required for the current phase.
+-4. Confirm that the requested action is authorized by `docs/implementation/ROADMAP_AND_GATE.md`.
+-5. Inspect the worktree before editing and preserve unrelated user changes.
++2. Read `docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md`.
++3. Read `docs/handoff/CURRENT.md`.
++4. Read every document marked required for the current phase.
++5. Confirm that the requested action is authorized by `docs/implementation/ROADMAP_AND_GATE.md`.
++6. Inspect the worktree before editing and preserve unrelated user changes.
+ 
+ Do not infer implementation authority from the existence of documentation, a roadmap, examples, or an earlier repository.
+ 
+@@ -65,3 +66,23 @@ After roughly twenty focused minutes without tangible progress, or three equival
+ 4. if still blocked and ChatGPT Pro access is available, send one concise technical review request with evidence and the exact open question.
+ 
+ Do not message Pro after every edit. Request review at a genuine blocker or substantial architecture/prompt milestone.
++
++## Governed progression checkpoints
++
++When the creator authorizes a Codex-to-ChatGPT-Pro progression tranche, follow
++`docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md` in addition to the ordinary
++roadmap gate.
++
++- Treat three substantial progressions as the maximum, never a quota.
++- Stop early when a terminal blocker makes the remaining progression unsafe or
++  irrelevant; preserve the useful diagnostic evidence in the checkpoint.
++- Establish the required lossless backup and safe local Git baseline before the
++  first governed tranche changes the repository.
++- Complete a local checkpoint commit after the bounded tranche and verify the
++  actual diff, active source, tests, and effects before claiming completion.
++- Write the reusable Pro review request under `.chatgpt/pro-review/checkpoints/`
++  and send the request path plus checkpoint SHA.
++- Stop completely after submitting the request. Silence, an acceptance token,
++  or an advisory review is not creator authorization for another tranche.
++- ChatGPT Pro reviews the real checkpoint and may recommend the next two or
++  three progressions; the creator alone authorizes their implementation.
+diff --git a/README.md b/README.md
+index 5646961..f92aaec 100644
+--- a/README.md
++++ b/README.md
+@@ -1,8 +1,16 @@
+ # CERA
+ 
+-**Status:** Governed ordinary/relationship human testing is ready: 497/497 provider-free tests, live v27 at 10/10, and a real SillyTavern provisional-review/Accept smoke passed; the normal non-production world is connected on port 5101  
+-**Active repository:** `D:\AIChatBot\Cera`  
+-**Authority date:** 2026-07-28
++<!-- CERA_CURRENT_RUNTIME_BEGIN -->
++**Status:** D-180 is the current local-development runtime identity. Reasoner v25/packet v14 uses MCP v7 in the D-179 branch-bound stored session; DeepSeek V4 Flash Composer v29/packet v15/prompt v26 is non-thinking; the independent Sol verifier remains v8/request v7.
++**Active repository:** `D:\AIChatBot\Cera`
++**Status date:** 2026-07-31
++**Active runtime profile:** `cera.active_runtime.d180.v1`
++**Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
++**Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
++**Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
++**Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
++**Provider-free checkpoint verification:** 575/575 tests passed; zero live provider calls
++<!-- CERA_CURRENT_RUNTIME_END -->
+ 
+ CERA is a branch-safe character-reasoning and story-realization system for SillyTavern. Its core runtime shape is:
+ 
+@@ -28,21 +36,27 @@ Read [docs/START_HERE.md](docs/START_HERE.md). It gives the mandatory reading or
+ 
+ ## Current boundary
+ 
+-D-165 completes the behavioral-consolidation gate for the ordinary and
+-relationship route. Fresh live v27 passed ten consecutive turns with one
+-Sol-medium Reasoner, one DeepSeek V4 Flash thinking Composer, and one
+-Sol-medium verifier call per turn: 30 total calls, no retry or fallback. The
+-complete provider-free suite passed 497/497.
+-
+-A real SillyTavern smoke displayed the provisional prose, Codex sequence plan,
+-Sol severity/reason, and creator actions. Accept committed one reviewed artifact
+-atomically with zero provider calls or retries. The normal non-production
+-human-test database and loopback port-5101 adapter are restored. This is ready
+-for governed creator testing, not production or universal prose-quality
+-qualification. Live Adult ON/EX publication, route promotion, production
+-binding, public deployment, and external-handler integration remain closed.
+-See the [D-165 result](docs/implementation/BEHAVIORAL_CONSOLIDATION_AND_HUMAN_TEST_GATE_RESULT.md)
+-and [current handoff](docs/handoff/CURRENT.md).
++D-180 corrects the active Reasoner evidence-citation contract without creating
++a v26 identity: Reasoner adapter/prompt v25, packet v14, and MCP v7 are the
++current source. Python still validates every alias against the current bounded
++evidence allocation before any provisional candidate can reach creator review.
++The current DeepSeek default is Flash with thinking disabled. The canonical
++profile above is used by routes, stored-session compatibility, health output,
++tests, and current-status validation.
++
++The earlier D-165, D-177, and D-179 results remain historical evidence. D-179's
++5/5 stored-session qualification is the last live activation evidence, not a
++fresh end-to-end qualification of every D-180 component. This checkpoint makes
++zero provider calls, passes 575/575 provider-free tests, and does not claim a
++new live pass. Adult ON/EX publication,
++route promotion, production binding, public deployment, and external-handler
++integration remain closed. See the [current handoff](docs/handoff/CURRENT.md).
++
++## Historical milestone record
++
++The material below preserves evidence from earlier gates. Any historical use
++of “current” is scoped to that checkpoint and does not override the D-180
++profile above.
+ 
+ The repository contains controlling design documentation, the verified Phase 1 foundation, the verified Phase 2 SQLite authority store, accepted Genesis infrastructure and Hanezawa V1.2 child revision, the snapshot evidence service/Turn Kernel, provider-neutral Reasoner/Composer/verifier contracts, provider-free Adult ON/EX provenance and compiled craft catalog, blocker/resumption infrastructure, derived consolidation, offline evaluation, bounded live transports, request-scoped Codex evidence tools, transactional publication, one qualified local ordinary route, and a chat-ready local development adapter. No production story database or promoted route exists. Genesis and Adult EX artifacts are repository-local authority/provenance but have not been bound to a production world. This work did not:
+ 
+diff --git a/docs/START_HERE.md b/docs/START_HERE.md
+index c292494..66f88b0 100644
+--- a/docs/START_HERE.md
++++ b/docs/START_HERE.md
+@@ -1,7 +1,15 @@
+ # CERA Start-Reading Index
+ 
+ **Status:** controlling index
+-**Phase:** D-179 native stored Reasoner active; Sol M/H/Ex control active
++<!-- CERA_CURRENT_RUNTIME_BEGIN -->
++**Phase:** D-180 stabilization checkpoint; canonical active runtime profile installed
++**Active runtime profile:** `cera.active_runtime.d180.v1`
++**Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
++**Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
++**Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
++**Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
++**Provider-free checkpoint verification:** 575/575 tests passed; zero live provider calls
++<!-- CERA_CURRENT_RUNTIME_END -->
+ 
+ ## 1. Authority in one page
+ 
+@@ -35,33 +43,35 @@ not canon.
+ ### Every session
+ 
+ 1. This file.
+-2. [handoff/CURRENT.md](handoff/CURRENT.md).
+-3. [authority/CERA_OWNER_ARCHITECTURE.md](authority/CERA_OWNER_ARCHITECTURE.md).
+-4. [authority/DECISIONS_AND_SUPERSESSIONS.md](authority/DECISIONS_AND_SUPERSESSIONS.md).
++2. [authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md](authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md).
++3. [handoff/CURRENT.md](handoff/CURRENT.md).
++4. [authority/CERA_OWNER_ARCHITECTURE.md](authority/CERA_OWNER_ARCHITECTURE.md).
++5. [authority/DECISIONS_AND_SUPERSESSIONS.md](authority/DECISIONS_AND_SUPERSESSIONS.md).
+ 
+ ### Before architecture or runtime work
+ 
+-5. [architecture/RUNTIME_PIPELINE_AND_PORTS.md](architecture/RUNTIME_PIPELINE_AND_PORTS.md).
+-6. [architecture/GENESIS_MEMORY_AND_RETRIEVAL.md](architecture/GENESIS_MEMORY_AND_RETRIEVAL.md).
+-7. [architecture/BEHAVIORAL_AUTHORITY_AND_SCENE_DEVELOPMENT.md](architecture/BEHAVIORAL_AUTHORITY_AND_SCENE_DEVELOPMENT.md).
+-8. [contracts/SCHEMA_CATALOG.md](contracts/SCHEMA_CATALOG.md).
+-9. [contracts/STATE_MACHINES_AND_ERRORS.md](contracts/STATE_MACHINES_AND_ERRORS.md).
++6. [architecture/RUNTIME_PIPELINE_AND_PORTS.md](architecture/RUNTIME_PIPELINE_AND_PORTS.md).
++7. [architecture/GENESIS_MEMORY_AND_RETRIEVAL.md](architecture/GENESIS_MEMORY_AND_RETRIEVAL.md).
++8. [architecture/BEHAVIORAL_AUTHORITY_AND_SCENE_DEVELOPMENT.md](architecture/BEHAVIORAL_AUTHORITY_AND_SCENE_DEVELOPMENT.md).
++9. [contracts/SCHEMA_CATALOG.md](contracts/SCHEMA_CATALOG.md).
++10. [contracts/STATE_MACHINES_AND_ERRORS.md](contracts/STATE_MACHINES_AND_ERRORS.md).
+ 
+ ### Before prompt, adult-route, or blocked-event work
+ 
+-10. [architecture/PROMPT_CONTEXT_AND_EXAMPLES.md](architecture/PROMPT_CONTEXT_AND_EXAMPLES.md).
+-11. [architecture/BLOCKED_TURN_AND_RESUMPTION.md](architecture/BLOCKED_TURN_AND_RESUMPTION.md).
+-12. [authority/CREATOR_FACTS_AND_PREFERENCES.md](authority/CREATOR_FACTS_AND_PREFERENCES.md).
++11. [architecture/PROMPT_CONTEXT_AND_EXAMPLES.md](architecture/PROMPT_CONTEXT_AND_EXAMPLES.md).
++12. [architecture/BLOCKED_TURN_AND_RESUMPTION.md](architecture/BLOCKED_TURN_AND_RESUMPTION.md).
++13. [authority/CREATOR_FACTS_AND_PREFERENCES.md](authority/CREATOR_FACTS_AND_PREFERENCES.md).
+ 
+ ### Before coding
+ 
+-13. [implementation/ROADMAP_AND_GATE.md](implementation/ROADMAP_AND_GATE.md).
+-14. Obtain and record separate creator authorization for the applicable roadmap phase.
++14. [implementation/ROADMAP_AND_GATE.md](implementation/ROADMAP_AND_GATE.md).
++15. Obtain and record separate creator authorization for the applicable roadmap phase or governed progression tranche.
+ 
+ ## 3. Document roles
+ 
+ | Document | Role |
+ |---|---|
++| `CODEX_PROGRESS_REVIEW_PROTOCOL.md` | Permanent bounded Codex-to-Pro checkpoint and review workflow |
+ | `CERA_OWNER_ARCHITECTURE.md` | Product and architectural authority |
+ | `CREATOR_FACTS_AND_PREFERENCES.md` | Accepted seed facts and craft preferences |
+ | `DECISIONS_AND_SUPERSESSIONS.md` | Decision log and explicit conflict resolution |
+@@ -135,7 +145,13 @@ Runtime authority is typed rather than decided by prose order. Genesis, accepted
+ 
+ ## 5. Current implementation gate
+ 
+-D-179 activates the native stored Reasoner for local SillyTavern human testing.
++D-180 is the active source identity. It corrects evidence citation ownership
++with Reasoner v25/packet v14 and MCP v7 while preserving all Python authority
++boundaries. No fresh live D-180 full-route qualification is claimed by this
++zero-provider stabilization checkpoint. The complete provider-free suite
++passes 575/575.
++
++D-179 remains the historical activation basis for the native stored Reasoner.
+ Each message forks one stored candidate from the exact accepted checkpoint;
+ creator acceptance plus Python publication promotes it. Decline or failure
+ archives only that candidate. Restart reconstructs or resumes from accepted
+@@ -170,7 +186,7 @@ and Sol-medium remains active. Read
+ D-169 below remains the current completion/failure correction baseline.
+ 
+ D-169 corrects the largest D-168 completion/failure-observability class.
+-DeepSeek V4 Flash composition now explicitly defaults to non-thinking;
++DeepSeek V4 Flash composition defaults to non-thinking;
+ Reasoner adapter/prompt v24 requires a complete non-ready reset; and a
+ provider response rejected before typed acceptance retains a privacy-safe
+ `ProviderFailureCallReceipt` with exact finish reason and usage but no partial
+diff --git a/docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md b/docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md
+new file mode 100644
+index 0000000..9623f7b
+--- /dev/null
++++ b/docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md
+@@ -0,0 +1,256 @@
++# CERA Codex ↔ ChatGPT Pro Progress Review Protocol
++
++**Effective:** 2026-07-31
++**Status:** creator-authorized engineering workflow
++**Scope:** every Codex session that changes CERA code, prompts, configuration, tests, runtime integration, evaluation, or controlling documentation
++
++## Purpose
++
++CERA progresses in small, auditable tranches rather than through continuous
++architecture churn. Codex remains the technical implementer. ChatGPT Pro
++reviews each completed checkpoint, identifies unsupported claims or unnecessary
++complexity, and selects the next two or three substantial progressions. Neither
++party may silently grant creator authority.
++
++This protocol supplements `D:\AIChatBot\Cera\AGENTS.md`. It does not weaken the
++owner architecture, typed contracts, creator authority, privacy, branch,
++knowledge, identity, consent/capacity, protected-user, evidence, publication,
++no-silent-fallback, or no-recursive-retry boundaries.
++
++## Mandatory startup
++
++Before editing, Codex must read, in order:
++
++1. `D:\AIChatBot\Cera\AGENTS.md`
++2. `D:\AIChatBot\Cera\docs\START_HERE.md`
++3. `D:\AIChatBot\Cera\docs\authority\CODEX_PROGRESS_REVIEW_PROTOCOL.md`
++4. `D:\AIChatBot\Cera\docs\handoff\CURRENT.md`
++5. `D:\AIChatBot\Cera\docs\authority\CERA_OWNER_ARCHITECTURE.md`
++6. `D:\AIChatBot\Cera\docs\authority\DECISIONS_AND_SUPERSESSIONS.md`
++7. The latest applicable `PRO_RESPONSE.md` under
++   `D:\AIChatBot\Cera\.chatgpt\pro-review\checkpoints\`, when one exists
++8. Every task-specific controlling contract and result named by the current prompt
++
++Codex must then inspect repository status, current HEAD, staged changes,
++untracked files, and the exact active runtime identity before modifying
++anything.
++
++## Git prerequisite
++
++Before the first tranche:
++
++1. Create and verify a lossless backup outside `D:\AIChatBot\Cera`.
++2. Inventory every repo-local path and classify it as tracked source/authority,
++   tracked immutable evidence, generated output, runtime state, local
++   secret-risk material, or intentionally untracked material.
++3. Initialize a local Git repository without adding a remote or pushing.
++4. Update ignore rules only from the explicit inventory. Never use a blind
++   `git add .` before reviewing the inventory.
++5. Never delete, relocate, rewrite, or compress historical evidence merely to
++   make the baseline smaller.
++6. Record every intentionally ignored or untracked evidence/runtime path in a
++   tracked manifest with preservation location and rationale.
++7. Create a local baseline commit before active implementation changes.
++8. Record the baseline commit SHA and inventory in the first checkpoint request.
++
++Do not run `git clean`, destructive reset, stash, checkout-overwrite, force
++operations, or remote operations during bootstrap. If a safe baseline cannot be
++established, stop and request review. Do not continue unversioned.
++
++The baseline commit is a prerequisite. It does not replace the checkpoint
++commit required after the tranche.
++
++## Tranche size
++
++A tranche contains **no more than three substantial progressions**.
++
++Two progressions are acceptable when a third would be unsafe, unrelated,
++insufficiently supported, or outside authorization. One progression is
++acceptable after a terminal diagnostic failure that makes further work
++speculative. Codex must never quietly continue to a fourth progression.
++
++A substantial progression is one coherent issue resolution, bug fix,
++implementation, qualification, or evidence-backed product improvement with:
++
++- a defined owner and failure class;
++- explicit acceptance criteria;
++- focused tests or evidence;
++- a user-visible or architecture-relevant result;
++- an honest statement of what remains unproven.
++
++The following do not count as separate progressions by themselves:
++
++- increasing the total test count;
++- writing a result file;
++- updating version strings required by the same change;
++- rerunning tests without a changed hypothesis;
++- formatting or link cleanup;
++- obtaining another advisory acceptance token;
++- splitting one architectural change into artificial subtasks.
++
++If one task expands into another owning abstraction or materially new behavior,
++stop and defer the expansion.
++
++## Task selection and precedence
++
++The first tranche is defined by the initial stabilization prompt. Every later
++tranche is selected by ChatGPT Pro after reviewing the preceding checkpoint.
++
++Codex must not self-authorize additional architecture, prompt systems, model
++ladders, Adult activation, production binding, deployment, or unrelated cleanup
++merely because the code makes it convenient.
++
++Priority order:
++
++1. **P0 — truth and change control:** Git, active identity consistency,
++   authority/privacy defects, incorrect current documentation, and
++   transactional/restart defects.
++2. **P1 — exact current-route reliability:** current-version end-to-end
++   qualification, failure recovery, state/prose agreement, and deterministic
++   continuity checks.
++3. **P2 — creator product evidence:** varied creator-labeled turns, voice
++   distinction, realism, first-candidate acceptance, factual invention, and
++   scene development.
++4. **P3 — latency and maintainability:** measured routing changes, verifier
++   value, module decomposition, CI, and tooling.
++5. **P4 — Adult live publication, production binding, promotion, and
++   deployment:** only after separate creator authority and prerequisite evidence.
++
++A lower-priority task must not displace an unresolved higher-priority defect
++without an explicit creator or ChatGPT Pro decision.
++
++## Execution rules
++
++For each progression, Codex must:
++
++1. State the exact problem and current evidence.
++2. Identify the owning abstraction before editing.
++3. Choose the smallest coherent correction.
++4. Preserve unrelated user changes.
++5. Add focused regression coverage.
++6. Run narrow tests first and the complete relevant suite only after focused success.
++7. Preserve failed live evidence under a new immutable identity.
++8. Make no silent retry, fallback, route substitution, evidence overwrite, or validator weakening.
++9. Report provider calls, model identities, reasoning efforts, token/cost evidence, database writes, and affected branches truthfully.
++10. Avoid claiming semantic or prose quality from structural tests.
++
++A live provider call is permitted only when the current task explicitly names
++the purpose, exact maximum call count, route, data boundary, and stop condition.
++A failed live stage ends that attempt. Codex may diagnose it, but it must not
++automatically patch and rerun when doing so creates another progression or
++exceeds authorization.
++
++## Checkpoint commit
++
++After completing the tranche's authorized progressions, Codex must:
++
++1. Run required focused and broad verification.
++2. Inspect the complete diff and repository status.
++3. Confirm historical evidence and unrelated files were not changed.
++4. Create one local checkpoint commit containing only the reviewed tranche.
++5. Use a descriptive message such as
++   `cera(checkpoint 1): establish governed stabilization baseline`.
++6. Never push.
++7. Leave the tracked worktree clean, except for explicitly declared runtime or
++   immutable evidence outputs whose status and rationale are included in the request.
++
++Do not combine the next tranche with the current checkpoint commit.
++
++A terminal diagnostic progression may be committed when it adds a valid
++harness, regression test, safe evidence, or documented owning diagnosis.
++Repeating a failed attempt without new evidence is not progress.
++
++## Mandatory ChatGPT Pro review request
++
++After the checkpoint commit, create:
++
++```text
++D:\AIChatBot\Cera\.chatgpt\pro-review\checkpoints\<timestamp>-checkpoint-<number>\REQUEST.md
++```
++
++The request must contain:
++
++- creator goal and checkpoint number;
++- starting baseline or prior checkpoint SHA;
++- ending checkpoint SHA;
++- exact one, two, or three progressions completed;
++- why each progression was selected;
++- changed-file inventory and diff summary;
++- focused and complete verification commands/results;
++- provider calls, retries, fallbacks, cost/quota evidence, and story/database effects;
++- active runtime identity before and after;
++- user-visible behavior before and after;
++- actual output samples or immutable evidence paths when quality is relevant;
++- unresolved defects, uncertainty, and risks;
++- any disagreement with the prior Pro response;
++- Codex's suggested next work, clearly labeled advisory rather than authorized.
++
++Then send ChatGPT Pro one concise message naming the request path and checkpoint
++SHA and ask for independent review plus the next two or three progressions.
++
++The request must not demand an exact acceptance token, frame approval as the
++expected answer, hide failed evidence, or pressure ChatGPT Pro to respond early.
++
++After sending the request, **stop the run**. Do not continue working, poll while
++changing files, prepare the next implementation in advance, or treat silence as
++authorization.
++
++## ChatGPT Pro response
++
++ChatGPT Pro may respond in the conversation and/or write:
++
++```text
++D:\AIChatBot\Cera\.chatgpt\pro-review\checkpoints\<timestamp>-checkpoint-<number>\PRO_RESPONSE.md
++```
++
++The response should:
++
++- inspect the actual diff, active source, tests, and evidence when accessible;
++- distinguish proven behavior from structural or self-reported claims;
++- accept, reject, or narrow each progression;
++- identify required corrections;
++- select the next two or three substantial progressions in priority order;
++- name explicit exclusions and live-call ceilings;
++- state uncertainty honestly.
++
++On the next run, Codex must read the latest response before editing and may
++execute only the selected tranche. If Codex materially disagrees, it must
++present repository evidence and stop for resolution rather than silently
++ignoring the review.
++
++## Prohibited anti-patterns
++
++Codex must not:
++
++- treat a growing provider-free test total as proof of roleplay quality;
++- add global prompt rules from one isolated output;
++- introduce another schema, adapter, packet, or prompt version without a necessary contract change;
++- run another broad model ladder before the exact current route is coherent and qualified;
++- use its own implementation summary as independent verification;
++- describe ChatGPT Pro's response as a source-code audit when source or diff access was unavailable;
++- leave active v24/v25-style identity conflicts in routes, receipts, sessions, tests, health output, or documentation;
++- maintain several manually copied versions of current status;
++- mix historical evidence into a current-status section without explicit labeling;
++- continue feature work while a P0 authority, change-control, or active-truth defect remains open;
++- activate Adult ON/EX, production binding, promotion, or deployment to compensate for ordinary-route quality problems.
++
++## Definition of a clean working model
++
++The cycle continues until the creator and ChatGPT Pro agree that, at minimum:
++
++- source control is complete and the working tree is auditable;
++- one canonical active runtime profile agrees with code, routes, sessions, receipts, health output, tests, and current documentation;
++- the exact active ordinary route has current end-to-end evidence, including retrieval, restart, branch, regeneration/decline, provisional review, and atomic acceptance;
++- no unresolved P0 issue remains;
++- interrupted background review/session states recover or fail explicitly;
++- current documentation is concise and generated or validated against active configuration;
++- a varied corpus of roughly 20–30 creator-resolved turns exists across all characters and key behavior classes;
++- first-candidate acceptance, correction, rewrite, replan, decline, factual-invention, continuity, voice, and latency metrics are available;
++- model/effort and verifier choices are supported by matched evidence rather than intuition;
++- stored-provider retention is accurately documented;
++- maintainability work is evidence-driven and does not change behavior silently;
++- Adult and production decisions remain separate creator gates.
++
++A clean model does not mean zero future defects. It means the active route is
++coherent, auditable, currently tested, honestly measured, and improving from
++creator evidence rather than uncontrolled architectural accumulation.
+diff --git a/docs/handoff/CURRENT.md b/docs/handoff/CURRENT.md
+index 9d8cd71..b380ed9 100644
+--- a/docs/handoff/CURRENT.md
++++ b/docs/handoff/CURRENT.md
+@@ -1,35 +1,39 @@
+ # Current CERA Handoff
+ 
+ **Updated:** 2026-07-31
+-**Phase:** D-179 native stored Reasoner active; Sol M/H/Ex control active
+-**Runtime implementation:** Branch-bound native stored Sol Reasoner v24 (`medium/high/xhigh`) with MCP v6 -> Python validation -> DeepSeek V4 Flash non-thinking Composer v29/prompt v26 -> Python provisional display -> Sol-medium verifier/reviewer v8 with bounded exact evidence -> zero-provider atomic Accept. Adult ON/EX live publication remains outside this gate.
++<!-- CERA_CURRENT_RUNTIME_BEGIN -->
++**Phase:** D-180 stabilization checkpoint; canonical active runtime profile installed
++**Active runtime profile:** `cera.active_runtime.d180.v1`
++**Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
++**Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
++**Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
++**Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
++**Provider-free checkpoint verification:** 575/575 tests passed in 268.827 seconds; zero live provider calls
++<!-- CERA_CURRENT_RUNTIME_END -->
+ 
+ ## Current status and next action
+ 
+-- D-179 is active on the local human-test route. CERA health reports
+-  `branch_bound_native_stored_v1`, model `gpt-5.6-sol`, selectable Reasoner
+-  efforts `medium/high/xhigh`, and verifier effort `medium`.
+-- SillyTavern extension v1.3.0 renders one `Sol` selector with `M`, `H`, and
+-  `Ex`. Browser verification exercised all three values and restored `M`.
+-  Changing effort rotates/reconstructs from accepted Python authority; it does
+-  not mix checkpoints or change verifier effort.
+-- D-178 explicitly materializes stored roots/forks by naming them. Rejected and
+-  failed candidate leaves are archived/non-resumable rather than deleted. This
+-  supersedes D-174's deletion mechanism while retaining the accepted-parent and
+-  sibling-isolation rules. SQLite schema version is 18.
+-- The non-story stored lifecycle/MCP canary passed. A fresh five-turn
+-  Sol-medium qualification passed 5/5 on one advancing disposable branch:
+-  five Sol calls, zero retry/fallback/DeepSeek/story writes, and successful
+-  leaf-first archival cleanup. The complete provider-free suite passes 569/569
+-  in 398.054 seconds.
+-- Both services were restarted from the updated code. Port 5101 is loopback
+-  CERA and port 8000 is SillyTavern/LAN. The installed extension hashes match
+-  the repository source.
+-- Remaining limitation: live Reasoner latency was 83.722-172.640 seconds and
+-  provider cache reporting was intermittent. Persistence is verified; the
+-  earlier estimated 80% latency improvement is not established by this batch.
+-- Read `implementation/NATIVE_STORED_REASONER_ACTIVATION_RESULT.md` before
+-  changing the session route or effort semantics.
++- D-180 is the current source identity. The typed profile is consumed by active
++  routes, stored-session compatibility, and health output; deterministic tests
++  reject drift among profile, adapters, prompts, schemas, tools, and routes.
++- D-179 remains the activation basis for the branch-bound stored Reasoner and
++  the `Sol: M/H/Ex` selector. It is historical qualification evidence, not a
++  claim that a fresh D-180 full-route live batch ran.
++- D-180's alias correction preserved Python evidence, privacy, branch,
++  protected-user, creator-review, and atomic-publication validation. No retry,
++  fallback, automatic acceptance, or provider/story replay was added.
++- This stabilization checkpoint permits zero provider calls. Its verification
++  is provider-free: compilation, focused checks, documentation/source drift
++  checks, and the complete 575/575 suite pass. A later live qualification
++  requires separate creator authority.
++- Adult ON/EX live publication, production binding, route promotion,
++  deployment, and external-handler work remain closed.
++
++## Chronological evidence record
++
++The entries below preserve earlier implementation and qualification evidence.
++When an older entry uses “current,” its claim is scoped to that historical
++checkpoint and does not override the D-180 profile above.
+ 
+ - D-177 adds explicit Good/Concern/Critical/Error colors, renames the visible
+   correction button to `Adjustment`, adds typed `False Positive` acceptance
+diff --git a/docs/implementation/ROADMAP_AND_GATE.md b/docs/implementation/ROADMAP_AND_GATE.md
+index b8f4a6d..ff1b60f 100644
+--- a/docs/implementation/ROADMAP_AND_GATE.md
++++ b/docs/implementation/ROADMAP_AND_GATE.md
+@@ -1,21 +1,33 @@
+ # Implementation Roadmap and Authorization Gate
+ 
+ **Status:** controlling ordered roadmap
+-**Current local state (D-177):** creator-review presentation v1 is active in
+-the local SillyTavern route. The complete provider-free suite passes 565/565.
+-D-176 consumed the native-stored canary and stopped before dispatch because the
+-claimed stored root had no provider rollout. The active Sol-medium route is
+-unchanged; a stored-root lifecycle correction and any later live canary remain
+-separate gates.
+-
+-**Current authorization:** the autonomous local-human-test goal remains active
+-under D-150's creator-authorized total ceilings of 500 Sol-medium and 500
+-DeepSeek V4 Pro calls. Continuous v1-v11 plus persistent-probe v1
+-conservatively used 40 Sol and 18 DeepSeek dispatches, leaving 460/482. A fresh
+-ten-turn route requires 20 Sol and 10 DeepSeek and may now begin. No limit will
+-be exceeded silently. The local SillyTavern
+-human-test world therefore remains unbound because the controlling sequence
+-requires one passing ten-turn route first.
++<!-- CERA_CURRENT_RUNTIME_BEGIN -->
++**Current local state (D-180):** canonical active runtime identity installed.
++**Active runtime profile:** `cera.active_runtime.d180.v1`
++**Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
++**Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
++**Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
++**Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
++**Provider-free checkpoint verification:** 575/575 tests passed in 268.827 seconds; zero live provider calls
++<!-- CERA_CURRENT_RUNTIME_END -->
++
++D-179 remains the last live stored-session activation evidence. This
++stabilization checkpoint makes zero provider calls and does not reinterpret
++historical evidence as a fresh D-180 qualification. The next live gate remains
++separately creator-authorized.
++
++**Current authorization:** Checkpoint 001 permits at most three substantial
++progressions: governance protocol installation, active-runtime identity
++reconciliation, and truthful machine-validated current status. It permits zero
++live provider calls and requires a local checkpoint commit followed by a full
++stop for ChatGPT Pro review. Earlier provider-call ceilings and live-test gates
++are historical evidence, not authority for this checkpoint.
++
++## Historical roadmap record
++
++The material below preserves the authorization and evidence state at earlier
++gates. Historical statements that an action “may now begin” are consumed or
++superseded and do not override the current authorization above.
+ 
+ The current provider-free implementation passes 376/376, including exact live
+ transport-evidence activation, semantic-mutation rejection, mixed
+@@ -686,6 +698,25 @@ latency remained 83.722-172.640 seconds in the five-turn batch.
+ 
+ Read `NATIVE_STORED_REASONER_ACTIVATION_RESULT.md`.
+ 
++## D-180 - Canonical active-runtime identity and citation alias correction
++
++**Status:** active source contract; stabilization verification is provider-free.
++
++- Reasoner adapter/prompt v25, packet v14, and MCP v7 replace provider-owned
++  evidence UUID copying with request-local citation aliases resolved by Python.
++- `cera.active_runtime.d180.v1` is the single typed identity used by routes,
++  branch-bound session compatibility, health output, current documentation,
++  and deterministic drift tests. Correcting stale v24 metadata did not create
++  an artificial v26.
++- DeepSeek V4 Flash remains Composer v29/packet v15/prompt v26 with thinking
++  disabled. The independent Sol-medium verifier remains domain adapter v8,
++  prompt v8, request v7, using the pinned one-shot CLI transport.
++- The D-179 stored activation evidence remains unchanged and historical. This
++  checkpoint passes 575/575 provider-free tests, makes no live provider call,
++  and does not claim a fresh full-route D-180 qualification.
++- Python validation, creator review, branch isolation, privacy, protected-user,
++  no-retry/no-fallback behavior, and atomic publication remain unchanged.
++
+ ## Repair and pivot rule
+ 
+ After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.
+diff --git a/scripts/show_active_runtime_profile.py b/scripts/show_active_runtime_profile.py
+new file mode 100644
+index 0000000..bdc4a06
+--- /dev/null
++++ b/scripts/show_active_runtime_profile.py
+@@ -0,0 +1,11 @@
++"""Print and validate the canonical active CERA runtime profile."""
++
++from __future__ import annotations
++
++import json
++
++from cera.active_runtime_validation import active_runtime_status
++
++
++if __name__ == "__main__":
++    print(json.dumps(active_runtime_status(), indent=2, sort_keys=True))
+diff --git a/src/cera/active_runtime.py b/src/cera/active_runtime.py
+new file mode 100644
+index 0000000..9e01786
+--- /dev/null
++++ b/src/cera/active_runtime.py
+@@ -0,0 +1,122 @@
++"""Canonical identity for the active local CERA runtime.
++
++This module is deliberately data-only. Provider routes, adapters, session
++compatibility, health output, tests, and current-status documents bind to this
++single profile instead of repeating version strings independently.
++"""
++
++from __future__ import annotations
++
++from dataclasses import asdict, dataclass
++from typing import Any
++
++from cera.serialization import canonical_sha256
++
++
++@dataclass(frozen=True, slots=True)
++class RuntimeRoleIdentity:
++    role: str
++    provider: str
++    model: str
++    model_revision: str
++    route_adapter_id: str
++    domain_adapter_version: str
++    packet_version: str
++    prompt_version: str
++    output_schema_version: str
++    request_schema_version: str | None
++    transport_name: str
++    transport_version: str
++    provider_schema_dialect: str
++    reasoning_efforts: tuple[str, ...]
++    default_reasoning_effort: str | None
++    thinking_enabled: bool | None
++    tool_contract_version: str | None
++    automatic_retry_count: int = 0
++    fallback_enabled: bool = False
++    production_enabled: bool = False
++
++
++@dataclass(frozen=True, slots=True)
++class ActiveRuntimeProfile:
++    schema_version: str
++    profile_id: str
++    decision_id: str
++    owner_architecture_version: str
++    reasoner_session_mode: str
++    reasoner: RuntimeRoleIdentity
++    composer: RuntimeRoleIdentity
++    verifier: RuntimeRoleIdentity
++
++    def to_mapping(self) -> dict[str, Any]:
++        return asdict(self)
++
++    @property
++    def profile_sha256(self) -> str:
++        return canonical_sha256(self.to_mapping())
++
++
++ACTIVE_RUNTIME_PROFILE = ActiveRuntimeProfile(
++    schema_version="cera.active_runtime_profile.v1",
++    profile_id="cera.active_runtime.d180.v1",
++    decision_id="D-180",
++    owner_architecture_version="cera.owner_architecture.v2",
++    reasoner_session_mode="branch_bound_native_stored_v1",
++    reasoner=RuntimeRoleIdentity(
++        role="scene_reasoner",
++        provider="openai_codex",
++        model="gpt-5.6-sol",
++        model_revision="openai-resolver-2026-07-28",
++        route_adapter_id="cera.codex_scene_reasoner.v25",
++        domain_adapter_version="cera.codex_scene_reasoner.v25",
++        packet_version="cera.codex_scene_reasoner_packet.v14",
++        prompt_version="cera.codex_scene_reasoner_prompt.v25",
++        output_schema_version="cera.codex_reasoner_draft.v6",
++        request_schema_version="cera.scene_reasoner_request.v4",
++        transport_name="codex_python_sdk_app_server",
++        transport_version="0.144.4",
++        provider_schema_dialect="openai_structured_output_2026_07_v1",
++        reasoning_efforts=("medium", "high", "xhigh"),
++        default_reasoning_effort="medium",
++        thinking_enabled=None,
++        tool_contract_version="cera.reasoner_evidence_mcp.v7",
++    ),
++    composer=RuntimeRoleIdentity(
++        role="scene_composer",
++        provider="deepseek",
++        model="deepseek-v4-flash",
++        model_revision="deepseek-v4-2026-04-24",
++        route_adapter_id="cera.deepseek_scene_composer.v29",
++        domain_adapter_version="cera.deepseek_scene_composer.v29",
++        packet_version="cera.deepseek_scene_composer_packet.v15",
++        prompt_version="cera.deepseek_scene_composer_prompt.v26",
++        output_schema_version="cera.deepseek_composition_draft.v6",
++        request_schema_version="cera.scene_composer_request.v6",
++        transport_name="deepseek_chat_completions",
++        transport_version="2026-04-24",
++        provider_schema_dialect="deepseek_json_object_prompt_2026_07_v1",
++        reasoning_efforts=(),
++        default_reasoning_effort=None,
++        thinking_enabled=False,
++        tool_contract_version=None,
++    ),
++    verifier=RuntimeRoleIdentity(
++        role="scene_realization_verifier",
++        provider="openai_codex",
++        model="gpt-5.6-sol",
++        model_revision="openai-resolver-2026-07-28",
++        route_adapter_id="cera.codex_cli_scene_realization_verifier.v1",
++        domain_adapter_version="cera.codex_scene_realization_verifier.v8",
++        packet_version="cera.codex_scene_realization_verifier_packet.v8",
++        prompt_version="cera.codex_scene_realization_verifier_prompt.v8",
++        output_schema_version="cera.codex_scene_realization_verifier_draft.v3",
++        request_schema_version="cera.scene_realization_verification_request.v7",
++        transport_name="codex_cli_exec",
++        transport_version="0.144.4",
++        provider_schema_dialect="openai_structured_output_2026_07_v1",
++        reasoning_efforts=("medium",),
++        default_reasoning_effort="medium",
++        thinking_enabled=None,
++        tool_contract_version=None,
++    ),
++)
+diff --git a/src/cera/active_runtime_validation.py b/src/cera/active_runtime_validation.py
+new file mode 100644
+index 0000000..21f9cd2
+--- /dev/null
++++ b/src/cera/active_runtime_validation.py
+@@ -0,0 +1,221 @@
++"""Cross-module drift checks for the canonical active runtime profile."""
++
++from __future__ import annotations
++
++from dataclasses import asdict
++from typing import Any
++
++from cera.active_runtime import ACTIVE_RUNTIME_PROFILE, ActiveRuntimeProfile
++from cera.errors import ContractValidationError
++
++
++def validate_active_runtime_bindings(
++    profile: ActiveRuntimeProfile = ACTIVE_RUNTIME_PROFILE,
++) -> tuple[str, ...]:
++    """Return every active-source mismatch without touching a provider."""
++
++    from cera.composer.deepseek import (
++        DEEPSEEK_COMPOSER_ADAPTER_VERSION,
++        DEEPSEEK_COMPOSER_PACKET_VERSION,
++        DEEPSEEK_COMPOSER_PROMPT_VERSION,
++        DEEPSEEK_COMPOSER_THINKING_ENABLED,
++        DeepSeekCompositionDraftV6,
++    )
++    from cera.composer.models import SceneComposerRequest
++    from cera.providers import ProviderSchemaDialect
++    from cera.providers.routes import (
++        codex_cli_realization_verifier_candidate,
++        codex_reasoner_candidate,
++        deepseek_composer_candidate,
++    )
++    from cera.realization.codex import (
++        CODEX_REALIZATION_VERIFIER_ADAPTER_VERSION,
++        CODEX_REALIZATION_VERIFIER_DRAFT_VERSION,
++        CODEX_REALIZATION_VERIFIER_PACKET_VERSION,
++        CODEX_REALIZATION_VERIFIER_PROMPT_VERSION,
++    )
++    from cera.realization.models import SceneRealizationVerificationRequest
++    from cera.reasoner.codex import (
++        CODEX_REASONER_ADAPTER_VERSION,
++        CODEX_REASONER_PACKET_VERSION,
++        CODEX_REASONER_PROMPT_VERSION,
++    )
++    from cera.reasoner.drafts import CodexReasonerDraftV6
++    from cera.reasoner.mcp_bridge import MCP_TOOL_CONTRACT_VERSION
++    from cera.reasoner.models import SceneReasonerRequest
++    from cera.reasoner_session.runtime import NativeStoredReasonerSessionRuntime
++
++    mismatches: list[str] = []
++
++    def expect(label: str, actual: object, expected: object) -> None:
++        if actual != expected:
++            mismatches.append(f"{label}: {actual!r} != {expected!r}")
++
++    reasoner = profile.reasoner
++    expect(
++        "reasoner domain adapter",
++        CODEX_REASONER_ADAPTER_VERSION,
++        reasoner.domain_adapter_version,
++    )
++    expect("reasoner packet", CODEX_REASONER_PACKET_VERSION, reasoner.packet_version)
++    expect("reasoner prompt", CODEX_REASONER_PROMPT_VERSION, reasoner.prompt_version)
++    expect(
++        "reasoner draft",
++        CodexReasonerDraftV6.SCHEMA_VERSION,
++        reasoner.output_schema_version,
++    )
++    expect(
++        "reasoner request",
++        SceneReasonerRequest.SCHEMA_VERSION,
++        reasoner.request_schema_version,
++    )
++    expect(
++        "reasoner schema dialect",
++        ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1.value,
++        reasoner.provider_schema_dialect,
++    )
++    expect("reasoner MCP", MCP_TOOL_CONTRACT_VERSION, reasoner.tool_contract_version)
++    expect(
++        "reasoner session mode",
++        NativeStoredReasonerSessionRuntime.MODE,
++        profile.reasoner_session_mode,
++    )
++    for effort in reasoner.reasoning_efforts:
++        route = codex_reasoner_candidate(model=reasoner.model, effort=effort)
++        _compare_route("reasoner", route, reasoner, effort, expect)
++
++    composer = profile.composer
++    expect(
++        "composer domain adapter",
++        DEEPSEEK_COMPOSER_ADAPTER_VERSION,
++        composer.domain_adapter_version,
++    )
++    expect(
++        "composer packet",
++        DEEPSEEK_COMPOSER_PACKET_VERSION,
++        composer.packet_version,
++    )
++    expect(
++        "composer prompt",
++        DEEPSEEK_COMPOSER_PROMPT_VERSION,
++        composer.prompt_version,
++    )
++    expect(
++        "composer thinking",
++        DEEPSEEK_COMPOSER_THINKING_ENABLED,
++        composer.thinking_enabled,
++    )
++    expect(
++        "composer draft",
++        DeepSeekCompositionDraftV6.SCHEMA_VERSION,
++        composer.output_schema_version,
++    )
++    expect(
++        "composer request",
++        SceneComposerRequest.SCHEMA_VERSION,
++        composer.request_schema_version,
++    )
++    expect(
++        "composer schema dialect",
++        ProviderSchemaDialect.DEEPSEEK_JSON_OBJECT_PROMPT_V1.value,
++        composer.provider_schema_dialect,
++    )
++    route = deepseek_composer_candidate(model=composer.model)
++    _compare_route("composer", route, composer, None, expect)
++
++    verifier = profile.verifier
++    expect(
++        "verifier domain adapter",
++        CODEX_REALIZATION_VERIFIER_ADAPTER_VERSION,
++        verifier.domain_adapter_version,
++    )
++    expect(
++        "verifier packet",
++        CODEX_REALIZATION_VERIFIER_PACKET_VERSION,
++        verifier.packet_version,
++    )
++    expect(
++        "verifier prompt",
++        CODEX_REALIZATION_VERIFIER_PROMPT_VERSION,
++        verifier.prompt_version,
++    )
++    expect(
++        "verifier draft",
++        CODEX_REALIZATION_VERIFIER_DRAFT_VERSION,
++        verifier.output_schema_version,
++    )
++    expect(
++        "verifier request",
++        SceneRealizationVerificationRequest.SCHEMA_VERSION,
++        verifier.request_schema_version,
++    )
++    expect(
++        "verifier schema dialect",
++        ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1.value,
++        verifier.provider_schema_dialect,
++    )
++    route = codex_cli_realization_verifier_candidate(
++        model=verifier.model,
++        effort=verifier.default_reasoning_effort or "medium",
++    )
++    _compare_route(
++        "verifier",
++        route,
++        verifier,
++        verifier.default_reasoning_effort,
++        expect,
++    )
++    return tuple(mismatches)
++
++
++def assert_active_runtime_bindings(
++    profile: ActiveRuntimeProfile = ACTIVE_RUNTIME_PROFILE,
++) -> None:
++    mismatches = validate_active_runtime_bindings(profile)
++    if mismatches:
++        raise ContractValidationError(
++            "active runtime identity drift: " + "; ".join(mismatches)
++        )
++
++
++def active_runtime_status() -> dict[str, Any]:
++    assert_active_runtime_bindings()
++    profile = ACTIVE_RUNTIME_PROFILE
++    return {
++        "schema_version": profile.schema_version,
++        "profile_id": profile.profile_id,
++        "profile_sha256": profile.profile_sha256,
++        "decision_id": profile.decision_id,
++        "owner_architecture_version": profile.owner_architecture_version,
++        "reasoner_session_mode": profile.reasoner_session_mode,
++        "valid": True,
++        "reasoner": asdict(profile.reasoner),
++        "composer": asdict(profile.composer),
++        "verifier": asdict(profile.verifier),
++    }
++
++
++def _compare_route(label, route, identity, effort, expect) -> None:
++    expect(f"{label} route provider", route.provider.value, identity.provider)
++    expect(f"{label} route model", route.model_name, identity.model)
++    expect(
++        f"{label} route model revision",
++        route.model_revision,
++        identity.model_revision,
++    )
++    expect(f"{label} route adapter", route.adapter_id, identity.route_adapter_id)
++    expect(f"{label} route prompt", route.prompt_version, identity.prompt_version)
++    expect(f"{label} route transport", route.transport_name, identity.transport_name)
++    expect(
++        f"{label} route transport version",
++        route.transport_version,
++        identity.transport_version,
++    )
++    expect(f"{label} route effort", route.reasoning_effort, effort)
++    expect(
++        f"{label} route retries",
++        route.automatic_retry_count,
++        identity.automatic_retry_count,
++    )
++    expect(f"{label} route fallback", route.fallback_enabled, identity.fallback_enabled)
++    expect(f"{label} route production", route.production_enabled, identity.production_enabled)
+diff --git a/src/cera/composer/deepseek.py b/src/cera/composer/deepseek.py
+index 6e17249..58a50a2 100644
+--- a/src/cera/composer/deepseek.py
++++ b/src/cera/composer/deepseek.py
+@@ -14,6 +14,7 @@ import json
+ import re
+ from typing import ClassVar
+ 
++from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
+ from cera.contracts import (
+     AdultRenderingMode,
+     BeatState,
+@@ -65,10 +66,13 @@ from .obligations import (
+ )
+ 
+ 
+-DEEPSEEK_COMPOSER_ADAPTER_VERSION = "cera.deepseek_scene_composer.v29"
+-DEEPSEEK_COMPOSER_PACKET_VERSION = "cera.deepseek_scene_composer_packet.v15"
++DEEPSEEK_COMPOSER_ADAPTER_VERSION = ACTIVE_RUNTIME_PROFILE.composer.domain_adapter_version
++DEEPSEEK_COMPOSER_PACKET_VERSION = ACTIVE_RUNTIME_PROFILE.composer.packet_version
+ DEEPSEEK_COMPOSER_RESPONSE_VERSION = "cera.deepseek_composition_draft.v2"
+-DEEPSEEK_COMPOSER_PROMPT_VERSION = "cera.deepseek_scene_composer_prompt.v26"
++DEEPSEEK_COMPOSER_PROMPT_VERSION = ACTIVE_RUNTIME_PROFILE.composer.prompt_version
++DEEPSEEK_COMPOSER_THINKING_ENABLED = (
++    ACTIVE_RUNTIME_PROFILE.composer.thinking_enabled is True
++)
+ CHARACTER_EXPRESSION_CONTRACT_VERSION = (
+     "cera.character_specific_speech_realization.v1_2"
+ )
+@@ -545,7 +549,7 @@ class DeepSeekSceneComposerPort(SceneComposerPort):
+         self,
+         transport: DeepSeekChatTransport,
+         *,
+-        thinking_enabled: bool = False,
++        thinking_enabled: bool = DEEPSEEK_COMPOSER_THINKING_ENABLED,
+     ) -> None:
+         if type(thinking_enabled) is not bool:
+             raise ContractValidationError(
+@@ -680,14 +684,16 @@ def build_deepseek_composer_packet(
+     request: SceneComposerRequest,
+     *,
+     obligations: ComposerOutputObligations | None = None,
+-    target_provider_model: str = "deepseek-v4-flash",
++    target_provider_model: str = ACTIVE_RUNTIME_PROFILE.composer.model,
+ ) -> dict[str, object]:
+     if request.realization_context is None:
+         raise ContractValidationError("DeepSeek packet requires realization context")
+     obligations = obligations or build_composer_output_obligations(request)
+     provider_schema = project_provider_output_schema(
+         deepseek_composition_draft_v6_json_schema(),
+-        ProviderSchemaDialect.DEEPSEEK_JSON_OBJECT_PROMPT_V1,
++        ProviderSchemaDialect(
++            ACTIVE_RUNTIME_PROFILE.composer.provider_schema_dialect
++        ),
+     ).provider_schema
+     bind_provider_schema_to_output_obligations(
+         provider_schema,
+diff --git a/src/cera/documentation.py b/src/cera/documentation.py
+index c5fcea1..6db6cc0 100644
+--- a/src/cera/documentation.py
++++ b/src/cera/documentation.py
+@@ -8,11 +8,14 @@ from pathlib import Path
+ import re
+ import sys
+ 
++from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
++
+ 
+ REQUIRED_DOCUMENTS = (
+     "README.md",
+     "AGENTS.md",
+     "docs/START_HERE.md",
++    "docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md",
+     "docs/authority/CERA_OWNER_ARCHITECTURE.md",
+     "docs/authority/CREATOR_FACTS_AND_PREFERENCES.md",
+     "docs/authority/DECISIONS_AND_SUPERSESSIONS.md",
+@@ -30,6 +33,8 @@ REQUIRED_DOCUMENTS = (
+     "docs/implementation/PHASE_9_RESULT.md",
+     "docs/handoff/CURRENT.md",
+     "docs/handoff/PRO_WRITING_REVIEW_PACKAGE.md",
++    ".chatgpt/pro-review/README.md",
++    ".chatgpt/pro-review/REQUEST_TEMPLATE.md",
+ )
+ REFERENCE_RUNTIME_MARKERS = (
+     "D:\\AIChatBot\\Vera_v2_d3",
+@@ -47,6 +52,14 @@ EXCLUDED_DOCUMENTATION_TREES = {
+     "__pycache__",
+     "node_modules",
+ }
++CURRENT_RUNTIME_DOCUMENTS = (
++    "README.md",
++    "docs/START_HERE.md",
++    "docs/handoff/CURRENT.md",
++    "docs/implementation/ROADMAP_AND_GATE.md",
++)
++CURRENT_RUNTIME_BEGIN = "<!-- CERA_CURRENT_RUNTIME_BEGIN -->"
++CURRENT_RUNTIME_END = "<!-- CERA_CURRENT_RUNTIME_END -->"
+ 
+ 
+ @dataclass(frozen=True, slots=True)
+@@ -94,6 +107,81 @@ def validate_documentation(project_root: Path) -> tuple[DocumentationFinding, ..
+                         marker,
+                     )
+                 )
++    findings.extend(validate_current_runtime_documents(root))
++    return tuple(findings)
++
++
++def validate_current_runtime_documents(
++    project_root: Path,
++) -> tuple[DocumentationFinding, ...]:
++    """Reject stale active-runtime claims without scanning historical evidence."""
++
++    root = project_root.resolve()
++    profile = ACTIVE_RUNTIME_PROFILE
++    required_tokens = (
++        profile.decision_id,
++        profile.profile_id,
++        profile.profile_sha256,
++        profile.reasoner_session_mode,
++        profile.reasoner.domain_adapter_version,
++        profile.reasoner.packet_version,
++        profile.reasoner.prompt_version,
++        profile.reasoner.tool_contract_version or "",
++        profile.composer.model,
++        profile.composer.domain_adapter_version,
++        profile.composer.packet_version,
++        profile.composer.prompt_version,
++        "non-thinking" if profile.composer.thinking_enabled is False else "thinking",
++        profile.verifier.domain_adapter_version,
++        profile.verifier.prompt_version,
++        profile.verifier.request_schema_version or "",
++    )
++    stale_tokens = (
++        "Reasoner v24",
++        "MCP v6",
++        "Flash thinking",
++        "Flash-thinking",
++    )
++    findings: list[DocumentationFinding] = []
++    for relative in CURRENT_RUNTIME_DOCUMENTS:
++        path = root / relative
++        if not path.is_file():
++            continue
++        text = path.read_text(encoding="utf-8")
++        if (
++            text.count(CURRENT_RUNTIME_BEGIN) != 1
++            or text.count(CURRENT_RUNTIME_END) != 1
++        ):
++            findings.append(
++                DocumentationFinding(
++                    "CURRENT_RUNTIME_BLOCK",
++                    relative,
++                    "requires exactly one current-runtime marker block",
++                )
++            )
++            continue
++        block = text.split(CURRENT_RUNTIME_BEGIN, 1)[1].split(
++            CURRENT_RUNTIME_END,
++            1,
++        )[0]
++        for token in required_tokens:
++            if token and token not in block:
++                findings.append(
++                    DocumentationFinding(
++                        "CURRENT_RUNTIME_TOKEN",
++                        relative,
++                        f"missing {token}",
++                    )
++                )
++        for token in stale_tokens:
++            if token in block:
++                findings.append(
++                    DocumentationFinding(
++                        "CURRENT_RUNTIME_STALE",
++                        relative,
++                        token,
++                    )
++                )
+     return tuple(findings)
+ 
+ 
+diff --git a/src/cera/providers/routes.py b/src/cera/providers/routes.py
+index 6885193..ddd806b 100644
+--- a/src/cera/providers/routes.py
++++ b/src/cera/providers/routes.py
+@@ -2,6 +2,7 @@
+ 
+ from __future__ import annotations
+ 
++from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
+ from cera.evaluation import EvaluationRole
+ 
+ from .models import (
+@@ -23,23 +24,27 @@ from .codex_exec_contract import (
+ 
+ 
+ DEEPSEEK_PRICING_SOURCE = "https://api-docs.deepseek.com/quick_start/pricing/"
+-DEFAULT_DEEPSEEK_COMPOSER_MODEL = "deepseek-v4-flash"
++DEFAULT_DEEPSEEK_COMPOSER_MODEL = ACTIVE_RUNTIME_PROFILE.composer.model
+ 
+ 
+ def codex_reasoner_candidate(
+-    *, model: str = "gpt-5.6-sol", effort: str = "medium"
++    *,
++    model: str = ACTIVE_RUNTIME_PROFILE.reasoner.model,
++    effort: str = (
++        ACTIVE_RUNTIME_PROFILE.reasoner.default_reasoning_effort or "medium"
++    ),
+ ) -> LiveProviderRoute:
+     return LiveProviderRoute(
+         schema_version=LiveProviderRoute.SCHEMA_VERSION,
+         route_id=f"codex_reasoner_{model}_{effort}",
+         role=EvaluationRole.SCENE_REASONER,
+         provider=ProviderName.OPENAI_CODEX,
+-        adapter_id="cera.codex_python_sdk_reasoner.v24",
++        adapter_id=ACTIVE_RUNTIME_PROFILE.reasoner.route_adapter_id,
+         model_name=model,
+-        model_revision="openai-resolver-2026-07-28",
+-        prompt_version="cera.codex_scene_reasoner_prompt.v24",
+-        transport_name="codex_python_sdk_app_server",
+-        transport_version="0.144.4",
++        model_revision=ACTIVE_RUNTIME_PROFILE.reasoner.model_revision,
++        prompt_version=ACTIVE_RUNTIME_PROFILE.reasoner.prompt_version,
++        transport_name=ACTIVE_RUNTIME_PROFILE.reasoner.transport_name,
++        transport_version=ACTIVE_RUNTIME_PROFILE.reasoner.transport_version,
+         auth_mode=ProviderAuthMode.CHATGPT_SESSION,
+         endpoint=None,
+         credential_environment_variable=None,
+@@ -60,7 +65,11 @@ def codex_reasoner_candidate(
+ 
+ 
+ def codex_realization_verifier_candidate(
+-    *, model: str = "gpt-5.6-sol", effort: str = "medium"
++    *,
++    model: str = ACTIVE_RUNTIME_PROFILE.verifier.model,
++    effort: str = (
++        ACTIVE_RUNTIME_PROFILE.verifier.default_reasoning_effort or "medium"
++    ),
+ ) -> LiveProviderRoute:
+     """Return the unpromoted one-shot semantic-verifier route."""
+ 
+@@ -69,10 +78,10 @@ def codex_realization_verifier_candidate(
+         route_id=f"codex_realization_verifier_{model}_{effort}",
+         role=EvaluationRole.SCENE_REALIZATION_VERIFIER,
+         provider=ProviderName.OPENAI_CODEX,
+-        adapter_id="cera.codex_scene_realization_verifier.v8",
++        adapter_id=ACTIVE_RUNTIME_PROFILE.verifier.domain_adapter_version,
+         model_name=model,
+-        model_revision="openai-resolver-2026-07-28",
+-        prompt_version="cera.codex_scene_realization_verifier_prompt.v8",
++        model_revision=ACTIVE_RUNTIME_PROFILE.verifier.model_revision,
++        prompt_version=ACTIVE_RUNTIME_PROFILE.verifier.prompt_version,
+         transport_name="codex_python_sdk_app_server",
+         transport_version="0.144.4",
+         auth_mode=ProviderAuthMode.CHATGPT_SESSION,
+@@ -95,7 +104,11 @@ def codex_realization_verifier_candidate(
+ 
+ 
+ def codex_cli_realization_verifier_candidate(
+-    *, model: str = "gpt-5.6-sol", effort: str = "medium"
++    *,
++    model: str = ACTIVE_RUNTIME_PROFILE.verifier.model,
++    effort: str = (
++        ACTIVE_RUNTIME_PROFILE.verifier.default_reasoning_effort or "medium"
++    ),
+ ) -> LiveProviderRoute:
+     """Return the unpromoted one-shot CLI semantic-verifier route."""
+ 
+@@ -104,10 +117,10 @@ def codex_cli_realization_verifier_candidate(
+         route_id=f"codex_cli_realization_verifier_{model}_{effort}",
+         role=EvaluationRole.SCENE_REALIZATION_VERIFIER,
+         provider=ProviderName.OPENAI_CODEX,
+-        adapter_id="cera.codex_cli_scene_realization_verifier.v1",
++        adapter_id=ACTIVE_RUNTIME_PROFILE.verifier.route_adapter_id,
+         model_name=model,
+-        model_revision="openai-resolver-2026-07-28",
+-        prompt_version="cera.codex_scene_realization_verifier_prompt.v8",
++        model_revision=ACTIVE_RUNTIME_PROFILE.verifier.model_revision,
++        prompt_version=ACTIVE_RUNTIME_PROFILE.verifier.prompt_version,
+         transport_name=CODEX_CLI_EXEC_TRANSPORT_NAME,
+         transport_version=CODEX_CLI_EXEC_VERSION,
+         auth_mode=ProviderAuthMode.CHATGPT_SESSION,
+@@ -145,12 +158,12 @@ def deepseek_composer_candidate(
+         route_id=f"deepseek_composer_{model}",
+         role=EvaluationRole.SCENE_COMPOSER,
+         provider=ProviderName.DEEPSEEK,
+-        adapter_id="cera.deepseek_chat_composer.v25",
++        adapter_id=ACTIVE_RUNTIME_PROFILE.composer.route_adapter_id,
+         model_name=model,
+-        model_revision="deepseek-v4-2026-04-24",
+-        prompt_version="cera.deepseek_scene_composer_prompt.v26",
+-        transport_name="deepseek_chat_completions",
+-        transport_version="2026-04-24",
++        model_revision=ACTIVE_RUNTIME_PROFILE.composer.model_revision,
++        prompt_version=ACTIVE_RUNTIME_PROFILE.composer.prompt_version,
++        transport_name=ACTIVE_RUNTIME_PROFILE.composer.transport_name,
++        transport_version=ACTIVE_RUNTIME_PROFILE.composer.transport_version,
+         auth_mode=ProviderAuthMode.ENVIRONMENT_API_KEY,
+         endpoint="https://api.deepseek.com",
+         credential_environment_variable="DEEPSEEK_API_KEY",
+diff --git a/src/cera/realization/codex.py b/src/cera/realization/codex.py
+index c1d0988..48208da 100644
+--- a/src/cera/realization/codex.py
++++ b/src/cera/realization/codex.py
+@@ -5,6 +5,7 @@ from __future__ import annotations
+ from dataclasses import dataclass
+ from typing import ClassVar
+ 
++from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
+ from cera.errors import ContractValidationError, ErrorCode, IdentityError
+ from cera.creator_review import (
+     CreatorReviewAssessment,
+@@ -36,16 +37,12 @@ from .orchestrator import SceneRealizationVerificationFailure
+ 
+ 
+ CODEX_REALIZATION_VERIFIER_ADAPTER_VERSION = (
+-    "cera.codex_scene_realization_verifier.v8"
+-)
+-CODEX_REALIZATION_VERIFIER_PACKET_VERSION = (
+-    "cera.codex_scene_realization_verifier_packet.v8"
+-)
+-CODEX_REALIZATION_VERIFIER_PROMPT_VERSION = (
+-    "cera.codex_scene_realization_verifier_prompt.v8"
++    ACTIVE_RUNTIME_PROFILE.verifier.domain_adapter_version
+ )
++CODEX_REALIZATION_VERIFIER_PACKET_VERSION = ACTIVE_RUNTIME_PROFILE.verifier.packet_version
++CODEX_REALIZATION_VERIFIER_PROMPT_VERSION = ACTIVE_RUNTIME_PROFILE.verifier.prompt_version
+ CODEX_REALIZATION_VERIFIER_DRAFT_VERSION = (
+-    "cera.codex_scene_realization_verifier_draft.v3"
++    ACTIVE_RUNTIME_PROFILE.verifier.output_schema_version
+ )
+ 
+ _MODEL_REPORTABLE_CODES = tuple(
+diff --git a/src/cera/reasoner/codex.py b/src/cera/reasoner/codex.py
+index 04650ef..d1d2744 100644
+--- a/src/cera/reasoner/codex.py
++++ b/src/cera/reasoner/codex.py
+@@ -6,6 +6,7 @@ from collections.abc import Callable
+ from copy import deepcopy
+ from typing import Protocol
+ 
++from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
+ from cera.adult_craft.json_schema import (
+     PROVIDER_BINDING_PLACEHOLDER,
+     adult_craft_need_provider_draft_json_schema,
+@@ -70,9 +71,9 @@ from .models import (
+ )
+ 
+ 
+-CODEX_REASONER_ADAPTER_VERSION = "cera.codex_scene_reasoner.v25"
+-CODEX_REASONER_PACKET_VERSION = "cera.codex_scene_reasoner_packet.v14"
+-CODEX_REASONER_PROMPT_VERSION = "cera.codex_scene_reasoner_prompt.v25"
++CODEX_REASONER_ADAPTER_VERSION = ACTIVE_RUNTIME_PROFILE.reasoner.domain_adapter_version
++CODEX_REASONER_PACKET_VERSION = ACTIVE_RUNTIME_PROFILE.reasoner.packet_version
++CODEX_REASONER_PROMPT_VERSION = ACTIVE_RUNTIME_PROFILE.reasoner.prompt_version
+ 
+ 
+ class ReasonerEvidenceBridgePort(Protocol):
+diff --git a/src/cera/reasoner/mcp_bridge.py b/src/cera/reasoner/mcp_bridge.py
+index 472432c..bb6a85f 100644
+--- a/src/cera/reasoner/mcp_bridge.py
++++ b/src/cera/reasoner/mcp_bridge.py
+@@ -19,6 +19,7 @@ import threading
+ import time
+ from typing import ClassVar
+ 
++from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
+ from cera.contracts import EvidenceRecordType
+ from cera.errors import (
+     ContractValidationError,
+@@ -45,7 +46,7 @@ from .fake import ReasonerEvidenceToolPort, ResolveEntitiesRequest
+ 
+ 
+ MCP_SDK_VERSION = "1.29.0"
+-MCP_TOOL_CONTRACT_VERSION = "cera.reasoner_evidence_mcp.v7"
++MCP_TOOL_CONTRACT_VERSION = ACTIVE_RUNTIME_PROFILE.reasoner.tool_contract_version
+ SUPPORTED_MCP_TOOL_CONTRACT_VERSIONS = (
+     "cera.reasoner_evidence_mcp.v4",
+     "cera.reasoner_evidence_mcp.v5",
+diff --git a/src/cera/reasoner_session/prompting.py b/src/cera/reasoner_session/prompting.py
+index 6dc4aa3..0ea95fe 100644
+--- a/src/cera/reasoner_session/prompting.py
++++ b/src/cera/reasoner_session/prompting.py
+@@ -15,7 +15,7 @@ _PACKET_MARKER = "The complete authoritative packet follows as canonical JSON:"
+ 
+ @dataclass(frozen=True, slots=True)
+ class ReasonerSessionPromptCompilation:
+-    """Exact decomposition; recombination must equal the current v24 prompt."""
++    """Exact decomposition; recombination must equal the active prompt."""
+ 
+     SCHEMA_VERSION: ClassVar[str] = "cera.reasoner_session_prompt_compilation.v1"
+ 
+diff --git a/src/cera/reasoner_session/runtime.py b/src/cera/reasoner_session/runtime.py
+index b39dca4..73201a8 100644
+--- a/src/cera/reasoner_session/runtime.py
++++ b/src/cera/reasoner_session/runtime.py
+@@ -14,6 +14,7 @@ import json
+ from pathlib import Path
+ from threading import RLock
+ 
++from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
+ from cera.composer import ArtifactPublicationMode
+ from cera.contracts import BehavioralTurnControls
+ from cera.ids import IdKind, TypedId, deterministic_id
+@@ -61,7 +62,7 @@ _PROVIDER_CONTEXT_POLICY = (
+     "every conflict. Never cite provider conversation as evidence, character "
+     "knowledge, canon, or durable memory. Python remains final authority."
+ )
+-_SUPPORTED_EFFORTS = frozenset({"medium", "high", "xhigh"})
++_SUPPORTED_EFFORTS = frozenset(ACTIVE_RUNTIME_PROFILE.reasoner.reasoning_efforts)
+ 
+ 
+ def _utc_now() -> str:
+@@ -119,7 +120,7 @@ class StoredReasonerCandidateBinding:
+ class NativeStoredReasonerSessionRuntime:
+     """Bind active SillyTavern turns to one accepted Codex checkpoint tree."""
+ 
+-    MODE = "branch_bound_native_stored_v1"
++    MODE = ACTIVE_RUNTIME_PROFILE.reasoner_session_mode
+ 
+     def __init__(
+         self,
+@@ -152,7 +153,7 @@ class NativeStoredReasonerSessionRuntime:
+                 raise RuntimeError("ChatGPT Codex session is unavailable")
+             self._backend = OpenAICodexStoredThreadBackend(
+                 codex=self._codex,
+-                model="gpt-5.6-sol",
++                model=ACTIVE_RUNTIME_PROFILE.reasoner.model,
+                 cwd=str(repository_root),
+                 base_instructions=_STORED_BASE_INSTRUCTIONS,
+                 service_name="cera_sillytavern_stored_reasoner",
+@@ -170,9 +171,15 @@ class NativeStoredReasonerSessionRuntime:
+         return {
+             "mode": self.MODE,
+             "active": not self._closed,
+-            "model": "gpt-5.6-sol",
+-            "reasoning_efforts": ("medium", "high", "xhigh"),
+-            "verifier_effort": "medium",
++            "model": ACTIVE_RUNTIME_PROFILE.reasoner.model,
++            "reasoning_efforts": (
++                ACTIVE_RUNTIME_PROFILE.reasoner.reasoning_efforts
++            ),
++            "verifier_effort": ACTIVE_RUNTIME_PROFILE.verifier.default_reasoning_effort,
++            "active_runtime_profile_id": ACTIVE_RUNTIME_PROFILE.profile_id,
++            "active_runtime_profile_sha256": (
++                ACTIVE_RUNTIME_PROFILE.profile_sha256
++            ),
+         }
+ 
+     def close(self) -> None:
+@@ -204,7 +211,7 @@ class NativeStoredReasonerSessionRuntime:
+             delta = self._delta(application_request, ledger.session_id)
+             checkpoint = coordinator.begin_candidate(delta)
+         route = codex_reasoner_candidate(
+-            model="gpt-5.6-sol",
++            model=ACTIVE_RUNTIME_PROFILE.reasoner.model,
+             effort=normalized_effort,
+         )
+         transport = _StablePrefixStoredTransport(
+@@ -302,10 +309,15 @@ class NativeStoredReasonerSessionRuntime:
+ 
+     def _compatibility(self, request, effort: str) -> ReasonerSessionCompatibility:
+         snapshot = request.prepared_turn.evidence_snapshot
+-        route = codex_reasoner_candidate(model="gpt-5.6-sol", effort=effort)
++        route = codex_reasoner_candidate(
++            model=ACTIVE_RUNTIME_PROFILE.reasoner.model,
++            effort=effort,
++        )
+         provider_schema = project_provider_output_schema(
+             codex_reasoner_draft_v6_json_schema(),
+-            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
++            ProviderSchemaDialect(
++                ACTIVE_RUNTIME_PROFILE.reasoner.provider_schema_dialect
++            ),
+         ).provider_schema
+         return ReasonerSessionCompatibility(
+             schema_version=ReasonerSessionCompatibility.SCHEMA_VERSION,
+@@ -323,7 +335,9 @@ class NativeStoredReasonerSessionRuntime:
+             base_instruction_sha256=text_sha256(_STORED_BASE_INSTRUCTIONS),
+             tool_contract_version=MCP_TOOL_CONTRACT_VERSION,
+             genesis_revision_id=snapshot.genesis_revision_id,
+-            authority_policy_version="cera.owner_architecture.v2",
++            authority_policy_version=(
++                ACTIVE_RUNTIME_PROFILE.owner_architecture_version
++            ),
+             privacy_projection_version=snapshot.visibility_policy_version,
+             protected_user_id=request.prepared_turn.request.protected_user_id,
+             autonomy_profile_version=BehavioralTurnControls.SCHEMA_VERSION,
+diff --git a/src/cera/sillytavern/server.py b/src/cera/sillytavern/server.py
+index 18eb8bf..24e44e2 100644
+--- a/src/cera/sillytavern/server.py
++++ b/src/cera/sillytavern/server.py
+@@ -12,6 +12,7 @@ import time
+ from typing import Any
+ from urllib.parse import unquote, urlparse
+ 
++from cera.active_runtime_validation import active_runtime_status
+ from cera.creator_review import CreatorReviewAction
+ from cera.ids import IdKind, TypedId
+ from cera.serialization import text_sha256, to_primitive
+@@ -60,6 +61,7 @@ def build_server(
+                         "service": "cera-sillytavern-development",
+                         "model": CERA_VIRTUAL_MODEL,
+                         "production": False,
++                        "active_runtime": active_runtime_status(),
+                         "reasoner_session": adapter.reasoner_session_status,
+                     },
+                 )
+diff --git a/src/cera/source_inventory.py b/src/cera/source_inventory.py
+index 3adb283..1ec1f3d 100644
+--- a/src/cera/source_inventory.py
++++ b/src/cera/source_inventory.py
+@@ -99,9 +99,13 @@ def validate_repository_source_inventory(
+         raise ContractValidationError(
+             "broad runtime ignore rule hides src/cera/runtime"
+         )
+-    if "/runtime/" not in active_lines or "!src/cera/runtime/**" not in active_lines:
++    if "/runtime/" not in active_lines:
+         raise ContractValidationError(
+-            "runtime output ignore and source exception are not explicit"
++            "root runtime output ignore rule is not explicit"
++        )
++    if "!src/cera/runtime/**" in active_lines:
++        raise ContractValidationError(
++            "redundant runtime source exception can re-include generated files"
+         )
+     paths = tuple(
+         sorted(
+diff --git a/tests/test_active_runtime_profile.py b/tests/test_active_runtime_profile.py
+new file mode 100644
+index 0000000..56bfd6b
+--- /dev/null
++++ b/tests/test_active_runtime_profile.py
+@@ -0,0 +1,74 @@
++from __future__ import annotations
++
++from dataclasses import replace
++import json
++from pathlib import Path
++import subprocess
++import unittest
++
++from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
++from cera.active_runtime_validation import (
++    active_runtime_status,
++    validate_active_runtime_bindings,
++)
++
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++class ActiveRuntimeProfileTests(unittest.TestCase):
++    def test_all_active_source_bindings_match_the_canonical_profile(self) -> None:
++        self.assertEqual(validate_active_runtime_bindings(), ())
++        status = active_runtime_status()
++        self.assertTrue(status["valid"])
++        self.assertEqual(status["profile_id"], ACTIVE_RUNTIME_PROFILE.profile_id)
++        self.assertEqual(
++            status["profile_sha256"],
++            ACTIVE_RUNTIME_PROFILE.profile_sha256,
++        )
++
++    def test_mutated_profile_is_detected_and_has_a_different_hash(self) -> None:
++        mutated = replace(
++            ACTIVE_RUNTIME_PROFILE,
++            reasoner=replace(
++                ACTIVE_RUNTIME_PROFILE.reasoner,
++                prompt_version="cera.codex_scene_reasoner_prompt.stale",
++            ),
++        )
++        self.assertNotEqual(
++            mutated.profile_sha256,
++            ACTIVE_RUNTIME_PROFILE.profile_sha256,
++        )
++        self.assertTrue(
++            any(
++                "reasoner prompt" in mismatch
++                for mismatch in validate_active_runtime_bindings(mutated)
++            )
++        )
++
++    def test_profile_command_is_machine_readable_and_validated(self) -> None:
++        completed = subprocess.run(
++            [
++                str(ROOT / ".venv" / "Scripts" / "python.exe"),
++                str(ROOT / "scripts" / "show_active_runtime_profile.py"),
++            ],
++            cwd=ROOT,
++            check=True,
++            capture_output=True,
++            text=True,
++        )
++        payload = json.loads(completed.stdout)
++        self.assertTrue(payload["valid"])
++        self.assertEqual(
++            payload["reasoner"]["prompt_version"],
++            "cera.codex_scene_reasoner_prompt.v25",
++        )
++        self.assertEqual(
++            payload["reasoner"]["tool_contract_version"],
++            "cera.reasoner_evidence_mcp.v7",
++        )
++        self.assertFalse(payload["composer"]["thinking_enabled"])
++
++
++if __name__ == "__main__":
++    unittest.main()
+diff --git a/tests/test_codex_stored_thread_session.py b/tests/test_codex_stored_thread_session.py
+index ef6665f..2eb9d09 100644
+--- a/tests/test_codex_stored_thread_session.py
++++ b/tests/test_codex_stored_thread_session.py
+@@ -120,11 +120,11 @@ class CodexStoredThreadSessionTests(unittest.TestCase):
+             reasoning_effort="medium",
+             service_tier="default",
+             transport_version="codex-app-server-0.144.4-stored",
+-            adapter_version="cera.codex_scene_reasoner.v24",
+-            prompt_version="cera.codex_scene_reasoner_prompt.v24",
++            adapter_version="cera.codex_scene_reasoner.v25",
++            prompt_version="cera.codex_scene_reasoner_prompt.v25",
+             provider_schema_sha256=HASH_A,
+             base_instruction_sha256=HASH_B,
+-            tool_contract_version="cera.mcp_evidence_bridge.v6",
++            tool_contract_version="cera.reasoner_evidence_mcp.v7",
+             genesis_revision_id=tid(IdKind.GENESIS_REVISION, "stored-genesis"),
+             authority_policy_version="authority-v1",
+             privacy_projection_version="privacy-v1",
+diff --git a/tests/test_documentation.py b/tests/test_documentation.py
+index 4125998..e78fdc6 100644
+--- a/tests/test_documentation.py
++++ b/tests/test_documentation.py
+@@ -4,7 +4,14 @@ from pathlib import Path
+ import tempfile
+ import unittest
+ 
+-from cera.documentation import validate_documentation
++from cera.documentation import (
++    CURRENT_RUNTIME_BEGIN,
++    CURRENT_RUNTIME_DOCUMENTS,
++    CURRENT_RUNTIME_END,
++    REQUIRED_DOCUMENTS,
++    validate_current_runtime_documents,
++    validate_documentation,
++)
+ 
+ 
+ PROJECT_ROOT = Path(__file__).resolve().parents[1]
+@@ -17,26 +24,7 @@ class DocumentationTests(unittest.TestCase):
+     def test_validator_detects_reference_runtime_dependency_in_source(self) -> None:
+         with tempfile.TemporaryDirectory() as directory:
+             root = Path(directory)
+-            for relative in (
+-                "README.md",
+-                "AGENTS.md",
+-                "docs/START_HERE.md",
+-                "docs/authority/CERA_OWNER_ARCHITECTURE.md",
+-                "docs/authority/CREATOR_FACTS_AND_PREFERENCES.md",
+-                "docs/authority/DECISIONS_AND_SUPERSESSIONS.md",
+-                "docs/authority/SOURCE_PROVENANCE.md",
+-                "docs/architecture/RUNTIME_PIPELINE_AND_PORTS.md",
+-                "docs/architecture/GENESIS_MEMORY_AND_RETRIEVAL.md",
+-                "docs/architecture/PROMPT_CONTEXT_AND_EXAMPLES.md",
+-                "docs/architecture/BLOCKED_TURN_AND_RESUMPTION.md",
+-                "docs/contracts/SCHEMA_CATALOG.md",
+-                "docs/contracts/STATE_MACHINES_AND_ERRORS.md",
+-                "docs/workflows/END_TO_END_WORKFLOWS.md",
+-                "docs/implementation/ROADMAP_AND_GATE.md",
+-                "docs/implementation/PHASE_8_RESULT.md",
+-                "docs/handoff/CURRENT.md",
+-                "docs/handoff/PRO_WRITING_REVIEW_PACKAGE.md",
+-            ):
++            for relative in REQUIRED_DOCUMENTS:
+                 path = root / relative
+                 path.parent.mkdir(parents=True, exist_ok=True)
+                 path.write_text("# test\n", encoding="utf-8")
+@@ -50,6 +38,22 @@ class DocumentationTests(unittest.TestCase):
+             self.assertIn("REFERENCE_RUNTIME_DEPENDENCY", codes)
+             self.assertNotIn("DOC_LINK", codes)
+ 
++    def test_current_runtime_validator_rejects_stale_marked_claims(self) -> None:
++        with tempfile.TemporaryDirectory() as directory:
++            root = Path(directory)
++            for relative in CURRENT_RUNTIME_DOCUMENTS:
++                path = root / relative
++                path.parent.mkdir(parents=True, exist_ok=True)
++                path.write_text(
++                    f"{CURRENT_RUNTIME_BEGIN}\nReasoner v24 with MCP v6\n"
++                    f"{CURRENT_RUNTIME_END}\n",
++                    encoding="utf-8",
++                )
++            findings = validate_current_runtime_documents(root)
++            codes = {finding.code for finding in findings}
++            self.assertIn("CURRENT_RUNTIME_STALE", codes)
++            self.assertIn("CURRENT_RUNTIME_TOKEN", codes)
++
+ 
+ if __name__ == "__main__":
+     unittest.main()
+diff --git a/tests/test_provider_qualification.py b/tests/test_provider_qualification.py
+index ae8126b..a31fa49 100644
+--- a/tests/test_provider_qualification.py
++++ b/tests/test_provider_qualification.py
+@@ -37,7 +37,7 @@ from cera.providers import (
+ )
+ 
+ 
+-ACTIVE_REASONER_PROMPT_VERSION = "cera.codex_scene_reasoner_prompt.v24"
++ACTIVE_REASONER_PROMPT_VERSION = "cera.codex_scene_reasoner_prompt.v25"
+ ACTIVE_COMPOSER_PROMPT_VERSION = "cera.deepseek_scene_composer_prompt.v26"
+ ACTIVE_VERIFIER_PROMPT_VERSION = (
+     "cera.codex_scene_realization_verifier_prompt.v8"
+diff --git a/tests/test_sillytavern_server.py b/tests/test_sillytavern_server.py
+index 78e1f9f..986f252 100644
+--- a/tests/test_sillytavern_server.py
++++ b/tests/test_sillytavern_server.py
+@@ -64,6 +64,13 @@ class StubAdapter:
+         )
+         self.last_review_action = None
+ 
++    @property
++    def reasoner_session_status(self):
++        return {
++            "mode": "test_factory",
++            "active": False,
++        }
++
+     def complete(self, request):
+         self.last_request = request
+         return SillyTavernTurnReply(
+@@ -163,6 +170,20 @@ class SillyTavernServerTests(unittest.TestCase):
+         self.assertEqual(self.adapter.last_request.cera_prompt_handling, "modification")
+         self.assertEqual(self.adapter.last_request.cera_reasoning_effort, "xhigh")
+ 
++    def test_health_exposes_the_validated_active_runtime_profile(self) -> None:
++        status, result = self.request("GET", "/health")
++        self.assertEqual(status, 200)
++        self.assertEqual(result["status"], "ok")
++        self.assertTrue(result["active_runtime"]["valid"])
++        self.assertEqual(
++            result["active_runtime"]["profile_id"],
++            "cera.active_runtime.d180.v1",
++        )
++        self.assertEqual(
++            result["active_runtime"]["reasoner"]["prompt_version"],
++            "cera.codex_scene_reasoner_prompt.v25",
++        )
++
+     def test_streaming_and_unknown_models_fail_closed(self) -> None:
+         status, result = self.request(
+             "POST",

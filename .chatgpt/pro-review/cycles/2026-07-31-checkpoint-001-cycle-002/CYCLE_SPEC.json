@@ -1,0 +1,40 @@
+{
+  "schema_version": "cera.pro_review_cycle_spec.v1",
+  "cycle_id": "2026-07-31-checkpoint-001-cycle-002",
+  "cycle_sequence": 2,
+  "checkpoint": {
+    "id": "2026-07-31-checkpoint-001",
+    "git_sha": "3fd392d942c6c3d796a244c4cd679405142497ea",
+    "evidence_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-07-31-checkpoint-001\\CERA_CHECKPOINT_001_EVIDENCE.zip",
+    "evidence_sha256": "10a89acf69cc4b91fbd0e148df89b4ce5e5579d1533016abd783210e69dc08d6"
+  },
+  "jobs_1_3": [
+    {
+      "task_id": "repository-mailbox-state-machine-v1",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\2026-07-31-checkpoint-001-cycle-002\\source\\JOB_1_RESULT.md",
+      "result_sha256": "33a73d28fe3e9128f0b9bf406c5c50d6e734b10b4ba9003bb7c087d93bafd575"
+    },
+    {
+      "task_id": "review-cycle-adversarial-tests-v1",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\2026-07-31-checkpoint-001-cycle-002\\source\\JOB_2_RESULT.md",
+      "result_sha256": "c861fe6a9d798aeb13a52464a15d9b7885756ea37e58cc00385165875aef31e2"
+    },
+    {
+      "task_id": "review-governance-operations-reconciliation-v1",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\2026-07-31-checkpoint-001-cycle-002\\source\\JOB_3_RESULT.md",
+      "result_sha256": "7d21ac24238cb5dc5c9b216d4d6fa18ac47cb1750a7f1708190809797a1aa55e"
+    }
+  ],
+  "prior_job4": {
+    "task_id": "checkpoint-001-evidence-package-repair",
+    "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-07-31-checkpoint-001\\TASK4_RESULT.md",
+    "result_sha256": "c58d03eb348befeaefb1bf37efd329d2c59cd2dbbcadeb9ca58a9c5a3033836e"
+  },
+  "job4": {
+    "task_id": "repository-cycle-full-verification-and-diff-audit-v1",
+    "scope": "Run the prompt-required Python compilation, focused and full provider-free suites, PowerShell parsing, documentation checks, Git diff/status audit, and side-effect inventory without changing runtime authority.",
+    "authorization_artifact_path": "D:\\AIChatBot\\Cera\\.chatgpt\\codex-runs\\2026-07-31T211941Z-cera-shared-repository-overlapped-pro-codex-review-loop-v2\\PROMPT.md",
+    "authorization_sha256": "aec4b9ac19483b597e3afd97da1eda33319f07015325f78a98fd5e15bae53e1c",
+    "expected_result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\2026-07-31-checkpoint-001-cycle-002\\source\\JOB4_RESULT.md"
+  }
+}

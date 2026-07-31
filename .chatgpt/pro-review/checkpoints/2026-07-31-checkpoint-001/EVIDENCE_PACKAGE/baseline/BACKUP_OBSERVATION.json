@@ -1,0 +1,11 @@
+{
+  "backup_root": "D:\\AIChatBot\\Cera_Backups\\2026-07-31-checkpoint-001-pre-stabilization",
+  "exists": true,
+  "inventory_expected_file_count": 5044,
+  "inventory_expected_total_bytes": 565577272,
+  "inventory_manifest_sha256": "43ac1d1056b38cec8356a0c53bca37233094bd9b3252ccf3b74daf2e7c0f0dbd",
+  "note": "The inventory records the original 5044-of-5044 content-hash comparison. This export rechecks backup presence, count, and size without mutating it.",
+  "observed_counts_match_inventory": true,
+  "observed_file_count": 5044,
+  "observed_total_bytes": 565577272
+}

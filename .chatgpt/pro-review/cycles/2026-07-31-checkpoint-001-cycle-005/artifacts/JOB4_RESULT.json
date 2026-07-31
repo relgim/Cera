@@ -1,0 +1,51 @@
+{
+  "schema_version": "cera.pro_review_job4_result.v1",
+  "cycle_id": "2026-07-31-checkpoint-001-cycle-005",
+  "task_id": "repository-cycle-final-stable-verification-v3",
+  "status": "completed",
+  "report_relative_path": "source/JOB4_REPORT.md",
+  "report_sha256": "8203439603d3a15b48e0fc2838ec11d93ae14c937f042b320906150843aaa4a9",
+  "effects": {
+    "provider_calls": 0,
+    "story_database_writes": 0,
+    "active_route_changes": 0,
+    "deployment_remote_or_push_effects": 0
+  },
+  "verification": [
+    {
+      "command": "python -m compileall -q src tests scripts tools",
+      "status": "passed",
+      "summary": "Passed under the repository .venv interpreter selected on PATH."
+    },
+    {
+      "command": "python -m unittest tests.test_pro_review_bridge -v",
+      "status": "passed",
+      "summary": "53/53 passed in 33.949 seconds; one separate host-policy symlink test skipped."
+    },
+    {
+      "command": "python -m unittest discover -s tests -q",
+      "status": "passed",
+      "summary": "628/628 passed in 529.968 seconds under the repository .venv; one environment-dependent skip."
+    },
+    {
+      "command": "PowerShell parser for tools/pro_review_bridge.ps1",
+      "status": "passed",
+      "summary": "The literal parser invocation completed with zero parser errors."
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed",
+      "summary": "No whitespace errors."
+    },
+    {
+      "command": "validate_publication final frozen-source audit",
+      "status": "passed",
+      "summary": "Exact outbox, status-aware source archive, current bytes, typed receipts, and trigger order revalidated."
+    },
+    {
+      "command": "git diff --name-only -- src/cera",
+      "status": "passed",
+      "summary": "No forbidden runtime implementation paths changed."
+    }
+  ]
+}

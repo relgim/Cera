@@ -1,0 +1,85 @@
+{
+  "schema_version": "cera.pro_review_cycle_spec.v2",
+  "cycle_id": "2026-07-31-checkpoint-001-cycle-004",
+  "cycle_sequence": 3,
+  "checkpoint": {
+    "id": "2026-07-31-checkpoint-001",
+    "git_sha": "3fd392d942c6c3d796a244c4cd679405142497ea",
+    "evidence_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-07-31-checkpoint-001\\CERA_CHECKPOINT_001_EVIDENCE.zip",
+    "evidence_sha256": "10a89acf69cc4b91fbd0e148df89b4ce5e5579d1533016abd783210e69dc08d6"
+  },
+  "jobs_1_3": [
+    {
+      "task_id": "review-source-confinement-and-snapshot-v2",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\2026-07-31-checkpoint-001-cycle-004\\source\\JOB_1_RESULT.md",
+      "result_sha256": "942fe666bf073410d0b458063c3ef12d6cf10c5ad15d6411f698fe9f655e73db"
+    },
+    {
+      "task_id": "review-authorization-receipt-recovery-v2",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\2026-07-31-checkpoint-001-cycle-004\\source\\JOB_2_RESULT.md",
+      "result_sha256": "56ecd64839ce8f54db6e5a546c002f09fa60a6449a02ca34377acc236ad527fd"
+    },
+    {
+      "task_id": "review-protocol-trigger-tests-v2",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\2026-07-31-checkpoint-001-cycle-004\\source\\JOB_3_RESULT.md",
+      "result_sha256": "35fb60d178c2334fe0dd1cf4ad54fd5820d068bdf70afbc1ad6beae53fb9fe2d"
+    }
+  ],
+  "prior_cycle_id": "2026-07-31-checkpoint-001-cycle-002",
+  "job4": {
+    "task_id": "repository-cycle-corrected-full-verification-v2",
+    "scope": "Independently run the prompt-required compilation, focused and complete provider-free test suites, PowerShell parse, documentation/source validation, Git diff/status audit, and side-effect audit for the corrected repository-local Pro review cycle; record exact results without modifying runtime, provider, story, database, route, deployment, remote, or push state.",
+    "authorization_record_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\2026-07-31-checkpoint-001-cycle-004\\source\\JOB4_AUTHORIZATION.json",
+    "authorization_record_sha256": "6457391def884af497af56a62938252ec5f8af8cf5135316cdb029e6532e6c55"
+  },
+  "review_context": {
+    "creator_goal": "Replace Ted's normal manual ChatGPT Pro-Codex relay with an integrity-bound repository-local overlapped review cycle that Codex can publish, trigger in the existing Pro conversation, verify concurrently, consume, and recover without asking Ted to relay files or messages.",
+    "starting_baseline_or_prior_checkpoint": "Git object 3fd392d942c6c3d796a244c4cd679405142497ea; preserved Checkpoint 001 evidence SHA-256 10a89acf69cc4b91fbd0e148df89b4ce5e5579d1533016abd783210e69dc08d6; prior completed cycle 2026-07-31-checkpoint-001-cycle-002 was consumed with corrections_required.",
+    "selection_rationale": [
+      "Progression 1 implements Pro's requested trusted-root confinement, exact Git-object validation, complete changed-source inventory, deterministic source archive, source-root task binding, and symmetric preservation of confined historical checkpoint evidence.",
+      "Progression 2 implements Pro's requested semantic Job 4 authorization, structured effect declaration, chained receipts, full transition and recovery revalidation, substantive-response checks, append-only wait history, and predecessor proof.",
+      "Progression 3 reconciles one-through-three progression support, complete protocol context, latest-consumed startup discovery, truthful app-trigger attestation, individually atomic publication wording, and the expanded adversarial suite."
+    ],
+    "diff_summary": "Authorized changes are confined to repository review-cycle tools, provider-free tests, governance and operations documentation, preserved checkpoint/cycle evidence, and this Codex run directory. Cycle 003 is preserved as an incomplete superseded proof: its trigger transition exposed asymmetric historical-evidence validation, which was fixed and regression-tested before this fresh immutable package. No src/cera runtime implementation, provider adapter, prompt, schema, route, story, database, deployment, or remote-Git path is modified.",
+    "focused_tests": "python -m unittest tests.test_pro_review_bridge -q: 42/42 passed in 21.666 seconds; one additional symlink-escape case skipped because the Windows host policy did not permit test symlink creation.",
+    "complete_suite": "The preceding Job 4 recorded 606/606 passing under the repository .venv after the system interpreter failed collection due to missing project import context and jsonschema. The corrected current complete suite is intentionally pending the separately pre-authorized concurrent Job 4 and must be recorded from actual execution.",
+    "active_profile_before": "cera.active_runtime.d180.v1, SHA-256 f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801",
+    "active_profile_after": "Unchanged: cera.active_runtime.d180.v1, SHA-256 f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801",
+    "provider_calls_and_cost": "No CERA runtime/model provider calls or provider cost were introduced by Jobs 1-3. ChatGPT app follow-ups are creator-authorized review transport and are recorded as attested app results, not CERA provider routes.",
+    "retry_and_fallback": "No CERA provider retry or fallback. Repository waits are bounded and append-only. The V1 Downloads bridge remains a manual emergency fallback only and is not used. Cycle 003 was not mutated or silently retried; it is preserved, and this new package truthfully supersedes it.",
+    "story_database_and_branch_effects": "No story, Genesis, memory, database, character, branch, regeneration, or active-runtime mutation. The Git branch remains feature/pro-review-file-bridge-v1 and no merge, push, or remote operation is authorized.",
+    "user_visible_effect": "Ted no longer needs to manually relay, upload, download, rename, or import normal Pro-Codex review files or messages; failures remain explicit and locally inspectable.",
+    "historical_evidence_integrity": "The original Checkpoint 001 evidence, prior Job 4 result, cycle-002 manifest/receipts/artifacts, accepted Pro response, and incomplete cycle-003 artifacts remain byte-preserved. This cycle chains to the last completed consumed predecessor, cycle 002, without rewriting any prior evidence.",
+    "unresolved_defects": "No known focused-test defect. Final complete-suite, diff, documentation/source, and side-effect verification is pending current Job 4; final acceptance is pending Pro's independent review of this frozen corrected package.",
+    "uncertainty_and_risks": "Windows symlink creation was unavailable to the test user, so that one test is skipped; external-path and production reparse-point rejection remain implemented. The app-returned thread identity attests the invocation result but is not independent delivery proof.",
+    "disagreement_with_prior_review": "None. Codex accepted the prior corrections as material and within the creator-authorized D-182 transport/governance scope.",
+    "codex_advisory_next_candidates": [
+      "Complete the already-authorized independent Job 4 while Pro reviews this frozen package.",
+      "Consume and reconcile Pro's exact identity-bound response; if no material in-scope corrections remain, finalize evidence and create the one authorized local commit."
+    ],
+    "questions_for_chatgpt_pro": [
+      "Do the corrected frozen-source, path-confinement, historical-evidence classification, authorization, receipt-chain, transition, and recovery contracts close the material findings from cycle 002?",
+      "Do the revised protocol, trigger truthfulness, adversarial coverage, and preserved two-attempt evidence leave any material D-182 defect that must be corrected before local commit?"
+    ],
+    "explicit_exclusions": [
+      "No provider qualification or CERA model-provider call.",
+      "No src/cera runtime, provider adapter, prompt, schema, route, Adult, Genesis, story, memory, database, branch-state, or SillyTavern change.",
+      "No deployment, merge, remote Git operation, or push.",
+      "No creator decision is delegated to Pro; its response remains advisory until Codex reconciles it under Ted's authority."
+    ]
+  },
+  "review_snapshot": {
+    "baseline_git_sha": "3fd392d942c6c3d796a244c4cd679405142497ea",
+    "include_all_nonexcluded_changes": true,
+    "declared_exclusions": [
+      {
+        "path_prefix": ".chatgpt/operations/",
+        "reason_code": "connector_metadata_outside_task"
+      },
+      {
+        "path_prefix": ".chatgpt/pro-review/cycles/2026-07-31-checkpoint-001-cycle-004/",
+        "reason_code": "current_cycle_transport_state"
+      }
+    ]
+  }
+}

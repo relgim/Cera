@@ -16,12 +16,14 @@ stabilization checkpoint makes zero provider calls and does not reinterpret
 historical evidence as a fresh D-180 qualification. The next live gate remains
 separately creator-authorized.
 
-**Current authorization:** Checkpoint 001 permits at most three substantial
-progressions: governance protocol installation, active-runtime identity
-reconciliation, and truthful machine-validated current status. It permits zero
-live provider calls and requires a local checkpoint commit followed by a full
-stop for ChatGPT Pro review. Earlier provider-call ceilings and live-test gates
-are historical evidence, not authority for this checkpoint.
+**Current authorization record:** D-182 permitted only the shared-repository
+overlapped ChatGPT Pro-Codex review workflow, its adversarial provider-free
+tests, governance/operations reconciliation, actual supported app-trigger
+proof, and required local-only commit. That implementation and review gate is
+now complete. Runtime source, provider calls, story or database state, active
+routes, prompts, schemas, Genesis, Adult, SillyTavern, deployment, pushes, and
+remote changes remained excluded. Earlier provider-call ceilings and live-test
+gates are historical evidence, not authority for new work.
 
 ## Historical roadmap record
 
@@ -719,7 +721,7 @@ Read `NATIVE_STORED_REASONER_ACTIVATION_RESULT.md`.
 
 ## D-181 - Provider-free ChatGPT Pro review file bridge
 
-**Status:** creator-authorized transport-only implementation; active route unchanged.
+**Status:** verified historical implementation; D-182 makes it a manual emergency fallback.
 
 - `tools/pro_review_bridge.ps1` exports one hash-verified checkpoint evidence
   ZIP and upload message to Ted's Downloads folder.
@@ -736,6 +738,56 @@ Read `NATIVE_STORED_REASONER_ACTIVATION_RESULT.md`.
 
 Read `docs/operations/PRO_REVIEW_FILE_BRIDGE.md`. Focused and complete test
 results are recorded in `PRO_REVIEW_FILE_BRIDGE_V1_RESULT.md`.
+
+## D-182 - Shared-repository overlapped Pro-Codex review cycle
+
+**Status:** completed locally; cycle 006 accepted and reconciled after successful final Job 4; active runtime unchanged.
+
+- `tools/pro_review_cycle.py` validates one through three named current/revised
+  result artifacts, an exact existing CERA Git object, a valid evidence ZIP, a
+  complete changed-source snapshot, receipt-bound preceding Job 4 provenance,
+  and structured next-Job-4 authorization before publication.
+- The status-aware source root represents deletions and renames explicitly,
+  permits tracked runtime source, and excludes generated root runtime state.
+  Aggregate file/byte ceilings bound the archive. Progression documents must
+  declare their exact task identity and final status.
+- The repository state machine enters `job4_in_progress`, records only the
+  exact authorized task, then requires stable Job 4 completion before the exact
+  identity-bound Pro response can be consumed as advisory evidence.
+- Individually atomic files plus a publication commit marker, chained immutable
+  transition receipts, append-only wait/rejection history, deterministic paths,
+  stable reads, idempotency, response-conflict rejection, and full revalidation
+  during recovery cover partial writes, tamper, stale responses, duplicates,
+  conflicts, and restart.
+- Each v2 predecessor and `latest-consumed` candidate is reconstructed from the
+  immutable outbox/source archive, exact event receipts, Job 4 result/report,
+  and accepted response. Trigger insertion after Job 4 completion is rejected.
+- Recording a trigger advances the recoverable in-progress view to its receipt.
+  Completion derives its required predecessor from the immutable chain, so a
+  recovered triggered cycle remains completable. An exact trigger retry is
+  idempotent; changed target, message, or app-result identity is a conflict.
+- The supported Codex-app follow-up operation can activate an existing ChatGPT
+  review chat. The trigger receipt retains only exact message, target, and app
+  result hashes and is explicitly an attestation rather than independent
+  delivery proof. Repository publication by itself is not a trigger.
+- A bounded repository wait observes only the exact response path. It neither
+  invents another task nor asks Ted to upload, download, rename, copy, Wait,
+  Import, or relay an ordinary cycle message.
+- V1 Downloads transport remains functional only after an explicit creator
+  emergency-fallback choice. No runtime/provider/story/database/route/deployment
+  behavior is added.
+
+Cycle 006 proved the exact supported-app trigger, triggered-state restart
+recovery, Job 4 completion from the recovered receipt, identity-bound response
+consumption, post-consumption recovery, and latest-consumed discovery in one
+coherent progression. Its Job 4 passed 55/55 focused and 630/630 complete
+provider-free tests. Pro returned `accepted`, and Codex reconciled the advisory
+response against the successful final evidence. Cycles 002 through 006 retain
+their actual accepted, corrections-required, blocked, or superseded history.
+
+Read `docs/operations/PRO_REVIEW_REPOSITORY_CYCLE.md`. The completed result and
+all correction-cycle findings are recorded in
+`PRO_REVIEW_REPOSITORY_CYCLE_V2_RESULT.md`.
 
 ## Repair and pivot rule
 

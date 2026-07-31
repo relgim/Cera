@@ -1,5 +1,9 @@
 # CERA ChatGPT Pro Checkpoint Review Request
 
+This legacy checkpoint template remains for historical and emergency-fallback
+packages. New ordinary cycles use `CYCLE_SPEC_TEMPLATE.json`; the deterministic
+tool generates the identity-bound repository request and response template.
+
 checkpoint:
 creator_goal:
 starting_baseline_or_prior_checkpoint_sha:

@@ -6,10 +6,12 @@ These instructions apply to every future Codex session working in `D:\AIChatBot\
 
 1. Read `docs/START_HERE.md`.
 2. Read `docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md`.
-3. Read `docs/handoff/CURRENT.md`.
-4. Read every document marked required for the current phase.
-5. Confirm that the requested action is authorized by `docs/implementation/ROADMAP_AND_GATE.md`.
-6. Inspect the worktree before editing and preserve unrelated user changes.
+3. Run `python tools/pro_review_cycle.py latest-consumed`; when a consumed cycle
+   exists, read its exact accepted response before editing.
+4. Read `docs/handoff/CURRENT.md`.
+5. Read every document marked required for the current phase.
+6. Confirm that the requested action is authorized by `docs/implementation/ROADMAP_AND_GATE.md`.
+7. Inspect the worktree before editing and preserve unrelated user changes.
 
 Do not infer implementation authority from the existence of documentation, a roadmap, examples, or an earlier repository.
 
@@ -73,20 +75,27 @@ When the creator authorizes a Codex-to-ChatGPT-Pro progression tranche, follow
 `docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md` in addition to the ordinary
 roadmap gate.
 
-- Treat three substantial progressions as the maximum, never a quota.
+- Treat three substantial progressions as the maximum, never a quota. A
+  separately named Job 4 may overlap Pro review only when its independent scope
+  and authorization were frozen before publication.
 - Stop early when a terminal blocker makes the remaining progression unsafe or
   irrelevant; preserve the useful diagnostic evidence in the checkpoint.
 - Establish the required lossless backup and safe local Git baseline before the
   first governed tranche changes the repository.
-- Complete a local checkpoint commit after the bounded tranche and verify the
-  actual diff, active source, tests, and effects before claiming completion.
-- Write the reusable Pro review request under `.chatgpt/pro-review/checkpoints/`
-  and send the request path plus checkpoint SHA.
-- After submitting the request, stop unless the creator already authorized one
-  named, isolated bridge progression for that review interval. Never invent a
-  bridge task merely to remain busy.
-- When direct repository/chat access is unavailable, use the provider-free
-  `tools/pro_review_bridge.ps1` transport. Importing a response never authorizes
-  its recommendations; stop for explicit creator authority after reconciliation.
+- Freeze the actual Git object, evidence, task-result, and task-set hashes before
+  review; complete the authorized local commit at the task's required boundary.
+- Publish the primary request under `.chatgpt/pro-review/cycles/` with
+  `tools/pro_review_cycle.py`, then activate the existing Pro chat through the
+  supported app follow-up operation and record a privacy-safe, hash-bound app
+  result attestation. The receipt alone is not independent delivery proof.
+- Immediately perform only the pre-authorized Job 4. After it finishes, consume
+  only the exact identity-bound repository response. Never invent work merely
+  to remain busy.
+- Repository publication alone is not a ChatGPT trigger. If the supported app
+  trigger is unavailable, report that exact boundary. Use
+  `tools/pro_review_bridge.ps1` only when Ted explicitly chooses the manual
+  emergency fallback.
+- Consuming a response never authorizes its recommendations. Apply only
+  corrections already inside creator authority; stop for any material expansion.
 - ChatGPT Pro reviews the real checkpoint and may recommend the next two or
   three progressions; the creator alone authorizes their implementation.

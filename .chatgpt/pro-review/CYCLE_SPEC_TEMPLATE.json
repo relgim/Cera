@@ -1,0 +1,64 @@
+{
+  "schema_version": "cera.pro_review_cycle_spec.v2",
+  "cycle_id": "<safe-cycle-id>",
+  "cycle_sequence": 2,
+  "checkpoint": {
+    "id": "<checkpoint-id>",
+    "git_sha": "<exact-existing-40-or-64-lowercase-Git-object-id>",
+    "evidence_path": "D:\\AIChatBot\\Cera\\<valid-immutable-evidence.zip>",
+    "evidence_sha256": "<64-lowercase-hex>"
+  },
+  "jobs_1_3": [
+    {
+      "task_id": "<job-1-id>",
+      "result_path": "D:\\AIChatBot\\Cera\\<utf8-job-1-result.md>",
+      "result_sha256": "<64-lowercase-hex>"
+    }
+  ],
+  "prior_cycle_id": "<required-after-bootstrap>",
+  "job4": {
+    "task_id": "<new-pre-authorized-job-4-id>",
+    "scope": "<exact bounded independent scope>",
+    "authorization_record_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\<cycle-id>\\source\\JOB4_AUTHORIZATION.json",
+    "authorization_record_sha256": "<64-lowercase-hex>"
+  },
+  "review_context": {
+    "creator_goal": "<goal>",
+    "starting_baseline_or_prior_checkpoint": "<baseline>",
+    "selection_rationale": ["<one rationale per supplied progression>"],
+    "diff_summary": "<summary>",
+    "focused_tests": "<result>",
+    "complete_suite": "<result or truthful pending Job 4 statement>",
+    "active_profile_before": "<identity>",
+    "active_profile_after": "<identity>",
+    "provider_calls_and_cost": "<effects>",
+    "retry_and_fallback": "<effects>",
+    "story_database_and_branch_effects": "<effects>",
+    "user_visible_effect": "<effect>",
+    "historical_evidence_integrity": "<status>",
+    "unresolved_defects": "<status>",
+    "uncertainty_and_risks": "<status>",
+    "disagreement_with_prior_review": "<status>",
+    "codex_advisory_next_candidates": ["<advisory item>"],
+    "questions_for_chatgpt_pro": ["<question>"],
+    "explicit_exclusions": ["<exclusion>"]
+  },
+  "review_snapshot": {
+    "baseline_git_sha": "<same-exact-existing-Git-object-id>",
+    "include_all_nonexcluded_changes": true,
+    "declared_exclusions": [
+      {
+        "path_prefix": "runtime/",
+        "reason_code": "generated_runtime_state"
+      },
+      {
+        "path_prefix": ".chatgpt/operations/",
+        "reason_code": "connector_metadata_outside_task"
+      },
+      {
+        "path_prefix": ".chatgpt/pro-review/cycles/<cycle-id>/",
+        "reason_code": "current_cycle_transport_state"
+      }
+    ]
+  }
+}

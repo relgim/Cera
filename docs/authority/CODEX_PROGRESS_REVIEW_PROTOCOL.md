@@ -28,9 +28,11 @@ Before editing, Codex must read, in order:
 4. `D:\AIChatBot\Cera\docs\handoff\CURRENT.md`
 5. `D:\AIChatBot\Cera\docs\authority\CERA_OWNER_ARCHITECTURE.md`
 6. `D:\AIChatBot\Cera\docs\authority\DECISIONS_AND_SUPERSESSIONS.md`
-7. The latest applicable completed `PRO_RESPONSE*.md` under
+7. The latest applicable consumed repository-cycle response reported by
+   `python tools/pro_review_cycle.py latest-consumed`, when one exists
+8. The latest applicable historical `PRO_RESPONSE*.md` under
    `D:\AIChatBot\Cera\.chatgpt\pro-review\checkpoints\`, when one exists
-8. Every task-specific controlling contract and result named by the current prompt
+9. Every task-specific controlling contract and result named by the current prompt
 
 Codex must then inspect repository status, current HEAD, staged changes,
 untracked files, and the exact active runtime identity before modifying
@@ -68,7 +70,10 @@ A tranche contains **no more than three substantial progressions**.
 Two progressions are acceptable when a third would be unsafe, unrelated,
 insufficiently supported, or outside authorization. One progression is
 acceptable after a terminal diagnostic failure that makes further work
-speculative. Codex must never quietly continue to a fourth progression.
+speculative. Codex must never quietly turn the tranche into a fourth
+progression. D-182 permits one separately named, independent Job 4 as a
+latency-hiding review buffer only when its scope and authorization artifact were
+fixed before Jobs 1-3 were published.
 
 A substantial progression is one coherent issue resolution, bug fix,
 implementation, qualification, or evidence-backed product improvement with:
@@ -95,8 +100,11 @@ stop and defer the expansion.
 ## Task selection and precedence
 
 The first tranche is defined by the initial stabilization prompt. ChatGPT Pro
-may recommend and bound every later tranche after reviewing the preceding
-checkpoint. A later tranche begins only when Ted explicitly authorizes it.
+may recommend and bound later work after reviewing the preceding checkpoint.
+A later tranche begins only inside Ted's explicit or standing bounded
+authorization. A Pro recommendation cannot create that authority. A creator
+instruction may pre-authorize named Jobs 1-3, the independent Job 4 buffer, and
+the rules for applying in-scope review corrections across ordinary cycles.
 
 Codex must not self-authorize additional architecture, prompt systems, model
 ladders, Adult activation, production binding, deployment, or unrelated cleanup
@@ -142,42 +150,54 @@ A failed live stage ends that attempt. Codex may diagnose it, but it must not
 automatically patch and rerun when doing so creates another progression or
 exceeds authorization.
 
-## Checkpoint commit
+## Checkpoint and final commit
 
-After completing the tranche's authorized progressions, Codex must:
+After completing the tranche's authorized progressions, Codex must freeze the
+review identity. That identity includes the current Git object ID plus exact
+content hashes for the evidence and each task result. A task may require the
+single final local commit only after the overlapped review is consumed; in that
+case the immutable task-set hashes, not an uncommitted summary alone, are the
+review boundary.
+
+Before final completion Codex must:
 
 1. Run required focused and broad verification.
 2. Inspect the complete diff and repository status.
 3. Confirm historical evidence and unrelated files were not changed.
-4. Create one local checkpoint commit containing only the reviewed tranche.
+4. Create the authorized local checkpoint/final commit containing only the
+   reviewed tranche.
 5. Use a descriptive message such as
    `cera(checkpoint 1): establish governed stabilization baseline`.
 6. Never push.
 7. Leave the tracked worktree clean, except for explicitly declared runtime or
    immutable evidence outputs whose status and rationale are included in the request.
 
-Do not combine the next tranche with the current checkpoint commit.
+Do not combine unrelated or unauthorized work with the current checkpoint
+commit. A separately authorized Job 4 result belongs to the next review
+package, not retroactively to the Jobs 1-3 package reviewed while it ran.
 
 A terminal diagnostic progression may be committed when it adds a valid
 harness, regression test, safe evidence, or documented owning diagnosis.
 Repeating a failed attempt without new evidence is not progress.
 
-## Mandatory ChatGPT Pro review request
+## Mandatory ChatGPT Pro repository review cycle
 
-After the checkpoint commit, create:
+For the primary workflow create:
 
 ```text
-D:\AIChatBot\Cera\.chatgpt\pro-review\checkpoints\<timestamp>-checkpoint-<number>\REQUEST.md
+D:\AIChatBot\Cera\.chatgpt\pro-review\cycles\<cycle-id>\CYCLE_SPEC.json
 ```
 
-The request must contain:
+The generated immutable request must contain:
 
 - creator goal and checkpoint number;
 - starting baseline or prior checkpoint SHA;
-- ending checkpoint SHA;
+- bound checkpoint Git object ID and complete task-set SHA-256;
 - exact one, two, or three progressions completed;
 - why each progression was selected;
 - changed-file inventory and diff summary;
+- exact Git status semantics for additions, modifications, deletions, copies,
+  and renames, with tombstones for paths that no longer have current bytes;
 - focused and complete verification commands/results;
 - provider calls, retries, fallbacks, cost/quota evidence, and story/database effects;
 - active runtime identity before and after;
@@ -185,41 +205,63 @@ The request must contain:
 - actual output samples or immutable evidence paths when quality is relevant;
 - unresolved defects, uncertainty, and risks;
 - any disagreement with the prior Pro response;
+- the preceding Job 4 result after bootstrap, separately identified from the
+  current/revised Jobs 1-3 results;
+- the next Job 4 task ID, exact independent scope, and pre-publication
+  authorization-artifact hash;
 - Codex's suggested next work, clearly labeled advisory rather than authorized.
 
-Then send ChatGPT Pro one concise message naming the request path and checkpoint
-SHA and ask for independent review plus the next two or three recommendations.
+Run `tools/pro_review_cycle.py publish`. It publishes every complete outbox file
+individually atomically, records `PUBLISHED.json` as the package commit marker,
+and immediately enters
+`job4_in_progress` for only the named task. Then use the supported Codex-app
+follow-up operation to send the existing ChatGPT Pro review chat one concise
+message generated as `TRIGGER_MESSAGE.txt`. Record its exact hash and the
+app-returned target/result hashes in `TRIGGER_SENT.json`. This is a local
+attestation of the successful app result, not independent delivery proof.
+Record the trigger attestation before Job 4 completion. It may not be inserted
+retroactively into the receipt chain.
+After a trigger, the recoverable in-progress state must point to that receipt.
+An exact attestation retry may be idempotent, but any changed target, message,
+or app-result identity must fail as a conflict.
 
-When direct repository/chat access is unavailable, use the transport-only
-workflow documented in
-`D:\AIChatBot\Cera\docs\operations\PRO_REVIEW_FILE_BRIDGE.md`. Export exactly
-one hash-verified package through Ted's Downloads folder. The file bridge must
-not call a provider, change story/database state, alter a route, or grant
-authority.
+Repository publication alone cannot wake ChatGPT. No-user-action trigger claims
+require a successful supported app send and its receipt. When direct
+repository/chat access is unavailable, stop and report that trigger boundary.
+Only if Ted explicitly chooses the manual emergency path may Codex use
+`PRO_REVIEW_FILE_BRIDGE.md` through Downloads. The fallback must not call a
+provider, change story/database state, alter a route, or grant authority.
 
 The request must not demand an exact acceptance token, frame approval as the
 expected answer, hide failed evidence, or pressure ChatGPT Pro to respond early.
 
-After sending the request, stop unless Ted already authorized one named,
-isolated bridge progression for this review interval. The bridge progression
-must be independent of the frozen checkpoint and may not be invented merely to
-avoid waiting. After that one bridge finishes, run only the stationary response
-wait/import workflow and stop. Do not poll while changing source, prepare later
-implementation in advance, or treat silence as authorization.
+After sending the request, perform only the pre-authorized Job 4 recorded by the
+cycle. It must be independent of the frozen Jobs 1-3 package and may not be
+invented merely to avoid waiting. When it finishes, record its stable result
+with `complete-job4`, then use bounded `wait-consume` on the exact repository
+path. If the response is not ready, Codex may wait again or perform only another
+separately named and pre-authorized independent task. Silence is not authority.
+The completion chain must preserve and revalidate both the structured Job 4
+result and its human-readable report. Startup discovery must reconstruct the
+latest consumed v2 cycle from its immutable outbox, source archive, typed
+receipt chain, Job 4 evidence, and accepted response identity; a mutable state
+label alone is never a trusted startup source.
 
 ## ChatGPT Pro response
 
-ChatGPT Pro may respond in the conversation and/or provide a downloaded file
-that the validated bridge imports without byte changes as:
+ChatGPT Pro writes the identity-bound response through the approved repository
+connector, atomically, as:
 
 ```text
-D:\AIChatBot\Cera\.chatgpt\pro-review\checkpoints\<timestamp>-checkpoint-<number>\PRO_RESPONSE.md
+D:\AIChatBot\Cera\.chatgpt\pro-review\cycles\<cycle-id>\inbox\PRO_RESPONSE.md
 ```
 
-An evidence-repair review may instead use the non-overwriting destination
-`PRO_RESPONSE_EVIDENCE_VERIFIED.md`. The bridge validates checkpoint ID, Git
-object ID, evidence ZIP SHA-256, and `review_scope: evidence_verified` before
-import. A matching filename alone is never sufficient.
+The cycle tool stable-reads and preserves exact bytes only after Job 4 is
+complete. It validates cycle/checkpoint IDs, Git object ID, evidence SHA-256,
+task-set SHA-256, Job 4 identity, response nonce, final disposition, and
+`review_scope: repository_cycle`. A matching filename alone is never
+sufficient. Historical evidence-repair reviews may retain
+`PRO_RESPONSE_EVIDENCE_VERIFIED.md` under the emergency V1 contract.
 
 The response should:
 
@@ -231,8 +273,10 @@ The response should:
 - name explicit exclusions and live-call ceilings;
 - state uncertainty honestly.
 
-On the next run, Codex must read the latest validated response before editing,
-reconcile any isolated bridge result, and verify Ted's explicit authorization.
+Codex must read the latest validated response before beginning the next Jobs
+1-3. It may apply corrections only inside existing creator authority. The next
+package includes the just-completed Job 4 result and the current/revised Jobs
+1-3 with separate provenance. A material expansion still stops for Ted.
 Codex may execute only the creator-authorized tranche. If Codex materially
 disagrees, it must present repository evidence and stop for resolution rather
 than silently ignoring the review.

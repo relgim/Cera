@@ -52,6 +52,21 @@ new live pass. Adult ON/EX publication,
 route promotion, production binding, public deployment, and external-handler
 integration remain closed. See the [current handoff](docs/handoff/CURRENT.md).
 
+## Pro review workflow
+
+D-182 makes the shared-repository overlapped cycle the primary Codex/ChatGPT
+Pro review path. Codex publishes hash-bound Jobs 1-3, activates the existing Pro
+chat through the supported app thread operation, performs only the already
+authorized Job 4, and then consumes the exact matching repository response.
+The next package separates that preceding Job 4 result from current or revised
+Jobs 1-3. Ted does not relay files or messages during an ordinary cycle.
+
+Repository publication alone cannot wake ChatGPT. A no-user-action proof uses
+the actual app send, its hash-bound local attestation, the app task audit, and
+the matching repository response; the receipt alone is not delivery proof. The
+Downloads PowerShell bridge remains a manual emergency fallback. See the
+[repository cycle operating contract](docs/operations/PRO_REVIEW_REPOSITORY_CYCLE.md).
+
 ## Historical milestone record
 
 The material below preserves evidence from earlier gates. Any historical use

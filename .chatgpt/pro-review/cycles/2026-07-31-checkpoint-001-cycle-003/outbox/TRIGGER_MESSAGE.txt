@@ -1,0 +1,8 @@
+CERA repository review cycle 2026-07-31-checkpoint-001-cycle-003 is published and its exact pre-authorized Job 4 has started.
+
+Review: D:\AIChatBot\Cera\.chatgpt\pro-review\cycles\2026-07-31-checkpoint-001-cycle-003\outbox\REVIEW_REQUEST.md
+Manifest root: 62f8f3ede3b604db92cf839491f41afe856e7703236e72767e6841552cfc0623
+Task-set SHA-256: 035afd7c12bd843dedd345b2053fa9eb7d598e25426c35f3a09986724d20892a
+Response target: D:\AIChatBot\Cera\.chatgpt\pro-review\cycles\2026-07-31-checkpoint-001-cycle-003\inbox\PRO_RESPONSE.md
+
+Inspect the bound source snapshot and repository files, then write the identity-bound response atomically through the repository connector. Do not ask Ted to relay or operate files. The review is advisory.

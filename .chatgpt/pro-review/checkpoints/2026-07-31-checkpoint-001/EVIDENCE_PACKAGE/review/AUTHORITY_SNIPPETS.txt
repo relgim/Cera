@@ -1,0 +1,71 @@
+--- AGENTS.md ---
+0070: ## Governed progression checkpoints
+0071: 
+0072: When the creator authorizes a Codex-to-ChatGPT-Pro progression tranche, follow
+0073: `docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md` in addition to the ordinary
+0074: roadmap gate.
+0075: 
+0076: - Treat three substantial progressions as the maximum, never a quota.
+0077: - Stop early when a terminal blocker makes the remaining progression unsafe or
+0078:   irrelevant; preserve the useful diagnostic evidence in the checkpoint.
+0079: - Establish the required lossless backup and safe local Git baseline before the
+0080:   first governed tranche changes the repository.
+0081: - Complete a local checkpoint commit after the bounded tranche and verify the
+0082:   actual diff, active source, tests, and effects before claiming completion.
+0083: - Write the reusable Pro review request under `.chatgpt/pro-review/checkpoints/`
+0084:   and send the request path plus checkpoint SHA.
+0085: - Stop completely after submitting the request. Silence, an acceptance token,
+0086:   or an advisory review is not creator authorization for another tranche.
+0087: - ChatGPT Pro reviews the real checkpoint and may recommend the next two or
+0088:   three progressions; the creator alone authorizes their implementation.
+--- docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md ---
+0094: ## Task selection and precedence
+0095: 
+0096: The first tranche is defined by the initial stabilization prompt. Every later
+0097: tranche is selected by ChatGPT Pro after reviewing the preceding checkpoint.
+0098: 
+0099: Codex must not self-authorize additional architecture, prompt systems, model
+0100: ladders, Adult activation, production binding, deployment, or unrelated cleanup
+0101: merely because the code makes it convenient.
+0102: 
+0103: Priority order:
+0104: 
+0105: 1. **P0 — truth and change control:** Git, active identity consistency,
+0106:    authority/privacy defects, incorrect current documentation, and
+0107:    transactional/restart defects.
+0108: 2. **P1 — exact current-route reliability:** current-version end-to-end
+0109:    qualification, failure recovery, state/prose agreement, and deterministic
+0110:    continuity checks.
+0111: 3. **P2 — creator product evidence:** varied creator-labeled turns, voice
+0112:    distinction, realism, first-candidate acceptance, factual invention, and
+0113:    scene development.
+0114: 4. **P3 — latency and maintainability:** measured routing changes, verifier
+0115:    value, module decomposition, CI, and tooling.
+0116: 5. **P4 — Adult live publication, production binding, promotion, and
+0117:    deployment:** only after separate creator authority and prerequisite evidence.
+0118: 
+0119: A lower-priority task must not displace an unresolved higher-priority defect
+0120: without an explicit creator or ChatGPT Pro decision.
+--- docs/authority/CODEX_PROGRESS_REVIEW_PROTOCOL.md ---
+0198: ## ChatGPT Pro response
+0199: 
+0200: ChatGPT Pro may respond in the conversation and/or write:
+0201: 
+0202: ```text
+0203: D:\AIChatBot\Cera\.chatgpt\pro-review\checkpoints\<timestamp>-checkpoint-<number>\PRO_RESPONSE.md
+0204: ```
+0205: 
+0206: The response should:
+0207: 
+0208: - inspect the actual diff, active source, tests, and evidence when accessible;
+0209: - distinguish proven behavior from structural or self-reported claims;
+0210: - accept, reject, or narrow each progression;
+0211: - identify required corrections;
+0212: - select the next two or three substantial progressions in priority order;
+0213: - name explicit exclusions and live-call ceilings;
+0214: - state uncertainty honestly.
+0215: 
+0216: On the next run, Codex must read the latest response before editing and may
+0217: execute only the selected tranche. If Codex materially disagrees, it must
+0218: present repository evidence and stop for resolution rather than silently
+0219: ignoring the review.

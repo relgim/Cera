@@ -1,0 +1,11 @@
+{
+    "checkpoint_id":  "2026-07-31-checkpoint-001",
+    "checkpoint_sha":  "248dfbc969a2961338d8f9b35c61bda4f4e6010b",
+    "evidence_bridge_sha":  "0982dabb6e548177d058b81679b8cbf1d6dd7192",
+    "evidence_zip_sha256":  "10a89acf69cc4b91fbd0e148df89b4ce5e5579d1533016abd783210e69dc08d6",
+    "exported_zip_path":  "C:\\Users\\Ted\\Downloads\\CERA_TO_PRO_2026-07-31-checkpoint-001_248dfbc969a2.zip",
+    "upload_message_path":  "C:\\Users\\Ted\\Downloads\\CERA_TO_PRO_2026-07-31-checkpoint-001_248dfbc969a2_UPLOAD_MESSAGE.txt",
+    "expected_downloaded_response_filename":  "CERA_PRO_RESPONSE_2026-07-31-checkpoint-001_248dfbc969a2.md",
+    "expected_repository_response_path":  "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-07-31-checkpoint-001\\PRO_RESPONSE_EVIDENCE_VERIFIED.md",
+    "exported_at_utc":  "2026-07-31T20:54:34.9719063Z"
+}
