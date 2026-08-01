@@ -1,0 +1,9 @@
+CERA live canary 001 stopped during provider-free preflight before cycle publication or any provider call.
+
+Checkpoint: 2026-08-01-continuous-planner-validator-v1-live-canary-001
+Checkpoint commit: 918b006f25ab638a7328287832796976158cdd3b
+Evidence: D:\AIChatBot\Cera\.chatgpt\pro-review\checkpoints\2026-08-01-continuous-planner-validator-v1-live-canary-001\PREFLIGHT_FAILURE.md
+
+The live harness emits an unexpected top-level authorization_sha256 and an unexpected effects.scripted_transport_invocations field. The strict repository Job 4 decoder rejects both, so complete-job4 could not consume a live result. Scripted-V8, documentation, and D-180 checks pass, exposing a missing schema/domain differential test rather than a provider failure.
+
+Effects: 0/10 provider calls, no Job 4 start, no cycle publication, no retry or patch, and no story/database/route/service/SillyTavern/deployment/merge/remote/push effect. The creator-authorized terminal rule requires preservation, notification, and stop.

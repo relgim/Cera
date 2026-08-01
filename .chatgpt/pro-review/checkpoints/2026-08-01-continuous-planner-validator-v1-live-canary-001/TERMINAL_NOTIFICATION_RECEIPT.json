@@ -1,0 +1,21 @@
+{
+  "schema_version": "cera.pro_review_terminal_notification_receipt.v1",
+  "checkpoint_id": "2026-08-01-continuous-planner-validator-v1-live-canary-001",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-live-canary-cycle-001",
+  "job4_task_id": "continuous-planner-validator-three-turn-scene-change-live-canary-v1",
+  "checkpoint_git_sha": "918b006f25ab638a7328287832796976158cdd3b",
+  "recorded_at_utc": "2026-08-01T22:05:54Z",
+  "transport": "codex_app_send_message_to_thread",
+  "target_id_sha256": "f0fd00d836b16ff0d8bcda67ee47fd6f224b4b4c496fdeb82cdfba383deeaddb",
+  "message_relative_path": "TERMINAL_NOTIFICATION.txt",
+  "message_sha256": "f362c5ecf17e5e5b80ff94b8e30019e3702bfad7ee35d174da94bb4dad5b58f0",
+  "attempt_count": 3,
+  "byte_identical_attempts": true,
+  "delivered": false,
+  "error_code": "app_handler_unavailable",
+  "error_result_sha256": "d288610371374fad8f45c8dcb75cb3adfca57925bd127f88c930ef4f1ada84a1",
+  "raw_target_or_error_retained": false,
+  "provider_calls": 0,
+  "manual_fallback_used": false,
+  "terminal_state": "preflight_blocked_and_pro_notified_delivery_unavailable"
+}
