@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 from tempfile import mkdtemp
 from threading import RLock
@@ -21,6 +22,7 @@ from cera.serialization import canonical_bytes, canonical_sha256, text_sha256, t
 from .contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     AcceptedTurnPairV1,
+    SceneSummaryDerivedViewV1,
     SceneSummaryV1,
     ValidatorFinalizationPackageV1,
     WorldEditOperationKind,
@@ -47,6 +49,14 @@ _SECRET_KEYS = frozenset(
         "secret",
         "token",
     }
+)
+_EMBEDDED_SECRET_PATTERNS = (
+    re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]{6,}"),
+    re.compile(r"(?i)\bsk-[A-Za-z0-9_-]{8,}"),
+    re.compile(
+        r"(?i)(\b(?:api[_-]?key|authorization|access[_-]?token|auth[_-]?token)\b\s*[:=]\s*[\"']?)[^\s\"'&,}]{6,}"
+    ),
+    re.compile(r"(?i)([?&](?:api[_-]?key|access[_-]?token|token)=)[^&#\s]{6,}"),
 )
 
 
@@ -156,9 +166,12 @@ def redact_secrets(value: Any) -> Any:
     if isinstance(value, tuple):
         return [redact_secrets(child) for child in value]
     if isinstance(value, str):
-        lowered = value.casefold()
-        if lowered.startswith(("bearer ", "sk-")):
-            return "[REDACTED]"
+        redacted = value
+        redacted = _EMBEDDED_SECRET_PATTERNS[0].sub("Bearer [REDACTED]", redacted)
+        redacted = _EMBEDDED_SECRET_PATTERNS[1].sub("[REDACTED]", redacted)
+        redacted = _EMBEDDED_SECRET_PATTERNS[2].sub(r"\1[REDACTED]", redacted)
+        redacted = _EMBEDDED_SECRET_PATTERNS[3].sub(r"\1[REDACTED]", redacted)
+        return redacted
     return value
 
 
@@ -195,21 +208,36 @@ class WorldPromotionReceiptV1:
 class ContinuousWorldStore:
     """One repository-local shadow world with atomic directory promotion."""
 
-    def __init__(self, runtime_root: Path) -> None:
+    def __init__(
+        self,
+        runtime_root: Path,
+        *,
+        promotion_failpoint: Callable[[str], None] | None = None,
+    ) -> None:
         if not runtime_root.is_absolute():
             raise ContractValidationError("continuous world runtime root must be absolute")
         self.runtime_root = runtime_root.resolve()
         self._lock = RLock()
+        self._promotion_failpoint = promotion_failpoint
 
     def branch_root(self, world_id: str, branch_id: str) -> Path:
         return self.runtime_root / _slug(world_id, "world_id") / _slug(branch_id, "branch_id")
 
     def initialize(self, world_id: str, branch_id: str) -> Path:
         root = self.branch_root(world_id, branch_id)
+        root.mkdir(parents=True, exist_ok=True)
+        self.recover_pending_promotions(world_id, branch_id)
         active = root / "ACTIVE"
         for directory in _ACTIVE_DIRS:
             (active / directory).mkdir(parents=True, exist_ok=True)
-        for directory in ("CANDIDATES", "DEBUG", "PLANNER_SESSION", "VALIDATOR_SESSION"):
+        for directory in (
+            "CANDIDATES",
+            "DEBUG",
+            "DERIVED/Scenes",
+            "PLANNER_SESSION",
+            "VALIDATOR_SESSION",
+            "VALIDATOR_DIAGNOSTICS",
+        ):
             (root / directory).mkdir(parents=True, exist_ok=True)
         index = active / "WORLD_INDEX.jsonl"
         if not index.exists():
@@ -328,6 +356,12 @@ class ContinuousWorldStore:
             if self.tree_sha256(root / "ACTIVE") != before:
                 raise StateConflictError("ACTIVE changed during candidate validation")
             self._promote_directory(root, view, turn_id)
+        if action is CreatorReviewAction.FALSE_POSITIVE:
+            self._record_false_positive_diagnostic(
+                root=root,
+                turn_id=turn_id,
+                package=package,
+            )
         receipt = WorldPromotionReceiptV1(
             schema_version=WorldPromotionReceiptV1.SCHEMA_VERSION,
             world_id=world_id,
@@ -356,19 +390,45 @@ class ContinuousWorldStore:
         summary: SceneSummaryV1,
     ) -> Path:
         root = self.initialize(world_id, branch_id)
-        path = (
-            root
-            / "ACTIVE"
-            / "Scenes"
-            / _identity_filename(summary.completed_scene_id, ".summary.json")
+        path = root / "DERIVED" / "Scenes" / _identity_filename(
+            summary.completed_scene_id, ".summary.json"
         )
+        pairs = self.accepted_turn_pairs(
+            world_id,
+            branch_id,
+            summary.accepted_turn_ids,
+        )
+        pair_hashes = tuple(canonical_sha256(to_primitive(value)) for value in pairs)
+        event_hashes = self._accepted_event_hashes(
+            root / "ACTIVE", summary.accepted_turn_ids
+        )
+        revision = 1
         if path.exists():
             prior = json.loads(path.read_text(encoding="utf-8"))
-            if canonical_sha256(prior) != canonical_sha256(to_primitive(summary)):
-                raise StateConflictError("scene summary changed after acceptance")
-            return path
-        self._write_json(path, {"_cera_revision": 1, **to_primitive(summary)})
-        self._rebuild_index(root / "ACTIVE")
+            prior_summary = prior.get("summary") if isinstance(prior, dict) else None
+            prior_sources = tuple(prior.get("source_pair_sha256", ())) if isinstance(prior, dict) else ()
+            if prior_summary == to_primitive(summary) and prior_sources == pair_hashes:
+                return path
+            revision = int(prior.get("summary_revision", 0)) + 1
+        regeneration_identity = canonical_sha256(
+            {
+                "completed_scene_id": summary.completed_scene_id,
+                "source_pair_sha256": pair_hashes,
+                "source_event_sha256": event_hashes,
+                "summary": summary,
+            }
+        )
+        derived = SceneSummaryDerivedViewV1(
+            schema_version=SceneSummaryDerivedViewV1.SCHEMA_VERSION,
+            authority_classification="non_authoritative_derived_view",
+            summary_revision=revision,
+            regeneration_identity_sha256=regeneration_identity,
+            source_accepted_turn_ids=summary.accepted_turn_ids,
+            source_pair_sha256=pair_hashes,
+            source_event_sha256=event_hashes,
+            summary=summary,
+        )
+        self._write_json(path, to_primitive(derived))
         return path
 
     def accepted_turn_pairs(
@@ -499,6 +559,62 @@ class ContinuousWorldStore:
         self._rebuild_index(root / "ACTIVE")
         return target
 
+    def _record_false_positive_diagnostic(
+        self,
+        *,
+        root: Path,
+        turn_id: str,
+        package: ValidatorFinalizationPackageV1,
+    ) -> Path:
+        if package.creator_review is None:
+            raise StateConflictError("false-positive action lacks Validator assessment")
+        path = root / "VALIDATOR_DIAGNOSTICS" / _identity_filename(
+            turn_id, ".false_positive.json"
+        )
+        payload = {
+            "schema_version": "cera.continuous_validator_false_positive_diagnostic.v1",
+            "authority_classification": "validator_owned_non_story_diagnostic",
+            "turn_id": turn_id,
+            "package_sha256": package.package_sha256,
+            "assessment_sha256": package.creator_review.assessment_sha256,
+            "original_severity": package.creator_review.severity.value,
+            "reason_codes": package.creator_review.reason_codes,
+            "creator_action": CreatorReviewAction.FALSE_POSITIVE.value,
+            "creates_story_constraint": False,
+            "recorded_at_utc": _utc_now(),
+        }
+        if path.exists():
+            prior = json.loads(path.read_text(encoding="utf-8"))
+            if any(
+                prior.get(key) != value
+                for key, value in payload.items()
+                if key != "recorded_at_utc"
+            ):
+                raise StateConflictError("false-positive diagnostic changed")
+            return path
+        self._write_json(path, payload)
+        return path
+
+    def _accepted_event_hashes(
+        self,
+        active_root: Path,
+        accepted_turn_ids: tuple[str, ...],
+    ) -> tuple[str, ...]:
+        wanted = set(accepted_turn_ids)
+        rows: list[tuple[str, str]] = []
+        for path in sorted((active_root / "Events").glob("*.json")):
+            if path.name.endswith(".accepted_pair.json"):
+                continue
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(payload, dict) and payload.get("accepted_turn_id") in wanted:
+                rows.append(
+                    (
+                        str(payload["accepted_turn_id"]),
+                        text_sha256(path.read_text(encoding="utf-8")),
+                    )
+                )
+        return tuple(value for _turn, value in sorted(rows))
+
     def _apply_operations(
         self, active_view: Path, package: ValidatorFinalizationPackageV1
     ) -> set[str]:
@@ -595,6 +711,74 @@ class ContinuousWorldStore:
             newline="\n",
         )
 
+    def recover_pending_promotions(
+        self, world_id: str, branch_id: str
+    ) -> tuple[str, ...]:
+        """Recover exact directory-swap transactions without provider work."""
+
+        root = self.branch_root(world_id, branch_id)
+        if not root.exists():
+            return ()
+        recovered: list[str] = []
+        for transaction_root in sorted(root.glob(".promotion-*")):
+            if not transaction_root.is_dir():
+                continue
+            journal = transaction_root / "JOURNAL.json"
+            if not journal.is_file():
+                raise StateConflictError("promotion transaction lacks a journal")
+            payload = json.loads(journal.read_text(encoding="utf-8"))
+            state = payload.get("state")
+            if state in {"finalized", "rolled_back"}:
+                continue
+            prior_hash = payload.get("prior_sha256")
+            prepared_hash = payload.get("prepared_sha256")
+            if not isinstance(prior_hash, str) or not isinstance(prepared_hash, str):
+                raise StateConflictError("promotion journal lacks tree hashes")
+            active = root / "ACTIVE"
+            prepared = transaction_root / "PREPARED_ACTIVE"
+            backup = transaction_root / "PRIOR_ACTIVE"
+            active_hash = self.tree_sha256(active) if active.is_dir() else None
+            prepared_actual = self.tree_sha256(prepared) if prepared.is_dir() else None
+            backup_actual = self.tree_sha256(backup) if backup.is_dir() else None
+            for actual, expected, label in (
+                (prepared_actual, prepared_hash, "prepared"),
+                (backup_actual, prior_hash, "backup"),
+            ):
+                if actual is not None and actual != expected:
+                    raise StateConflictError(f"promotion {label} tree hash changed")
+            if active_hash == prepared_hash:
+                if backup.is_dir():
+                    shutil.rmtree(backup)
+                if prepared.is_dir():
+                    shutil.rmtree(prepared)
+                terminal = "finalized"
+            elif active_hash is None and prepared_actual == prepared_hash and backup_actual == prior_hash:
+                os.replace(prepared, active)
+                shutil.rmtree(backup)
+                terminal = "finalized"
+            elif active_hash == prior_hash:
+                if prepared.is_dir():
+                    shutil.rmtree(prepared)
+                if backup.is_dir():
+                    shutil.rmtree(backup)
+                terminal = "rolled_back"
+            elif active_hash is None and backup_actual == prior_hash and prepared_actual is None:
+                os.replace(backup, active)
+                terminal = "rolled_back"
+            else:
+                raise StateConflictError("promotion recovery cannot verify an exact tree")
+            self._write_json(
+                journal,
+                {
+                    **payload,
+                    "state": terminal,
+                    "recovered_at_utc": _utc_now(),
+                    "active_sha256": self.tree_sha256(active),
+                },
+            )
+            recovered.append(str(payload.get("turn_id", transaction_root.name)))
+        return tuple(recovered)
+
     def _promote_directory(self, branch_root: Path, candidate_active: Path, turn_id: str) -> None:
         active = branch_root / "ACTIVE"
         transaction_root = Path(mkdtemp(prefix=f".promotion-{turn_id}-", dir=branch_root))
@@ -602,24 +786,42 @@ class ContinuousWorldStore:
         shutil.copytree(candidate_active, prepared)
         backup = transaction_root / "PRIOR_ACTIVE"
         journal = transaction_root / "JOURNAL.json"
+        base = {
+            "schema_version": "cera.continuous_world_promotion_journal.v2",
+            "turn_id": turn_id,
+            "prior_sha256": self.tree_sha256(active),
+            "prepared_sha256": self.tree_sha256(prepared),
+        }
+        self._write_json(journal, {**base, "state": "prepared"})
+        self._failpoint("journal_created")
+        os.replace(active, backup)
+        self._write_json(journal, {**base, "state": "active_moved_to_backup"})
+        self._failpoint("active_moved_to_backup")
+        try:
+            os.replace(prepared, active)
+        except Exception:
+            os.replace(backup, active)
+            self._write_json(journal, {**base, "state": "rolled_back"})
+            raise
+        self._write_json(journal, {**base, "state": "prepared_active_installed"})
+        self._failpoint("prepared_active_installed")
+        shutil.rmtree(backup)
+        self._write_json(journal, {**base, "state": "prior_backup_removed"})
+        self._failpoint("prior_backup_removed")
+        self._write_json(journal, {**base, "state": "committed"})
+        self._failpoint("committed")
         self._write_json(
             journal,
             {
-                "schema_version": "cera.continuous_world_promotion_journal.v1",
-                "state": "prepared",
-                "turn_id": turn_id,
-                "prior_sha256": self.tree_sha256(active),
-                "prepared_sha256": self.tree_sha256(prepared),
+                **base,
+                "state": "finalized",
+                "active_sha256": self.tree_sha256(active),
             },
         )
-        os.replace(active, backup)
-        try:
-            os.replace(prepared, active)
-        except BaseException:
-            os.replace(backup, active)
-            raise
-        shutil.rmtree(backup)
-        self._write_json(journal, {"schema_version": "cera.continuous_world_promotion_journal.v1", "state": "committed", "turn_id": turn_id})
+
+    def _failpoint(self, stage: str) -> None:
+        if self._promotion_failpoint is not None:
+            self._promotion_failpoint(stage)
 
     def _append_timeline(self, root: Path, receipt: WorldPromotionReceiptV1) -> None:
         path = root / "DEBUG" / "TIMELINE.jsonl"
@@ -644,7 +846,12 @@ class ContinuousWorldStore:
     @staticmethod
     def _write_json(path: Path, value: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(canonical_bytes(value) + b"\n")
+        temporary = path.with_name(path.name + ".tmp")
+        with temporary.open("wb") as stream:
+            stream.write(canonical_bytes(value) + b"\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
 
 
 class ContinuousDebugRecorder:
@@ -741,6 +948,7 @@ class ContinuousDebugRecorder:
 @dataclass(frozen=True, slots=True)
 class SceneChangeEnvelopeV1:
     previous_scene_summary: SceneSummaryV1
+    previous_scene_summary_view: SceneSummaryDerivedViewV1
     first_user_message_of_new_scene: str
 
     def __post_init__(self) -> None:
@@ -748,6 +956,8 @@ class SceneChangeEnvelopeV1:
             raise ContractValidationError("scene change requires the first new-scene prompt")
         if self.first_user_message_of_new_scene in self.previous_scene_summary.shortest_complete_summary:
             raise ContractValidationError("new-scene prompt leaked into old-scene summary")
+        if self.previous_scene_summary_view.summary != self.previous_scene_summary:
+            raise ContractValidationError("scene-change envelope changed its derived summary")
 
     def render_for_planner(self) -> str:
         pairs = "\n".join(
@@ -758,7 +968,20 @@ class SceneChangeEnvelopeV1:
             for value in self.previous_scene_summary.last_five_exact_pairs
         )
         return (
-            "[SCENE CHANGE]\n[PREVIOUS SCENE SUMMARY]\n"
+            "[SCENE CHANGE]\n[PREVIOUS SCENE SUMMARY - NON-AUTHORITATIVE DERIVED VIEW]\n"
+            + json.dumps(
+                {
+                    "authority_classification": self.previous_scene_summary_view.authority_classification,
+                    "source_accepted_turn_ids": self.previous_scene_summary_view.source_accepted_turn_ids,
+                    "source_pair_sha256": self.previous_scene_summary_view.source_pair_sha256,
+                    "source_event_sha256": self.previous_scene_summary_view.source_event_sha256,
+                    "summary_revision": self.previous_scene_summary_view.summary_revision,
+                    "regeneration_identity_sha256": self.previous_scene_summary_view.regeneration_identity_sha256,
+                },
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+            + "\n"
             + self.previous_scene_summary.shortest_complete_summary
             + "\n[LAST FIVE EXACT ACCEPTED PAIRS]\n"
             + pairs
@@ -793,8 +1016,15 @@ class SceneChangeCoordinator:
             raise StateConflictError("scene summary exact-pair tail changed")
         if first_new_scene_prompt in summary.shortest_complete_summary:
             raise StateConflictError("first new-scene prompt entered old-scene summary")
-        self.world.save_scene_summary(world_id, branch_id, summary)
+        summary_path = self.world.save_scene_summary(world_id, branch_id, summary)
+        from cera.schema import from_mapping
+
+        derived_view = from_mapping(
+            SceneSummaryDerivedViewV1,
+            json.loads(summary_path.read_text(encoding="utf-8")),
+        )
         return SceneChangeEnvelopeV1(
             previous_scene_summary=summary,
+            previous_scene_summary_view=derived_view,
             first_user_message_of_new_scene=first_new_scene_prompt,
         )

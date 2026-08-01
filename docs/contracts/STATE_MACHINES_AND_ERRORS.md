@@ -309,12 +309,26 @@ or
    -> ACTIVE unchanged; candidate remains diagnostic only
 ```
 
+Ordinary Accept is valid only for Good plus `accept_allowed`. False Positive
+is valid only for publication-eligible Concern/Critical and records the
+original assessment outside ACTIVE as a Validator-owned, non-story diagnostic.
+It promotes exactly the unchanged candidate bytes and never creates a Planner
+constraint.
+
 Scene Change is an explicit creator flag on the first new-scene message. Python
 holds that message, gives the separate Validator only the old scene's accepted
-turn allow-list and exact pairs, saves the resulting summary, then supplies the
-summary, at most five exact accepted pairs, and held message to the same Planner
+turn allow-list and exact pairs, saves the result under `DERIVED/Scenes` as a
+non-authoritative regenerable view, then supplies the labeled summary, its
+source turn/hash/revision/regeneration metadata, at most five exact accepted pairs, and held message to the same Planner
 thread. Provider failure, schema failure, revision conflict, missing accepted
 pair, summary leakage, or promotion failure stops without retry or fallback.
 An accepted-final history-injection failure also blocks the next Planner turn;
 an unsynchronized accepted ledger entry is never silently piggybacked or
 replayed.
+
+Directory promotion journal v2 records prepared, ACTIVE-moved, prepared-
+installed, backup-removed, committed, and finalized states with exact prior and
+prepared tree hashes. Restart recovery either restores the verified prior tree
+or finishes the verified prepared tree; it never merges trees, repeats semantic
+validation, calls a provider, accepts an unverified tree, or leaves ACTIVE
+missing. Mutable `create_file` operations accept revisioned JSON objects only.

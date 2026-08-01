@@ -927,9 +927,16 @@ provider identities:
 | `cera.validator_finalization_package.v1` | runtime Codex Validator, advisory until Python validation and creator action | Closed final sequence, existing creator review, no-more-than-100 semantic edits, created-field log, event, or an explicit scene summary |
 | `cera.continuous_session_snapshot.v1` | Python | Role-separated stored-thread handle, compatibility, context-event hashes, and accepted-turn index; persisted under `PLANNER_SESSION` or `VALIDATOR_SESSION` |
 | `cera.continuous_world_promotion_receipt.v1` | Python | Revision-bound candidate-to-ACTIVE promotion or unchanged nonaccepting action |
+| `cera.request_evidence_binding.v1` | Python | Request-local current-source or exact world-record handle bound to source hash, world, branch, turn, visibility, owner, revision, and read operation |
+| `cera.request_evidence_binding_registry.v1` | Python | Current request allocation and resolution set; provider strings outside it have no evidence authority |
+| `cera.continuous_provider_call_ledger_event.v1` | Python | Durable prepared/dispatch/completed/failed/post-validation/accepted provider-call accounting with privacy-safe receipt, telemetry, thread, and tool bindings |
+| `cera.scene_summary_derived_view.v1` | Python over Validator draft | Explicitly non-authoritative scene view with accepted-turn allow-list, source pair/event hashes, revision, and regeneration identity |
+| `cera.continuous_root_diagnostic.v1` | Python | Secret-safe owning stage, operation, contract name, and stack evidence for failures before per-turn diagnostics exist |
 | `cera.sillytavern_chat_request.v4` | Python/browser ingress | Adds the one-shot boolean `cera_scene_change` flag; no automatic scene inference |
 
 World operations are `add`, `replace`, `remove`, `append_unique`, `increment`,
-or `create_file`. Stable relative JSON paths and expected internal revisions are
+or `create_file`. Mutable `create_file` values must be JSON objects and Python
+adds `_cera_revision`; arrays/strings are not mutable V1 semantic records.
+Stable relative JSON paths and expected internal revisions are
 mandatory. Every `add` and `create_file` has an exact created-field/root log
 with value type, value, reason, and source final-sequence item.

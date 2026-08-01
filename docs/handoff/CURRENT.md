@@ -2,19 +2,35 @@
 
 **Updated:** 2026-08-01
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-186 continuous Planner/Validator V1 shadow checkpoint; D-180 remains active
+**Phase:** D-188 provider-free continuous Planner/Validator correction tranche; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** 685/685 tests passed in 472.551 seconds with one expected optional live test skipped
+**Provider-free current verification:** D-188 passes 131/131 focused and 701/701 complete tests in 292.141 seconds with one expected optional live skip; zero provider calls
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
-**D-186 shadow continuity work:** rich Planner, separate Validator, candidate world, and explicit Scene Change contracts implemented provider-free; active route unchanged
+**D-186/D-188 shadow continuity work:** first canary preserved as 0/10 pre-provider failure; provider-free evidence/call/authority/recovery corrections verified; active route unchanged
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
+
+- The first D-186 Job 4 remains immutable failed evidence at `pre_provider`
+  with `AttributeError`, zero provider calls, zero accepted turns, and zero
+  story/database/route/service effects. Its old identity cannot be rerun.
+- D-187 supersedes the mistaken terminal interpretation of
+  `corrections_required`: an explicitly creator-authorized iterative workflow
+  derives the next one to three provider-free progressions and returns to a new
+  Stage 4 review cycle. Only `blocked`, a creator-policy decision, an excluded
+  effect, or a concrete tool/repository blocker ends the loop.
+- D-188 is the current provider-free correction tranche. Python now owns
+  request-local source/exact-read bindings and durable dispatch accounting;
+  D-177 False Positive semantics and non-authoritative Scene Summary custody
+  are restored; restart recovery, revision-bound created files, root diagnosis,
+  and embedded-secret redaction pass focused and complete verification. No live
+  canary is authorized in this tranche. Read
+  `implementation/CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_001_RESULT.md`.
 
 - D-186 Progressions 1-3 add a shadow/test-only continuous Planner and separate
   Validator architecture. The Planner authors rich causal beats; DeepSeek owns

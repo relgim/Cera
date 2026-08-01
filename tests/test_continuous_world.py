@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 import json
+import re
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -9,6 +10,7 @@ import unittest
 
 from cera.continuous import (
     AcceptedTurnPairV1,
+    CharacterSummaryEnvelopeV1,
     CreatedFieldLogEntryV1,
     EventRecordCandidateV1,
     FinalSequenceItemV1,
@@ -88,6 +90,31 @@ def good_assessment() -> CreatorReviewAssessment:
         reason_codes=(),
         creator_reason="The realization preserves the Planner sequence and all hard boundaries.",
         verifier_status="accepted",
+    )
+
+
+def concern_assessment() -> CreatorReviewAssessment:
+    return CreatorReviewAssessment(
+        schema_version=CreatorReviewAssessment.SCHEMA_VERSION,
+        severity=CreatorReviewSeverity.CONCERN,
+        publication_eligibility=PublicationEligibility.ACCEPT_ALLOWED,
+        issue_owner=ReviewIssueOwner.VERIFIER,
+        reason_codes=("possible_invention",),
+        creator_reason="The Validator identified a publication-eligible concern.",
+        verifier_status="concern",
+    )
+
+
+def character_summary() -> CharacterSummaryEnvelopeV1:
+    return CharacterSummaryEnvelopeV1(
+        schema_version=CharacterSummaryEnvelopeV1.SCHEMA_VERSION,
+        character_id="character:sakura_hanezawa",
+        source_path_or_record_id="Characters/Sakura.json",
+        source_revision=1,
+        latest_accepted_changes=(),
+        summary="Sakura is guarded at an unfamiliar arrival and retains threshold control.",
+        incomplete=True,
+        more_information_available=True,
     )
 
 
@@ -230,13 +257,24 @@ class _FakeStage:
         self.value = value
         self.method = method
 
-    def plan(self, _prompt):
+    def plan(self, prompt):
+        value = self.value
+        if isinstance(value, RichPlannerSequenceV1):
+            keys = tuple(dict.fromkeys(re.findall(r'"binding_key":"(binding_[a-z0-9_]+)"', prompt)))
+            value = replace(
+                value,
+                beats=tuple(
+                    replace(beat, source_evidence_bindings=keys[:2])
+                    for beat in value.beats
+                ),
+            )
         return SimpleNamespace(
-            value=self.value,
+            value=value,
             provider_receipt=None,
             operation_telemetry=None,
             tool_call_count=0,
             failed_tool_call_count=0,
+            world_tool_debug=None,
         )
 
     compose = plan
@@ -316,16 +354,35 @@ class ContinuousWorldTests(unittest.TestCase):
             )
         )
 
-    def test_false_positive_can_accept_exact_good_package(self) -> None:
+    def test_false_positive_accepts_eligible_concern_and_records_diagnostic(self) -> None:
+        candidate = replace(
+            package(),
+            semantic_status=ValidatorSemanticStatus.CONCERN,
+            creator_review=concern_assessment(),
+        )
         self.store.create_candidate("world-test", "main", "turn-001")
         receipt = self.store.apply_creator_action(
             world_id="world-test",
             branch_id="main",
             turn_id="turn-001",
             action=CreatorReviewAction.FALSE_POSITIVE,
-            package=package(),
+            package=candidate,
         )
         self.assertTrue(receipt.accepted)
+        diagnostic = tuple((self.root / "VALIDATOR_DIAGNOSTICS").glob("*.json"))
+        self.assertEqual(len(diagnostic), 1)
+        self.assertFalse(json.loads(diagnostic[0].read_text())["creates_story_constraint"])
+
+    def test_false_positive_rejects_good_assessment(self) -> None:
+        self.store.create_candidate("world-test", "main", "turn-001")
+        with self.assertRaisesRegex(StateConflictError, "does not permit"):
+            self.store.apply_creator_action(
+                world_id="world-test",
+                branch_id="main",
+                turn_id="turn-001",
+                action=CreatorReviewAction.FALSE_POSITIVE,
+                package=package(),
+            )
 
     def test_nonaccepting_actions_never_change_active(self) -> None:
         for index, action in enumerate(
@@ -594,6 +651,7 @@ class ContinuousWorldTests(unittest.TestCase):
                 turn_id="turn-001",
                 user_message="Hello, my name is Ted. Is this the Hanezawa residence?",
                 current_authority_packet={"protected_user_id": "character:ted"},
+                character_summaries=(character_summary(),),
             )
         )
         self.assertEqual(candidate.provider_calls, 0)
@@ -702,6 +760,7 @@ class ContinuousWorldTests(unittest.TestCase):
                 turn_id="turn-002",
                 user_message=new_prompt,
                 current_authority_packet={"protected_user_id": "character:ted"},
+                character_summaries=(character_summary(),),
                 cera_scene_change=True,
             ),
             completed_scene_id="scene:arrival",

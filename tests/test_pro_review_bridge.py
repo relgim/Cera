@@ -590,6 +590,14 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             + f"\n\n## Independent findings\n\n{findings}\n"
         ).encode("utf-8")
 
+    def response_bytes_with_planning_sections(self, **overrides: str) -> bytes:
+        return self.response_bytes(**overrides) + (
+            b"\n## Required corrections\n\nNo provider-free corrections remain.\n"
+            b"\n## Next three progressions\n\nNo next progression is recommended.\n"
+            b"\n## Recommended next Job 4\n\nNo further Job 4 is recommended.\n"
+            b"\n## Explicitly not authorized\n\nProviders, production, deployment, and story writes remain closed.\n"
+        )
+
     def write_response(self, **overrides: str) -> bytes:
         data = self.response_bytes(**overrides)
         path = self.cycle / review_cycle.EXPECTED_RESPONSE_RELATIVE_PATH
@@ -1117,6 +1125,23 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         self.assertEqual(final["state"], review_cycle.STATE_REVIEW_CONSUMED)
         latest = review_cycle.latest_consumed_cycle(repository_root_path=self.root)
         self.assertEqual(latest["cycle_id"], self.cycle_id)
+
+    def test_54_sequence_seven_requires_all_advisory_planning_sections(self) -> None:
+        self.publish()
+        manifest = json.loads((self.cycle / "CYCLE_MANIFEST.json").read_text())
+        template_hash = self._hash(self.cycle / "outbox" / "PRO_RESPONSE_TEMPLATE.md")
+        with self.assertRaisesRegex(review_cycle.CycleError, "required planning section"):
+            review_cycle_core.parse_response(
+                self.response_bytes(),
+                template_hash,
+                require_planning_sections=True,
+            )
+        parsed = review_cycle_core.parse_response(
+            self.response_bytes_with_planning_sections(),
+            template_hash,
+            require_planning_sections=True,
+        )
+        self.assertEqual(parsed["review_cycle_id"], manifest["cycle_id"])
 
     def test_54_trigger_retry_is_idempotent_only_for_exact_attestation(self) -> None:
         self.publish()

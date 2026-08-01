@@ -97,5 +97,12 @@ roadmap gate.
   emergency fallback.
 - Consuming a response never authorizes its recommendations. Apply only
   corrections already inside creator authority; stop for any material expansion.
-- ChatGPT Pro reviews the real checkpoint and may recommend the next two or
-  three progressions; the creator alone authorizes their implementation.
+- For a creator-authorized iterative 3+1 workflow, `corrections_required` is a
+  planning boundary rather than a terminal status: preserve the completed
+  cycle, derive no more than three in-scope provider-free progressions from the
+  exact response, assign new checkpoint/cycle identities, and return to Stage
+  4 again. Stop only for `blocked`, a new creator-policy decision, an excluded
+  effect, or a concrete tool/repository blocker.
+- ChatGPT Pro reviews the real checkpoint and recommends the next one to three
+  progressions. Those recommendations are executable only when a creator
+  command has already granted the applicable standing bounded authority.

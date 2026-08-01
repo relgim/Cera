@@ -42,6 +42,7 @@ from .contracts import (
     WorldEditOperationV1,
     json_value_type,
 )
+from .call_ledger import ContinuousProviderCallLedger
 from .prompting import (
     CONTINUOUS_PLANNER_PROMPT_VERSION,
     CONTINUOUS_VALIDATOR_PROMPT_VERSION,
@@ -262,38 +263,68 @@ class ContinuousProviderResultV1:
 
 
 class CodexContinuousPlannerPort:
-    def __init__(self, transport: CodexSDKTransport, *, world_bridge: Any = None) -> None:
+    def __init__(
+        self,
+        transport: CodexSDKTransport,
+        *,
+        world_bridge: Any = None,
+        call_ledger: ContinuousProviderCallLedger,
+    ) -> None:
         if transport.route.model_name != "gpt-5.6-sol":
             raise ContractValidationError("continuous Planner requires Sol")
         self.transport = transport
         self.world_bridge = world_bridge
+        self.call_ledger = call_ledger
+        self._operation_index = 0
 
     def plan(self, prompt: str) -> ContinuousProviderResultV1:
-        result = self.transport.invoke(
-            prompt,
-            output_schema=rich_planner_sequence_json_schema(),
-            mcp_binding=(
-                self.world_bridge.runtime_binding if self.world_bridge is not None else None
-            ),
-        )
-        world_tool_debug = (
-            self.world_bridge.finalize(result) if self.world_bridge is not None else None
-        )
-        value = from_mapping(RichPlannerSequenceV1, result.parsed_json or {})
-        if not value.provisional or value.accepted_turn_id is not None:
-            raise ContractValidationError("Planner provider result must remain provisional")
-        return ContinuousProviderResultV1(
-            value=value,
-            provider_receipt=result.receipt,
-            operation_telemetry=result.operation_telemetry,
-            tool_call_count=result.tool_call_count,
-            failed_tool_call_count=result.failed_tool_call_count,
-            world_tool_debug=world_tool_debug,
+        self._operation_index += 1
+        route = self.transport.route
+
+        def dispatch():
+            return self.transport.invoke(
+                prompt,
+                output_schema=rich_planner_sequence_json_schema(),
+                mcp_binding=(
+                    self.world_bridge.runtime_binding if self.world_bridge is not None else None
+                ),
+            )
+
+        def finalize(result):
+            world_tool_debug = (
+                self.world_bridge.finalize(result) if self.world_bridge is not None else None
+            )
+            value = from_mapping(RichPlannerSequenceV1, result.parsed_json or {})
+            if not value.provisional or value.accepted_turn_id is not None:
+                raise ContractValidationError("Planner provider result must remain provisional")
+            return ContinuousProviderResultV1(
+                value=value,
+                provider_receipt=result.receipt,
+                operation_telemetry=result.operation_telemetry,
+                tool_call_count=result.tool_call_count,
+                failed_tool_call_count=result.failed_tool_call_count,
+                world_tool_debug=world_tool_debug,
+            )
+
+        return self.call_ledger.execute(
+            owner="planner",
+            operation=f"plan_{self._operation_index:04d}",
+            route=route.route_id,
+            model=route.model_name,
+            effort=route.reasoning_effort,
+            dispatch=dispatch,
+            finalize=finalize,
         )
 
 
 class CodexContinuousValidatorPort:
-    def __init__(self, transport: CodexSDKTransport, *, world_bridge: Any = None) -> None:
+    def __init__(
+        self,
+        transport: CodexSDKTransport,
+        *,
+        world_bridge: Any = None,
+        call_ledger: ContinuousProviderCallLedger,
+    ) -> None:
         route = transport.route
         allowed = {
             ("gpt-5.6-sol", "medium"),
@@ -303,6 +334,8 @@ class CodexContinuousValidatorPort:
             raise ContractValidationError("continuous Validator route is unsupported")
         self.transport = transport
         self.world_bridge = world_bridge
+        self.call_ledger = call_ledger
+        self._operation_index = 0
 
     def validate(
         self,
@@ -310,32 +343,55 @@ class CodexContinuousValidatorPort:
         *,
         accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
     ) -> ContinuousProviderResultV1:
-        result = self.transport.invoke(
-            prompt,
-            output_schema=continuous_validator_draft_json_schema(),
-            mcp_binding=(
-                self.world_bridge.runtime_binding if self.world_bridge is not None else None
-            ),
-        )
-        world_tool_debug = (
-            self.world_bridge.finalize(result) if self.world_bridge is not None else None
-        )
-        draft = from_mapping(ContinuousValidatorDraftV1, result.parsed_json or {})
-        return ContinuousProviderResultV1(
-            value=draft.compile(accepted_pairs=accepted_pairs),
-            provider_receipt=result.receipt,
-            operation_telemetry=result.operation_telemetry,
-            tool_call_count=result.tool_call_count,
-            failed_tool_call_count=result.failed_tool_call_count,
-            world_tool_debug=world_tool_debug,
+        self._operation_index += 1
+        route = self.transport.route
+
+        def dispatch():
+            return self.transport.invoke(
+                prompt,
+                output_schema=continuous_validator_draft_json_schema(),
+                mcp_binding=(
+                    self.world_bridge.runtime_binding if self.world_bridge is not None else None
+                ),
+            )
+
+        def finalize(result):
+            world_tool_debug = (
+                self.world_bridge.finalize(result) if self.world_bridge is not None else None
+            )
+            draft = from_mapping(ContinuousValidatorDraftV1, result.parsed_json or {})
+            return ContinuousProviderResultV1(
+                value=draft.compile(accepted_pairs=accepted_pairs),
+                provider_receipt=result.receipt,
+                operation_telemetry=result.operation_telemetry,
+                tool_call_count=result.tool_call_count,
+                failed_tool_call_count=result.failed_tool_call_count,
+                world_tool_debug=world_tool_debug,
+            )
+
+        return self.call_ledger.execute(
+            owner="validator",
+            operation=f"validate_{self._operation_index:04d}",
+            route=route.route_id,
+            model=route.model_name,
+            effort=route.reasoning_effort,
+            dispatch=dispatch,
+            finalize=finalize,
         )
 
 
 class DeepSeekContinuousComposerPort:
-    def __init__(self, transport: DeepSeekChatTransport) -> None:
+    def __init__(
+        self,
+        transport: DeepSeekChatTransport,
+        *,
+        call_ledger: ContinuousProviderCallLedger,
+    ) -> None:
         if transport.route.model_name != "deepseek-v4-flash":
             raise ContractValidationError("continuous Composer requires DeepSeek V4 Flash")
         self.transport = transport
+        self.call_ledger = call_ledger
+        self._operation_index = 0
 
     def compose(self, prompt: str) -> ContinuousProviderResultV1:
         schema = continuous_deepseek_draft_json_schema()
@@ -351,19 +407,35 @@ class DeepSeekContinuousComposerPort:
                 + json.dumps(schema, ensure_ascii=False, sort_keys=True, separators=(",", ":")),
             ),
         )
-        result = self.transport.invoke(
-            messages,
-            output_mode=ProviderOutputMode.JSON_OBJECT,
-            thinking_enabled=False,
-        )
-        value = from_mapping(ContinuousDeepSeekDraftV1, result.parsed_json or {})
-        return ContinuousProviderResultV1(
-            value=value,
-            provider_receipt=result.receipt,
-            operation_telemetry=None,
-            tool_call_count=0,
-            failed_tool_call_count=0,
-            world_tool_debug=None,
+        self._operation_index += 1
+        route = self.transport.route
+
+        def dispatch():
+            return self.transport.invoke(
+                messages,
+                output_mode=ProviderOutputMode.JSON_OBJECT,
+                thinking_enabled=False,
+            )
+
+        def finalize(result):
+            value = from_mapping(ContinuousDeepSeekDraftV1, result.parsed_json or {})
+            return ContinuousProviderResultV1(
+                value=value,
+                provider_receipt=result.receipt,
+                operation_telemetry=None,
+                tool_call_count=0,
+                failed_tool_call_count=0,
+                world_tool_debug=None,
+            )
+
+        return self.call_ledger.execute(
+            owner="composer",
+            operation=f"compose_{self._operation_index:04d}",
+            route=route.route_id,
+            model=route.model_name,
+            effort=route.reasoning_effort,
+            dispatch=dispatch,
+            finalize=finalize,
         )
 
 

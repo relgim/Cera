@@ -846,6 +846,21 @@ V4 Flash non-thinking, and Terra-high Validator. A terminal failure stops the
 schedule with no patch, retry, fallback, route change, or live-story write.
 Successful canary evidence remains disposable and does not promote the route.
 
+The first D-186 canary is immutable terminal evidence: it failed during
+`pre_provider` compatibility setup with `AttributeError`, used 0/10 calls, and
+made no story/database/route/service effect. D-187 corrects the review cadence;
+`corrections_required` now produces another bounded provider-free 1-3 tranche
+under standing creator authority rather than ending the overall workflow.
+
+D-188 authorizes correction checkpoint
+`2026-08-01-continuous-planner-validator-v1-corrections-001` and provider-free
+Stage 4 audit only. Its three progressions own: authoritative evidence plus
+call accounting and root diagnosis; D-177 False Positive plus derived-summary
+authority; and crash-safe promotion, mutable-file revision semantics, and
+embedded-secret redaction. It cannot call a provider, rerun the failed Job 4,
+alter the active D-180 route, write live story/database state, mutate installed
+SillyTavern or a service, deploy, merge, push, retry, or use fallback.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

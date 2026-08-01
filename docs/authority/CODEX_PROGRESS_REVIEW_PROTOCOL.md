@@ -281,6 +281,43 @@ Codex may execute only the creator-authorized tranche. If Codex materially
 disagrees, it must present repository evidence and stop for resolution rather
 than silently ignoring the review.
 
+When the creator explicitly authorizes an iterative 3+1 workflow, disposition
+handling is:
+
+- `accepted`: close the reviewed tranche and advance only to the next tranche
+  already covered by creator authority;
+- `corrections_required`: preserve the completed checkpoint, cycle, and Job 4
+  unchanged; read `## Next three progressions`; derive one to three bounded
+  provider-free corrections that remain inside the standing authority; assign
+  new identities; implement them; and return to this review boundary again;
+- `blocked`: send the mandatory terminal notification and stop;
+- creator-policy decision required: send the mandatory terminal notification
+  and stop.
+
+The response request must include the advisory planning headings:
+
+```text
+## Independent findings
+## Required corrections
+## Next three progressions
+## Recommended next Job 4
+## Explicitly not authorized
+```
+
+These headings do not change the parser-required identity fields and do not let
+ChatGPT Pro grant provider spending, production, story-write, deployment,
+service, installed-SillyTavern, merge, remote, push, or other excluded
+authority.
+
+Every bounded terminal outcome must produce a cycle/checkpoint terminal report
+and send one concise identity/hash/effect message to the exact Pro thread used
+for the review trigger through the supported app follow-up operation. Record a
+privacy-safe receipt binding the target hash, message hash, app-result hash,
+reported success, timestamp, checkpoint, and cycle. Up to three byte-identical
+attempts are permitted only for a transient transport error. If delivery cannot
+be established, preserve the errors and message and report that Pro was not
+notified.
+
 ## Prohibited anti-patterns
 
 Codex must not:

@@ -20,6 +20,10 @@ from .contracts import (
     ValidatorFinalizationPackageV1,
     ValidatorTaskMode,
 )
+from .evidence import (
+    EvidenceVisibility,
+    RequestEvidenceBindingRegistry,
+)
 from .prompting import (
     build_continuous_composer_prompt,
     build_planner_turn_prompt,
@@ -83,6 +87,7 @@ class ContinuousTurnCandidateV1:
     validator_prompt_sha256: str
     debug_root: Path
     provider_calls: int
+    evidence_registry_sha256: str
 
     @property
     def candidate_sha256(self) -> str:
@@ -275,6 +280,38 @@ class ContinuousShadowTurnCoordinator:
         candidate_view = self.world.create_candidate(
             request.world_id, request.branch_id, request.turn_id
         )
+        evidence_registry = RequestEvidenceBindingRegistry(
+            world_id=request.world_id,
+            branch_id=request.branch_id,
+            turn_id=request.turn_id,
+        )
+        current_source_binding = evidence_registry.allocate_current_source(
+            source_identity=f"current_user_source:{request.turn_id}",
+            source_text=request.user_message,
+            protected_user_allowance_scope="exact supplied source plus minimal nonbranching connective",
+        )
+        summary_bindings = []
+        for summary in request.character_summaries:
+            if summary.source_path_or_record_id.startswith("record:"):
+                raise StateConflictError(
+                    "continuous V1 character summary requires a revision-bound world path"
+                )
+            binding = evidence_registry.allocate_initial_projection(
+                branch_root=branch_root,
+                relative_path="ACTIVE/" + summary.source_path_or_record_id,
+                record_type="characters",
+                visibility=EvidenceVisibility.CHARACTER_PRIVATE,
+                knowledge_owner_id=summary.character_id,
+            )
+            summary_bindings.append(
+                {
+                    "character_id": summary.character_id,
+                    "binding_key": binding.binding_key,
+                    "source_path": binding.relative_path,
+                    "source_revision": binding.record_revision,
+                    "source_sha256": binding.source_sha256,
+                }
+            )
         planner_prompt, planner_usage = build_planner_turn_prompt(
             current_packet={
                 **request.current_authority_packet,
@@ -283,6 +320,9 @@ class ContinuousShadowTurnCoordinator:
                 "scene_id": request.scene_id,
                 "turn_id": request.turn_id,
                 "current_user_message": request.user_message,
+                "request_local_evidence_bindings": evidence_registry.prompt_manifest(),
+                "current_source_binding_key": current_source_binding.binding_key,
+                "character_summary_bindings": tuple(summary_bindings),
             },
             accepted_envelopes=(),
             character_summaries=request.character_summaries,
@@ -301,12 +341,19 @@ class ContinuousShadowTurnCoordinator:
             raise
         planner_elapsed = time.perf_counter_ns() - started
         planner_sequence = planner_result.value
+        evidence_registry.import_provider_debug(
+            getattr(planner_result, "world_tool_debug", None)
+        )
         if (
             planner_sequence.world_id != request.world_id
             or planner_sequence.branch_id != request.branch_id
             or planner_sequence.scene_id != request.scene_id
         ):
             raise StateConflictError("Planner changed turn scope")
+        evidence_registry.validate_sequence(
+            planner_sequence,
+            branch_root=branch_root,
+        )
         self.planner_session.record_planner_provisional(
             request.turn_id, planner_sequence.sequence_sha256
         )
@@ -336,6 +383,7 @@ class ContinuousShadowTurnCoordinator:
             world_file_manifest=self.world.active_manifest(
                 request.world_id, request.branch_id
             ),
+            evidence_binding_manifest=evidence_registry.prompt_manifest(),
         )
         debug.write_json("validator_request.json", {"prompt": validator_prompt})
         started = time.perf_counter_ns()
@@ -355,6 +403,7 @@ class ContinuousShadowTurnCoordinator:
             or package.complete_final_sequence.accepted_turn_id != request.turn_id
         ):
             raise StateConflictError("Validator changed turn scope")
+        evidence_registry.validate_traceability(planner_sequence, package)
         self.validator_session.record_validator_candidate(
             request.turn_id, package.package_sha256
         )
@@ -422,6 +471,7 @@ class ContinuousShadowTurnCoordinator:
             validator_prompt_sha256=text_sha256(validator_prompt),
             debug_root=debug.root,
             provider_calls=provider_calls,
+            evidence_registry_sha256=evidence_registry.registry_sha256,
         )
         self._candidates[request.turn_id] = candidate
         return candidate

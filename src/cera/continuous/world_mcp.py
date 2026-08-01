@@ -19,6 +19,11 @@ from cera.providers import CodexMcpRuntimeBinding
 from cera.serialization import canonical_sha256, domain_sha256, text_sha256
 
 from .sessions import ContinuousSessionRole, WorldPathAccessPolicyV1
+from .evidence import (
+    EvidenceVisibility,
+    RequestEvidenceBindingRegistry,
+    RequestEvidenceBindingV1,
+)
 
 
 WORLD_MCP_SDK_VERSION = "1.29.0"
@@ -52,6 +57,7 @@ class ContinuousWorldToolDispatcher:
         *,
         current_turn_id: str | None = None,
         maximum_calls: int = WORLD_MCP_MAXIMUM_CALLS,
+        evidence_registry: RequestEvidenceBindingRegistry | None = None,
     ) -> None:
         self.branch_root = branch_root.resolve()
         self.role = role
@@ -64,6 +70,11 @@ class ContinuousWorldToolDispatcher:
         self.policy = WorldPathAccessPolicyV1(str(self.branch_root))
         self.calls: list[ContinuousWorldToolCallV1] = []
         self.local_debug_calls: list[dict[str, Any]] = []
+        self.evidence_registry = evidence_registry or RequestEvidenceBindingRegistry(
+            world_id=self.branch_root.parent.name,
+            branch_id=self.branch_root.name,
+            turn_id=current_turn_id or "request_lookup",
+        )
         self._lock = threading.Lock()
 
     @property
@@ -121,6 +132,11 @@ class ContinuousWorldToolDispatcher:
                             else None
                         ),
                         "returned_bytes": returned_bytes,
+                        "evidence_binding": (
+                            result.get("evidence_binding")
+                            if isinstance(result, dict)
+                            else None
+                        ),
                     }
                 )
                 return result
@@ -137,7 +153,7 @@ class ContinuousWorldToolDispatcher:
                 )
 
     def _allowed_roots(self) -> tuple[Path, ...]:
-        roots = [self.branch_root / "ACTIVE"]
+        roots = [self.branch_root / "ACTIVE", self.branch_root / "DERIVED"]
         if self.role is ContinuousSessionRole.VALIDATOR and self.current_turn_id:
             roots.append(
                 self.branch_root
@@ -220,9 +236,53 @@ class ContinuousWorldToolDispatcher:
         if len(raw) > 1_048_576:
             raise StateConflictError("continuous world record exceeds exact-read ceiling")
         text = raw.decode("utf-8")
+        descriptor = self._descriptor(target)
+        content = json.loads(text) if target.suffix.casefold() == ".json" else text
+        visibility = EvidenceVisibility.PUBLIC
+        knowledge_owner_id = None
+        if isinstance(content, dict):
+            raw_visibility = str(content.get("visibility", "public")).casefold()
+            if raw_visibility in {"private", "character_private", "owner_private"}:
+                visibility = EvidenceVisibility.CHARACTER_PRIVATE
+                knowledge_owner_id = content.get("knowledge_owner_id") or content.get("owner_character_id")
+            elif raw_visibility in {"creator_private", "creator-only"}:
+                visibility = EvidenceVisibility.CREATOR_PRIVATE
+                knowledge_owner_id = content.get("knowledge_owner_id")
+            elif _record_type(target.relative_to(self.branch_root).as_posix()) == "characters":
+                # Character state is owner-private unless the record explicitly
+                # declares a stronger visibility. Genesis-seeded character
+                # projections predate the visibility field but still contain
+                # their stable owner identity.
+                visibility = EvidenceVisibility.CHARACTER_PRIVATE
+                knowledge_owner_id = (
+                    content.get("knowledge_owner_id")
+                    or content.get("owner_character_id")
+                    or content.get("character_id")
+                )
+        if visibility is EvidenceVisibility.CREATOR_PRIVATE:
+            raise PermissionError("creator-private evidence is not exposed to provider sessions")
+        relative = target.relative_to(self.branch_root).as_posix()
+        read_operation_sha256 = canonical_sha256(
+            {
+                "tool": "cera_world_read",
+                "path": relative,
+                "source_sha256": descriptor["content_sha256"],
+                "call_index": len(self.calls) + 1,
+            }
+        )
+        binding = self.evidence_registry.allocate_world_record(
+            relative_path=relative,
+            source_sha256=descriptor["content_sha256"],
+            record_revision=descriptor["revision"],
+            record_type=_record_type(relative),
+            visibility=visibility,
+            knowledge_owner_id=(str(knowledge_owner_id) if knowledge_owner_id is not None else None),
+            exact_read_operation_sha256=read_operation_sha256,
+        )
         return {
-            **self._descriptor(target),
-            "content": json.loads(text) if target.suffix.casefold() == ".json" else text,
+            **descriptor,
+            "content": content,
+            "evidence_binding": _binding_descriptor(binding),
         }
 
     def _descriptor(self, path: Path) -> dict[str, Any]:
@@ -405,6 +465,11 @@ class ContinuousWorldMcpBridge:
                 for value in self.dispatcher.calls
             ],
             "local_debug_calls": self.dispatcher.local_debug_calls,
+            "evidence_bindings": [
+                _binding_descriptor(value)
+                for value in self.dispatcher.evidence_registry.bindings
+                if value.relative_path is not None
+            ],
         }
 
     def __enter__(self) -> "ContinuousWorldMcpBridge":
@@ -412,3 +477,30 @@ class ContinuousWorldMcpBridge:
 
     def __exit__(self, exc_type, exc, _traceback) -> None:
         self.stop(suppress_errors=exc_type is not None)
+
+
+def _record_type(relative_path: str) -> str:
+    parts = relative_path.replace("\\", "/").split("/")
+    if len(parts) >= 2 and parts[0] in {"ACTIVE", "DERIVED"}:
+        return parts[1].casefold()
+    return parts[0].casefold()
+
+
+def _binding_descriptor(value: RequestEvidenceBindingV1) -> dict[str, Any]:
+    return {
+        "schema_version": value.schema_version,
+        "binding_key": value.binding_key,
+        "kind": value.kind.value,
+        "world_id": value.world_id,
+        "branch_id": value.branch_id,
+        "turn_id": value.turn_id,
+        "source_identity": value.source_identity,
+        "source_sha256": value.source_sha256,
+        "protected_user_allowance_scope": value.protected_user_allowance_scope,
+        "relative_path": value.relative_path,
+        "record_revision": value.record_revision,
+        "record_type": value.record_type,
+        "visibility": value.visibility.value,
+        "knowledge_owner_id": value.knowledge_owner_id,
+        "exact_read_operation_sha256": value.exact_read_operation_sha256,
+    }

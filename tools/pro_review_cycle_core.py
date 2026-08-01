@@ -1071,7 +1071,9 @@ def request_markdown(manifest: Mapping[str, Any]) -> bytes:
             "review_disposition: accepted | corrections_required | blocked",
             "```",
             "",
-            "Include `## Independent findings` with a substantive completed review. "
+            "Complete all five planning sections: `## Independent findings`, "
+            "`## Required corrections`, `## Next three progressions`, "
+            "`## Recommended next Job 4`, and `## Explicitly not authorized`. "
             "The response remains advisory and grants no creator authority.",
             "",
         ]
@@ -1093,7 +1095,15 @@ def response_template(manifest: Mapping[str, Any]) -> bytes:
         "review_scope: repository_cycle\n"
         "review_disposition: accepted | corrections_required | blocked\n\n"
         "## Independent findings\n\n"
-        "REPLACE THIS PLACEHOLDER WITH THE COMPLETED EVIDENCE-BACKED REVIEW.\n"
+        "REPLACE THIS PLACEHOLDER WITH THE COMPLETED EVIDENCE-BACKED REVIEW.\n\n"
+        "## Required corrections\n\n"
+        "REPLACE THIS PLACEHOLDER WITH REQUIRED CORRECTIONS OR AN EXPLICIT NONE.\n\n"
+        "## Next three progressions\n\n"
+        "REPLACE THIS PLACEHOLDER WITH ONE TO THREE ADVISORY PROGRESSIONS OR AN EXPLICIT NONE.\n\n"
+        "## Recommended next Job 4\n\n"
+        "REPLACE THIS PLACEHOLDER WITH THE ADVISORY NEXT JOB 4 OR AN EXPLICIT NONE.\n\n"
+        "## Explicitly not authorized\n\n"
+        "REPLACE THIS PLACEHOLDER WITH THE EXCLUSIONS THAT REMAIN CLOSED.\n"
     ).encode("utf-8")
 
 
@@ -1641,7 +1651,12 @@ def complete_job4(
     return state
 
 
-def parse_response(data: bytes, template_hash: str) -> dict[str, str]:
+def parse_response(
+    data: bytes,
+    template_hash: str,
+    *,
+    require_planning_sections: bool = False,
+) -> dict[str, str]:
     if sha256_bytes(data) == template_hash:
         raise CycleError("response is the unchanged placeholder template")
     try:
@@ -1662,6 +1677,18 @@ def parse_response(data: bytes, template_hash: str) -> dict[str, str]:
     findings = folded.split("## independent findings", 1)[1].strip()
     if len(findings) < 200:
         raise CycleError("response findings are not substantive")
+    if require_planning_sections:
+        for heading in (
+            "## required corrections",
+            "## next three progressions",
+            "## recommended next job 4",
+            "## explicitly not authorized",
+        ):
+            if heading not in folded:
+                raise CycleError(f"response lacks required planning section: {heading}")
+            body = folded.split(heading, 1)[1].split("\n## ", 1)[0].strip()
+            if len(body) < 20:
+                raise CycleError(f"response planning section is incomplete: {heading}")
     fields = (
         "review_cycle_id",
         "reviewed_checkpoint_id",
@@ -1834,7 +1861,9 @@ def validate_consumed_cycle(
     if inbox.read_bytes() != data or sha256_bytes(data) != consumed["response_sha256"]:
         raise CycleError("consumed response bytes do not match the receipt")
     parsed = parse_response(
-        data, sha256_bytes((cycle / "outbox" / "PRO_RESPONSE_TEMPLATE.md").read_bytes())
+        data,
+        sha256_bytes((cycle / "outbox" / "PRO_RESPONSE_TEMPLATE.md").read_bytes()),
+        require_planning_sections=manifest["cycle_sequence"] >= 7,
     )
     if response_mismatches(manifest, parsed):
         raise CycleError("consumed response identity does not match the manifest")
@@ -1864,7 +1893,11 @@ def consume_response(
         raise CycleError("response conflicts with the already accepted review")
     template_hash = sha256_bytes((cycle / "outbox" / "PRO_RESPONSE_TEMPLATE.md").read_bytes())
     try:
-        parsed = parse_response(data, template_hash)
+        parsed = parse_response(
+            data,
+            template_hash,
+            require_planning_sections=manifest["cycle_sequence"] >= 7,
+        )
     except CycleError:
         rejection_receipt(
             cycle, manifest, response_hash, ("response_format",),

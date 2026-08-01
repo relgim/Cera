@@ -20,6 +20,9 @@ import time
 from typing import Any, Callable
 
 from cera.continuous.codex_stored import CodexContinuousStoredSessionPort
+from cera.continuous.call_ledger import ContinuousProviderCallLedger
+from cera.continuous.diagnostics import ContinuousRootDiagnosticRecorder
+from cera.continuous.evidence import EvidenceVisibility, RequestEvidenceBindingRegistry
 from cera.continuous.contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     AcceptedTurnPairV1,
@@ -235,16 +238,16 @@ def compatibility(
         model="gpt-5.6-sol" if role is ContinuousSessionRole.PLANNER else "gpt-5.6-terra",
         reasoning_effort="medium" if role is ContinuousSessionRole.PLANNER else "high",
         prompt_version=(
-            "cera.continuous_planner_prompt.v1"
+            "cera.continuous_planner_prompt.v2"
             if role is ContinuousSessionRole.PLANNER
-            else "cera.continuous_validator_prompt.v1"
+            else "cera.continuous_validator_prompt.v2"
         ),
         output_schema_version=(
             "cera.rich_planner_sequence.v1"
             if role is ContinuousSessionRole.PLANNER
             else "cera.continuous_validator_draft.v1"
         ),
-        world_directory_identity_sha256=world.world_directory_identity(WORLD_ID, BRANCH_ID),
+        world_directory_identity_sha256=world.world_identity_sha256(WORLD_ID, BRANCH_ID),
         authority_policy_version="cera.owner_architecture.v2+d186",
         privacy_policy_version="cera.privacy.v1",
         protected_user_policy_version="cera.protected_user.v1",
@@ -273,6 +276,7 @@ class JobHarness:
         planner_handle: str,
         validator_handle: str,
         lifecycle_root: Path,
+        call_ledger: ContinuousProviderCallLedger,
     ) -> None:
         self.source_root = source_root
         self.cycle = cycle
@@ -282,6 +286,7 @@ class JobHarness:
         self.planner_handle = planner_handle
         self.validator_handle = validator_handle
         self.lifecycle_root = lifecycle_root
+        self.call_ledger = call_ledger
         self.accepted_pairs: list[AcceptedTurnPairV1] = []
         self.call_records: list[dict[str, Any]] = []
         self.poll_records: list[dict[str, Any]] = []
@@ -303,7 +308,11 @@ class JobHarness:
                 (self.cycle / "outbox" / "PRO_RESPONSE_TEMPLATE.md").read_bytes()
             )
             manifest = json.loads((self.cycle / "CYCLE_MANIFEST.json").read_text(encoding="utf-8"))
-            parsed = parse_response(data, template_hash)
+            parsed = parse_response(
+                data,
+                template_hash,
+                require_planning_sections=manifest["cycle_sequence"] >= 7,
+            )
             mismatches = response_mismatches(manifest, parsed)
             if mismatches:
                 record.update({"state": "identity_mismatch", "mismatches": mismatches})
@@ -340,9 +349,7 @@ class JobHarness:
         }
         try:
             result = operation()
-            self.provider_calls += int(
-                getattr(getattr(result, "provider_receipt", None), "external_provider_calls", 1)
-            )
+            self.provider_calls = self.call_ledger.dispatched_call_count
             telemetry = getattr(result, "operation_telemetry", None)
             expected_thread_hash = {
                 "planner": text_sha256(self.planner_handle),
@@ -389,8 +396,9 @@ class JobHarness:
                 self.call_records.append(record)
             raise
         except BaseException as exc:
-            observed = int(getattr(exc, "external_provider_calls_observed", 0))
-            self.provider_calls += observed
+            before_count = self.provider_calls
+            self.provider_calls = self.call_ledger.dispatched_call_count
+            observed = self.provider_calls - before_count
             record.update(
                 {
                     "status": "failed",
@@ -417,6 +425,7 @@ class JobHarness:
         dispatcher = ContinuousWorldToolDispatcher(
             self.world.branch_root(WORLD_ID, BRANCH_ID),
             ContinuousSessionRole.PLANNER,
+            current_turn_id=turn_id,
         )
         with ContinuousWorldMcpBridge(dispatcher) as bridge:
             transport = StablePrefixTransport(
@@ -427,7 +436,9 @@ class JobHarness:
                 ),
                 PLANNER_STABLE_INSTRUCTIONS,
             )
-            return CodexContinuousPlannerPort(transport, world_bridge=bridge).plan(prompt)
+            return CodexContinuousPlannerPort(
+                transport, world_bridge=bridge, call_ledger=self.call_ledger
+            ).plan(prompt)
 
     def codex_validator(
         self,
@@ -453,12 +464,13 @@ class JobHarness:
                 VALIDATOR_STABLE_INSTRUCTIONS,
             )
             return CodexContinuousValidatorPort(
-                transport, world_bridge=bridge
+                transport, world_bridge=bridge, call_ledger=self.call_ledger
             ).validate(prompt, accepted_pairs=accepted_pairs)
 
     def deepseek(self, prompt: str):
         return DeepSeekContinuousComposerPort(
-            DeepSeekChatTransport(continuous_deepseek_route())
+            DeepSeekChatTransport(continuous_deepseek_route()),
+            call_ledger=self.call_ledger,
         ).compose(prompt)
 
     def run_turn(
@@ -476,6 +488,34 @@ class JobHarness:
             self.world.branch_root(WORLD_ID, BRANCH_ID), scene_id, turn_id
         )
         debug.initialize()
+        evidence_registry = RequestEvidenceBindingRegistry(
+            world_id=WORLD_ID,
+            branch_id=BRANCH_ID,
+            turn_id=turn_id,
+        )
+        current_source_binding = evidence_registry.allocate_current_source(
+            source_identity=f"current_user_source:{turn_id}",
+            source_text=message,
+            protected_user_allowance_scope="exact supplied source plus minimal nonbranching connective",
+        )
+        summary_bindings = []
+        for summary in summaries:
+            binding = evidence_registry.allocate_initial_projection(
+                branch_root=self.world.branch_root(WORLD_ID, BRANCH_ID),
+                relative_path="ACTIVE/" + summary.source_path_or_record_id,
+                record_type="characters",
+                visibility=EvidenceVisibility.CHARACTER_PRIVATE,
+                knowledge_owner_id=summary.character_id,
+            )
+            summary_bindings.append(
+                {
+                    "character_id": summary.character_id,
+                    "binding_key": binding.binding_key,
+                    "source_path": binding.relative_path,
+                    "source_revision": binding.record_revision,
+                    "source_sha256": binding.source_sha256,
+                }
+            )
         packet = {
             "schema_version": "cera.continuous_job4_turn_packet.v1",
             "world_id": WORLD_ID,
@@ -483,6 +523,9 @@ class JobHarness:
             "scene_id": scene_id,
             "turn_id": turn_id,
             "current_user_message": message,
+            "request_local_evidence_bindings": evidence_registry.prompt_manifest(),
+            "current_source_binding_key": current_source_binding.binding_key,
+            "character_summary_bindings": tuple(summary_bindings),
             "protected_user_id": "character:ted",
             "content_class": "ordinary",
             "depth": "auto",
@@ -514,8 +557,13 @@ class JobHarness:
             lambda: self.codex_planner(planner_prompt, turn_id),
         )
         sequence = planner_result.value
+        evidence_registry.import_provider_debug(planner_result.world_tool_debug)
         if sequence.world_id != WORLD_ID or sequence.branch_id != BRANCH_ID or sequence.scene_id != scene_id:
             raise RuntimeError("Planner changed world, branch, or scene scope")
+        evidence_registry.validate_sequence(
+            sequence,
+            branch_root=self.world.branch_root(WORLD_ID, BRANCH_ID),
+        )
         self.planner_session.record_planner_provisional(turn_id, sequence.sequence_sha256)
         debug.write_json("planner_output.json", to_primitive(sequence))
         debug.write_json("planner_tools.json", provider_debug(planner_result))
@@ -541,6 +589,7 @@ class JobHarness:
             deepseek_realization=story,
             accepted_turn_id=turn_id,
             world_file_manifest=self.world.active_manifest(WORLD_ID, BRANCH_ID),
+            evidence_binding_manifest=evidence_registry.prompt_manifest(),
         )
         debug.write_json("validator_request.json", {"prompt": validator_prompt})
         validator_result = self.provider_call(
@@ -553,6 +602,7 @@ class JobHarness:
         debug.write_json("validator_tools.json", provider_debug(validator_result))
         if package.world_id != WORLD_ID or package.branch_id != BRANCH_ID:
             raise RuntimeError("Validator changed world or branch scope")
+        evidence_registry.validate_traceability(sequence, package)
         if not package.permits_disposable_acceptance(CreatorReviewAction.ACCEPT):
             raise RuntimeError("Validator package did not qualify for disposable acceptance")
         self.validator_session.record_validator_candidate(turn_id, package.package_sha256)
@@ -799,19 +849,32 @@ def main() -> int:
     result_path = cycle / "source" / "JOB4_RESULT.json"
     if report_path.exists() or result_path.exists() or runtime_root.exists():
         raise SystemExit("refusing to overwrite Job 4 evidence")
-    if not source_db.is_file():
-        raise SystemExit("Hanezawa human-test SQLite source is unavailable")
-
     runtime_root.mkdir(parents=True)
+    root_diagnostic = ContinuousRootDiagnosticRecorder(runtime_root)
+    if not source_db.is_file():
+        error = FileNotFoundError("Hanezawa human-test SQLite source is unavailable")
+        root_diagnostic.record_failure("source_database", "inspect_source_database", error)
+        raise SystemExit(str(error))
+    call_ledger = ContinuousProviderCallLedger(
+        runtime_root / "PROVIDER_CALL_LEDGER.jsonl", maximum_calls=10
+    )
     copied_db = runtime_root / "hanezawa_human_test_disposable.sqlite3"
-    source_hash_before = bytes_sha256(source_db.read_bytes())
-    shutil.copy2(source_db, copied_db)
+    source_hash_before = root_diagnostic.run(
+        "source_database", "hash_source_database", lambda: bytes_sha256(source_db.read_bytes())
+    )
+    root_diagnostic.run(
+        "source_database", "copy_disposable_database", lambda: shutil.copy2(source_db, copied_db)
+    )
     copy_hash_before = bytes_sha256(copied_db.read_bytes())
     with sqlite3.connect(f"file:{copied_db.as_posix()}?mode=ro", uri=True) as connection:
         integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
         foreign_keys = connection.execute("PRAGMA foreign_key_check").fetchall()
-    world = ContinuousWorldStore(runtime_root / "worlds")
-    seed_world(world, ROOT)
+    world = root_diagnostic.run(
+        "world_construction",
+        "construct_continuous_world_store",
+        lambda: ContinuousWorldStore(runtime_root / "worlds"),
+    )
+    root_diagnostic.run("world_seeding", "seed_disposable_world", lambda: seed_world(world, ROOT))
     branch_root = world.branch_root(WORLD_ID, BRANCH_ID)
     lifecycle_root = runtime_root / "provider_workspaces"
     lifecycle_root.mkdir()
@@ -843,44 +906,84 @@ def main() -> int:
         from openai_codex import Codex, CodexConfig
 
         with ExitStack() as stack:
-            codex = stack.enter_context(
-                Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={}))
+            codex_context = root_diagnostic.run(
+                "backend_construction",
+                "construct_codex_client",
+                lambda: Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={})),
             )
-            if codex.account().account is None:
+            codex = stack.enter_context(codex_context)
+            account = root_diagnostic.run(
+                "account_inspection", "inspect_codex_account", codex.account
+            )
+            if account.account is None:
                 raise RuntimeError("ChatGPT Codex session is unavailable")
-            planner_backend = OpenAICodexStoredThreadBackend(
-                codex=codex,
-                model="gpt-5.6-sol",
-                cwd=str(lifecycle_root),
-                base_instructions=(
-                    _BASE_INSTRUCTIONS_BY_ROLE["scene_reasoner"]
-                    + "\n\n"
-                    + PLANNER_STABLE_INSTRUCTIONS
+            planner_backend = root_diagnostic.run(
+                "backend_construction",
+                "construct_planner_backend",
+                lambda: OpenAICodexStoredThreadBackend(
+                    codex=codex,
+                    model="gpt-5.6-sol",
+                    cwd=str(lifecycle_root),
+                    base_instructions=(
+                        _BASE_INSTRUCTIONS_BY_ROLE["scene_reasoner"]
+                        + "\n\n"
+                        + PLANNER_STABLE_INSTRUCTIONS
+                    ),
+                    service_name="cera_continuous_job4_planner",
                 ),
-                service_name="cera_continuous_job4_planner",
             )
-            validator_backend = OpenAICodexStoredThreadBackend(
-                codex=codex,
-                model="gpt-5.6-terra",
-                cwd=str(lifecycle_root),
-                base_instructions=(
-                    _BASE_INSTRUCTIONS_BY_ROLE["scene_realization_verifier"]
-                    + "\n\n"
-                    + VALIDATOR_STABLE_INSTRUCTIONS
+            validator_backend = root_diagnostic.run(
+                "backend_construction",
+                "construct_validator_backend",
+                lambda: OpenAICodexStoredThreadBackend(
+                    codex=codex,
+                    model="gpt-5.6-terra",
+                    cwd=str(lifecycle_root),
+                    base_instructions=(
+                        _BASE_INSTRUCTIONS_BY_ROLE["scene_realization_verifier"]
+                        + "\n\n"
+                        + VALIDATOR_STABLE_INSTRUCTIONS
+                    ),
+                    service_name="cera_continuous_job4_validator",
                 ),
-                service_name="cera_continuous_job4_validator",
             )
-            planner_session = ContinuousSessionCoordinator(
-                compatibility(world, ContinuousSessionRole.PLANNER),
-                CodexContinuousStoredSessionPort(planner_backend),
+            planner_compatibility = root_diagnostic.run(
+                "compatibility_creation",
+                "create_planner_compatibility",
+                lambda: compatibility(world, ContinuousSessionRole.PLANNER),
             )
-            validator_session = ContinuousSessionCoordinator(
-                compatibility(world, ContinuousSessionRole.VALIDATOR),
-                CodexContinuousStoredSessionPort(validator_backend),
+            validator_compatibility = root_diagnostic.run(
+                "compatibility_creation",
+                "create_validator_compatibility",
+                lambda: compatibility(world, ContinuousSessionRole.VALIDATOR),
+            )
+            planner_session = root_diagnostic.run(
+                "session_construction",
+                "construct_planner_session",
+                lambda: ContinuousSessionCoordinator(
+                    planner_compatibility,
+                    CodexContinuousStoredSessionPort(planner_backend),
+                ),
+            )
+            validator_session = root_diagnostic.run(
+                "session_construction",
+                "construct_validator_session",
+                lambda: ContinuousSessionCoordinator(
+                    validator_compatibility,
+                    CodexContinuousStoredSessionPort(validator_backend),
+                ),
             )
             assert_separate_role_sessions(planner_session, validator_session)
-            planner_handle = planner_session.ensure_session().provider_thread_id
-            validator_handle = validator_session.ensure_session().provider_thread_id
+            planner_handle = root_diagnostic.run(
+                "stored_thread_construction",
+                "ensure_planner_stored_thread",
+                lambda: planner_session.ensure_session().provider_thread_id,
+            )
+            validator_handle = root_diagnostic.run(
+                "stored_thread_construction",
+                "ensure_validator_stored_thread",
+                lambda: validator_session.ensure_session().provider_thread_id,
+            )
             harness = JobHarness(
                 source_root=ROOT,
                 cycle=cycle,
@@ -890,6 +993,7 @@ def main() -> int:
                 planner_handle=planner_handle,
                 validator_handle=validator_handle,
                 lifecycle_root=lifecycle_root,
+                call_ledger=call_ledger,
             )
             try:
                 result.update(

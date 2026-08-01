@@ -516,10 +516,10 @@ class WorldPathAccessPolicyV1:
         relative = normalized[len(prefix) :]
         first = relative.split("/", 1)[0]
         if role is ContinuousSessionRole.PLANNER:
-            if first not in {"ACTIVE", "PLANNER_SESSION"}:
+            if first not in {"ACTIVE", "DERIVED", "PLANNER_SESSION"}:
                 raise PermissionError("Planner cannot inspect Validator, candidate, debug, or unrelated paths")
         else:
-            allowed = {"ACTIVE", "VALIDATOR_SESSION"}
+            allowed = {"ACTIVE", "DERIVED", "VALIDATOR_SESSION"}
             if current_turn_id is not None:
                 allowed.add("CANDIDATES")
                 if first == "CANDIDATES" and not relative.startswith(

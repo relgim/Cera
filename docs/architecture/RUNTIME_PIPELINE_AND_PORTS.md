@@ -37,6 +37,7 @@ unchanged:
 
 ```text
 same branch-bound Planner stored thread
+-> Python request-local source/exact-read binding registry
 -> rich causal sequence with open DeepSeek realization space
 -> DeepSeek V4 Flash complete realization
 -> separate branch-bound Validator stored thread
@@ -66,10 +67,26 @@ accepted-turn allow-list, and continues both existing physical sessions.
 
 Each Codex role receives one request-bound authenticated read-only world MCP
 view with `cera_world_list`, `cera_world_search`, and `cera_world_read`.
-Planner can inspect only ACTIVE; Validator can additionally inspect only its
-current candidate ACTIVE_VIEW. The transport's highest supported 32-call
+Search/list descriptors locate records but are never evidence. Python allocates
+the current-source handle before prompting; only an exact world read or a
+revision/hash-bound deterministic initial character projection allocates a
+record handle. Every hard beat resolves its handles against the current
+world/branch/turn, exact path, revision, content hash, visibility, knowledge
+owner, and read operation. Invented, stale, sibling, unread, or owner-transferred
+bindings fail before composition. Final sequence items and edits remain
+traceable through Planner beat keys to those bindings.
+
+Planner can inspect only ACTIVE, labeled non-authoritative DERIVED views, and
+its own session; Validator can additionally inspect only its current candidate
+ACTIVE_VIEW. The transport's highest supported 32-call
 ceiling is runaway protection, not a retrieval quota; reaching it fails the
 turn. No filesystem write tool is exposed.
+
+Every Planner, Composer, Validator, and Scene Summary dispatch first appends a
+durable `dispatch_initiated` ledger event. A response that later fails bridge
+finalization, decoding, schema/domain validation, or world-MCP reconciliation
+still counts as one call and retains privacy-safe receipt/telemetry/tool hashes.
+No optional exception attribute can reduce the conservative count.
 
 ## 2. Stage assignment
 

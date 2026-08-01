@@ -337,8 +337,10 @@ class WorldEditOperationV1:
         if self.operation is WorldEditOperationKind.CREATE_FILE:
             if self.expected_file_revision is not None or self.field_path != "/":
                 raise ContractValidationError("create_file requires absent-file precondition and root path")
-            if not isinstance(self.value, (dict, list, str)):
-                raise ContractValidationError("create_file value must be JSON/text content")
+            if not isinstance(self.value, dict):
+                raise ContractValidationError(
+                    "mutable create_file value must be a revisioned JSON object"
+                )
         else:
             if self.expected_file_revision is None:
                 raise ContractValidationError("existing-file edit requires a revision precondition")
@@ -498,6 +500,38 @@ class SceneSummaryV1:
 
 
 @dataclass(frozen=True, slots=True)
+class SceneSummaryDerivedViewV1:
+    """Regenerable, explicitly non-authoritative view over accepted facts."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.scene_summary_derived_view.v1"
+
+    schema_version: str
+    authority_classification: str
+    summary_revision: int
+    regeneration_identity_sha256: str
+    source_accepted_turn_ids: tuple[str, ...]
+    source_pair_sha256: tuple[str, ...]
+    source_event_sha256: tuple[str, ...]
+    summary: SceneSummaryV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("scene summary derived-view schema changed")
+        if self.authority_classification != "non_authoritative_derived_view":
+            raise ContractValidationError("scene summary authority classification changed")
+        if type(self.summary_revision) is not int or self.summary_revision < 1:
+            raise ContractValidationError("scene summary derived revision is invalid")
+        if not re_is_sha256(self.regeneration_identity_sha256):
+            raise ContractValidationError("scene summary regeneration identity is invalid")
+        if self.source_accepted_turn_ids != self.summary.accepted_turn_ids:
+            raise ContractValidationError("scene summary source allow-list changed")
+        if len(self.source_pair_sha256) != len(self.source_accepted_turn_ids):
+            raise ContractValidationError("scene summary source pair hashes are incomplete")
+        if any(not re_is_sha256(value) for value in self.source_pair_sha256 + self.source_event_sha256):
+            raise ContractValidationError("scene summary source hash is invalid")
+
+
+@dataclass(frozen=True, slots=True)
 class ValidatorFinalizationPackageV1:
     SCHEMA_VERSION: ClassVar[str] = "cera.validator_finalization_package.v1"
     MAX_EDIT_OPERATIONS: ClassVar[int] = 100
@@ -589,15 +623,26 @@ class ValidatorFinalizationPackageV1:
             PublicationEligibility,
         )
 
-        return (
-            action in {CreatorReviewAction.ACCEPT, CreatorReviewAction.FALSE_POSITIVE}
-            and self.task_mode is ValidatorTaskMode.FINALIZE_TURN
-            and self.semantic_status is ValidatorSemanticStatus.ACCEPTED
-            and self.creator_review is not None
-            and self.creator_review.severity is CreatorReviewSeverity.GOOD
-            and self.creator_review.publication_eligibility
-            is PublicationEligibility.ACCEPT_ALLOWED
-        )
+        if (
+            self.task_mode is not ValidatorTaskMode.FINALIZE_TURN
+            or self.creator_review is None
+            or self.creator_review.publication_eligibility
+            is not PublicationEligibility.ACCEPT_ALLOWED
+        ):
+            return False
+        if action is CreatorReviewAction.ACCEPT:
+            return (
+                self.semantic_status is ValidatorSemanticStatus.ACCEPTED
+                and self.creator_review.severity is CreatorReviewSeverity.GOOD
+            )
+        if action is CreatorReviewAction.FALSE_POSITIVE:
+            return (
+                self.semantic_status
+                in {ValidatorSemanticStatus.ACCEPTED, ValidatorSemanticStatus.CONCERN}
+                and self.creator_review.severity
+                in {CreatorReviewSeverity.CONCERN, CreatorReviewSeverity.CRITICAL}
+            )
+        return False
 
 
 @dataclass(frozen=True, slots=True)
