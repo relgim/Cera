@@ -1,0 +1,15 @@
+{
+  "schema_version": "cera.pro_review_job4_authorization.v1",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-003",
+  "task_id": "continuous-corrections-v3-provider-free-integration-audit",
+  "scope": "Run exactly the twenty-one labeled provider-free correction-v3 integration assertions: stable-prefix Planner/Validator stored-thread resolution; exact live-harness character-summary path through the first provider boundary; Codex and DeepSeek submission markers; true pretransport zero-call and post-dispatch one-call accounting; provider-receipt precedence over an optional zero; ambiguous prepared-call slot consumption; three-turn/two-scene accepted-session context without a repeated complete character summary; exact protected-user source claims and actor/non-actor invention rejection; private owner-bound derived-summary MCP reads; candidate-derived summary rejection; six acceptance-synchronization crash cuts and pending blocking; Good Accept plus Concern/Critical False Positive complete acceptance semantics; unchanged D-180 identity; and unchanged source/disposable SQLite hashes. Use the corrected live-harness classes, scripted fake stored runners or pre-provider sentinels, disposable worlds, and read-only source/disposable SQLite checks. Provider calls are exactly zero.",
+  "scope_sha256": "0dd7b67c12aafa3115fd60afe0c66e07a4ddd08ba4c29fbb5869e4618b5faddd",
+  "expected_result_relative_path": "source/JOB4_RESULT.json",
+  "authority_source_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-corrections-003\\REQUEST.md",
+  "authority_source_sha256": "76823f0720394afc1d624c5760081ab202d0e1e27f80393c28fb16db539aecff",
+  "explicit_exclusions": [
+    "no provider call, retry, fallback, hidden repair, or provider substitution",
+    "no live story, production database, active route, service, installed SillyTavern, deployment, merge, remote, push, or Job 5 effect",
+    "no compact-v7 repair or activation and no rerun or rewrite of any prior Job 4"
+  ]
+}
