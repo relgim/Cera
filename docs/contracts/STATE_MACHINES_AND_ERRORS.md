@@ -303,7 +303,9 @@ ACTIVE snapshot
    -> atomic ACTIVE directory replacement
    -> record accepted-final envelope in Python ledger
    -> inject canonical envelope once into Planner model-visible history
-   -> record synchronized event
+   -> record injection-returned receipt
+   -> atomically persist Planner session snapshot
+   -> record snapshot and final synchronization receipt
 or
 -> Rewrite | Replan | Adjustment | Decline
    -> ACTIVE unchanged; candidate remains diagnostic only
@@ -325,6 +327,13 @@ pair, summary leakage, or promotion failure stops without retry or fallback.
 An accepted-final history-injection failure also blocks the next Planner turn;
 an unsynchronized accepted ledger entry is never silently piggybacked or
 replayed.
+
+The acceptance journal v3 stays pending after any crash between in-memory
+ledger append, injection return, journal update, snapshot replacement, or final
+synchronization. It binds the exact Planner thread, envelope, injection
+operation, session snapshot, and final synchronization receipt. `synchronized`
+is impossible before the atomic snapshot exists. Ambiguous injection is never
+automatically replayed.
 
 Directory promotion journal v2 records prepared, ACTIVE-moved, prepared-
 installed, backup-removed, committed, and finalized states with exact prior and

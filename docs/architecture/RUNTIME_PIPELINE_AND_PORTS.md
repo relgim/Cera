@@ -46,6 +46,7 @@ same branch-bound Planner stored thread
 -> creator Accept or False Positive
 -> atomic ACTIVE promotion + accepted event
 -> accepted-final envelope injected once into model-visible Planner history
+-> atomic local Planner snapshot + synchronization receipt
 ```
 
 Planner and Validator have distinct compatibility hashes and physical provider
@@ -59,6 +60,14 @@ envelope first, injects its canonical `[TURN ACCEPTED]` representation, and
 then records synchronization. A failure is terminal and blocks continuation;
 CERA never silently resends the envelope or falls back to next-turn prompt
 piggybacking. The provider thread remains context only, never story authority.
+
+Recent accepted same-scene context is exposed to the next request only through
+a Python-owned accepted-session binding. It binds the accepted turn/envelope,
+promotion receipt, exact Planner thread, atomically persisted snapshot, final
+synchronization receipt, world, branch, and character owner. A single-NPC beat
+may use its exact owner-bound binding without resending the complete character
+card. ACTIVE remains required for durable card facts, rules, older recalled
+events, and private information absent from that accepted context.
 
 The only V1 route mappings are Planner Sol/xhigh to Validator Sol/medium and
 Planner Sol/medium to Validator Terra/high. Sol/high and every other mapping
@@ -76,17 +85,25 @@ owner, and read operation. Invented, stale, sibling, unread, or owner-transferre
 bindings fail before composition. Final sequence items and edits remain
 traceable through Planner beat keys to those bindings.
 
+Python mechanically projects exact Ted/I action-state and dialogue spans from
+the current user source. Planner output cites those claim keys and their source
+binding. Whole-beat validation rejects protected-user semantics that do not
+preserve an exact supplied span, including when Ted is omitted from
+`actor_ids`. Mechanical connectives cannot carry semantic claims.
+
 Planner can inspect only ACTIVE, labeled non-authoritative DERIVED views, and
 its own session; Validator can additionally inspect only its current candidate
 ACTIVE_VIEW. The transport's highest supported 32-call
 ceiling is runaway protection, not a retrieval quota; reaching it fails the
 turn. No filesystem write tool is exposed.
 
-Every Planner, Composer, Validator, and Scene Summary dispatch first appends a
-durable `dispatch_initiated` ledger event. A response that later fails bridge
+Every Planner, Composer, Validator, and Scene Summary transport durably marks
+`transport_invoked` immediately before external submission. A response that later fails bridge
 finalization, decoding, schema/domain validation, or world-MCP reconciliation
 still counts as one call and retains privacy-safe receipt/telemetry/tool hashes.
 No optional exception attribute can reduce the conservative count.
+An unresolved prepared/in-flight record consumes the bounded slot after
+restart until governed diagnosis resolves the ambiguity.
 
 ## 2. Stage assignment
 

@@ -11,7 +11,7 @@ import subprocess
 import sys
 import threading
 import time
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 from urllib.parse import urlparse
 
 from cera.errors import ContractValidationError, ErrorCode
@@ -246,6 +246,7 @@ class CodexSDKTransport:
         output_schema: dict[str, Any],
         output_mode: ProviderOutputMode = ProviderOutputMode.JSON_SCHEMA,
         mcp_binding: CodexMcpRuntimeBinding | None = None,
+        on_transport_invoke: Callable[[], None] | None = None,
     ) -> ProviderCallResult:
         if output_mode is not ProviderOutputMode.JSON_SCHEMA:
             raise ContractValidationError("Codex reasoner transport requires JSON Schema output")
@@ -272,6 +273,8 @@ class CodexSDKTransport:
                 "Codex request exceeds the configured byte budget",
             )
         request_sha256 = text_sha256(request_text)
+        if on_transport_invoke is not None:
+            on_transport_invoke()
         try:
             result = self.runner.run(
                 route=self.route,
@@ -387,6 +390,7 @@ class CodexSDKTransport:
         try:
             self._validate_mcp_observations(result, mcp_binding)
         except ProviderTransportError as failure:
+            failure.external_provider_calls_observed = 1
             failure.provider_call_receipt = receipt
             failure.mcp_server_names = result.mcp_server_names
             failure.mcp_tool_names = result.mcp_tool_names
@@ -406,13 +410,16 @@ class CodexSDKTransport:
                 raise ProviderTransportError(
                     ErrorCode.REASONER_CONTRACT_INVALID,
                     "Codex schema output was not an object",
+                    external_provider_calls_observed=1,
+                    provider_call_receipt=receipt,
                 )
         except json.JSONDecodeError:
             failure = ProviderTransportError(
                 ErrorCode.REASONER_CONTRACT_INVALID,
                 "Codex schema output was malformed",
+                external_provider_calls_observed=1,
+                provider_call_receipt=receipt,
             )
-            failure.provider_call_receipt = receipt
             if result.operation_telemetry is not None:
                 failure.operation_telemetry = (
                     result.operation_telemetry.bind_request(request_sha256)
@@ -424,6 +431,7 @@ class CodexSDKTransport:
                 )
             raise failure from None
         except ProviderTransportError as failure:
+            failure.external_provider_calls_observed = 1
             failure.provider_call_receipt = receipt
             failure.mcp_server_names = result.mcp_server_names
             failure.mcp_tool_names = result.mcp_tool_names

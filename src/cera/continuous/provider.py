@@ -49,7 +49,7 @@ from .prompting import (
 )
 
 
-CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v2"
+CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v3"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v2"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v1"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v1"
@@ -288,11 +288,12 @@ class CodexContinuousPlannerPort:
         )
         stored_thread_sha256 = _transport_stored_thread_sha256(self.transport)
 
-        def dispatch():
+        def dispatch(mark_transport_invoked):
             return self.transport.invoke(
                 prompt,
                 output_schema=output_schema,
                 mcp_binding=mcp_binding,
+                on_transport_invoke=mark_transport_invoked,
             )
 
         def finalize(result):
@@ -317,7 +318,7 @@ class CodexContinuousPlannerPort:
             route=route.route_id,
             model=route.model_name,
             effort=route.reasoning_effort,
-            dispatch=dispatch,
+            dispatch_with_invocation_marker=dispatch,
             finalize=finalize,
             stored_thread_sha256=stored_thread_sha256,
         )
@@ -357,11 +358,12 @@ class CodexContinuousValidatorPort:
         )
         stored_thread_sha256 = _transport_stored_thread_sha256(self.transport)
 
-        def dispatch():
+        def dispatch(mark_transport_invoked):
             return self.transport.invoke(
                 prompt,
                 output_schema=output_schema,
                 mcp_binding=mcp_binding,
+                on_transport_invoke=mark_transport_invoked,
             )
 
         def finalize(result):
@@ -384,7 +386,7 @@ class CodexContinuousValidatorPort:
             route=route.route_id,
             model=route.model_name,
             effort=route.reasoning_effort,
-            dispatch=dispatch,
+            dispatch_with_invocation_marker=dispatch,
             finalize=finalize,
             stored_thread_sha256=stored_thread_sha256,
         )
@@ -420,11 +422,12 @@ class DeepSeekContinuousComposerPort:
         self._operation_index += 1
         route = self.transport.route
 
-        def dispatch():
+        def dispatch(mark_transport_invoked):
             return self.transport.invoke(
                 messages,
                 output_mode=ProviderOutputMode.JSON_OBJECT,
                 thinking_enabled=False,
+                on_transport_invoke=mark_transport_invoked,
             )
 
         def finalize(result):
@@ -444,7 +447,7 @@ class DeepSeekContinuousComposerPort:
             route=route.route_id,
             model=route.model_name,
             effort=route.reasoning_effort,
-            dispatch=dispatch,
+            dispatch_with_invocation_marker=dispatch,
             finalize=finalize,
         )
 
@@ -477,9 +480,20 @@ def continuous_deepseek_route():
 
 
 def _transport_stored_thread_sha256(transport: CodexSDKTransport) -> str:
-    provider_thread_id = getattr(transport.runner, "provider_thread_id", None)
-    if not isinstance(provider_thread_id, str) or not provider_thread_id.strip():
-        raise ContractValidationError(
-            "continuous Codex transport lacks a bound stored-thread identity"
-        )
-    return text_sha256(provider_thread_id)
+    current: Any = transport
+    seen: set[int] = set()
+    for _ in range(8):
+        identity = id(current)
+        if identity in seen:
+            break
+        seen.add(identity)
+        runner = getattr(current, "runner", None)
+        provider_thread_id = getattr(runner, "provider_thread_id", None)
+        if isinstance(provider_thread_id, str) and provider_thread_id.strip():
+            return text_sha256(provider_thread_id)
+        current = getattr(current, "transport", None)
+        if current is None:
+            break
+    raise ContractValidationError(
+        "continuous Codex transport lacks a bound stored-thread identity"
+    )

@@ -6,7 +6,7 @@ from dataclasses import dataclass, replace
 import json
 from pathlib import Path
 import time
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from cera.creator_review.models import CreatorReviewAction
 from cera.errors import ContractValidationError, StateConflictError
@@ -21,9 +21,8 @@ from .contracts import (
     ValidatorTaskMode,
 )
 from .evidence import (
-    EvidenceVisibility,
     RequestEvidenceBindingRegistry,
-    validate_character_summary_envelope,
+    bind_character_summary_envelopes,
 )
 from .prompting import (
     build_continuous_composer_prompt,
@@ -33,6 +32,7 @@ from .prompting import (
 from .sessions import (
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
+    ContinuousSessionSnapshotStore,
     assert_separate_role_sessions,
 )
 from .world import (
@@ -122,6 +122,7 @@ class ContinuousShadowTurnCoordinator:
         planner: PlannerPort,
         composer: ComposerPort,
         validator: ValidatorPort,
+        acceptance_sync_failpoint: Callable[[str], None] | None = None,
     ) -> None:
         assert_separate_role_sessions(planner_session, validator_session)
         if planner_session.compatibility.role is not ContinuousSessionRole.PLANNER:
@@ -134,6 +135,7 @@ class ContinuousShadowTurnCoordinator:
         self.planner = planner
         self.composer = composer
         self.validator = validator
+        self._acceptance_sync_failpoint = acceptance_sync_failpoint
         self._candidates: dict[str, ContinuousTurnCandidateV1] = {}
 
     def restore_pending_accepted_context(self) -> tuple[str, ...]:
@@ -307,32 +309,16 @@ class ContinuousShadowTurnCoordinator:
             protected_user_allowance_scope="exact supplied source plus minimal nonbranching connective",
         )
         mechanical_binding = evidence_registry.allocate_mechanical_connective_allowance()
-        summary_bindings = []
-        for summary in request.character_summaries:
-            if summary.source_path_or_record_id.startswith("record:"):
-                raise StateConflictError(
-                    "continuous V1 character summary requires a revision-bound world path"
-                )
-            summary_path = validate_character_summary_envelope(
-                branch_root=branch_root,
-                envelope=summary,
-            )
-            binding = evidence_registry.allocate_initial_projection(
-                branch_root=branch_root,
-                relative_path=summary_path.relative_to(branch_root).as_posix(),
-                record_type="characters",
-                visibility=EvidenceVisibility.CHARACTER_PRIVATE,
-                knowledge_owner_id=summary.character_id,
-            )
-            summary_bindings.append(
-                {
-                    "character_id": summary.character_id,
-                    "binding_key": binding.binding_key,
-                    "source_path": binding.relative_path,
-                    "source_revision": binding.record_revision,
-                    "source_sha256": binding.source_sha256,
-                }
-            )
+        accepted_session_bindings = self._bind_latest_accepted_session_evidence(
+            request=request,
+            registry=evidence_registry,
+            branch_root=branch_root,
+        )
+        summary_bindings = bind_character_summary_envelopes(
+            registry=evidence_registry,
+            branch_root=branch_root,
+            summaries=request.character_summaries,
+        )
         planner_prompt, planner_usage = build_planner_turn_prompt(
             current_packet={
                 **request.current_authority_packet,
@@ -344,6 +330,8 @@ class ContinuousShadowTurnCoordinator:
                 "request_local_evidence_bindings": evidence_registry.prompt_manifest(),
                 "current_source_binding_key": current_source_binding.binding_key,
                 "mechanical_connective_binding_key": mechanical_binding.binding_key,
+                "protected_user_source_claims": evidence_registry.protected_user_claim_manifest(),
+                "accepted_session_bindings": accepted_session_bindings,
                 "character_summary_bindings": tuple(summary_bindings),
             },
             accepted_envelopes=(),
@@ -498,6 +486,75 @@ class ContinuousShadowTurnCoordinator:
         self._candidates[request.turn_id] = candidate
         return candidate
 
+    def _bind_latest_accepted_session_evidence(
+        self,
+        *,
+        request: ContinuousTurnRequestV1,
+        registry: RequestEvidenceBindingRegistry,
+        branch_root: Path,
+    ) -> tuple[dict[str, Any], ...]:
+        accepted_ids = self.planner_session.snapshot().accepted_turn_ids
+        if not accepted_ids:
+            return ()
+        accepted_turn_id = accepted_ids[-1]
+        journal = self.world.acceptance_synchronization_record(
+            request.world_id, request.branch_id, accepted_turn_id
+        )
+        if journal.get("model_injection_state") != "synchronized":
+            raise StateConflictError("accepted session evidence is not synchronized")
+        envelope = self.world.accepted_final_envelope(
+            request.world_id, request.branch_id, accepted_turn_id
+        )
+        handle = self.planner_session.ensure_session()
+        snapshot_store = ContinuousSessionSnapshotStore(branch_root)
+        snapshot = snapshot_store.load(ContinuousSessionRole.PLANNER)
+        if (
+            snapshot.handle.provider_thread_id_sha256 != handle.provider_thread_id_sha256
+            or accepted_turn_id not in snapshot.accepted_turn_ids
+            or journal.get("accepted_final_envelope_sha256") != envelope.envelope_sha256
+            or journal.get("planner_provider_thread_sha256")
+            != handle.provider_thread_id_sha256
+            or journal.get("planner_session_snapshot_sha256")
+            != snapshot.snapshot_sha256
+            or journal.get("promotion_receipt_payload", {}).get("receipt_sha256")
+            not in {None, envelope.acceptance_receipt_sha256}
+        ):
+            raise StateConflictError("accepted session evidence bindings changed")
+        sync_receipt = journal.get("synchronization_receipt_sha256")
+        if not isinstance(sync_receipt, str):
+            raise StateConflictError("accepted session synchronization receipt is absent")
+        event_path = branch_root / "ACTIVE" / str(journal["accepted_event_relative_path"])
+        event = json.loads(event_path.read_text(encoding="utf-8"))
+        participants = tuple(
+            value
+            for value in event.get("participant_ids", ())
+            if isinstance(value, str) and value != "character:ted"
+        )
+        bindings = []
+        for owner in (None, *participants):
+            binding = registry.allocate_accepted_session_envelope(
+                accepted_turn_id=accepted_turn_id,
+                acceptance_receipt_sha256=envelope.acceptance_receipt_sha256,
+                accepted_envelope_sha256=envelope.envelope_sha256,
+                provider_thread_sha256=handle.provider_thread_id_sha256,
+                session_snapshot_sha256=snapshot.snapshot_sha256,
+                synchronization_receipt_sha256=sync_receipt,
+                knowledge_owner_id=owner,
+            )
+            bindings.append(
+                {
+                    "binding_key": binding.binding_key,
+                    "accepted_turn_id": accepted_turn_id,
+                    "knowledge_owner_id": owner,
+                    "authority_scope": (
+                        "accepted current-scene observable continuity only"
+                        if owner is None
+                        else "accepted current-scene state for this exact character owner"
+                    ),
+                }
+            )
+        return tuple(bindings)
+
     def apply_creator_action(
         self,
         turn_id: str,
@@ -572,14 +629,53 @@ class ContinuousShadowTurnCoordinator:
                 complete_final_sequence=package.complete_final_sequence,
                 acceptance_receipt_sha256=receipt.receipt_sha256,
             )
+            handle = self.planner_session.ensure_session()
             self.planner_session.append_accepted_final_sequence(envelope)
             self.world.mark_acceptance_planner_ledger_appended(
                 candidate.request.world_id,
                 candidate.request.branch_id,
                 turn_id,
                 envelope.envelope_sha256,
+                handle.provider_thread_id_sha256,
             )
-            self.planner_session.synchronize_accepted_final_sequence(envelope)
+            self._acceptance_failpoint("after_in_memory_ledger_append")
+            injection = self.planner_session.synchronize_accepted_final_sequence_with_receipt(
+                envelope
+            )
+            if injection is None:
+                raise StateConflictError("accepted final sequence was not injected")
+            self._acceptance_failpoint("after_provider_injection_returned")
+            self.world.mark_acceptance_injection_returned(
+                candidate.request.world_id,
+                candidate.request.branch_id,
+                turn_id,
+                envelope_sha256=envelope.envelope_sha256,
+                provider_thread_sha256=handle.provider_thread_id_sha256,
+                injection_operation_receipt_sha256=injection.operation_receipt_sha256,
+            )
+            self._acceptance_failpoint("after_world_injection_update")
+            snapshot_store = ContinuousSessionSnapshotStore(
+                self.world.branch_root(
+                    candidate.request.world_id, candidate.request.branch_id
+                ),
+                failpoint=self._acceptance_failpoint,
+            )
+            snapshot = self.planner_session.snapshot()
+            snapshot_path = snapshot_store.save(snapshot)
+            self.world.mark_acceptance_session_snapshot_persisted(
+                candidate.request.world_id,
+                candidate.request.branch_id,
+                turn_id,
+                envelope_sha256=envelope.envelope_sha256,
+                provider_thread_sha256=handle.provider_thread_id_sha256,
+                session_snapshot_sha256=snapshot.snapshot_sha256,
+                session_snapshot_relative_path=snapshot_path.relative_to(
+                    self.world.branch_root(
+                        candidate.request.world_id, candidate.request.branch_id
+                    )
+                ).as_posix(),
+            )
+            self._acceptance_failpoint("after_snapshot_persisted")
             self.world.mark_acceptance_model_synchronized(
                 candidate.request.world_id,
                 candidate.request.branch_id,
@@ -591,6 +687,10 @@ class ContinuousShadowTurnCoordinator:
                 turn_id, package.package_sha256, rejected=True
             )
         return receipt
+
+    def _acceptance_failpoint(self, stage: str) -> None:
+        if self._acceptance_sync_failpoint is not None:
+            self._acceptance_sync_failpoint(stage)
 
 
 def _provider_debug(result: Any) -> dict[str, Any]:

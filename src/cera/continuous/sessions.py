@@ -13,7 +13,7 @@ from enum import StrEnum
 import json
 import os
 from pathlib import Path
-from typing import ClassVar, Protocol, runtime_checkable
+from typing import Callable, ClassVar, Protocol, runtime_checkable
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.schema import from_mapping
@@ -157,11 +157,54 @@ class ContinuousSessionSnapshotV1:
         return domain_sha256(self.SCHEMA_VERSION, self)
 
 
+@dataclass(frozen=True, slots=True)
+class ContinuousContextInjectionReceiptV1:
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_context_injection_receipt.v1"
+
+    schema_version: str
+    accepted_turn_id: str
+    accepted_envelope_sha256: str
+    provider_thread_sha256: str
+    injected_context_sha256: str
+    operation_receipt_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("continuous injection receipt schema changed")
+        if not self.accepted_turn_id.strip():
+            raise ContractValidationError("continuous injection turn is empty")
+        for value in (
+            self.accepted_envelope_sha256,
+            self.provider_thread_sha256,
+            self.injected_context_sha256,
+            self.operation_receipt_sha256,
+        ):
+            if not re_is_sha256(value):
+                raise ContractValidationError("continuous injection receipt hash is invalid")
+        expected = canonical_sha256(
+            {
+                "schema_version": self.SCHEMA_VERSION,
+                "accepted_turn_id": self.accepted_turn_id,
+                "accepted_envelope_sha256": self.accepted_envelope_sha256,
+                "provider_thread_sha256": self.provider_thread_sha256,
+                "injected_context_sha256": self.injected_context_sha256,
+            }
+        )
+        if self.operation_receipt_sha256 != expected:
+            raise ContractValidationError("continuous injection receipt binding changed")
+
+
 class ContinuousSessionSnapshotStore:
     """Durably checkpoint a role thread without granting it story authority."""
 
-    def __init__(self, branch_root: Path) -> None:
+    def __init__(
+        self,
+        branch_root: Path,
+        *,
+        failpoint: Callable[[str], None] | None = None,
+    ) -> None:
         self.branch_root = branch_root.resolve()
+        self._failpoint = failpoint
 
     def path_for(self, role: ContinuousSessionRole) -> Path:
         directory = (
@@ -180,8 +223,15 @@ class ContinuousSessionSnapshotStore:
             "snapshot_sha256": snapshot.snapshot_sha256,
         }
         temporary = path.with_suffix(".tmp")
-        temporary.write_bytes(canonical_bytes(payload) + b"\n")
+        with temporary.open("wb") as stream:
+            stream.write(canonical_bytes(payload) + b"\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        if self._failpoint is not None:
+            self._failpoint("before_snapshot_replace")
         os.replace(temporary, path)
+        if self._failpoint is not None:
+            self._failpoint("after_snapshot_replace")
         return path
 
     def load(self, role: ContinuousSessionRole) -> ContinuousSessionSnapshotV1:
@@ -385,16 +435,32 @@ class ContinuousSessionCoordinator:
         terminal and is never retried automatically.
         """
 
+        return self.synchronize_accepted_final_sequence_with_receipt(envelope) is not None
+
+    def synchronize_accepted_final_sequence_with_receipt(
+        self, envelope: AcceptedFinalSequenceEnvelopeV1
+    ) -> ContinuousContextInjectionReceiptV1 | None:
         if self.compatibility.role is not ContinuousSessionRole.PLANNER:
             raise StateConflictError("accepted-final synchronization belongs to Planner")
         if self._accepted_envelopes.get(envelope.accepted_turn_id) != envelope.envelope_sha256:
             raise StateConflictError("unknown accepted-final envelope cannot synchronize")
         if envelope.accepted_turn_id not in self.unsynchronized_accepted_turn_ids:
-            return False
+            return None
         handle = self.ensure_session()
-        self.port.append_context(handle, envelope.render_for_planner())
+        rendered = envelope.render_for_planner()
+        self.port.append_context(handle, rendered)
         self.mark_accepted_final_sequences_synchronized((envelope,))
-        return True
+        receipt_payload = {
+            "schema_version": ContinuousContextInjectionReceiptV1.SCHEMA_VERSION,
+            "accepted_turn_id": envelope.accepted_turn_id,
+            "accepted_envelope_sha256": envelope.envelope_sha256,
+            "provider_thread_sha256": handle.provider_thread_id_sha256,
+            "injected_context_sha256": text_sha256(rendered),
+        }
+        return ContinuousContextInjectionReceiptV1(
+            **receipt_payload,
+            operation_receipt_sha256=canonical_sha256(receipt_payload),
+        )
 
     @property
     def unsynchronized_accepted_turn_ids(self) -> tuple[str, ...]:

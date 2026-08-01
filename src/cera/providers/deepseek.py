@@ -61,6 +61,7 @@ class DeepSeekChatTransport:
         *,
         output_mode: ProviderOutputMode = ProviderOutputMode.TEXT,
         thinking_enabled: bool = False,
+        on_transport_invoke: Callable[[], None] | None = None,
     ) -> ProviderCallResult:
         if not messages:
             raise ContractValidationError("DeepSeek invocation requires messages")
@@ -98,6 +99,8 @@ class DeepSeekChatTransport:
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             method="POST",
         )
+        if on_transport_invoke is not None:
+            on_transport_invoke()
         started = time.perf_counter()
         try:
             with self._opener(request, timeout=self.route.timeout_seconds) as response:

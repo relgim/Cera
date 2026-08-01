@@ -23,14 +23,15 @@ from cera.continuous.codex_stored import CodexContinuousStoredSessionPort
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.diagnostics import ContinuousRootDiagnosticRecorder
 from cera.continuous.evidence import (
-    EvidenceVisibility,
     RequestEvidenceBindingRegistry,
+    bind_character_summary_envelopes,
     build_character_summary_envelope,
 )
 from cera.continuous.contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     AcceptedTurnPairV1,
     CharacterSummaryEnvelopeV1,
+    RichPlannerSequenceV1,
     ValidatorTaskMode,
 )
 from cera.continuous.prompting import (
@@ -249,7 +250,7 @@ def compatibility(
             else CONTINUOUS_VALIDATOR_PROMPT_VERSION
         ),
         output_schema_version=(
-            "cera.rich_planner_sequence.v1"
+            RichPlannerSequenceV1.SCHEMA_VERSION
             if role is ContinuousSessionRole.PLANNER
             else "cera.continuous_validator_draft.v1"
         ),
@@ -283,6 +284,7 @@ class JobHarness:
         validator_handle: str,
         lifecycle_root: Path,
         call_ledger: ContinuousProviderCallLedger,
+        root_diagnostic: ContinuousRootDiagnosticRecorder | None = None,
     ) -> None:
         self.source_root = source_root
         self.cycle = cycle
@@ -293,6 +295,7 @@ class JobHarness:
         self.validator_handle = validator_handle
         self.lifecycle_root = lifecycle_root
         self.call_ledger = call_ledger
+        self.root_diagnostic = root_diagnostic
         self.accepted_pairs: list[AcceptedTurnPairV1] = []
         self.call_records: list[dict[str, Any]] = []
         self.poll_records: list[dict[str, Any]] = []
@@ -427,7 +430,7 @@ class JobHarness:
 
     def codex_planner(self, prompt: str, turn_id: str):
         workspace = self.lifecycle_root / f"call_{len(self.call_records) + 1:02d}_planner"
-        workspace.mkdir()
+        self._create_workspace(workspace, "create_planner_call_workspace")
         dispatcher = ContinuousWorldToolDispatcher(
             self.world.branch_root(WORLD_ID, BRANCH_ID),
             ContinuousSessionRole.PLANNER,
@@ -454,7 +457,7 @@ class JobHarness:
         accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
     ):
         workspace = self.lifecycle_root / f"call_{len(self.call_records) + 1:02d}_validator"
-        workspace.mkdir()
+        self._create_workspace(workspace, "create_validator_call_workspace")
         dispatcher = ContinuousWorldToolDispatcher(
             self.world.branch_root(WORLD_ID, BRANCH_ID),
             ContinuousSessionRole.VALIDATOR,
@@ -472,6 +475,12 @@ class JobHarness:
             return CodexContinuousValidatorPort(
                 transport, world_bridge=bridge, call_ledger=self.call_ledger
             ).validate(prompt, accepted_pairs=accepted_pairs)
+
+    def _create_workspace(self, workspace: Path, operation: str) -> None:
+        if self.root_diagnostic is None:
+            workspace.mkdir()
+            return
+        self.root_diagnostic.run("lifecycle_directory", operation, workspace.mkdir)
 
     def deepseek(self, prompt: str):
         return DeepSeekContinuousComposerPort(
@@ -504,24 +513,11 @@ class JobHarness:
             source_text=message,
             protected_user_allowance_scope="exact supplied source plus minimal nonbranching connective",
         )
-        summary_bindings = []
-        for summary in summaries:
-            binding = evidence_registry.allocate_initial_projection(
-                branch_root=self.world.branch_root(WORLD_ID, BRANCH_ID),
-                relative_path="ACTIVE/" + summary.source_path_or_record_id,
-                record_type="characters",
-                visibility=EvidenceVisibility.CHARACTER_PRIVATE,
-                knowledge_owner_id=summary.character_id,
-            )
-            summary_bindings.append(
-                {
-                    "character_id": summary.character_id,
-                    "binding_key": binding.binding_key,
-                    "source_path": binding.relative_path,
-                    "source_revision": binding.record_revision,
-                    "source_sha256": binding.source_sha256,
-                }
-            )
+        summary_bindings = bind_character_summary_envelopes(
+            registry=evidence_registry,
+            branch_root=self.world.branch_root(WORLD_ID, BRANCH_ID),
+            summaries=summaries,
+        )
         packet = {
             "schema_version": "cera.continuous_job4_turn_packet.v1",
             "world_id": WORLD_ID,
@@ -531,6 +527,7 @@ class JobHarness:
             "current_user_message": message,
             "request_local_evidence_bindings": evidence_registry.prompt_manifest(),
             "current_source_binding_key": current_source_binding.binding_key,
+            "protected_user_source_claims": evidence_registry.protected_user_claim_manifest(),
             "character_summary_bindings": tuple(summary_bindings),
             "protected_user_id": "character:ted",
             "content_class": "ordinary",
@@ -634,10 +631,52 @@ class JobHarness:
             complete_final_sequence=package.complete_final_sequence,
             acceptance_receipt_sha256=receipt.receipt_sha256,
         )
+        handle = self.planner_session.ensure_session()
         self.planner_session.append_accepted_final_sequence(envelope)
-        injected = self.planner_session.synchronize_accepted_final_sequence(envelope)
-        if not injected:
+        self.world.mark_acceptance_planner_ledger_appended(
+            WORLD_ID,
+            BRANCH_ID,
+            turn_id,
+            envelope.envelope_sha256,
+            handle.provider_thread_id_sha256,
+        )
+        injection = self.planner_session.synchronize_accepted_final_sequence_with_receipt(
+            envelope
+        )
+        if injection is None:
             raise RuntimeError("accepted final sequence was not injected exactly once")
+        injected = True
+        self.world.mark_acceptance_injection_returned(
+            WORLD_ID,
+            BRANCH_ID,
+            turn_id,
+            envelope_sha256=envelope.envelope_sha256,
+            provider_thread_sha256=handle.provider_thread_id_sha256,
+            injection_operation_receipt_sha256=injection.operation_receipt_sha256,
+        )
+        snapshot_store = ContinuousSessionSnapshotStore(
+            self.world.branch_root(WORLD_ID, BRANCH_ID)
+        )
+        planner_snapshot = self.planner_session.snapshot()
+        planner_snapshot_path = snapshot_store.save(planner_snapshot)
+        self.validator_session.checkpoint(snapshot_store)
+        self.world.mark_acceptance_session_snapshot_persisted(
+            WORLD_ID,
+            BRANCH_ID,
+            turn_id,
+            envelope_sha256=envelope.envelope_sha256,
+            provider_thread_sha256=handle.provider_thread_id_sha256,
+            session_snapshot_sha256=planner_snapshot.snapshot_sha256,
+            session_snapshot_relative_path=planner_snapshot_path.relative_to(
+                self.world.branch_root(WORLD_ID, BRANCH_ID)
+            ).as_posix(),
+        )
+        self.world.mark_acceptance_model_synchronized(
+            WORLD_ID,
+            BRANCH_ID,
+            turn_id,
+            envelope.envelope_sha256,
+        )
         self.accepted_pairs.append(pair)
         after = snapshot_files(candidate.root / "ACTIVE_VIEW")
         debug.write_json("candidate_before.json", before)
@@ -680,11 +719,6 @@ class JobHarness:
         )
         if debug.validate_complete():
             raise RuntimeError("continuous turn debug artifact set is incomplete")
-        snapshot_store = ContinuousSessionSnapshotStore(
-            self.world.branch_root(WORLD_ID, BRANCH_ID)
-        )
-        self.planner_session.checkpoint(snapshot_store)
-        self.validator_session.checkpoint(snapshot_store)
         return {
             "turn_id": turn_id,
             "sequence_sha256": sequence.sequence_sha256,
@@ -855,7 +889,6 @@ def main() -> int:
     result_path = cycle / "source" / "JOB4_RESULT.json"
     if report_path.exists() or result_path.exists() or runtime_root.exists():
         raise SystemExit("refusing to overwrite Job 4 evidence")
-    runtime_root.mkdir(parents=True)
     root_diagnostic = ContinuousRootDiagnosticRecorder(runtime_root)
     if not source_db.is_file():
         error = FileNotFoundError("Hanezawa human-test SQLite source is unavailable")
@@ -872,9 +905,34 @@ def main() -> int:
         "source_database", "copy_disposable_database", lambda: shutil.copy2(source_db, copied_db)
     )
     copy_hash_before = bytes_sha256(copied_db.read_bytes())
-    with sqlite3.connect(f"file:{copied_db.as_posix()}?mode=ro", uri=True) as connection:
-        integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
-        foreign_keys = connection.execute("PRAGMA foreign_key_check").fetchall()
+    connection = root_diagnostic.run(
+        "source_database",
+        "open_disposable_database_read_only",
+        lambda: sqlite3.connect(f"file:{copied_db.as_posix()}?mode=ro", uri=True),
+    )
+    try:
+        integrity = root_diagnostic.run(
+            "source_database",
+            "check_disposable_database_integrity",
+            lambda: connection.execute("PRAGMA integrity_check").fetchone()[0],
+        )
+        foreign_keys = root_diagnostic.run(
+            "source_database",
+            "check_disposable_database_foreign_keys",
+            lambda: connection.execute("PRAGMA foreign_key_check").fetchall(),
+        )
+    except BaseException:
+        root_diagnostic.run(
+            "source_database",
+            "close_disposable_database_after_check_failure",
+            connection.close,
+        )
+        raise
+    root_diagnostic.run(
+        "source_database",
+        "close_disposable_database",
+        connection.close,
+    )
     world = root_diagnostic.run(
         "world_construction",
         "construct_continuous_world_store",
@@ -883,7 +941,11 @@ def main() -> int:
     root_diagnostic.run("world_seeding", "seed_disposable_world", lambda: seed_world(world, ROOT))
     branch_root = world.branch_root(WORLD_ID, BRANCH_ID)
     lifecycle_root = runtime_root / "provider_workspaces"
-    lifecycle_root.mkdir()
+    root_diagnostic.run(
+        "lifecycle_directory",
+        "create_provider_workspace_root",
+        lifecycle_root.mkdir,
+    )
     active_runtime_before = root_diagnostic.run(
         "active_profile", "inspect_active_runtime_profile", active_runtime_status
     )
@@ -926,7 +988,11 @@ def main() -> int:
                 "construct_codex_client",
                 lambda: Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={})),
             )
-            codex = stack.enter_context(codex_context)
+            codex = root_diagnostic.run(
+                "backend_context",
+                "enter_codex_client_context",
+                lambda: stack.enter_context(codex_context),
+            )
             account = root_diagnostic.run(
                 "account_inspection", "inspect_codex_account", codex.account
             )
@@ -1015,6 +1081,7 @@ def main() -> int:
                 validator_handle=validator_handle,
                 lifecycle_root=lifecycle_root,
                 call_ledger=call_ledger,
+                root_diagnostic=root_diagnostic,
             )
             try:
                 result.update(

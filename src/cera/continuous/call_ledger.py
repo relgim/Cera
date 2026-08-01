@@ -97,12 +97,19 @@ class ContinuousProviderCallLedger:
         route: str,
         model: str,
         effort: str | None,
-        dispatch: Callable[[], T],
+        dispatch: Callable[[], T] | None = None,
+        dispatch_with_invocation_marker: (
+            Callable[[Callable[[], None]], T] | None
+        ) = None,
         finalize: Callable[[T], R],
         receipt_of: Callable[[T], Any] = lambda value: getattr(value, "receipt", None),
         telemetry_of: Callable[[T], Any] = lambda value: getattr(value, "operation_telemetry", None),
         stored_thread_sha256: str | None = None,
     ) -> R:
+        if (dispatch is None) == (dispatch_with_invocation_marker is None):
+            raise ContractValidationError(
+                "provider call requires exactly one dispatch contract"
+            )
         if (
             self.maximum_calls is not None
             and self.dispatched_call_count >= self.maximum_calls
@@ -119,14 +126,57 @@ class ContinuousProviderCallLedger:
             }
         )[:24]
         self._record(call_id, owner, operation, ProviderCallState.PREPARED, route, model, effort, stored_thread_sha256=stored_thread_sha256)
+        invocation_marked = False
+
+        def mark_transport_invoked() -> None:
+            nonlocal invocation_marked
+            with self._lock:
+                if invocation_marked:
+                    return
+                self._record(
+                    call_id,
+                    owner,
+                    operation,
+                    ProviderCallState.TRANSPORT_INVOKED,
+                    route,
+                    model,
+                    effort,
+                    stored_thread_sha256=stored_thread_sha256,
+                )
+                invocation_marked = True
+
         try:
-            raw = dispatch()
+            raw = (
+                dispatch_with_invocation_marker(mark_transport_invoked)
+                if dispatch_with_invocation_marker is not None
+                else dispatch()
+            )
         except BaseException as exc:
             observed = getattr(exc, "external_provider_calls_observed", None)
-            if observed == 0 or (
-                observed is None
-                and isinstance(exc, (ContractValidationError, StateConflictError))
-            ):
+            receipt = (
+                getattr(exc, "provider_call_receipt", None)
+                or getattr(exc, "failure_receipt", None)
+            )
+            telemetry = getattr(exc, "operation_telemetry", None)
+            stronger_invocation_evidence = (
+                invocation_marked
+                or observed == 1
+                or receipt is not None
+                or telemetry is not None
+            )
+            proven_local_pretransport = (
+                not stronger_invocation_evidence
+                and (
+                    observed == 0
+                    or (
+                        observed is None
+                        and isinstance(
+                            exc, (ContractValidationError, StateConflictError)
+                        )
+                    )
+                )
+            )
+            if proven_local_pretransport:
                 self._record(
                     call_id,
                     owner,
@@ -139,7 +189,7 @@ class ContinuousProviderCallLedger:
                     stored_thread_sha256=stored_thread_sha256,
                 )
                 raise
-            self._record(call_id, owner, operation, ProviderCallState.TRANSPORT_INVOKED, route, model, effort, stored_thread_sha256=stored_thread_sha256)
+            mark_transport_invoked()
             self._record(
                 call_id,
                 owner,
@@ -148,18 +198,13 @@ class ContinuousProviderCallLedger:
                 route,
                 model,
                 effort,
-                failure_receipt_sha256=_safe_hash(
-                    getattr(exc, "provider_call_receipt", None)
-                    or getattr(exc, "failure_receipt", None)
-                ),
-                operation_telemetry_sha256=_safe_hash(
-                    getattr(exc, "operation_telemetry", None)
-                ),
+                failure_receipt_sha256=_safe_hash(receipt),
+                operation_telemetry_sha256=_safe_hash(telemetry),
                 failure_type=type(exc).__name__,
                 stored_thread_sha256=stored_thread_sha256,
             )
             raise
-        self._record(call_id, owner, operation, ProviderCallState.TRANSPORT_INVOKED, route, model, effort, stored_thread_sha256=stored_thread_sha256)
+        mark_transport_invoked()
         receipt_hash = _safe_hash(receipt_of(raw))
         telemetry_hash = _safe_hash(telemetry_of(raw))
         tool_sequence_hash = _safe_hash(
@@ -232,7 +277,27 @@ class ContinuousProviderCallLedger:
 
     @property
     def dispatched_call_count(self) -> int:
-        return len({value["call_id"] for value in self.events if value["state"] == ProviderCallState.TRANSPORT_INVOKED.value})
+        events = self.events
+        invoked = {
+            value["call_id"]
+            for value in events
+            if value["state"] == ProviderCallState.TRANSPORT_INVOKED.value
+        }
+        invoked.update(self.unresolved_prepared_call_ids)
+        return len(invoked)
+
+    @property
+    def unresolved_prepared_call_ids(self) -> tuple[str, ...]:
+        terminal_by_call: dict[str, str] = {}
+        for value in self.events:
+            terminal_by_call[value["call_id"]] = value["state"]
+        return tuple(
+            sorted(
+                call_id
+                for call_id, state in terminal_by_call.items()
+                if state == ProviderCallState.PREPARED.value
+            )
+        )
 
     def terminal_state(self, call_id: str) -> ProviderCallState:
         values = [value for value in self.events if value["call_id"] == call_id]

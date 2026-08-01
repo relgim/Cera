@@ -400,7 +400,7 @@ class ContinuousWorldStore:
             raise StateConflictError("creator acceptance journal already exists")
         transaction_root.mkdir(parents=False)
         journal_base = {
-            "schema_version": "cera.continuous_acceptance_journal.v2",
+            "schema_version": "cera.continuous_acceptance_journal.v3",
             "world_id": world_id,
             "branch_id": branch_id,
             "turn_id": turn_id,
@@ -420,6 +420,7 @@ class ContinuousWorldStore:
             "false_positive_diagnostic_payload": diagnostic_payload,
             "planner_ledger_state": "pending",
             "model_injection_state": "pending",
+            "planner_snapshot_state": "pending",
         }
         self._write_json(
             transaction_root / "JOURNAL.json",
@@ -870,7 +871,10 @@ class ContinuousWorldStore:
             if (
                 terminal == "active_installed"
                 and payload.get("schema_version")
-                == "cera.continuous_acceptance_journal.v2"
+                in {
+                    "cera.continuous_acceptance_journal.v2",
+                    "cera.continuous_acceptance_journal.v3",
+                }
             ):
                 self._finish_local_acceptance(root, transaction_root)
             recovered.append(str(payload.get("turn_id", transaction_root.name)))
@@ -931,7 +935,10 @@ class ContinuousWorldStore:
     ) -> None:
         journal_path = transaction_root / "JOURNAL.json"
         payload = json.loads(journal_path.read_text(encoding="utf-8"))
-        if payload.get("schema_version") != "cera.continuous_acceptance_journal.v2":
+        if payload.get("schema_version") not in {
+            "cera.continuous_acceptance_journal.v2",
+            "cera.continuous_acceptance_journal.v3",
+        }:
             return
         active = branch_root / "ACTIVE"
         if self.tree_sha256(active) != payload.get("prepared_sha256"):
@@ -1006,19 +1013,128 @@ class ContinuousWorldStore:
         return tuple(pending)
 
     def mark_acceptance_planner_ledger_appended(
-        self, world_id: str, branch_id: str, turn_id: str, envelope_sha256: str
+        self,
+        world_id: str,
+        branch_id: str,
+        turn_id: str,
+        envelope_sha256: str,
+        provider_thread_sha256: str | None = None,
     ) -> None:
+        if provider_thread_sha256 is None or re.fullmatch(r"[0-9a-f]{64}", provider_thread_sha256) is None:
+            raise ContractValidationError("Planner ledger append lacks stored-thread hash")
         self._update_acceptance_sync_state(
             world_id,
             branch_id,
             turn_id,
             planner_ledger_state="appended",
             accepted_final_envelope_sha256=envelope_sha256,
+            planner_provider_thread_sha256=provider_thread_sha256,
+        )
+
+    def mark_acceptance_injection_returned(
+        self,
+        world_id: str,
+        branch_id: str,
+        turn_id: str,
+        *,
+        envelope_sha256: str,
+        provider_thread_sha256: str,
+        injection_operation_receipt_sha256: str,
+    ) -> None:
+        if any(
+            re.fullmatch(r"[0-9a-f]{64}", value) is None
+            for value in (
+                envelope_sha256,
+                provider_thread_sha256,
+                injection_operation_receipt_sha256,
+            )
+        ):
+            raise ContractValidationError("acceptance injection receipt is invalid")
+        self._update_acceptance_sync_state(
+            world_id,
+            branch_id,
+            turn_id,
+            planner_ledger_state="appended",
+            model_injection_state="returned",
+            accepted_final_envelope_sha256=envelope_sha256,
+            planner_provider_thread_sha256=provider_thread_sha256,
+            injection_operation_receipt_sha256=injection_operation_receipt_sha256,
+        )
+
+    def mark_acceptance_session_snapshot_persisted(
+        self,
+        world_id: str,
+        branch_id: str,
+        turn_id: str,
+        *,
+        envelope_sha256: str,
+        provider_thread_sha256: str,
+        session_snapshot_sha256: str,
+        session_snapshot_relative_path: str,
+    ) -> None:
+        if any(
+            re.fullmatch(r"[0-9a-f]{64}", value) is None
+            for value in (
+                envelope_sha256,
+                provider_thread_sha256,
+                session_snapshot_sha256,
+            )
+        ):
+            raise ContractValidationError("acceptance snapshot binding is invalid")
+        if session_snapshot_relative_path != "PLANNER_SESSION/SESSION_SNAPSHOT.json":
+            raise ContractValidationError("acceptance snapshot path changed")
+        root = self.branch_root(world_id, branch_id)
+        snapshot_path = root / session_snapshot_relative_path
+        if not snapshot_path.is_file() or snapshot_path.is_symlink():
+            raise StateConflictError("acceptance Planner snapshot is unavailable")
+        snapshot_envelope = json.loads(snapshot_path.read_text(encoding="utf-8"))
+        snapshot = snapshot_envelope.get("snapshot", {})
+        handle = snapshot.get("handle", {}) if isinstance(snapshot, dict) else {}
+        accepted_turn_ids = snapshot.get("accepted_turn_ids", ()) if isinstance(snapshot, dict) else ()
+        if (
+            snapshot_envelope.get("snapshot_sha256") != session_snapshot_sha256
+            or handle.get("provider_thread_id_sha256") != provider_thread_sha256
+            or turn_id not in accepted_turn_ids
+        ):
+            raise StateConflictError("acceptance Planner snapshot identity changed")
+        self._update_acceptance_sync_state(
+            world_id,
+            branch_id,
+            turn_id,
+            planner_snapshot_state="persisted",
+            accepted_final_envelope_sha256=envelope_sha256,
+            planner_provider_thread_sha256=provider_thread_sha256,
+            planner_session_snapshot_sha256=session_snapshot_sha256,
+            planner_session_snapshot_relative_path=session_snapshot_relative_path,
         )
 
     def mark_acceptance_model_synchronized(
-        self, world_id: str, branch_id: str, turn_id: str, envelope_sha256: str
+        self,
+        world_id: str,
+        branch_id: str,
+        turn_id: str,
+        envelope_sha256: str,
     ) -> None:
+        payload = self.acceptance_synchronization_record(world_id, branch_id, turn_id)
+        if payload.get("model_injection_state") != "returned":
+            raise StateConflictError("model injection has not returned")
+        if payload.get("planner_snapshot_state") != "persisted":
+            raise StateConflictError("Planner session snapshot is not persisted")
+        synchronization_receipt_sha256 = canonical_sha256(
+            {
+                "turn_id": turn_id,
+                "accepted_final_envelope_sha256": envelope_sha256,
+                "planner_provider_thread_sha256": payload.get(
+                    "planner_provider_thread_sha256"
+                ),
+                "injection_operation_receipt_sha256": payload.get(
+                    "injection_operation_receipt_sha256"
+                ),
+                "planner_session_snapshot_sha256": payload.get(
+                    "planner_session_snapshot_sha256"
+                ),
+            }
+        )
         self._update_acceptance_sync_state(
             world_id,
             branch_id,
@@ -1026,7 +1142,20 @@ class ContinuousWorldStore:
             planner_ledger_state="appended",
             model_injection_state="synchronized",
             accepted_final_envelope_sha256=envelope_sha256,
+            synchronization_receipt_sha256=synchronization_receipt_sha256,
         )
+
+    def acceptance_synchronization_record(
+        self, world_id: str, branch_id: str, turn_id: str
+    ) -> dict[str, Any]:
+        root = self.branch_root(world_id, branch_id)
+        journal = root / f".acceptance-{_slug(turn_id, 'turn_id')}" / "JOURNAL.json"
+        if not journal.is_file():
+            raise StateConflictError("acceptance synchronization journal is unavailable")
+        payload = json.loads(journal.read_text(encoding="utf-8"))
+        if payload.get("state") != "local_acceptance_complete":
+            raise StateConflictError("local acceptance evidence is incomplete")
+        return payload
 
     def _update_acceptance_sync_state(
         self, world_id: str, branch_id: str, turn_id: str, **changes: Any
@@ -1035,13 +1164,15 @@ class ContinuousWorldStore:
         journal = root / f".acceptance-{_slug(turn_id, 'turn_id')}" / "JOURNAL.json"
         if not journal.is_file():
             raise StateConflictError("acceptance synchronization journal is unavailable")
-        payload = json.loads(journal.read_text(encoding="utf-8"))
-        if payload.get("state") != "local_acceptance_complete":
-            raise StateConflictError("local acceptance evidence is incomplete")
+        payload = self.acceptance_synchronization_record(world_id, branch_id, turn_id)
         prior_hash = payload.get("accepted_final_envelope_sha256")
         supplied_hash = changes.get("accepted_final_envelope_sha256")
         if prior_hash is not None and supplied_hash is not None and prior_hash != supplied_hash:
             raise StateConflictError("accepted-final synchronization hash changed")
+        prior_thread = payload.get("planner_provider_thread_sha256")
+        supplied_thread = changes.get("planner_provider_thread_sha256")
+        if prior_thread is not None and supplied_thread is not None and prior_thread != supplied_thread:
+            raise StateConflictError("accepted-final Planner thread changed")
         self._write_json(journal, {**payload, **changes})
 
     def _failpoint(self, stage: str) -> None:

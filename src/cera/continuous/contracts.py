@@ -66,17 +66,64 @@ class ProtectedUserAllowanceMode(StrEnum):
     MINIMAL_NONBRANCHING_CONNECTIVE = "minimal_nonbranching_connective"
 
 
+class ProtectedUserSourceClaimKind(StrEnum):
+    ACTION_OR_STATE = "action_or_state"
+    DIALOGUE = "dialogue"
+
+
+@dataclass(frozen=True, slots=True)
+class ProtectedUserSourceClaimV1:
+    """Python-owned exact span from the current protected-user source."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.protected_user_source_claim.v1"
+
+    schema_version: str
+    claim_key: str
+    kind: ProtectedUserSourceClaimKind
+    source_binding_key: str
+    source_sha256: str
+    source_start: int
+    source_end: int
+    exact_text: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("protected-user source claim schema changed")
+        _key(self.claim_key, "protected_user_source_claim.claim_key")
+        _key(self.source_binding_key, "protected_user_source_claim.source_binding_key")
+        if not re_is_sha256(self.source_sha256):
+            raise ContractValidationError("protected-user source hash is invalid")
+        if (
+            type(self.source_start) is not int
+            or type(self.source_end) is not int
+            or self.source_start < 0
+            or self.source_end <= self.source_start
+        ):
+            raise ContractValidationError("protected-user source span is invalid")
+        _text(self.exact_text, "protected_user_source_claim.exact_text", maximum=8_000)
+        if self.source_end - self.source_start != len(self.exact_text):
+            raise ContractValidationError("protected-user source span length changed")
+
+    @property
+    def claim_sha256(self) -> str:
+        return domain_sha256(self.SCHEMA_VERSION, self)
+
+
 @dataclass(frozen=True, slots=True)
 class ProtectedUserAllowanceV1:
     mode: ProtectedUserAllowanceMode
     source_binding_keys: tuple[str, ...]
     explanation: str
+    source_claim_keys: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _text(self.explanation, "protected_user_allowance.explanation", maximum=1_000)
         for value in self.source_binding_keys:
             _key(value, "protected_user_allowance.source_binding_keys")
         _unique(self.source_binding_keys, "protected_user_allowance.source_binding_keys")
+        for value in self.source_claim_keys:
+            _key(value, "protected_user_allowance.source_claim_keys")
+        _unique(self.source_claim_keys, "protected_user_allowance.source_claim_keys")
         if self.mode in {
             ProtectedUserAllowanceMode.EXACT_SOURCE_ONLY,
             ProtectedUserAllowanceMode.MINIMAL_NONBRANCHING_CONNECTIVE,
@@ -86,6 +133,13 @@ class ProtectedUserAllowanceV1:
             )
         if self.mode is ProtectedUserAllowanceMode.NONE and self.source_binding_keys:
             raise ContractValidationError("no protected-user allowance cannot carry source bindings")
+        if self.mode is ProtectedUserAllowanceMode.NONE and self.source_claim_keys:
+            raise ContractValidationError("no protected-user allowance cannot carry source claims")
+        if (
+            self.mode is ProtectedUserAllowanceMode.MINIMAL_NONBRANCHING_CONNECTIVE
+            and self.source_claim_keys
+        ):
+            raise ContractValidationError("mechanical connective cannot carry semantic source claims")
 
 
 @dataclass(frozen=True, slots=True)
@@ -168,7 +222,7 @@ class RichSequenceBeatV1:
 
 @dataclass(frozen=True, slots=True)
 class RichPlannerSequenceV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.rich_planner_sequence.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.rich_planner_sequence.v2"
 
     schema_version: str
     sequence_id: str
@@ -247,10 +301,7 @@ class CharacterSummaryEnvelopeV1:
             raise ContractValidationError("character summary revision must be positive")
         if not re_is_sha256(self.source_sha256):
             raise ContractValidationError("character summary source hash is invalid")
-        if self.source_authority_classification not in {
-            "active_authoritative_record_fields",
-            "validator_derived_summary_record",
-        }:
+        if self.source_authority_classification != "active_authoritative_record_fields":
             raise ContractValidationError(
                 "character summary authority classification is invalid"
             )

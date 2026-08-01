@@ -240,7 +240,7 @@ def rich_sequence() -> RichPlannerSequenceV1:
             RichSequenceBeatV1(
                 beat_key="verify_arrival",
                 actor_ids=("character:sakura_hanezawa",),
-                evidence_grounded_perception="The visitor supplies a name matching the expected arrival context.",
+                evidence_grounded_perception="The supplied arrival claim matches the expected-arrival context.",
                 immediate_goal="Verify the claim before relaxing the household threshold.",
                 relevant_character_pressures=("Protect the household while fulfilling the arrival arrangement.",),
                 competing_obligation_or_constraint="The expected arrival is plausible but not yet proven.",
@@ -249,7 +249,7 @@ def rich_sequence() -> RichPlannerSequenceV1:
                 observable_action_or_dialogue_direction="Sakura acknowledges the address and requests proof in her formal voice.",
                 private_state_guidance="Keep caution owner-private and avoid invented history.",
                 physical_material_continuity="Sakura retains control of the doorway and does not invite entry.",
-                resulting_state="Ted remains outside with a clear verification request to answer.",
+                resulting_state="The threshold remains closed with one clear verification request unanswered.",
                 deepseek_realization_space=("Choose exact wording, pacing, and a natural threshold gesture.",),
                 protected_user_allowance=ProtectedUserAllowanceV1(
                     mode=ProtectedUserAllowanceMode.NONE,

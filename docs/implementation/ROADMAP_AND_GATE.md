@@ -868,6 +868,16 @@ progressions are `continuous-summary-and-actor-evidence-authority-v2`,
 zero-provider integration audit under correction-cycle-002. It does not
 authorize the historical or a fresh live ten-call canary.
 
+D-190 is correction cycle 003 under the same standing provider-free authority.
+Its progressions are `continuous-live-harness-and-transport-accounting-v3`,
+`continuous-accepted-context-and-protected-user-authority-v3`, and
+`continuous-acceptance-snapshot-and-summary-provenance-v3`. It aligns the exact
+short-canary harness with the generic runtime, moves call accounting to the
+submission boundary, adds exact source-span and receipt-bound accepted-session
+authority, closes acceptance through an atomic Planner snapshot, and removes
+candidate-derived character summaries from the current contract. Its Stage 4
+remains a new zero-provider integration audit; no live canary is authorized.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

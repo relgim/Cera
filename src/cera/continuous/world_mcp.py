@@ -248,7 +248,10 @@ class ContinuousWorldToolDispatcher:
             elif raw_visibility in {"creator_private", "creator-only"}:
                 visibility = EvidenceVisibility.CREATOR_PRIVATE
                 knowledge_owner_id = content.get("knowledge_owner_id")
-            elif _record_type(target.relative_to(self.branch_root).as_posix()) == "characters":
+            elif _record_type(target.relative_to(self.branch_root).as_posix()) in {
+                "characters",
+                "character_summaries",
+            }:
                 # Character state is owner-private unless the record explicitly
                 # declares a stronger visibility. Genesis-seeded character
                 # projections predate the visibility field but still contain
@@ -481,6 +484,8 @@ class ContinuousWorldMcpBridge:
 
 def _record_type(relative_path: str) -> str:
     parts = relative_path.replace("\\", "/").split("/")
+    if len(parts) >= 2 and parts[0] == "DERIVED" and parts[1] == "CharacterSummaries":
+        return "character_summaries"
     if len(parts) >= 2 and parts[0] in {"ACTIVE", "DERIVED"}:
         return parts[1].casefold()
     return parts[0].casefold()
@@ -504,4 +509,10 @@ def _binding_descriptor(value: RequestEvidenceBindingV1) -> dict[str, Any]:
         "visibility": value.visibility.value,
         "knowledge_owner_id": value.knowledge_owner_id,
         "exact_read_operation_sha256": value.exact_read_operation_sha256,
+        "accepted_turn_id": value.accepted_turn_id,
+        "acceptance_receipt_sha256": value.acceptance_receipt_sha256,
+        "accepted_envelope_sha256": value.accepted_envelope_sha256,
+        "provider_thread_sha256": value.provider_thread_sha256,
+        "session_snapshot_sha256": value.session_snapshot_sha256,
+        "synchronization_receipt_sha256": value.synchronization_receipt_sha256,
     }

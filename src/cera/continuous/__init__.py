@@ -11,6 +11,8 @@ from .contracts import (
     PromptComponentUsageV1,
     ProtectedUserAllowanceMode,
     ProtectedUserAllowanceV1,
+    ProtectedUserSourceClaimKind,
+    ProtectedUserSourceClaimV1,
     RichPlannerSequenceV1,
     RichSequenceBeatV1,
     SceneSummaryV1,
@@ -24,7 +26,7 @@ from .contracts import (
     validator_route_for,
 )
 from .codex_stored import CodexContinuousStoredSessionPort
-from .sessions import ContinuousSessionSnapshotStore
+from .sessions import ContinuousContextInjectionReceiptV1, ContinuousSessionSnapshotStore
 from .runtime import ContinuousSceneChangeCandidateV1
 from .world_mcp import (
     ContinuousWorldMcpBridge,
@@ -54,6 +56,8 @@ __all__ = [
     "PromptComponentUsageV1",
     "ProtectedUserAllowanceMode",
     "ProtectedUserAllowanceV1",
+    "ProtectedUserSourceClaimKind",
+    "ProtectedUserSourceClaimV1",
     "RichPlannerSequenceV1",
     "RichSequenceBeatV1",
     "SceneSummaryV1",
@@ -67,6 +71,7 @@ __all__ = [
     "validator_route_for",
     "CodexContinuousStoredSessionPort",
     "ContinuousSessionSnapshotStore",
+    "ContinuousContextInjectionReceiptV1",
     "ContinuousSceneChangeCandidateV1",
     "ContinuousWorldMcpBridge",
     "ContinuousWorldToolDispatcher",

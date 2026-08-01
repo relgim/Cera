@@ -229,6 +229,12 @@ Each component records exact bytes and a byte-derived token estimate. The
 summary envelope always includes its stable source path/record ID, revision,
 latest accepted changes, and `more_information_available: true`.
 
+Prompt v4 also carries Python-owned exact protected-user source claims and
+receipt-bound accepted-session evidence. The latter may replace a repeated
+complete card only for exact recent same-scene continuity and the exact private
+owner named by the binding. Candidate-derived character summaries are disabled;
+all supplied character summary envelopes come from ACTIVE authoritative fields.
+
 The Planner authors causal and psychological structure, never final prose.
 DeepSeek receives canonical JSON for the complete rich sequence plus only the
 selected incomplete character summaries; Python `repr` output is forbidden.

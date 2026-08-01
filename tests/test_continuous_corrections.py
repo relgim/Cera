@@ -103,8 +103,10 @@ def _summary(pair: AcceptedTurnPairV1, text: str = "Sakura closed the arrival sc
 class _QueueStage:
     def __init__(self, *values) -> None:
         self.values = list(values)
+        self.prompts: list[str] = []
 
     def _next(self, prompt: str):
+        self.prompts.append(prompt)
         value = self.values.pop(0)
         if hasattr(value, "beats"):
             import re
@@ -280,6 +282,108 @@ class ContinuousEvidenceCorrectionTests(unittest.TestCase):
         with self.assertRaisesRegex(StateConflictError, "unknown Planner beat"):
             registry.validate_traceability(sequence, broken)
 
+    def test_protected_user_claims_bind_exact_spans_across_all_beat_text(self) -> None:
+        registry = RequestEvidenceBindingRegistry(
+            world_id="world-test", branch_id="main", turn_id="turn-001"
+        )
+        current = registry.allocate_current_source(
+            source_identity="current_user_source:turn-001",
+            source_text='Ted says, "Hello, my name is Ted."',
+            protected_user_allowance_scope="exact supplied source only",
+        )
+        claim = next(
+            value
+            for value in registry.protected_user_claim_manifest()
+            if value["kind"] == "dialogue"
+        )
+        base = rich_sequence()
+        exact = replace(
+            base,
+            beats=(
+                replace(
+                    base.beats[0],
+                    actor_ids=("character:ted",),
+                    observable_action_or_dialogue_direction=(
+                        'Ted says exactly "Hello, my name is Ted."'
+                    ),
+                    protected_user_allowance=ProtectedUserAllowanceV1(
+                        mode=ProtectedUserAllowanceMode.EXACT_SOURCE_ONLY,
+                        source_binding_keys=(current.binding_key,),
+                        source_claim_keys=(claim["claim_key"],),
+                        explanation="Use only the exact supplied dialogue span.",
+                    ),
+                    source_evidence_bindings=(current.binding_key,),
+                ),
+            ),
+        )
+        registry.validate_sequence(exact, branch_root=self.root)
+
+        active = registry.allocate_initial_projection(
+            branch_root=self.root,
+            relative_path="ACTIVE/Characters/Sakura.json",
+            record_type="characters",
+            visibility=EvidenceVisibility.CHARACTER_PRIVATE,
+            knowledge_owner_id="character:sakura_hanezawa",
+        )
+
+        for actor_ids in (("character:ted",), ("character:sakura_hanezawa",)):
+            with self.subTest(actor_ids=actor_ids), self.assertRaisesRegex(
+                PermissionError, "exact Python-owned source span"
+            ):
+                registry.validate_sequence(
+                    replace(
+                        exact,
+                        beats=(
+                            replace(
+                                exact.beats[0],
+                                actor_ids=actor_ids,
+                                observable_action_or_dialogue_direction=(
+                                    "Ted enters the house without a supplied action."
+                                ),
+                                source_evidence_bindings=(
+                                    (current.binding_key,)
+                                    if actor_ids == ("character:ted",)
+                                    else (current.binding_key, active.binding_key)
+                                ),
+                            ),
+                        ),
+                    ),
+                    branch_root=self.root,
+                )
+
+    def test_derived_character_summary_mcp_read_is_private_and_owner_bound(self) -> None:
+        path = self.root / "DERIVED" / "CharacterSummaries" / "Sakura.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(
+            canonical_bytes(
+                {
+                    "_cera_revision": 1,
+                    "character_id": "character:sakura_hanezawa",
+                    "summary": "Historical derived navigation only.",
+                }
+            )
+            + b"\n"
+        )
+        registry = RequestEvidenceBindingRegistry(
+            world_id="world-test", branch_id="main", turn_id="turn-001"
+        )
+        dispatcher = ContinuousWorldToolDispatcher(
+            self.root,
+            ContinuousSessionRole.PLANNER,
+            current_turn_id="turn-001",
+            evidence_registry=registry,
+        )
+        result = dispatcher.invoke(
+            "cera_world_read",
+            {"path": "DERIVED/CharacterSummaries/Sakura.json"},
+        )
+        self.assertEqual(result["evidence_binding"]["record_type"], "character_summaries")
+        self.assertEqual(result["evidence_binding"]["visibility"], "character_private")
+        self.assertEqual(
+            result["evidence_binding"]["knowledge_owner_id"],
+            "character:sakura_hanezawa",
+        )
+
 
 class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
     def test_three_turn_two_scene_flow_keeps_separate_sessions_and_appends_once(self) -> None:
@@ -351,6 +455,18 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
             ):
                 character_path = store.branch_root("world-test", "main") / "ACTIVE" / "Characters" / "Sakura.json"
                 character_record = json.loads(character_path.read_text(encoding="utf-8"))
+                summaries = (
+                    (
+                        character_summary(
+                            source_sha256=text_sha256(
+                                character_path.read_text(encoding="utf-8")
+                            ),
+                            source_revision=character_record["_cera_revision"],
+                        ),
+                    )
+                    if turn_id == "turn-001"
+                    else ()
+                )
                 candidate = coordinator.prepare(
                     ContinuousTurnRequestV1(
                         world_id="world-test",
@@ -359,14 +475,14 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                         turn_id=turn_id,
                         user_message=message,
                         current_authority_packet={"protected_user_id": "character:ted"},
-                        character_summaries=(character_summary(
-                            source_sha256=text_sha256(character_path.read_text(encoding="utf-8")),
-                            source_revision=character_record["_cera_revision"],
-                        ),),
+                        character_summaries=summaries,
                     )
                 )
                 self.assertEqual(candidate.provider_calls, 0)
                 coordinator.apply_creator_action(turn_id, CreatorReviewAction.ACCEPT)
+
+            self.assertIn('"kind":"accepted_session_envelope"', planner.prompts[1])
+            self.assertIn('"character_summary_bindings":[]', planner.prompts[1])
 
             character_path = store.branch_root("world-test", "main") / "ACTIVE" / "Characters" / "Sakura.json"
             character_record = json.loads(character_path.read_text(encoding="utf-8"))
@@ -410,6 +526,92 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
             self.assertNotIn(new_prompt, summary.shortest_complete_summary)
             derived = root / "DERIVED" / "Scenes"
             self.assertEqual(len(tuple(derived.glob("*.summary.json"))), 1)
+            journal = json.loads(
+                (
+                    store.branch_root("world-test", "main")
+                    / ".acceptance-turn-003"
+                    / "JOURNAL.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(journal["model_injection_state"], "synchronized")
+            self.assertEqual(journal["planner_snapshot_state"], "persisted")
+            for key in (
+                "accepted_final_envelope_sha256",
+                "planner_provider_thread_sha256",
+                "injection_operation_receipt_sha256",
+                "planner_session_snapshot_sha256",
+                "synchronization_receipt_sha256",
+            ):
+                self.assertEqual(len(journal[key]), 64)
+
+    def test_acceptance_synchronization_crash_points_remain_pending_without_replay(self) -> None:
+        stages = (
+            "after_in_memory_ledger_append",
+            "after_provider_injection_returned",
+            "after_world_injection_update",
+            "before_snapshot_replace",
+            "after_snapshot_replace",
+            "after_snapshot_persisted",
+        )
+        for stage in stages:
+            with self.subTest(stage=stage), TemporaryDirectory() as directory:
+                store = ContinuousWorldStore(Path(directory).resolve() / "worlds")
+                root = _seed_character(store)
+                session_port = InMemoryContinuousStoredSessionPort()
+                planner_session = ContinuousSessionCoordinator(
+                    session_compatibility(ContinuousSessionRole.PLANNER), session_port
+                )
+                validator_session = ContinuousSessionCoordinator(
+                    session_compatibility(ContinuousSessionRole.VALIDATOR), session_port
+                )
+
+                def failpoint(value: str) -> None:
+                    if value == stage:
+                        raise SystemExit("simulated synchronization crash")
+
+                coordinator = ContinuousShadowTurnCoordinator(
+                    world=store,
+                    planner_session=planner_session,
+                    validator_session=validator_session,
+                    planner=_QueueStage(rich_sequence()),
+                    composer=_QueueStage(SimpleNamespace(story_text="Sakura requests proof.")),
+                    validator=_QueueStage(package()),
+                    acceptance_sync_failpoint=failpoint,
+                )
+                source = root / "ACTIVE" / "Characters" / "Sakura.json"
+                record = json.loads(source.read_text(encoding="utf-8"))
+                coordinator.prepare(
+                    ContinuousTurnRequestV1(
+                        world_id="world-test",
+                        branch_id="main",
+                        scene_id="scene-001",
+                        turn_id="turn-001",
+                        user_message="Hello.",
+                        current_authority_packet={"protected_user_id": "character:ted"},
+                        character_summaries=(
+                            character_summary(
+                                source_sha256=text_sha256(
+                                    source.read_text(encoding="utf-8")
+                                ),
+                                source_revision=record["_cera_revision"],
+                            ),
+                        ),
+                    )
+                )
+                with self.assertRaises(SystemExit):
+                    coordinator.apply_creator_action(
+                        "turn-001", CreatorReviewAction.ACCEPT
+                    )
+                self.assertEqual(
+                    store.pending_acceptance_synchronization("world-test", "main"),
+                    ("turn-001",),
+                )
+                journal = json.loads(
+                    (
+                        root / ".acceptance-turn-001" / "JOURNAL.json"
+                    ).read_text(encoding="utf-8")
+                )
+                self.assertNotEqual(journal["model_injection_state"], "synchronized")
 
 
 class ContinuousCallAccountingTests(unittest.TestCase):
@@ -473,6 +675,51 @@ class ContinuousCallAccountingTests(unittest.TestCase):
         self.assertEqual(
             self.ledger.events[-1]["state"], ProviderCallState.PROVIDER_FAILED.value
         )
+
+    def test_receipt_overrides_optional_zero_and_unresolved_prepared_consumes_slot(self) -> None:
+        class CompletedFailure(RuntimeError):
+            external_provider_calls_observed = 0
+            provider_call_receipt = {"external_provider_calls": 1}
+
+        with self.assertRaises(CompletedFailure):
+            self.ledger.execute(
+                owner="planner",
+                operation="receipt_beats_zero",
+                route="test-route",
+                model="fake-model",
+                effort="medium",
+                stored_thread_sha256="d" * 64,
+                dispatch=lambda: (_ for _ in ()).throw(CompletedFailure("failed")),
+                finalize=lambda raw: raw,
+            )
+        self.assertEqual(self.ledger.dispatched_call_count, 1)
+
+        stranded = ContinuousProviderCallLedger(
+            Path(self.temp.name).resolve() / "stranded.jsonl", maximum_calls=1
+        )
+        stranded._record(
+            "call_stranded",
+            "planner",
+            "transport",
+            ProviderCallState.PREPARED,
+            "test-route",
+            "fake-model",
+            "medium",
+            stored_thread_sha256="e" * 64,
+        )
+        self.assertEqual(stranded.unresolved_prepared_call_ids, ("call_stranded",))
+        self.assertEqual(stranded.dispatched_call_count, 1)
+        with self.assertRaisesRegex(StateConflictError, "ceiling"):
+            stranded.execute(
+                owner="planner",
+                operation="second",
+                route="test-route",
+                model="fake-model",
+                effort="medium",
+                stored_thread_sha256="e" * 64,
+                dispatch=lambda: object(),
+                finalize=lambda raw: raw,
+            )
 
     def test_pretransport_failure_counts_zero_and_stored_thread_is_bound(self) -> None:
         with self.assertRaises(ContractValidationError):
@@ -954,7 +1201,7 @@ class ContinuousEvidenceAuthorityV2Tests(unittest.TestCase):
             with self.assertRaisesRegex(StateConflictError, "latest changes"):
                 validate_character_summary_envelope(branch_root=root, envelope=fabricated)
 
-    def test_validator_derived_character_summary_requires_exact_package_and_active_source(self) -> None:
+    def test_validator_derived_character_summary_is_not_an_authority_source(self) -> None:
         with TemporaryDirectory() as directory:
             store = ContinuousWorldStore(Path(directory).resolve() / "worlds")
             root = _seed_character(store)
@@ -989,15 +1236,14 @@ class ContinuousEvidenceAuthorityV2Tests(unittest.TestCase):
             )
             derived_path.parent.mkdir(parents=True, exist_ok=True)
             derived_path.write_bytes(canonical_bytes(derived) + b"\n")
-            envelope = build_character_summary_envelope(
-                branch_root=root,
-                source_path="DERIVED/CharacterSummaries/Sakura.json",
-                character_id="character:sakura_hanezawa",
-            )
-            validate_character_summary_envelope(branch_root=root, envelope=envelope)
-            validator_path.write_text("{}\n", encoding="utf-8", newline="\n")
-            with self.assertRaisesRegex(StateConflictError, "Validator package is stale"):
-                validate_character_summary_envelope(branch_root=root, envelope=envelope)
+            with self.assertRaisesRegex(
+                ContractValidationError, "ACTIVE authoritative record"
+            ):
+                build_character_summary_envelope(
+                    branch_root=root,
+                    source_path="DERIVED/CharacterSummaries/Sakura.json",
+                    character_id="character:sakura_hanezawa",
+                )
 
     def test_private_multi_actor_and_derived_only_hard_decision_fail(self) -> None:
         with TemporaryDirectory() as directory:
@@ -1057,7 +1303,7 @@ class ContinuousEvidenceAuthorityV2Tests(unittest.TestCase):
                     base.beats[0], source_evidence_bindings=(derived.binding_key,)
                 ),),
             )
-            with self.assertRaisesRegex(StateConflictError, "ACTIVE authority"):
+            with self.assertRaisesRegex(StateConflictError, "owner-bound accepted-session"):
                 derived_registry.validate_sequence(derived_only, branch_root=root)
 
     def test_minimal_connective_cannot_make_ted_an_actor(self) -> None:
@@ -1075,7 +1321,9 @@ class ContinuousEvidenceAuthorityV2Tests(unittest.TestCase):
 
     def test_persisted_continuous_records_are_in_schema_registry(self) -> None:
         versions = build_schema_registry().versions
-        self.assertIn("cera.request_evidence_binding.v2", versions)
+        self.assertIn("cera.request_evidence_binding.v3", versions)
+        self.assertIn("cera.protected_user_source_claim.v1", versions)
+        self.assertIn("cera.continuous_context_injection_receipt.v1", versions)
         self.assertIn("cera.continuous_provider_call_ledger_event.v2", versions)
         self.assertIn("cera.scene_summary_derived_view.v2", versions)
 
