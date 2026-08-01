@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+import re
 from typing import Callable
 
 from cera.adult_craft.repair import (
@@ -166,6 +167,7 @@ class LiveShapedTurnPipeline:
                     ),
                     handles=handles,
                     payloads=payloads,
+                    safe_diagnostic_codes=_reasoner_failure_diagnostic_codes(exc),
                     calls=exc.external_provider_calls_observed,
                 )
                 exc.retained_evidence_handles = handles
@@ -1271,6 +1273,33 @@ def _reasoner_failure_handles(
         for value in failure.lookup_receipts
     )
     return tuple(handles)
+
+
+_VALUE_FREE_REASONER_DIAGNOSTIC = re.compile(r"^[A-Za-z0-9_.:\[\]-]{1,160}$")
+
+
+def _reasoner_failure_diagnostic_codes(
+    failure: ReasonerExecutionFailure,
+) -> tuple[str, ...]:
+    """Project value-free Reasoner details into the durable audit vocabulary.
+
+    Transport and typed-decoder diagnostics deliberately use compact tokens
+    such as ``worker_stage:thread_resume``.  Failure bundles use a stricter
+    uppercase identifier grammar.  This projection preserves the useful stage
+    without allowing exception text, story content, or provider output into
+    the durable audit record.
+    """
+
+    projected: list[str] = []
+    for detail in failure.envelope.details:
+        if _VALUE_FREE_REASONER_DIAGNOSTIC.fullmatch(detail) is None:
+            continue
+        suffix = re.sub(r"[^A-Za-z0-9]+", "_", detail).strip("_").upper()
+        code = f"REASONER_{suffix}"
+        if not 3 <= len(code) <= 96 or code in projected:
+            continue
+        projected.append(code)
+    return tuple(projected)
 
 
 def _reasoner_failure_payloads(

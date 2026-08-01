@@ -4,11 +4,14 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
+from cera.errors import ErrorCode
+from cera.providers import ProviderTransportError
 from cera.reasoner_session import (
     CheckpointStatus,
     InMemoryReasonerSessionPort,
     NativeStoredReasonerSessionRuntime,
 )
+from cera.reasoner_session.runtime import _StablePrefixStoredTransport
 from cera.runtime import HanezawaHumanTestWorld
 from scripts.run_codex_branch_session_ab import prepare_message
 
@@ -96,6 +99,24 @@ class NativeStoredReasonerRuntimeTests(unittest.TestCase):
         self.assertEqual(second_ledger.rotated_from_session_id, first_session_id)
         self.assertEqual(second_ledger.compatibility.reasoning_effort, "xhigh")
         self.assertEqual(self.world.store.get_branch(self.world.branch_id).generation, 0)
+
+    def test_stored_prompt_boundary_failure_is_typed_and_diagnostic(self) -> None:
+        class NeverInvokedTransport:
+            route = object()
+
+            def invoke(self, *_args, **_kwargs):
+                raise AssertionError("malformed stored prompt reached provider transport")
+
+        transport = _StablePrefixStoredTransport(NeverInvokedTransport())
+        with self.assertRaises(ProviderTransportError) as caught:
+            transport.invoke("malformed prompt without authority marker")
+
+        self.assertEqual(caught.exception.code, ErrorCode.REASONER_CONTRACT_INVALID)
+        self.assertEqual(
+            caught.exception.safe_diagnostics,
+            ("stored_transport:prompt_split_invalid",),
+        )
+        self.assertEqual(caught.exception.external_provider_calls_observed, 0)
 
 
 if __name__ == "__main__":

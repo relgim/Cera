@@ -5,6 +5,7 @@ import json
 from threading import Thread
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from cera.creator_review import (
     CreatorReviewAction,
@@ -19,6 +20,10 @@ from cera.sillytavern import (
     CeraSillyTavernServerConfig,
     SillyTavernTurnReply,
     build_server,
+)
+from scripts.run_cera_sillytavern_server import (
+    ROOT as SERVER_ROOT,
+    _require_repository_virtual_environment,
 )
 
 
@@ -197,6 +202,56 @@ class SillyTavernServerTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertFalse(result["error"]["retryable"])
         self.assertFalse(result["error"]["fallback_used"])
+
+    def test_reasoner_failure_returns_privacy_safe_actionable_diagnostic(self) -> None:
+        failure = RuntimeError("scene reasoner failed before typed acceptance")
+        failure.envelope = SimpleNamespace(
+            stage="reasoner_dispatch",
+            error_code=SimpleNamespace(value="CERA_REASONER_UNAVAILABLE"),
+            message="scene reasoner failed before typed acceptance",
+        )
+        failure.failure_evidence_bundle = SimpleNamespace(
+            safe_diagnostic_codes=("REASONER_WORKER_STAGE_THREAD_RESUME",)
+        )
+
+        def fail(_request):
+            raise failure
+
+        self.adapter.complete = fail
+        status, result = self.request(
+            "POST",
+            "/v1/chat/completions",
+            {
+                "model": "cera-alpha",
+                "stream": False,
+                "cera_session_id": "st_chat_diagnostic",
+                "messages": [{"role": "user", "content": "test"}],
+            },
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(
+            result["error"]["diagnostics"],
+            ["REASONER_WORKER_STAGE_THREAD_RESUME"],
+        )
+        self.assertIn(
+            "REASONER_WORKER_STAGE_THREAD_RESUME",
+            result["error"]["message"],
+        )
+        self.assertFalse(result["error"]["retryable"])
+        self.assertFalse(result["error"]["fallback_used"])
+
+    def test_server_launch_requires_repository_virtual_environment(self) -> None:
+        with patch(
+            "scripts.run_cera_sillytavern_server.sys.prefix",
+            str(SERVER_ROOT / ".venv"),
+        ):
+            _require_repository_virtual_environment()
+        with patch(
+            "scripts.run_cera_sillytavern_server.sys.prefix",
+            str(SERVER_ROOT / "wrong-python"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "must run from"):
+                _require_repository_virtual_environment()
 
     def test_creator_review_lookup_and_accept_transport_are_typed(self) -> None:
         path = f"/v1/cera/reviews/{self.adapter.review_id}"

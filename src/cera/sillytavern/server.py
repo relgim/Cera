@@ -216,11 +216,16 @@ def build_server(
                     or str(exc)
                     or "CERA turn failed."
                 )
+                bundle = getattr(exc, "failure_evidence_bundle", None)
+                diagnostics = tuple(
+                    getattr(bundle, "safe_diagnostic_codes", ()) or ()
+                )
                 self._error(
                     HTTPStatus.BAD_REQUEST,
                     code,
                     message,
                     stage=stage,
+                    diagnostics=diagnostics,
                 )
 
         def log_message(self, format: str, *args: Any) -> None:
@@ -233,7 +238,11 @@ def build_server(
             message: str,
             *,
             stage: str = "http",
+            diagnostics: tuple[str, ...] = (),
         ) -> None:
+            visible_message = message
+            if diagnostics:
+                visible_message += " [diagnostic: " + ", ".join(diagnostics) + "]"
             print(
                 json.dumps(
                     {
@@ -241,7 +250,8 @@ def build_server(
                         "http_status": status.value,
                         "code": code,
                         "stage": stage,
-                        "message": message,
+                        "message": visible_message,
+                        "diagnostics": diagnostics,
                     },
                     ensure_ascii=False,
                     separators=(",", ":"),
@@ -253,10 +263,11 @@ def build_server(
                 status,
                 {
                     "error": {
-                        "message": message,
+                        "message": visible_message,
                         "type": "cera_error",
                         "code": code,
                         "stage": stage,
+                        "diagnostics": diagnostics,
                         "retryable": False,
                         "fallback_used": False,
                     }

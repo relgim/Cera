@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import sys
 
 from cera.runtime import (
     HUMAN_TEST_DATABASE_RELATIVE_PATH,
@@ -20,7 +21,21 @@ from cera.sillytavern import (
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def _require_repository_virtual_environment() -> None:
+    """Keep the parent runtime and every spawned provider worker identical."""
+
+    expected = (ROOT / ".venv").resolve()
+    active = Path(sys.prefix).resolve()
+    if active != expected:
+        raise RuntimeError(
+            "CERA SillyTavern must run from D:\\AIChatBot\\Cera\\.venv; "
+            "launch .venv\\Scripts\\python.exe "
+            "scripts\\run_cera_sillytavern_server.py"
+        )
+
+
 def main() -> int:
+    _require_repository_virtual_environment()
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--database",

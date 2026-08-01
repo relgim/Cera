@@ -147,11 +147,24 @@ Runtime authority is typed rather than decided by prose order. Genesis, accepted
 
 ## 5. Current implementation gate
 
+D-183 corrects the local SillyTavern zero-call stored-Reasoner failure path.
+The failed 2026-07-31 execution remains archived and was not automatically
+replayed. Durable
+failure evidence now preserves privacy-safe Reasoner worker-stage codes, the
+HTTP error returns those codes to SillyTavern, stored prompt-boundary failures
+are typed before dispatch, and the local adapter must run from the repository
+`.venv` so its parent and child workers share one dependency environment. The
+active D-180 model/prompt/schema/route identity is unchanged. The complete
+provider-free suite passes 634/634 with one optional live test skipped. D-184
+then authorized one manual SillyTavern retry: the three-call route reached
+`review_ready`, was left unaccepted, and preserved generation zero with no head
+artifact.
+
 D-180 is the active source identity. It corrects evidence citation ownership
 with Reasoner v25/packet v14 and MCP v7 while preserving all Python authority
 boundaries. No fresh live D-180 full-route qualification is claimed by this
-zero-provider stabilization checkpoint. The complete provider-free suite
-passes 575/575.
+zero-provider stabilization checkpoint. The historical D-180 provider-free
+checkpoint suite passed 575/575.
 
 D-179 remains the historical activation basis for the native stored Reasoner.
 Each message forks one stored candidate from the exact accepted checkpoint;

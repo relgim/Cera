@@ -8,11 +8,43 @@
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free checkpoint verification:** 575/575 tests passed in 268.827 seconds; zero live provider calls
+**Provider-free current verification:** 634/634 tests passed in 353.478 seconds; one optional live test skipped
+**D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
 
+- D-183 corrects the 2026-07-31 fresh-chat SillyTavern failure. The exact turn
+  failed at `scene_reasoner` in 0.356 seconds with zero provider calls, zero
+  authoritative writes, no output hash, and no accepted artifact. Its failed
+  stored candidate is archived; the branch remains generation zero.
+- The exact historical exception subtype cannot be recovered because the old
+  pipeline discarded the Reasoner's already-value-free detail tokens. The
+  exact request now passes disposable preparation, prompt split, schema
+  projection, and MCP startup checks, and the accepted stored root resumes
+  under the repository virtual environment without a model turn.
+- The correction durably normalizes transport/worker-stage details into the
+  failure bundle, returns them through the SillyTavern error response, types
+  stored prompt split/mismatch failures, and makes the server fail at startup
+  unless its active prefix is `D:\AIChatBot\Cera\.venv`. The old process did
+  not expose an auditable parent/child Python-environment identity, so the
+  environment mismatch is corrected as a risk rather than asserted as the
+  unrecoverable historical exception subtype.
+- Focused checks pass 30/30 plus 52/52. The complete provider-free suite passes
+  634/634 in 353.478 seconds with one optional live test skipped. No fallback
+  or automatic retry was added. Read
+  `implementation/SILLYTAVERN_ZERO_CALL_HANDOFF_CORRECTION_RESULT.md`.
+- The port-5101 adapter was replaced through the explicit repository `.venv`
+  launcher. Health is `ok`; active profile validation is true; stored Reasoner
+  mode is `branch_bound_native_stored_v1`; Sol is active; v39 stderr is clean.
+  No chat-completion request was sent during restart verification.
+- D-184 records Ted's later explicit one-run authorization. The pending
+  SillyTavern message was manually resubmitted through the UI. Reasoner,
+  context assembly, DeepSeek composition, and Sol verification all completed;
+  the candidate reached `review_ready` after exactly three provider calls.
+  Accept was not invoked, and the active branch remains generation zero with
+  no head artifact. This is one successful repaired-turn validation, not a
+  production or general reliability claim.
 - D-180 is the current source identity. The typed profile is consumed by active
   routes, stored-session compatibility, and health output; deterministic tests
   reject drift among profile, adapters, prompts, schemas, tools, and routes.

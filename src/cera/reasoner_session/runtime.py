@@ -17,9 +17,11 @@ from threading import RLock
 from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
 from cera.composer import ArtifactPublicationMode
 from cera.contracts import BehavioralTurnControls
+from cera.errors import ErrorCode
 from cera.ids import IdKind, TypedId, deterministic_id
 from cera.providers import (
     CodexSDKTransport,
+    ProviderTransportError,
     ProviderSchemaDialect,
     StoredCodexThreadRunner,
     codex_reasoner_candidate,
@@ -99,10 +101,20 @@ class _StablePrefixStoredTransport:
     def invoke(self, prompt: str, **kwargs):
         delimiter = "\n" + _PACKET_MARKER + "\n"
         if prompt.count(delimiter) != 1:
-            raise RuntimeError("active Reasoner prompt cannot be split exactly once")
+            raise ProviderTransportError(
+                ErrorCode.REASONER_CONTRACT_INVALID,
+                "active Reasoner prompt cannot be split exactly once",
+                safe_diagnostics=("stored_transport:prompt_split_invalid",),
+            )
         stable, packet = prompt.split(delimiter, 1)
         if stable != _STABLE_REASONER_INSTRUCTIONS:
-            raise RuntimeError("active Reasoner stable instructions changed")
+            raise ProviderTransportError(
+                ErrorCode.REASONER_CONTRACT_INVALID,
+                "active Reasoner stable instructions changed",
+                safe_diagnostics=(
+                    "stored_transport:stable_instruction_mismatch",
+                ),
+            )
         return self.transport.invoke(
             _PACKET_MARKER + "\n" + packet,
             **kwargs,

@@ -75,6 +75,7 @@ from cera.genesis.hanezawa_builder import CHARACTER_IDS
 from cera.ids import IdKind
 from cera.errors import (
     ContractValidationError,
+    ErrorCode,
     EvidenceServiceError,
     StateConflictError,
     TransactionError,
@@ -103,10 +104,12 @@ from cera.reasoner import (
     ParticipationRole,
     ParticipationSelection,
     ReasonerEvidenceCitation,
+    ReasonerExecutionFailure,
     ReasonerOutcome,
     ReasonerOutcomeStatus,
     ReasonerSeedDossier,
     SceneReasonerRequest,
+    SceneReasonerPortFailure,
 )
 from cera.realization import EchoAcceptingSceneRealizationVerifierPort
 from cera.runtime import (
@@ -1020,6 +1023,50 @@ class LiveShapedPipelineTests(unittest.TestCase):
         )
         self.assertEqual(entries[-1].stage, "reasoner_decision_gate")
         self.assertEqual(entries[-1].status.value, "failed")
+
+    def test_reasoner_transport_diagnostics_survive_failure_audit(self) -> None:
+        args = self.ordinary_case("reasoner-worker-handoff")
+        self.pipeline.stage_audit_journal = TurnStageAuditJournal(
+            self.real.sandbox.store
+        )
+
+        class FailedStoredThreadPort:
+            def reason(self, _request, _tools):
+                raise SceneReasonerPortFailure(
+                    ErrorCode.REASONER_UNAVAILABLE,
+                    "stored Reasoner worker failed before provider dispatch",
+                    safe_diagnostics=(
+                        "transport:worker_failure",
+                        "worker_stage:thread_resume",
+                    ),
+                )
+
+        with self.assertRaises(ReasonerExecutionFailure) as caught:
+            self.pipeline.execute(
+                args[0],
+                FailedStoredThreadPort(),
+                args[2],
+                args[3],
+            )
+
+        bundle = caught.exception.failure_evidence_bundle
+        self.assertIsNotNone(bundle)
+        self.assertEqual(
+            bundle.safe_diagnostic_codes,
+            (
+                "REASONER_TRANSPORT_WORKER_FAILURE",
+                "REASONER_WORKER_STAGE_THREAD_RESUME",
+            ),
+        )
+        reloaded = self.real.sandbox.store.get_turn_failure_evidence(
+            bundle.failure_bundle_id
+        )
+        self.assertEqual(
+            reloaded.safe_diagnostic_codes,
+            bundle.safe_diagnostic_codes,
+        )
+        self.assertEqual(bundle.external_provider_calls_observed, 0)
+        self.assertEqual(self.real.sandbox.store.table_count("artifacts"), 0)
 
     def test_receipt_and_packet_do_not_retain_provider_secrets(self) -> None:
         args = self.ordinary_case("receipt")
