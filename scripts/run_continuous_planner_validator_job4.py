@@ -18,6 +18,7 @@ import sqlite3
 import subprocess
 import time
 from typing import Any, Callable
+import unittest
 
 from cera.continuous.codex_stored import CodexContinuousStoredSessionPort
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
@@ -25,6 +26,7 @@ from cera.continuous.diagnostics import ContinuousRootDiagnosticRecorder
 from cera.continuous.evidence import (
     build_character_summary_envelope,
 )
+from cera.continuous.ingress import ContinuousIngressAuthorityStore
 from cera.continuous.contracts import (
     AcceptedTurnPairV1,
     CharacterSummaryEnvelopeV1,
@@ -194,6 +196,35 @@ def validate_job4_identity(
         raise ValueError("Job 4 provider-call ceiling changed")
 
 
+def validate_declared_unittest_ids(test_ids: tuple[str, ...]) -> dict[str, int]:
+    """Resolve every audit test identity before a checkpoint is published."""
+
+    if not test_ids or len(test_ids) != len(set(test_ids)):
+        raise ValueError("Job 4 unittest identities are empty or duplicated")
+    loader = unittest.TestLoader()
+    resolved: dict[str, int] = {}
+    for test_id in test_ids:
+        suite = loader.loadTestsFromName(test_id)
+        flattened: list[unittest.TestCase] = []
+
+        def visit(value) -> None:
+            for child in value:
+                if isinstance(child, unittest.TestSuite):
+                    visit(child)
+                else:
+                    flattened.append(child)
+
+        visit(suite)
+        if (
+            len(flattened) != 1
+            or flattened[0].__class__.__name__ == "_FailedTest"
+            or flattened[0].id() != test_id
+        ):
+            raise ValueError(f"Job 4 unittest identity did not resolve: {test_id}")
+        resolved[test_id] = 1
+    return resolved
+
+
 def write_json(path: Path, value: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
@@ -349,8 +380,8 @@ def compatibility(
         world_directory_identity_sha256=world.world_identity_sha256(WORLD_ID, BRANCH_ID),
         authority_policy_version="cera.owner_architecture.v2+d186",
         privacy_policy_version="cera.privacy.v1",
-        protected_user_policy_version="cera.continuous_protected_user_policy.v5",
-        session_policy_version="cera.continuous_session_policy.v5",
+        protected_user_policy_version="cera.continuous_protected_user_policy.v6",
+        session_policy_version="cera.continuous_session_policy.v6",
     )
 
 
@@ -422,6 +453,10 @@ class JobHarness:
         lifecycle_root: Path,
         call_ledger: ContinuousProviderCallLedger,
         root_diagnostic: ContinuousRootDiagnosticRecorder | None = None,
+        planner_transport_factory: Callable[[Path, str], Any] | None = None,
+        validator_transport_factory: Callable[[Path, str], Any] | None = None,
+        composer_transport_factory: Callable[[], Any] | None = None,
+        scripted_provider_free: bool = False,
     ) -> None:
         self.source_root = source_root
         self.cycle = cycle
@@ -433,14 +468,20 @@ class JobHarness:
         self.lifecycle_root = lifecycle_root
         self.call_ledger = call_ledger
         self.root_diagnostic = root_diagnostic
+        self.planner_transport_factory = planner_transport_factory
+        self.validator_transport_factory = validator_transport_factory
+        self.composer_transport_factory = composer_transport_factory
+        self.scripted_provider_free = scripted_provider_free
         self.accepted_pairs: list[AcceptedTurnPairV1] = []
         self.call_records: list[dict[str, Any]] = []
         self.poll_records: list[dict[str, Any]] = []
         self.provider_calls = 0
+        self.scripted_transport_invocations = 0
         self.scene_change_envelope = None
         self._active_turn_number = 0
         self._active_turn_id = ""
         self._active_validator_label: str | None = None
+        self.ingress_authority = ContinuousIngressAuthorityStore()
         self.coordinator = ContinuousShadowTurnCoordinator(
             world=world,
             planner_session=planner_session,
@@ -448,7 +489,31 @@ class JobHarness:
             planner=_HarnessPlannerPort(self),
             composer=_HarnessComposerPort(self),
             validator=_HarnessValidatorPort(self),
+            ingress_authority=self.ingress_authority,
         )
+
+    def ingress_reference(self, turn_number: int) -> dict[str, str]:
+        turn_id = f"turn-{turn_number:03d}"
+        idempotency_key = f"continuous-job4-{turn_id}"
+        receipt = self.ingress_authority.issue_frozen_fixture(
+            fixture_id=f"cera.fixture.continuous_job4.turn_{turn_number}",
+            world_id=WORLD_ID,
+            branch_id=BRANCH_ID,
+            session_id="session:continuous_job4",
+            request_id=f"request:{turn_id}",
+            turn_id=turn_id,
+            idempotency_key=idempotency_key,
+            raw_source=TURN_MESSAGES[turn_number - 1],
+            protected_user_id="character:ted",
+            source_units=canary_source_units(turn_number),
+        )
+        return {
+            "session_id": receipt.session_id,
+            "request_id": receipt.request_id,
+            "idempotency_key_sha256": text_sha256(idempotency_key),
+            "ingress_receipt_id": receipt.receipt_id,
+            "ingress_receipt_sha256": receipt.receipt_sha256,
+        }
 
     def poll_pro(self, boundary: str) -> None:
         response = self.cycle / "inbox" / "PRO_RESPONSE.md"
@@ -506,7 +571,12 @@ class JobHarness:
         }
         try:
             result = operation()
-            self.provider_calls = self.call_ledger.dispatched_call_count
+            dispatched = self.call_ledger.dispatched_call_count
+            if self.scripted_provider_free:
+                self.scripted_transport_invocations = dispatched
+                self.provider_calls = 0
+            else:
+                self.provider_calls = dispatched
             telemetry = getattr(result, "operation_telemetry", None)
             expected_thread_hash = {
                 "planner": text_sha256(self.planner_handle),
@@ -529,14 +599,19 @@ class JobHarness:
                     raise RuntimeError("Codex canary route identity changed")
             elif owner == "composer":
                 receipt = result.provider_receipt
+                expected_external_calls = 0 if self.scripted_provider_free else 1
                 if (
                     receipt.requested_model != "deepseek-v4-flash"
-                    or receipt.external_provider_calls != 1
+                    or receipt.external_provider_calls != expected_external_calls
                 ):
                     raise RuntimeError("DeepSeek canary route identity changed")
             record.update(
                 {
-                    "status": "passed",
+                    "status": (
+                        "scripted_provider_free_passed"
+                        if self.scripted_provider_free
+                        else "passed"
+                    ),
                     "duration_ns": time.perf_counter_ns() - started,
                     "result": provider_debug(result),
                 }
@@ -553,9 +628,18 @@ class JobHarness:
                 self.call_records.append(record)
             raise
         except BaseException as exc:
-            before_count = self.provider_calls
-            self.provider_calls = self.call_ledger.dispatched_call_count
-            observed = self.provider_calls - before_count
+            before_count = (
+                self.scripted_transport_invocations
+                if self.scripted_provider_free
+                else self.provider_calls
+            )
+            dispatched = self.call_ledger.dispatched_call_count
+            if self.scripted_provider_free:
+                self.scripted_transport_invocations = dispatched
+                self.provider_calls = 0
+            else:
+                self.provider_calls = dispatched
+            observed = 0 if self.scripted_provider_free else dispatched - before_count
             record.update(
                 {
                     "status": "failed",
@@ -585,13 +669,17 @@ class JobHarness:
             current_turn_id=turn_id,
         )
         with ContinuousWorldMcpBridge(dispatcher) as bridge:
-            transport = StablePrefixTransport(
-                CodexSDKTransport(
-                    continuous_planner_route(effort="medium"),
-                    workspace=workspace,
-                    runner=StoredCodexThreadRunner(self.planner_handle),
-                ),
-                PLANNER_STABLE_INSTRUCTIONS,
+            transport = (
+                self.planner_transport_factory(workspace, self.planner_handle)
+                if self.planner_transport_factory is not None
+                else StablePrefixTransport(
+                    CodexSDKTransport(
+                        continuous_planner_route(effort="medium"),
+                        workspace=workspace,
+                        runner=StoredCodexThreadRunner(self.planner_handle),
+                    ),
+                    PLANNER_STABLE_INSTRUCTIONS,
+                )
             )
             return CodexContinuousPlannerPort(
                 transport, world_bridge=bridge, call_ledger=self.call_ledger
@@ -612,13 +700,19 @@ class JobHarness:
             current_turn_id=turn_id,
         )
         with ContinuousWorldMcpBridge(dispatcher) as bridge:
-            transport = StablePrefixTransport(
-                CodexSDKTransport(
-                    continuous_validator_route(model="gpt-5.6-terra", effort="high"),
-                    workspace=workspace,
-                    runner=StoredCodexThreadRunner(self.validator_handle),
-                ),
-                VALIDATOR_STABLE_INSTRUCTIONS,
+            transport = (
+                self.validator_transport_factory(workspace, self.validator_handle)
+                if self.validator_transport_factory is not None
+                else StablePrefixTransport(
+                    CodexSDKTransport(
+                        continuous_validator_route(
+                            model="gpt-5.6-terra", effort="high"
+                        ),
+                        workspace=workspace,
+                        runner=StoredCodexThreadRunner(self.validator_handle),
+                    ),
+                    VALIDATOR_STABLE_INSTRUCTIONS,
+                )
             )
             return CodexContinuousValidatorPort(
                 transport, world_bridge=bridge, call_ledger=self.call_ledger
@@ -632,7 +726,11 @@ class JobHarness:
 
     def deepseek(self, prompt: str):
         return DeepSeekContinuousComposerPort(
-            DeepSeekChatTransport(continuous_deepseek_route()),
+            (
+                self.composer_transport_factory()
+                if self.composer_transport_factory is not None
+                else DeepSeekChatTransport(continuous_deepseek_route())
+            ),
             call_ledger=self.call_ledger,
         ).compose(prompt)
 
@@ -672,7 +770,7 @@ class JobHarness:
                     "Stop only after a materially developed unit reaches a real protected-user choice.",
                 ),
             },
-            source_units=canary_source_units(turn_number),
+            **self.ingress_reference(turn_number),
             character_summaries=summaries,
             cera_scene_change=scene_change_context is not None,
         )
@@ -720,7 +818,7 @@ class JobHarness:
             "rich_beat_field_coverage": all(
                 all(
                     (
-                        beat.actor_ids,
+                        beat.roles.assertion_owner_ids,
                         beat.evidence_grounded_perception,
                         beat.immediate_goal,
                         beat.relevant_character_pressures,
@@ -754,7 +852,7 @@ class JobHarness:
             turn_id="turn-003",
             user_message=TURN_MESSAGES[2],
             current_authority_packet={"protected_user_id": "character:ted"},
-            source_units=canary_source_units(3),
+            **self.ingress_reference(3),
             cera_scene_change=True,
         )
         summary = self.coordinator.prepare_scene_change_summary(

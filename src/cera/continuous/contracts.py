@@ -79,6 +79,11 @@ class IngressSourceUnitKind(StrEnum):
     INSTRUCTION = "instruction"
 
 
+class ContinuousIngressAuthorityKind(StrEnum):
+    PREPARED_INGRESS = "prepared_ingress"
+    FROZEN_PYTHON_FIXTURE = "frozen_python_fixture"
+
+
 @dataclass(frozen=True, slots=True)
 class IngressSourceUnitV1:
     """Ingress-owned exact source classification; models cannot create it."""
@@ -141,6 +146,145 @@ class IngressSourceUnitV1:
     @property
     def source_unit_sha256(self) -> str:
         return domain_sha256(self.SCHEMA_VERSION, self)
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousIngressReceiptV1:
+    """Python-owned custody receipt for continuous source classifications."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_ingress_receipt.v1"
+
+    schema_version: str
+    receipt_id: str
+    world_id: str
+    branch_id: str
+    session_id: str
+    request_id: str
+    turn_id: str
+    idempotency_key_sha256: str
+    raw_source_sha256: str
+    protected_user_id: str
+    authority_kind: ContinuousIngressAuthorityKind
+    authority_identity_sha256: str
+    classification_adapter_id: str
+    source_units: tuple[IngressSourceUnitV1, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("continuous ingress receipt schema changed")
+        for field in (
+            "receipt_id",
+            "world_id",
+            "branch_id",
+            "session_id",
+            "request_id",
+            "turn_id",
+            "protected_user_id",
+            "classification_adapter_id",
+        ):
+            _identity(getattr(self, field), f"continuous_ingress_receipt.{field}")
+        for field in (
+            "idempotency_key_sha256",
+            "raw_source_sha256",
+            "authority_identity_sha256",
+        ):
+            if not re_is_sha256(getattr(self, field)):
+                raise ContractValidationError(
+                    f"continuous ingress receipt {field} is invalid"
+                )
+        if not self.source_units:
+            raise ContractValidationError("continuous ingress receipt has no source units")
+        _unique(
+            tuple(value.source_unit_key for value in self.source_units),
+            "continuous_ingress_receipt.source_units",
+        )
+        if (
+            self.authority_kind is ContinuousIngressAuthorityKind.FROZEN_PYTHON_FIXTURE
+            and not self.classification_adapter_id.startswith("cera.fixture.")
+        ):
+            raise ContractValidationError(
+                "frozen continuous ingress receipt lacks a fixture adapter identity"
+            )
+        for unit in self.source_units:
+            owner = unit.actor_id or unit.speaker_id
+            if owner == "character:ted" and owner != self.protected_user_id:
+                raise ContractValidationError(
+                    "continuous ingress receipt changed protected-user identity"
+                )
+
+    @property
+    def source_unit_ledger_sha256(self) -> str:
+        return canonical_sha256(self.source_units)
+
+    @property
+    def receipt_sha256(self) -> str:
+        return domain_sha256(self.SCHEMA_VERSION, self)
+
+
+@dataclass(frozen=True, slots=True)
+class CharacterRoleLedgerV1:
+    """One closed distinction between assertion owners and non-owning roles."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.character_role_ledger.v1"
+
+    schema_version: str = SCHEMA_VERSION
+    action_owner_ids: tuple[str, ...] = ()
+    state_owner_ids: tuple[str, ...] = ()
+    speaker_ids: tuple[str, ...] = ()
+    affected_ids: tuple[str, ...] = ()
+    addressed_ids: tuple[str, ...] = ()
+    observing_ids: tuple[str, ...] = ()
+    referenced_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("character role ledger schema changed")
+        fields = (
+            "action_owner_ids",
+            "state_owner_ids",
+            "speaker_ids",
+            "affected_ids",
+            "addressed_ids",
+            "observing_ids",
+            "referenced_ids",
+        )
+        for field in fields:
+            values = getattr(self, field)
+            for value in values:
+                _identity(value, f"character_roles.{field}")
+            _unique(values, f"character_roles.{field}")
+        all_roles = tuple(value for field in fields for value in getattr(self, field))
+        if not all_roles:
+            raise ContractValidationError("character role ledger is empty")
+        if len(all_roles) != len(set(all_roles)):
+            raise ContractValidationError(
+                "one character cannot hold multiple roles in one scoped assertion"
+            )
+
+    @property
+    def assertion_owner_ids(self) -> tuple[str, ...]:
+        return tuple(
+            dict.fromkeys(
+                (*self.action_owner_ids, *self.state_owner_ids, *self.speaker_ids)
+            )
+        )
+
+    @property
+    def non_owning_ids(self) -> tuple[str, ...]:
+        return tuple(
+            dict.fromkeys(
+                (
+                    *self.affected_ids,
+                    *self.addressed_ids,
+                    *self.observing_ids,
+                    *self.referenced_ids,
+                )
+            )
+        )
+
+    @property
+    def involved_ids(self) -> tuple[str, ...]:
+        return (*self.assertion_owner_ids, *self.non_owning_ids)
 
 
 @dataclass(frozen=True, slots=True)
@@ -245,7 +389,7 @@ class RichSequenceBeatV1:
     """One causal unit; not a line of prose or a fixed-size micro-action."""
 
     beat_key: str
-    actor_ids: tuple[str, ...]
+    roles: CharacterRoleLedgerV1
     evidence_grounded_perception: str
     immediate_goal: str
     relevant_character_pressures: tuple[str, ...]
@@ -262,11 +406,10 @@ class RichSequenceBeatV1:
 
     def __post_init__(self) -> None:
         _key(self.beat_key, "beat_key")
-        if not self.actor_ids:
-            raise ContractValidationError("rich sequence beat requires an actor")
-        for value in self.actor_ids:
-            _identity(value, "actor_ids")
-        _unique(self.actor_ids, "actor_ids")
+        if not self.roles.assertion_owner_ids:
+            raise ContractValidationError(
+                "rich sequence beat requires an action, state, or dialogue owner"
+            )
         for field in (
             "evidence_grounded_perception",
             "immediate_goal",
@@ -309,7 +452,7 @@ class RichSequenceBeatV1:
         if len(normalized) < 4 or any(len(value.split()) < 3 for value in reasoning):
             raise ContractValidationError("rich sequence beat is structurally shallow")
         if (
-            "character:ted" in self.actor_ids
+            "character:ted" in self.roles.assertion_owner_ids
             and self.protected_user_allowance.mode
             is not ProtectedUserAllowanceMode.EXACT_SOURCE_ONLY
         ):
@@ -320,7 +463,7 @@ class RichSequenceBeatV1:
 
 @dataclass(frozen=True, slots=True)
 class RichPlannerSequenceV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.rich_planner_sequence.v3"
+    SCHEMA_VERSION: ClassVar[str] = "cera.rich_planner_sequence.v4"
 
     schema_version: str
     sequence_id: str
@@ -354,7 +497,11 @@ class RichPlannerSequenceV1:
         _unique(tuple(value.beat_key for value in self.beats), "beat keys")
         selected = set(self.selected_character_ids)
         for beat in self.beats:
-            npc_actors = {value for value in beat.actor_ids if value != "character:ted"}
+            npc_actors = {
+                value
+                for value in beat.roles.assertion_owner_ids
+                if value != "character:ted"
+            }
             if not npc_actors.issubset(selected):
                 raise ContractValidationError("rich sequence beat names an unselected character")
         _text(self.final_stop_state, "final_stop_state", maximum=4_000)
@@ -615,8 +762,7 @@ class FinalFieldScopeV1:
     visibility: FinalInformationVisibility
     knowledge_owner_id: str | None
     story_segment_keys: tuple[str, ...]
-    actor_ids: tuple[str, ...]
-    subject_ids: tuple[str, ...]
+    roles: CharacterRoleLedgerV1
     protected_user_source_claim_keys: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -640,12 +786,6 @@ class FinalFieldScopeV1:
         for value in self.story_segment_keys:
             _key(value, "final_field_scope.story_segment_keys")
         _unique(self.story_segment_keys, "final_field_scope.story_segment_keys")
-        if not self.actor_ids and not self.subject_ids:
-            raise ContractValidationError("final field scope lacks actors and subjects")
-        for field in ("actor_ids", "subject_ids"):
-            for value in getattr(self, field):
-                _identity(value, f"final_field_scope.{field}")
-            _unique(getattr(self, field), f"final_field_scope.{field}")
         for value in self.protected_user_source_claim_keys:
             _key(value, "final_field_scope.protected_user_source_claim_keys")
         _unique(
@@ -653,7 +793,7 @@ class FinalFieldScopeV1:
             "final_field_scope.protected_user_source_claim_keys",
         )
         if (
-            "character:ted" in self.actor_ids
+            "character:ted" in self.roles.assertion_owner_ids
         ) != bool(self.protected_user_source_claim_keys):
             raise ContractValidationError(
                 "protected-user final field authorship must match exact claims"
@@ -672,9 +812,8 @@ class FinalSequenceItemV1:
     knowledge_changes: tuple[str, ...]
     material_changes: tuple[str, ...]
     resulting_state: str
+    roles: CharacterRoleLedgerV1
     protected_user_source_claim_keys: tuple[str, ...] = ()
-    actor_ids: tuple[str, ...] = ()
-    subject_ids: tuple[str, ...] = ()
     field_scopes: tuple[FinalFieldScopeV1, ...] = ()
 
     def __post_init__(self) -> None:
@@ -714,12 +853,6 @@ class FinalSequenceItemV1:
             self.protected_user_source_claim_keys,
             "final_sequence.protected_user_source_claim_keys",
         )
-        if not self.actor_ids and not self.subject_ids:
-            raise ContractValidationError("final sequence item lacks actors and subjects")
-        for field in ("actor_ids", "subject_ids"):
-            for value in getattr(self, field):
-                _identity(value, f"final_sequence.{field}")
-            _unique(getattr(self, field), f"final_sequence.{field}")
         scope_names = tuple(value.field_name for value in self.field_scopes)
         _unique(scope_names, "final_sequence.field_scopes")
         required_scopes = {"realized_event", "resulting_state"}
@@ -740,13 +873,28 @@ class FinalSequenceItemV1:
             raise ContractValidationError(
                 "final sequence field scopes do not cover exact Composer segments"
             )
-        if {
-            actor for scope in self.field_scopes for actor in scope.actor_ids
-        } != set(self.actor_ids) or {
-            subject for scope in self.field_scopes for subject in scope.subject_ids
-        } != set(self.subject_ids):
+        scoped_roles = {
+            field: {
+                identity
+                for scope in self.field_scopes
+                for identity in getattr(scope.roles, field)
+            }
+            for field in (
+                "action_owner_ids",
+                "state_owner_ids",
+                "speaker_ids",
+                "affected_ids",
+                "addressed_ids",
+                "observing_ids",
+                "referenced_ids",
+            )
+        }
+        if any(
+            scoped_roles[field] != set(getattr(self.roles, field))
+            for field in scoped_roles
+        ):
             raise ContractValidationError(
-                "final sequence actors and subjects disagree with field scopes"
+                "final sequence character roles disagree with field scopes"
             )
         if {
             claim
@@ -764,12 +912,12 @@ class FinalSequenceItemV1:
         if scoped_private_owners != set(self.private_state_owner_ids):
             raise ContractValidationError("final private owners disagree with field scopes")
         if not set(self.private_state_owner_ids).issubset(
-            set(self.actor_ids).union(self.subject_ids)
+            set(self.roles.involved_ids)
         ):
             raise ContractValidationError(
-                "final private owner is not an actor or subject"
+                "final private owner has no declared character role"
             )
-        protected_authorship = "character:ted" in self.actor_ids
+        protected_authorship = "character:ted" in self.roles.assertion_owner_ids
         if protected_authorship != bool(self.protected_user_source_claim_keys):
             raise ContractValidationError(
                 "protected-user final authorship must match exact supplied claims"
@@ -778,7 +926,7 @@ class FinalSequenceItemV1:
 
 @dataclass(frozen=True, slots=True)
 class FinalSequenceV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.complete_final_sequence.v4"
+    SCHEMA_VERSION: ClassVar[str] = "cera.complete_final_sequence.v5"
 
     schema_version: str
     sequence_id: str
@@ -806,11 +954,28 @@ class FinalSequenceV1:
 
 
 @dataclass(frozen=True, slots=True)
+class EventItemRoleLedgerV1:
+    """Python-derived role custody for one accepted final item."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.event_item_role_ledger.v1"
+
+    schema_version: str
+    final_sequence_item_key: str
+    roles: CharacterRoleLedgerV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("event item role ledger schema changed")
+        _key(self.final_sequence_item_key, "event_item_role.final_sequence_item_key")
+
+
+@dataclass(frozen=True, slots=True)
 class EventRecordCandidateV1:
     event_id: str
     accepted_turn_id: str
     scene_id: str
     participant_ids: tuple[str, ...]
+    item_role_ledgers: tuple[EventItemRoleLedgerV1, ...]
     summary: str
     final_sequence_item_keys: tuple[str, ...]
     protected_user_source_claim_keys: tuple[str, ...] = ()
@@ -826,6 +991,21 @@ class EventRecordCandidateV1:
         for value in self.final_sequence_item_keys:
             _key(value, "final_sequence_item_keys")
         _unique(self.final_sequence_item_keys, "final_sequence_item_keys")
+        if tuple(value.final_sequence_item_key for value in self.item_role_ledgers) != (
+            self.final_sequence_item_keys
+        ):
+            raise ContractValidationError(
+                "event item role ledgers do not match final sequence items"
+            )
+        role_participants = {
+            identity
+            for value in self.item_role_ledgers
+            for identity in value.roles.involved_ids
+        }
+        if set(self.participant_ids) != role_participants:
+            raise ContractValidationError(
+                "event participants do not equal event item roles"
+            )
         _text(self.summary, "event.summary", maximum=16_000)
         for value in self.protected_user_source_claim_keys:
             _key(value, "event.protected_user_source_claim_keys")
@@ -878,7 +1058,7 @@ class StoryRealizationKind(StrEnum):
 class StoryRealizationSegmentV1:
     """Exhaustive typed ownership for one exact Composer output segment."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.story_realization_segment.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.story_realization_segment.v2"
 
     schema_version: str
     segment_key: str
@@ -886,9 +1066,7 @@ class StoryRealizationSegmentV1:
     output_start: int
     output_end: int
     exact_text: str
-    actor_ids: tuple[str, ...]
-    subject_ids: tuple[str, ...]
-    speaker_id: str | None
+    roles: CharacterRoleLedgerV1
     protected_user_source_claim_keys: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
@@ -905,27 +1083,34 @@ class StoryRealizationSegmentV1:
         _text(self.exact_text, "story_realization.exact_text", maximum=64_000)
         if self.output_end - self.output_start != len(self.exact_text):
             raise ContractValidationError("story realization segment span length changed")
-        for value in self.actor_ids:
-            _identity(value, "story_realization.actor_ids")
-        _unique(self.actor_ids, "story_realization.actor_ids")
-        for value in self.subject_ids:
-            _identity(value, "story_realization.subject_ids")
-        _unique(self.subject_ids, "story_realization.subject_ids")
-        if not self.actor_ids and not self.subject_ids:
-            raise ContractValidationError("story realization segment lacks actors and subjects")
-        if self.speaker_id is not None:
-            _identity(self.speaker_id, "story_realization.speaker_id")
-        if self.kind is StoryRealizationKind.DIALOGUE and self.speaker_id is None:
-            raise ContractValidationError("dialogue realization requires a speaker")
-        if self.kind is not StoryRealizationKind.DIALOGUE and self.speaker_id is not None:
-            raise ContractValidationError("non-dialogue realization cannot declare a speaker")
+        if self.kind is StoryRealizationKind.ACTION:
+            valid = bool(self.roles.action_owner_ids) and not (
+                self.roles.state_owner_ids or self.roles.speaker_ids
+            )
+        elif self.kind is StoryRealizationKind.DIALOGUE:
+            valid = len(self.roles.speaker_ids) == 1 and not (
+                self.roles.action_owner_ids or self.roles.state_owner_ids
+            )
+        elif self.kind in {
+            StoryRealizationKind.PRIVATE_STATE,
+            StoryRealizationKind.CONSENT_OR_DECISION,
+        }:
+            valid = bool(self.roles.state_owner_ids) and not (
+                self.roles.action_owner_ids or self.roles.speaker_ids
+            )
+        else:
+            valid = not self.roles.assertion_owner_ids
+        if not valid:
+            raise ContractValidationError(
+                "story realization kind disagrees with exact ownership roles"
+            )
         for value in self.protected_user_source_claim_keys:
             _key(value, "story_realization.protected_user_source_claim_keys")
         _unique(
             self.protected_user_source_claim_keys,
             "story_realization.protected_user_source_claim_keys",
         )
-        protected = "character:ted" in self.actor_ids or self.speaker_id == "character:ted"
+        protected = "character:ted" in self.roles.assertion_owner_ids
         if protected != bool(self.protected_user_source_claim_keys):
             raise ContractValidationError(
                 "protected-user realization requires exact supplied claim keys"
@@ -1031,7 +1216,7 @@ class SceneSummaryDerivedViewV1:
 
 @dataclass(frozen=True, slots=True)
 class ValidatorFinalizationPackageV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.validator_finalization_package.v4"
+    SCHEMA_VERSION: ClassVar[str] = "cera.validator_finalization_package.v6"
     MAX_EDIT_OPERATIONS: ClassVar[int] = 100
 
     schema_version: str
@@ -1079,11 +1264,22 @@ class ValidatorFinalizationPackageV1:
             participant_union = {
                 identity
                 for item in self.complete_final_sequence.items
-                for identity in (*item.actor_ids, *item.subject_ids)
+                for identity in item.roles.involved_ids
             }
             if set(self.event_record.participant_ids) != participant_union:
                 raise ContractValidationError(
-                    "event participants do not equal justified final actors and subjects"
+                    "event participants do not equal justified final character roles"
+                )
+            final_roles = {
+                value.item_key: value.roles
+                for value in self.complete_final_sequence.items
+            }
+            if any(
+                final_roles.get(value.final_sequence_item_key) != value.roles
+                for value in self.event_record.item_role_ledgers
+            ):
+                raise ContractValidationError(
+                    "event role custody changed final sequence roles"
                 )
         else:
             if self.optional_scene_summary is None:

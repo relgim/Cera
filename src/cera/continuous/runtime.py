@@ -10,7 +10,7 @@ from typing import Any, Callable, Protocol
 
 from cera.creator_review.models import CreatorReviewAction
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import canonical_sha256, text_sha256, to_primitive
+from cera.serialization import canonical_sha256, re_is_sha256, text_sha256, to_primitive
 from cera.schema import from_mapping
 
 from .contracts import (
@@ -18,11 +18,11 @@ from .contracts import (
     AcceptedTurnPairV1,
     CharacterSummaryEnvelopeV1,
     EventRecordCandidateV1,
-    IngressSourceUnitV1,
     RichPlannerSequenceV1,
     ValidatorFinalizationPackageV1,
     ValidatorTaskMode,
 )
+from .ingress import ContinuousIngressAuthorityPort
 from .evidence import (
     AcceptedSessionProjectionV1,
     RequestEvidenceBindingRegistry,
@@ -67,38 +67,42 @@ class ValidatorPort(Protocol):
 class ContinuousTurnRequestV1:
     world_id: str
     branch_id: str
+    session_id: str
+    request_id: str
+    idempotency_key_sha256: str
     scene_id: str
     turn_id: str
     user_message: str
     current_authority_packet: dict[str, Any]
-    source_units: tuple[IngressSourceUnitV1, ...]
+    ingress_receipt_id: str
+    ingress_receipt_sha256: str
     character_summaries: tuple[CharacterSummaryEnvelopeV1, ...] = ()
     cera_scene_change: bool = False
 
     def __post_init__(self) -> None:
-        for field in ("world_id", "branch_id", "scene_id", "turn_id", "user_message"):
+        for field in (
+            "world_id",
+            "branch_id",
+            "session_id",
+            "request_id",
+            "scene_id",
+            "turn_id",
+            "user_message",
+        ):
             value = getattr(self, field)
             if not isinstance(value, str) or not value.strip():
                 raise ContractValidationError(f"continuous turn {field} is required")
         if type(self.cera_scene_change) is not bool:
             raise ContractValidationError("continuous scene change flag must be boolean")
-        if not self.source_units:
-            raise ContractValidationError("continuous turn requires ingress source units")
-        previous_end = 0
-        for unit in self.source_units:
-            if (
-                unit.source_start != previous_end
-                or unit.source_end > len(self.user_message)
-                or self.user_message[unit.source_start : unit.source_end]
-                != unit.exact_text
-            ):
-                raise ContractValidationError(
-                    "continuous turn ingress source units are not gap-free exact source bytes"
-                )
-            previous_end = unit.source_end
-        if previous_end != len(self.user_message):
+        if not re_is_sha256(self.idempotency_key_sha256):
             raise ContractValidationError(
-                "continuous turn ingress source units do not cover the complete source"
+                "continuous turn idempotency identity is invalid"
+            )
+        if not self.ingress_receipt_id.strip() or not re_is_sha256(
+            self.ingress_receipt_sha256
+        ):
+            raise ContractValidationError(
+                "continuous turn requires a trusted ingress receipt reference"
             )
 
 
@@ -129,6 +133,7 @@ class ContinuousTurnCandidateV1:
                 "protected_user_realization_ledger_sha256": self.protected_user_realization_ledger_sha256,
                 "story_segment_ledger_sha256": self.story_segment_ledger_sha256,
                 "accepted_session_projection_ledger_sha256": self.accepted_session_projection_ledger_sha256,
+                "ingress_receipt_sha256": self.request.ingress_receipt_sha256,
                 "planner_prompt_sha256": self.planner_prompt_sha256,
                 "composer_prompt_sha256": self.composer_prompt_sha256,
                 "validator_prompt_sha256": self.validator_prompt_sha256,
@@ -177,6 +182,7 @@ class ContinuousShadowTurnCoordinator:
         planner: PlannerPort,
         composer: ComposerPort,
         validator: ValidatorPort,
+        ingress_authority: ContinuousIngressAuthorityPort,
         acceptance_sync_failpoint: Callable[[str], None] | None = None,
     ) -> None:
         assert_separate_role_sessions(planner_session, validator_session)
@@ -190,6 +196,7 @@ class ContinuousShadowTurnCoordinator:
         self.planner = planner
         self.composer = composer
         self.validator = validator
+        self.ingress_authority = ingress_authority
         self._acceptance_sync_failpoint = acceptance_sync_failpoint
         self._candidates: dict[str, ContinuousTurnCandidateV1] = {}
 
@@ -368,6 +375,25 @@ class ContinuousShadowTurnCoordinator:
             or request.branch_id != self.validator_session.compatibility.branch_id
         ):
             raise StateConflictError("continuous turn changed session world or branch")
+        ingress_receipt = self.ingress_authority.resolve(
+            receipt_id=request.ingress_receipt_id,
+            receipt_sha256=request.ingress_receipt_sha256,
+        )
+        if (
+            ingress_receipt.world_id != request.world_id
+            or ingress_receipt.branch_id != request.branch_id
+            or ingress_receipt.session_id != request.session_id
+            or ingress_receipt.request_id != request.request_id
+            or ingress_receipt.turn_id != request.turn_id
+            or ingress_receipt.idempotency_key_sha256
+            != request.idempotency_key_sha256
+            or ingress_receipt.raw_source_sha256 != text_sha256(request.user_message)
+            or ingress_receipt.protected_user_id != "character:ted"
+        ):
+            raise StateConflictError(
+                "continuous ingress receipt changed request, branch, source, or protected user"
+            )
+        source_units = ingress_receipt.source_units
         if request.turn_id in self._candidates:
             raise StateConflictError("continuous turn candidate already exists")
         if self.planner_session.unsynchronized_accepted_turn_ids:
@@ -395,7 +421,7 @@ class ContinuousShadowTurnCoordinator:
             source_identity=f"current_user_source:{request.turn_id}",
             source_text=request.user_message,
             protected_user_allowance_scope="exact supplied source plus minimal nonbranching connective",
-            source_units=request.source_units,
+            source_units=source_units,
         )
         mechanical_binding = evidence_registry.allocate_mechanical_connective_allowance()
         accepted_session_bindings = self._bind_latest_accepted_session_evidence(
@@ -421,8 +447,9 @@ class ContinuousShadowTurnCoordinator:
                 "mechanical_connective_binding_key": mechanical_binding.binding_key,
                 "protected_user_source_claims": evidence_registry.protected_user_claim_manifest(),
                 "ingress_source_units": tuple(
-                    to_primitive(value) for value in request.source_units
+                    to_primitive(value) for value in source_units
                 ),
+                "ingress_receipt": to_primitive(ingress_receipt),
                 "accepted_session_bindings": tuple(
                     {
                         "binding_key": value["binding_key"],
@@ -471,7 +498,7 @@ class ContinuousShadowTurnCoordinator:
         composer_prompt, composer_usage = build_continuous_composer_prompt(
             current_user_source=request.user_message,
             ingress_source_units=tuple(
-                to_primitive(value) for value in request.source_units
+                to_primitive(value) for value in source_units
             ),
             planner_sequence=planner_sequence,
             character_summaries=request.character_summaries,
@@ -524,7 +551,7 @@ class ContinuousShadowTurnCoordinator:
                 to_primitive(value) for value in story_segments
             ),
             ingress_source_units=tuple(
-                to_primitive(value) for value in request.source_units
+                to_primitive(value) for value in source_units
             ),
             accepted_session_projections=accepted_session_bindings,
         )
@@ -633,8 +660,9 @@ class ContinuousShadowTurnCoordinator:
                 "evidence_registry_sha256": evidence_registry.registry_sha256,
                 "protected_user_claim_manifest": evidence_registry.protected_user_claim_manifest(),
                 "ingress_source_units": tuple(
-                    to_primitive(value) for value in request.source_units
+                    to_primitive(value) for value in source_units
                 ),
+                "ingress_receipt": to_primitive(ingress_receipt),
                 "story_segments": to_primitive(story_segments),
                 "authority_context_sha256": candidate.authority_context_sha256,
                 "candidate_sha256": candidate.candidate_sha256,
@@ -744,7 +772,7 @@ class ContinuousShadowTurnCoordinator:
                 for fact in facts
                 if fact.knowledge_owner_id is not None
                 and fact.knowledge_owner_id
-                in set(fact.actor_ids).union(fact.subject_ids)
+                in set(fact.roles.involved_ids)
             )
         )
         projections = []

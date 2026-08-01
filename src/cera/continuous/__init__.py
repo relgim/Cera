@@ -4,8 +4,12 @@ from .contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     AcceptedTurnPairV1,
     CharacterSummaryEnvelopeV1,
+    CharacterRoleLedgerV1,
+    ContinuousIngressAuthorityKind,
+    ContinuousIngressReceiptV1,
     CreatedFieldLogEntryV1,
     EventRecordCandidateV1,
+    EventItemRoleLedgerV1,
     FinalFieldScopeV1,
     FinalInformationVisibility,
     FinalSequenceItemV1,
@@ -33,6 +37,7 @@ from .contracts import (
     validator_route_for,
 )
 from .codex_stored import CodexContinuousStoredSessionPort
+from .ingress import ContinuousIngressAuthorityPort, ContinuousIngressAuthorityStore
 from .sessions import (
     ContinuousContextInjectionReceiptV1,
     ContinuousSessionSnapshotReceiptV1,
@@ -62,8 +67,12 @@ __all__ = [
     "AcceptedFinalSequenceEnvelopeV1",
     "AcceptedTurnPairV1",
     "CharacterSummaryEnvelopeV1",
+    "CharacterRoleLedgerV1",
+    "ContinuousIngressAuthorityKind",
+    "ContinuousIngressReceiptV1",
     "CreatedFieldLogEntryV1",
     "EventRecordCandidateV1",
+    "EventItemRoleLedgerV1",
     "FinalFieldScopeV1",
     "FinalInformationVisibility",
     "FinalSequenceItemV1",
@@ -90,6 +99,8 @@ __all__ = [
     "WorldEditOperationV1",
     "validator_route_for",
     "CodexContinuousStoredSessionPort",
+    "ContinuousIngressAuthorityPort",
+    "ContinuousIngressAuthorityStore",
     "ContinuousSessionSnapshotStore",
     "ContinuousContextInjectionReceiptV1",
     "ContinuousSessionSnapshotReceiptV1",

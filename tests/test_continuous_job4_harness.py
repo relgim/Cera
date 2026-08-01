@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from dataclasses import replace
+from dataclasses import dataclass, replace
+import json
 import re
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
@@ -18,10 +19,23 @@ from scripts.run_continuous_planner_validator_job4 import (
     compatibility,
     source_character_summary,
     seed_world,
+    validate_declared_unittest_ids,
 )
-from cera.continuous.call_ledger import ContinuousProviderCallLedger
-from cera.continuous.provider import continuous_deepseek_route, continuous_planner_route
-from cera.continuous.provider import _transport_stored_thread_sha256
+from cera.continuous.call_ledger import (
+    ContinuousProviderCallLedger,
+    ProviderCallState,
+)
+from cera.continuous.contracts import CharacterRoleLedgerV1
+from cera.continuous.provider import (
+    ContinuousDeepSeekDraftV1,
+    ContinuousValidatorDraftV1,
+    ProviderEventRecordDraftV1,
+    ProviderSceneSummaryDraftV1,
+    _transport_stored_thread_sha256,
+    continuous_deepseek_route,
+    continuous_planner_route,
+    continuous_validator_route,
+)
 from cera.continuous.sessions import (
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
@@ -38,7 +52,7 @@ from cera.providers import (
 )
 from cera.providers.codex import CodexWorkerResult
 from cera.providers.codex import _SubprocessCodexRunner
-from cera.serialization import canonical_sha256, text_sha256
+from cera.serialization import canonical_sha256, text_sha256, to_primitive
 from tests.test_continuous_world import (
     composer_draft,
     package,
@@ -61,7 +75,96 @@ class _Transport:
         return SimpleNamespace(prompt=prompt)
 
 
+@dataclass(frozen=True, slots=True)
+class _ScriptedReceipt:
+    requested_model: str
+    external_provider_calls: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class _ScriptedTelemetry:
+    provider_thread_id_sha256: str
+    model: str
+    reasoning_effort: str
+    fast_mode_enabled: bool = False
+
+
+class _ScriptedCodexTransport:
+    def __init__(self, route, thread_id: str, produce) -> None:
+        self.route = route
+        self.runner = SimpleNamespace(provider_thread_id=thread_id)
+        self._thread_id = thread_id
+        self._produce = produce
+
+    def invoke(
+        self,
+        prompt: str,
+        *,
+        on_worker_started=None,
+        on_worker_preflight=None,
+        on_transport_invoke=None,
+        **_kwargs,
+    ):
+        for callback in (
+            on_worker_started,
+            on_worker_preflight,
+            on_transport_invoke,
+        ):
+            if callback is not None:
+                callback()
+        value = self._produce(prompt)
+        return SimpleNamespace(
+            parsed_json=to_primitive(value),
+            receipt=_ScriptedReceipt(
+                requested_model=self.route.model_name,
+            ),
+            operation_telemetry=_ScriptedTelemetry(
+                provider_thread_id_sha256=text_sha256(self._thread_id),
+                model=self.route.model_name,
+                reasoning_effort=self.route.reasoning_effort,
+            ),
+            tool_call_count=0,
+            failed_tool_call_count=0,
+            tool_names=(),
+            tool_server_names=(),
+        )
+
+
+class _ScriptedDeepSeekTransport:
+    def __init__(self, produce) -> None:
+        self.route = continuous_deepseek_route()
+        self._produce = produce
+
+    def invoke(self, messages, *, on_transport_invoke=None, **_kwargs):
+        if on_transport_invoke is not None:
+            on_transport_invoke()
+        prompt = messages[-1].content
+        return SimpleNamespace(
+            parsed_json=to_primitive(self._produce(prompt)),
+            receipt=_ScriptedReceipt(
+                requested_model=self.route.model_name,
+            ),
+            tool_names=(),
+            tool_server_names=(),
+        )
+
+
 class ContinuousJob4HarnessTests(unittest.TestCase):
+    def test_declared_unittest_ids_must_resolve_before_publication(self) -> None:
+        valid = (
+            "tests.test_continuous_planner_validator.ContinuousSessionTests."
+            "test_restart_rejects_pre_v6_policy_compatibility",
+        )
+        self.assertEqual(validate_declared_unittest_ids(valid), {valid[0]: 1})
+        with self.assertRaisesRegex(ValueError, "did not resolve"):
+            validate_declared_unittest_ids(
+                (
+                    "tests.test_continuous_planner_validator."
+                    "ContinuousSessionLifecycleTests."
+                    "test_restart_rejects_pre_v6_policy_compatibility",
+                )
+            )
+
     def test_parameterized_canary_identity_rejects_historical_reuse(self) -> None:
         cycle_id = "cycle:new"
         task_id = "task:new"
@@ -238,6 +341,114 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
         self.assertGreaterEqual(markers.count("preflight"), 1)
         self.assertGreaterEqual(markers.count("thread_run"), 1)
 
+    def test_subprocess_sidecar_stage_matrix_and_stranded_accounting(self) -> None:
+        schema = {
+            "type": "object",
+            "properties": {"ok": {"type": "boolean"}},
+            "required": ["ok"],
+            "additionalProperties": False,
+        }
+
+        def invoke(control: dict[str, str], *, timeout_seconds: int = 5):
+            directory = TemporaryDirectory()
+            self.addCleanup(directory.cleanup)
+            workspace = Path(directory.name).resolve()
+            route = replace(
+                continuous_planner_route(), timeout_seconds=timeout_seconds
+            )
+            return _SubprocessCodexRunner(
+                worker_module="tests.fixtures.codex_stage_matrix_worker",
+                provider_thread_id="fixture-thread",
+            ).run(
+                route=route,
+                prompt=json.dumps(control, sort_keys=True),
+                output_schema=schema,
+                workspace=workspace,
+                mcp_binding=None,
+            )
+
+        for stage, expected_calls in (
+            ("worker_launch", 0),
+            ("sdk_import", 0),
+            ("account_check", 0),
+            ("thread_resume", 0),
+            ("thread_run", 1),
+            ("thread_read", 1),
+        ):
+            with self.subTest(stage=stage), self.assertRaises(
+                ProviderTransportError
+            ) as raised:
+                invoke({"mode": "fail", "stage": stage})
+            self.assertEqual(
+                raised.exception.external_provider_calls_observed,
+                expected_calls,
+            )
+            self.assertIn(
+                f"worker_stage:{stage}", raised.exception.safe_diagnostics
+            )
+
+        success = invoke({"mode": "success"})
+        self.assertEqual(success.output_text, '{"ok":true}')
+        with self.assertRaises(ProviderTransportError) as malformed:
+            invoke({"mode": "malformed"})
+        self.assertEqual(malformed.exception.external_provider_calls_observed, 1)
+        self.assertIn(
+            "transport:invalid_worker_envelope",
+            malformed.exception.safe_diagnostics,
+        )
+        for stage, expected_calls in (("sdk_import", 0), ("thread_run", 1)):
+            with self.subTest(timeout_stage=stage), self.assertRaises(
+                ProviderTransportError
+            ) as timeout:
+                invoke(
+                    {"mode": "timeout", "stage": stage}, timeout_seconds=1
+                )
+            self.assertEqual(
+                timeout.exception.external_provider_calls_observed,
+                expected_calls,
+            )
+            self.assertIn("transport:timeout", timeout.exception.safe_diagnostics)
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            workspace = root / "workspace"
+            workspace.mkdir()
+            ledger = ContinuousProviderCallLedger(root / "calls.jsonl")
+            route = replace(continuous_planner_route(), timeout_seconds=1)
+            runner = _SubprocessCodexRunner(
+                worker_module="tests.fixtures.codex_stage_matrix_worker",
+                provider_thread_id="fixture-thread",
+            )
+            with self.assertRaises(ProviderTransportError):
+                ledger.execute(
+                    owner="planner",
+                    operation="stranded_thread_run",
+                    route=route.route_id,
+                    model=route.model_name,
+                    effort=route.reasoning_effort,
+                    dispatch_with_stage_markers=lambda markers: runner.run(
+                        route=route,
+                        prompt=json.dumps(
+                            {"mode": "timeout", "stage": "thread_run"},
+                            sort_keys=True,
+                        ),
+                        output_schema=schema,
+                        workspace=workspace,
+                        mcp_binding=None,
+                        on_worker_started=markers.mark_worker_started,
+                        on_worker_preflight=markers.mark_worker_preflight,
+                        on_provider_submit=markers.mark_transport_invoked,
+                    ),
+                    finalize=lambda value: value,
+                    stored_thread_sha256=text_sha256("fixture-thread"),
+                )
+            self.assertEqual(ledger.dispatched_call_count, 1)
+            self.assertEqual(ledger.unresolved_prepared_call_ids, ())
+            call_id = ledger.events[0]["call_id"]
+            self.assertEqual(
+                ledger.terminal_state(call_id), ProviderCallState.PROVIDER_FAILED
+            )
+
     def test_exact_job_harness_summary_path_reaches_first_provider_boundary(self) -> None:
         class FirstProviderBoundary(RuntimeError):
             pass
@@ -335,10 +546,13 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     beats=tuple(
                         replace(
                             beat,
-                            actor_ids=(
-                                ("character:mia_hanezawa",)
+                            roles=(
+                                CharacterRoleLedgerV1(
+                                    action_owner_ids=("character:mia_hanezawa",),
+                                    addressed_ids=("character:ted",),
+                                )
                                 if turn_id == "turn-003"
-                                else beat.actor_ids
+                                else beat.roles
                             ),
                             source_evidence_bindings=bindings,
                         )
@@ -356,8 +570,10 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         story_segments=(
                             replace(
                                 draft.story_segments[0],
-                                actor_ids=("character:mia_hanezawa",),
-                                subject_ids=("character:mia_hanezawa",),
+                                roles=CharacterRoleLedgerV1(
+                                    action_owner_ids=("character:mia_hanezawa",),
+                                    addressed_ids=("character:ted",),
+                                ),
                             ),
                         ),
                     )
@@ -391,8 +607,10 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         item,
                         realized_event="Mia answers cautiously in the later scene.",
                         private_state_owner_ids=("character:mia_hanezawa",),
-                        actor_ids=("character:mia_hanezawa",),
-                        subject_ids=("character:mia_hanezawa",),
+                        roles=CharacterRoleLedgerV1(
+                            action_owner_ids=("character:mia_hanezawa",),
+                            addressed_ids=("character:ted",),
+                        ),
                         field_scopes=tuple(
                             replace(
                                 scope,
@@ -401,8 +619,10 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                                     if scope.knowledge_owner_id is not None
                                     else None
                                 ),
-                                actor_ids=("character:mia_hanezawa",),
-                                subject_ids=("character:mia_hanezawa",),
+                                roles=CharacterRoleLedgerV1(
+                                    action_owner_ids=("character:mia_hanezawa",),
+                                    addressed_ids=("character:ted",),
+                                ),
                             )
                             for scope in item.field_scopes
                         ),
@@ -414,7 +634,16 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         ),
                         event_record=replace(
                             result.event_record,
-                            participant_ids=("character:mia_hanezawa",),
+                            participant_ids=(
+                                "character:mia_hanezawa",
+                                "character:ted",
+                            ),
+                            item_role_ledgers=(
+                                replace(
+                                    result.event_record.item_role_ledgers[0],
+                                    roles=item.roles,
+                                ),
+                            ),
                             summary="Mia answers cautiously in the later scene.",
                         ),
                     )
@@ -491,6 +720,293 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             )
             self.assertEqual(harness.provider_calls, 0)
             self.assertIn('"character_summary_bindings":[]', harness.planner_prompts[1])
+
+    def test_complete_job_harness_uses_actual_ports_with_scripted_transports(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            world = ContinuousWorldStore(root / "worlds")
+            seed_world(world, ROOT)
+            session_port = InMemoryContinuousStoredSessionPort()
+            planner_session = ContinuousSessionCoordinator(
+                compatibility(world, ContinuousSessionRole.PLANNER), session_port
+            )
+            validator_session = ContinuousSessionCoordinator(
+                compatibility(world, ContinuousSessionRole.VALIDATOR), session_port
+            )
+            holder: dict[str, JobHarness] = {}
+
+            def planner_value(prompt: str):
+                harness = holder["harness"]
+                turn_id = harness._active_turn_id
+                bindings = tuple(
+                    dict.fromkeys(
+                        re.findall(r'"binding_key":"(binding_[a-z0-9_]+)"', prompt)
+                    )
+                )
+                value = rich_sequence()
+                return replace(
+                    value,
+                    sequence_id=f"sequence:{turn_id.replace('-', '_')}",
+                    world_id=WORLD_ID,
+                    branch_id=BRANCH_ID,
+                    scene_id=("scene-002" if turn_id == "turn-003" else "scene-001"),
+                    selected_character_ids=(
+                        ("character:mia_hanezawa",)
+                        if turn_id == "turn-003"
+                        else value.selected_character_ids
+                    ),
+                    beats=tuple(
+                        replace(
+                            beat,
+                            roles=(
+                                CharacterRoleLedgerV1(
+                                    action_owner_ids=("character:mia_hanezawa",),
+                                    addressed_ids=("character:ted",),
+                                )
+                                if turn_id == "turn-003"
+                                else beat.roles
+                            ),
+                            source_evidence_bindings=bindings,
+                        )
+                        for beat in value.beats
+                    ),
+                )
+
+            def composer_value(_prompt: str):
+                turn_id = holder["harness"]._active_turn_id
+                story = (
+                    "Mia answers cautiously in the later scene."
+                    if turn_id == "turn-003"
+                    else "Sakura requests bounded proof."
+                )
+                draft = composer_draft(story)
+                if turn_id == "turn-003":
+                    segments = (
+                        replace(
+                            draft.story_segments[0],
+                            roles=CharacterRoleLedgerV1(
+                                action_owner_ids=("character:mia_hanezawa",),
+                                addressed_ids=("character:ted",),
+                            ),
+                        ),
+                    )
+                else:
+                    segments = draft.story_segments
+                return ContinuousDeepSeekDraftV1(
+                    schema_version=ContinuousDeepSeekDraftV1.SCHEMA_VERSION,
+                    story_text=story,
+                    protected_user_realizations=(),
+                    story_segments=segments,
+                )
+
+            def validator_value(_prompt: str):
+                harness = holder["harness"]
+                if harness._active_validator_label == "scene-1-validator-summary":
+                    summary = scene_summary_package(
+                        harness.accepted_pairs[0], new_prompt="unused"
+                    ).optional_scene_summary
+                    summary = replace(
+                        summary,
+                        completed_scene_id="scene-001",
+                        accepted_turn_ids=tuple(
+                            value.accepted_turn_id for value in harness.accepted_pairs
+                        ),
+                        last_five_exact_pairs=tuple(harness.accepted_pairs),
+                    )
+                    return ContinuousValidatorDraftV1(
+                        schema_version=ContinuousValidatorDraftV1.SCHEMA_VERSION,
+                        package_id="package:scene_summary",
+                        world_id=WORLD_ID,
+                        branch_id=BRANCH_ID,
+                        task_mode=scene_summary_package(
+                            harness.accepted_pairs[0], new_prompt="unused"
+                        ).task_mode,
+                        semantic_status=scene_summary_package(
+                            harness.accepted_pairs[0], new_prompt="unused"
+                        ).semantic_status,
+                        complete_final_sequence=None,
+                        creator_review=None,
+                        world_edit_operations=(),
+                        created_field_log=(),
+                        event_record=None,
+                        optional_scene_summary=ProviderSceneSummaryDraftV1(
+                            summary_id=summary.summary_id,
+                            completed_scene_id=summary.completed_scene_id,
+                            accepted_turn_ids=summary.accepted_turn_ids,
+                            shortest_complete_summary=summary.shortest_complete_summary,
+                            ending_state=summary.ending_state,
+                            transition_context=summary.transition_context,
+                        ),
+                    )
+
+                turn_id = harness._active_turn_id
+                result = package(
+                    turn_id=turn_id,
+                    revision=int(turn_id.rsplit("-", 1)[1]),
+                )
+                if turn_id == "turn-003":
+                    item = replace(
+                        result.complete_final_sequence.items[0],
+                        realized_event="Mia answers cautiously in the later scene.",
+                        private_state_owner_ids=("character:mia_hanezawa",),
+                        roles=CharacterRoleLedgerV1(
+                            action_owner_ids=("character:mia_hanezawa",),
+                            addressed_ids=("character:ted",),
+                        ),
+                        field_scopes=tuple(
+                            replace(
+                                scope,
+                                knowledge_owner_id=(
+                                    "character:mia_hanezawa"
+                                    if scope.knowledge_owner_id is not None
+                                    else None
+                                ),
+                                roles=CharacterRoleLedgerV1(
+                                    action_owner_ids=("character:mia_hanezawa",),
+                                    addressed_ids=("character:ted",),
+                                ),
+                            )
+                            for scope in result.complete_final_sequence.items[0].field_scopes
+                        ),
+                    )
+                    result = replace(
+                        result,
+                        complete_final_sequence=replace(
+                            result.complete_final_sequence, items=(item,)
+                        ),
+                        event_record=replace(
+                            result.event_record,
+                            participant_ids=(
+                                "character:mia_hanezawa",
+                                "character:ted",
+                            ),
+                            item_role_ledgers=(
+                                replace(
+                                    result.event_record.item_role_ledgers[0],
+                                    roles=item.roles,
+                                ),
+                            ),
+                            summary=item.realized_event,
+                        ),
+                    )
+                result = replace(
+                    result,
+                    world_id=WORLD_ID,
+                    branch_id=BRANCH_ID,
+                    world_edit_operations=(),
+                    created_field_log=(),
+                    event_record=replace(
+                        result.event_record,
+                        scene_id=(
+                            "scene-002" if turn_id == "turn-003" else "scene-001"
+                        ),
+                    ),
+                )
+                event = result.event_record
+                return ContinuousValidatorDraftV1(
+                    schema_version=ContinuousValidatorDraftV1.SCHEMA_VERSION,
+                    package_id=result.package_id,
+                    world_id=result.world_id,
+                    branch_id=result.branch_id,
+                    task_mode=result.task_mode,
+                    semantic_status=result.semantic_status,
+                    complete_final_sequence=result.complete_final_sequence,
+                    creator_review=result.creator_review,
+                    world_edit_operations=(),
+                    created_field_log=(),
+                    event_record=ProviderEventRecordDraftV1(
+                        event_id=event.event_id,
+                        accepted_turn_id=event.accepted_turn_id,
+                        scene_id=event.scene_id,
+                        summary=event.summary,
+                        final_sequence_item_keys=event.final_sequence_item_keys,
+                        protected_user_source_claim_keys=(
+                            event.protected_user_source_claim_keys
+                        ),
+                    ),
+                    optional_scene_summary=None,
+                )
+
+            planner_handle = planner_session.ensure_session().provider_thread_id
+            validator_handle = validator_session.ensure_session().provider_thread_id
+            lifecycle_root = root / "lifecycle"
+            lifecycle_root.mkdir()
+            harness = JobHarness(
+                source_root=ROOT,
+                cycle=root / "cycle",
+                world=world,
+                planner_session=planner_session,
+                validator_session=validator_session,
+                planner_handle=planner_handle,
+                validator_handle=validator_handle,
+                lifecycle_root=lifecycle_root,
+                call_ledger=ContinuousProviderCallLedger(
+                    root / "calls.jsonl", maximum_calls=10
+                ),
+                planner_transport_factory=lambda _workspace, thread_id: _ScriptedCodexTransport(
+                    continuous_planner_route(effort="medium"),
+                    thread_id,
+                    planner_value,
+                ),
+                validator_transport_factory=lambda _workspace, thread_id: _ScriptedCodexTransport(
+                    continuous_validator_route(
+                        model="gpt-5.6-terra", effort="high"
+                    ),
+                    thread_id,
+                    validator_value,
+                ),
+                composer_transport_factory=lambda: _ScriptedDeepSeekTransport(
+                    composer_value
+                ),
+                scripted_provider_free=True,
+            )
+            holder["harness"] = harness
+            sakura = source_character_summary(
+                ROOT, "sakura", world=world, world_file_revision=1
+            )
+            harness.run_turn(
+                turn_number=1, scene_id="scene-001", summaries=(sakura,)
+            )
+            harness.run_turn(turn_number=2, scene_id="scene-001", summaries=())
+            harness.summarize_scene()
+            mia = source_character_summary(
+                ROOT, "mia", world=world, world_file_revision=1
+            )
+            harness.run_turn(
+                turn_number=3,
+                scene_id="scene-002",
+                summaries=(mia,),
+                scene_change_context={"validated": True},
+            )
+            self.assertEqual(len(harness.call_records), 10)
+            self.assertTrue(
+                all(
+                    value["status"] == "scripted_provider_free_passed"
+                    for value in harness.call_records
+                )
+            )
+            self.assertEqual(harness.provider_calls, 0)
+            self.assertEqual(harness.scripted_transport_invocations, 10)
+            self.assertEqual(harness.call_ledger.dispatched_call_count, 10)
+            self.assertEqual(len(harness.poll_records), 20)
+            self.assertEqual(
+                planner_session.snapshot().accepted_turn_ids,
+                ("turn-001", "turn-002", "turn-003"),
+            )
+            planner_handle_value = planner_session.ensure_session()
+            validator_handle_value = validator_session.ensure_session()
+            session_port.archive(
+                planner_handle_value, "provider_free_job4_complete"
+            )
+            session_port.archive(
+                validator_handle_value, "provider_free_job4_complete"
+            )
+            self.assertFalse(session_port.resume(planner_handle_value))
+            self.assertFalse(session_port.resume(validator_handle_value))
+            self.assertEqual(
+                sum(operation == "archive" for operation, _ in session_port.operations),
+                2,
+            )
 
     def test_hanezawa_canary_summaries_use_real_genesis_sections(self) -> None:
         with TemporaryDirectory() as directory:

@@ -13,6 +13,7 @@ from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import canonical_sha256, domain_sha256, re_is_sha256, text_sha256
 
 from .contracts import (
+    CharacterRoleLedgerV1,
     CharacterSummaryEnvelopeV1,
     FinalInformationVisibility,
     FinalSequenceItemV1,
@@ -31,17 +32,21 @@ from .contracts import (
 
 @dataclass(frozen=True, slots=True)
 class AcceptedSessionFactV1:
+    SCHEMA_VERSION: ClassVar[str] = "cera.accepted_session_fact.v1"
+
     fact_key: str
     source_item_key: str
     field_name: str
     value: str
     visibility: FinalInformationVisibility
     knowledge_owner_id: str | None
-    actor_ids: tuple[str, ...]
-    subject_ids: tuple[str, ...]
+    roles: CharacterRoleLedgerV1
     protected_user_source_claim_keys: tuple[str, ...]
+    schema_version: str = SCHEMA_VERSION
 
     def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("accepted-session fact schema changed")
         if not self.fact_key.startswith("accepted_fact_"):
             raise ContractValidationError("accepted-session fact key is invalid")
         if not self.source_item_key or not self.field_name or not self.value.strip():
@@ -51,15 +56,13 @@ class AcceptedSessionFactV1:
                 raise ContractValidationError("public accepted fact has a private owner")
         elif self.knowledge_owner_id is None:
             raise ContractValidationError("private accepted fact lacks its owner")
-        if not self.actor_ids and not self.subject_ids:
-            raise ContractValidationError("accepted-session fact lacks actors and subjects")
         if (
             self.knowledge_owner_id is not None
             and self.knowledge_owner_id
-            not in set(self.actor_ids).union(self.subject_ids)
+            not in set(self.roles.involved_ids)
         ):
             raise ContractValidationError(
-                "private accepted fact owner is not an actor or subject"
+                "private accepted fact owner has no declared character role"
             )
 
 
@@ -67,7 +70,7 @@ class AcceptedSessionFactV1:
 class AcceptedSessionProjectionV1:
     """Exact accepted current-scene context visible to one audience."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.accepted_session_projection.v3"
+    SCHEMA_VERSION: ClassVar[str] = "cera.accepted_session_projection.v4"
 
     schema_version: str
     projection_key: str
@@ -175,8 +178,7 @@ def project_final_sequence_facts(
                     value=value,
                     visibility=scope.visibility,
                     knowledge_owner_id=scope.knowledge_owner_id,
-                    actor_ids=scope.actor_ids,
-                    subject_ids=scope.subject_ids,
+                    roles=scope.roles,
                     protected_user_source_claim_keys=scope.protected_user_source_claim_keys,
                 )
             )
@@ -345,7 +347,7 @@ class RequestEvidenceBindingV1:
 class RequestEvidenceBindingRegistry:
     """Mutable request ledger whose exported bindings are immutable records."""
 
-    SCHEMA_VERSION = "cera.request_evidence_binding_registry.v6"
+    SCHEMA_VERSION = "cera.request_evidence_binding_registry.v7"
 
     def __init__(self, *, world_id: str, branch_id: str, turn_id: str) -> None:
         if not all(isinstance(value, str) and value.strip() for value in (world_id, branch_id, turn_id)):
@@ -782,7 +784,8 @@ class RequestEvidenceBindingRegistry:
                     self._validate_world_binding(binding, branch_root)
                     if (
                         binding.visibility is EvidenceVisibility.CHARACTER_PRIVATE
-                        and binding.knowledge_owner_id not in beat.actor_ids
+                        and binding.knowledge_owner_id
+                        not in beat.roles.assertion_owner_ids
                     ):
                         raise PermissionError("private evidence transferred to a non-owner actor")
                 elif binding.kind is EvidenceBindingKind.ACCEPTED_SESSION_ENVELOPE:
@@ -799,7 +802,11 @@ class RequestEvidenceBindingRegistry:
                 resolved.append(binding)
             if not resolved:
                 raise StateConflictError("Planner beat has no resolved evidence")
-            npc_actors = {value for value in beat.actor_ids if value != "character:ted"}
+            npc_actors = {
+                value
+                for value in beat.roles.assertion_owner_ids
+                if value != "character:ted"
+            }
             active_bindings = [
                 value
                 for value in resolved
@@ -869,7 +876,7 @@ class RequestEvidenceBindingRegistry:
                     raise PermissionError(
                         "minimal connective lacks Python mechanical authority"
                     )
-            if "character:ted" in beat.actor_ids and (
+            if "character:ted" in beat.roles.assertion_owner_ids and (
                 beat.protected_user_allowance.mode
                 is not ProtectedUserAllowanceMode.EXACT_SOURCE_ONLY
             ):
@@ -897,7 +904,7 @@ class RequestEvidenceBindingRegistry:
             raise PermissionError(
                 "exact protected-user authority requires a typed source claim"
             )
-        if "character:ted" in beat.actor_ids:
+        if "character:ted" in beat.roles.assertion_owner_ids:
             if len(claims) != 1:
                 raise PermissionError(
                     "protected-user actor beat requires one exact supplied event or utterance"
@@ -937,16 +944,12 @@ class RequestEvidenceBindingRegistry:
             if (
                 re.search(r"\bTed\b", segment.exact_text, re.IGNORECASE)
                 and "character:ted"
-                not in set(segment.actor_ids).union(segment.subject_ids)
-                and segment.speaker_id != "character:ted"
+                not in set(segment.roles.involved_ids)
             ):
                 raise PermissionError(
                     "Composer story segment omitted explicit protected-user involvement"
                 )
-            protected = (
-                "character:ted" in segment.actor_ids
-                or segment.speaker_id == "character:ted"
-            )
+            protected = "character:ted" in segment.roles.assertion_owner_ids
             if protected:
                 if len(segment.protected_user_source_claim_keys) != 1:
                     raise PermissionError(
@@ -1067,16 +1070,22 @@ class RequestEvidenceBindingRegistry:
                             "final field scope cites a segment outside its item"
                         )
                     scoped_segments.append(segment)
-                scoped_actors = {
-                    actor
-                    for segment in scoped_segments
-                    for actor in (
-                        *segment.actor_ids,
-                        *((segment.speaker_id,) if segment.speaker_id is not None else ()),
-                    )
-                }
-                scoped_subjects = {
-                    subject for segment in scoped_segments for subject in segment.subject_ids
+                role_fields = (
+                    "action_owner_ids",
+                    "state_owner_ids",
+                    "speaker_ids",
+                    "affected_ids",
+                    "addressed_ids",
+                    "observing_ids",
+                    "referenced_ids",
+                )
+                scoped_roles = {
+                    field: {
+                        identity
+                        for segment in scoped_segments
+                        for identity in getattr(segment.roles, field)
+                    }
+                    for field in role_fields
                 }
                 scoped_claims = {
                     claim
@@ -1084,16 +1093,18 @@ class RequestEvidenceBindingRegistry:
                     for claim in segment.protected_user_source_claim_keys
                 }
                 if (
-                    set(scope.actor_ids) != scoped_actors
-                    or set(scope.subject_ids) != scoped_subjects
+                    any(
+                        set(getattr(scope.roles, field)) != scoped_roles[field]
+                        for field in role_fields
+                    )
                     or set(scope.protected_user_source_claim_keys) != scoped_claims
                 ):
                     raise StateConflictError(
-                        "final field changed Composer actor, subject, or claim ownership"
+                        "final field changed Composer role or claim ownership"
                     )
                 raw_values = getattr(item, scope.field_name)
                 field_values = raw_values if isinstance(raw_values, tuple) else (raw_values,)
-                if "character:ted" in scope.actor_ids:
+                if "character:ted" in scope.roles.assertion_owner_ids:
                     exact_claim_texts = {
                         self._protected_user_claims[key].exact_text
                         for key in scope.protected_user_source_claim_keys
@@ -1108,20 +1119,17 @@ class RequestEvidenceBindingRegistry:
                 if any(
                     re.search(r"\bTed\b", value, re.IGNORECASE)
                     for value in field_values
-                ) and "character:ted" not in set(scope.actor_ids).union(scope.subject_ids):
+                ) and "character:ted" not in set(scope.roles.involved_ids):
                     raise StateConflictError(
                         "final field omitted explicit protected-user involvement"
                     )
-            expected_actors = {
-                actor
-                for segment in segments
-                for actor in (
-                    *segment.actor_ids,
-                    *((segment.speaker_id,) if segment.speaker_id is not None else ()),
-                )
-            }
-            expected_subjects = {
-                subject for segment in segments for subject in segment.subject_ids
+            expected_roles = {
+                field: {
+                    identity
+                    for segment in segments
+                    for identity in getattr(segment.roles, field)
+                }
+                for field in role_fields
             }
             expected_segment_claims = {
                 claim
@@ -1129,13 +1137,15 @@ class RequestEvidenceBindingRegistry:
                 for claim in segment.protected_user_source_claim_keys
             }
             if (
-                set(item.actor_ids) != expected_actors
-                or set(item.subject_ids) != expected_subjects
+                any(
+                    set(getattr(item.roles, field)) != expected_roles[field]
+                    for field in role_fields
+                )
                 or set(item.protected_user_source_claim_keys)
                 != expected_segment_claims
             ):
                 raise StateConflictError(
-                    "final sequence changed Composer actor, subject, or claim ownership"
+                    "final sequence changed Composer role or claim ownership"
                 )
         if cited_story_segments != set(self._story_segments):
             raise StateConflictError(
@@ -1159,14 +1169,9 @@ class RequestEvidenceBindingRegistry:
                 scope is None
                 or set(operation.protected_user_source_claim_keys)
                 != set(scope.protected_user_source_claim_keys)
-                or (
-                    bool(scope.protected_user_source_claim_keys)
-                    and (
-                        operation.value not in source_values
-                        or operation.reason
-                        != f"Persist accepted final field {operation.source_final_field_name}."
-                    )
-                )
+                or operation.value not in source_values
+                or operation.reason
+                != f"Persist accepted final field {operation.source_final_field_name}."
             ):
                 raise StateConflictError(
                     "world edit changed final-field value, reason, or claim provenance"
@@ -1192,14 +1197,9 @@ class RequestEvidenceBindingRegistry:
                 or scope is None
                 or set(created.protected_user_source_claim_keys)
                 != set(scope.protected_user_source_claim_keys)
-                or (
-                    bool(scope.protected_user_source_claim_keys)
-                    and (
-                        created.value not in source_values
-                        or created.reason
-                        != f"Persist accepted final field {created.source_final_field_name}."
-                    )
-                )
+                or created.value not in source_values
+                or created.reason
+                != f"Persist accepted final field {created.source_final_field_name}."
             ):
                 raise StateConflictError(
                     "created field changed final-field value, reason, or claim provenance"

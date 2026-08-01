@@ -31,6 +31,7 @@ from .contracts import (
     AcceptedTurnPairV1,
     CreatedFieldLogEntryV1,
     EventRecordCandidateV1,
+    EventItemRoleLedgerV1,
     FinalSequenceItemV1,
     FinalSequenceV1,
     ProtectedUserRealizationSpanV1,
@@ -51,10 +52,10 @@ from .prompting import (
 )
 
 
-CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v5"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v5"
-CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v3"
-CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v3"
+CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v6"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v7"
+CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v4"
+CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v4"
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,8 +95,20 @@ class ProviderSceneSummaryDraftV1:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderEventRecordDraftV1:
+    """Provider-facing event meaning; Python derives role bookkeeping."""
+
+    event_id: str
+    accepted_turn_id: str
+    scene_id: str
+    summary: str
+    final_sequence_item_keys: tuple[str, ...]
+    protected_user_source_claim_keys: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class ContinuousValidatorDraftV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_validator_draft.v4"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_validator_draft.v6"
 
     schema_version: str
     package_id: str
@@ -107,7 +120,7 @@ class ContinuousValidatorDraftV1:
     creator_review: CreatorReviewAssessment | None
     world_edit_operations: tuple[ProviderWorldEditOperationV1, ...]
     created_field_log: tuple[ProviderCreatedFieldLogEntryV1, ...]
-    event_record: EventRecordCandidateV1 | None
+    event_record: ProviderEventRecordDraftV1 | None
     optional_scene_summary: ProviderSceneSummaryDraftV1 | None
 
     def __post_init__(self) -> None:
@@ -181,6 +194,47 @@ class ContinuousValidatorDraftV1:
             raise ContractValidationError(
                 "Validator omitted the requested scene summary"
             )
+        event_record = None
+        if self.event_record is not None:
+            if self.complete_final_sequence is None:
+                raise ContractValidationError(
+                    "Validator event cannot exist without a final sequence"
+                )
+            items = {
+                value.item_key: value
+                for value in self.complete_final_sequence.items
+            }
+            if tuple(self.event_record.final_sequence_item_keys) != tuple(items):
+                raise ContractValidationError(
+                    "Validator event changed final sequence item order"
+                )
+            item_roles = tuple(
+                EventItemRoleLedgerV1(
+                    schema_version=EventItemRoleLedgerV1.SCHEMA_VERSION,
+                    final_sequence_item_key=key,
+                    roles=items[key].roles,
+                )
+                for key in self.event_record.final_sequence_item_keys
+            )
+            participant_ids = tuple(
+                dict.fromkeys(
+                    identity
+                    for value in item_roles
+                    for identity in value.roles.involved_ids
+                )
+            )
+            event_record = EventRecordCandidateV1(
+                event_id=self.event_record.event_id,
+                accepted_turn_id=self.event_record.accepted_turn_id,
+                scene_id=self.event_record.scene_id,
+                participant_ids=participant_ids,
+                item_role_ledgers=item_roles,
+                summary=self.event_record.summary,
+                final_sequence_item_keys=self.event_record.final_sequence_item_keys,
+                protected_user_source_claim_keys=(
+                    self.event_record.protected_user_source_claim_keys
+                ),
+            )
         return ValidatorFinalizationPackageV1(
             schema_version=ValidatorFinalizationPackageV1.SCHEMA_VERSION,
             package_id=self.package_id,
@@ -192,14 +246,14 @@ class ContinuousValidatorDraftV1:
             creator_review=self.creator_review,
             world_edit_operations=tuple(operations),
             created_field_log=tuple(created),
-            event_record=self.event_record,
+            event_record=event_record,
             optional_scene_summary=scene_summary,
         )
 
 
 @dataclass(frozen=True, slots=True)
 class ContinuousDeepSeekDraftV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v3"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v4"
 
     schema_version: str
     story_text: str
@@ -448,7 +502,7 @@ class DeepSeekContinuousComposerPort:
         messages = (
             DeepSeekMessage(
                 "system",
-                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Return an exhaustive, ordered, gap-free story_segments ledger covering every story_text character; each segment declares its exact actors, subjects, dialogue speaker when applicable, and semantic kind. Mentioning Ted as the target or topic makes him a subject, not the actor. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. A segment acted or spoken by Ted must exactly equal one supplied ingress claim and cite that claim. Also declare the matching exact protected_user_realizations occurrence. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
+                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Return an exhaustive, ordered, gap-free story_segments ledger covering every story_text character. Every segment declares one closed roles ledger: action_owner_ids own actions; state_owner_ids own thoughts, emotions, bodily states, consent, and decisions; speaker_ids own dialogue; affected_ids, addressed_ids, observing_ids, and referenced_ids are non-owning. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. Any assertion owned by Ted must exactly equal one supplied ingress claim and cite that claim. An NPC action may affect or address Ted without inventing Ted's response. Also declare the matching exact protected_user_realizations occurrence. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
             ),
             DeepSeekMessage(
                 "user",

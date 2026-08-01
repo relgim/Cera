@@ -7,6 +7,7 @@ import unittest
 
 from cera.continuous import (
     AcceptedFinalSequenceEnvelopeV1,
+    CharacterRoleLedgerV1,
     CharacterSummaryEnvelopeV1,
     FinalFieldScopeV1,
     FinalInformationVisibility,
@@ -46,7 +47,10 @@ from cera.registry import build_schema_registry
 def beat(key: str = "verify_arrival", actor: str = "character:sakura_hanezawa") -> RichSequenceBeatV1:
     return RichSequenceBeatV1(
         beat_key=key,
-        actor_ids=(actor,),
+        roles=CharacterRoleLedgerV1(
+            action_owner_ids=(actor,),
+            addressed_ids=(("character:ted",) if actor != "character:ted" else ()),
+        ),
         evidence_grounded_perception="An unfamiliar adult voice identifies the expected household arrangement.",
         immediate_goal="Confirm the visitor without surrendering control of the threshold.",
         relevant_character_pressures=(
@@ -107,40 +111,50 @@ def accepted_sequence(turn_id: str = "turn:001") -> FinalSequenceV1:
                 knowledge_changes=("Sakura heard Ted claim the expected tenant identity.",),
                 material_changes=(),
                 resulting_state="Ted remains outside awaiting verification.",
-                actor_ids=("character:sakura_hanezawa",),
-                subject_ids=("character:ted",),
+                roles=CharacterRoleLedgerV1(
+                    action_owner_ids=("character:sakura_hanezawa",),
+                    addressed_ids=("character:ted",),
+                ),
                 field_scopes=(
                     FinalFieldScopeV1(
                         field_name="realized_event",
                         visibility=FinalInformationVisibility.PUBLIC,
                         knowledge_owner_id=None,
                         story_segment_keys=("segment_entire_story",),
-                        actor_ids=("character:sakura_hanezawa",),
-                        subject_ids=("character:ted",),
+                        roles=CharacterRoleLedgerV1(
+                            action_owner_ids=("character:sakura_hanezawa",),
+                            addressed_ids=("character:ted",),
+                        ),
                     ),
                     FinalFieldScopeV1(
                         field_name="valid_deepseek_additions",
                         visibility=FinalInformationVisibility.PUBLIC,
                         knowledge_owner_id=None,
                         story_segment_keys=("segment_entire_story",),
-                        actor_ids=("character:sakura_hanezawa",),
-                        subject_ids=("character:ted",),
+                        roles=CharacterRoleLedgerV1(
+                            action_owner_ids=("character:sakura_hanezawa",),
+                            addressed_ids=("character:ted",),
+                        ),
                     ),
                     FinalFieldScopeV1(
                         field_name="knowledge_changes",
                         visibility=FinalInformationVisibility.CHARACTER_PRIVATE,
                         knowledge_owner_id="character:sakura_hanezawa",
                         story_segment_keys=("segment_entire_story",),
-                        actor_ids=("character:sakura_hanezawa",),
-                        subject_ids=("character:ted",),
+                        roles=CharacterRoleLedgerV1(
+                            action_owner_ids=("character:sakura_hanezawa",),
+                            addressed_ids=("character:ted",),
+                        ),
                     ),
                     FinalFieldScopeV1(
                         field_name="resulting_state",
                         visibility=FinalInformationVisibility.PUBLIC,
                         knowledge_owner_id=None,
                         story_segment_keys=("segment_entire_story",),
-                        actor_ids=("character:sakura_hanezawa",),
-                        subject_ids=("character:ted",),
+                        roles=CharacterRoleLedgerV1(
+                            action_owner_ids=("character:sakura_hanezawa",),
+                            addressed_ids=("character:ted",),
+                        ),
                     ),
                 ),
             ),
@@ -163,8 +177,8 @@ def compatibility(role: ContinuousSessionRole, branch: str = "branch:main") -> C
         world_directory_identity_sha256=text_sha256(f"hanezawa/{branch}"),
         authority_policy_version="cera.owner_architecture.v2",
         privacy_policy_version="cera.privacy.v1",
-        protected_user_policy_version="cera.continuous_protected_user_policy.v5",
-        session_policy_version="cera.continuous_session_policy.v5",
+        protected_user_policy_version="cera.continuous_protected_user_policy.v6",
+        session_policy_version="cera.continuous_session_policy.v6",
     )
 
 
@@ -251,17 +265,18 @@ class RichPlannerContractTests(unittest.TestCase):
         composer_text = str(continuous_deepseek_draft_json_schema())
         for field in (
             "story_segment_keys",
-            "actor_ids",
-            "subject_ids",
+            "action_owner_ids",
+            "state_owner_ids",
+            "addressed_ids",
             "field_scopes",
             "protected_user_source_claim_keys",
         ):
             self.assertIn(field, validator_text)
         for field in (
             "story_segments",
-            "actor_ids",
-            "subject_ids",
-            "speaker_id",
+            "action_owner_ids",
+            "state_owner_ids",
+            "speaker_ids",
             "protected_user_source_claim_keys",
         ):
             self.assertIn(field, composer_text)
@@ -431,6 +446,22 @@ class ContinuousSessionTests(unittest.TestCase):
             session_policy_version="cera.continuous_session.v1",
         )
         snapshot = ContinuousSessionCoordinator(old, port).snapshot()
+        with self.assertRaisesRegex(StateConflictError, "incompatible"):
+            ContinuousSessionCoordinator.reconstruct(
+                snapshot,
+                port,
+                expected_compatibility=current,
+            )
+
+    def test_restart_rejects_pre_v6_policy_compatibility(self) -> None:
+        port = InMemoryContinuousStoredSessionPort()
+        current = compatibility(ContinuousSessionRole.PLANNER)
+        pre_v6 = replace(
+            current,
+            protected_user_policy_version="cera.continuous_protected_user_policy.v5",
+            session_policy_version="cera.continuous_session_policy.v5",
+        )
+        snapshot = ContinuousSessionCoordinator(pre_v6, port).snapshot()
         with self.assertRaisesRegex(StateConflictError, "incompatible"):
             ContinuousSessionCoordinator.reconstruct(
                 snapshot,

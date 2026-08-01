@@ -90,22 +90,28 @@ owner, and read operation. Invented, stale, sibling, unread, or owner-transferre
 bindings fail before composition. Final sequence items and edits remain
 traceable through Planner beat keys to those bindings.
 
-Python no longer infers Ted ownership with a bounded text grammar. The ingress
-facade must provide exact typed source units with explicit action actor or
-dialogue speaker ownership. Only Ted-owned units become protected-user claims.
+Python no longer infers Ted ownership with a bounded text grammar. The
+continuous request carries only a hash-bound reference to a Python-owned
+ingress receipt. That receipt binds the exact raw source, world, branch,
+session, request, turn, idempotency identity, classification adapter, and
+ordered typed source units. Arbitrary callers cannot submit their own actor or
+speaker labels. Only Ted-owned units become protected-user claims.
 Planner output cites those claim keys and their source binding. DeepSeek returns
 both exact claim occurrences and an exhaustive gap-free story-segment ledger
-with actors, subjects, and dialogue speakers. Python rejects paraphrased or
-invented Ted authorship, undeclared exact copies, omitted explicit Ted
-involvement, gaps, overlaps, and changed output bytes before Validator
-assessment. The Validator binds every final field to exact Planner beats and
-Composer segments; Python derives and compares field and item actor, subject,
-and claim sets, field visibility and private owner scopes, event participants,
-the exact last stop state, deterministic event-summary custody, and protected
-edit/event claim provenance. A protected-user final field must equal an exact
-supplied claim, so a valid quote cannot mask an unsupplied movement in a later
-final field or persisted edit. Mechanical connectives cannot carry semantic
-claims.
+whose role ledger separates action, state, and dialogue owners from affected,
+addressed, observing, and referenced characters. Any Ted-owned action,
+dialogue, thought, emotion, state, consent, or decision requires an exact
+source claim; an NPC may address or affect Ted without inventing Ted's
+response. Python rejects paraphrased or invented Ted authorship, undeclared
+exact copies, omitted explicit involvement, gaps, overlaps, and changed output
+bytes before Validator assessment. The Validator binds every final field to
+exact Planner beats and Composer segments; Python derives and compares the
+closed role and claim sets, field visibility and private owner scopes, event
+participants and per-item role ledgers, the exact last stop state, and
+deterministic event-summary custody. Every world edit or created field must
+equal one cited final-field value with the exact Python contract reason;
+protected and unprotected semantic divergence both fail. Mechanical
+connectives cannot carry semantic claims.
 
 The complete candidate identity includes prompt hashes, evidence-registry
 hash, claim/realization/story-segment ledgers, accepted-session projections,

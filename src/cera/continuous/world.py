@@ -438,7 +438,7 @@ class ContinuousWorldStore:
             raise StateConflictError("creator acceptance journal already exists")
         transaction_root.mkdir(parents=False)
         journal_base = {
-            "schema_version": "cera.continuous_acceptance_journal.v4",
+            "schema_version": "cera.continuous_acceptance_journal.v5",
             "world_id": world_id,
             "branch_id": branch_id,
             "turn_id": turn_id,
@@ -915,6 +915,7 @@ class ContinuousWorldStore:
                     "cera.continuous_acceptance_journal.v2",
                     "cera.continuous_acceptance_journal.v3",
                     "cera.continuous_acceptance_journal.v4",
+                    "cera.continuous_acceptance_journal.v5",
                 }
             ):
                 self._finish_local_acceptance(root, transaction_root)
@@ -980,6 +981,7 @@ class ContinuousWorldStore:
             "cera.continuous_acceptance_journal.v2",
             "cera.continuous_acceptance_journal.v3",
             "cera.continuous_acceptance_journal.v4",
+            "cera.continuous_acceptance_journal.v5",
         }:
             return
         active = branch_root / "ACTIVE"

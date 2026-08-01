@@ -900,6 +900,22 @@ older continuous-session compatibility, and qualifies the exact parameterized
 ten-stage fake canary plus subprocess progress observer. Its Stage 4 remains a
 new zero-provider integration audit; no live canary is authorized.
 
+D-193 is correction cycle 006 under the same standing provider-free authority.
+Its progressions are `continuous-ingress-receipt-and-protected-role-authority-v6`,
+`continuous-universal-final-edit-and-accepted-fact-authority-v6`, and
+`continuous-job4-resolution-and-full-harness-qualification-v6`. It replaces
+caller-supplied continuous source classifications with a verified Python-owned
+ingress receipt; separates action/state/dialogue owners from affected,
+addressed, observing, and referenced roles; propagates those roles through
+Composer segments, final fields, events, accepted facts, and acceptance
+identity; requires every semantic edit or created field to equal its cited
+final field; invalidates pre-v6 continuous sessions; preflights every declared
+unittest identity; executes the complete ten-stage harness through actual
+provider ports backed only by scripted transports; and qualifies the complete
+worker-stage accounting matrix. Its Stage 4 remains a new zero-provider
+integration audit. No live canary, route activation, story mutation, service
+change, deployment, merge, remote, or push is authorized.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

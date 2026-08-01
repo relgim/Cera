@@ -160,6 +160,8 @@ from .creator_review import (
 )
 from .continuous import (
     AcceptedFinalSequenceEnvelopeV1,
+    ContinuousIngressReceiptV1,
+    CharacterRoleLedgerV1,
     CharacterSummaryEnvelopeV1,
     FinalSequenceV1,
     IngressSourceUnitV1,
@@ -171,6 +173,8 @@ from .continuous import (
     ProtectedUserRealizationSpanV1,
     StoryRealizationSegmentV1,
     AcceptedSessionProjectionV1,
+    AcceptedSessionFactV1,
+    EventItemRoleLedgerV1,
     ProviderCallLedgerEventV1,
     SceneSummaryDerivedViewV1,
 )
@@ -319,6 +323,8 @@ def build_schema_registry() -> SchemaRegistry:
         RichPlannerSequenceV1,
         CharacterSummaryEnvelopeV1,
         AcceptedFinalSequenceEnvelopeV1,
+        ContinuousIngressReceiptV1,
+        CharacterRoleLedgerV1,
         FinalSequenceV1,
         IngressSourceUnitV1,
         SceneSummaryV1,
@@ -328,6 +334,8 @@ def build_schema_registry() -> SchemaRegistry:
         ProtectedUserRealizationSpanV1,
         StoryRealizationSegmentV1,
         AcceptedSessionProjectionV1,
+        AcceptedSessionFactV1,
+        EventItemRoleLedgerV1,
         ProviderCallLedgerEventV1,
         SceneSummaryDerivedViewV1,
         ContinuousSessionCompatibilityV1,
