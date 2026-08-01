@@ -31,6 +31,7 @@ from cera.continuous.runtime import (
     ContinuousTurnRequestV1,
 )
 from cera.continuous.ingress import ContinuousIngressAuthorityStore
+from cera.continuous.record_policy import PERSISTENCE_POLICY_SHA256
 from cera.continuous.world import (
     ContinuousWorldStore,
     SceneChangeCoordinator,
@@ -529,6 +530,72 @@ class ContinuousEvidenceCorrectionTests(unittest.TestCase):
             sequence,
             self._package_for_semantic_segment(segment, adjudication),
         )
+
+    def test_independent_semantics_rejects_missing_conflicting_and_incomplete_adjudication(self) -> None:
+        text = "Sakura closes the door in front of Ted."
+        registry, sequence, _ = self._registry_and_sequence()
+        segment = StoryRealizationSegmentV1(
+            schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+            segment_key="segment_v8_matrix",
+            kind=StoryRealizationKind.ACTION,
+            output_start=0,
+            output_end=len(text),
+            exact_text=text,
+            roles=CharacterRoleLedgerV1(
+                action_owner_ids=("character:sakura_hanezawa",),
+                affected_ids=("character:ted",),
+            ),
+        )
+        registry.validate_composer_realization(
+            story_text=text,
+            realizations=(),
+            story_segments=(segment,),
+        )
+        valid = ProtectedSemanticAdjudicationV1(
+            schema_version=ProtectedSemanticAdjudicationV1.SCHEMA_VERSION,
+            adjudication_key="adjudicate_v8_matrix",
+            segment_key=segment.segment_key,
+            output_start=0,
+            output_end=len(text),
+            exact_text_sha256=text_sha256(text),
+            protected_user_id="character:ted",
+            relation=ProtectedSemanticRelationKind.AFFECTED_BY_NPC,
+            npc_assertion_owner_ids=("character:sakura_hanezawa",),
+            protected_user_source_claim_keys=(),
+        )
+        valid_package = self._package_for_semantic_segment(segment, valid)
+        with self.assertRaisesRegex(
+            ContractValidationError, "lacks independent protected semantics"
+        ):
+            replace(valid_package, protected_semantic_adjudications=())
+        with self.assertRaisesRegex(StateConflictError, "exact NPC-owned predicate"):
+            registry.validate_traceability(
+                sequence,
+                replace(
+                    valid_package,
+                    protected_semantic_adjudications=(
+                        replace(
+                            valid,
+                            relation=ProtectedSemanticRelationKind.ADDRESSED_BY_NPC,
+                        ),
+                    ),
+                ),
+            )
+        with self.assertRaisesRegex(StateConflictError, "exact Composer span"):
+            registry.validate_traceability(
+                sequence,
+                replace(
+                    valid_package,
+                    protected_semantic_adjudications=(
+                        replace(valid, output_end=len(text) - 1),
+                    ),
+                ),
+            )
+
+        raw = to_primitive(valid_package)
+        raw["protected_semantic_adjudications"][0]["relation"] = "invented_relation"
+        with self.assertRaises(ContractValidationError):
+            build_schema_registry().decode(raw)
 
     def test_protected_user_claims_bind_exact_spans_across_all_beat_text(self) -> None:
         registry = RequestEvidenceBindingRegistry(
@@ -2143,6 +2210,7 @@ class ContinuousAuthorityV6Tests(unittest.TestCase):
                     directive_key=f"persist_{record_class.value}",
                     target_file=target_file,
                     target_record_class=record_class,
+                    persistence_policy_sha256=PERSISTENCE_POLICY_SHA256,
                     target_record_id=f"{record_class.value}:arrival",
                     target_subject_ids=("character:sakura_hanezawa",),
                     expected_file_revision=1,

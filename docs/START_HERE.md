@@ -99,6 +99,8 @@ the active D-180 route.
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_005_RESULT.md` | D-192 explicit ingress ownership, exhaustive Composer segment custody, field-scoped accepted facts, candidate-authority identity binding, v5 compatibility, and exact parameterized fake-canary qualification |
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_006_RESULT.md` | D-193 trusted ingress receipt custody, owner/non-owner roles, universal final-field edit authority, Python-derived event roles, v6 compatibility, real-port scripted harness, and worker-stage matrix |
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_007_RESULT.md` | D-194 durable prepared ingress, closed fixture registry, independent exact-span protected semantics, typed persistence targets, pre-v7 compatibility, and actual scripted Job 4 CLI qualification |
+| `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_008_RESULT.md` | D-195 repository-controlled shadow ingress, source-bound classifier registry, closed writable-record policy, relationship authority, post-edit validation, and scripted-V8 readiness |
+| `CONTINUOUS_SHORT_CANARY_V8_SPEC.md` | Frozen, separately creator-gated live short-canary identity and terminal contract; not execution authority |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |
 | `ROADMAP_AND_GATE.md` | Ordered implementation plan and authorization gates |
 | `CREATOR_REVIEW_PRESENTATION_V1_RESULT.md` | Active severity colors, Adjustment label, False Positive acceptance, and CERA-owned character-color presentation |

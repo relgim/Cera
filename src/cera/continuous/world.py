@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+import copy
 from dataclasses import dataclass
 from datetime import UTC, datetime
 import json
@@ -22,11 +23,18 @@ from cera.serialization import canonical_bytes, canonical_sha256, text_sha256, t
 from .contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     AcceptedTurnPairV1,
+    FinalInformationVisibility,
+    PersistenceRecordClass,
     SceneSummaryDerivedViewV1,
     SceneSummaryTurnProvenanceV2,
     SceneSummaryV1,
     ValidatorFinalizationPackageV1,
     WorldEditOperationKind,
+)
+from .record_policy import (
+    PERSISTENCE_POLICY_SHA256,
+    validate_persistence_field_path,
+    validate_post_edit_record,
 )
 
 
@@ -751,8 +759,49 @@ class ContinuousWorldStore:
     ) -> set[str]:
         changed: set[str] = set()
         loaded: dict[str, Any] = {}
+        originals: dict[str, Any] = {}
         revisions: dict[str, int | None] = {}
+        directive_by_key = {}
+        if package.complete_final_sequence is not None:
+            for item in package.complete_final_sequence.items:
+                for scope in item.field_scopes:
+                    for directive in scope.persistence_directives:
+                        directive_by_key[directive.directive_key] = (directive, scope)
+        directives_by_file: dict[str, list[Any]] = {}
         for operation in package.world_edit_operations:
+            if operation.persistence_directive_key is None:
+                raise ContractValidationError(
+                    "continuous semantic edit lacks a typed persistence directive"
+                )
+            directive_entry = directive_by_key.get(operation.persistence_directive_key)
+            if directive_entry is None:
+                raise StateConflictError(
+                    "continuous semantic edit cites an unknown persistence directive"
+                )
+            directive, scope = directive_entry
+            if directive.persistence_policy_sha256 != PERSISTENCE_POLICY_SHA256:
+                raise StateConflictError(
+                    "continuous semantic edit uses a stale writable-path policy"
+                )
+            validate_persistence_field_path(
+                directive.target_record_class,
+                operation.field_path,
+            )
+            if directive.target_record_class is PersistenceRecordClass.RELATIONSHIP:
+                subjects = set(directive.target_subject_ids)
+                if len(subjects) != 2 or not subjects.issubset(
+                    set(scope.roles.involved_ids)
+                ):
+                    raise StateConflictError(
+                        "relationship persistence participants are not justified by the final field"
+                    )
+                if (
+                    scope.visibility is FinalInformationVisibility.CHARACTER_PRIVATE
+                    and scope.knowledge_owner_id not in subjects
+                ):
+                    raise StateConflictError(
+                        "private relationship persistence changed owner scope"
+                    )
             target = (active_view / operation.target_file).resolve()
             if active_view.resolve() not in target.parents:
                 raise PermissionError("world edit escaped candidate ACTIVE view")
@@ -764,9 +813,11 @@ class ContinuousWorldStore:
                     loaded[key] = json.loads(target.read_text(encoding="utf-8"))
                     revision = loaded[key].get("_cera_revision") if isinstance(loaded[key], dict) else None
                     revisions[key] = revision
+                    originals[key] = copy.deepcopy(loaded[key])
                 else:
                     loaded[key] = None
                     revisions[key] = None
+                    originals[key] = None
             if revisions[key] != operation.expected_file_revision:
                 raise StateConflictError("world edit file revision precondition failed")
             if operation.operation is WorldEditOperationKind.CREATE_FILE:
@@ -778,11 +829,40 @@ class ContinuousWorldStore:
                     raise StateConflictError("world edit target file is absent")
                 _apply_json_operation(loaded[key], operation)
             changed.add(key)
+            directives_by_file.setdefault(key, []).append(directive)
         for key in sorted(changed):
             document = loaded[key]
             if isinstance(document, dict):
                 prior = revisions[key] or 0
                 document["_cera_revision"] = prior + 1
+            file_directives = directives_by_file[key]
+            first = file_directives[0]
+            if any(
+                (
+                    value.target_record_class,
+                    value.target_record_id,
+                    value.target_subject_ids,
+                    value.expected_file_revision,
+                )
+                != (
+                    first.target_record_class,
+                    first.target_record_id,
+                    first.target_subject_ids,
+                    first.expected_file_revision,
+                )
+                for value in file_directives[1:]
+            ):
+                raise StateConflictError(
+                    "one candidate file has conflicting persistence authorities"
+                )
+            validate_post_edit_record(
+                record_class=first.target_record_class,
+                before=originals[key],
+                after=document,
+                expected_record_id=first.target_record_id,
+                expected_subject_ids=first.target_subject_ids,
+                expected_revision=first.expected_file_revision + 1,
+            )
             self._write_json(active_view / key, document)
         return changed
 

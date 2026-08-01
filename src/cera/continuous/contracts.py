@@ -20,6 +20,11 @@ from cera.creator_review.models import (
 from cera.errors import ContractValidationError
 from cera.serialization import canonical_sha256, domain_sha256, re_is_sha256, text_sha256
 
+from .record_policy import (
+    PERSISTENCE_POLICY_SHA256,
+    validate_persistence_field_path,
+)
+
 
 _KEY = re.compile(r"[a-z][a-z0-9_]{0,95}\Z")
 _IDENTITY = re.compile(r"[a-z][a-z0-9_.:-]{0,191}\Z")
@@ -82,6 +87,49 @@ class IngressSourceUnitKind(StrEnum):
 class ContinuousIngressAuthorityKind(StrEnum):
     PREPARED_INGRESS = "prepared_ingress"
     FROZEN_PYTHON_FIXTURE = "frozen_python_fixture"
+
+
+@dataclass(frozen=True, slots=True)
+class PreparedIngressClassifierDescriptorV1:
+    """Closed identity for one repository-owned prepared-ingress classifier."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.prepared_ingress_classifier_descriptor.v1"
+
+    schema_version: str
+    classification_adapter_id: str
+    implementation_module: str
+    implementation_qualname: str
+    implementation_source_sha256: str
+    source_unit_schema_version: str
+    classification_receipt_schema_version: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("prepared classifier descriptor schema changed")
+        for field in (
+            "classification_adapter_id",
+            "source_unit_schema_version",
+            "classification_receipt_schema_version",
+        ):
+            _identity(getattr(self, field), f"prepared_classifier_descriptor.{field}")
+        for field in ("implementation_module", "implementation_qualname"):
+            _text(
+                getattr(self, field),
+                f"prepared_classifier_descriptor.{field}",
+                maximum=256,
+            )
+        if self.classification_adapter_id.startswith("cera.fixture."):
+            raise ContractValidationError(
+                "prepared classifier descriptor cannot claim fixture authority"
+            )
+        if not re_is_sha256(self.implementation_source_sha256):
+            raise ContractValidationError(
+                "prepared classifier descriptor source identity is invalid"
+            )
+
+    @property
+    def descriptor_sha256(self) -> str:
+        return domain_sha256(self.SCHEMA_VERSION, self)
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,13 +200,14 @@ class IngressSourceUnitV1:
 class ContinuousIngressClassificationReceiptV1:
     """Exact output of one trusted prepared-ingress classification adapter."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_ingress_classification_receipt.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_ingress_classification_receipt.v2"
 
     schema_version: str
     envelope_sha256: str
     prepared_turn_sha256: str
     interpretation_receipt_sha256: str
     classification_adapter_id: str
+    classifier_descriptor_sha256: str
     protected_user_id: str
     raw_source_sha256: str
     source_units: tuple[IngressSourceUnitV1, ...]
@@ -173,6 +222,7 @@ class ContinuousIngressClassificationReceiptV1:
             "prepared_turn_sha256",
             "interpretation_receipt_sha256",
             "raw_source_sha256",
+            "classifier_descriptor_sha256",
         ):
             if not re_is_sha256(getattr(self, field)):
                 raise ContractValidationError(
@@ -267,7 +317,7 @@ class FrozenContinuousIngressFixtureV1:
 class ContinuousIngressReceiptV2:
     """Restart-safe Python-owned custody receipt for continuous ingress."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_ingress_receipt.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_ingress_receipt.v3"
 
     schema_version: str
     receipt_id: str
@@ -282,6 +332,7 @@ class ContinuousIngressReceiptV2:
     authority_kind: ContinuousIngressAuthorityKind
     authority_identity_sha256: str
     classification_adapter_id: str
+    classifier_descriptor_sha256: str | None
     prepared_envelope_sha256: str | None
     prepared_turn_sha256: str | None
     interpretation_receipt_sha256: str | None
@@ -340,6 +391,10 @@ class ContinuousIngressReceiptV2:
                 raise ContractValidationError(
                     "prepared continuous ingress receipt cannot cite a fixture"
                 )
+            if not re_is_sha256(self.classifier_descriptor_sha256):
+                raise ContractValidationError(
+                    "prepared continuous ingress receipt lacks classifier identity"
+                )
         else:
             if any(value is not None for value in prepared_fields):
                 raise ContractValidationError(
@@ -348,6 +403,10 @@ class ContinuousIngressReceiptV2:
             if not re_is_sha256(self.fixture_entry_sha256):
                 raise ContractValidationError(
                     "frozen continuous ingress registry hash is invalid"
+                )
+            if self.classifier_descriptor_sha256 is not None:
+                raise ContractValidationError(
+                    "frozen continuous ingress receipt cannot cite a prepared classifier"
                 )
         if text_sha256("".join(value.exact_text for value in self.source_units)) != self.raw_source_sha256:
             raise ContractValidationError(
@@ -817,12 +876,13 @@ class PersistenceRecordClass(StrEnum):
 class PersistenceDirectiveV1:
     """Validator-selected destination; Python derives the exact edit value."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.persistence_directive.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.persistence_directive.v2"
 
     schema_version: str
     directive_key: str
     target_file: str
     target_record_class: PersistenceRecordClass
+    persistence_policy_sha256: str
     target_record_id: str
     target_subject_ids: tuple[str, ...]
     expected_file_revision: int
@@ -841,8 +901,12 @@ class PersistenceDirectiveV1:
             PersistenceRecordClass.RELATIONSHIP,
         }:
             raise ContractValidationError(
-                "continuous persistence V1 supports only character or relationship "
+                "continuous persistence V8 supports only character or relationship "
                 "records with typed subject schemas"
+            )
+        if self.persistence_policy_sha256 != PERSISTENCE_POLICY_SHA256:
+            raise ContractValidationError(
+                "persistence directive uses a stale writable-path policy"
             )
         expected_category = {
             PersistenceRecordClass.CHARACTER: "Characters",
@@ -873,13 +937,7 @@ class PersistenceDirectiveV1:
             raise ContractValidationError(
                 "continuous persistence supports only exact add or replace projections"
             )
-        if (
-            not self.field_path.startswith("/")
-            or self.field_path in {"/", "/_cera_revision", "/schema_version"}
-        ):
-            raise ContractValidationError(
-                "persistence directive field path is not an editable JSON pointer"
-            )
+        validate_persistence_field_path(self.target_record_class, self.field_path)
         if self.operation is WorldEditOperationKind.ADD:
             if self.expected_prior_value_sha256 is not None:
                 raise ContractValidationError(
@@ -1558,7 +1616,7 @@ class SceneSummaryDerivedViewV1:
 
 @dataclass(frozen=True, slots=True)
 class ValidatorFinalizationPackageV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.validator_finalization_package.v7"
+    SCHEMA_VERSION: ClassVar[str] = "cera.validator_finalization_package.v8"
     MAX_EDIT_OPERATIONS: ClassVar[int] = 100
 
     schema_version: str

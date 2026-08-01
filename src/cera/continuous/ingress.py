@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 from typing import Any, Protocol
 
+from cera.contracts import SourceUnitClassification
 from cera.errors import ContractValidationError, StateConflictError
 from cera.ingress import IntentInterpretationReceipt, RawTurnEnvelope
 from cera.ingress.facade import PreparedIngressTurn
@@ -25,11 +27,12 @@ from .contracts import (
     FrozenContinuousIngressFixtureV1,
     IngressSourceUnitKind,
     IngressSourceUnitV1,
+    PreparedIngressClassifierDescriptorV1,
 )
 
 
 _PREPARED_TURN_DOMAIN = "cera.prepared_continuous_ingress_turn.v1"
-_AUTHORITY_RECORD_SCHEMA = "cera.continuous_ingress_authority_record.v1"
+_AUTHORITY_RECORD_SCHEMA = "cera.continuous_ingress_authority_record.v2"
 
 
 class ContinuousIngressAuthorityPort(Protocol):
@@ -48,6 +51,155 @@ class PreparedIngressClassificationPort(Protocol):
     ) -> tuple[IngressSourceUnitV1, ...]: ...
 
 
+class RepositoryPreparedIngressClassifierV1:
+    """Exact, non-owning projection for the repository shadow ingress path.
+
+    The generic raw-turn seam does not yet carry actor/speaker semantics.  This
+    adapter therefore preserves every exact byte while refusing to invent
+    protected-user authority.  Frozen canary fixtures remain the separate path
+    for exact action/dialogue claims.
+    """
+
+    classification_adapter_id = "cera.prepared_ingress_classifier.nonowning_exact.v1"
+
+    def classify(
+        self, envelope: RawTurnEnvelope, prepared: PreparedIngressTurn
+    ) -> tuple[IngressSourceUnitV1, ...]:
+        units: list[IngressSourceUnitV1] = []
+        instruction_kinds = {
+            SourceUnitClassification.INSTRUCTION,
+            SourceUnitClassification.CONSTRAINT,
+        }
+        for index, span in enumerate(prepared.interpretation.source_spans):
+            kind = (
+                IngressSourceUnitKind.INSTRUCTION
+                if span.classification in instruction_kinds
+                else IngressSourceUnitKind.NARRATION
+            )
+            units.append(
+                IngressSourceUnitV1(
+                    schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
+                    source_unit_key=f"source_{index:04d}",
+                    kind=kind,
+                    source_start=span.start,
+                    source_end=span.end,
+                    exact_text=envelope.raw_message[span.start : span.end],
+                    actor_id=None,
+                    speaker_id=None,
+                    classification_basis=(
+                        "explicit_ingress_instruction"
+                        if kind is IngressSourceUnitKind.INSTRUCTION
+                        else "explicit_ingress_narration"
+                    ),
+                )
+            )
+        return tuple(units)
+
+
+def _classifier_descriptor(
+    classifier: PreparedIngressClassificationPort,
+) -> PreparedIngressClassifierDescriptorV1:
+    implementation = type(classifier)
+    try:
+        source = inspect.getsource(implementation)
+    except (OSError, TypeError) as error:
+        raise ContractValidationError(
+            "prepared classifier implementation source is unavailable"
+        ) from error
+    return PreparedIngressClassifierDescriptorV1(
+        schema_version=PreparedIngressClassifierDescriptorV1.SCHEMA_VERSION,
+        classification_adapter_id=classifier.classification_adapter_id,
+        implementation_module=implementation.__module__,
+        implementation_qualname=implementation.__qualname__,
+        implementation_source_sha256=text_sha256(source),
+        source_unit_schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
+        classification_receipt_schema_version=(
+            ContinuousIngressClassificationReceiptV1.SCHEMA_VERSION
+        ),
+    )
+
+
+class PreparedIngressClassifierRegistry:
+    """Closed registry; adapter strings cannot substitute implementations."""
+
+    SCHEMA_VERSION = "cera.prepared_ingress_classifier_registry.v1"
+    _ALLOWED_TYPES = (RepositoryPreparedIngressClassifierV1,)
+
+    def __init__(
+        self,
+        classifiers: tuple[PreparedIngressClassificationPort, ...],
+    ) -> None:
+        if not classifiers:
+            raise ContractValidationError("prepared classifier registry is empty")
+        self._entries: dict[
+            str,
+            tuple[
+                PreparedIngressClassificationPort,
+                PreparedIngressClassifierDescriptorV1,
+            ],
+        ] = {}
+        for classifier in classifiers:
+            if type(classifier) not in self._ALLOWED_TYPES:
+                raise ContractValidationError(
+                    "prepared classifier implementation is not repository controlled"
+                )
+            descriptor = _classifier_descriptor(classifier)
+            if descriptor.classification_adapter_id in self._entries:
+                raise ContractValidationError(
+                    "prepared classifier registry contains duplicate adapter IDs"
+                )
+            self._entries[descriptor.classification_adapter_id] = (
+                classifier,
+                descriptor,
+            )
+
+    def resolve(
+        self, classification_adapter_id: str
+    ) -> tuple[
+        PreparedIngressClassificationPort,
+        PreparedIngressClassifierDescriptorV1,
+    ]:
+        entry = self._entries.get(classification_adapter_id)
+        if entry is None:
+            raise ContractValidationError(
+                "prepared classifier identity is not in the closed registry"
+            )
+        classifier, frozen_descriptor = entry
+        current_descriptor = _classifier_descriptor(classifier)
+        if current_descriptor != frozen_descriptor:
+            raise StateConflictError(
+                "prepared classifier implementation identity changed"
+            )
+        return classifier, frozen_descriptor
+
+    def assert_descriptor(
+        self,
+        *,
+        classification_adapter_id: str,
+        descriptor_sha256: str,
+    ) -> PreparedIngressClassifierDescriptorV1:
+        _, descriptor = self.resolve(classification_adapter_id)
+        if descriptor.descriptor_sha256 != descriptor_sha256:
+            raise StateConflictError(
+                "prepared classifier descriptor is stale or substituted"
+            )
+        return descriptor
+
+    @property
+    def registry_sha256(self) -> str:
+        return domain_sha256(
+            self.SCHEMA_VERSION,
+            tuple(
+                self._entries[key][1]
+                for key in sorted(self._entries)
+            ),
+        )
+
+
+def build_default_prepared_classifier_registry() -> PreparedIngressClassifierRegistry:
+    return PreparedIngressClassifierRegistry((RepositoryPreparedIngressClassifierV1(),))
+
+
 class PreparedContinuousIngressBridge:
     """Verify actual ingress objects before issuing a continuous receipt."""
 
@@ -55,18 +207,18 @@ class PreparedContinuousIngressBridge:
         self,
         *,
         authority: "ContinuousIngressAuthorityStore",
-        classifier: PreparedIngressClassificationPort,
+        classifier_registry: PreparedIngressClassifierRegistry,
+        classification_adapter_id: str = (
+            RepositoryPreparedIngressClassifierV1.classification_adapter_id
+        ),
     ) -> None:
-        if not classifier.classification_adapter_id.strip():
-            raise ContractValidationError(
-                "prepared continuous classifier identity is empty"
-            )
-        if classifier.classification_adapter_id.startswith("cera.fixture."):
-            raise ContractValidationError(
-                "prepared continuous ingress cannot use a fixture adapter"
-            )
+        classifier, descriptor = classifier_registry.resolve(
+            classification_adapter_id
+        )
         self.authority = authority
         self.classifier = classifier
+        self.classifier_registry = classifier_registry
+        self.classifier_descriptor = descriptor
 
     def issue(
         self,
@@ -124,6 +276,9 @@ class PreparedContinuousIngressBridge:
             prepared_turn_sha256=prepared_turn_sha256,
             interpretation_receipt_sha256=interpretation_receipt_sha256,
             classification_adapter_id=self.classifier.classification_adapter_id,
+            classifier_descriptor_sha256=(
+                self.classifier_descriptor.descriptor_sha256
+            ),
             protected_user_id=str(envelope.protected_user_id),
             raw_source_sha256=text_sha256(envelope.raw_message),
             source_units=source_units,
@@ -132,6 +287,7 @@ class PreparedContinuousIngressBridge:
             envelope=envelope,
             prepared=prepared,
             classification=classification,
+            classifier_descriptor=self.classifier_descriptor,
             turn_id=turn_id,
         )
 
@@ -144,9 +300,11 @@ class ContinuousIngressAuthorityStore:
         root: Path,
         *,
         fixture_registry: tuple[FrozenContinuousIngressFixtureV1, ...] = (),
+        prepared_classifier_registry: PreparedIngressClassifierRegistry | None = None,
     ) -> None:
         self.root = root.resolve()
         self.root.mkdir(parents=True, exist_ok=True)
+        self.prepared_classifier_registry = prepared_classifier_registry
         self._fixtures: dict[str, FrozenContinuousIngressFixtureV1] = {}
         for fixture in fixture_registry:
             if fixture.fixture_id in self._fixtures:
@@ -172,6 +330,7 @@ class ContinuousIngressAuthorityStore:
             authority_kind=ContinuousIngressAuthorityKind.FROZEN_PYTHON_FIXTURE,
             authority_identity_sha256=fixture.fixture_sha256,
             classification_adapter_id=fixture.fixture_id,
+            classifier_descriptor_sha256=None,
             world_id=fixture.world_id,
             branch_id=fixture.branch_id,
             session_id=fixture.session_id,
@@ -195,6 +354,7 @@ class ContinuousIngressAuthorityStore:
         envelope: RawTurnEnvelope,
         prepared: PreparedIngressTurn,
         classification: ContinuousIngressClassificationReceiptV1,
+        classifier_descriptor: PreparedIngressClassifierDescriptorV1,
         turn_id: str,
     ) -> ContinuousIngressReceiptV2:
         envelope_sha256 = domain_sha256(RawTurnEnvelope.SCHEMA_VERSION, envelope)
@@ -211,6 +371,10 @@ class ContinuousIngressAuthorityStore:
             or classification.raw_source_sha256
             != text_sha256(envelope.raw_message)
             or classification.protected_user_id != str(envelope.protected_user_id)
+            or classification.classifier_descriptor_sha256
+            != classifier_descriptor.descriptor_sha256
+            or classification.classification_adapter_id
+            != classifier_descriptor.classification_adapter_id
         ):
             raise StateConflictError(
                 "prepared continuous classification changed authoritative ingress"
@@ -223,12 +387,16 @@ class ContinuousIngressAuthorityStore:
                 "interpretation_receipt_sha256": interpretation_receipt_sha256,
                 "classification_receipt_sha256": classification.receipt_sha256,
                 "classification_adapter_id": classification.classification_adapter_id,
+                "classifier_descriptor_sha256": (
+                    classifier_descriptor.descriptor_sha256
+                ),
             }
         )
         return self._issue(
             authority_kind=ContinuousIngressAuthorityKind.PREPARED_INGRESS,
             authority_identity_sha256=authority_identity,
             classification_adapter_id=classification.classification_adapter_id,
+            classifier_descriptor_sha256=classifier_descriptor.descriptor_sha256,
             world_id=str(envelope.world_id),
             branch_id=str(envelope.branch_id),
             session_id=str(envelope.session_id),
@@ -250,6 +418,7 @@ class ContinuousIngressAuthorityStore:
                     prepared.interpretation_receipt
                 ),
                 "classification_receipt": to_primitive(classification),
+                "classifier_descriptor": to_primitive(classifier_descriptor),
             },
         )
 
@@ -291,6 +460,7 @@ class ContinuousIngressAuthorityStore:
         authority_kind: ContinuousIngressAuthorityKind,
         authority_identity_sha256: str,
         classification_adapter_id: str,
+        classifier_descriptor_sha256: str | None,
         world_id: str,
         branch_id: str,
         session_id: str,
@@ -339,6 +509,7 @@ class ContinuousIngressAuthorityStore:
             authority_kind=authority_kind,
             authority_identity_sha256=authority_identity_sha256,
             classification_adapter_id=classification_adapter_id,
+            classifier_descriptor_sha256=classifier_descriptor_sha256,
             prepared_envelope_sha256=prepared_envelope_sha256,
             prepared_turn_sha256=prepared_turn_sha256,
             interpretation_receipt_sha256=interpretation_receipt_sha256,
@@ -370,8 +541,8 @@ class ContinuousIngressAuthorityStore:
             receipt_sha256=receipt.receipt_sha256,
         )
 
-    @staticmethod
     def _validate_authority_evidence(
+        self,
         receipt: ContinuousIngressReceiptV2,
         evidence: dict[str, Any],
     ) -> None:
@@ -398,6 +569,17 @@ class ContinuousIngressAuthorityStore:
         prepared = evidence["prepared_turn"]
         interpretation = evidence["interpretation_receipt"]
         classification = _decode_classification(evidence["classification_receipt"])
+        descriptor = PreparedIngressClassifierDescriptorV1(
+            **evidence["classifier_descriptor"]
+        )
+        if self.prepared_classifier_registry is None:
+            raise StateConflictError(
+                "prepared continuous ingress lacks its closed classifier registry"
+            )
+        self.prepared_classifier_registry.assert_descriptor(
+            classification_adapter_id=receipt.classification_adapter_id,
+            descriptor_sha256=descriptor.descriptor_sha256,
+        )
         if (
             domain_sha256(RawTurnEnvelope.SCHEMA_VERSION, envelope)
             != receipt.prepared_envelope_sha256
@@ -412,6 +594,11 @@ class ContinuousIngressAuthorityStore:
             or classification.interpretation_receipt_sha256
             != receipt.interpretation_receipt_sha256
             or classification.classification_adapter_id
+            != receipt.classification_adapter_id
+            or classification.classifier_descriptor_sha256
+            != receipt.classifier_descriptor_sha256
+            or descriptor.descriptor_sha256 != receipt.classifier_descriptor_sha256
+            or descriptor.classification_adapter_id
             != receipt.classification_adapter_id
             or classification.source_units != receipt.source_units
             or classification.raw_source_sha256 != receipt.raw_source_sha256

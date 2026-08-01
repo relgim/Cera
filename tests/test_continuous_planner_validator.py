@@ -37,6 +37,8 @@ from cera.continuous.sessions import (
     WorldPathAccessPolicyV1,
     assert_separate_role_sessions,
 )
+from cera.continuous.ingress import build_default_prepared_classifier_registry
+from cera.continuous.record_policy import PERSISTENCE_POLICY_SHA256
 from cera.continuous.codex_stored import CodexContinuousStoredSessionPort
 from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import canonical_sha256, text_sha256
@@ -177,8 +179,12 @@ def compatibility(role: ContinuousSessionRole, branch: str = "branch:main") -> C
         world_directory_identity_sha256=text_sha256(f"hanezawa/{branch}"),
         authority_policy_version="cera.owner_architecture.v2",
         privacy_policy_version="cera.privacy.v1",
-        protected_user_policy_version="cera.continuous_protected_user_policy.v7",
-        session_policy_version="cera.continuous_session_policy.v7",
+        protected_user_policy_version="cera.continuous_protected_user_policy.v8",
+        session_policy_version="cera.continuous_session_policy.v8",
+        ingress_classifier_registry_sha256=(
+            build_default_prepared_classifier_registry().registry_sha256
+        ),
+        persistence_policy_sha256=PERSISTENCE_POLICY_SHA256,
     )
 
 
@@ -461,6 +467,22 @@ class ContinuousSessionTests(unittest.TestCase):
             session_policy_version="cera.continuous_session_policy.v6",
         )
         snapshot = ContinuousSessionCoordinator(pre_v7, port).snapshot()
+        with self.assertRaisesRegex(StateConflictError, "incompatible"):
+            ContinuousSessionCoordinator.reconstruct(
+                snapshot,
+                port,
+                expected_compatibility=current,
+            )
+
+    def test_restart_rejects_pre_v8_classifier_and_write_policy_compatibility(self) -> None:
+        port = InMemoryContinuousStoredSessionPort()
+        current = compatibility(ContinuousSessionRole.PLANNER)
+        stale = replace(
+            current,
+            ingress_classifier_registry_sha256=text_sha256("pre-v8-classifier"),
+            persistence_policy_sha256=text_sha256("pre-v8-write-policy"),
+        )
+        snapshot = ContinuousSessionCoordinator(stale, port).snapshot()
         with self.assertRaisesRegex(StateConflictError, "incompatible"):
             ContinuousSessionCoordinator.reconstruct(
                 snapshot,

@@ -242,6 +242,102 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertEqual(result["effects"]["provider_calls"], 0)
             self.assertEqual(result["effects"]["scripted_transport_invocations"], 10)
 
+    def test_actual_cli_completes_closed_provider_free_scripted_v8_mode(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            cycle = root / "cycle"
+            (cycle / "receipts").mkdir(parents=True)
+            authorization = "b" * 64
+            cycle_id = "cycle:scripted-cli-v8"
+            task_id = "task:scripted-cli-v8"
+            (cycle / "CYCLE_MANIFEST.json").write_text(
+                json.dumps(
+                    {
+                        "cycle_id": cycle_id,
+                        "job4": {
+                            "task_id": task_id,
+                            "authorization_record_sha256": authorization,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (cycle / "receipts" / "TRIGGER_SENT.json").write_text(
+                "{}\n", encoding="utf-8"
+            )
+            source_database = root / "source.sqlite3"
+            connection = sqlite3.connect(source_database)
+            try:
+                connection.execute("CREATE TABLE qualification(value TEXT)")
+                connection.execute("INSERT INTO qualification VALUES ('unchanged')")
+                connection.commit()
+            finally:
+                connection.close()
+            runtime_root = root / "runtime"
+            completed = subprocess.run(
+                (
+                    sys.executable,
+                    str(ROOT / "scripts" / "run_continuous_planner_validator_job4.py"),
+                    "--confirm-provider-free-scripted-v8",
+                    "--expected-scripted-fixture-sha256",
+                    SCRIPTED_JOB4_FIXTURE_SHA256,
+                    "--cycle-directory",
+                    str(cycle),
+                    "--source-database",
+                    str(source_database),
+                    "--runtime-root",
+                    str(runtime_root),
+                    "--expected-checkpoint-sha",
+                    git_head(ROOT),
+                    "--expected-cycle-id",
+                    cycle_id,
+                    "--expected-task-id",
+                    task_id,
+                    "--expected-authorization-sha256",
+                    authorization,
+                    "--maximum-provider-calls",
+                    "10",
+                ),
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                timeout=120,
+                check=False,
+            )
+            detail_path = runtime_root / "JOB4_DETAIL.json"
+            failure_detail = (
+                detail_path.read_text(encoding="utf-8")
+                if detail_path.is_file()
+                else ""
+            )
+            self.assertEqual(
+                completed.returncode,
+                0,
+                completed.stderr + completed.stdout + failure_detail,
+            )
+            detail = json.loads(detail_path.read_text())
+            result = json.loads((cycle / "source" / "JOB4_RESULT.json").read_text())
+            self.assertEqual(detail["status"], "completed")
+            self.assertEqual(detail["execution_mode"], "provider_free_scripted_v8")
+            self.assertEqual(detail["provider_calls"], 0)
+            self.assertEqual(detail["scripted_transport_invocations"], 10)
+            self.assertEqual(len(detail["calls"]), 10)
+            self.assertEqual(
+                detail["prepared_shadow_ingress"]["status"], "passed"
+            )
+            self.assertEqual(
+                detail["prepared_shadow_ingress"]["authority_kind"],
+                "prepared_ingress",
+            )
+            self.assertEqual(
+                detail["thread_archival"], {"planner": True, "validator": True}
+            )
+            self.assertTrue(detail["source_database_unchanged"])
+            self.assertTrue(detail["copy_database_unchanged"])
+            self.assertTrue(detail["active_route_unchanged"])
+            self.assertEqual(result["effects"]["provider_calls"], 0)
+            self.assertEqual(result["effects"]["scripted_transport_invocations"], 10)
+
     def test_declared_unittest_ids_must_resolve_before_publication(self) -> None:
         valid = (
             "tests.test_continuous_planner_validator.ContinuousSessionTests."

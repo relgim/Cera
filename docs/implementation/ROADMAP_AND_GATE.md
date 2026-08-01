@@ -929,6 +929,21 @@ scripted stage invocations and zero external calls. Its Stage 4 remains a new
 provider-free integration audit. No live canary, route activation, story
 mutation, service change, deployment, merge, remote, or push is authorized.
 
+D-195 is correction cycle 008 under the same standing provider-free authority.
+Its progressions are `continuous-runtime-ingress-adapter-and-classifier-registry-v8`,
+`continuous-record-write-schema-and-relationship-authority-v8`, and
+`continuous-live-canary-readiness-and-adversarial-contract-v8`. It connects the
+existing raw/prepared seam to a repository-owned SillyTavern-compatible shadow
+request builder, binds each allowed classifier to exact implementation source,
+closes Character and Relationship writable paths, ties relationship subjects
+to cited final-field roles and owner scope, validates complete post-edit
+records, invalidates pre-V8 sessions and candidates, and qualifies both
+prepared and frozen ingress through scripted-V8 execution. Its Stage 4 remains
+a new zero-provider integration audit. The frozen short-canary specification
+is not live execution authority; no provider call, route activation, story
+mutation, installed-client/service change, deployment, merge, remote, or push
+is authorized.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

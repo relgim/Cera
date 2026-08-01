@@ -26,7 +26,15 @@ from cera.continuous.diagnostics import ContinuousRootDiagnosticRecorder
 from cera.continuous.evidence import (
     build_character_summary_envelope,
 )
-from cera.continuous.ingress import ContinuousIngressAuthorityStore
+from cera.continuous.ingress import (
+    ContinuousIngressAuthorityStore,
+    PreparedContinuousIngressBridge,
+    build_default_prepared_classifier_registry,
+)
+from cera.continuous.shadow_ingress import (
+    ContinuousSillyTavernShadowRequestBridge,
+)
+from cera.continuous.record_policy import PERSISTENCE_POLICY_SHA256
 from cera.continuous.contracts import (
     AcceptedTurnPairV1,
     CharacterSummaryEnvelopeV1,
@@ -75,9 +83,20 @@ from cera.continuous.world_mcp import (
 )
 from cera.creator_review.models import CreatorReviewAction
 from cera.active_runtime_validation import active_runtime_status
+from cera.evaluation import RealGenesisSandbox
+from cera.evidence import EvidenceWorldMode
+from cera.ids import IdKind, TypedId
+from cera.ingress import RawTurnEnvelope, RawTurnIngressFacade
+from cera.kernel import PreflightAuthority, RequestedContentClass, TurnKernel
 from cera.providers import CodexSDKTransport, DeepSeekChatTransport, StoredCodexThreadRunner
 from cera.providers.codex_worker import _BASE_INSTRUCTIONS_BY_ROLE
 from cera.reasoner_session import OpenAICodexStoredThreadBackend
+from cera.reasoner import SeedDossierAssembler
+from cera.sillytavern.models import (
+    CERA_VIRTUAL_MODEL,
+    ChatMessage,
+    SillyTavernChatRequest,
+)
 from cera.serialization import (
     bytes_sha256,
     canonical_bytes,
@@ -411,8 +430,12 @@ def compatibility(
         world_directory_identity_sha256=world.world_identity_sha256(WORLD_ID, BRANCH_ID),
         authority_policy_version="cera.owner_architecture.v2+d186",
         privacy_policy_version="cera.privacy.v1",
-        protected_user_policy_version="cera.continuous_protected_user_policy.v7",
-        session_policy_version="cera.continuous_session_policy.v7",
+        protected_user_policy_version="cera.continuous_protected_user_policy.v8",
+        session_policy_version="cera.continuous_session_policy.v8",
+        ingress_classifier_registry_sha256=(
+            build_default_prepared_classifier_registry().registry_sha256
+        ),
+        persistence_policy_sha256=PERSISTENCE_POLICY_SHA256,
     )
 
 
@@ -1025,6 +1048,82 @@ def execute_job4_schedule(
     result["status"] = "completed"
 
 
+def verify_prepared_shadow_ingress(lifecycle_root: Path) -> dict[str, Any]:
+    """Cross the actual raw/prepared/Silly-compatible shadow boundary once."""
+
+    with RealGenesisSandbox.create(ROOT, revision="v1_2") as sandbox:
+        message = "Ted asks Hana whether this is the Hanezawa residence."
+        ted = sandbox.protected_user_id()
+        hana = sandbox.character_id("Hana")
+        envelope = RawTurnEnvelope(
+            schema_version=RawTurnEnvelope.SCHEMA_VERSION,
+            world_id=sandbox.world_id,
+            request_id=TypedId(IdKind.REQUEST, "continuous-job4-shadow-ingress"),
+            session_id=TypedId(IdKind.SESSION, "continuous-job4-shadow-session"),
+            branch_id=sandbox.branch_id,
+            expected_generation=0,
+            expected_parent_artifact_id=None,
+            genesis_revision_id=sandbox.revision_id,
+            protected_user_id=ted,
+            present_character_ids=(ted, hana),
+            eligible_responder_ids=(hana,),
+            raw_message=message,
+            idempotency_key="continuous-job4-shadow-ingress",
+            world_mode=EvidenceWorldMode.REAL,
+            access_scope=sandbox.system_scope(),
+            preflight_authority=PreflightAuthority(RequestedContentClass.ORDINARY),
+            hard_boundaries=(
+                "Do not author the protected user.",
+                "Do not transfer owner-private evidence.",
+            ),
+        )
+        registry = build_default_prepared_classifier_registry()
+        authority_root = lifecycle_root / "prepared_shadow_ingress_authority"
+        authority = ContinuousIngressAuthorityStore(
+            authority_root,
+            prepared_classifier_registry=registry,
+        )
+        shadow = ContinuousSillyTavernShadowRequestBridge(
+            raw_ingress=RawTurnIngressFacade(
+                turn_kernel=TurnKernel(sandbox.service),
+                seed_assembler=SeedDossierAssembler(sandbox.service),
+            ),
+            prepared_ingress=PreparedContinuousIngressBridge(
+                authority=authority,
+                classifier_registry=registry,
+            ),
+        )
+        prepared = shadow.prepare(
+            chat_request=SillyTavernChatRequest(
+                model=CERA_VIRTUAL_MODEL,
+                messages=(ChatMessage(role="user", content=message),),
+                stream=False,
+            ),
+            envelope=envelope,
+            scene_id="scene:shadow-ingress",
+            turn_id="turn-shadow-ingress",
+            current_authority_packet={"route": "shadow_only"},
+        )
+        restarted = ContinuousIngressAuthorityStore(
+            authority_root,
+            prepared_classifier_registry=build_default_prepared_classifier_registry(),
+        ).resolve(
+            receipt_id=prepared.ingress_receipt_id,
+            receipt_sha256=prepared.ingress_receipt_sha256,
+        )
+        if restarted.receipt_sha256 != prepared.request.ingress_receipt_sha256:
+            raise RuntimeError("prepared shadow ingress restart identity changed")
+        return {
+            "status": "passed",
+            "classifier_registry_sha256": registry.registry_sha256,
+            "ingress_receipt_sha256": restarted.receipt_sha256,
+            "authority_kind": restarted.authority_kind.value,
+            "source_unit_kinds": tuple(value.kind.value for value in restarted.source_units),
+            "external_provider_calls": 0,
+            "story_writes": 0,
+        }
+
+
 def execute_scripted_job4(
     *,
     cycle: Path,
@@ -1037,6 +1136,11 @@ def execute_scripted_job4(
 ) -> JobHarness:
     """Cross the actual executable path with closed local transports only."""
 
+    result["prepared_shadow_ingress"] = root_diagnostic.run(
+        "prepared_shadow_ingress",
+        "verify_repository_controlled_shadow_ingress",
+        lambda: verify_prepared_shadow_ingress(lifecycle_root),
+    )
     session_port = InMemoryContinuousStoredSessionPort()
     planner_session = root_diagnostic.run(
         "session_construction",
@@ -1119,6 +1223,9 @@ def main() -> int:
     confirmation.add_argument(
         "--confirm-provider-free-scripted-v7", action="store_true"
     )
+    confirmation.add_argument(
+        "--confirm-provider-free-scripted-v8", action="store_true"
+    )
     parser.add_argument("--expected-scripted-fixture-sha256")
     parser.add_argument("--cycle-directory", type=Path, required=True)
     parser.add_argument("--source-database", type=Path, required=True)
@@ -1129,7 +1236,13 @@ def main() -> int:
     parser.add_argument("--expected-authorization-sha256", required=True)
     parser.add_argument("--maximum-provider-calls", type=int, required=True)
     args = parser.parse_args()
-    scripted_provider_free = args.confirm_provider_free_scripted_v7
+    scripted_provider_free = (
+        args.confirm_provider_free_scripted_v7
+        or args.confirm_provider_free_scripted_v8
+    )
+    scripted_mode_version = (
+        "v8" if args.confirm_provider_free_scripted_v8 else "v7"
+    )
     if scripted_provider_free:
         if args.expected_scripted_fixture_sha256 != SCRIPTED_JOB4_FIXTURE_SHA256:
             parser.error(
@@ -1228,7 +1341,7 @@ def main() -> int:
         "started_at": utc_now(),
         "status": "running",
         "execution_mode": (
-            "provider_free_scripted_v7"
+            f"provider_free_scripted_{scripted_mode_version}"
             if scripted_provider_free
             else "live_one_shot"
         ),

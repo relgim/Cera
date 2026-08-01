@@ -30,6 +30,7 @@ from .contracts import (
     StoryRealizationSegmentV1,
     ValidatorFinalizationPackageV1,
 )
+from .record_policy import validate_persistence_field_path
 
 
 @dataclass(frozen=True, slots=True)
@@ -349,7 +350,7 @@ class RequestEvidenceBindingV1:
 class RequestEvidenceBindingRegistry:
     """Mutable request ledger whose exported bindings are immutable records."""
 
-    SCHEMA_VERSION = "cera.request_evidence_binding_registry.v8"
+    SCHEMA_VERSION = "cera.request_evidence_binding_registry.v9"
 
     def __init__(self, *, world_id: str, branch_id: str, turn_id: str) -> None:
         if not all(isinstance(value, str) and value.strip() for value in (world_id, branch_id, turn_id)):
@@ -1341,6 +1342,10 @@ class RequestEvidenceBindingRegistry:
         scope: Any,
         directive: Any,
     ) -> None:
+        validate_persistence_field_path(
+            directive.target_record_class,
+            directive.field_path,
+        )
         active_root = (branch_root / "ACTIVE").resolve()
         target = (active_root / directive.target_file).resolve()
         if active_root not in target.parents or not target.is_file() or target.is_symlink():
@@ -1385,9 +1390,26 @@ class RequestEvidenceBindingRegistry:
                 )
         elif directive.target_record_class is PersistenceRecordClass.RELATIONSHIP:
             participants = payload.get("participant_ids")
-            if not isinstance(participants, list) or set(participants) != subjects:
+            involved = set(scope.roles.involved_ids)
+            if (
+                not isinstance(participants, list)
+                or len(participants) != 2
+                or len(subjects) != 2
+                or set(participants) != subjects
+                or not subjects.issubset(involved)
+            ):
                 raise StateConflictError(
-                    "relationship persistence targets the wrong participant pair"
+                    "relationship persistence participants are not justified by the final field"
+                )
+            if (
+                scope.visibility is FinalInformationVisibility.CHARACTER_PRIVATE
+                and (
+                    scope.knowledge_owner_id not in subjects
+                    or scope.knowledge_owner_id not in involved
+                )
+            ):
+                raise StateConflictError(
+                    "private relationship persistence changed owner scope"
                 )
         prior_found, prior = _try_json_pointer(payload, directive.field_path)
         if directive.operation.value == "add":

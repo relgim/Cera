@@ -109,7 +109,7 @@ class ProviderEventRecordDraftV1:
 
 @dataclass(frozen=True, slots=True)
 class ContinuousValidatorDraftV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_validator_draft.v7"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_validator_draft.v8"
 
     schema_version: str
     package_id: str

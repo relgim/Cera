@@ -34,6 +34,7 @@ from .prompting import (
     build_planner_turn_prompt,
     build_validator_prompt,
 )
+from .record_policy import PERSISTENCE_POLICY_SHA256
 from .sessions import (
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
@@ -138,6 +139,7 @@ class ContinuousTurnCandidateV1:
                 ),
                 "accepted_session_projection_ledger_sha256": self.accepted_session_projection_ledger_sha256,
                 "ingress_receipt_sha256": self.request.ingress_receipt_sha256,
+                "persistence_policy_sha256": PERSISTENCE_POLICY_SHA256,
                 "planner_prompt_sha256": self.planner_prompt_sha256,
                 "composer_prompt_sha256": self.composer_prompt_sha256,
                 "validator_prompt_sha256": self.validator_prompt_sha256,

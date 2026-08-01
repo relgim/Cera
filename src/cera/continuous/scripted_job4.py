@@ -1,6 +1,6 @@
 """Closed provider-free fixtures for executable Continuous Job 4 qualification.
 
-This module is imported only behind the exact scripted-v7 command-line
+This module is imported only behind the exact scripted-v8 command-line
 confirmation.  Its transports cross the real adapter and call-ledger seams but
 cannot dispatch an external request.
 """
@@ -49,7 +49,7 @@ from .provider import (
 )
 
 
-SCRIPTED_JOB4_FIXTURE_ID = "cera.continuous_job4_scripted_fixture.v7"
+SCRIPTED_JOB4_FIXTURE_ID = "cera.continuous_job4_scripted_fixture.v8"
 _STORIES = {
     "turn-001": "Sakura requests bounded proof.",
     "turn-002": "Sakura keeps the threshold controlled.",

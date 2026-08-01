@@ -35,6 +35,7 @@ from scripts.run_continuous_planner_validator_job4 import (
 
 CYCLE_ID = "2026-08-01-continuous-planner-validator-v1-corrections-cycle-007"
 TASK_ID = "continuous-corrections-v7-provider-free-executable-integration-audit"
+AUDIT_VERSION = "v7"
 
 CASES = (
     (
@@ -151,7 +152,9 @@ def digest(path: Path) -> str:
 
 def sqlite_check(source: Path) -> dict[str, object]:
     source_before = digest(source)
-    with tempfile.TemporaryDirectory(prefix="cera-corrections-v7-job4-") as directory:
+    with tempfile.TemporaryDirectory(
+        prefix=f"cera-corrections-{AUDIT_VERSION}-job4-"
+    ) as directory:
         copied = Path(directory) / "disposable.sqlite3"
         shutil.copy2(source, copied)
         copy_before = digest(copied)
@@ -215,7 +218,7 @@ def main() -> int:
     )
     cases.append(
         {
-            "case_id": 20,
+            "case_id": len(CASES) + 1,
             "name": "Source and disposable SQLite hashes remain unchanged",
             "test_id": "provider_free_read_only_sqlite_check",
             "status": "passed" if database_passed else "failed",
@@ -224,7 +227,7 @@ def main() -> int:
     completed = result.wasSuccessful() and database_passed
     elapsed = time.perf_counter() - started
     report_lines = [
-        "# Continuous corrections v7 provider-free Job 4",
+        f"# Continuous corrections {AUDIT_VERSION} provider-free Job 4",
         "",
         f"- Cycle: `{CYCLE_ID}`",
         f"- Task: `{TASK_ID}`",
@@ -253,7 +256,7 @@ def main() -> int:
             json.dumps(database, indent=2, sort_keys=True),
             "```",
             "",
-            "This new-identity audit preflighted every exact test ID and crossed the actual Job 4 CLI through its closed scripted-v7 mode. It constructed no external provider transport and did not alter any prior cycle. No active route, story state, installed SillyTavern, deployment, remote, merge, or push effect occurred.",
+            f"This new-identity audit preflighted every exact test ID and crossed the actual Job 4 CLI through its closed scripted-{AUDIT_VERSION} mode. It constructed no external provider transport and did not alter any prior cycle. No active route, story state, installed SillyTavern, deployment, remote, merge, or push effect occurred.",
             "",
         ]
     )
@@ -273,7 +276,7 @@ def main() -> int:
         },
         "verification": [
             {
-                "command": "direct provider-free corrections-v7 audit",
+                "command": f"direct provider-free corrections-{AUDIT_VERSION} audit",
                 "status": "passed" if completed else "failed",
                 "summary": (
                     f"{sum(case['status'] == 'passed' for case in cases)}/{len(cases)} "

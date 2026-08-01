@@ -29,9 +29,11 @@ from cera.evidence import (
 )
 from cera.continuous import (
     ContinuousIngressAuthorityStore,
-    IngressSourceUnitKind,
-    IngressSourceUnitV1,
+    ContinuousSillyTavernShadowRequestBridge,
     PreparedContinuousIngressBridge,
+    PreparedIngressClassifierRegistry,
+    RepositoryPreparedIngressClassifierV1,
+    build_default_prepared_classifier_registry,
 )
 from cera.errors import ContractValidationError, EvidenceServiceError, StateConflictError
 from cera.genesis.hanezawa_builder import CHARACTER_IDS
@@ -70,6 +72,11 @@ from cera.registry import build_schema_registry
 from cera.runtime.pipeline import LiveShapedTurnFailure
 from cera.schema import from_mapping
 from cera.serialization import canonical_json
+from cera.sillytavern.models import (
+    CERA_VIRTUAL_MODEL,
+    ChatMessage,
+    SillyTavernChatRequest,
+)
 from cera.source_inventory import validate_repository_source_inventory
 from cera.storage import SQLiteAuthorityStore
 from cera.contracts import SourceUnitClassification
@@ -82,26 +89,6 @@ from tests.structural_v2_fixtures import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-
-
-class _PreparedContinuousClassifier:
-    classification_adapter_id = "cera.prepared_ingress_classifier.test.v1"
-
-    def classify(self, envelope, prepared):
-        del prepared
-        return (
-            IngressSourceUnitV1(
-                schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
-                source_unit_key="source_unit_001",
-                kind=IngressSourceUnitKind.ACTION,
-                source_start=0,
-                source_end=len(envelope.raw_message),
-                exact_text=envelope.raw_message,
-                actor_id=str(envelope.protected_user_id),
-                speaker_id=None,
-                classification_basis="explicit_ingress_actor",
-            ),
-        )
 
 
 def _obligation(
@@ -585,17 +572,24 @@ class StructuralV2IngressTests(unittest.TestCase):
         ).prepare(envelope)
         with TemporaryDirectory() as directory:
             root = Path(directory) / "continuous-ingress"
-            first_store = ContinuousIngressAuthorityStore(root)
+            registry = build_default_prepared_classifier_registry()
+            first_store = ContinuousIngressAuthorityStore(
+                root,
+                prepared_classifier_registry=registry,
+            )
             receipt = PreparedContinuousIngressBridge(
                 authority=first_store,
-                classifier=_PreparedContinuousClassifier(),
+                classifier_registry=registry,
             ).issue(
                 envelope=envelope,
                 prepared=prepared,
                 turn_id="turn-001",
             )
 
-            restarted_store = ContinuousIngressAuthorityStore(root)
+            restarted_store = ContinuousIngressAuthorityStore(
+                root,
+                prepared_classifier_registry=build_default_prepared_classifier_registry(),
+            )
             self.assertEqual(
                 restarted_store.resolve(
                     receipt_id=receipt.receipt_id,
@@ -633,9 +627,12 @@ class StructuralV2IngressTests(unittest.TestCase):
             ),
         )
         with TemporaryDirectory() as directory:
+            registry = build_default_prepared_classifier_registry()
             bridge = PreparedContinuousIngressBridge(
-                authority=ContinuousIngressAuthorityStore(Path(directory)),
-                classifier=_PreparedContinuousClassifier(),
+                authority=ContinuousIngressAuthorityStore(
+                    Path(directory), prepared_classifier_registry=registry
+                ),
+                classifier_registry=registry,
             )
             with self.assertRaises(StateConflictError):
                 bridge.issue(
@@ -643,6 +640,82 @@ class StructuralV2IngressTests(unittest.TestCase):
                     prepared=prepared,
                     turn_id="turn-001",
                 )
+
+    def test_sillytavern_shadow_request_uses_resolved_prepared_receipt(self) -> None:
+        message = "Ted asks Hana whether she wants coffee."
+        envelope = self._envelope(message)
+        registry = build_default_prepared_classifier_registry()
+        with TemporaryDirectory() as directory:
+            store = ContinuousIngressAuthorityStore(
+                Path(directory) / "authority",
+                prepared_classifier_registry=registry,
+            )
+            shadow = ContinuousSillyTavernShadowRequestBridge(
+                raw_ingress=RawTurnIngressFacade(
+                    turn_kernel=TurnKernel(self.sandbox.service),
+                    seed_assembler=SeedDossierAssembler(self.sandbox.service),
+                ),
+                prepared_ingress=PreparedContinuousIngressBridge(
+                    authority=store,
+                    classifier_registry=registry,
+                ),
+            )
+            chat = SillyTavernChatRequest(
+                model=CERA_VIRTUAL_MODEL,
+                messages=(ChatMessage(role="user", content=message),),
+                stream=False,
+                cera_scene_change=True,
+            )
+            result = shadow.prepare(
+                chat_request=chat,
+                envelope=envelope,
+                scene_id="scene:arrival",
+                turn_id="turn-001",
+                current_authority_packet={"authority": "shadow_only"},
+            )
+            resolved = store.resolve(
+                receipt_id=result.ingress_receipt_id,
+                receipt_sha256=result.ingress_receipt_sha256,
+            )
+            self.assertEqual(result.request.user_message, message)
+            self.assertEqual(result.request.ingress_receipt_sha256, resolved.receipt_sha256)
+            self.assertTrue(result.request.cera_scene_change)
+            self.assertEqual(resolved.source_units[0].kind.value, "narration")
+            self.assertIsNone(resolved.source_units[0].actor_id)
+
+            changed_chat = replace(
+                chat,
+                messages=(ChatMessage(role="user", content=message + " Changed."),),
+            )
+            with self.assertRaises(StateConflictError):
+                shadow.prepare(
+                    chat_request=changed_chat,
+                    envelope=envelope,
+                    scene_id="scene:arrival",
+                    turn_id="turn-002",
+                    current_authority_packet={},
+                )
+
+    def test_prepared_classifier_registry_rejects_unknown_and_substituted_types(self) -> None:
+        registry = build_default_prepared_classifier_registry()
+        with TemporaryDirectory() as directory:
+            store = ContinuousIngressAuthorityStore(
+                Path(directory), prepared_classifier_registry=registry
+            )
+            with self.assertRaises(ContractValidationError):
+                PreparedContinuousIngressBridge(
+                    authority=store,
+                    classifier_registry=registry,
+                    classification_adapter_id="cera.prepared_ingress_classifier.unknown.v1",
+                )
+
+        class RenamedClassifier(RepositoryPreparedIngressClassifierV1):
+            pass
+
+        with self.assertRaisesRegex(
+            ContractValidationError, "not repository controlled"
+        ):
+            PreparedIngressClassifierRegistry((RenamedClassifier(),))
 
     def test_prepared_ingress_authority_rejects_identity_and_span_substitutions(self) -> None:
         message = "Ted asks Hana whether she wants coffee."
@@ -676,6 +749,14 @@ class StructuralV2IngressTests(unittest.TestCase):
             "adapter": lambda record: record["authority_evidence"]["classification_receipt"].__setitem__(
                 "classification_adapter_id", "cera.prepared_ingress_classifier.substituted.v1"
             ),
+            "classifier_source": lambda record: record["authority_evidence"][
+                "classifier_descriptor"
+            ].__setitem__("implementation_source_sha256", "0" * 64),
+            "classifier_receipt_descriptor": lambda record: record[
+                "authority_evidence"
+            ]["classification_receipt"].__setitem__(
+                "classifier_descriptor_sha256", "0" * 64
+            ),
             "source_span": lambda record: record["authority_evidence"]["classification_receipt"][
                 "source_units"
             ][0].__setitem__("exact_text", message[:-1]),
@@ -691,10 +772,13 @@ class StructuralV2IngressTests(unittest.TestCase):
         }
         with TemporaryDirectory() as directory:
             root = Path(directory)
-            store = ContinuousIngressAuthorityStore(root)
+            registry = build_default_prepared_classifier_registry()
+            store = ContinuousIngressAuthorityStore(
+                root, prepared_classifier_registry=registry
+            )
             receipt = PreparedContinuousIngressBridge(
                 authority=store,
-                classifier=_PreparedContinuousClassifier(),
+                classifier_registry=registry,
             ).issue(envelope=envelope, prepared=prepared, turn_id="turn-001")
             record_path = root / f"{receipt.receipt_sha256}.json"
             original = json.loads(record_path.read_text(encoding="utf-8"))

@@ -36,7 +36,7 @@ class ContinuousSessionRole(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ContinuousSessionCompatibilityV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_session_compatibility.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_session_compatibility.v2"
 
     schema_version: str
     world_id: str
@@ -52,6 +52,8 @@ class ContinuousSessionCompatibilityV1:
     privacy_policy_version: str
     protected_user_policy_version: str
     session_policy_version: str
+    ingress_classifier_registry_sha256: str
+    persistence_policy_sha256: str
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
@@ -72,8 +74,15 @@ class ContinuousSessionCompatibilityV1:
             value = getattr(self, field)
             if not isinstance(value, str) or not value.strip() or len(value) > 192:
                 raise ContractValidationError(f"continuous compatibility {field} is invalid")
-        if not re_is_sha256(self.world_directory_identity_sha256):
-            raise ContractValidationError("world directory identity hash is invalid")
+        for field in (
+            "world_directory_identity_sha256",
+            "ingress_classifier_registry_sha256",
+            "persistence_policy_sha256",
+        ):
+            if not re_is_sha256(getattr(self, field)):
+                raise ContractValidationError(
+                    f"continuous compatibility {field} is invalid"
+                )
 
     @property
     def compatibility_sha256(self) -> str:

@@ -20,6 +20,7 @@ from .contracts import (
     IngressSourceUnitV1,
     PersistenceDirectiveV1,
     PersistenceRecordClass,
+    PreparedIngressClassifierDescriptorV1,
     PromptComponentUsageV1,
     ProtectedUserAllowanceMode,
     ProtectedUserAllowanceV1,
@@ -47,7 +48,10 @@ from .ingress import (
     ContinuousIngressAuthorityPort,
     ContinuousIngressAuthorityStore,
     PreparedContinuousIngressBridge,
+    PreparedIngressClassifierRegistry,
     PreparedIngressClassificationPort,
+    RepositoryPreparedIngressClassifierV1,
+    build_default_prepared_classifier_registry,
 )
 from .sessions import (
     ContinuousContextInjectionReceiptV1,
@@ -55,6 +59,10 @@ from .sessions import (
     ContinuousSessionSnapshotStore,
 )
 from .runtime import ContinuousSceneChangeCandidateV1
+from .shadow_ingress import (
+    ContinuousShadowIngressResultV1,
+    ContinuousSillyTavernShadowRequestBridge,
+)
 from .world_mcp import (
     ContinuousWorldMcpBridge,
     ContinuousWorldToolDispatcher,
@@ -73,6 +81,10 @@ from .call_ledger import (
     ProviderCallState,
 )
 from .diagnostics import ContinuousRootDiagnosticRecorder
+from .record_policy import (
+    CONTINUOUS_PERSISTENCE_POLICY_VERSION,
+    PERSISTENCE_POLICY_SHA256,
+)
 
 __all__ = [
     "AcceptedFinalSequenceEnvelopeV1",
@@ -94,6 +106,7 @@ __all__ = [
     "IngressSourceUnitV1",
     "PersistenceDirectiveV1",
     "PersistenceRecordClass",
+    "PreparedIngressClassifierDescriptorV1",
     "PromptComponentUsageV1",
     "ProtectedUserAllowanceMode",
     "ProtectedUserAllowanceV1",
@@ -119,11 +132,16 @@ __all__ = [
     "ContinuousIngressAuthorityPort",
     "ContinuousIngressAuthorityStore",
     "PreparedContinuousIngressBridge",
+    "PreparedIngressClassifierRegistry",
     "PreparedIngressClassificationPort",
+    "RepositoryPreparedIngressClassifierV1",
+    "build_default_prepared_classifier_registry",
     "ContinuousSessionSnapshotStore",
     "ContinuousContextInjectionReceiptV1",
     "ContinuousSessionSnapshotReceiptV1",
     "ContinuousSceneChangeCandidateV1",
+    "ContinuousShadowIngressResultV1",
+    "ContinuousSillyTavernShadowRequestBridge",
     "ContinuousWorldMcpBridge",
     "ContinuousWorldToolDispatcher",
     "EvidenceBindingKind",
@@ -136,4 +154,6 @@ __all__ = [
     "ProviderCallLedgerEventV1",
     "ProviderCallState",
     "ContinuousRootDiagnosticRecorder",
+    "CONTINUOUS_PERSISTENCE_POLICY_VERSION",
+    "PERSISTENCE_POLICY_SHA256",
 ]

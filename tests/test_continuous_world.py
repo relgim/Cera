@@ -7,6 +7,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
 from cera.continuous import (
     AcceptedTurnPairV1,
@@ -35,6 +36,7 @@ from cera.continuous import (
     ContinuousIngressAuthorityStore,
     PersistenceDirectiveV1,
     PersistenceRecordClass,
+    PERSISTENCE_POLICY_SHA256,
     ProtectedSemanticAdjudicationV1,
     ProtectedSemanticRelationKind,
     StoryRealizationKind,
@@ -56,6 +58,7 @@ from cera.continuous.sessions import (
     ContinuousSessionRole,
     InMemoryContinuousStoredSessionPort,
 )
+from cera.continuous.ingress import build_default_prepared_classifier_registry
 from cera.continuous.world_mcp import (
     ContinuousWorldMcpBridge,
     ContinuousWorldToolDispatcher,
@@ -130,6 +133,7 @@ def final_sequence(turn_id: str = "turn-001", *, revision: int = 1) -> FinalSequ
                                 directive_key="record_tenant_claim",
                                 target_file="Characters/Sakura.json",
                                 target_record_class=PersistenceRecordClass.CHARACTER,
+                                persistence_policy_sha256=PERSISTENCE_POLICY_SHA256,
                                 target_record_id="character:sakura_hanezawa",
                                 target_subject_ids=("character:sakura_hanezawa",),
                                 expected_file_revision=revision,
@@ -522,8 +526,12 @@ def session_compatibility(role: ContinuousSessionRole) -> ContinuousSessionCompa
         world_directory_identity_sha256=text_sha256("world-test/main"),
         authority_policy_version="test-authority-v1",
         privacy_policy_version="test-privacy-v1",
-        protected_user_policy_version="cera.continuous_protected_user_policy.v7",
-        session_policy_version="cera.continuous_session_policy.v7",
+        protected_user_policy_version="cera.continuous_protected_user_policy.v8",
+        session_policy_version="cera.continuous_session_policy.v8",
+        ingress_classifier_registry_sha256=(
+            build_default_prepared_classifier_registry().registry_sha256
+        ),
+        persistence_policy_sha256=PERSISTENCE_POLICY_SHA256,
     )
 
 
@@ -748,6 +756,7 @@ class ContinuousWorldTests(unittest.TestCase):
                         directive_key="record_threshold_observation",
                         target_file="Relationships/Sakura_Ted.json",
                         target_record_class=PersistenceRecordClass.RELATIONSHIP,
+                        persistence_policy_sha256=PERSISTENCE_POLICY_SHA256,
                         target_record_id="relationship:sakura_ted",
                         target_subject_ids=(
                             "character:sakura_hanezawa",
@@ -807,6 +816,263 @@ class ContinuousWorldTests(unittest.TestCase):
             json.loads(relationship.read_text(encoding="utf-8"))["_cera_revision"],
             2,
         )
+
+    def test_v8_persistence_policy_rejects_metadata_and_pointer_escapes(self) -> None:
+        character = final_sequence().items[0].field_scopes[2].persistence_directives[0]
+        for path in (
+            "/character_id",
+            "/schema_version",
+            "/_cera_revision",
+            "/visibility",
+            "/knowledge_owner_id",
+            "/source_path",
+            "/source_sha256",
+            "/genesis_records",
+            "/provenance",
+            "/index_metadata",
+            "/turn_claims/~1character_id",
+            "/turn_claims/..",
+            "/turn_claims/~2escape",
+        ):
+            with self.subTest(record_class="character", path=path), self.assertRaises(
+                ContractValidationError
+            ):
+                replace(character, field_path=path)
+
+        relationship = replace(
+            character,
+            target_file="Relationships/Sakura_Ted.json",
+            target_record_class=PersistenceRecordClass.RELATIONSHIP,
+            target_record_id="relationship:sakura_ted",
+            target_subject_ids=("character:sakura_hanezawa", "character:ted"),
+            field_path="/observations/turn-001",
+        )
+        for path in (
+            "/relationship_id",
+            "/participant_ids",
+            "/schema_version",
+            "/_cera_revision",
+            "/source_path",
+            "/source_sha256",
+            "/genesis_records",
+            "/provenance",
+            "/index_metadata",
+            "/observations/~1participant_ids",
+        ):
+            with self.subTest(record_class="relationship", path=path), self.assertRaises(
+                ContractValidationError
+            ):
+                replace(relationship, field_path=path)
+
+    def test_v8_relationship_target_must_be_justified_by_final_field_roles(self) -> None:
+        relationship_path = self.root / "ACTIVE" / "Relationships" / "Mia_Ted.json"
+        relationship_path.write_bytes(
+            canonical_bytes(
+                {
+                    "schema_version": "cera.continuous_relationship.v1",
+                    "_cera_revision": 1,
+                    "relationship_id": "relationship:mia_ted",
+                    "participant_ids": ["character:mia_hanezawa", "character:ted"],
+                    "observations": {},
+                }
+            )
+            + b"\n"
+        )
+        base = package()
+        item = base.complete_final_sequence.items[0]
+        directive = PersistenceDirectiveV1(
+            schema_version=PersistenceDirectiveV1.SCHEMA_VERSION,
+            directive_key="record_unrelated_relationship",
+            target_file="Relationships/Mia_Ted.json",
+            target_record_class=PersistenceRecordClass.RELATIONSHIP,
+            persistence_policy_sha256=PERSISTENCE_POLICY_SHA256,
+            target_record_id="relationship:mia_ted",
+            target_subject_ids=("character:mia_hanezawa", "character:ted"),
+            expected_file_revision=1,
+            operation=WorldEditOperationKind.ADD,
+            field_path="/observations/turn-001",
+            expected_prior_value_sha256=None,
+            source_value_index=0,
+        )
+        scopes = tuple(
+            replace(scope, persistence_directives=(directive,))
+            if scope.field_name == "resulting_state"
+            else scope
+            for scope in item.field_scopes
+        )
+        sequence = replace(
+            base.complete_final_sequence,
+            items=(replace(item, field_scopes=scopes),),
+        )
+        operation = WorldEditOperationV1(
+            operation_key=directive.directive_key,
+            target_file=directive.target_file,
+            expected_file_revision=1,
+            operation=WorldEditOperationKind.ADD,
+            field_path=directive.field_path,
+            value=item.resulting_state,
+            reason="Persist accepted final field resulting_state.",
+            source_final_sequence_item=item.item_key,
+            source_final_field_name="resulting_state",
+            persistence_directive_key=directive.directive_key,
+        )
+        candidate = replace(
+            base,
+            complete_final_sequence=sequence,
+            world_edit_operations=(base.world_edit_operations[0], operation),
+            created_field_log=(
+                base.created_field_log[0],
+                CreatedFieldLogEntryV1(
+                    target_file=operation.target_file,
+                    field_path=operation.field_path,
+                    value_type="string",
+                    value=operation.value,
+                    reason=operation.reason,
+                    source_final_sequence_item=item.item_key,
+                    source_final_field_name="resulting_state",
+                    persistence_directive_key=directive.directive_key,
+                ),
+            ),
+        )
+        stage_candidate(self.store, candidate)
+        before = self.store.tree_sha256(self.root / "ACTIVE")
+        with self.assertRaisesRegex(StateConflictError, "not justified"):
+            self.store.apply_creator_action(
+                world_id="world-test",
+                branch_id="main",
+                turn_id="turn-001",
+                action=CreatorReviewAction.ACCEPT,
+                package=candidate,
+                **staged_authority_kwargs(self.store, candidate),
+                accepted_pair=replace(
+                    accepted_pair(), complete_final_sequence=sequence
+                ),
+            )
+        self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
+
+    def test_v8_post_edit_validation_rejects_json_valid_record_invalidity(self) -> None:
+        base = package()
+        item = base.complete_final_sequence.items[0]
+        knowledge_scope = next(
+            scope for scope in item.field_scopes if scope.field_name == "knowledge_changes"
+        )
+        directive = replace(
+            knowledge_scope.persistence_directives[0],
+            directive_key="replace_changes_with_scalar",
+            operation=WorldEditOperationKind.REPLACE,
+            field_path="/latest_accepted_changes",
+            expected_prior_value_sha256=canonical_sha256([]),
+        )
+        scopes = tuple(
+            replace(scope, persistence_directives=(directive,))
+            if scope.field_name == "knowledge_changes"
+            else scope
+            for scope in item.field_scopes
+        )
+        sequence = replace(
+            base.complete_final_sequence,
+            items=(replace(item, field_scopes=scopes),),
+        )
+        value = item.knowledge_changes[0]
+        operation = WorldEditOperationV1(
+            operation_key=directive.directive_key,
+            target_file=directive.target_file,
+            expected_file_revision=1,
+            operation=WorldEditOperationKind.REPLACE,
+            field_path=directive.field_path,
+            value=value,
+            reason="Persist accepted final field knowledge_changes.",
+            source_final_sequence_item=item.item_key,
+            source_final_field_name="knowledge_changes",
+            persistence_directive_key=directive.directive_key,
+        )
+        candidate = replace(
+            base,
+            complete_final_sequence=sequence,
+            world_edit_operations=(operation,),
+            created_field_log=(),
+        )
+        stage_candidate(self.store, candidate)
+        before = self.store.tree_sha256(self.root / "ACTIVE")
+        with self.assertRaisesRegex(StateConflictError, "semantic field type"):
+            self.store.apply_creator_action(
+                world_id="world-test",
+                branch_id="main",
+                turn_id="turn-001",
+                action=CreatorReviewAction.ACCEPT,
+                package=candidate,
+                **staged_authority_kwargs(self.store, candidate),
+                accepted_pair=replace(
+                    accepted_pair(), complete_final_sequence=sequence
+                ),
+            )
+        self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
+
+    def test_v8_approved_character_replace_remains_atomic(self) -> None:
+        base = package()
+        item = base.complete_final_sequence.items[0]
+        prior = json.loads(
+            (self.root / "ACTIVE" / "Characters" / "Sakura.json").read_text(
+                encoding="utf-8"
+            )
+        )["reasoning_summary"]
+        directive = replace(
+            item.field_scopes[2].persistence_directives[0],
+            directive_key="replace_reasoning_summary",
+            operation=WorldEditOperationKind.REPLACE,
+            field_path="/reasoning_summary",
+            expected_prior_value_sha256=canonical_sha256(prior),
+        )
+        scopes = tuple(
+            replace(scope, persistence_directives=(directive,))
+            if scope.field_name == "realized_event"
+            else replace(scope, persistence_directives=())
+            if scope.field_name == "knowledge_changes"
+            else scope
+            for scope in item.field_scopes
+        )
+        sequence = replace(
+            base.complete_final_sequence,
+            items=(replace(item, field_scopes=scopes),),
+        )
+        operation = WorldEditOperationV1(
+            operation_key=directive.directive_key,
+            target_file=directive.target_file,
+            expected_file_revision=1,
+            operation=WorldEditOperationKind.REPLACE,
+            field_path=directive.field_path,
+            value=item.realized_event,
+            reason="Persist accepted final field realized_event.",
+            source_final_sequence_item=item.item_key,
+            source_final_field_name="realized_event",
+            persistence_directive_key=directive.directive_key,
+        )
+        candidate = replace(
+            base,
+            complete_final_sequence=sequence,
+            world_edit_operations=(operation,),
+            created_field_log=(),
+        )
+        stage_candidate(self.store, candidate)
+        receipt = self.store.apply_creator_action(
+            world_id="world-test",
+            branch_id="main",
+            turn_id="turn-001",
+            action=CreatorReviewAction.ACCEPT,
+            package=candidate,
+            **staged_authority_kwargs(self.store, candidate),
+            accepted_pair=replace(
+                accepted_pair(), complete_final_sequence=sequence
+            ),
+        )
+        self.assertTrue(receipt.accepted)
+        record = json.loads(
+            (self.root / "ACTIVE" / "Characters" / "Sakura.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(record["reasoning_summary"], item.realized_event)
+        self.assertEqual(record["_cera_revision"], 2)
 
     def test_create_file_and_operation_ceiling(self) -> None:
         create = WorldEditOperationV1(
@@ -984,6 +1250,23 @@ class ContinuousWorldTests(unittest.TestCase):
             )
         )
         self.assertEqual(candidate.provider_calls, 0)
+        original_candidate_sha256 = candidate.candidate_sha256
+        changed_ingress = replace(
+            candidate,
+            request=replace(candidate.request, ingress_receipt_sha256="f" * 64),
+        )
+        self.assertNotEqual(
+            original_candidate_sha256,
+            changed_ingress.candidate_sha256,
+        )
+        with patch(
+            "cera.continuous.runtime.PERSISTENCE_POLICY_SHA256",
+            "e" * 64,
+        ):
+            self.assertNotEqual(
+                original_candidate_sha256,
+                candidate.candidate_sha256,
+            )
         self.assertEqual(
             planner_session.ensure_session().provider_thread_id,
             planner_session.ensure_session().provider_thread_id,
