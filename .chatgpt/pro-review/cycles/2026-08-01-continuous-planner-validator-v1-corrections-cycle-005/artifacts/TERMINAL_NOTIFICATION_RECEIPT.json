@@ -1,0 +1,16 @@
+{
+  "schema_version": "cera.terminal_notification_receipt.v1",
+  "checkpoint_id": "2026-08-01-continuous-planner-validator-v1-corrections-005",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-005",
+  "terminal_status": "corrections_required_job4_failed_provider_free_selector",
+  "target_thread_id_sha256": "f0fd00d836b16ff0d8bcda67ee47fd6f224b4b4c496fdeb82cdfba383deeaddb",
+  "message_path": "artifacts/TERMINAL_NOTIFICATION.txt",
+  "message_sha256": "f419288613470bd14e26fbb1ef133d9ec37ad28acd1fd3cef15bb92efa74aaba",
+  "app_result_sha256": "f447fc13bc0887d63a586e472d30dec62eba6c956dbb2a89ad340de78c635b81",
+  "app_reported_success": true,
+  "attempt_count": 1,
+  "transport": "codex_app_send_message_to_thread",
+  "recorded_at_utc": "2026-08-01T16:13:13.2991311Z",
+  "independent_delivery_proof": false,
+  "raw_target_message_or_app_result_retained": false
+}
