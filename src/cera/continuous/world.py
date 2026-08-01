@@ -185,7 +185,7 @@ class CandidateWorldViewV1:
 
 @dataclass(frozen=True, slots=True)
 class WorldPromotionReceiptV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_world_promotion_receipt.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_world_promotion_receipt.v2"
 
     schema_version: str
     world_id: str
@@ -193,6 +193,8 @@ class WorldPromotionReceiptV1:
     turn_id: str
     creator_action: CreatorReviewAction
     package_sha256: str
+    candidate_sha256: str
+    authority_context_sha256: str
     active_before_sha256: str
     active_after_sha256: str
     changed_files: tuple[str, ...]
@@ -282,12 +284,24 @@ class ContinuousWorldStore:
         branch_id: str,
         view: CandidateWorldViewV1,
         package: ValidatorFinalizationPackageV1,
+        *,
+        candidate_sha256: str,
+        authority_context_sha256: str,
     ) -> Path:
         root = self.branch_root(world_id, branch_id)
         if view.root.parent != root / "CANDIDATES":
             raise StateConflictError("candidate view belongs to another branch")
         path = view.root / "VALIDATOR_PACKAGE.json"
         self._write_json(path, to_primitive(package))
+        self._write_json(
+            view.root / "CANDIDATE_AUTHORITY.json",
+            {
+                "schema_version": "cera.continuous_candidate_authority.v1",
+                "candidate_sha256": candidate_sha256,
+                "authority_context_sha256": authority_context_sha256,
+                "package_sha256": package.package_sha256,
+            },
+        )
         return path
 
     def apply_creator_action(
@@ -298,6 +312,8 @@ class ContinuousWorldStore:
         turn_id: str,
         action: CreatorReviewAction,
         package: ValidatorFinalizationPackageV1,
+        candidate_sha256: str,
+        authority_context_sha256: str,
         accepted_pair: AcceptedTurnPairV1 | None = None,
     ) -> WorldPromotionReceiptV1:
         root = self.initialize(world_id, branch_id)
@@ -306,6 +322,24 @@ class ContinuousWorldStore:
         if not view.is_dir():
             raise StateConflictError("continuous candidate view is unavailable")
         before = self.tree_sha256(root / "ACTIVE")
+        authority_path = candidate_root / "CANDIDATE_AUTHORITY.json"
+        package_path = candidate_root / "VALIDATOR_PACKAGE.json"
+        if not authority_path.is_file() or not package_path.is_file():
+            raise StateConflictError("continuous candidate authority is unavailable")
+        authority = json.loads(authority_path.read_text(encoding="utf-8"))
+        expected_authority = {
+            "schema_version": "cera.continuous_candidate_authority.v1",
+            "candidate_sha256": authority.get("candidate_sha256"),
+            "authority_context_sha256": authority.get("authority_context_sha256"),
+            "package_sha256": package.package_sha256,
+        }
+        if (
+            authority != expected_authority
+            or authority["candidate_sha256"] != candidate_sha256
+            or authority["authority_context_sha256"] != authority_context_sha256
+            or json.loads(package_path.read_text(encoding="utf-8")) != to_primitive(package)
+        ):
+            raise StateConflictError("continuous candidate authority changed")
         if action not in {CreatorReviewAction.ACCEPT, CreatorReviewAction.FALSE_POSITIVE}:
             receipt = WorldPromotionReceiptV1(
                 schema_version=WorldPromotionReceiptV1.SCHEMA_VERSION,
@@ -314,6 +348,8 @@ class ContinuousWorldStore:
                 turn_id=turn_id,
                 creator_action=action,
                 package_sha256=package.package_sha256,
+                candidate_sha256=candidate_sha256,
+                authority_context_sha256=authority_context_sha256,
                 active_before_sha256=before,
                 active_after_sha256=before,
                 changed_files=(),
@@ -376,6 +412,8 @@ class ContinuousWorldStore:
             turn_id=turn_id,
             creator_action=action,
             package_sha256=package.package_sha256,
+            candidate_sha256=candidate_sha256,
+            authority_context_sha256=authority_context_sha256,
             active_before_sha256=before,
             active_after_sha256=after,
             changed_files=tuple(sorted(changed)),
@@ -400,12 +438,14 @@ class ContinuousWorldStore:
             raise StateConflictError("creator acceptance journal already exists")
         transaction_root.mkdir(parents=False)
         journal_base = {
-            "schema_version": "cera.continuous_acceptance_journal.v3",
+            "schema_version": "cera.continuous_acceptance_journal.v4",
             "world_id": world_id,
             "branch_id": branch_id,
             "turn_id": turn_id,
             "creator_action": action.value,
             "package_sha256": package.package_sha256,
+            "candidate_sha256": candidate_sha256,
+            "authority_context_sha256": authority_context_sha256,
             "accepted_pair_sha256": text_sha256(
                 accepted_pair_path.read_text(encoding="utf-8")
             ),
@@ -874,6 +914,7 @@ class ContinuousWorldStore:
                 in {
                     "cera.continuous_acceptance_journal.v2",
                     "cera.continuous_acceptance_journal.v3",
+                    "cera.continuous_acceptance_journal.v4",
                 }
             ):
                 self._finish_local_acceptance(root, transaction_root)
@@ -938,6 +979,7 @@ class ContinuousWorldStore:
         if payload.get("schema_version") not in {
             "cera.continuous_acceptance_journal.v2",
             "cera.continuous_acceptance_journal.v3",
+            "cera.continuous_acceptance_journal.v4",
         }:
             return
         active = branch_root / "ACTIVE"
@@ -978,6 +1020,9 @@ class ContinuousWorldStore:
         if (
             receipt.turn_id != payload.get("turn_id")
             or receipt.package_sha256 != payload.get("package_sha256")
+            or receipt.candidate_sha256 != payload.get("candidate_sha256")
+            or receipt.authority_context_sha256
+            != payload.get("authority_context_sha256")
             or receipt.creator_action.value != payload.get("creator_action")
             or receipt.active_before_sha256 != payload.get("prior_sha256")
             or receipt.active_after_sha256 != payload.get("prepared_sha256")

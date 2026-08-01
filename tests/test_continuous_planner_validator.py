@@ -8,6 +8,8 @@ import unittest
 from cera.continuous import (
     AcceptedFinalSequenceEnvelopeV1,
     CharacterSummaryEnvelopeV1,
+    FinalFieldScopeV1,
+    FinalInformationVisibility,
     FinalSequenceItemV1,
     FinalSequenceV1,
     ProtectedUserAllowanceMode,
@@ -21,6 +23,7 @@ from cera.continuous.provider import (
     ContinuousValidatorDraftV1,
     ProviderSceneSummaryDraftV1,
     continuous_validator_draft_json_schema,
+    continuous_deepseek_draft_json_schema,
     rich_planner_sequence_json_schema,
 )
 from cera.continuous import AcceptedTurnPairV1, ValidatorSemanticStatus, ValidatorTaskMode
@@ -96,6 +99,7 @@ def accepted_sequence(turn_id: str = "turn:001") -> FinalSequenceV1:
             FinalSequenceItemV1(
                 item_key="verify_arrival",
                 planner_beat_keys=("verify_arrival",),
+                story_segment_keys=("segment_entire_story",),
                 realized_event="Sakura requested bounded identity verification while keeping control of the threshold.",
                 valid_deepseek_additions=("A measured pause supported the established tactic.",),
                 omitted_or_contradicted_details=(),
@@ -103,9 +107,45 @@ def accepted_sequence(turn_id: str = "turn:001") -> FinalSequenceV1:
                 knowledge_changes=("Sakura heard Ted claim the expected tenant identity.",),
                 material_changes=(),
                 resulting_state="Ted remains outside awaiting verification.",
+                actor_ids=("character:sakura_hanezawa",),
+                subject_ids=("character:ted",),
+                field_scopes=(
+                    FinalFieldScopeV1(
+                        field_name="realized_event",
+                        visibility=FinalInformationVisibility.PUBLIC,
+                        knowledge_owner_id=None,
+                        story_segment_keys=("segment_entire_story",),
+                        actor_ids=("character:sakura_hanezawa",),
+                        subject_ids=("character:ted",),
+                    ),
+                    FinalFieldScopeV1(
+                        field_name="valid_deepseek_additions",
+                        visibility=FinalInformationVisibility.PUBLIC,
+                        knowledge_owner_id=None,
+                        story_segment_keys=("segment_entire_story",),
+                        actor_ids=("character:sakura_hanezawa",),
+                        subject_ids=("character:ted",),
+                    ),
+                    FinalFieldScopeV1(
+                        field_name="knowledge_changes",
+                        visibility=FinalInformationVisibility.CHARACTER_PRIVATE,
+                        knowledge_owner_id="character:sakura_hanezawa",
+                        story_segment_keys=("segment_entire_story",),
+                        actor_ids=("character:sakura_hanezawa",),
+                        subject_ids=("character:ted",),
+                    ),
+                    FinalFieldScopeV1(
+                        field_name="resulting_state",
+                        visibility=FinalInformationVisibility.PUBLIC,
+                        knowledge_owner_id=None,
+                        story_segment_keys=("segment_entire_story",),
+                        actor_ids=("character:sakura_hanezawa",),
+                        subject_ids=("character:ted",),
+                    ),
+                ),
             ),
         ),
-        final_stop_state="Ted's unsupplied answer is now required.",
+        final_stop_state="Ted remains outside awaiting verification.",
     )
 
 
@@ -123,8 +163,8 @@ def compatibility(role: ContinuousSessionRole, branch: str = "branch:main") -> C
         world_directory_identity_sha256=text_sha256(f"hanezawa/{branch}"),
         authority_policy_version="cera.owner_architecture.v2",
         privacy_policy_version="cera.privacy.v1",
-        protected_user_policy_version="cera.protected_user.v1",
-        session_policy_version="cera.continuous_session.v1",
+        protected_user_policy_version="cera.continuous_protected_user_policy.v5",
+        session_policy_version="cera.continuous_session_policy.v5",
     )
 
 
@@ -192,6 +232,7 @@ class RichPlannerContractTests(unittest.TestCase):
         for schema in (
             rich_planner_sequence_json_schema(),
             continuous_validator_draft_json_schema(),
+            continuous_deepseek_draft_json_schema(),
         ):
             projected = project_provider_output_schema(
                 schema,
@@ -202,6 +243,28 @@ class RichPlannerContractTests(unittest.TestCase):
                 set(projected.provider_schema["properties"]),
                 set(projected.provider_schema["required"]),
             )
+        validator_schema = canonical_sha256(
+            continuous_validator_draft_json_schema()
+        )
+        self.assertEqual(len(validator_schema), 64)
+        validator_text = str(continuous_validator_draft_json_schema())
+        composer_text = str(continuous_deepseek_draft_json_schema())
+        for field in (
+            "story_segment_keys",
+            "actor_ids",
+            "subject_ids",
+            "field_scopes",
+            "protected_user_source_claim_keys",
+        ):
+            self.assertIn(field, validator_text)
+        for field in (
+            "story_segments",
+            "actor_ids",
+            "subject_ids",
+            "speaker_id",
+            "protected_user_source_claim_keys",
+        ):
+            self.assertIn(field, composer_text)
 
     def test_scene_summary_exact_tail_is_python_derived_not_model_echoed(self) -> None:
         pair = AcceptedTurnPairV1(
@@ -349,11 +412,31 @@ class ContinuousSessionTests(unittest.TestCase):
         port = InMemoryContinuousStoredSessionPort()
         planner = ContinuousSessionCoordinator(compatibility(ContinuousSessionRole.PLANNER), port)
         snapshot = planner.snapshot()
-        restored = ContinuousSessionCoordinator.reconstruct(snapshot, port)
+        restored = ContinuousSessionCoordinator.reconstruct(
+            snapshot,
+            port,
+            expected_compatibility=compatibility(ContinuousSessionRole.PLANNER),
+        )
         self.assertEqual(
             restored.ensure_session().provider_thread_id,
             planner.ensure_session().provider_thread_id,
         )
+
+    def test_restart_rejects_pre_v5_policy_compatibility(self) -> None:
+        port = InMemoryContinuousStoredSessionPort()
+        current = compatibility(ContinuousSessionRole.PLANNER)
+        old = replace(
+            current,
+            protected_user_policy_version="cera.protected_user.v1",
+            session_policy_version="cera.continuous_session.v1",
+        )
+        snapshot = ContinuousSessionCoordinator(old, port).snapshot()
+        with self.assertRaisesRegex(StateConflictError, "incompatible"):
+            ContinuousSessionCoordinator.reconstruct(
+                snapshot,
+                port,
+                expected_compatibility=current,
+            )
 
     def test_restart_loads_hash_bound_snapshot_from_role_directory(self) -> None:
         port = InMemoryContinuousStoredSessionPort()
@@ -366,7 +449,11 @@ class ContinuousSessionTests(unittest.TestCase):
             saved = planner.checkpoint(store)
             self.assertIn("PLANNER_SESSION", saved.parts)
             restored = ContinuousSessionCoordinator.reconstruct(
-                store.load(ContinuousSessionRole.PLANNER), port
+                store.load(ContinuousSessionRole.PLANNER),
+                port,
+                expected_compatibility=compatibility(
+                    ContinuousSessionRole.PLANNER
+                ),
             )
         self.assertEqual(restored.snapshot(), planner.snapshot())
 

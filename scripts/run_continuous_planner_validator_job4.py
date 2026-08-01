@@ -28,6 +28,8 @@ from cera.continuous.evidence import (
 from cera.continuous.contracts import (
     AcceptedTurnPairV1,
     CharacterSummaryEnvelopeV1,
+    IngressSourceUnitKind,
+    IngressSourceUnitV1,
     RichPlannerSequenceV1,
 )
 from cera.continuous.prompting import (
@@ -78,8 +80,12 @@ from cera.serialization import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
-CYCLE_ID = "2026-08-01-continuous-planner-validator-v1-cycle-001"
-TASK_ID = "continuous-planner-validator-three-turn-scene-change-canary-v1"
+HISTORICAL_FAILED_IDENTITIES = {
+    (
+        "2026-08-01-continuous-planner-validator-v1-cycle-001",
+        "continuous-planner-validator-three-turn-scene-change-canary-v1",
+    ),
+}
 WORLD_ID = "hanezawa-job4"
 BRANCH_ID = "canary-main"
 TURN_MESSAGES = (
@@ -92,8 +98,100 @@ TURN_MESSAGES = (
 )
 
 
+def canary_source_units(turn_number: int) -> tuple[IngressSourceUnitV1, ...]:
+    """Frozen ingress classifications for this exact disposable canary."""
+
+    text = TURN_MESSAGES[turn_number - 1]
+    if turn_number in {1, 2}:
+        return (
+            IngressSourceUnitV1(
+                schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
+                source_unit_key=f"source_unit_turn_{turn_number}_dialogue",
+                kind=IngressSourceUnitKind.DIALOGUE,
+                source_start=0,
+                source_end=len(text),
+                exact_text=text,
+                actor_id=None,
+                speaker_id="character:ted",
+                classification_basis="explicit_ingress_speaker",
+            ),
+        )
+    quote_start = text.index('"') + 1
+    quote_end = text.rindex('"')
+    action_end = quote_start - 1
+    return (
+        IngressSourceUnitV1(
+            schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
+            source_unit_key="source_unit_turn_3_action",
+            kind=IngressSourceUnitKind.ACTION,
+            source_start=0,
+            source_end=action_end,
+            exact_text=text[:action_end],
+            actor_id="character:ted",
+            speaker_id=None,
+            classification_basis="explicit_ingress_actor",
+        ),
+        IngressSourceUnitV1(
+            schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
+            source_unit_key="source_unit_turn_3_open_quote",
+            kind=IngressSourceUnitKind.NARRATION,
+            source_start=action_end,
+            source_end=quote_start,
+            exact_text=text[action_end:quote_start],
+            actor_id=None,
+            speaker_id=None,
+            classification_basis="explicit_ingress_narration",
+        ),
+        IngressSourceUnitV1(
+            schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
+            source_unit_key="source_unit_turn_3_dialogue",
+            kind=IngressSourceUnitKind.DIALOGUE,
+            source_start=quote_start,
+            source_end=quote_end,
+            exact_text=text[quote_start:quote_end],
+            actor_id=None,
+            speaker_id="character:ted",
+            classification_basis="explicit_ingress_speaker",
+        ),
+        IngressSourceUnitV1(
+            schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
+            source_unit_key="source_unit_turn_3_close_quote",
+            kind=IngressSourceUnitKind.NARRATION,
+            source_start=quote_end,
+            source_end=len(text),
+            exact_text=text[quote_end:],
+            actor_id=None,
+            speaker_id=None,
+            classification_basis="explicit_ingress_narration",
+        ),
+    )
+
+
 def utc_now() -> str:
     return datetime.now(UTC).isoformat(timespec="microseconds")
+
+
+def validate_job4_identity(
+    manifest: dict[str, Any],
+    *,
+    expected_cycle_id: str,
+    expected_task_id: str,
+    expected_authorization_sha256: str,
+    maximum_provider_calls: int,
+) -> None:
+    """Fail closed before setup when a canary identity is stale or reusable."""
+
+    if (
+        manifest.get("cycle_id") != expected_cycle_id
+        or manifest.get("job4", {}).get("task_id") != expected_task_id
+        or manifest.get("job4", {}).get("authorization_record_sha256")
+        != expected_authorization_sha256
+    ):
+        raise ValueError("Job 4 cycle identity changed")
+    if (expected_cycle_id, expected_task_id) in HISTORICAL_FAILED_IDENTITIES:
+        raise ValueError("historical failed Job 4 identity is immutable and cannot be rerun")
+    if maximum_provider_calls != 10:
+        raise ValueError("Job 4 provider-call ceiling changed")
 
 
 def write_json(path: Path, value: Any) -> None:
@@ -251,8 +349,8 @@ def compatibility(
         world_directory_identity_sha256=world.world_identity_sha256(WORLD_ID, BRANCH_ID),
         authority_policy_version="cera.owner_architecture.v2+d186",
         privacy_policy_version="cera.privacy.v1",
-        protected_user_policy_version="cera.protected_user.v1",
-        session_policy_version="cera.continuous_session.v1",
+        protected_user_policy_version="cera.continuous_protected_user_policy.v5",
+        session_policy_version="cera.continuous_session_policy.v5",
     )
 
 
@@ -574,6 +672,7 @@ class JobHarness:
                     "Stop only after a materially developed unit reaches a real protected-user choice.",
                 ),
             },
+            source_units=canary_source_units(turn_number),
             character_summaries=summaries,
             cera_scene_change=scene_change_context is not None,
         )
@@ -655,6 +754,7 @@ class JobHarness:
             turn_id="turn-003",
             user_message=TURN_MESSAGES[2],
             current_authority_packet={"protected_user_id": "character:ted"},
+            source_units=canary_source_units(3),
             cera_scene_change=True,
         )
         summary = self.coordinator.prepare_scene_change_summary(
@@ -680,12 +780,12 @@ class JobHarness:
             "same_validator_thread_sha256": text_sha256(self.validator_handle),
         }
 
-def build_report(result: dict[str, Any]) -> str:
+def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
     calls = result.get("calls", [])
     lines = [
         "# Continuous Planner/Validator Job 4 Report",
         "",
-        f"**Task:** `{TASK_ID}`  ",
+        f"**Task:** `{task_id or result.get('task_id', 'unspecified')}`  ",
         f"**Status:** `{result['status']}`  ",
         f"**Provider calls observed:** {result['provider_calls']} / 10  ",
         "**Retry/fallback:** 0 / 0",
@@ -740,6 +840,10 @@ def main() -> int:
     parser.add_argument("--source-database", type=Path, required=True)
     parser.add_argument("--runtime-root", type=Path, required=True)
     parser.add_argument("--expected-checkpoint-sha", required=True)
+    parser.add_argument("--expected-cycle-id", required=True)
+    parser.add_argument("--expected-task-id", required=True)
+    parser.add_argument("--expected-authorization-sha256", required=True)
+    parser.add_argument("--maximum-provider-calls", type=int, required=True)
     args = parser.parse_args()
     if not args.confirm_live:
         parser.error("--confirm-live is required")
@@ -749,8 +853,16 @@ def main() -> int:
     if git_head(ROOT) != args.expected_checkpoint_sha:
         raise SystemExit("isolated worktree HEAD does not match the frozen checkpoint")
     manifest = json.loads((cycle / "CYCLE_MANIFEST.json").read_text(encoding="utf-8"))
-    if manifest["cycle_id"] != CYCLE_ID or manifest["job4"]["task_id"] != TASK_ID:
-        raise SystemExit("Job 4 cycle identity changed")
+    try:
+        validate_job4_identity(
+            manifest,
+            expected_cycle_id=args.expected_cycle_id,
+            expected_task_id=args.expected_task_id,
+            expected_authorization_sha256=args.expected_authorization_sha256,
+            maximum_provider_calls=args.maximum_provider_calls,
+        )
+    except ValueError as error:
+        raise SystemExit(str(error)) from error
     if not (cycle / "receipts" / "TRIGGER_SENT.json").is_file():
         raise SystemExit("Job 4 cannot start before the Pro trigger receipt")
     report_path = cycle / "source" / "JOB4_REPORT.md"
@@ -763,7 +875,8 @@ def main() -> int:
         root_diagnostic.record_failure("source_database", "inspect_source_database", error)
         raise SystemExit(str(error))
     call_ledger = ContinuousProviderCallLedger(
-        runtime_root / "PROVIDER_CALL_LEDGER.jsonl", maximum_calls=10
+        runtime_root / "PROVIDER_CALL_LEDGER.jsonl",
+        maximum_calls=args.maximum_provider_calls,
     )
     copied_db = runtime_root / "hanezawa_human_test_disposable.sqlite3"
     source_hash_before = root_diagnostic.run(
@@ -819,8 +932,9 @@ def main() -> int:
     )
     result: dict[str, Any] = {
         "schema_version": "cera.continuous_planner_validator_job4_detail.v1",
-        "cycle_id": CYCLE_ID,
-        "task_id": TASK_ID,
+        "cycle_id": args.expected_cycle_id,
+        "task_id": args.expected_task_id,
+        "authorization_sha256": args.expected_authorization_sha256,
         "started_at": utc_now(),
         "status": "running",
         "provider_calls": 0,
@@ -972,20 +1086,11 @@ def main() -> int:
                         summaries=(sakura_summary,),
                     )
                 )
-                sakura_summary_2 = source_character_summary(
-                    ROOT,
-                    "sakura",
-                    world=world,
-                    world_file_revision=read_world_revision(world, "Sakura"),
-                    latest_changes=(
-                        "Sakura directly heard Ted identify himself at the threshold.",
-                    ),
-                )
                 result["turns"].append(
                     harness.run_turn(
                         turn_number=2,
                         scene_id="scene-001",
-                        summaries=(sakura_summary_2,),
+                        summaries=(),
                     )
                 )
                 result["scene_summary"] = harness.summarize_scene()
@@ -1081,13 +1186,14 @@ def main() -> int:
         result["finished_at"] = utc_now()
         detail_path = runtime_root / "JOB4_DETAIL.json"
         write_json(detail_path, result)
-        report = build_report(result)
+        report = build_report(result, task_id=args.expected_task_id)
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report, encoding="utf-8", newline="\n")
         job4_result = {
             "schema_version": "cera.pro_review_job4_result.v1",
-            "cycle_id": CYCLE_ID,
-            "task_id": TASK_ID,
+            "cycle_id": args.expected_cycle_id,
+            "task_id": args.expected_task_id,
+            "authorization_sha256": args.expected_authorization_sha256,
             "status": result["status"],
             "report_relative_path": "source/JOB4_REPORT.md",
             "report_sha256": text_sha256(report),

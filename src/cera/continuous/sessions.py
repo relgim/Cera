@@ -681,11 +681,20 @@ class ContinuousSessionCoordinator:
         cls,
         snapshot: ContinuousSessionSnapshotV1,
         port: ContinuousStoredSessionPort,
+        *,
+        expected_compatibility: ContinuousSessionCompatibilityV1,
     ) -> "ContinuousSessionCoordinator":
+        if (
+            snapshot.compatibility.compatibility_sha256
+            != expected_compatibility.compatibility_sha256
+        ):
+            raise StateConflictError(
+                "continuous session snapshot is incompatible with the active contract"
+            )
         if not port.resume(snapshot.handle):
             raise StateConflictError("continuous session reconstruction lost provider thread")
         coordinator = cls(
-            compatibility=snapshot.compatibility,
+            compatibility=expected_compatibility,
             port=port,
             handle=snapshot.handle,
         )

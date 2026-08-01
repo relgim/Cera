@@ -229,8 +229,9 @@ Each component records exact bytes and a byte-derived token estimate. The
 summary envelope always includes its stable source path/record ID, revision,
 latest accepted changes, and `more_information_available: true`.
 
-Prompt v4 also carries Python-owned exact protected-user source claims and
-receipt-bound accepted-session evidence. The latter may replace a repeated
+Prompt v6 also carries the ingress-owned exact source-unit ledger, Python-owned
+protected-user source claims, and receipt-bound field-level accepted-session
+evidence. The latter may replace a repeated
 complete card only for exact recent same-scene continuity and the exact private
 owner named by the binding. Candidate-derived character summaries are disabled;
 all supplied character summary envelopes come from ACTIVE authoritative fields.
@@ -238,10 +239,16 @@ all supplied character summary envelopes come from ACTIVE authoritative fields.
 The Planner authors causal and psychological structure, never final prose.
 DeepSeek receives canonical JSON for the complete rich sequence plus only the
 selected incomplete character summaries; Python `repr` output is forbidden.
-The Validator receives the current user source, complete Planner sequence,
-complete DeepSeek realization, accepted-turn identity, and a bounded ACTIVE
-file revision/hash manifest. It receives no Planner hidden reasoning or full
-conversation export.
+DeepSeek must return complete prose plus exhaustive exact story segments with
+actors, subjects, dialogue speakers, and claim ownership. The Validator receives
+the current user source and source-unit ledger, complete Planner sequence,
+complete DeepSeek realization and segment/claim ledgers, accepted-turn identity,
+and a bounded ACTIVE file revision/hash manifest. It receives no Planner hidden
+reasoning or full conversation export. Validator prompt v6 requires final items
+to bind exact Planner beats and each factual field to exact Composer segments,
+actors, subjects, claims, and public or owned-private visibility. Protected-user
+fields may preserve only one exact ingress claim; event summaries, final stop
+state, and protected edit values cannot introduce a second semantic account.
 
 ## 8. Inactive modular Composer compiler seam
 

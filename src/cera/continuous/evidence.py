@@ -14,21 +14,60 @@ from cera.serialization import canonical_sha256, domain_sha256, re_is_sha256, te
 
 from .contracts import (
     CharacterSummaryEnvelopeV1,
+    FinalInformationVisibility,
     FinalSequenceItemV1,
+    IngressSourceUnitKind,
+    IngressSourceUnitV1,
     ProtectedUserAllowanceMode,
     ProtectedUserRealizationSpanV1,
     ProtectedUserSourceClaimKind,
     ProtectedUserSourceClaimV1,
     RichPlannerSequenceV1,
+    StoryRealizationKind,
+    StoryRealizationSegmentV1,
     ValidatorFinalizationPackageV1,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class AcceptedSessionFactV1:
+    fact_key: str
+    source_item_key: str
+    field_name: str
+    value: str
+    visibility: FinalInformationVisibility
+    knowledge_owner_id: str | None
+    actor_ids: tuple[str, ...]
+    subject_ids: tuple[str, ...]
+    protected_user_source_claim_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.fact_key.startswith("accepted_fact_"):
+            raise ContractValidationError("accepted-session fact key is invalid")
+        if not self.source_item_key or not self.field_name or not self.value.strip():
+            raise ContractValidationError("accepted-session fact is incomplete")
+        if self.visibility is FinalInformationVisibility.PUBLIC:
+            if self.knowledge_owner_id is not None:
+                raise ContractValidationError("public accepted fact has a private owner")
+        elif self.knowledge_owner_id is None:
+            raise ContractValidationError("private accepted fact lacks its owner")
+        if not self.actor_ids and not self.subject_ids:
+            raise ContractValidationError("accepted-session fact lacks actors and subjects")
+        if (
+            self.knowledge_owner_id is not None
+            and self.knowledge_owner_id
+            not in set(self.actor_ids).union(self.subject_ids)
+        ):
+            raise ContractValidationError(
+                "private accepted fact owner is not an actor or subject"
+            )
 
 
 @dataclass(frozen=True, slots=True)
 class AcceptedSessionProjectionV1:
     """Exact accepted current-scene context visible to one audience."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.accepted_session_projection.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.accepted_session_projection.v3"
 
     schema_version: str
     projection_key: str
@@ -38,8 +77,7 @@ class AcceptedSessionProjectionV1:
     accepted_turn_id: str
     scene_id: str
     knowledge_owner_id: str | None
-    accepted_user_message: str
-    items: tuple[FinalSequenceItemV1, ...]
+    facts: tuple[AcceptedSessionFactV1, ...]
     accepted_pair_sha256: str
     accepted_event_sha256: str
     accepted_envelope_sha256: str
@@ -60,7 +98,6 @@ class AcceptedSessionProjectionV1:
                 self.request_turn_id,
                 self.accepted_turn_id,
                 self.scene_id,
-                self.accepted_user_message,
             )
         ):
             raise ContractValidationError("accepted-session projection identity is incomplete")
@@ -77,18 +114,73 @@ class AcceptedSessionProjectionV1:
         )
         if any(not re_is_sha256(value) for value in hashes):
             raise ContractValidationError("accepted-session projection hash is invalid")
-        if not self.items:
+        if not self.facts:
             raise ContractValidationError("accepted-session projection is empty")
-        for item in self.items:
-            owners = set(item.private_state_owner_ids)
-            if self.knowledge_owner_id is None and owners:
+        for fact in self.facts:
+            owner = fact.knowledge_owner_id
+            if self.knowledge_owner_id is None and owner is not None:
                 raise ContractValidationError("public accepted projection contains private state")
-            if self.knowledge_owner_id is not None and owners - {self.knowledge_owner_id}:
+            if self.knowledge_owner_id is not None and owner not in {
+                None,
+                self.knowledge_owner_id,
+            }:
                 raise ContractValidationError("owner accepted projection contains another owner's state")
+        if self.knowledge_owner_id is not None and not any(
+            fact.knowledge_owner_id == self.knowledge_owner_id
+            for fact in self.facts
+        ):
+            raise ContractValidationError(
+                "owner accepted projection has no fact owned by that character"
+            )
 
     @property
     def projection_sha256(self) -> str:
         return domain_sha256(self.SCHEMA_VERSION, self)
+
+
+def project_final_sequence_facts(
+    item: FinalSequenceItemV1,
+) -> tuple[AcceptedSessionFactV1, ...]:
+    """Split one accepted item into canonical field-level facts."""
+
+    scopes = {value.field_name: value for value in item.field_scopes}
+    facts: list[AcceptedSessionFactV1] = []
+    for field_name in (
+        "realized_event",
+        "valid_deepseek_additions",
+        "knowledge_changes",
+        "material_changes",
+        "resulting_state",
+    ):
+        raw = getattr(item, field_name)
+        values = raw if isinstance(raw, tuple) else (raw,)
+        scope = scopes.get(field_name)
+        if not values or scope is None:
+            continue
+        for index, value in enumerate(values):
+            facts.append(
+                AcceptedSessionFactV1(
+                    fact_key="accepted_fact_"
+                    + canonical_sha256(
+                        {
+                            "source_item_key": item.item_key,
+                            "field_name": field_name,
+                            "index": index,
+                            "value": value,
+                            "scope": scope,
+                        }
+                    )[:20],
+                    source_item_key=item.item_key,
+                    field_name=field_name,
+                    value=value,
+                    visibility=scope.visibility,
+                    knowledge_owner_id=scope.knowledge_owner_id,
+                    actor_ids=scope.actor_ids,
+                    subject_ids=scope.subject_ids,
+                    protected_user_source_claim_keys=scope.protected_user_source_claim_keys,
+                )
+            )
+    return tuple(facts)
 
 
 class EvidenceBindingKind(StrEnum):
@@ -253,7 +345,7 @@ class RequestEvidenceBindingV1:
 class RequestEvidenceBindingRegistry:
     """Mutable request ledger whose exported bindings are immutable records."""
 
-    SCHEMA_VERSION = "cera.request_evidence_binding_registry.v4"
+    SCHEMA_VERSION = "cera.request_evidence_binding_registry.v6"
 
     def __init__(self, *, world_id: str, branch_id: str, turn_id: str) -> None:
         if not all(isinstance(value, str) and value.strip() for value in (world_id, branch_id, turn_id)):
@@ -262,7 +354,9 @@ class RequestEvidenceBindingRegistry:
         self.branch_id = branch_id
         self.turn_id = turn_id
         self._bindings: dict[str, RequestEvidenceBindingV1] = {}
+        self._source_units: dict[str, IngressSourceUnitV1] = {}
         self._protected_user_claims: dict[str, ProtectedUserSourceClaimV1] = {}
+        self._story_segments: dict[str, StoryRealizationSegmentV1] = {}
         self._accepted_session_projections: dict[str, AcceptedSessionProjectionV1] = {}
 
     @staticmethod
@@ -289,6 +383,7 @@ class RequestEvidenceBindingRegistry:
         source_identity: str,
         source_text: str,
         protected_user_allowance_scope: str,
+        source_units: tuple[IngressSourceUnitV1, ...],
     ) -> RequestEvidenceBindingV1:
         source_sha256 = text_sha256(source_text)
         binding = RequestEvidenceBindingV1(
@@ -315,12 +410,47 @@ class RequestEvidenceBindingRegistry:
             exact_read_operation_sha256=None,
         )
         result = self._add(binding)
-        for claim in project_protected_user_source_claims(
-            source_text=source_text,
-            source_binding_key=result.binding_key,
-            source_sha256=source_sha256,
-        ):
-            self._protected_user_claims[claim.claim_key] = claim
+        previous_end = -1
+        for unit in source_units:
+            if unit.source_end > len(source_text) or source_text[
+                unit.source_start : unit.source_end
+            ] != unit.exact_text:
+                raise ContractValidationError("ingress source unit changed exact source bytes")
+            if unit.source_start < previous_end:
+                raise ContractValidationError("ingress source units overlap or are unordered")
+            previous_end = unit.source_end
+            if unit.source_unit_key in self._source_units:
+                raise ContractValidationError("ingress source-unit key is duplicated")
+            self._source_units[unit.source_unit_key] = unit
+            protected_owner = unit.actor_id == "character:ted" or unit.speaker_id == "character:ted"
+            if not protected_owner:
+                continue
+            kind = (
+                ProtectedUserSourceClaimKind.DIALOGUE
+                if unit.kind is IngressSourceUnitKind.DIALOGUE
+                else ProtectedUserSourceClaimKind.ACTION_OR_STATE
+            )
+            claim_key = "claim_source_" + canonical_sha256(
+                {
+                    "source_binding_key": result.binding_key,
+                    "source_sha256": source_sha256,
+                    "source_unit_sha256": unit.source_unit_sha256,
+                }
+            )[:20]
+            self._protected_user_claims[claim_key] = ProtectedUserSourceClaimV1(
+                schema_version=ProtectedUserSourceClaimV1.SCHEMA_VERSION,
+                claim_key=claim_key,
+                kind=kind,
+                source_binding_key=result.binding_key,
+                source_sha256=source_sha256,
+                source_start=unit.source_start,
+                source_end=unit.source_end,
+                exact_text=unit.exact_text,
+                source_unit_key=unit.source_unit_key,
+                source_unit_kind=unit.kind,
+                speaker_id="character:ted",
+                deterministic_projection_rule="explicit_ingress_source_unit",
+            )
         return result
 
     def allocate_mechanical_connective_allowance(
@@ -618,9 +748,14 @@ class RequestEvidenceBindingRegistry:
                 "source_end": value.source_end,
                 "exact_text": value.exact_text,
                 "speaker_id": value.speaker_id,
+                "source_unit_key": value.source_unit_key,
+                "source_unit_kind": value.source_unit_kind.value,
                 "deterministic_projection_rule": value.deterministic_projection_rule,
             }
-            for value in sorted(self._protected_user_claims.values(), key=lambda item: item.claim_key)
+            for value in sorted(
+                self._protected_user_claims.values(),
+                key=lambda item: (item.source_start, item.source_end, item.claim_key),
+            )
         )
 
     def accepted_session_projection_manifest(self) -> tuple[dict[str, Any], ...]:
@@ -779,7 +914,66 @@ class RequestEvidenceBindingRegistry:
         *,
         story_text: str,
         realizations: tuple[ProtectedUserRealizationSpanV1, ...],
+        story_segments: tuple[StoryRealizationSegmentV1, ...],
     ) -> None:
+        if not story_segments:
+            raise PermissionError("Composer omitted the exhaustive story-segment ledger")
+        cursor = 0
+        pending_segments: dict[str, StoryRealizationSegmentV1] = {}
+        protected_segment_spans: dict[tuple[int, int], tuple[str, ...]] = {}
+        for segment in story_segments:
+            prior = self._story_segments.get(segment.segment_key)
+            if (
+                segment.segment_key in pending_segments
+                or (prior is not None and prior != segment)
+            ):
+                raise PermissionError("Composer story segment key is duplicated")
+            if segment.output_start != cursor or segment.output_end > len(story_text):
+                raise PermissionError("Composer story segments are not gap-free")
+            if story_text[segment.output_start : segment.output_end] != segment.exact_text:
+                raise PermissionError("Composer story segment changed exact output bytes")
+            cursor = segment.output_end
+            pending_segments[segment.segment_key] = segment
+            if (
+                re.search(r"\bTed\b", segment.exact_text, re.IGNORECASE)
+                and "character:ted"
+                not in set(segment.actor_ids).union(segment.subject_ids)
+                and segment.speaker_id != "character:ted"
+            ):
+                raise PermissionError(
+                    "Composer story segment omitted explicit protected-user involvement"
+                )
+            protected = (
+                "character:ted" in segment.actor_ids
+                or segment.speaker_id == "character:ted"
+            )
+            if protected:
+                if len(segment.protected_user_source_claim_keys) != 1:
+                    raise PermissionError(
+                        "protected-user story segment requires one supplied claim"
+                    )
+                claim = self._protected_user_claims.get(
+                    segment.protected_user_source_claim_keys[0]
+                )
+                if claim is None or segment.exact_text != claim.exact_text:
+                    raise PermissionError(
+                        "protected-user story segment invented or paraphrased source"
+                    )
+                if (
+                    segment.kind is StoryRealizationKind.DIALOGUE
+                ) != (claim.kind is ProtectedUserSourceClaimKind.DIALOGUE):
+                    raise PermissionError(
+                        "protected-user story segment changed claim semantics"
+                    )
+                protected_segment_spans[
+                    (segment.output_start, segment.output_end)
+                ] = segment.protected_user_source_claim_keys
+            elif segment.protected_user_source_claim_keys:
+                raise PermissionError(
+                    "non-protected story segment carried protected-user claims"
+                )
+        if cursor != len(story_text):
+            raise PermissionError("Composer story segments do not cover complete output")
         observed: dict[tuple[int, int], ProtectedUserRealizationSpanV1] = {}
         for realization in realizations:
             claim = self._protected_user_claims.get(realization.claim_key)
@@ -803,6 +997,14 @@ class RequestEvidenceBindingRegistry:
                     "Composer protected-user realization span is duplicated"
                 )
             observed[span] = realization
+            if protected_segment_spans.get(span) != (realization.claim_key,):
+                raise PermissionError(
+                    "protected-user exact occurrence disagrees with actor/speaker segment"
+                )
+        if set(observed) != set(protected_segment_spans):
+            raise PermissionError(
+                "protected-user realization and story-segment ledgers disagree"
+            )
         declared_spans = set(observed)
         for claim in self._protected_user_claims.values():
             start = 0
@@ -816,6 +1018,9 @@ class RequestEvidenceBindingRegistry:
                         "Composer copied protected-user source without a typed realization"
                     )
                 start = span[1]
+        if self._story_segments and self._story_segments != pending_segments:
+            raise PermissionError("Composer story-segment ledger changed after validation")
+        self._story_segments = pending_segments
 
     def validate_traceability(
         self,
@@ -826,6 +1031,7 @@ class RequestEvidenceBindingRegistry:
             return
         beats = {value.beat_key: value for value in sequence.beats}
         items = {value.item_key: value for value in package.complete_final_sequence.items}
+        cited_story_segments: set[str] = set()
         for item in items.values():
             for beat_key in item.planner_beat_keys:
                 if beat_key not in beats:
@@ -842,10 +1048,179 @@ class RequestEvidenceBindingRegistry:
             for beat_key in item.planner_beat_keys:
                 if not beats[beat_key].source_evidence_bindings:
                     raise StateConflictError("final sequence traces to an ungrounded Planner beat")
+            segments = []
+            for segment_key in item.story_segment_keys:
+                segment = self._story_segments.get(segment_key)
+                if segment is None:
+                    raise StateConflictError(
+                        "final sequence cites an unknown Composer story segment"
+                    )
+                segments.append(segment)
+                cited_story_segments.add(segment_key)
+            segment_by_key = {segment.segment_key: segment for segment in segments}
+            for scope in item.field_scopes:
+                scoped_segments = []
+                for segment_key in scope.story_segment_keys:
+                    segment = segment_by_key.get(segment_key)
+                    if segment is None:
+                        raise StateConflictError(
+                            "final field scope cites a segment outside its item"
+                        )
+                    scoped_segments.append(segment)
+                scoped_actors = {
+                    actor
+                    for segment in scoped_segments
+                    for actor in (
+                        *segment.actor_ids,
+                        *((segment.speaker_id,) if segment.speaker_id is not None else ()),
+                    )
+                }
+                scoped_subjects = {
+                    subject for segment in scoped_segments for subject in segment.subject_ids
+                }
+                scoped_claims = {
+                    claim
+                    for segment in scoped_segments
+                    for claim in segment.protected_user_source_claim_keys
+                }
+                if (
+                    set(scope.actor_ids) != scoped_actors
+                    or set(scope.subject_ids) != scoped_subjects
+                    or set(scope.protected_user_source_claim_keys) != scoped_claims
+                ):
+                    raise StateConflictError(
+                        "final field changed Composer actor, subject, or claim ownership"
+                    )
+                raw_values = getattr(item, scope.field_name)
+                field_values = raw_values if isinstance(raw_values, tuple) else (raw_values,)
+                if "character:ted" in scope.actor_ids:
+                    exact_claim_texts = {
+                        self._protected_user_claims[key].exact_text
+                        for key in scope.protected_user_source_claim_keys
+                        if key in self._protected_user_claims
+                    }
+                    if not exact_claim_texts or any(
+                        value not in exact_claim_texts for value in field_values
+                    ):
+                        raise StateConflictError(
+                            "protected-user final field invented or paraphrased supplied content"
+                        )
+                if any(
+                    re.search(r"\bTed\b", value, re.IGNORECASE)
+                    for value in field_values
+                ) and "character:ted" not in set(scope.actor_ids).union(scope.subject_ids):
+                    raise StateConflictError(
+                        "final field omitted explicit protected-user involvement"
+                    )
+            expected_actors = {
+                actor
+                for segment in segments
+                for actor in (
+                    *segment.actor_ids,
+                    *((segment.speaker_id,) if segment.speaker_id is not None else ()),
+                )
+            }
+            expected_subjects = {
+                subject for segment in segments for subject in segment.subject_ids
+            }
+            expected_segment_claims = {
+                claim
+                for segment in segments
+                for claim in segment.protected_user_source_claim_keys
+            }
+            if (
+                set(item.actor_ids) != expected_actors
+                or set(item.subject_ids) != expected_subjects
+                or set(item.protected_user_source_claim_keys)
+                != expected_segment_claims
+            ):
+                raise StateConflictError(
+                    "final sequence changed Composer actor, subject, or claim ownership"
+                )
+        if cited_story_segments != set(self._story_segments):
+            raise StateConflictError(
+                "complete final sequence does not cover every Composer story segment"
+            )
         for operation in package.world_edit_operations:
             item = items.get(operation.source_final_sequence_item)
             if item is None or not item.planner_beat_keys:
                 raise StateConflictError("world edit has no evidence-grounded final-sequence source")
+            scope = next(
+                (
+                    value
+                    for value in item.field_scopes
+                    if value.field_name == operation.source_final_field_name
+                ),
+                None,
+            )
+            source_value = getattr(item, operation.source_final_field_name)
+            source_values = source_value if isinstance(source_value, tuple) else (source_value,)
+            if (
+                scope is None
+                or set(operation.protected_user_source_claim_keys)
+                != set(scope.protected_user_source_claim_keys)
+                or (
+                    bool(scope.protected_user_source_claim_keys)
+                    and (
+                        operation.value not in source_values
+                        or operation.reason
+                        != f"Persist accepted final field {operation.source_final_field_name}."
+                    )
+                )
+            ):
+                raise StateConflictError(
+                    "world edit changed final-field value, reason, or claim provenance"
+                )
+        for created in package.created_field_log:
+            item = items.get(created.source_final_sequence_item)
+            scope = next(
+                (
+                    value
+                    for value in item.field_scopes
+                    if value.field_name == created.source_final_field_name
+                ),
+                None,
+            ) if item is not None else None
+            source_value = (
+                getattr(item, created.source_final_field_name)
+                if item is not None
+                else None
+            )
+            source_values = source_value if isinstance(source_value, tuple) else (source_value,)
+            if (
+                item is None
+                or scope is None
+                or set(created.protected_user_source_claim_keys)
+                != set(scope.protected_user_source_claim_keys)
+                or (
+                    bool(scope.protected_user_source_claim_keys)
+                    and (
+                        created.value not in source_values
+                        or created.reason
+                        != f"Persist accepted final field {created.source_final_field_name}."
+                    )
+                )
+            ):
+                raise StateConflictError(
+                    "created field changed final-field value, reason, or claim provenance"
+                )
+        event_claims = {
+            claim
+            for item in items.values()
+            for claim in item.protected_user_source_claim_keys
+        }
+        if package.event_record is None or set(
+            package.event_record.protected_user_source_claim_keys
+        ) != event_claims:
+            raise StateConflictError("event changed protected-user claim provenance")
+        if package.event_record.final_sequence_item_keys != tuple(items):
+            raise StateConflictError("event changed final-sequence item provenance")
+        expected_event_summary = " ".join(
+            items[key].realized_event
+            for key in package.event_record.final_sequence_item_keys
+        )
+        if package.event_record.summary != expected_event_summary:
+            raise StateConflictError("event summary changed final-sequence facts")
 
     def _validate_world_binding(self, binding: RequestEvidenceBindingV1, branch_root: Path) -> None:
         assert binding.relative_path is not None
@@ -870,9 +1245,15 @@ class RequestEvidenceBindingRegistry:
                 "branch_id": self.branch_id,
                 "turn_id": self.turn_id,
                 "bindings": self.bindings,
+                "source_units": tuple(
+                    self._source_units[key] for key in sorted(self._source_units)
+                ),
                 "protected_user_claims": tuple(
                     self._protected_user_claims[key]
                     for key in sorted(self._protected_user_claims)
+                ),
+                "story_segments": tuple(
+                    self._story_segments[key] for key in sorted(self._story_segments)
                 ),
                 "accepted_session_projections": tuple(
                     self._accepted_session_projections[key]
@@ -1034,156 +1415,6 @@ def bind_character_summary_envelopes(
             }
         )
     return tuple(bindings)
-
-
-def project_protected_user_source_claims(
-    *,
-    source_text: str,
-    source_binding_key: str,
-    source_sha256: str,
-) -> tuple[ProtectedUserSourceClaimV1, ...]:
-    """Project spans only when a small ingress grammar proves Ted owns them."""
-
-    spans: dict[
-        tuple[int, int, ProtectedUserSourceClaimKind], tuple[str, str]
-    ] = {}
-    npc_names = r"(?:hana|sakura|mia|enne|tomi|aoi|yuuni)"
-    speech_verbs = r"(?:says?|asks?|replies?|responds?|tells?|whispers?|shouts?)"
-    quote_pattern = re.compile(r'[\"\u201c]([^\"\u201d]+)[\"\u201d]')
-
-    # Unattributed quotations are deliberately not claimed.  Both leading and
-    # trailing explicit attributions are inspected, and an NPC attribution is
-    # fail-closed even if another pronoun appears nearby.
-    for quote in quote_pattern.finditer(source_text):
-        sentence_start = max(
-            source_text.rfind(".", 0, quote.start()),
-            source_text.rfind("!", 0, quote.start()),
-            source_text.rfind("?", 0, quote.start()),
-            source_text.rfind("\n", 0, quote.start()),
-        ) + 1
-        following = [
-            value
-            for value in (
-                source_text.find(".", quote.end()),
-                source_text.find("!", quote.end()),
-                source_text.find("?", quote.end()),
-                source_text.find("\n", quote.end()),
-            )
-            if value >= 0
-        ]
-        sentence_end = min(following) + 1 if following else len(source_text)
-        sentence = source_text[sentence_start:sentence_end]
-        npc_attribution = re.search(
-            rf"(?:\b{npc_names}\b[^.!?\n]{{0,64}}\b{speech_verbs}\b|"
-            rf"\b{speech_verbs}\b[^.!?\n]{{0,32}}\b{npc_names}\b)",
-            sentence,
-            re.IGNORECASE,
-        )
-        ted_attribution = re.search(
-            rf"(?:\b(?:ted|i)\b[^.!?\n]{{0,64}}\b{speech_verbs}\b|"
-            rf"\b{speech_verbs}\b[^.!?\n]{{0,32}}\bted\b)",
-            sentence,
-            re.IGNORECASE,
-        )
-        if npc_attribution is not None or ted_attribution is None:
-            continue
-        start, end = quote.start(1), quote.end(1)
-        spans[(start, end, ProtectedUserSourceClaimKind.DIALOGUE)] = (
-            source_text[start:end],
-            "explicit_ted_quoted_utterance",
-        )
-
-    clause_matches = tuple(re.finditer(r"[^.!?;\n]+(?:[.!?;]|$)", source_text))
-    direct_utterance_chain = False
-    for index, match in enumerate(clause_matches):
-        raw = match.group(0)
-        left = len(raw) - len(raw.lstrip())
-        right = len(raw.rstrip())
-        start, end = match.start() + left, match.start() + right
-        exact = source_text[start:end]
-        if not exact:
-            continue
-        without_quotes = quote_pattern.sub("", exact)
-        if re.search(
-            rf"\b{npc_names}\b[^.!?\n]{{0,64}}\b{speech_verbs}\b",
-            without_quotes,
-            re.IGNORECASE,
-        ):
-            continue
-        explicit_actor = re.search(
-            r"(?:^|[,;]\s*)(?:ted|i)\s+(?:am\b|was\b|will\b|would\b|"
-            r"open\w*\b|close\w*\b|knock\w*\b|ask\w*\b|say\w*\b|"
-            r"tell\w*\b|look\w*\b|touch\w*\b|take\w*\b|put\w*\b|"
-            r"stop\w*\b|wait\w*\b|continue\w*\b|reach\w*\b|start\w*\b)",
-            without_quotes,
-            re.IGNORECASE,
-        )
-        if explicit_actor is not None:
-            spans[(start, end, ProtectedUserSourceClaimKind.ACTION_OR_STATE)] = (
-                exact,
-                "explicit_ted_unquoted_action_or_state",
-            )
-        if index == 0 and re.search(
-            r"\b(?:my name is ted|i(?:'m| am) ted)\b", exact, re.IGNORECASE
-        ):
-            direct_utterance_chain = True
-            spans[(start, end, ProtectedUserSourceClaimKind.DIALOGUE)] = (
-                exact,
-                "direct_self_identifying_user_utterance",
-            )
-        elif direct_utterance_chain and (
-            exact.endswith("?")
-            or re.match(
-                r"^(?:hello|hi|yes|no|please|sorry|thank\b)",
-                exact,
-                re.IGNORECASE,
-            )
-        ):
-            spans[(start, end, ProtectedUserSourceClaimKind.DIALOGUE)] = (
-                exact,
-                "continued_unquoted_user_utterance",
-            )
-        elif re.match(
-            rf"^(?:{npc_names}\s*,|hello\b|hi\b|hey\b|please\b|sorry\b|"
-            r"thank\b|yes\b|no\b|is\b|are\b|am\b|can\b|could\b|would\b|"
-            r"will\b|may\b|do\b|did\b|does\b|what\b|why\b|how\b|when\b|"
-            r"where\b|who\b)",
-            exact,
-            re.IGNORECASE,
-        ):
-            spans[(start, end, ProtectedUserSourceClaimKind.DIALOGUE)] = (
-                exact,
-                "direct_unquoted_user_utterance",
-            )
-
-    claims = []
-    for (start, end, kind), (exact, rule) in sorted(spans.items()):
-        claim_key = "claim_source_" + canonical_sha256(
-            {
-                "source_binding_key": source_binding_key,
-                "source_sha256": source_sha256,
-                "source_start": start,
-                "source_end": end,
-                "kind": kind.value,
-                "exact_text": exact,
-                "deterministic_projection_rule": rule,
-            }
-        )[:20]
-        claims.append(
-            ProtectedUserSourceClaimV1(
-                schema_version=ProtectedUserSourceClaimV1.SCHEMA_VERSION,
-                claim_key=claim_key,
-                kind=kind,
-                source_binding_key=source_binding_key,
-                source_sha256=source_sha256,
-                source_start=start,
-                source_end=end,
-                exact_text=exact,
-                speaker_id="character:ted",
-                deterministic_projection_rule=rule,
-            )
-        )
-    return tuple(claims)
 
 
 def _normalized_text(value: str) -> str:

@@ -889,6 +889,17 @@ Codex call at the actual `thread_run` boundary, and removes the duplicate Job 4
 pipeline in favor of the shared coordinator. Its Stage 4 remains a new
 zero-provider integration audit; no live canary is authorized.
 
+D-192 is correction cycle 005 under the same standing provider-free authority.
+Its progressions are `continuous-ingress-claims-and-final-candidate-enforcement-v5`,
+`continuous-subject-scoped-accepted-context-and-authority-binding-v5`, and
+`continuous-new-identity-canary-harness-qualification-v5`. It replaces
+protected-user text heuristics with explicit ingress ownership, carries exact
+Composer actor/subject/speaker segments through Validator and candidate
+authority, projects accepted state as field-level public/owner facts, invalidates
+older continuous-session compatibility, and qualifies the exact parameterized
+ten-stage fake canary plus subprocess progress observer. Its Stage 4 remains a
+new zero-provider integration audit; no live canary is authorized.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

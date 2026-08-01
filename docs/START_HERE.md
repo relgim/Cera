@@ -2,13 +2,13 @@
 
 **Status:** controlling index
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-191 provider-free continuous Planner/Validator correction cycle 004; D-180 remains active
+**Phase:** D-192 provider-free continuous Planner/Validator correction cycle 005; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** D-191 complete repository suite passes 727/727 in 297.090 seconds with one expected environment-dependent skip; zero live provider calls
+**Provider-free current verification:** D-192 complete repository suite passes 735/735 in 289.066 seconds with one expected environment-dependent skip; zero live provider calls
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page
@@ -96,6 +96,7 @@ the active D-180 route.
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_002_RESULT.md` | D-189 exact summary/actor authority, complete acceptance recovery, transport accounting, diagnostics, and contract inventory corrections |
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_003_RESULT.md` | D-190 live-harness alignment, exact submission accounting, accepted-session/source-claim authority, atomic snapshot synchronization, and derived-summary removal |
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_004_RESULT.md` | D-191 attribution-safe protected-user claims, owner-scoped accepted context, exact realization spans, immutable snapshot receipts, true submission accounting, and one shared Job 4 coordinator |
+| `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_005_RESULT.md` | D-192 explicit ingress ownership, exhaustive Composer segment custody, field-scoped accepted facts, candidate-authority identity binding, v5 compatibility, and exact parameterized fake-canary qualification |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |
 | `ROADMAP_AND_GATE.md` | Ordered implementation plan and authorization gates |
 | `CREATOR_REVIEW_PRESENTATION_V1_RESULT.md` | Active severity colors, Adjustment label, False Positive acceptance, and CERA-owned character-color presentation |

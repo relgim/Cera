@@ -18,6 +18,7 @@ from .contracts import (
     AcceptedTurnPairV1,
     CharacterSummaryEnvelopeV1,
     EventRecordCandidateV1,
+    IngressSourceUnitV1,
     RichPlannerSequenceV1,
     ValidatorFinalizationPackageV1,
     ValidatorTaskMode,
@@ -26,6 +27,7 @@ from .evidence import (
     AcceptedSessionProjectionV1,
     RequestEvidenceBindingRegistry,
     bind_character_summary_envelopes,
+    project_final_sequence_facts,
 )
 from .prompting import (
     build_continuous_composer_prompt,
@@ -69,6 +71,7 @@ class ContinuousTurnRequestV1:
     turn_id: str
     user_message: str
     current_authority_packet: dict[str, Any]
+    source_units: tuple[IngressSourceUnitV1, ...]
     character_summaries: tuple[CharacterSummaryEnvelopeV1, ...] = ()
     cera_scene_change: bool = False
 
@@ -79,6 +82,24 @@ class ContinuousTurnRequestV1:
                 raise ContractValidationError(f"continuous turn {field} is required")
         if type(self.cera_scene_change) is not bool:
             raise ContractValidationError("continuous scene change flag must be boolean")
+        if not self.source_units:
+            raise ContractValidationError("continuous turn requires ingress source units")
+        previous_end = 0
+        for unit in self.source_units:
+            if (
+                unit.source_start != previous_end
+                or unit.source_end > len(self.user_message)
+                or self.user_message[unit.source_start : unit.source_end]
+                != unit.exact_text
+            ):
+                raise ContractValidationError(
+                    "continuous turn ingress source units are not gap-free exact source bytes"
+                )
+            previous_end = unit.source_end
+        if previous_end != len(self.user_message):
+            raise ContractValidationError(
+                "continuous turn ingress source units do not cover the complete source"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,10 +110,32 @@ class ContinuousTurnCandidateV1:
     deepseek_story_text: str
     validator_package: ValidatorFinalizationPackageV1
     planner_prompt_sha256: str
+    composer_prompt_sha256: str
     validator_prompt_sha256: str
     debug_root: Path
     provider_calls: int
     evidence_registry_sha256: str
+    protected_user_claim_ledger_sha256: str
+    protected_user_realization_ledger_sha256: str
+    story_segment_ledger_sha256: str
+    accepted_session_projection_ledger_sha256: str
+
+    @property
+    def authority_context_sha256(self) -> str:
+        return canonical_sha256(
+            {
+                "evidence_registry_sha256": self.evidence_registry_sha256,
+                "protected_user_claim_ledger_sha256": self.protected_user_claim_ledger_sha256,
+                "protected_user_realization_ledger_sha256": self.protected_user_realization_ledger_sha256,
+                "story_segment_ledger_sha256": self.story_segment_ledger_sha256,
+                "accepted_session_projection_ledger_sha256": self.accepted_session_projection_ledger_sha256,
+                "planner_prompt_sha256": self.planner_prompt_sha256,
+                "composer_prompt_sha256": self.composer_prompt_sha256,
+                "validator_prompt_sha256": self.validator_prompt_sha256,
+                "planner_schema_version": self.planner_sequence.schema_version,
+                "validator_schema_version": self.validator_package.schema_version,
+            }
+        )
 
     @property
     def candidate_sha256(self) -> str:
@@ -102,6 +145,7 @@ class ContinuousTurnCandidateV1:
                 "planner": self.planner_sequence.sequence_sha256,
                 "story": text_sha256(self.deepseek_story_text),
                 "validator": self.validator_package.package_sha256,
+                "authority_context_sha256": self.authority_context_sha256,
             }
         )
 
@@ -351,6 +395,7 @@ class ContinuousShadowTurnCoordinator:
             source_identity=f"current_user_source:{request.turn_id}",
             source_text=request.user_message,
             protected_user_allowance_scope="exact supplied source plus minimal nonbranching connective",
+            source_units=request.source_units,
         )
         mechanical_binding = evidence_registry.allocate_mechanical_connective_allowance()
         accepted_session_bindings = self._bind_latest_accepted_session_evidence(
@@ -375,6 +420,9 @@ class ContinuousShadowTurnCoordinator:
                 "current_source_binding_key": current_source_binding.binding_key,
                 "mechanical_connective_binding_key": mechanical_binding.binding_key,
                 "protected_user_source_claims": evidence_registry.protected_user_claim_manifest(),
+                "ingress_source_units": tuple(
+                    to_primitive(value) for value in request.source_units
+                ),
                 "accepted_session_bindings": tuple(
                     {
                         "binding_key": value["binding_key"],
@@ -422,6 +470,9 @@ class ContinuousShadowTurnCoordinator:
         debug.write_json("planner_tools.json", _provider_debug(planner_result))
         composer_prompt, composer_usage = build_continuous_composer_prompt(
             current_user_source=request.user_message,
+            ingress_source_units=tuple(
+                to_primitive(value) for value in request.source_units
+            ),
             planner_sequence=planner_sequence,
             character_summaries=request.character_summaries,
             protected_user_claim_manifest=evidence_registry.protected_user_claim_manifest(),
@@ -439,14 +490,19 @@ class ContinuousShadowTurnCoordinator:
         protected_realizations = tuple(
             getattr(composer_result.value, "protected_user_realizations", ())
         )
+        story_segments = tuple(
+            getattr(composer_result.value, "story_segments", ())
+        )
         evidence_registry.validate_composer_realization(
             story_text=story_text,
             realizations=protected_realizations,
+            story_segments=story_segments,
         )
         composer_payload = {
             "schema_version": getattr(composer_result.value, "schema_version", None),
             "story_text": story_text,
             "protected_user_realizations": to_primitive(protected_realizations),
+            "story_segments": to_primitive(story_segments),
         }
         debug.write_json("deepseek_output.json", composer_payload)
         validator_prompt, validator_usage = build_validator_prompt(
@@ -463,6 +519,12 @@ class ContinuousShadowTurnCoordinator:
             deepseek_protected_user_realizations=tuple(
                 to_primitive(value)
                 for value in protected_realizations
+            ),
+            deepseek_story_segments=tuple(
+                to_primitive(value) for value in story_segments
+            ),
+            ingress_source_units=tuple(
+                to_primitive(value) for value in request.source_units
             ),
             accepted_session_projections=accepted_session_bindings,
         )
@@ -490,18 +552,48 @@ class ContinuousShadowTurnCoordinator:
         self.validator_session.record_validator_candidate(
             request.turn_id, package.package_sha256
         )
-        try:
-            self.world.record_candidate_package(
-                request.world_id, request.branch_id, candidate_view, package
-            )
-        except BaseException as exc:
-            debug.record_failure("candidate_package", exc)
-            raise
         before_files = _snapshot_files(candidate_view.root / "ACTIVE_VIEW")
         provider_calls = prior_provider_calls + sum(
             int(getattr(value.provider_receipt, "external_provider_calls", 0))
             for value in (planner_result, composer_result, validator_result)
         )
+        candidate = ContinuousTurnCandidateV1(
+            request=request,
+            candidate_view=candidate_view,
+            planner_sequence=planner_sequence,
+            deepseek_story_text=story_text,
+            validator_package=package,
+            planner_prompt_sha256=text_sha256(planner_prompt),
+            composer_prompt_sha256=text_sha256(composer_prompt),
+            validator_prompt_sha256=text_sha256(validator_prompt),
+            debug_root=debug.root,
+            provider_calls=provider_calls,
+            evidence_registry_sha256=evidence_registry.registry_sha256,
+            protected_user_claim_ledger_sha256=canonical_sha256(
+                evidence_registry.protected_user_claim_manifest()
+            ),
+            protected_user_realization_ledger_sha256=canonical_sha256(
+                to_primitive(protected_realizations)
+            ),
+            story_segment_ledger_sha256=canonical_sha256(
+                to_primitive(story_segments)
+            ),
+            accepted_session_projection_ledger_sha256=canonical_sha256(
+                accepted_session_bindings
+            ),
+        )
+        try:
+            self.world.record_candidate_package(
+                request.world_id,
+                request.branch_id,
+                candidate_view,
+                package,
+                candidate_sha256=candidate.candidate_sha256,
+                authority_context_sha256=candidate.authority_context_sha256,
+            )
+        except BaseException as exc:
+            debug.record_failure("candidate_package", exc)
+            raise
         debug_payloads = {
             "planner_prompt_components.json": [to_primitive(value) for value in planner_usage],
             "planner_output.json": to_primitive(planner_sequence),
@@ -540,24 +632,18 @@ class ContinuousShadowTurnCoordinator:
                 "composer_result": composer_payload,
                 "evidence_registry_sha256": evidence_registry.registry_sha256,
                 "protected_user_claim_manifest": evidence_registry.protected_user_claim_manifest(),
+                "ingress_source_units": tuple(
+                    to_primitive(value) for value in request.source_units
+                ),
+                "story_segments": to_primitive(story_segments),
+                "authority_context_sha256": candidate.authority_context_sha256,
+                "candidate_sha256": candidate.candidate_sha256,
                 "validator_result": to_primitive(package),
             },
         }
         debug.write_text("planner_raw_prompt.txt", planner_prompt)
         for name, payload in debug_payloads.items():
             debug.write_json(name, payload)
-        candidate = ContinuousTurnCandidateV1(
-            request=request,
-            candidate_view=candidate_view,
-            planner_sequence=planner_sequence,
-            deepseek_story_text=story_text,
-            validator_package=package,
-            planner_prompt_sha256=text_sha256(planner_prompt),
-            validator_prompt_sha256=text_sha256(validator_prompt),
-            debug_root=debug.root,
-            provider_calls=provider_calls,
-            evidence_registry_sha256=evidence_registry.registry_sha256,
-        )
         self._candidates[request.turn_id] = candidate
         return candidate
 
@@ -642,32 +728,37 @@ class ContinuousShadowTurnCoordinator:
             raise StateConflictError("accepted session pair and event disagree")
         if event.scene_id != request.scene_id:
             return ()
-        participants = tuple(
-            value
-            for value in event.participant_ids
-            if isinstance(value, str) and value != "character:ted"
+        facts = tuple(
+            fact
+            for item in pair.complete_final_sequence.items
+            for fact in project_final_sequence_facts(item)
+        )
+        public_facts = tuple(
+            fact
+            for fact in facts
+            if fact.knowledge_owner_id is None
         )
         owners = tuple(
             dict.fromkeys(
-                (*participants, *(
-                    owner
-                    for item in pair.complete_final_sequence.items
-                    for owner in item.private_state_owner_ids
-                ))
+                fact.knowledge_owner_id
+                for fact in facts
+                if fact.knowledge_owner_id is not None
+                and fact.knowledge_owner_id
+                in set(fact.actor_ids).union(fact.subject_ids)
             )
         )
         projections = []
         for owner in (None, *owners):
-            items = tuple(
-                item
-                for item in pair.complete_final_sequence.items
-                if not item.private_state_owner_ids
-                or (
-                    owner is not None
-                    and item.private_state_owner_ids == (owner,)
-                )
+            private_facts = tuple(
+                fact for fact in facts if fact.knowledge_owner_id == owner
             )
-            if not items:
+            if owner is None:
+                projection_facts = public_facts
+            else:
+                if not private_facts:
+                    continue
+                projection_facts = (*public_facts, *private_facts)
+            if not projection_facts:
                 continue
             projection_key = "projection_session_" + canonical_sha256(
                 {
@@ -677,7 +768,7 @@ class ContinuousShadowTurnCoordinator:
                     "accepted_turn_id": accepted_turn_id,
                     "scene_id": event.scene_id,
                     "knowledge_owner_id": owner,
-                    "item_keys": tuple(item.item_key for item in items),
+                    "fact_keys": tuple(fact.fact_key for fact in projection_facts),
                 }
             )[:20]
             projection = AcceptedSessionProjectionV1(
@@ -689,8 +780,7 @@ class ContinuousShadowTurnCoordinator:
                 accepted_turn_id=accepted_turn_id,
                 scene_id=event.scene_id,
                 knowledge_owner_id=owner,
-                accepted_user_message=pair.user_message,
-                items=items,
+                facts=tuple(projection_facts),
                 accepted_pair_sha256=str(journal["accepted_pair_sha256"]),
                 accepted_event_sha256=str(journal["accepted_event_sha256"]),
                 accepted_envelope_sha256=envelope.envelope_sha256,
@@ -732,6 +822,8 @@ class ContinuousShadowTurnCoordinator:
                 turn_id=turn_id,
                 action=action,
                 package=package,
+                candidate_sha256=candidate.candidate_sha256,
+                authority_context_sha256=candidate.authority_context_sha256,
                 accepted_pair=pair if action in {CreatorReviewAction.ACCEPT, CreatorReviewAction.FALSE_POSITIVE} else None,
             )
         except BaseException as exc:

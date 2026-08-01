@@ -71,11 +71,83 @@ class ProtectedUserSourceClaimKind(StrEnum):
     DIALOGUE = "dialogue"
 
 
+class IngressSourceUnitKind(StrEnum):
+    ACTION = "action"
+    DIALOGUE = "dialogue"
+    STATE = "state"
+    NARRATION = "narration"
+    INSTRUCTION = "instruction"
+
+
+@dataclass(frozen=True, slots=True)
+class IngressSourceUnitV1:
+    """Ingress-owned exact source classification; models cannot create it."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_ingress_source_unit.v1"
+
+    schema_version: str
+    source_unit_key: str
+    kind: IngressSourceUnitKind
+    source_start: int
+    source_end: int
+    exact_text: str
+    actor_id: str | None
+    speaker_id: str | None
+    classification_basis: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("ingress source-unit schema changed")
+        _key(self.source_unit_key, "ingress_source_unit.source_unit_key")
+        if (
+            type(self.source_start) is not int
+            or type(self.source_end) is not int
+            or self.source_start < 0
+            or self.source_end <= self.source_start
+        ):
+            raise ContractValidationError("ingress source-unit span is invalid")
+        if (
+            not isinstance(self.exact_text, str)
+            or not self.exact_text
+            or len(self.exact_text) > 64_000
+        ):
+            raise ContractValidationError(
+                "ingress_source_unit.exact_text must be non-empty and bounded"
+            )
+        if self.source_end - self.source_start != len(self.exact_text):
+            raise ContractValidationError("ingress source-unit span length changed")
+        for field in ("actor_id", "speaker_id"):
+            value = getattr(self, field)
+            if value is not None:
+                _identity(value, f"ingress_source_unit.{field}")
+        if self.kind is IngressSourceUnitKind.DIALOGUE:
+            if self.speaker_id is None or self.actor_id is not None:
+                raise ContractValidationError("dialogue source unit requires only a speaker")
+        elif self.kind in {IngressSourceUnitKind.ACTION, IngressSourceUnitKind.STATE}:
+            if self.actor_id is None or self.speaker_id is not None:
+                raise ContractValidationError("action/state source unit requires only an actor")
+        elif self.actor_id is not None or self.speaker_id is not None:
+            raise ContractValidationError(
+                "narration/instruction source unit cannot grant actor or speaker authority"
+            )
+        if self.classification_basis not in {
+            "explicit_ingress_actor",
+            "explicit_ingress_speaker",
+            "explicit_ingress_narration",
+            "explicit_ingress_instruction",
+        }:
+            raise ContractValidationError("ingress source-unit basis is not authoritative")
+
+    @property
+    def source_unit_sha256(self) -> str:
+        return domain_sha256(self.SCHEMA_VERSION, self)
+
+
 @dataclass(frozen=True, slots=True)
 class ProtectedUserSourceClaimV1:
     """Ingress-owned exact protected-user event or utterance."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.protected_user_source_claim.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.protected_user_source_claim.v3"
 
     schema_version: str
     claim_key: str
@@ -85,8 +157,10 @@ class ProtectedUserSourceClaimV1:
     source_start: int
     source_end: int
     exact_text: str
+    source_unit_key: str
+    source_unit_kind: IngressSourceUnitKind
     speaker_id: str = "character:ted"
-    deterministic_projection_rule: str = "explicit_protected_user_source"
+    deterministic_projection_rule: str = "explicit_ingress_source_unit"
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
@@ -107,6 +181,22 @@ class ProtectedUserSourceClaimV1:
             raise ContractValidationError("protected-user source span length changed")
         if self.speaker_id != "character:ted":
             raise ContractValidationError("protected-user source claim speaker changed")
+        _key(self.source_unit_key, "protected_user_source_claim.source_unit_key")
+        if self.source_unit_kind not in {
+            IngressSourceUnitKind.ACTION,
+            IngressSourceUnitKind.DIALOGUE,
+            IngressSourceUnitKind.STATE,
+        }:
+            raise ContractValidationError("protected-user claim uses a non-authorizing source unit")
+        if (
+            self.kind is ProtectedUserSourceClaimKind.DIALOGUE
+            and self.source_unit_kind is not IngressSourceUnitKind.DIALOGUE
+        ) or (
+            self.kind is ProtectedUserSourceClaimKind.ACTION_OR_STATE
+            and self.source_unit_kind
+            not in {IngressSourceUnitKind.ACTION, IngressSourceUnitKind.STATE}
+        ):
+            raise ContractValidationError("protected-user claim kind changed ingress meaning")
         _identity(
             self.deterministic_projection_rule,
             "protected_user_source_claim.deterministic_projection_rule",
@@ -427,6 +517,8 @@ class WorldEditOperationV1:
     value: Any
     reason: str
     source_final_sequence_item: str
+    source_final_field_name: str = "realized_event"
+    protected_user_source_claim_keys: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _key(self.operation_key, "operation_key")
@@ -461,6 +553,20 @@ class WorldEditOperationV1:
                 raise ContractValidationError("Validator cannot edit Python-owned file metadata")
         _text(self.reason, "operation.reason", maximum=2_000)
         _key(self.source_final_sequence_item, "source_final_sequence_item")
+        if self.source_final_field_name not in {
+            "realized_event",
+            "valid_deepseek_additions",
+            "knowledge_changes",
+            "material_changes",
+            "resulting_state",
+        }:
+            raise ContractValidationError("world edit source final field is invalid")
+        for value in self.protected_user_source_claim_keys:
+            _key(value, "operation.protected_user_source_claim_keys")
+        _unique(
+            self.protected_user_source_claim_keys,
+            "operation.protected_user_source_claim_keys",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -471,6 +577,8 @@ class CreatedFieldLogEntryV1:
     value: Any
     reason: str
     source_final_sequence_item: str
+    source_final_field_name: str = "realized_event"
+    protected_user_source_claim_keys: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _relative_path(self.target_file, "created_field.target_file")
@@ -480,12 +588,83 @@ class CreatedFieldLogEntryV1:
             raise ContractValidationError("created field value_type is invalid")
         _text(self.reason, "created_field.reason", maximum=2_000)
         _key(self.source_final_sequence_item, "created_field.source_final_sequence_item")
+        if self.source_final_field_name not in {
+            "realized_event",
+            "valid_deepseek_additions",
+            "knowledge_changes",
+            "material_changes",
+            "resulting_state",
+        }:
+            raise ContractValidationError("created field source final field is invalid")
+        for value in self.protected_user_source_claim_keys:
+            _key(value, "created_field.protected_user_source_claim_keys")
+        _unique(
+            self.protected_user_source_claim_keys,
+            "created_field.protected_user_source_claim_keys",
+        )
+
+
+class FinalInformationVisibility(StrEnum):
+    PUBLIC = "public"
+    CHARACTER_PRIVATE = "character_private"
+
+
+@dataclass(frozen=True, slots=True)
+class FinalFieldScopeV1:
+    field_name: str
+    visibility: FinalInformationVisibility
+    knowledge_owner_id: str | None
+    story_segment_keys: tuple[str, ...]
+    actor_ids: tuple[str, ...]
+    subject_ids: tuple[str, ...]
+    protected_user_source_claim_keys: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.field_name not in {
+            "realized_event",
+            "valid_deepseek_additions",
+            "knowledge_changes",
+            "material_changes",
+            "resulting_state",
+        }:
+            raise ContractValidationError("final field scope names an unsupported field")
+        if self.visibility is FinalInformationVisibility.PUBLIC:
+            if self.knowledge_owner_id is not None:
+                raise ContractValidationError("public final field cannot have a private owner")
+        else:
+            if self.knowledge_owner_id is None:
+                raise ContractValidationError("private final field requires one owner")
+            _identity(self.knowledge_owner_id, "final_field_scope.knowledge_owner_id")
+        if not self.story_segment_keys:
+            raise ContractValidationError("final field scope requires Composer segments")
+        for value in self.story_segment_keys:
+            _key(value, "final_field_scope.story_segment_keys")
+        _unique(self.story_segment_keys, "final_field_scope.story_segment_keys")
+        if not self.actor_ids and not self.subject_ids:
+            raise ContractValidationError("final field scope lacks actors and subjects")
+        for field in ("actor_ids", "subject_ids"):
+            for value in getattr(self, field):
+                _identity(value, f"final_field_scope.{field}")
+            _unique(getattr(self, field), f"final_field_scope.{field}")
+        for value in self.protected_user_source_claim_keys:
+            _key(value, "final_field_scope.protected_user_source_claim_keys")
+        _unique(
+            self.protected_user_source_claim_keys,
+            "final_field_scope.protected_user_source_claim_keys",
+        )
+        if (
+            "character:ted" in self.actor_ids
+        ) != bool(self.protected_user_source_claim_keys):
+            raise ContractValidationError(
+                "protected-user final field authorship must match exact claims"
+            )
 
 
 @dataclass(frozen=True, slots=True)
 class FinalSequenceItemV1:
     item_key: str
     planner_beat_keys: tuple[str, ...]
+    story_segment_keys: tuple[str, ...]
     realized_event: str
     valid_deepseek_additions: tuple[str, ...]
     omitted_or_contradicted_details: tuple[str, ...]
@@ -494,6 +673,9 @@ class FinalSequenceItemV1:
     material_changes: tuple[str, ...]
     resulting_state: str
     protected_user_source_claim_keys: tuple[str, ...] = ()
+    actor_ids: tuple[str, ...] = ()
+    subject_ids: tuple[str, ...] = ()
+    field_scopes: tuple[FinalFieldScopeV1, ...] = ()
 
     def __post_init__(self) -> None:
         _key(self.item_key, "final_sequence.item_key")
@@ -502,6 +684,11 @@ class FinalSequenceItemV1:
         for value in self.planner_beat_keys:
             _key(value, "final_sequence.planner_beat_keys")
         _unique(self.planner_beat_keys, "final_sequence.planner_beat_keys")
+        if not self.story_segment_keys:
+            raise ContractValidationError("final sequence item requires Composer segment bindings")
+        for value in self.story_segment_keys:
+            _key(value, "final_sequence.story_segment_keys")
+        _unique(self.story_segment_keys, "final_sequence.story_segment_keys")
         for field in ("realized_event", "resulting_state"):
             _text(getattr(self, field), f"final_sequence.{field}", maximum=8_000)
         for field in (
@@ -527,11 +714,71 @@ class FinalSequenceItemV1:
             self.protected_user_source_claim_keys,
             "final_sequence.protected_user_source_claim_keys",
         )
+        if not self.actor_ids and not self.subject_ids:
+            raise ContractValidationError("final sequence item lacks actors and subjects")
+        for field in ("actor_ids", "subject_ids"):
+            for value in getattr(self, field):
+                _identity(value, f"final_sequence.{field}")
+            _unique(getattr(self, field), f"final_sequence.{field}")
+        scope_names = tuple(value.field_name for value in self.field_scopes)
+        _unique(scope_names, "final_sequence.field_scopes")
+        required_scopes = {"realized_event", "resulting_state"}
+        for field in (
+            "valid_deepseek_additions",
+            "knowledge_changes",
+            "material_changes",
+        ):
+            if getattr(self, field):
+                required_scopes.add(field)
+        if set(scope_names) != required_scopes:
+            raise ContractValidationError("final sequence field visibility is incomplete")
+        if {
+            segment
+            for scope in self.field_scopes
+            for segment in scope.story_segment_keys
+        } != set(self.story_segment_keys):
+            raise ContractValidationError(
+                "final sequence field scopes do not cover exact Composer segments"
+            )
+        if {
+            actor for scope in self.field_scopes for actor in scope.actor_ids
+        } != set(self.actor_ids) or {
+            subject for scope in self.field_scopes for subject in scope.subject_ids
+        } != set(self.subject_ids):
+            raise ContractValidationError(
+                "final sequence actors and subjects disagree with field scopes"
+            )
+        if {
+            claim
+            for scope in self.field_scopes
+            for claim in scope.protected_user_source_claim_keys
+        } != set(self.protected_user_source_claim_keys):
+            raise ContractValidationError(
+                "final sequence claims disagree with field scopes"
+            )
+        scoped_private_owners = {
+            value.knowledge_owner_id
+            for value in self.field_scopes
+            if value.visibility is FinalInformationVisibility.CHARACTER_PRIVATE
+        }
+        if scoped_private_owners != set(self.private_state_owner_ids):
+            raise ContractValidationError("final private owners disagree with field scopes")
+        if not set(self.private_state_owner_ids).issubset(
+            set(self.actor_ids).union(self.subject_ids)
+        ):
+            raise ContractValidationError(
+                "final private owner is not an actor or subject"
+            )
+        protected_authorship = "character:ted" in self.actor_ids
+        if protected_authorship != bool(self.protected_user_source_claim_keys):
+            raise ContractValidationError(
+                "protected-user final authorship must match exact supplied claims"
+            )
 
 
 @dataclass(frozen=True, slots=True)
 class FinalSequenceV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.complete_final_sequence.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.complete_final_sequence.v4"
 
     schema_version: str
     sequence_id: str
@@ -548,6 +795,10 @@ class FinalSequenceV1:
             raise ContractValidationError("complete final sequence cannot be empty")
         _unique(tuple(value.item_key for value in self.items), "final sequence items")
         _text(self.final_stop_state, "final_sequence.final_stop_state", maximum=4_000)
+        if self.final_stop_state != self.items[-1].resulting_state:
+            raise ContractValidationError(
+                "final stop state must be the exact last resulting state"
+            )
 
     @property
     def sequence_sha256(self) -> str:
@@ -612,6 +863,72 @@ class ProtectedUserRealizationSpanV1:
         if self.output_end - self.output_start != len(self.exact_text):
             raise ContractValidationError(
                 "protected-user realization span length changed"
+            )
+
+
+class StoryRealizationKind(StrEnum):
+    ACTION = "action"
+    DIALOGUE = "dialogue"
+    PRIVATE_STATE = "private_state"
+    CONSENT_OR_DECISION = "consent_or_decision"
+    NARRATION = "narration"
+
+
+@dataclass(frozen=True, slots=True)
+class StoryRealizationSegmentV1:
+    """Exhaustive typed ownership for one exact Composer output segment."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.story_realization_segment.v1"
+
+    schema_version: str
+    segment_key: str
+    kind: StoryRealizationKind
+    output_start: int
+    output_end: int
+    exact_text: str
+    actor_ids: tuple[str, ...]
+    subject_ids: tuple[str, ...]
+    speaker_id: str | None
+    protected_user_source_claim_keys: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("story realization segment schema changed")
+        _key(self.segment_key, "story_realization.segment_key")
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError("story realization segment span is invalid")
+        _text(self.exact_text, "story_realization.exact_text", maximum=64_000)
+        if self.output_end - self.output_start != len(self.exact_text):
+            raise ContractValidationError("story realization segment span length changed")
+        for value in self.actor_ids:
+            _identity(value, "story_realization.actor_ids")
+        _unique(self.actor_ids, "story_realization.actor_ids")
+        for value in self.subject_ids:
+            _identity(value, "story_realization.subject_ids")
+        _unique(self.subject_ids, "story_realization.subject_ids")
+        if not self.actor_ids and not self.subject_ids:
+            raise ContractValidationError("story realization segment lacks actors and subjects")
+        if self.speaker_id is not None:
+            _identity(self.speaker_id, "story_realization.speaker_id")
+        if self.kind is StoryRealizationKind.DIALOGUE and self.speaker_id is None:
+            raise ContractValidationError("dialogue realization requires a speaker")
+        if self.kind is not StoryRealizationKind.DIALOGUE and self.speaker_id is not None:
+            raise ContractValidationError("non-dialogue realization cannot declare a speaker")
+        for value in self.protected_user_source_claim_keys:
+            _key(value, "story_realization.protected_user_source_claim_keys")
+        _unique(
+            self.protected_user_source_claim_keys,
+            "story_realization.protected_user_source_claim_keys",
+        )
+        protected = "character:ted" in self.actor_ids or self.speaker_id == "character:ted"
+        if protected != bool(self.protected_user_source_claim_keys):
+            raise ContractValidationError(
+                "protected-user realization requires exact supplied claim keys"
             )
 
 
@@ -714,7 +1031,7 @@ class SceneSummaryDerivedViewV1:
 
 @dataclass(frozen=True, slots=True)
 class ValidatorFinalizationPackageV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.validator_finalization_package.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.validator_finalization_package.v4"
     MAX_EDIT_OPERATIONS: ClassVar[int] = 100
 
     schema_version: str
@@ -759,6 +1076,15 @@ class ValidatorFinalizationPackageV1:
                 raise ContractValidationError(
                     "Validator semantic status and creator-review severity disagree"
                 )
+            participant_union = {
+                identity
+                for item in self.complete_final_sequence.items
+                for identity in (*item.actor_ids, *item.subject_ids)
+            }
+            if set(self.event_record.participant_ids) != participant_union:
+                raise ContractValidationError(
+                    "event participants do not equal justified final actors and subjects"
+                )
         else:
             if self.optional_scene_summary is None:
                 raise ContractValidationError("scene-summary task requires a summary")
@@ -796,6 +1122,10 @@ class ValidatorFinalizationPackageV1:
                 operation.reason != entry.reason
                 or operation.source_final_sequence_item
                 != entry.source_final_sequence_item
+                or operation.source_final_field_name
+                != entry.source_final_field_name
+                or operation.protected_user_source_claim_keys
+                != entry.protected_user_source_claim_keys
             ):
                 raise ContractValidationError("created_field_log changed edit provenance")
         if self.task_mode is ValidatorTaskMode.FINALIZE_TURN:

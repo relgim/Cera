@@ -13,6 +13,8 @@ from cera.continuous import (
     CharacterSummaryEnvelopeV1,
     CreatedFieldLogEntryV1,
     EventRecordCandidateV1,
+    FinalFieldScopeV1,
+    FinalInformationVisibility,
     FinalSequenceItemV1,
     FinalSequenceV1,
     SceneSummaryV1,
@@ -25,6 +27,10 @@ from cera.continuous import (
     ProtectedUserAllowanceV1,
     RichPlannerSequenceV1,
     RichSequenceBeatV1,
+    IngressSourceUnitKind,
+    IngressSourceUnitV1,
+    StoryRealizationKind,
+    StoryRealizationSegmentV1,
 )
 from cera.continuous.world import (
     ContinuousDebugRecorder,
@@ -68,6 +74,7 @@ def final_sequence(turn_id: str = "turn-001") -> FinalSequenceV1:
             FinalSequenceItemV1(
                 item_key="verify_arrival",
                 planner_beat_keys=("verify_arrival",),
+                story_segment_keys=("segment_entire_story",),
                 realized_event="Sakura keeps control of the threshold and requests identifying proof.",
                 valid_deepseek_additions=("A brief measured pause supports her established caution.",),
                 omitted_or_contradicted_details=(),
@@ -75,9 +82,45 @@ def final_sequence(turn_id: str = "turn-001") -> FinalSequenceV1:
                 knowledge_changes=("Sakura now knows the visitor claims to be the expected tenant.",),
                 material_changes=(),
                 resulting_state="The visitor remains outside awaiting verification.",
+                actor_ids=("character:sakura_hanezawa",),
+                subject_ids=("character:ted",),
+                field_scopes=(
+                    FinalFieldScopeV1(
+                        field_name="realized_event",
+                        visibility=FinalInformationVisibility.PUBLIC,
+                        knowledge_owner_id=None,
+                        story_segment_keys=("segment_entire_story",),
+                        actor_ids=("character:sakura_hanezawa",),
+                        subject_ids=("character:ted",),
+                    ),
+                    FinalFieldScopeV1(
+                        field_name="valid_deepseek_additions",
+                        visibility=FinalInformationVisibility.PUBLIC,
+                        knowledge_owner_id=None,
+                        story_segment_keys=("segment_entire_story",),
+                        actor_ids=("character:sakura_hanezawa",),
+                        subject_ids=("character:ted",),
+                    ),
+                    FinalFieldScopeV1(
+                        field_name="knowledge_changes",
+                        visibility=FinalInformationVisibility.CHARACTER_PRIVATE,
+                        knowledge_owner_id="character:sakura_hanezawa",
+                        story_segment_keys=("segment_entire_story",),
+                        actor_ids=("character:sakura_hanezawa",),
+                        subject_ids=("character:ted",),
+                    ),
+                    FinalFieldScopeV1(
+                        field_name="resulting_state",
+                        visibility=FinalInformationVisibility.PUBLIC,
+                        knowledge_owner_id=None,
+                        story_segment_keys=("segment_entire_story",),
+                        actor_ids=("character:sakura_hanezawa",),
+                        subject_ids=("character:ted",),
+                    ),
+                ),
             ),
         ),
-        final_stop_state="Ted must supply the requested identifying detail.",
+        final_stop_state="The visitor remains outside awaiting verification.",
     )
 
 
@@ -167,9 +210,10 @@ def package(*, turn_id: str = "turn-001", revision: int = 1) -> ValidatorFinaliz
                 expected_file_revision=revision,
                 operation=WorldEditOperationKind.ADD,
                 field_path=f"/turn_claims/{turn_id}",
-                value="Ted claimed to be the expected tenant.",
-                reason="The accepted visible exchange changed Sakura's direct knowledge.",
+                value="Sakura now knows the visitor claims to be the expected tenant.",
+                reason="Persist accepted final field knowledge_changes.",
                 source_final_sequence_item="verify_arrival",
+                source_final_field_name="knowledge_changes",
             ),
         ),
         created_field_log=(
@@ -177,9 +221,10 @@ def package(*, turn_id: str = "turn-001", revision: int = 1) -> ValidatorFinaliz
                 target_file="Characters/Sakura.json",
                 field_path=f"/turn_claims/{turn_id}",
                 value_type="string",
-                value="Ted claimed to be the expected tenant.",
-                reason="The accepted visible exchange changed Sakura's direct knowledge.",
+                value="Sakura now knows the visitor claims to be the expected tenant.",
+                reason="Persist accepted final field knowledge_changes.",
                 source_final_sequence_item="verify_arrival",
+                source_final_field_name="knowledge_changes",
             ),
         ),
         event_record=EventRecordCandidateV1(
@@ -187,7 +232,7 @@ def package(*, turn_id: str = "turn-001", revision: int = 1) -> ValidatorFinaliz
             accepted_turn_id=turn_id,
             scene_id="scene-001",
             participant_ids=("character:sakura_hanezawa", "character:ted"),
-            summary="Sakura requested proof after Ted identified himself as the expected tenant.",
+            summary="Sakura keeps control of the threshold and requests identifying proof.",
             final_sequence_item_keys=("verify_arrival",),
         ),
         optional_scene_summary=None,
@@ -263,6 +308,83 @@ def rich_sequence() -> RichPlannerSequenceV1:
         unresolved_threads=("Ted's identity remains pending verification.",),
         provisional=True,
     )
+
+
+def ingress_units(text: str) -> tuple[IngressSourceUnitV1, ...]:
+    return (
+        IngressSourceUnitV1(
+            schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
+            source_unit_key="source_unit_entire_message",
+            kind=IngressSourceUnitKind.NARRATION,
+            source_start=0,
+            source_end=len(text),
+            exact_text=text,
+            actor_id=None,
+            speaker_id=None,
+            classification_basis="explicit_ingress_narration",
+        ),
+    )
+
+
+def composer_draft(story_text: str):
+    return SimpleNamespace(
+        story_text=story_text,
+        protected_user_realizations=(),
+        story_segments=(
+            StoryRealizationSegmentV1(
+                schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+                segment_key="segment_entire_story",
+                kind=StoryRealizationKind.NARRATION,
+                output_start=0,
+                output_end=len(story_text),
+                exact_text=story_text,
+                actor_ids=("character:sakura_hanezawa",),
+                subject_ids=("character:ted",),
+                speaker_id=None,
+            ),
+        ),
+    )
+
+
+def stage_candidate(store: ContinuousWorldStore, candidate_package):
+    view = store.create_candidate(
+        candidate_package.world_id,
+        candidate_package.branch_id,
+        candidate_package.complete_final_sequence.accepted_turn_id,
+    )
+    candidate_sha256 = canonical_sha256(
+        {"test_candidate": candidate_package.package_sha256}
+    )
+    authority_context_sha256 = canonical_sha256(
+        {"test_authority": candidate_package.package_sha256}
+    )
+    store.record_candidate_package(
+        candidate_package.world_id,
+        candidate_package.branch_id,
+        view,
+        candidate_package,
+        candidate_sha256=candidate_sha256,
+        authority_context_sha256=authority_context_sha256,
+    )
+    return view
+
+
+def staged_authority_kwargs(
+    store: ContinuousWorldStore,
+    candidate_package: ValidatorFinalizationPackageV1,
+) -> dict[str, str]:
+    payload = json.loads(
+        (
+            store.branch_root(candidate_package.world_id, candidate_package.branch_id)
+            / "CANDIDATES"
+            / candidate_package.complete_final_sequence.accepted_turn_id
+            / "CANDIDATE_AUTHORITY.json"
+        ).read_text(encoding="utf-8")
+    )
+    return {
+        "candidate_sha256": payload["candidate_sha256"],
+        "authority_context_sha256": payload["authority_context_sha256"],
+    }
 
 
 def session_compatibility(role: ContinuousSessionRole) -> ContinuousSessionCompatibilityV1:
@@ -364,8 +486,7 @@ class ContinuousWorldTests(unittest.TestCase):
 
     def test_candidate_isolation_and_atomic_accept(self) -> None:
         before = self.store.tree_sha256(self.root / "ACTIVE")
-        view = self.store.create_candidate("world-test", "main", "turn-001")
-        self.store.record_candidate_package("world-test", "main", view, package())
+        view = stage_candidate(self.store, package())
         self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
         receipt = self.store.apply_creator_action(
             world_id="world-test",
@@ -373,6 +494,7 @@ class ContinuousWorldTests(unittest.TestCase):
             turn_id="turn-001",
             action=CreatorReviewAction.ACCEPT,
             package=package(),
+            **staged_authority_kwargs(self.store, package()),
             accepted_pair=accepted_pair(),
         )
         self.assertTrue(receipt.accepted)
@@ -395,13 +517,14 @@ class ContinuousWorldTests(unittest.TestCase):
             semantic_status=ValidatorSemanticStatus.CONCERN,
             creator_review=concern_assessment(),
         )
-        self.store.create_candidate("world-test", "main", "turn-001")
+        stage_candidate(self.store, candidate)
         receipt = self.store.apply_creator_action(
             world_id="world-test",
             branch_id="main",
             turn_id="turn-001",
             action=CreatorReviewAction.FALSE_POSITIVE,
             package=candidate,
+            **staged_authority_kwargs(self.store, candidate),
             accepted_pair=accepted_pair(),
         )
         self.assertTrue(receipt.accepted)
@@ -410,7 +533,7 @@ class ContinuousWorldTests(unittest.TestCase):
         self.assertFalse(json.loads(diagnostic[0].read_text())["creates_story_constraint"])
 
     def test_false_positive_rejects_good_assessment(self) -> None:
-        self.store.create_candidate("world-test", "main", "turn-001")
+        stage_candidate(self.store, package())
         with self.assertRaisesRegex(StateConflictError, "does not permit"):
             self.store.apply_creator_action(
                 world_id="world-test",
@@ -418,6 +541,7 @@ class ContinuousWorldTests(unittest.TestCase):
                 turn_id="turn-001",
                 action=CreatorReviewAction.FALSE_POSITIVE,
                 package=package(),
+                **staged_authority_kwargs(self.store, package()),
                 accepted_pair=accepted_pair(),
             )
 
@@ -433,7 +557,7 @@ class ContinuousWorldTests(unittest.TestCase):
         ):
             turn = f"turn-{index:03d}"
             candidate = package(turn_id=turn)
-            self.store.create_candidate("world-test", "main", turn)
+            stage_candidate(self.store, candidate)
             before = self.store.tree_sha256(self.root / "ACTIVE")
             receipt = self.store.apply_creator_action(
                 world_id="world-test",
@@ -441,12 +565,13 @@ class ContinuousWorldTests(unittest.TestCase):
                 turn_id=turn,
                 action=action,
                 package=candidate,
+                **staged_authority_kwargs(self.store, candidate),
             )
             self.assertFalse(receipt.accepted)
             self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
 
     def test_revision_conflict_rejects_whole_package(self) -> None:
-        self.store.create_candidate("world-test", "main", "turn-001")
+        stage_candidate(self.store, package(revision=9))
         before = self.store.tree_sha256(self.root / "ACTIVE")
         with self.assertRaisesRegex(StateConflictError, "revision precondition"):
             self.store.apply_creator_action(
@@ -455,6 +580,7 @@ class ContinuousWorldTests(unittest.TestCase):
                 turn_id="turn-001",
                 action=CreatorReviewAction.ACCEPT,
                 package=package(revision=9),
+                **staged_authority_kwargs(self.store, package(revision=9)),
                 accepted_pair=accepted_pair(),
             )
         self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
@@ -498,13 +624,14 @@ class ContinuousWorldTests(unittest.TestCase):
                 ),
             ),
         )
-        self.store.create_candidate("world-test", "main", "turn-001")
+        stage_candidate(self.store, candidate)
         receipt = self.store.apply_creator_action(
             world_id="world-test",
             branch_id="main",
             turn_id="turn-001",
             action=CreatorReviewAction.ACCEPT,
             package=candidate,
+            **staged_authority_kwargs(self.store, candidate),
             accepted_pair=accepted_pair(),
         )
         self.assertEqual(
@@ -541,13 +668,14 @@ class ContinuousWorldTests(unittest.TestCase):
                 ),
             ),
         )
-        self.store.create_candidate("world-test", "main", "turn-001")
+        stage_candidate(self.store, candidate)
         self.store.apply_creator_action(
             world_id="world-test",
             branch_id="main",
             turn_id="turn-001",
             action=CreatorReviewAction.ACCEPT,
             package=candidate,
+            **staged_authority_kwargs(self.store, candidate),
             accepted_pair=accepted_pair(),
         )
         created = json.loads((self.root / "ACTIVE" / "Rules" / "arrival_rule.json").read_text())
@@ -678,7 +806,7 @@ class ContinuousWorldTests(unittest.TestCase):
             validator_session=validator_session,
             planner=_FakeStage(rich_sequence(), "plan"),
             composer=_FakeStage(
-                SimpleNamespace(story_text="Sakura keeps the threshold and requests proof."),
+                composer_draft("Sakura keeps the threshold and requests proof."),
                 "compose",
             ),
             validator=_FakeStage(package(), "validate"),
@@ -691,6 +819,9 @@ class ContinuousWorldTests(unittest.TestCase):
                 turn_id="turn-001",
                 user_message="Hello, my name is Ted. Is this the Hanezawa residence?",
                 current_authority_packet={"protected_user_id": "character:ted"},
+                source_units=ingress_units(
+                    "Hello, my name is Ted. Is this the Hanezawa residence?"
+                ),
                 character_summaries=(character_summary(source_sha256=text_sha256(
                     (self.root / "ACTIVE" / "Characters" / "Sakura.json").read_text(encoding="utf-8")
                 )),),
@@ -741,7 +872,7 @@ class ContinuousWorldTests(unittest.TestCase):
                 session_compatibility(ContinuousSessionRole.VALIDATOR), port
             ),
             planner=_FailStage(),
-            composer=_FakeStage(SimpleNamespace(story_text="unused"), "compose"),
+            composer=_FakeStage(composer_draft("unused"), "compose"),
             validator=_FakeStage(package(), "validate"),
         )
         with self.assertRaises(RuntimeError):
@@ -753,6 +884,7 @@ class ContinuousWorldTests(unittest.TestCase):
                     turn_id="turn-001",
                     user_message="Hello.",
                     current_authority_packet={"protected_user_id": "character:ted"},
+                    source_units=ingress_units("Hello."),
                 )
             )
         debug = ContinuousDebugRecorder(self.root, "scene-001", "turn-001")
@@ -784,7 +916,7 @@ class ContinuousWorldTests(unittest.TestCase):
                 replace(rich_sequence(), scene_id="scene-002"), "plan"
             ),
             composer=_FakeStage(
-                SimpleNamespace(story_text="Mia answers cautiously in the kitchen."),
+                composer_draft("Mia answers cautiously in the kitchen."),
                 "compose",
             ),
             validator=_FakeQueueStage(
@@ -808,6 +940,7 @@ class ContinuousWorldTests(unittest.TestCase):
                 turn_id="turn-002",
                 user_message=new_prompt,
                 current_authority_packet={"protected_user_id": "character:ted"},
+                source_units=ingress_units(new_prompt),
                 character_summaries=(character_summary(source_sha256=text_sha256(
                     (self.root / "ACTIVE" / "Characters" / "Sakura.json").read_text(encoding="utf-8")
                 )),),

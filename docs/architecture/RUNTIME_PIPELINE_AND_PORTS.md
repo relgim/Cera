@@ -62,12 +62,14 @@ CERA never silently resends the envelope or falls back to next-turn prompt
 piggybacking. The provider thread remains context only, never story authority.
 
 Recent accepted same-scene context is exposed to the next request only through
-a Python-owned typed accepted-session projection. Python reloads the exact
+a Python-owned typed accepted-session projection. Python splits the accepted
+sequence into field-level facts before projection and reloads the exact
 accepted pair and event, validates their envelope/item/scene/revision/hash
 agreement, and binds the promotion receipt, exact Planner thread, immutable
 per-turn snapshot, final synchronization receipt, world, branch, and optional
-single knowledge owner. The public projection contains no private items; one
-owner projection may add only that owner's private items. A single-NPC beat may
+single knowledge owner. The public projection contains no private facts; one
+owner projection may add only that owner's private facts, and an event
+participant cannot become a private owner merely by appearing in the event. A single-NPC beat may
 use its exact owner-bound projection without resending the complete character
 card. ACTIVE remains required for durable card facts, rules, older recalled
 events, and private information absent from that accepted context.
@@ -88,15 +90,29 @@ owner, and read operation. Invented, stale, sibling, unread, or owner-transferre
 bindings fail before composition. Final sequence items and edits remain
 traceable through Planner beat keys to those bindings.
 
-Python projects exact Ted action-state and dialogue spans only when a bounded
-attribution grammar proves that Ted owns them. NPC-attributed and unattributed
-quotations do not create authority. Planner output cites those claim keys and
-their source binding; final sequence items carry the exact claim-key union.
-DeepSeek returns exact occurrence spans for every realized claim, and Python
-validates them before Validator assessment. Whole-beat validation rejects
-protected-user semantics that do not preserve an exact supplied span,
-including when Ted is omitted from `actor_ids`. Mechanical connectives cannot
-carry semantic claims.
+Python no longer infers Ted ownership with a bounded text grammar. The ingress
+facade must provide exact typed source units with explicit action actor or
+dialogue speaker ownership. Only Ted-owned units become protected-user claims.
+Planner output cites those claim keys and their source binding. DeepSeek returns
+both exact claim occurrences and an exhaustive gap-free story-segment ledger
+with actors, subjects, and dialogue speakers. Python rejects paraphrased or
+invented Ted authorship, undeclared exact copies, omitted explicit Ted
+involvement, gaps, overlaps, and changed output bytes before Validator
+assessment. The Validator binds every final field to exact Planner beats and
+Composer segments; Python derives and compares field and item actor, subject,
+and claim sets, field visibility and private owner scopes, event participants,
+the exact last stop state, deterministic event-summary custody, and protected
+edit/event claim provenance. A protected-user final field must equal an exact
+supplied claim, so a valid quote cannot mask an unsupplied movement in a later
+final field or persisted edit. Mechanical connectives cannot carry semantic
+claims.
+
+The complete candidate identity includes prompt hashes, evidence-registry
+hash, claim/realization/story-segment ledgers, accepted-session projections,
+and schema identities. Candidate storage, creator action, promotion receipt,
+and acceptance journal must agree on the candidate and authority-context hashes.
+Session reconstruction requires the active compatibility hash; older protected-
+user or session-policy versions cannot resume the physical thread.
 
 Planner can inspect only ACTIVE, labeled non-authoritative DERIVED views, and
 its own session; Validator can additionally inspect only its current candidate

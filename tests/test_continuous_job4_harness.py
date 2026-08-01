@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+from dataclasses import replace
+import re
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
@@ -9,6 +11,7 @@ from cera.continuous.prompting import PLANNER_STABLE_INSTRUCTIONS
 from scripts.run_continuous_planner_validator_job4 import (
     BRANCH_ID,
     JobHarness,
+    validate_job4_identity,
     StablePrefixTransport,
     WORLD_ID,
     build_report,
@@ -34,7 +37,14 @@ from cera.providers import (
     ProviderTransportError,
 )
 from cera.providers.codex import CodexWorkerResult
+from cera.providers.codex import _SubprocessCodexRunner
 from cera.serialization import canonical_sha256, text_sha256
+from tests.test_continuous_world import (
+    composer_draft,
+    package,
+    rich_sequence,
+    scene_summary_package,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -52,6 +62,49 @@ class _Transport:
 
 
 class ContinuousJob4HarnessTests(unittest.TestCase):
+    def test_parameterized_canary_identity_rejects_historical_reuse(self) -> None:
+        cycle_id = "cycle:new"
+        task_id = "task:new"
+        authorization = "a" * 64
+        manifest = {
+            "cycle_id": cycle_id,
+            "job4": {
+                "task_id": task_id,
+                "authorization_record_sha256": authorization,
+            },
+        }
+        validate_job4_identity(
+            manifest,
+            expected_cycle_id=cycle_id,
+            expected_task_id=task_id,
+            expected_authorization_sha256=authorization,
+            maximum_provider_calls=10,
+        )
+        historical_cycle = "2026-08-01-continuous-planner-validator-v1-cycle-001"
+        historical_task = "continuous-planner-validator-three-turn-scene-change-canary-v1"
+        with self.assertRaisesRegex(ValueError, "historical failed"):
+            validate_job4_identity(
+                {
+                    "cycle_id": historical_cycle,
+                    "job4": {
+                        "task_id": historical_task,
+                        "authorization_record_sha256": authorization,
+                    },
+                },
+                expected_cycle_id=historical_cycle,
+                expected_task_id=historical_task,
+                expected_authorization_sha256=authorization,
+                maximum_provider_calls=10,
+            )
+        with self.assertRaisesRegex(ValueError, "ceiling"):
+            validate_job4_identity(
+                manifest,
+                expected_cycle_id=cycle_id,
+                expected_task_id=task_id,
+                expected_authorization_sha256=authorization,
+                maximum_provider_calls=11,
+            )
+
     def test_stable_prefix_is_not_resent_in_the_stored_turn(self) -> None:
         inner = _Transport()
         transport = StablePrefixTransport(inner, PLANNER_STABLE_INSTRUCTIONS)
@@ -157,6 +210,34 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             )
         self.assertEqual(markers, ["invoked"])
 
+    def test_actual_subprocess_sidecar_marks_post_submit_failure(self) -> None:
+        markers: list[str] = []
+        with TemporaryDirectory() as directory:
+            workspace = Path(directory).resolve()
+            with self.assertRaises(ProviderTransportError) as raised:
+                _SubprocessCodexRunner(
+                    worker_module="tests.fixtures.codex_progress_worker"
+                ).run(
+                    route=continuous_planner_route(),
+                    prompt="provider-free fixture",
+                    output_schema={
+                        "type": "object",
+                        "properties": {"ok": {"type": "boolean"}},
+                        "required": ["ok"],
+                        "additionalProperties": False,
+                    },
+                    workspace=workspace,
+                    mcp_binding=None,
+                    on_worker_started=lambda: markers.append("worker_started"),
+                    on_worker_preflight=lambda: markers.append("preflight"),
+                    on_provider_submit=lambda: markers.append("thread_run"),
+                )
+        self.assertEqual(raised.exception.external_provider_calls_observed, 1)
+        self.assertIn("worker_stage:thread_run", raised.exception.safe_diagnostics)
+        self.assertEqual(markers.count("worker_started"), 1)
+        self.assertGreaterEqual(markers.count("preflight"), 1)
+        self.assertGreaterEqual(markers.count("thread_run"), 1)
+
     def test_exact_job_harness_summary_path_reaches_first_provider_boundary(self) -> None:
         class FirstProviderBoundary(RuntimeError):
             pass
@@ -202,6 +283,214 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertFalse(
                 (world.branch_root(WORLD_ID, BRANCH_ID) / "ACTIVE" / "ACTIVE").exists()
             )
+
+    def test_exact_job_harness_completes_all_ten_provider_free_stages(self) -> None:
+        class ProviderFreeHarness(JobHarness):
+            def __init__(self, **kwargs):
+                super().__init__(**kwargs)
+                self.planner_prompts: list[str] = []
+
+            @staticmethod
+            def _result(value):
+                return SimpleNamespace(
+                    value=value,
+                    provider_receipt=None,
+                    operation_telemetry=None,
+                    tool_call_count=0,
+                    failed_tool_call_count=0,
+                    world_tool_debug=None,
+                )
+
+            def provider_call(self, label, owner, operation):
+                result = operation()
+                self.call_records.append(
+                    {
+                        "index": len(self.call_records) + 1,
+                        "label": label,
+                        "owner": owner,
+                        "status": "provider_free_passed",
+                    }
+                )
+                return result
+
+            def codex_planner(self, prompt, turn_id):
+                self.planner_prompts.append(prompt)
+                bindings = tuple(
+                    dict.fromkeys(
+                        re.findall(r'"binding_key":"(binding_[a-z0-9_]+)"', prompt)
+                    )
+                )
+                value = rich_sequence()
+                value = replace(
+                    value,
+                    sequence_id=f"sequence:{turn_id.replace('-', '_')}",
+                    world_id=WORLD_ID,
+                    branch_id=BRANCH_ID,
+                    scene_id=("scene-002" if turn_id == "turn-003" else "scene-001"),
+                    selected_character_ids=(
+                        ("character:mia_hanezawa",)
+                        if turn_id == "turn-003"
+                        else value.selected_character_ids
+                    ),
+                    beats=tuple(
+                        replace(
+                            beat,
+                            actor_ids=(
+                                ("character:mia_hanezawa",)
+                                if turn_id == "turn-003"
+                                else beat.actor_ids
+                            ),
+                            source_evidence_bindings=bindings,
+                        )
+                        for beat in value.beats
+                    ),
+                )
+                return self._result(value)
+
+            def deepseek(self, _prompt):
+                if self._active_turn_id == "turn-003":
+                    draft = composer_draft("Mia answers cautiously.")
+                    draft = SimpleNamespace(
+                        story_text=draft.story_text,
+                        protected_user_realizations=(),
+                        story_segments=(
+                            replace(
+                                draft.story_segments[0],
+                                actor_ids=("character:mia_hanezawa",),
+                                subject_ids=("character:mia_hanezawa",),
+                            ),
+                        ),
+                    )
+                    return self._result(draft)
+                return self._result(composer_draft("Sakura requests bounded proof."))
+
+            def codex_validator(self, _prompt, turn_id, *, accepted_pairs=()):
+                if accepted_pairs:
+                    result = scene_summary_package(
+                        accepted_pairs[0], new_prompt="unused"
+                    )
+                    result = replace(
+                        result,
+                        world_id=WORLD_ID,
+                        branch_id=BRANCH_ID,
+                        optional_scene_summary=replace(
+                            result.optional_scene_summary,
+                            completed_scene_id="scene-001",
+                            accepted_turn_ids=tuple(
+                                value.accepted_turn_id for value in accepted_pairs
+                            ),
+                            last_five_exact_pairs=tuple(accepted_pairs),
+                        ),
+                    )
+                    return self._result(result)
+                revision = int(turn_id.rsplit("-", 1)[1])
+                result = package(turn_id=turn_id, revision=revision)
+                if turn_id == "turn-003":
+                    item = result.complete_final_sequence.items[0]
+                    item = replace(
+                        item,
+                        realized_event="Mia answers cautiously in the later scene.",
+                        private_state_owner_ids=("character:mia_hanezawa",),
+                        actor_ids=("character:mia_hanezawa",),
+                        subject_ids=("character:mia_hanezawa",),
+                        field_scopes=tuple(
+                            replace(
+                                scope,
+                                knowledge_owner_id=(
+                                    "character:mia_hanezawa"
+                                    if scope.knowledge_owner_id is not None
+                                    else None
+                                ),
+                                actor_ids=("character:mia_hanezawa",),
+                                subject_ids=("character:mia_hanezawa",),
+                            )
+                            for scope in item.field_scopes
+                        ),
+                    )
+                    result = replace(
+                        result,
+                        complete_final_sequence=replace(
+                            result.complete_final_sequence, items=(item,)
+                        ),
+                        event_record=replace(
+                            result.event_record,
+                            participant_ids=("character:mia_hanezawa",),
+                            summary="Mia answers cautiously in the later scene.",
+                        ),
+                    )
+                result = replace(
+                    result,
+                    world_id=WORLD_ID,
+                    branch_id=BRANCH_ID,
+                    world_edit_operations=(),
+                    created_field_log=(),
+                    event_record=replace(
+                        result.event_record,
+                        scene_id=(
+                            "scene-002" if turn_id == "turn-003" else "scene-001"
+                        ),
+                    ),
+                )
+                return self._result(result)
+
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            world = ContinuousWorldStore(root / "worlds")
+            seed_world(world, ROOT)
+            session_port = InMemoryContinuousStoredSessionPort()
+            planner_session = ContinuousSessionCoordinator(
+                compatibility(world, ContinuousSessionRole.PLANNER), session_port
+            )
+            validator_session = ContinuousSessionCoordinator(
+                compatibility(world, ContinuousSessionRole.VALIDATOR), session_port
+            )
+            lifecycle = root / "lifecycle"
+            lifecycle.mkdir()
+            harness = ProviderFreeHarness(
+                source_root=ROOT,
+                cycle=root / "cycle",
+                world=world,
+                planner_session=planner_session,
+                validator_session=validator_session,
+                planner_handle=planner_session.ensure_session().provider_thread_id,
+                validator_handle=validator_session.ensure_session().provider_thread_id,
+                lifecycle_root=lifecycle,
+                call_ledger=ContinuousProviderCallLedger(root / "calls.jsonl"),
+            )
+            sakura = source_character_summary(
+                ROOT, "sakura", world=world, world_file_revision=1
+            )
+            harness.run_turn(
+                turn_number=1, scene_id="scene-001", summaries=(sakura,)
+            )
+            harness.run_turn(turn_number=2, scene_id="scene-001", summaries=())
+            harness.summarize_scene()
+            mia = source_character_summary(
+                ROOT, "mia", world=world, world_file_revision=1
+            )
+            harness.run_turn(
+                turn_number=3,
+                scene_id="scene-002",
+                summaries=(mia,),
+                scene_change_context={"validated": True},
+            )
+            self.assertEqual(
+                tuple(value["label"] for value in harness.call_records),
+                (
+                    "turn-1-planner",
+                    "turn-1-deepseek",
+                    "turn-1-validator",
+                    "turn-2-planner",
+                    "turn-2-deepseek",
+                    "turn-2-validator",
+                    "scene-1-validator-summary",
+                    "turn-3-planner",
+                    "turn-3-deepseek",
+                    "turn-3-validator",
+                ),
+            )
+            self.assertEqual(harness.provider_calls, 0)
+            self.assertIn('"character_summary_bindings":[]', harness.planner_prompts[1])
 
     def test_hanezawa_canary_summaries_use_real_genesis_sections(self) -> None:
         with TemporaryDirectory() as directory:

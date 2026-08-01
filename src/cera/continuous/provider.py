@@ -36,6 +36,7 @@ from .contracts import (
     ProtectedUserRealizationSpanV1,
     RichPlannerSequenceV1,
     SceneSummaryV1,
+    StoryRealizationSegmentV1,
     ValidatorFinalizationPackageV1,
     ValidatorSemanticStatus,
     ValidatorTaskMode,
@@ -50,10 +51,10 @@ from .prompting import (
 )
 
 
-CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v4"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v3"
-CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v2"
-CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v2"
+CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v5"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v5"
+CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v3"
+CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v3"
 
 
 @dataclass(frozen=True, slots=True)
@@ -66,6 +67,8 @@ class ProviderWorldEditOperationV1:
     value_json: str
     reason: str
     source_final_sequence_item: str
+    source_final_field_name: str
+    protected_user_source_claim_keys: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,6 +79,8 @@ class ProviderCreatedFieldLogEntryV1:
     value_json: str
     reason: str
     source_final_sequence_item: str
+    source_final_field_name: str
+    protected_user_source_claim_keys: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,7 +95,7 @@ class ProviderSceneSummaryDraftV1:
 
 @dataclass(frozen=True, slots=True)
 class ContinuousValidatorDraftV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_validator_draft.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_validator_draft.v4"
 
     schema_version: str
     package_id: str
@@ -130,6 +135,8 @@ class ContinuousValidatorDraftV1:
                     value=decoded,
                     reason=value.reason,
                     source_final_sequence_item=value.source_final_sequence_item,
+                    source_final_field_name=value.source_final_field_name,
+                    protected_user_source_claim_keys=value.protected_user_source_claim_keys,
                 )
             )
         created = []
@@ -148,6 +155,8 @@ class ContinuousValidatorDraftV1:
                     value=decoded,
                     reason=value.reason,
                     source_final_sequence_item=value.source_final_sequence_item,
+                    source_final_field_name=value.source_final_field_name,
+                    protected_user_source_claim_keys=value.protected_user_source_claim_keys,
                 )
             )
         scene_summary = None
@@ -190,11 +199,12 @@ class ContinuousValidatorDraftV1:
 
 @dataclass(frozen=True, slots=True)
 class ContinuousDeepSeekDraftV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v3"
 
     schema_version: str
     story_text: str
-    protected_user_realizations: tuple[ProtectedUserRealizationSpanV1, ...] = ()
+    protected_user_realizations: tuple[ProtectedUserRealizationSpanV1, ...]
+    story_segments: tuple[StoryRealizationSegmentV1, ...]
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
@@ -211,6 +221,17 @@ class ContinuousDeepSeekDraftV1:
         if tuple(sorted(spans)) != spans:
             raise ContractValidationError(
                 "continuous DeepSeek protected-user spans are out of order"
+            )
+        segment_spans = tuple(
+            (value.output_start, value.output_end) for value in self.story_segments
+        )
+        if not segment_spans or tuple(sorted(segment_spans)) != segment_spans:
+            raise ContractValidationError(
+                "continuous DeepSeek story segments are absent or out of order"
+            )
+        if len(segment_spans) != len(set(segment_spans)):
+            raise ContractValidationError(
+                "continuous DeepSeek story segments are duplicated"
             )
 
 
@@ -427,7 +448,7 @@ class DeepSeekContinuousComposerPort:
         messages = (
             DeepSeekMessage(
                 "system",
-                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. Copy protected-user material only from an exact supplied claim. For every copied occurrence, declare its exact zero-based story_text span in protected_user_realizations; return an empty array when none is copied. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
+                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Return an exhaustive, ordered, gap-free story_segments ledger covering every story_text character; each segment declares its exact actors, subjects, dialogue speaker when applicable, and semantic kind. Mentioning Ted as the target or topic makes him a subject, not the actor. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. A segment acted or spoken by Ted must exactly equal one supplied ingress claim and cite that claim. Also declare the matching exact protected_user_realizations occurrence. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
             ),
             DeepSeekMessage(
                 "user",
