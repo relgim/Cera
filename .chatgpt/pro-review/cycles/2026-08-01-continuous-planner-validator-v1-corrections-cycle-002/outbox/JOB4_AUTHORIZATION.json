@@ -1,0 +1,15 @@
+{
+  "schema_version": "cera.pro_review_job4_authorization.v1",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-002",
+  "task_id": "continuous-corrections-v2-provider-free-integration-audit",
+  "scope": "Run exactly the twenty-three labeled provider-free correction-v2 integration assertions: stale, wrong-character, fabricated, and package-bound character summaries; two-NPC private-evidence transfer; derived-only hard decisions; exact versus mechanical protected-user authority; Scene Summary exact-pair provenance; Good ordinary Accept; Concern and Critical False Positive semantics; every directory and local acceptance crash cut; pending model injection; pretransport zero-call accounting; Planner, Validator, and DeepSeek post-invocation accounting; exact stored-thread hashes; persisted contract inventory; complete root diagnostics and redaction; unchanged D-180 identity; and unchanged source/disposable SQLite hashes. Use real corrected adapters with scripted fake or recorded provider outputs, disposable worlds, and read-only source/disposable SQLite checks. Execute directly without a wrapper or monkeypatch. Provider calls are exactly zero.",
+  "scope_sha256": "4badeea7c1b83887f95cedb418d3543bf43f40a480123e8328da452861b048da",
+  "expected_result_relative_path": "source/JOB4_RESULT.json",
+  "authority_source_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-corrections-002\\REQUEST.md",
+  "authority_source_sha256": "014cdf5b2327d753e3d3dc3bc0ba5a8ee5d0d6ce27de00e59a6cbf15ff4ae1a3",
+  "explicit_exclusions": [
+    "no provider call, retry, fallback, hidden repair, or provider substitution",
+    "no live story, production database, active route, service, installed SillyTavern, deployment, merge, remote, push, or Job 5 effect",
+    "no compact-v7 repair or activation and no rerun or rewrite of any prior Job 4"
+  ]
+}

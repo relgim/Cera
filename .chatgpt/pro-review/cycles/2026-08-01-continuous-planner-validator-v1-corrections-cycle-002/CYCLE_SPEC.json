@@ -1,0 +1,88 @@
+{
+  "schema_version": "cera.pro_review_cycle_spec.v2",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-002",
+  "cycle_sequence": 8,
+  "checkpoint": {
+    "id": "2026-08-01-continuous-planner-validator-v1-corrections-002",
+    "git_sha": "4722b5e08fc981cac375374e6c845c738385ed33",
+    "evidence_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-corrections-002\\CERA_CONTINUOUS_CORRECTIONS_002_EVIDENCE.zip",
+    "evidence_sha256": "ecc62c9910b340517c025511ed97e50a0fc93283b97f233aed08831f158934b2"
+  },
+  "jobs_1_3": [
+    {
+      "task_id": "continuous-summary-and-actor-evidence-authority-v2",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-corrections-002\\PROGRESSION_1_RESULT.md",
+      "result_sha256": "17d73e108597592cb05a9b56514acddd0968581e449d188ba40082507ead3ba2"
+    },
+    {
+      "task_id": "continuous-atomic-acceptance-recovery-v2",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-corrections-002\\PROGRESSION_2_RESULT.md",
+      "result_sha256": "0b7715adde446dcbf2216ae4dca233672c995c82d2cbfeb6db1d13d77a424e77"
+    },
+    {
+      "task_id": "continuous-dispatch-diagnostics-and-contract-inventory-v2",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-corrections-002\\PROGRESSION_3_RESULT.md",
+      "result_sha256": "7749d513c50777a231100d478169b1d10df748c882c879f67d9794969c0b086e"
+    }
+  ],
+  "prior_cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-001",
+  "job4": {
+    "task_id": "continuous-corrections-v2-provider-free-integration-audit",
+    "scope": "Run exactly the twenty-three labeled provider-free correction-v2 integration assertions: stale, wrong-character, fabricated, and package-bound character summaries; two-NPC private-evidence transfer; derived-only hard decisions; exact versus mechanical protected-user authority; Scene Summary exact-pair provenance; Good ordinary Accept; Concern and Critical False Positive semantics; every directory and local acceptance crash cut; pending model injection; pretransport zero-call accounting; Planner, Validator, and DeepSeek post-invocation accounting; exact stored-thread hashes; persisted contract inventory; complete root diagnostics and redaction; unchanged D-180 identity; and unchanged source/disposable SQLite hashes. Use real corrected adapters with scripted fake or recorded provider outputs, disposable worlds, and read-only source/disposable SQLite checks. Execute directly without a wrapper or monkeypatch. Provider calls are exactly zero.",
+    "authorization_record_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\2026-08-01-continuous-planner-validator-v1-corrections-cycle-002\\source\\JOB4_AUTHORIZATION.json",
+    "authorization_record_sha256": "c6645f1703a5f649c78cb2df51083e460a4789b2905b048d756fb39875873a53"
+  },
+  "review_context": {
+    "creator_goal": "Correct the D-186 continuous Planner and Validator shadow architecture through the iterative provider-free 3+1 review cadence while preserving D-180 and every hard authority boundary.",
+    "starting_baseline_or_prior_checkpoint": "Cycle 001 is sequence 7 and remains immutable at checkpoint 34d9ecf73d14d4f36e2f108ab85c8c2c700b2350 with review-evidence commit 6a4265617c424a7bdb3954f4e51843f483a52240. Its consumed corrections_required response has SHA-256 f5e76b91b9b56d0557c65b4e92ba0368d077804a117da1e84d33087876f99f7c. Cycle 002 freezes the resulting provider-free corrections at checkpoint 4722b5e08fc981cac375374e6c845c738385ed33.",
+    "selection_rationale": [
+      "Character summaries and beat evidence needed exact Python-owned derivation and actor-specific privacy semantics instead of model-authored or retrieval-only authority.",
+      "Acceptance needed one complete crash-recoverable journal spanning ACTIVE promotion, immutable evidence, Planner ledger, and model-context synchronization.",
+      "Call accounting and failure diagnostics needed exact transport ownership, stored-thread identity, and pre-provider coverage across real adapter boundaries."
+    ],
+    "diff_summary": "The checkpoint adds exact Character Summary v2 derivation, typed evidence authority classes, actor-bound privacy rules, per-turn Scene Summary provenance, complete acceptance journal and recovery semantics, pending model-injection blocking, call-ledger v2 transport accounting, stored-thread hashes, expanded pre-provider diagnostics, contract inventory updates, a direct provider-free Job 4 runner, broad adversarial tests, and reconciled current documentation.",
+    "focused_tests": "79/79 focused continuous correction tests passed. Additional documentation, active-profile, source-inventory, compile, direct-runner-startup, and diff checks passed.",
+    "complete_suite": "715/715 provider-free repository tests passed in 294.236 seconds with one expected environment-dependent symlink-creation skip.",
+    "active_profile_before": "cera.active_runtime.d180.v1 SHA-256 f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801.",
+    "active_profile_after": "Unchanged: cera.active_runtime.d180.v1 SHA-256 f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801; D-186/D-189 remains shadow/test-only.",
+    "provider_calls_and_cost": "Progressions 1-3 made zero provider calls and incurred zero provider-call cost. Current Job 4 is also fixed at zero provider calls.",
+    "retry_and_fallback": "No retry, fallback, hidden repair, provider substitution, or Detailer was added or used.",
+    "story_database_and_branch_effects": "No live story, accepted production branch, Genesis, memory, production database, active route, service, installed SillyTavern, deployment, remote, merge, or push effect occurred.",
+    "user_visible_effect": "None on the active route. All corrections remain repository-local and shadow/test-only.",
+    "historical_evidence_integrity": "Cycle 001 and every earlier checkpoint, Job 4 result, receipt, and accepted Pro response remain unchanged. Compact v7 remains defective and inactive.",
+    "unresolved_defects": "Live provider schema, latency, and story quality remain intentionally untested. The corrected short-canary harness and any live calls require a later exact creator-bound authorization.",
+    "uncertainty_and_risks": "Provider-free tests establish deterministic contract, recovery, privacy, and accounting behavior but cannot prove live provider quality or transport stability. Ambiguous model-context injection deliberately blocks rather than silently replaying.",
+    "disagreement_with_prior_review": "The implementation accepts the cycle-001 Pro findings while retaining Python as final authority and treating mutable journals as explicit runtime operational formats rather than forcing them into the generic persisted-record registry.",
+    "codex_advisory_next_candidates": [
+      "If this provider-free cycle is accepted, freeze and independently review the corrected short-canary harness and its exact call ledger without running it.",
+      "If Pro returns in-scope provider-free corrections, decompose them into a new bounded one-to-three-progression cycle under new identities."
+    ],
+    "questions_for_chatgpt_pro": [
+      "Do the exact summary derivation, evidence authority classes, and actor-bound private evidence close the authority gap without making the Planner packet unnecessarily redundant?",
+      "Does acceptance journal v2 correctly separate local atomic completion, Planner ledger append, and model-context synchronization across every restart cut?",
+      "Does call-ledger v2 conservatively count ambiguous transport failures while preserving true pretransport failures as zero calls?"
+    ],
+    "explicit_exclusions": [
+      "No provider call, live short canary, 20-turn run, retry, fallback, hidden repair, or provider substitution.",
+      "No production/default activation, live-story acceptance, production database mutation, active route change, service restart, installed SillyTavern mutation, deployment, merge, remote, push, compact-v7 repair, or Job 5."
+    ]
+  },
+  "review_snapshot": {
+    "baseline_git_sha": "4722b5e08fc981cac375374e6c845c738385ed33",
+    "include_all_nonexcluded_changes": true,
+    "declared_exclusions": [
+      {
+        "path_prefix": "runtime/",
+        "reason_code": "generated_runtime_state"
+      },
+      {
+        "path_prefix": ".chatgpt/operations/",
+        "reason_code": "connector_metadata_outside_task"
+      },
+      {
+        "path_prefix": ".chatgpt/pro-review/cycles/2026-08-01-continuous-planner-validator-v1-corrections-cycle-002/",
+        "reason_code": "current_cycle_transport_state"
+      }
+    ]
+  }
+}
