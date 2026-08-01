@@ -1,0 +1,13 @@
+{
+  "schema_version": "cera.continuous_work_notification_receipt.v1",
+  "queue_revision": "WORK_QUEUE_0002.md",
+  "job_id": "continuous-live-canary-002-republication-readiness-v10",
+  "target_thread_id": "6a6d6f8d-a9b4-83e8-8858-b9d6df1be4fc",
+  "message_relative_path": "notifications/A3_FINAL_MESSAGE.md",
+  "message_sha256": "eddb35fb6fb0fa10f23963f1866d1720378ef7f1ef3dfb8e4f368a32afed7d9a",
+  "attempt_count": 1,
+  "delivered": false,
+  "terminal_transport_error": "No handler registered for tool: send_message_to_thread",
+  "external_provider_calls": 0,
+  "supersedes_undelivered_receipt": "notifications/A3_RECEIPT.json"
+}

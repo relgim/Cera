@@ -1,0 +1,12 @@
+{
+  "schema_version": "cera.continuous_work_notification_receipt.v1",
+  "queue_revision": "WORK_QUEUE_0001.md",
+  "job_id": "continuous-terminal-postcondition-and-effect-differential-v10",
+  "target_thread_id": "6a6d6f8d-a9b4-83e8-8858-b9d6df1be4fc",
+  "message_relative_path": "notifications/A2_MESSAGE.md",
+  "message_sha256": "f38b24107503ac19bac678500e565fce0544137c58d3eab513afba791cd1d482",
+  "attempt_count": 1,
+  "delivered": false,
+  "terminal_transport_error": "No handler registered for tool: send_message_to_thread",
+  "external_provider_calls": 0
+}

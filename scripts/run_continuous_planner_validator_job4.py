@@ -31,6 +31,11 @@ from cera.continuous.ingress import (
     PreparedContinuousIngressBridge,
     build_default_prepared_classifier_registry,
 )
+from cera.continuous.job4_terminal import (
+    ContinuousJob4OperationalCountersV1,
+    ContinuousJob4PostconditionsV1,
+    ContinuousJob4TerminalEvidenceV1,
+)
 from cera.continuous.shadow_ingress import (
     ContinuousSillyTavernShadowRequestBridge,
 )
@@ -932,6 +937,12 @@ class JobHarness:
         }
 
 def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
+    terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
+        result["terminal_evidence"]
+    )
+    if result.get("terminal_evidence_sha256") != terminal.sha256:
+        raise ValueError("terminal evidence hash changed before report creation")
+    effects = terminal.effect_evidence.canonical_effects
     calls = result.get("calls", [])
     lines = [
         "# Continuous Planner/Validator Job 4 Report",
@@ -949,7 +960,7 @@ def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
         "- Validator: `gpt-5.6-terra`, high, Fast disabled.",
         f"- Planner thread hash: `{result.get('planner_thread_sha256')}`.",
         f"- Validator thread hash: `{result.get('validator_thread_sha256')}`.",
-            f"- Separate threads: `{result.get('separate_thread_ids')}`.",
+        f"- Separate threads: `{result.get('separate_thread_ids')}`.",
         f"- Codex continuity hashes verified: `{result.get('continuous_thread_hashes_verified')}`.",
         f"- Stored threads archived: `{result.get('thread_archival')}`.",
         "",
@@ -973,7 +984,9 @@ def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
             f"- Source SQLite unchanged: `{result.get('source_database_unchanged')}`.",
             f"- Active route unchanged: `{result.get('active_route_unchanged')}`.",
             f"- Every accepted final sequence injected: `{all(value.get('accepted_final_injected') for value in result.get('turns', []))}`.",
-            f"- Live story writes: `{result.get('story_database_writes')}`.",
+            f"- Terminal evidence SHA-256: `{terminal.sha256}`.",
+            f"- Canonical effects: `{canonical_json(effects)}`.",
+            f"- Mandatory terminal failures: `{canonical_json(list(terminal.failure_codes))}`.",
             "- Complete raw prompts, outputs, tool traces, candidate snapshots, diffs, edit logs, receipts, usage, timings, errors, and replay inputs remain under the ignored disposable runtime root.",
             "",
             "## Terminal failure",
@@ -993,27 +1006,56 @@ def build_canonical_job4_result(
 ) -> dict[str, Any]:
     """Project detailed canary evidence into the closed repository-cycle DTO."""
 
-    status = result.get("status")
-    if status not in {"completed", "failed"}:
-        raise ValueError("terminal Job 4 status is required")
-    provider_calls = result.get("provider_calls")
-    scripted_invocations = result.get("scripted_transport_invocations", 0)
-    if (
-        not isinstance(provider_calls, int)
-        or isinstance(provider_calls, bool)
-        or provider_calls < 0
-        or not isinstance(scripted_invocations, int)
-        or isinstance(scripted_invocations, bool)
-        or scripted_invocations < 0
+    terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
+        result.get("terminal_evidence")
+    )
+    if result.get("terminal_evidence_sha256") != terminal.sha256:
+        raise ValueError("terminal evidence hash is missing or inconsistent")
+    effects = terminal.effect_evidence.canonical_effects
+    duplicate_claims = {
+        "status": terminal.status,
+        "provider_calls": effects["provider_calls"],
+        "story_database_writes": effects["story_database_writes"],
+        "active_route_changes": effects["active_route_changes"],
+        "deployment_remote_or_push_effects": effects[
+            "deployment_remote_or_push_effects"
+        ],
+        "scripted_transport_invocations": (
+            terminal.postconditions.scripted_transport_invocations
+        ),
+        "execution_mode": terminal.postconditions.execution_mode,
+    }
+    for field, expected in duplicate_claims.items():
+        if result.get(field) != expected:
+            raise ValueError(f"detailed result contradicts terminal evidence: {field}")
+    if result.get("source_database_unchanged") != (
+        terminal.postconditions.source_database_sha256_before is not None
+        and terminal.postconditions.source_database_sha256_before
+        == terminal.postconditions.source_database_sha256_after
     ):
-        raise ValueError("Job 4 call accounting must use non-negative integers")
-    source_unchanged = bool(result.get("source_database_unchanged"))
-    copy_unchanged = bool(result.get("copy_database_unchanged"))
-    mode = str(result.get("execution_mode", "unknown"))
+        raise ValueError("source database summary contradicts terminal evidence")
+    if result.get("copy_database_unchanged") != (
+        terminal.postconditions.disposable_database_sha256_before is not None
+        and terminal.postconditions.disposable_database_sha256_before
+        == terminal.postconditions.disposable_database_sha256_after
+    ):
+        raise ValueError("disposable database summary contradicts terminal evidence")
+    if result.get("active_route_unchanged") != (
+        terminal.postconditions.active_route_changes == 0
+    ):
+        raise ValueError("active route summary contradicts terminal evidence")
+    if result.get("thread_archival") != dict(
+        terminal.postconditions.thread_archival
+    ):
+        raise ValueError("thread archival summary contradicts terminal evidence")
+    status = terminal.status
+    provider_calls = effects["provider_calls"]
+    scripted_invocations = terminal.postconditions.scripted_transport_invocations
+    mode = terminal.postconditions.execution_mode
     summary = (
         f"mode={mode}; external_provider_calls={provider_calls}; "
         f"scripted_transport_invocations={scripted_invocations}; "
-        f"terminal_status={status}"
+        f"terminal_status={status}; terminal_evidence_sha256={terminal.sha256}"
     )
     return {
         "schema_version": "cera.pro_review_job4_result.v1",
@@ -1022,22 +1064,25 @@ def build_canonical_job4_result(
         "status": status,
         "report_relative_path": "source/JOB4_REPORT.md",
         "report_sha256": report_sha256,
-        "effects": {
-            "provider_calls": provider_calls,
-            "story_database_writes": 0,
-            "active_route_changes": 0,
-            "deployment_remote_or_push_effects": 0,
-        },
+        "effects": effects,
         "verification": [
             {
                 "command": "continuous-planner-validator-three-turn-scene-change-canary-v1",
-                "status": "passed" if status == "completed" else "failed",
+                "status": (
+                    "passed"
+                    if terminal.execution_status == "completed"
+                    else "failed"
+                ),
                 "summary": summary,
             },
             {
-                "command": "source-and-copy-sqlite-hash-check",
-                "status": "passed" if source_unchanged and copy_unchanged else "failed",
-                "summary": "Source and disposable-copy hashes were compared before and after",
+                "command": "mandatory-terminal-postcondition-and-effect-check",
+                "status": "passed" if status == "completed" else "failed",
+                "summary": (
+                    "all mandatory terminal evidence passed"
+                    if status == "completed"
+                    else "failure_codes=" + ",".join(terminal.failure_codes)
+                ),
             },
         ],
     }
@@ -1102,9 +1147,12 @@ def execute_job4_schedule(
             )
     elif harness.provider_calls != 10:
         raise RuntimeError("successful Job 4 provider-call accounting changed")
-    if planner_session.unsynchronized_accepted_turn_ids:
+    result["accepted_session_synchronized"] = not bool(
+        planner_session.unsynchronized_accepted_turn_ids
+    )
+    if not result["accepted_session_synchronized"]:
         raise RuntimeError("accepted Planner context remained unsynchronized")
-    result["status"] = "completed"
+    result["execution_status"] = "completed"
 
 
 def verify_prepared_shadow_ingress(lifecycle_root: Path) -> dict[str, Any]:
@@ -1340,6 +1388,16 @@ def main() -> int:
         runtime_root / "PROVIDER_CALL_LEDGER.jsonl",
         maximum_calls=args.maximum_provider_calls,
     )
+    operational_counters = ContinuousJob4OperationalCountersV1(
+        live_story_writes=0,
+        production_database_writes=0,
+        deployment_operations=0,
+        remote_operations=0,
+        merge_operations=0,
+        push_operations=0,
+        service_changes=0,
+        installed_sillytavern_changes=0,
+    )
     copied_db = runtime_root / "hanezawa_human_test_disposable.sqlite3"
     source_hash_before = root_diagnostic.run(
         "source_database", "hash_source_database", lambda: bytes_sha256(source_db.read_bytes())
@@ -1389,16 +1447,22 @@ def main() -> int:
         "create_provider_workspace_root",
         lifecycle_root.mkdir,
     )
-    active_runtime_before = root_diagnostic.run(
-        "active_profile", "inspect_active_runtime_profile", active_runtime_status
-    )
+    active_runtime_before: dict[str, Any] | None = None
+    active_runtime_before_error_type: str | None = None
+    try:
+        active_runtime_before = root_diagnostic.run(
+            "active_profile", "inspect_active_runtime_profile", active_runtime_status
+        )
+    except Exception as exc:
+        active_runtime_before_error_type = type(exc).__name__
     result: dict[str, Any] = {
-        "schema_version": "cera.continuous_planner_validator_job4_detail.v1",
+        "schema_version": "cera.continuous_planner_validator_job4_detail.v2",
         "cycle_id": args.expected_cycle_id,
         "task_id": args.expected_task_id,
         "authorization_sha256": args.expected_authorization_sha256,
         "started_at": utc_now(),
         "status": "running",
+        "execution_status": "running",
         "execution_mode": (
             f"provider_free_scripted_{scripted_mode_version}"
             if scripted_provider_free
@@ -1414,8 +1478,9 @@ def main() -> int:
         "scripted_transport_invocations": 0,
         "retry_count": 0,
         "fallback_count": 0,
-        "story_database_writes": 0,
+        "operational_counters": operational_counters.to_dict(),
         "active_runtime_before": active_runtime_before,
+        "active_runtime_before_error_type": active_runtime_before_error_type,
         "turns": [],
         "calls": [],
         "pro_polls": [],
@@ -1430,6 +1495,8 @@ def main() -> int:
     harness = None
     scripted_harness_holder: dict[str, JobHarness] = {}
     try:
+        if active_runtime_before_error_type is not None:
+            raise RuntimeError("active runtime profile inspection failed before Job 4")
         if scripted_provider_free:
             harness = execute_scripted_job4(
                 cycle=cycle,
@@ -1587,7 +1654,7 @@ def main() -> int:
     except BaseException as exc:
         if harness is None:
             harness = scripted_harness_holder.get("harness")
-        result["status"] = "failed"
+        result["execution_status"] = "failed"
         result["failure"] = {
             "stage": (
                 harness.call_records[-1]["label"]
@@ -1619,27 +1686,140 @@ def main() -> int:
                 and call.get("status")
                 in {"passed", "scripted_provider_free_passed"}
             )
-        result["source_database_sha256_after"] = bytes_sha256(source_db.read_bytes())
-        result["copy_database_sha256_after"] = bytes_sha256(copied_db.read_bytes())
+        try:
+            result["source_database_sha256_after"] = bytes_sha256(
+                source_db.read_bytes()
+            )
+            result["source_database_hash_after_error_type"] = None
+        except Exception as exc:
+            result["source_database_sha256_after"] = None
+            result["source_database_hash_after_error_type"] = type(exc).__name__
+        try:
+            result["copy_database_sha256_after"] = bytes_sha256(
+                copied_db.read_bytes()
+            )
+            result["copy_database_hash_after_error_type"] = None
+        except Exception as exc:
+            result["copy_database_sha256_after"] = None
+            result["copy_database_hash_after_error_type"] = type(exc).__name__
         result["source_database_unchanged"] = (
-            result["source_database_sha256_after"] == source_hash_before
+            result["source_database_sha256_after"] is not None
+            and result["source_database_sha256_after"] == source_hash_before
         )
         result["copy_database_unchanged"] = (
-            result["copy_database_sha256_after"] == copy_hash_before
+            result["copy_database_sha256_after"] is not None
+            and result["copy_database_sha256_after"] == copy_hash_before
         )
+        active_runtime_after_sha256: str | None = None
+        active_profile_inspection_status = "failed"
         try:
             result["active_runtime_after"] = active_runtime_status()
-            result["active_route_unchanged"] = (
-                canonical_sha256(result["active_runtime_after"])
-                == canonical_sha256(active_runtime_before)
+            result["active_runtime_after_error_type"] = None
+            candidate_profile_sha256 = result["active_runtime_after"].get(
+                "profile_sha256"
             )
-        except Exception:
+            if (
+                active_runtime_before is not None
+                and isinstance(candidate_profile_sha256, str)
+                and len(candidate_profile_sha256) == 64
+            ):
+                active_runtime_after_sha256 = candidate_profile_sha256
+                active_profile_inspection_status = "verified"
+        except Exception as exc:
             result["active_runtime_after"] = {
                 "valid": False,
                 "diagnostic": "active runtime validation failed after Job 4",
             }
-            result["active_route_unchanged"] = False
-        result["world_active_sha256"] = world.tree_sha256(branch_root / "ACTIVE")
+            result["active_runtime_after_error_type"] = type(exc).__name__
+        active_runtime_before_sha256 = (
+            active_runtime_before.get("profile_sha256")
+            if active_runtime_before is not None
+            else None
+        )
+        if not isinstance(active_runtime_before_sha256, str) or len(
+            active_runtime_before_sha256
+        ) != 64:
+            active_runtime_before_sha256 = None
+            active_profile_inspection_status = "failed"
+        thread_archival = result.get("thread_archival")
+        if not isinstance(thread_archival, dict) or set(thread_archival) != {
+            "planner",
+            "validator",
+        }:
+            thread_archival = {"planner": False, "validator": False}
+            result["thread_archival"] = thread_archival
+        result["accepted_final_sequences_injected"] = (
+            len(result.get("turns", [])) == 3
+            and all(
+                value.get("accepted_final_injected")
+                for value in result.get("turns", [])
+            )
+        )
+        try:
+            result["world_active_sha256"] = world.tree_sha256(
+                branch_root / "ACTIVE"
+            )
+            result["world_active_hash_error_type"] = None
+        except Exception as exc:
+            result["world_active_sha256"] = None
+            result["world_active_hash_error_type"] = type(exc).__name__
+            result["execution_status"] = "failed"
+            if result.get("failure") is None:
+                result["failure"] = {
+                    "stage": "terminal_world_evidence",
+                    "error_type": type(exc).__name__,
+                    "message": "Terminal world evidence could not be verified.",
+                }
+        postconditions = ContinuousJob4PostconditionsV1(
+            execution_mode=result["execution_mode"],
+            source_database_sha256_before=source_hash_before,
+            source_database_sha256_after=result["source_database_sha256_after"],
+            disposable_database_sha256_before=copy_hash_before,
+            disposable_database_sha256_after=result["copy_database_sha256_after"],
+            database_integrity_check=result.get("copy_database_integrity"),
+            database_foreign_key_findings=result.get(
+                "copy_database_foreign_key_findings"
+            ),
+            active_profile_sha256_before=active_runtime_before_sha256,
+            active_profile_sha256_after=active_runtime_after_sha256,
+            active_profile_inspection_status=active_profile_inspection_status,
+            thread_archival=thread_archival,
+            accepted_session_synchronized=bool(
+                result.get("accepted_session_synchronized", False)
+            ),
+            accepted_final_sequences_injected=result[
+                "accepted_final_sequences_injected"
+            ],
+            call_ledger_dispatches=call_ledger.dispatched_call_count,
+            scripted_transport_invocations=result[
+                "scripted_transport_invocations"
+            ],
+        )
+        execution_status = result.get("execution_status")
+        if execution_status not in {"completed", "failed"}:
+            execution_status = "failed"
+            result["execution_status"] = execution_status
+        terminal = ContinuousJob4TerminalEvidenceV1.build(
+            execution_status=execution_status,
+            provider_calls=result["provider_calls"],
+            operational_counters=operational_counters,
+            postconditions=postconditions,
+        )
+        result["terminal_evidence"] = terminal.to_dict()
+        result["terminal_evidence_sha256"] = terminal.sha256
+        result["status"] = terminal.status
+        result["story_database_writes"] = terminal.effect_evidence.canonical_effects[
+            "story_database_writes"
+        ]
+        result["active_route_changes"] = terminal.effect_evidence.canonical_effects[
+            "active_route_changes"
+        ]
+        result["deployment_remote_or_push_effects"] = (
+            terminal.effect_evidence.canonical_effects[
+                "deployment_remote_or_push_effects"
+            ]
+        )
+        result["active_route_unchanged"] = result["active_route_changes"] == 0
         result["finished_at"] = utc_now()
         detail_path = runtime_root / "JOB4_DETAIL.json"
         write_json(detail_path, result)

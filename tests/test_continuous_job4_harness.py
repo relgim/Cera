@@ -30,6 +30,11 @@ from cera.continuous.call_ledger import (
     ContinuousProviderCallLedger,
     ProviderCallState,
 )
+from cera.continuous.job4_terminal import (
+    ContinuousJob4OperationalCountersV1,
+    ContinuousJob4PostconditionsV1,
+    ContinuousJob4TerminalEvidenceV1,
+)
 from cera.continuous.contracts import CharacterRoleLedgerV1
 from cera.continuous.provider import (
     ContinuousDeepSeekDraftV1,
@@ -68,6 +73,90 @@ from tests.test_continuous_world import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def terminalized_detail(
+    *,
+    cycle_id: str,
+    execution_status: str,
+    execution_mode: str,
+    provider_calls: int,
+    scripted_transport_invocations: int,
+    operational_counters: ContinuousJob4OperationalCountersV1 | None = None,
+    postcondition_changes: dict[str, object] | None = None,
+) -> dict[str, object]:
+    counters = operational_counters or ContinuousJob4OperationalCountersV1(
+        live_story_writes=0,
+        production_database_writes=0,
+        deployment_operations=0,
+        remote_operations=0,
+        merge_operations=0,
+        push_operations=0,
+        service_changes=0,
+        installed_sillytavern_changes=0,
+    )
+    base = {
+        "execution_mode": execution_mode,
+        "source_database_sha256_before": "1" * 64,
+        "source_database_sha256_after": "1" * 64,
+        "disposable_database_sha256_before": "2" * 64,
+        "disposable_database_sha256_after": "2" * 64,
+        "database_integrity_check": "ok",
+        "database_foreign_key_findings": 0,
+        "active_profile_sha256_before": "3" * 64,
+        "active_profile_sha256_after": "3" * 64,
+        "active_profile_inspection_status": "verified",
+        "thread_archival": {"planner": True, "validator": True},
+        "accepted_session_synchronized": True,
+        "accepted_final_sequences_injected": True,
+        "call_ledger_dispatches": (
+            scripted_transport_invocations
+            if execution_mode.startswith("provider_free_scripted_")
+            else provider_calls
+        ),
+        "scripted_transport_invocations": scripted_transport_invocations,
+    }
+    base.update(postcondition_changes or {})
+    postconditions = ContinuousJob4PostconditionsV1(**base)
+    terminal = ContinuousJob4TerminalEvidenceV1.build(
+        execution_status=execution_status,
+        provider_calls=provider_calls,
+        operational_counters=counters,
+        postconditions=postconditions,
+    )
+    effects = terminal.effect_evidence.canonical_effects
+    return {
+        "cycle_id": cycle_id,
+        "status": terminal.status,
+        "execution_status": execution_status,
+        "execution_mode": execution_mode,
+        "provider_calls": effects["provider_calls"],
+        "scripted_transport_invocations": scripted_transport_invocations,
+        "story_database_writes": effects["story_database_writes"],
+        "active_route_changes": effects["active_route_changes"],
+        "deployment_remote_or_push_effects": effects[
+            "deployment_remote_or_push_effects"
+        ],
+        "source_database_unchanged": (
+            postconditions.source_database_sha256_before is not None
+            and postconditions.source_database_sha256_before
+            == postconditions.source_database_sha256_after
+        ),
+        "copy_database_unchanged": (
+            postconditions.disposable_database_sha256_before is not None
+            and postconditions.disposable_database_sha256_before
+            == postconditions.disposable_database_sha256_after
+        ),
+        "active_route_unchanged": postconditions.active_route_changes == 0,
+        "thread_archival": dict(postconditions.thread_archival),
+        "terminal_evidence": terminal.to_dict(),
+        "terminal_evidence_sha256": terminal.sha256,
+        "calls": [],
+        "turns": [],
+        "failure": None if terminal.status == "completed" else {
+            "stage": "terminal_postconditions"
+        },
+    }
 
 
 class _Transport:
@@ -240,6 +329,15 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertTrue(detail["source_database_unchanged"])
             self.assertTrue(detail["copy_database_unchanged"])
             self.assertTrue(detail["active_route_unchanged"])
+            terminal_profile = detail["terminal_evidence"]["postconditions"]
+            self.assertEqual(
+                terminal_profile["active_profile_sha256_before"],
+                detail["active_runtime_before"]["profile_sha256"],
+            )
+            self.assertEqual(
+                terminal_profile["active_profile_sha256_after"],
+                detail["active_runtime_after"]["profile_sha256"],
+            )
             self.assertEqual(result["effects"]["provider_calls"], 0)
             self.assertNotIn("authorization_sha256", result)
             self.assertNotIn("scripted_transport_invocations", result["effects"])
@@ -363,16 +461,15 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             ("provider_free_scripted_v8", "failed", 0, 3),
         ):
             with self.subTest(mode=mode, status=status):
+                detail = terminalized_detail(
+                    cycle_id=manifest["cycle_id"],
+                    execution_status=status,
+                    execution_mode=mode,
+                    provider_calls=provider_calls,
+                    scripted_transport_invocations=scripted_calls,
+                )
                 value = build_canonical_job4_result(
-                    {
-                        "cycle_id": manifest["cycle_id"],
-                        "status": status,
-                        "execution_mode": mode,
-                        "provider_calls": provider_calls,
-                        "scripted_transport_invocations": scripted_calls,
-                        "source_database_unchanged": True,
-                        "copy_database_unchanged": True,
-                    },
+                    detail,
                     task_id=manifest["job4"]["task_id"],
                     report_sha256="a" * 64,
                 )
@@ -388,15 +485,13 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             "job4": {"task_id": "task:canary-result-legacy"},
         }
         value = build_canonical_job4_result(
-            {
-                "cycle_id": manifest["cycle_id"],
-                "status": "completed",
-                "execution_mode": "provider_free_scripted_v8",
-                "provider_calls": 0,
-                "scripted_transport_invocations": 10,
-                "source_database_unchanged": True,
-                "copy_database_unchanged": True,
-            },
+            terminalized_detail(
+                cycle_id=manifest["cycle_id"],
+                execution_status="completed",
+                execution_mode="provider_free_scripted_v8",
+                provider_calls=0,
+                scripted_transport_invocations=10,
+            ),
             task_id=manifest["job4"]["task_id"],
             report_sha256="b" * 64,
         )
@@ -411,6 +506,195 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
         }
         with self.assertRaisesRegex(CycleError, "scripted_transport_invocations"):
             validate_job4_result_contract(invalid_effects, manifest)
+
+    def test_terminal_effect_evidence_preserves_each_nonzero_canonical_effect(self) -> None:
+        from tools.pro_review_cycle_core import validate_job4_result_contract
+
+        manifest = {
+            "cycle_id": "cycle:terminal-effects",
+            "job4": {"task_id": "task:terminal-effects"},
+        }
+        cases = (
+            (
+                "provider_calls",
+                terminalized_detail(
+                    cycle_id=manifest["cycle_id"],
+                    execution_status="completed",
+                    execution_mode="live_one_shot",
+                    provider_calls=4,
+                    scripted_transport_invocations=0,
+                ),
+                4,
+            ),
+            (
+                "story_database_writes",
+                terminalized_detail(
+                    cycle_id=manifest["cycle_id"],
+                    execution_status="completed",
+                    execution_mode="live_one_shot",
+                    provider_calls=0,
+                    scripted_transport_invocations=0,
+                    operational_counters=ContinuousJob4OperationalCountersV1(
+                        live_story_writes=1,
+                        production_database_writes=2,
+                        deployment_operations=0,
+                        remote_operations=0,
+                        merge_operations=0,
+                        push_operations=0,
+                        service_changes=0,
+                        installed_sillytavern_changes=0,
+                    ),
+                ),
+                3,
+            ),
+            (
+                "active_route_changes",
+                terminalized_detail(
+                    cycle_id=manifest["cycle_id"],
+                    execution_status="completed",
+                    execution_mode="live_one_shot",
+                    provider_calls=0,
+                    scripted_transport_invocations=0,
+                    postcondition_changes={
+                        "active_profile_sha256_after": "4" * 64
+                    },
+                ),
+                1,
+            ),
+            (
+                "deployment_remote_or_push_effects",
+                terminalized_detail(
+                    cycle_id=manifest["cycle_id"],
+                    execution_status="completed",
+                    execution_mode="live_one_shot",
+                    provider_calls=0,
+                    scripted_transport_invocations=0,
+                    operational_counters=ContinuousJob4OperationalCountersV1(
+                        live_story_writes=0,
+                        production_database_writes=0,
+                        deployment_operations=1,
+                        remote_operations=1,
+                        merge_operations=1,
+                        push_operations=1,
+                        service_changes=1,
+                        installed_sillytavern_changes=1,
+                    ),
+                ),
+                6,
+            ),
+        )
+        for field, detail, expected in cases:
+            with self.subTest(field=field):
+                value = build_canonical_job4_result(
+                    detail,
+                    task_id=manifest["job4"]["task_id"],
+                    report_sha256="5" * 64,
+                )
+                self.assertEqual(value["effects"][field], expected)
+                self.assertEqual(
+                    validate_job4_result_contract(value, manifest), value
+                )
+                if field != "provider_calls":
+                    self.assertEqual(value["status"], "failed")
+
+    def test_terminal_effect_evidence_rejects_missing_boolean_negative_and_contradictory_values(self) -> None:
+        detail = terminalized_detail(
+            cycle_id="cycle:terminal-rejection",
+            execution_status="completed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=10,
+        )
+        mutations: list[tuple[str, dict[str, object]]] = []
+        missing = json.loads(json.dumps(detail))
+        del missing["terminal_evidence"]["effect_evidence"]["provider_calls"]
+        mutations.append(("missing", missing))
+        boolean = json.loads(json.dumps(detail))
+        boolean["terminal_evidence"]["effect_evidence"]["provider_calls"] = True
+        mutations.append(("boolean", boolean))
+        negative = json.loads(json.dumps(detail))
+        negative["terminal_evidence"]["effect_evidence"]["provider_calls"] = -1
+        mutations.append(("negative", negative))
+        malformed = json.loads(json.dumps(detail))
+        malformed["terminal_evidence"]["effect_evidence"][
+            "operational_counters"
+        ]["remote_operations"] = "zero"
+        mutations.append(("malformed", malformed))
+        contradictory = json.loads(json.dumps(detail))
+        contradictory["provider_calls"] = 1
+        mutations.append(("contradictory", contradictory))
+        for name, value in mutations:
+            with self.subTest(name=name), self.assertRaises(ValueError):
+                build_canonical_job4_result(
+                    value,
+                    task_id="task:terminal-rejection",
+                    report_sha256="6" * 64,
+                )
+
+    def test_terminal_postconditions_force_failure_for_every_mandatory_class(self) -> None:
+        cases = {
+            "active_mismatch": {"active_profile_sha256_after": "4" * 64},
+            "active_inspection": {
+                "active_profile_sha256_after": None,
+                "active_profile_inspection_status": "failed",
+            },
+            "source_drift": {"source_database_sha256_after": "4" * 64},
+            "copy_drift": {"disposable_database_sha256_after": "4" * 64},
+            "integrity": {"database_integrity_check": "corrupt"},
+            "foreign_keys": {"database_foreign_key_findings": 1},
+            "archival": {
+                "thread_archival": {"planner": True, "validator": False}
+            },
+            "synchronization": {"accepted_session_synchronized": False},
+            "injection": {"accepted_final_sequences_injected": False},
+            "ledger": {"call_ledger_dispatches": 9},
+        }
+        for name, changes in cases.items():
+            with self.subTest(name=name):
+                detail = terminalized_detail(
+                    cycle_id="cycle:mandatory-postconditions",
+                    execution_status="completed",
+                    execution_mode="provider_free_scripted_v8",
+                    provider_calls=0,
+                    scripted_transport_invocations=10,
+                    postcondition_changes=changes,
+                )
+                value = build_canonical_job4_result(
+                    detail,
+                    task_id="task:mandatory-postconditions",
+                    report_sha256="7" * 64,
+                )
+                self.assertEqual(value["status"], "failed")
+                self.assertEqual(value["verification"][1]["status"], "failed")
+                if name in {"active_mismatch", "active_inspection"}:
+                    self.assertGreater(value["effects"]["active_route_changes"], 0)
+
+    def test_completed_terminal_result_cannot_contain_a_failed_mandatory_verification(self) -> None:
+        detail = terminalized_detail(
+            cycle_id="cycle:completed-terminal",
+            execution_status="completed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=10,
+        )
+        value = build_canonical_job4_result(
+            detail,
+            task_id="task:completed-terminal",
+            report_sha256="8" * 64,
+        )
+        self.assertEqual(value["status"], "completed")
+        self.assertTrue(
+            all(item["status"] == "passed" for item in value["verification"])
+        )
+        detail["terminal_evidence"]["postconditions"][
+            "accepted_session_synchronized"
+        ] = False
+        with self.assertRaises(ValueError):
+            build_canonical_job4_result(
+                detail,
+                task_id="task:completed-terminal",
+                report_sha256="8" * 64,
+            )
 
     def test_declared_unittest_ids_must_resolve_before_publication(self) -> None:
         valid = (
@@ -1343,17 +1627,15 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 self.assertGreater(len(summary.summary), 100)
 
     def test_report_contains_terminal_route_and_effect_accounting(self) -> None:
-        report = build_report(
-            {
-                "status": "failed",
-                "provider_calls": 2,
-                "calls": [],
-                "turns": [],
-                "failure": {"stage": "turn-1-validator"},
-                "story_database_writes": 0,
-                "active_route_unchanged": True,
-            }
+        detail = terminalized_detail(
+            cycle_id="cycle:report-terminal",
+            execution_status="failed",
+            execution_mode="live_one_shot",
+            provider_calls=2,
+            scripted_transport_invocations=0,
         )
+        detail["failure"] = {"stage": "turn-1-validator"}
+        report = build_report(detail)
         self.assertIn("Provider calls observed:** 2 / 10", report)
         self.assertIn("deepseek-v4-flash", report)
         self.assertIn("turn-1-validator", report)

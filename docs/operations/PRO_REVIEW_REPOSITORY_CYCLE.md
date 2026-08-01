@@ -223,3 +223,15 @@ privacy-safe verification summary rather than the canonical `effects` object.
 Unknown fields fail before publication. Completed and failed live-shaped and
 scripted results are tested through both the decoder and the real
 `complete-job4` transition.
+
+Every continuous-canary Job 4 producer must also bind
+`cera.continuous_job4_terminal_evidence.v1` and its SHA-256 into detailed
+evidence before generating the canonical result or report. That closed record
+owns the exact provider-call ledger, operational counters, source/disposable
+database identities and checks, active-profile before/after identities, thread
+archival, accepted-session synchronization, accepted-sequence injection, and
+call-ledger reconciliation. The projector derives all four canonical effects
+from this record without defaults. Missing, malformed, contradictory, or
+unverified evidence fails closed. Any mandatory postcondition failure forces a
+top-level failed result, including active-profile inspection failure, which may
+never be represented as zero route changes.

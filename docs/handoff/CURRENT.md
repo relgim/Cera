@@ -2,21 +2,29 @@
 
 **Updated:** 2026-08-01
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-196 provider-free continuous Planner/Validator correction cycle 009; D-180 remains active
+**Phase:** D-197 provider-free continuous Planner/Validator correction cycle 010; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** D-196 complete repository suite passes 766/766 in 318.681 seconds with one expected environment-dependent skip; zero external provider calls
+**Provider-free current verification:** D-197 complete repository suite passes 773/773 in 315.785 seconds with one expected environment-dependent skip; zero external provider calls
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
-**D-186/D-196 shadow continuity work:** all earlier canary/audit evidence remains immutable; ninth provider-free result-contract/republication correction tranche is at its complete offline gate; active route unchanged
+**D-186/D-197 shadow continuity work:** all earlier canary/audit evidence remains immutable; tenth provider-free terminal-effect/republication correction tranche passed its complete offline gate; active route unchanged
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
 
-- D-196 is the current provider-free correction tranche. Every live-shaped and
+- D-197 is the current provider-free correction tranche. A closed typed terminal
+  record now owns all canonical effects and mandatory postconditions. Exact
+  nonzero effects survive result projection, report generation,
+  `complete-job4`, artifact copying, receipts, and recovery. Database, active
+  profile, archival, synchronization, accepted-sequence injection, or ledger
+  failures force top-level failure. Read
+  `implementation/CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_010_RESULT.md`.
+
+- D-196 is the preceding provider-free correction tranche. Every live-shaped and
   scripted Job 4 producer now projects terminal detail into the exact strict
   result DTO before publication. Authorization remains in manifest/receipt
   custody; scripted invocation counts remain diagnostic detail. Completed and

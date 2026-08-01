@@ -957,6 +957,19 @@ identity. Live-canary-001 and checkpoint
 live-canary-002, route activation, story mutation, installed-client/service
 change, deployment, merge, remote, or push is authorized.
 
+D-197 is correction cycle 010 under the creator-authorized continuous-work
+queue. Its progressions are `continuous-canonical-effect-evidence-custody-v10`,
+`continuous-terminal-postcondition-and-effect-differential-v10`, and
+`continuous-live-canary-002-republication-readiness-v10`. It replaces assumed
+or literal effect values with one closed hashed terminal record, makes every
+mandatory postcondition status-determining, preserves exact values through the
+repository completion/recovery chain, and freezes the later Stage B canary
+contract. Cycle 010 and its Job 4 remain provider-free. The queue conditionally
+authorizes the separately identity-bound ten-call Stage B attempt only after an
+accepted Cycle 010 response and provider-free publication progression. D-180
+remains active; no live story, production database, installed client, service,
+deployment, merge, remote, or push effect is authorized.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

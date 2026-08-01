@@ -1,0 +1,12 @@
+{
+  "schema_version": "cera.continuous_work_notification_receipt.v1",
+  "queue_revision": "WORK_QUEUE_0001.md",
+  "job_id": "continuous-canonical-effect-evidence-custody-v10",
+  "target_thread_id": "6a6d6f8d-a9b4-83e8-8858-b9d6df1be4fc",
+  "message_relative_path": "notifications/A1_MESSAGE.md",
+  "message_sha256": "867fde02991b94e07e90645b764ca413ab75f4eca7004946938bff39f92dc85b",
+  "attempt_count": 1,
+  "delivered": false,
+  "terminal_transport_error": "No handler registered for tool: send_message_to_thread",
+  "external_provider_calls": 0
+}

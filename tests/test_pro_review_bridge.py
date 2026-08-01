@@ -25,8 +25,14 @@ sys.path.insert(0, str(PROJECT_ROOT / "tools"))
 import pro_review_cycle as review_cycle  # noqa: E402
 import pro_review_cycle_core as review_cycle_core  # noqa: E402
 from cera.continuous.scripted_job4 import SCRIPTED_JOB4_FIXTURE_SHA256  # noqa: E402
+from cera.continuous.job4_terminal import (  # noqa: E402
+    ContinuousJob4OperationalCountersV1,
+    ContinuousJob4PostconditionsV1,
+    ContinuousJob4TerminalEvidenceV1,
+)
 from scripts.run_continuous_planner_validator_job4 import (  # noqa: E402
     build_canonical_job4_result,
+    build_report,
 )
 
 
@@ -572,25 +578,90 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         execution_mode: str,
         provider_calls: int,
         scripted_transport_invocations: int,
+        operational_counters: ContinuousJob4OperationalCountersV1 | None = None,
+        postcondition_changes: dict[str, object] | None = None,
     ) -> dict[str, object]:
         report = self.source / "JOB4_REPORT.md"
+        counters = operational_counters or ContinuousJob4OperationalCountersV1(
+            live_story_writes=0,
+            production_database_writes=0,
+            deployment_operations=0,
+            remote_operations=0,
+            merge_operations=0,
+            push_operations=0,
+            service_changes=0,
+            installed_sillytavern_changes=0,
+        )
+        postcondition_values: dict[str, object] = {
+            "execution_mode": execution_mode,
+            "source_database_sha256_before": "1" * 64,
+            "source_database_sha256_after": "1" * 64,
+            "disposable_database_sha256_before": "2" * 64,
+            "disposable_database_sha256_after": "2" * 64,
+            "database_integrity_check": "ok",
+            "database_foreign_key_findings": 0,
+            "active_profile_sha256_before": "3" * 64,
+            "active_profile_sha256_after": "3" * 64,
+            "active_profile_inspection_status": "verified",
+            "thread_archival": {"planner": True, "validator": True},
+            "accepted_session_synchronized": True,
+            "accepted_final_sequences_injected": True,
+            "call_ledger_dispatches": (
+                scripted_transport_invocations
+                if execution_mode.startswith("provider_free_scripted_")
+                else provider_calls
+            ),
+            "scripted_transport_invocations": scripted_transport_invocations,
+        }
+        postcondition_values.update(postcondition_changes or {})
+        postconditions = ContinuousJob4PostconditionsV1(**postcondition_values)
+        terminal = ContinuousJob4TerminalEvidenceV1.build(
+            execution_status=status,
+            provider_calls=provider_calls,
+            operational_counters=counters,
+            postconditions=postconditions,
+        )
+        effects = terminal.effect_evidence.canonical_effects
+        detail = {
+            "cycle_id": self.cycle_id,
+            "status": terminal.status,
+            "execution_status": status,
+            "execution_mode": execution_mode,
+            "provider_calls": effects["provider_calls"],
+            "scripted_transport_invocations": scripted_transport_invocations,
+            "story_database_writes": effects["story_database_writes"],
+            "active_route_changes": effects["active_route_changes"],
+            "deployment_remote_or_push_effects": effects[
+                "deployment_remote_or_push_effects"
+            ],
+            "source_database_unchanged": (
+                postconditions.source_database_sha256_before is not None
+                and postconditions.source_database_sha256_before
+                == postconditions.source_database_sha256_after
+            ),
+            "copy_database_unchanged": (
+                postconditions.disposable_database_sha256_before is not None
+                and postconditions.disposable_database_sha256_before
+                == postconditions.disposable_database_sha256_after
+            ),
+            "active_route_unchanged": postconditions.active_route_changes == 0,
+            "thread_archival": dict(postconditions.thread_archival),
+            "terminal_evidence": terminal.to_dict(),
+            "terminal_evidence_sha256": terminal.sha256,
+            "calls": [],
+            "turns": [],
+            "failure": (
+                None
+                if terminal.status == "completed"
+                else {"stage": "terminal_postconditions"}
+            ),
+        }
         report.write_text(
-            "# Canary Job 4 report\n\n"
-            f"Status: {status}\n\n"
-            f"Mode: {execution_mode}\n\n"
-            f"Scripted transports: {scripted_transport_invocations}\n",
+            build_report(detail, task_id=self.job4_task_id),
             encoding="utf-8",
         )
         value = build_canonical_job4_result(
-            {
-                "cycle_id": self.cycle_id,
-                "status": status,
-                "execution_mode": execution_mode,
-                "provider_calls": provider_calls,
-                "scripted_transport_invocations": scripted_transport_invocations,
-                "source_database_unchanged": True,
-                "copy_database_unchanged": True,
-            },
+            detail,
             task_id=self.job4_task_id,
             report_sha256=self._hash(report),
         )
@@ -933,6 +1004,135 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                 repository_root_path=self.root,
             )
         self.assertFalse((self.cycle / "receipts" / "JOB4_COMPLETED.json").exists())
+
+    def test_28f_story_effect_evidence_survives_completion_copy_receipt_and_recovery(self) -> None:
+        self.publish()
+        self.record_trigger()
+        counters = ContinuousJob4OperationalCountersV1(
+            live_story_writes=1,
+            production_database_writes=2,
+            deployment_operations=0,
+            remote_operations=0,
+            merge_operations=0,
+            push_operations=0,
+            service_changes=0,
+            installed_sillytavern_changes=0,
+        )
+        value = self.write_canary_job4_result(
+            status="completed",
+            execution_mode="live_one_shot",
+            provider_calls=10,
+            scripted_transport_invocations=0,
+            operational_counters=counters,
+        )
+        self.assertEqual(value["status"], "failed")
+        state = review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        self.assertEqual(state["state"], review_cycle.STATE_RESPONSE_PENDING)
+        copied = json.loads(
+            (self.cycle / "artifacts" / "JOB4_RESULT.json").read_text()
+        )
+        receipt = json.loads(
+            (self.cycle / "receipts" / "JOB4_COMPLETED.json").read_text()
+        )
+        for record in (value, copied, receipt):
+            self.assertEqual(record["effects"]["story_database_writes"], 3)
+        self.assertIn(
+            '"story_database_writes":3',
+            (self.cycle / "artifacts" / "JOB4_REPORT.md").read_text(),
+        )
+        recovered = review_cycle.recover_cycle(
+            self.cycle, repository_root_path=self.root
+        )
+        self.assertEqual(recovered["state"], review_cycle.STATE_RESPONSE_PENDING)
+        recovered_receipt = json.loads(
+            (self.cycle / "receipts" / "JOB4_COMPLETED.json").read_text()
+        )
+        self.assertEqual(
+            recovered_receipt["effects"]["story_database_writes"], 3
+        )
+
+    def test_28g_active_profile_failure_survives_completion_as_route_effect(self) -> None:
+        self.publish()
+        self.record_trigger()
+        value = self.write_canary_job4_result(
+            status="completed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=10,
+            postcondition_changes={
+                "active_profile_sha256_after": None,
+                "active_profile_inspection_status": "failed",
+            },
+        )
+        self.assertEqual(value["status"], "failed")
+        self.assertEqual(value["effects"]["active_route_changes"], 1)
+        review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        receipt = json.loads(
+            (self.cycle / "receipts" / "JOB4_COMPLETED.json").read_text()
+        )
+        self.assertEqual(receipt["effects"]["active_route_changes"], 1)
+        copied = json.loads(
+            (self.cycle / "artifacts" / "JOB4_RESULT.json").read_text()
+        )
+        self.assertEqual(copied["effects"]["active_route_changes"], 1)
+        self.assertIn(
+            '"active_route_changes":1',
+            (self.cycle / "artifacts" / "JOB4_REPORT.md").read_text(),
+        )
+
+    def test_28h_operational_effect_evidence_survives_completion(self) -> None:
+        self.publish()
+        self.record_trigger()
+        counters = ContinuousJob4OperationalCountersV1(
+            live_story_writes=0,
+            production_database_writes=0,
+            deployment_operations=1,
+            remote_operations=2,
+            merge_operations=3,
+            push_operations=4,
+            service_changes=5,
+            installed_sillytavern_changes=6,
+        )
+        value = self.write_canary_job4_result(
+            status="completed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=10,
+            operational_counters=counters,
+        )
+        self.assertEqual(value["status"], "failed")
+        self.assertEqual(
+            value["effects"]["deployment_remote_or_push_effects"], 21
+        )
+        review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        receipt = json.loads(
+            (self.cycle / "receipts" / "JOB4_COMPLETED.json").read_text()
+        )
+        self.assertEqual(
+            receipt["effects"]["deployment_remote_or_push_effects"], 21
+        )
+        copied = json.loads(
+            (self.cycle / "artifacts" / "JOB4_RESULT.json").read_text()
+        )
+        self.assertEqual(
+            copied["effects"]["deployment_remote_or_push_effects"], 21
+        )
+        self.assertIn(
+            '"deployment_remote_or_push_effects":21',
+            (self.cycle / "artifacts" / "JOB4_REPORT.md").read_text(),
+        )
 
     def test_29_placeholder_or_bodyless_response_is_rejected(self) -> None:
         self.publish()
