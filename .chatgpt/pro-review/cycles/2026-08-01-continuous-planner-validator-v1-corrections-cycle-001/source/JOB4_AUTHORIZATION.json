@@ -1,0 +1,15 @@
+{
+  "schema_version": "cera.pro_review_job4_authorization.v1",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-001",
+  "task_id": "continuous-corrections-provider-free-integration-audit-v1",
+  "scope": "Run exactly the eighteen provider-free correction integration cases named in the creator-authorized checkpoint request: three-turn/two-scene fake flow; separate persistent fake Planner and Validator sessions; append-once accepted finals; current-source and exact-read bindings; invented, stale, and private-transfer rejection; D-177 False Positive and ordinary Accept semantics; derived Scene Summary authority and new-prompt exclusion; all promotion crash cut points; post-dispatch Planner, DeepSeek, and Validator accounting; complete pre-provider root diagnostics; embedded-secret redaction; and unchanged source/disposable SQLite hashes. Use only fake or recorded results and read-only database checks. Provider calls are exactly zero.",
+  "scope_sha256": "6419e76beac1921220fc3de37bd7445fb2ff94dddb8040f4f815d1cca4a1eb29",
+  "expected_result_relative_path": "source/JOB4_RESULT.json",
+  "authority_source_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-corrections-001\\REQUEST.md",
+  "authority_source_sha256": "9d0b7ab66ff43cb4b9101a280f6aa6b11a009c79f9e243c6f5f29bcb06842984",
+  "explicit_exclusions": [
+    "no provider call, retry, fallback, hidden repair, or provider substitution",
+    "no live story, production database, active route, service, installed SillyTavern, deployment, merge, remote, push, or Job 5 effect",
+    "no compact-v7 repair or activation and no rerun or rewrite of the prior failed Job 4"
+  ]
+}

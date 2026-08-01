@@ -1,0 +1,25 @@
+{
+  "schema_version": "cera.provider_free_job4_mechanical_diagnostic.v1",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-001",
+  "task_id": "continuous-corrections-provider-free-integration-audit-v1",
+  "attempt": 1,
+  "classification": "provider_free_mechanical_runner_blocker",
+  "provider_calls": 0,
+  "story_database_writes": 0,
+  "active_route_changes": 0,
+  "failures": [
+    {
+      "stage": "unittest_module_resolution",
+      "error_type": "ModuleNotFoundError",
+      "safe_summary": "Direct script execution did not place the repository root on sys.path, so named tests could not import the tests package."
+    },
+    {
+      "stage": "read_only_sqlite_cleanup",
+      "error_type": "PermissionError",
+      "safe_summary": "The sqlite context manager completed its transaction but retained the connection object until function exit, keeping the disposable Windows file open during temporary-directory cleanup."
+    }
+  ],
+  "correction_scope": "Cycle-local execution wrapper only: add the repository root to sys.path and explicitly close the read-only disposable SQLite connection.",
+  "checkpoint_or_cycle_identity_changed": false,
+  "substantive_case_contract_changed": false
+}
