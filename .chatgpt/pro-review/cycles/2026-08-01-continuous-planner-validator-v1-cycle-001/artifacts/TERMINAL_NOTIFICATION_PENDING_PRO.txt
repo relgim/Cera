@@ -1,0 +1,18 @@
+CERA terminal update
+
+checkpoint_id: 2026-08-01-continuous-planner-validator-v1-001
+cycle_id: 2026-08-01-continuous-planner-validator-v1-cycle-001
+terminal_status: job4_failed_pre_provider
+completed_progression_count: 3
+completed_tasks: continuous-planner-rich-sequence-v1; continuous-validator-final-sequence-edit-package-v1; continuous-world-scene-change-debug-v1
+git_sha: 36fddd2d9f22bf18ce22a4722a5129b48338dae0
+provider_calls: 0
+job4_result: D:\AIChatBot\Cera\.chatgpt\pro-review\cycles\2026-08-01-continuous-planner-validator-v1-cycle-001\artifacts\JOB4_RESULT.json
+job4_result_sha256: 20f035a85829f34cfea0d09760f9bed7d180f0224dc64227ff6422935efa4c24
+job4_report: D:\AIChatBot\Cera\.chatgpt\pro-review\cycles\2026-08-01-continuous-planner-validator-v1-cycle-001\artifacts\JOB4_REPORT.md
+job4_report_sha256: 688b3c668e0ba1f9918f30c0fa492917299dfca8c5ea4660d4a872d9f765f57f
+checkpoint_evidence_sha256: 8ea2205a1a9c7a6dfd8dc62faa6b61e414de89caa66e8202229853accb77ca3f
+pro_disposition: pending
+failure: pre_provider AttributeError; no call dispatched; no rerun
+effects: no story, database, route, deployment, service, installed SillyTavern, merge, remote, or push effect
+next_action: inspect the completed Job 4 evidence, write the exact identity-bound Pro response, then CERA will consume it and stop

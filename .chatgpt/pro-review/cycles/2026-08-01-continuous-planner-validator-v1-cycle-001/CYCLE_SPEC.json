@@ -1,0 +1,89 @@
+{
+  "schema_version": "cera.pro_review_cycle_spec.v2",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-cycle-001",
+  "cycle_sequence": 6,
+  "checkpoint": {
+    "id": "2026-08-01-continuous-planner-validator-v1-001",
+    "git_sha": "36fddd2d9f22bf18ce22a4722a5129b48338dae0",
+    "evidence_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-001\\CERA_CONTINUOUS_PLANNER_VALIDATOR_V1_EVIDENCE.zip",
+    "evidence_sha256": "8ea2205a1a9c7a6dfd8dc62faa6b61e414de89caa66e8202229853accb77ca3f"
+  },
+  "jobs_1_3": [
+    {
+      "task_id": "continuous-planner-rich-sequence-v1",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-001\\PROGRESSION_1_RESULT.md",
+      "result_sha256": "b83286b3f0a09871ccc79d4abd530d1c076641c5466a403660071fa218d71d1e"
+    },
+    {
+      "task_id": "continuous-validator-final-sequence-edit-package-v1",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-001\\PROGRESSION_2_RESULT.md",
+      "result_sha256": "f8523298748fcfe8e41f46f3fe9356cd22ac7f5009f7bc9e3991f732d65bf534"
+    },
+    {
+      "task_id": "continuous-world-scene-change-debug-v1",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-001\\PROGRESSION_3_RESULT.md",
+      "result_sha256": "1bb223aa973cd7b34ebbd2c15ac0e9dba7e9a00fe7445154308d206e824ce30b"
+    }
+  ],
+  "prior_cycle_id": "2026-07-31-compact-reasoner-v7-cycle-001",
+  "job4": {
+    "task_id": "continuous-planner-validator-three-turn-scene-change-canary-v1",
+    "scope": "Run the exact three-turn, two-scene disposable continuous Planner/DeepSeek/Validator canary in an isolated Git worktree at the frozen checkpoint, a disposable copy of the Hanezawa human-test SQLite database, a disposable continuous-world directory, and a test-only branch/session identity. Use exactly ten one-shot calls in this order: Turn 1 Sol-medium Planner, DeepSeek V4 Flash nonthinking Composer, Terra-high Validator; Turn 2 the same three stages; one Terra-high Validator Scene 1 Summary; Turn 3 the same three stages. Preserve separate continuous Planner and Validator threads, immediate append-once accepted-final synchronization, rich sequence validation, exact accepted-pair Scene Summary derivation, candidate-world isolation, Python-only validation and disposable promotion, complete ignored local debugging, source database hashes, active-route invariance, and before/after polling of the exact Pro response. No retry, fallback, hidden repair, provider substitution, extra verifier, Fast mode, extra call, live story or production acceptance, active route change, service or installed SillyTavern mutation, deployment, merge, remote, push, or Job 5. Any provider, semantic, contract, privacy, branch, world-edit, promotion, isolation, or Scene Summary failure is terminal and must stop before the next call.",
+    "authorization_record_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\2026-08-01-continuous-planner-validator-v1-cycle-001\\source\\JOB4_AUTHORIZATION.json",
+    "authorization_record_sha256": "755e848552d99335adc38c4ed442e652ca29a40e11d46672e11e6933d46b62df"
+  },
+  "review_context": {
+    "creator_goal": "Establish a shadow/test-only CERA route that uses one continuous branch-bound Codex Planner for character logic and rich causal sequences, one physically separate continuous Codex Validator for final realized sequences and semantic world edits, DeepSeek Flash for prose, Python for authority and atomic promotion, and explicit creator-controlled Scene Change summaries, without changing the active D-180 route.",
+    "starting_baseline_or_prior_checkpoint": "Clean creator-authorized baseline 142c4f9e7ed306d819cebd3c2fee52092e858d08, locally tagged cera-pre-continuous-planner-validator-v1-20260801; frozen Progressions 1-3 checkpoint 36fddd2d9f22bf18ce22a4722a5129b48338dae0.",
+    "selection_rationale": [
+      "The existing Planner scaffold allowed shallow action-only plans and did not exploit accepted branch-bound context as the primary current-scene reasoning substrate; a rich causal beat contract and immediate accepted-final history synchronization address that owning abstraction.",
+      "The existing verifier reported findings but did not own a complete final realized sequence or a closed revision-bound semantic edit package; a physically separate continuous Validator provides that advisory boundary while Python retains authority.",
+      "The continuous experiment needed stable world files, candidate isolation, atomic promotion, explicit creator Scene Change summaries, narrow world lookup, and full local diagnostics before any coherent live canary could be attempted."
+    ],
+    "diff_summary": "Checkpoint 36fddd2 adds a new shadow continuous package with rich Planner/final-sequence/edit/world/session contracts, provider DTOs and prompts, separate stored Planner and Validator custody, immediate zero-call accepted-final app-server history injection, read-only branch-scoped world MCP, candidate world promotion and rollback, explicit Scene Change, an inactive repository-only control source, a terminal ten-call Job 4 harness, tests, and governing documentation. It does not activate or modify the D-180 route.",
+    "focused_tests": "63/63 focused continuous/session/SillyTavern tests passed. Final result-declaration, evidence-ZIP, documentation, source-inventory, compilation, active-profile, and git-diff validation passed.",
+    "complete_suite": "685/685 provider-free repository tests passed in 472.551 seconds with one expected optional live test skipped.",
+    "active_profile_before": "cera.active_runtime.d180.v1 SHA-256 f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801; Reasoner v25 packet v14 prompt v25 MCP v7 native stored sessions; DeepSeek Flash v29 non-thinking; verifier v8 Sol-medium.",
+    "active_profile_after": "Unchanged: cera.active_runtime.d180.v1 SHA-256 f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801. D-186 remains shadow/test-only and inactive.",
+    "provider_calls_and_cost": "Progressions 1-3 made zero live provider calls and incurred no provider-call cost. The separately authorized Job 4 permits exactly ten one-shot calls: three Sol-medium Planner, three DeepSeek V4 Flash nonthinking Composer, four Terra-high Validator including one Scene Summary.",
+    "retry_and_fallback": "No retry, fallback, hidden repair, provider substitution, Fast mode, legacy verifier, or extra attempt was added or used. Any Job 4 live failure is terminal before the next call.",
+    "story_database_and_branch_effects": "No live story, accepted branch, Genesis, memory, production database, active route, service, installed SillyTavern, deployment, remote, or push effect occurred. Provider-free tests used temporary stores only. The checkpoint is a local commit on feature/continuous-planner-validator-v1 with no remote.",
+    "user_visible_effect": "None on the active route. A repository-owned Scene Change control source exists but is inactive and was not installed. The shadow route can only be exercised by the separately authorized disposable canary.",
+    "historical_evidence_integrity": "All prior cycle, compact-v7, provider, Genesis, Adult provenance, and qualification evidence remains byte-preserved. Compact v7 remains defective, inactive, and is not a dependency of D-186.",
+    "unresolved_defects": "No known provider-free contract or test failure remains. Live Sol/DeepSeek/Terra structured-output compatibility, immediate history injection behavior, rich-sequence quality, semantic edit quality, Scene Summary quality, tool behavior, and end-to-end latency remain unproven until the exact ten-call Job 4.",
+    "uncertainty_and_risks": "The app-server history-injection operation is installed and provider-free tested through a strict adapter but has not yet been exercised on a live stored turn. Provider conversations remain non-authoritative, yet synchronization failure after disposable world promotion must be treated as terminal. The broad 100-edit and 32-read ceilings are runaway ceilings, not quality targets. Structural tests cannot prove character or prose quality.",
+    "disagreement_with_prior_review": "None. The prior response correctly keeps compact v7 shadow-only and requests separate corrections; Ted explicitly directed this new D-186 experiment not to repair, activate, or depend on compact v7.",
+    "codex_advisory_next_candidates": [
+      "Run only the exact ten-call Job 4 and evaluate thread continuity, structured outputs, rich-sequence depth, DeepSeek realization, Validator final sequence/edit packages, Scene Summary, world isolation, usage, and latency.",
+      "If the current cycle is accepted or only has one in-scope provider-free correction, follow the separately creator-authorized governed 20-turn SillyTavern shadow qualification cycle; otherwise stop for the creator."
+    ],
+    "questions_for_chatgpt_pro": [
+      "Does the rich Planner sequence preserve enough causal and psychological ownership while leaving genuine prose realization space to DeepSeek, or does any field duplicate another owner without protecting quality?",
+      "Does the Validator package cleanly separate advisory final-sequence/world-edit semantics from Python authority, including new fields, revisions, exact accepted-pair derivation, and nonaccepting creator actions?",
+      "Are immediate accepted-final history injection, world MCP scoping, candidate promotion, Scene Change ordering, debug separation, and terminal failure evidence coherent across restart and branch boundaries?"
+    ],
+    "explicit_exclusions": [
+      "No D-186 production/default activation, D-180 change, compact-v7 repair or activation, live-story acceptance, installed SillyTavern mutation, deployment, service restart, merge, remote, push, or Job 5.",
+      "No retry, fallback, hidden repair, provider substitution, Fast mode, legacy verifier, or more than the exact ten scheduled Job 4 calls.",
+      "No creator authority is delegated to Pro; its response remains advisory, and implementation of requested corrections in this cycle is prohibited."
+    ]
+  },
+  "review_snapshot": {
+    "baseline_git_sha": "36fddd2d9f22bf18ce22a4722a5129b48338dae0",
+    "include_all_nonexcluded_changes": true,
+    "declared_exclusions": [
+      {
+        "path_prefix": "runtime/",
+        "reason_code": "generated_runtime_state"
+      },
+      {
+        "path_prefix": ".chatgpt/operations/",
+        "reason_code": "connector_metadata_outside_task"
+      },
+      {
+        "path_prefix": ".chatgpt/pro-review/cycles/2026-08-01-continuous-planner-validator-v1-cycle-001/",
+        "reason_code": "current_cycle_transport_state"
+      }
+    ]
+  }
+}
