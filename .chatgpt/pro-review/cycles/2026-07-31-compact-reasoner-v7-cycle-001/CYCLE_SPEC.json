@@ -1,0 +1,89 @@
+{
+  "schema_version": "cera.pro_review_cycle_spec.v2",
+  "cycle_id": "2026-07-31-compact-reasoner-v7-cycle-001",
+  "cycle_sequence": 5,
+  "checkpoint": {
+    "id": "2026-07-31-compact-reasoner-v7-001",
+    "git_sha": "00291ab14b741c4a0974c1500a8bdb56060c4243",
+    "evidence_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-07-31-compact-reasoner-v7-001\\CERA_COMPACT_REASONER_V7_EVIDENCE.zip",
+    "evidence_sha256": "d79f64c51de89e592c513c15ed97b04add7f0e091dc3eb79cd6aed77c7cdcc44"
+  },
+  "jobs_1_3": [
+    {
+      "task_id": "compact-reasoner-v7-cumulative-telemetry-v1",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-07-31-compact-reasoner-v7-001\\PROGRESSION_1_RESULT.md",
+      "result_sha256": "a5f83e07486625052df20c579702f17d1a4abe4d3e162fc43b1ac8b8e555afed"
+    },
+    {
+      "task_id": "compact-reasoner-v7-input-preparation-v1",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-07-31-compact-reasoner-v7-001\\PROGRESSION_2_RESULT.md",
+      "result_sha256": "50595f9a0f9720ea30fff10e91e033e387acbc29198d3d17fe49107bb5341cb6"
+    },
+    {
+      "task_id": "compact-reasoner-v7-contract-and-compiler-v1",
+      "result_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-07-31-compact-reasoner-v7-001\\PROGRESSION_3_RESULT.md",
+      "result_sha256": "59286be9740abb614aede27299f5b2aab5b26cf3abb1932f7a37d1178e3fdec3"
+    }
+  ],
+  "prior_cycle_id": "2026-07-31-checkpoint-001-cycle-006",
+  "job4": {
+    "task_id": "compact-reasoner-v7-four-variant-sol-medium-comparison-v1",
+    "scope": "Run exactly four no-retry gpt-5.6-sol medium Reasoner attempts against the frozen accepted generation-2 continuation on a disposable SQLite copy and isolated Git worktree: A broad packet plus v6 on stored accepted ancestry; B scoped compact packet plus v6 on the same accepted ancestry; C scoped compact packet plus v7 on the same accepted ancestry; D scoped compact packet plus v7 on deterministic reconstructed context. Poll the exact Pro response before and after each call; if it requests correction, preserve evidence and stop before the next call. Record privacy-safe telemetry and semantic validation only. Do not call DeepSeek or the independent verifier, write or accept story authority, retry, fall back, use Fast, alter active routes/services/SillyTavern, deploy, push, or begin Job 5.",
+    "authorization_record_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\cycles\\2026-07-31-compact-reasoner-v7-cycle-001\\source\\JOB4_AUTHORIZATION.json",
+    "authorization_record_sha256": "a349d221fd9eeef336d6679eb9264eff5a50b08f226669ca7e6530686648efa4"
+  },
+  "review_context": {
+    "creator_goal": "Materially reduce ordinary-turn latency by correcting cumulative Codex telemetry, scoping the exact current scene before dossier construction, and replacing repetitive provider-authored v6 bookkeeping with a compact v7 semantic draft, without weakening character, causality, evidence, privacy, protected-user, branch, creator-review, Python-authority, or DeepSeek realization boundaries.",
+    "starting_baseline_or_prior_checkpoint": "Clean authoritative baseline a25fd363819dd326014963f22fbc435543907106, locally tagged cera-pre-compact-reasoner-v7-20260801T021530Z; Progressions 1-3 checkpoint 00291ab14b741c4a0974c1500a8bdb56060c4243.",
+    "selection_rationale": [
+      "The prior report materially understated one Reasoner operation by retaining only the final SDK usage step; cumulative content-free timing and usage are prerequisites for any speed decision.",
+      "The exact current-only continuation unnecessarily prepared all seven NPCs and 18 exact records; authoritative accepted-head scope can remove irrelevant input without deleting world reachability or accepted continuity.",
+      "The measured 4,000-5,000-token v6 result repeats the same responder and beat semantics across several structures; a Python-compiled compact semantic contract directly targets the dominant output cost while preserving the old validator and Composer boundary."
+    ],
+    "diff_summary": "Checkpoint 00291ab adds privacy-safe cumulative Codex operation telemetry, scene-cast scope and compact evidence/capsule projections, a shadow-only compact v7 schema/prompt/compiler, exact fixture anatomy, tests, and governing documentation. It changes no active runtime identity, DeepSeek/Composer/verifier behavior, retry/fallback policy, service, SillyTavern, deployment, or live database.",
+    "focused_tests": "94/94 focused telemetry, compact-v7, creator-review, provider, Reasoner, and stored-session tests passed in 39.287 seconds; final documentation/profile/compact check 20/20 passed in 0.546 seconds; compileall and git diff --check passed.",
+    "complete_suite": "648/648 provider-free repository tests passed in 310.714 seconds with one optional live test skipped.",
+    "active_profile_before": "cera.active_runtime.d180.v1 SHA-256 f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801; Reasoner v25 packet v14 prompt v25 draft v6 MCP v7 native stored sessions.",
+    "active_profile_after": "Unchanged: cera.active_runtime.d180.v1 SHA-256 f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801; compact packet v15/prompt v26/draft v7 are explicit shadow-only selections.",
+    "provider_calls_and_cost": "Progressions 1-3 used zero provider calls and incurred no provider cost/quota use. Job 4 separately authorizes exactly four ChatGPT-session Sol-medium attempts.",
+    "retry_and_fallback": "No retry, fallback, hidden repair, provider substitution, speculative call, Detailer, or Fast mode was added or used.",
+    "story_database_and_branch_effects": "The exact source SQLite database was opened read-only and copied to disposable storage; SHA-256 remained bfbf23eb2fa7199fad38e8fb3f1ae0d6b547467f17ed68e84b7115275a2fc555. No story, branch, Genesis, memory, accepted artifact, or creator-review state changed. Git checkpoint is local on feature/pro-review-file-bridge-v1; no remote or push exists.",
+    "user_visible_effect": "None yet: the production/default v6 route remains active. Shadow anatomy reduces the exact broad-v6 prompt from 50,389 to 21,659 bytes and the ordinary schema from 20,090 to 11,032 bytes while deriving Hana/Mia from accepted state; Job 4 must determine actual latency and semantic quality.",
+    "historical_evidence_integrity": "Earlier checkpoint/cycle/provider evidence is byte-preserved. The coherent D-183/D-184 predecessor was committed separately before the pre-v7 tag; this tranche did not mix or rewrite it.",
+    "unresolved_defects": "No known provider-free contract or test defect. Actual Sol latency, token usage, evidence-tool behavior, schema reliability, and semantic equivalence remain unproven until the exact four-call Job 4; no production activation is authorized.",
+    "uncertainty_and_risks": "Byte-based token counts are estimates, not provider usage. A shorter schema can still change Sol judgment or trigger extra evidence calls. Stored history may contaminate a malformed pattern, while reconstructed context may lose useful accepted ancestry; the four variants are intentionally evidence, not a promotion vote.",
+    "disagreement_with_prior_review": "None. The latest Pro response accepted D-182; this is a new creator-authorized speed tranche and does not reinterpret that review.",
+    "codex_advisory_next_candidates": [
+      "Run only the exact four-call Job 4 and compare cumulative timing, usage, tool behavior, schema validity, responder/beat/stop/knowledge coverage, and branch/source isolation.",
+      "If evidence supports a later promotion candidate, request separate creator authority for a broader matched quality and latency qualification; do not activate v7 from this cycle."
+    ],
+    "questions_for_chatgpt_pro": [
+      "Does cumulative telemetry correctly separate operation-local unique usage steps from thread totals and preserve null/unsupported semantics without retaining provider content?",
+      "Does the compact scope/evidence/capsule design preserve current accepted continuity, world reachability, knowledge/privacy ownership, and branch/regeneration isolation for indirect and multi-character cases?",
+      "Can the v7-to-v6 compiler introduce, omit, or distort any material creative or authority semantic that should remain model-owned before the four-call comparison?"
+    ],
+    "explicit_exclusions": [
+      "No compact-v7 production/default activation, active-profile identity change, deployment, service restart, SillyTavern alteration, live database mutation, merge, remote operation, or push.",
+      "No DeepSeek, Composer, independent-verifier, Detailer, fallback, retry, hidden repair, speculative provider, Fast, or Sol-low call in Progressions 1-3 or Job 4.",
+      "No creator authority is delegated to Pro; its response is advisory and any work beyond the exact four-call Job 4 requires Ted's separate decision."
+    ]
+  },
+  "review_snapshot": {
+    "baseline_git_sha": "00291ab14b741c4a0974c1500a8bdb56060c4243",
+    "include_all_nonexcluded_changes": true,
+    "declared_exclusions": [
+      {
+        "path_prefix": "runtime/",
+        "reason_code": "generated_runtime_state"
+      },
+      {
+        "path_prefix": ".chatgpt/operations/",
+        "reason_code": "connector_metadata_outside_task"
+      },
+      {
+        "path_prefix": ".chatgpt/pro-review/cycles/2026-07-31-compact-reasoner-v7-cycle-001/",
+        "reason_code": "current_cycle_transport_state"
+      }
+    ]
+  }
+}

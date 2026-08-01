@@ -1,0 +1,41 @@
+{
+  "cycle_id": "2026-07-31-compact-reasoner-v7-cycle-001",
+  "effects": {
+    "active_route_changes": 0,
+    "deployment_remote_or_push_effects": 0,
+    "provider_calls": 4,
+    "story_database_writes": 0
+  },
+  "report_relative_path": "source/JOB4_REPORT.md",
+  "report_sha256": "b11c4844f887fb76fda47ce34eb97932df675b5eced9719c2b2cefa8c86798bb",
+  "schema_version": "cera.pro_review_job4_result.v1",
+  "status": "completed",
+  "task_id": "compact-reasoner-v7-four-variant-sol-medium-comparison-v1",
+  "verification": [
+    {
+      "command": "Sol-medium variant A",
+      "status": "passed",
+      "summary": "one no-retry Reasoner attempt completed Python validation"
+    },
+    {
+      "command": "Sol-medium variant B",
+      "status": "passed",
+      "summary": "one no-retry Reasoner attempt completed Python validation"
+    },
+    {
+      "command": "Sol-medium variant C",
+      "status": "failed",
+      "summary": "attempt did not produce a Python-validated Reasoner result"
+    },
+    {
+      "command": "Sol-medium variant D",
+      "status": "failed",
+      "summary": "attempt did not produce a Python-validated Reasoner result"
+    },
+    {
+      "command": "source and disposable database isolation checks",
+      "status": "passed",
+      "summary": "source hash, disposable integrity, and foreign keys checked without publication"
+    }
+  ]
+}

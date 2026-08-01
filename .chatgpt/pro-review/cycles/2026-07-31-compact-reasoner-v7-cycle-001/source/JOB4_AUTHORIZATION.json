@@ -1,0 +1,15 @@
+{
+  "schema_version": "cera.pro_review_job4_authorization.v1",
+  "cycle_id": "2026-07-31-compact-reasoner-v7-cycle-001",
+  "task_id": "compact-reasoner-v7-four-variant-sol-medium-comparison-v1",
+  "scope": "Run exactly four no-retry gpt-5.6-sol medium Reasoner attempts against the frozen accepted generation-2 continuation on a disposable SQLite copy and isolated Git worktree: A broad packet plus v6 on stored accepted ancestry; B scoped compact packet plus v6 on the same accepted ancestry; C scoped compact packet plus v7 on the same accepted ancestry; D scoped compact packet plus v7 on deterministic reconstructed context. Poll the exact Pro response before and after each call; if it requests correction, preserve evidence and stop before the next call. Record privacy-safe telemetry and semantic validation only. Do not call DeepSeek or the independent verifier, write or accept story authority, retry, fall back, use Fast, alter active routes/services/SillyTavern, deploy, push, or begin Job 5.",
+  "scope_sha256": "44eab7ddbdc8303789a70da1455482364a0ceded656cd0cb3d5b2a1b7e705ec9",
+  "expected_result_relative_path": "source/JOB4_RESULT.json",
+  "authority_source_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-07-31-compact-reasoner-v7-001\\REQUEST.md",
+  "authority_source_sha256": "ee6b96e8b4caeafca37d666a43ec0b57aab7a79136e38ded11e84973b39ed6e8",
+  "explicit_exclusions": [
+    "no DeepSeek or independent-verifier call",
+    "no retry, fallback, hidden repair, Fast mode, or extra provider attempt",
+    "no story authority, live database, route, service, SillyTavern, deployment, remote, push, or Job 5 effect"
+  ]
+}

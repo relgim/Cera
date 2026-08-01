@@ -1,0 +1,56 @@
+{
+  "schema_version": "cera.pro_review_job4_result.v1",
+  "cycle_id": "2026-07-31-checkpoint-001-cycle-006",
+  "task_id": "repository-cycle-recovery-coherence-verification-v4",
+  "status": "completed",
+  "report_relative_path": "source/JOB4_REPORT.md",
+  "report_sha256": "a0c65b8ddec0a2d6c0801bf93a363bdc1782dcca9317fd3aadeb32f5e1cf9c8f",
+  "effects": {
+    "provider_calls": 0,
+    "story_database_writes": 0,
+    "active_route_changes": 0,
+    "deployment_remote_or_push_effects": 0
+  },
+  "verification": [
+    {
+      "command": "python tools/pro_review_cycle.py recover --cycle-directory <cycle-006>",
+      "status": "passed",
+      "summary": "Recovered job4_in_progress from the actual immutable TRIGGER_SENT.json predecessor."
+    },
+    {
+      "command": "python -m compileall -q src tests scripts tools",
+      "status": "passed",
+      "summary": "Passed under the repository .venv interpreter selected on PATH."
+    },
+    {
+      "command": "python -m unittest tests.test_pro_review_bridge -q",
+      "status": "passed",
+      "summary": "55/55 passed in 30.453 seconds; one separate host-policy symlink test skipped."
+    },
+    {
+      "command": "python -m unittest discover -s tests -q",
+      "status": "passed",
+      "summary": "630/630 passed in 424.965 seconds under the repository .venv; one environment-dependent skip."
+    },
+    {
+      "command": "PowerShell parser for tools/pro_review_bridge.ps1",
+      "status": "passed",
+      "summary": "The parser invocation completed with zero parser errors."
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed",
+      "summary": "No whitespace errors."
+    },
+    {
+      "command": "validate_publication final frozen-source audit",
+      "status": "passed",
+      "summary": "Exact outbox, status-aware source archive, current bytes, typed receipts, and trigger order revalidated."
+    },
+    {
+      "command": "git diff --name-only -- src/cera",
+      "status": "passed",
+      "summary": "No forbidden runtime implementation paths changed."
+    }
+  ]
+}
