@@ -944,6 +944,19 @@ is not live execution authority; no provider call, route activation, story
 mutation, installed-client/service change, deployment, merge, remote, or push
 is authorized.
 
+D-196 is correction cycle 009 under the creator's new provider-free authority.
+Its progressions are `continuous-job4-result-schema-alignment-v9`,
+`continuous-live-scripted-result-differential-tests-v9`, and
+`continuous-live-canary-republication-readiness-v9`. It projects every
+live-shaped and scripted terminal detail into the exact strict Job 4 result,
+keeps authorization in manifest/receipt custody and scripted counts in
+diagnostic detail, tests completed and failed forms through both the canonical
+decoder and real `complete-job4`, and provider-free qualifies a later new live
+identity. Live-canary-001 and checkpoint
+`918b006f25ab638a7328287832796976158cdd3b` remain unchanged. No provider call,
+live-canary-002, route activation, story mutation, installed-client/service
+change, deployment, merge, remote, or push is authorized.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

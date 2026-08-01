@@ -15,6 +15,7 @@ from cera.continuous.prompting import PLANNER_STABLE_INSTRUCTIONS
 from scripts.run_continuous_planner_validator_job4 import (
     BRANCH_ID,
     JobHarness,
+    build_canonical_job4_result,
     validate_job4_identity,
     StablePrefixTransport,
     WORLD_ID,
@@ -240,7 +241,12 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertTrue(detail["copy_database_unchanged"])
             self.assertTrue(detail["active_route_unchanged"])
             self.assertEqual(result["effects"]["provider_calls"], 0)
-            self.assertEqual(result["effects"]["scripted_transport_invocations"], 10)
+            self.assertNotIn("authorization_sha256", result)
+            self.assertNotIn("scripted_transport_invocations", result["effects"])
+            self.assertIn(
+                "scripted_transport_invocations=10",
+                result["verification"][0]["summary"],
+            )
 
     def test_actual_cli_completes_closed_provider_free_scripted_v8_mode(self) -> None:
         with TemporaryDirectory() as directory:
@@ -336,7 +342,75 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertTrue(detail["copy_database_unchanged"])
             self.assertTrue(detail["active_route_unchanged"])
             self.assertEqual(result["effects"]["provider_calls"], 0)
-            self.assertEqual(result["effects"]["scripted_transport_invocations"], 10)
+            self.assertNotIn("authorization_sha256", result)
+            self.assertNotIn("scripted_transport_invocations", result["effects"])
+            self.assertIn(
+                "scripted_transport_invocations=10",
+                result["verification"][0]["summary"],
+            )
+
+    def test_live_and_scripted_terminal_results_match_strict_cycle_schema(self) -> None:
+        from tools.pro_review_cycle_core import validate_job4_result_contract
+
+        manifest = {
+            "cycle_id": "cycle:canary-result-differential",
+            "job4": {"task_id": "task:canary-result-differential"},
+        }
+        for mode, status, provider_calls, scripted_calls in (
+            ("live_one_shot", "completed", 10, 0),
+            ("live_one_shot", "failed", 1, 0),
+            ("provider_free_scripted_v8", "completed", 0, 10),
+            ("provider_free_scripted_v8", "failed", 0, 3),
+        ):
+            with self.subTest(mode=mode, status=status):
+                value = build_canonical_job4_result(
+                    {
+                        "cycle_id": manifest["cycle_id"],
+                        "status": status,
+                        "execution_mode": mode,
+                        "provider_calls": provider_calls,
+                        "scripted_transport_invocations": scripted_calls,
+                        "source_database_unchanged": True,
+                        "copy_database_unchanged": True,
+                    },
+                    task_id=manifest["job4"]["task_id"],
+                    report_sha256="a" * 64,
+                )
+                self.assertEqual(validate_job4_result_contract(value, manifest), value)
+                self.assertNotIn("authorization_sha256", value)
+                self.assertNotIn("scripted_transport_invocations", value["effects"])
+
+    def test_strict_cycle_schema_rejects_legacy_canary_result_fields(self) -> None:
+        from tools.pro_review_cycle_core import CycleError, validate_job4_result_contract
+
+        manifest = {
+            "cycle_id": "cycle:canary-result-legacy",
+            "job4": {"task_id": "task:canary-result-legacy"},
+        }
+        value = build_canonical_job4_result(
+            {
+                "cycle_id": manifest["cycle_id"],
+                "status": "completed",
+                "execution_mode": "provider_free_scripted_v8",
+                "provider_calls": 0,
+                "scripted_transport_invocations": 10,
+                "source_database_unchanged": True,
+                "copy_database_unchanged": True,
+            },
+            task_id=manifest["job4"]["task_id"],
+            report_sha256="b" * 64,
+        )
+        with self.assertRaisesRegex(CycleError, "authorization_sha256"):
+            validate_job4_result_contract(
+                {**value, "authorization_sha256": "c" * 64}, manifest
+            )
+        invalid_effects = dict(value)
+        invalid_effects["effects"] = {
+            **value["effects"],
+            "scripted_transport_invocations": 10,
+        }
+        with self.assertRaisesRegex(CycleError, "scripted_transport_invocations"):
+            validate_job4_result_contract(invalid_effects, manifest)
 
     def test_declared_unittest_ids_must_resolve_before_publication(self) -> None:
         valid = (

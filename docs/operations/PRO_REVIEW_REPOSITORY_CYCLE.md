@@ -212,3 +212,14 @@ Job 4 completion uses `cera.pro_review_job4_result.v1`. Provider/story/database,
 route, and deployment/remote effects are preserved as structured declarations
 from that stable result and labeled with their source; the transport never
 manufactures zero-effect facts.
+
+Every Job 4 producer, including a provider-free scripted harness, must first
+project its terminal detail into the exact canonical result shape and pass the
+same strict decoder used by `complete-job4`. The canonical result does not
+duplicate `authorization_sha256`; authorization is already bound by the
+manifest, task set, and receipt chain. Scripted transport invocation counts are
+diagnostic execution detail, so they remain in the detailed result, report, or
+privacy-safe verification summary rather than the canonical `effects` object.
+Unknown fields fail before publication. Completed and failed live-shaped and
+scripted results are tested through both the decoder and the real
+`complete-job4` transition.

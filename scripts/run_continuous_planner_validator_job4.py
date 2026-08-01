@@ -939,6 +939,7 @@ def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
         f"**Task:** `{task_id or result.get('task_id', 'unspecified')}`  ",
         f"**Status:** `{result['status']}`  ",
         f"**Provider calls observed:** {result['provider_calls']} / 10  ",
+        f"**Scripted transport invocations:** {result.get('scripted_transport_invocations', 0)}  ",
         "**Retry/fallback:** 0 / 0",
         "",
         "## Route and isolation",
@@ -982,6 +983,64 @@ def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
         )
     )
     return "\n".join(lines)
+
+
+def build_canonical_job4_result(
+    result: dict[str, Any],
+    *,
+    task_id: str,
+    report_sha256: str,
+) -> dict[str, Any]:
+    """Project detailed canary evidence into the closed repository-cycle DTO."""
+
+    status = result.get("status")
+    if status not in {"completed", "failed"}:
+        raise ValueError("terminal Job 4 status is required")
+    provider_calls = result.get("provider_calls")
+    scripted_invocations = result.get("scripted_transport_invocations", 0)
+    if (
+        not isinstance(provider_calls, int)
+        or isinstance(provider_calls, bool)
+        or provider_calls < 0
+        or not isinstance(scripted_invocations, int)
+        or isinstance(scripted_invocations, bool)
+        or scripted_invocations < 0
+    ):
+        raise ValueError("Job 4 call accounting must use non-negative integers")
+    source_unchanged = bool(result.get("source_database_unchanged"))
+    copy_unchanged = bool(result.get("copy_database_unchanged"))
+    mode = str(result.get("execution_mode", "unknown"))
+    summary = (
+        f"mode={mode}; external_provider_calls={provider_calls}; "
+        f"scripted_transport_invocations={scripted_invocations}; "
+        f"terminal_status={status}"
+    )
+    return {
+        "schema_version": "cera.pro_review_job4_result.v1",
+        "cycle_id": result["cycle_id"],
+        "task_id": task_id,
+        "status": status,
+        "report_relative_path": "source/JOB4_REPORT.md",
+        "report_sha256": report_sha256,
+        "effects": {
+            "provider_calls": provider_calls,
+            "story_database_writes": 0,
+            "active_route_changes": 0,
+            "deployment_remote_or_push_effects": 0,
+        },
+        "verification": [
+            {
+                "command": "continuous-planner-validator-three-turn-scene-change-canary-v1",
+                "status": "passed" if status == "completed" else "failed",
+                "summary": summary,
+            },
+            {
+                "command": "source-and-copy-sqlite-hash-check",
+                "status": "passed" if source_unchanged and copy_unchanged else "failed",
+                "summary": "Source and disposable-copy hashes were compared before and after",
+            },
+        ],
+    }
 
 
 def execute_job4_schedule(
@@ -1587,44 +1646,11 @@ def main() -> int:
         report = build_report(result, task_id=args.expected_task_id)
         report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report, encoding="utf-8", newline="\n")
-        job4_result = {
-            "schema_version": "cera.pro_review_job4_result.v1",
-            "cycle_id": args.expected_cycle_id,
-            "task_id": args.expected_task_id,
-            "authorization_sha256": args.expected_authorization_sha256,
-            "status": result["status"],
-            "report_relative_path": "source/JOB4_REPORT.md",
-            "report_sha256": text_sha256(report),
-            "effects": {
-                "provider_calls": int(result["provider_calls"]),
-                "scripted_transport_invocations": int(
-                    result["scripted_transport_invocations"]
-                ),
-                "story_database_writes": 0,
-                "active_route_changes": 0,
-                "deployment_remote_or_push_effects": 0,
-            },
-            "verification": [
-                {
-                    "command": "continuous-planner-validator-three-turn-scene-change-canary-v1",
-                    "status": "passed" if result["status"] == "completed" else "failed",
-                    "summary": (
-                        "Exact ten-call disposable canary completed"
-                        if result["status"] == "completed"
-                        else "Terminal one-shot canary stopped at the recorded owning stage"
-                    ),
-                },
-                {
-                    "command": "source-and-copy-sqlite-hash-check",
-                    "status": (
-                        "passed"
-                        if result["source_database_unchanged"] and result["copy_database_unchanged"]
-                        else "failed"
-                    ),
-                    "summary": "Source and disposable-copy hashes were compared before and after",
-                },
-            ],
-        }
+        job4_result = build_canonical_job4_result(
+            result,
+            task_id=args.expected_task_id,
+            report_sha256=text_sha256(report),
+        )
         write_json(result_path, job4_result)
     return 0 if result["status"] == "completed" else 1
 

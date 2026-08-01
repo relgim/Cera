@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import shutil
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -23,6 +24,10 @@ BRIDGE_SHA = "0982dabb6e548177d058b81679b8cbf1d6dd7192"
 sys.path.insert(0, str(PROJECT_ROOT / "tools"))
 import pro_review_cycle as review_cycle  # noqa: E402
 import pro_review_cycle_core as review_cycle_core  # noqa: E402
+from cera.continuous.scripted_job4 import SCRIPTED_JOB4_FIXTURE_SHA256  # noqa: E402
+from scripts.run_continuous_planner_validator_job4 import (  # noqa: E402
+    build_canonical_job4_result,
+)
 
 
 @unittest.skipUnless(POWERSHELL, "Windows PowerShell is required")
@@ -560,6 +565,40 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             repository_root_path=self.root,
         )
 
+    def write_canary_job4_result(
+        self,
+        *,
+        status: str,
+        execution_mode: str,
+        provider_calls: int,
+        scripted_transport_invocations: int,
+    ) -> dict[str, object]:
+        report = self.source / "JOB4_REPORT.md"
+        report.write_text(
+            "# Canary Job 4 report\n\n"
+            f"Status: {status}\n\n"
+            f"Mode: {execution_mode}\n\n"
+            f"Scripted transports: {scripted_transport_invocations}\n",
+            encoding="utf-8",
+        )
+        value = build_canonical_job4_result(
+            {
+                "cycle_id": self.cycle_id,
+                "status": status,
+                "execution_mode": execution_mode,
+                "provider_calls": provider_calls,
+                "scripted_transport_invocations": scripted_transport_invocations,
+                "source_database_unchanged": True,
+                "copy_database_unchanged": True,
+            },
+            task_id=self.job4_task_id,
+            report_sha256=self._hash(report),
+        )
+        (self.source / "JOB4_RESULT.json").write_text(
+            json.dumps(value, indent=2) + "\n", encoding="utf-8"
+        )
+        return value
+
     def response_bytes(self, **overrides: str) -> bytes:
         manifest = json.loads(
             (self.cycle / "CYCLE_MANIFEST.json").read_text(encoding="utf-8")
@@ -740,6 +779,160 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         self.assertEqual(
             receipt["effect_claim_source"], "structured_job4_result_declaration"
         )
+
+    def test_28a_completed_live_shaped_canary_result_completes_job4(self) -> None:
+        self.publish()
+        self.record_trigger()
+        self.write_canary_job4_result(
+            status="completed",
+            execution_mode="live_one_shot",
+            provider_calls=10,
+            scripted_transport_invocations=0,
+        )
+        state = review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        self.assertEqual(state["state"], review_cycle.STATE_RESPONSE_PENDING)
+
+    def test_28b_failed_live_shaped_canary_result_completes_job4(self) -> None:
+        self.publish()
+        self.record_trigger()
+        self.write_canary_job4_result(
+            status="failed",
+            execution_mode="live_one_shot",
+            provider_calls=1,
+            scripted_transport_invocations=0,
+        )
+        state = review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        self.assertEqual(state["state"], review_cycle.STATE_RESPONSE_PENDING)
+
+    def test_28c_failed_scripted_canary_result_completes_job4(self) -> None:
+        self.publish()
+        self.record_trigger()
+        self.write_canary_job4_result(
+            status="failed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=3,
+        )
+        state = review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        self.assertEqual(state["state"], review_cycle.STATE_RESPONSE_PENDING)
+
+    def test_28d_actual_scripted_v8_canary_completes_job4_transport(self) -> None:
+        self.publish()
+        self.record_trigger()
+        runtime = self.root / "runtime" / "canary-republication"
+        source_database = self.root / "runtime" / "source.sqlite3"
+        source_database.parent.mkdir()
+        connection = sqlite3.connect(source_database)
+        try:
+            connection.execute("CREATE TABLE qualification(value TEXT)")
+            connection.execute("INSERT INTO qualification VALUES ('unchanged')")
+            connection.commit()
+        finally:
+            connection.close()
+        manifest = json.loads(
+            (self.cycle / "CYCLE_MANIFEST.json").read_text(encoding="utf-8")
+        )
+        project_head = subprocess.run(
+            ["git", "-C", str(PROJECT_ROOT), "rev-parse", "HEAD"],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        completed = subprocess.run(
+            (
+                sys.executable,
+                str(PROJECT_ROOT / "scripts" / "run_continuous_planner_validator_job4.py"),
+                "--confirm-provider-free-scripted-v8",
+                "--expected-scripted-fixture-sha256",
+                SCRIPTED_JOB4_FIXTURE_SHA256,
+                "--cycle-directory",
+                str(self.cycle),
+                "--source-database",
+                str(source_database),
+                "--runtime-root",
+                str(runtime),
+                "--expected-checkpoint-sha",
+                project_head,
+                "--expected-cycle-id",
+                self.cycle_id,
+                "--expected-task-id",
+                self.job4_task_id,
+                "--expected-authorization-sha256",
+                manifest["job4"]["authorization_record_sha256"],
+                "--maximum-provider-calls",
+                "10",
+            ),
+            cwd=PROJECT_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=120,
+            check=False,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+        state = review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        self.assertEqual(state["state"], review_cycle.STATE_RESPONSE_PENDING)
+        receipt = json.loads(
+            (self.cycle / "receipts" / "JOB4_COMPLETED.json").read_text()
+        )
+        self.assertEqual(receipt["effects"]["provider_calls"], 0)
+        self.assertNotIn("scripted_transport_invocations", receipt["effects"])
+        self.assertIn(
+            "Scripted transport invocations:** 10",
+            (self.cycle / "artifacts" / "JOB4_REPORT.md").read_text(),
+        )
+
+    def test_28e_complete_job4_rejects_legacy_canary_fields(self) -> None:
+        self.publish()
+        self.record_trigger()
+        value = self.write_canary_job4_result(
+            status="completed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=10,
+        )
+        result_path = self.source / "JOB4_RESULT.json"
+        result_path.write_text(
+            json.dumps({**value, "authorization_sha256": "a" * 64}),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(review_cycle.CycleError, "authorization_sha256"):
+            review_cycle.complete_job4(
+                self.cycle,
+                stability_delay_milliseconds=0,
+                repository_root_path=self.root,
+            )
+        self.assertFalse((self.cycle / "receipts" / "JOB4_COMPLETED.json").exists())
+        invalid_effects = dict(value)
+        invalid_effects["effects"] = {
+            **value["effects"],
+            "scripted_transport_invocations": 10,
+        }
+        result_path.write_text(json.dumps(invalid_effects), encoding="utf-8")
+        with self.assertRaisesRegex(
+            review_cycle.CycleError, "scripted_transport_invocations"
+        ):
+            review_cycle.complete_job4(
+                self.cycle,
+                stability_delay_milliseconds=0,
+                repository_root_path=self.root,
+            )
+        self.assertFalse((self.cycle / "receipts" / "JOB4_COMPLETED.json").exists())
 
     def test_29_placeholder_or_bodyless_response_is_rejected(self) -> None:
         self.publish()
