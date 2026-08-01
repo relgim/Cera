@@ -257,11 +257,18 @@ class CodexStoredThreadSessionTests(unittest.TestCase):
         )
         self.assertFalse(codex.fork_calls[0][1]["ephemeral"])
         self.assertTrue(backend.resume_stored_thread("native-child"))
+        backend.append_model_visible_context("native-child", "[TURN ACCEPTED]\nturn:001")
         backend.archive_stored_leaf("native-child")
         self.assertEqual(codex.archive_calls, ["native-child"])
         self.assertEqual(
             [value[0] for value in codex._client.calls],
-            ["thread/name/set", "thread/name/set"],
+            ["thread/name/set", "thread/name/set", "thread/inject_items"],
+        )
+        injected = codex._client.calls[-1][1]
+        self.assertEqual(injected["threadId"], "native-child")
+        self.assertEqual(
+            injected["items"][0]["content"][0]["text"],
+            "[TURN ACCEPTED]\nturn:001",
         )
 
     def test_openai_backend_rejects_unqualified_sdk_version(self) -> None:

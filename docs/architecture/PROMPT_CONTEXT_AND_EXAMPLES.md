@@ -217,6 +217,26 @@ When a packet exceeds budget, retain in this order:
 
 Dropping required authority is a route error, not a license to guess.
 
+## 7A. D-186 continuous prompt split
+
+The shadow continuous Planner keeps stable instructions in its stored thread.
+Each accepted-final envelope is appended once to model-visible history by a
+non-generating thread operation immediately after acceptance. Ordinary turns
+therefore receive canonical current-packet JSON, optional incomplete
+character-summary envelopes, and explicit scene-change context without
+resending accepted history.
+Each component records exact bytes and a byte-derived token estimate. The
+summary envelope always includes its stable source path/record ID, revision,
+latest accepted changes, and `more_information_available: true`.
+
+The Planner authors causal and psychological structure, never final prose.
+DeepSeek receives canonical JSON for the complete rich sequence plus only the
+selected incomplete character summaries; Python `repr` output is forbidden.
+The Validator receives the current user source, complete Planner sequence,
+complete DeepSeek realization, accepted-turn identity, and a bounded ACTIVE
+file revision/hash manifest. It receives no Planner hidden reasoning or full
+conversation export.
+
 ## 8. Inactive modular Composer compiler seam
 
 D-159 adds a provider-neutral compiler seam without changing the active

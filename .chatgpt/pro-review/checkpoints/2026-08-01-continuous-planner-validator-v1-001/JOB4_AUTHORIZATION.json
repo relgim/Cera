@@ -1,0 +1,15 @@
+{
+  "schema_version": "cera.pro_review_job4_authorization.v1",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-cycle-001",
+  "task_id": "continuous-planner-validator-three-turn-scene-change-canary-v1",
+  "scope": "Run the exact three-turn, two-scene disposable continuous Planner/DeepSeek/Validator canary in an isolated Git worktree at the frozen checkpoint, a disposable copy of the Hanezawa human-test SQLite database, a disposable continuous-world directory, and a test-only branch/session identity. Use exactly ten one-shot calls in this order: Turn 1 Sol-medium Planner, DeepSeek V4 Flash nonthinking Composer, Terra-high Validator; Turn 2 the same three stages; one Terra-high Validator Scene 1 Summary; Turn 3 the same three stages. Preserve separate continuous Planner and Validator threads, immediate append-once accepted-final synchronization, rich sequence validation, exact accepted-pair Scene Summary derivation, candidate-world isolation, Python-only validation and disposable promotion, complete ignored local debugging, source database hashes, active-route invariance, and before/after polling of the exact Pro response. No retry, fallback, hidden repair, provider substitution, extra verifier, Fast mode, extra call, live story or production acceptance, active route change, service or installed SillyTavern mutation, deployment, merge, remote, push, or Job 5. Any provider, semantic, contract, privacy, branch, world-edit, promotion, isolation, or Scene Summary failure is terminal and must stop before the next call.",
+  "scope_sha256": "7c5aa4403da6f5a1d497ebd8d58c4ad5589481dd8830656a522274b905b94263",
+  "expected_result_relative_path": "source/JOB4_RESULT.json",
+  "authority_source_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-001\\REQUEST.md",
+  "authority_source_sha256": "cf4333388a750d91912b2b3d0a2da641f978b218088dd8a07664310d1a456c66",
+  "explicit_exclusions": [
+    "no more or fewer than the fixed ten scheduled provider calls on success and no call after a terminal failure",
+    "no retry, fallback, hidden repair, provider substitution, Fast mode, or legacy verifier",
+    "no live story, production database, active route, service, installed SillyTavern, deployment, merge, remote, push, or Job 5 effect"
+  ]
+}

@@ -158,6 +158,24 @@ from .creator_review import (
     CreatorReviewRecord,
     PreparedPublicationPackage,
 )
+from .continuous import (
+    AcceptedFinalSequenceEnvelopeV1,
+    CharacterSummaryEnvelopeV1,
+    FinalSequenceV1,
+    RichPlannerSequenceV1,
+    SceneSummaryV1,
+    ValidatorFinalizationPackageV1,
+)
+from .continuous.sessions import (
+    ContinuousSessionCompatibilityV1,
+    ContinuousSessionHandleV1,
+    ContinuousSessionSnapshotV1,
+)
+from .continuous.world import WorldPromotionReceiptV1
+from .continuous.provider import (
+    ContinuousDeepSeekDraftV1,
+    ContinuousValidatorDraftV1,
+)
 
 
 def build_schema_registry() -> SchemaRegistry:
@@ -288,6 +306,18 @@ def build_schema_registry() -> SchemaRegistry:
         CreatorCorrectionDiagnostic,
         PreparedPublicationPackage,
         CreatorReviewRecord,
+        RichPlannerSequenceV1,
+        CharacterSummaryEnvelopeV1,
+        AcceptedFinalSequenceEnvelopeV1,
+        FinalSequenceV1,
+        SceneSummaryV1,
+        ValidatorFinalizationPackageV1,
+        ContinuousSessionCompatibilityV1,
+        ContinuousSessionHandleV1,
+        ContinuousSessionSnapshotV1,
+        WorldPromotionReceiptV1,
+        ContinuousValidatorDraftV1,
+        ContinuousDeepSeekDraftV1,
     ):
         registry.register(model)
     return registry

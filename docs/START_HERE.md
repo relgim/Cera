@@ -2,13 +2,13 @@
 
 **Status:** controlling index
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-180 stabilization checkpoint; canonical active runtime profile installed
+**Phase:** D-186 continuous Planner/Validator V1 shadow checkpoint; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free checkpoint verification:** 575/575 tests passed; zero live provider calls
+**Provider-free checkpoint verification:** 685/685 tests passed in 472.551 seconds with one expected skip; zero live provider calls in Progressions 1-3
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page
@@ -37,6 +37,12 @@ The final story artifact is the creator-accepted, presentation-neutral prose
 after protected-user, cast, event-coverage, authority, and review validation but
 before SillyTavern HTML/display rendering. A displayed provisional candidate is
 not canon.
+
+D-186 adds a separate shadow-only experiment: one branch-bound continuous
+Planner thread, one independent branch-bound continuous Validator thread,
+DeepSeek realization, candidate world directories, creator-gated atomic file
+promotion, and explicit Scene Change summaries. It does not replace or modify
+the active D-180 route.
 
 ## 2. Mandatory reading order
 
@@ -85,6 +91,7 @@ not canon.
 | `BLOCKED_TURN_AND_RESUMPTION.md` | Blocker, external receipt, reconciliation, aftermath |
 | `SCHEMA_CATALOG.md` | Concrete documentation-level schemas |
 | `STATE_MACHINES_AND_ERRORS.md` | Turn, generation, branch, receipt, and transaction states |
+| `CONTINUOUS_PLANNER_VALIDATOR_V1_RESULT.md` | D-186 shadow Planner/Validator/world-directory contracts and provider-free evidence |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |
 | `ROADMAP_AND_GATE.md` | Ordered implementation plan and authorization gates |
 | `CREATOR_REVIEW_PRESENTATION_V1_RESULT.md` | Active severity colors, Adjustment label, False Positive acceptance, and CERA-owned character-color presentation |

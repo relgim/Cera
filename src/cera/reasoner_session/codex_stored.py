@@ -80,6 +80,8 @@ class StoredThreadBackend(Protocol):
 
     def resume_stored_thread(self, thread_id: str) -> bool: ...
 
+    def append_model_visible_context(self, thread_id: str, text: str) -> None: ...
+
     def archive_stored_thread(self, thread_id: str) -> None: ...
 
     def archive_stored_leaf(self, thread_id: str) -> None: ...
@@ -189,6 +191,40 @@ class OpenAICodexStoredThreadBackend:
             ):
                 return False
             raise
+
+    def append_model_visible_context(self, thread_id: str, text: str) -> None:
+        """Append one non-generating user item to stored model-visible history.
+
+        ``thread/inject_items`` changes only local thread custody.  It does not
+        start a model turn and therefore does not consume a provider call.  The
+        continuous shadow route uses it for accepted-final synchronization;
+        core story authority remains in Python's hash-bound ledger.
+        """
+
+        if not isinstance(text, str) or not text.strip():
+            raise ContractValidationError("stored Codex injected context is empty")
+        client = getattr(self.codex, "_client", None)
+        request = getattr(client, "request", None)
+        if not callable(request):
+            raise StateConflictError(
+                "installed Codex SDK cannot inject stored-thread context"
+            )
+        from openai_codex.generated.v2_all import ThreadInjectItemsResponse
+
+        request(
+            "thread/inject_items",
+            {
+                "threadId": thread_id,
+                "items": [
+                    {
+                        "type": "message",
+                        "role": "user",
+                        "content": [{"type": "input_text", "text": text}],
+                    }
+                ],
+            },
+            response_model=ThreadInjectItemsResponse,
+        )
 
     def archive_stored_thread(self, thread_id: str) -> None:
         self.codex.thread_archive(thread_id)

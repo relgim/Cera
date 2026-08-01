@@ -126,6 +126,26 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         for speaker in ("hana", "sakura", "mia", "enne", "tomi", "aoi", "yuuni"):
             self.assertIn(f".cera-speaker-{speaker}", styles)
 
+    def test_scene_change_control_is_shadow_only_and_one_shot(self) -> None:
+        shadow = (
+            REPOSITORY_ROOT
+            / "integrations"
+            / "sillytavern"
+            / "continuous-shadow"
+            / "scene-change-control.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("Scene Change", shadow)
+        self.assertIn("cera_scene_change", shadow)
+        self.assertIn("checkbox.checked = false", shadow)
+        active_manifest = (
+            REPOSITORY_ROOT
+            / "integrations"
+            / "sillytavern"
+            / "creator-review-extension"
+            / "manifest.json"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("continuous-shadow", active_manifest)
+
     def test_review_fetch_failure_is_not_mislabeled_as_codex_failure(self) -> None:
         extension = (
             REPOSITORY_ROOT

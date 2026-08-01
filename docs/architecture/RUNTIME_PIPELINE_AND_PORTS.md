@@ -30,6 +30,47 @@ Initial adapters:
 
 Provider identifiers, model tiers, credentials, endpoint details, and account entitlements belong in deployment configuration.
 
+## 1A. D-186 shadow continuous Planner and Validator route
+
+The additive D-186 route is test-only and leaves the active D-180 path
+unchanged:
+
+```text
+same branch-bound Planner stored thread
+-> rich causal sequence with open DeepSeek realization space
+-> DeepSeek V4 Flash complete realization
+-> separate branch-bound Validator stored thread
+-> complete final sequence + creator review + semantic edit package
+-> isolated CANDIDATE world view
+-> creator Accept or False Positive
+-> atomic ACTIVE promotion + accepted event
+-> accepted-final envelope injected once into model-visible Planner history
+```
+
+Planner and Validator have distinct compatibility hashes and physical provider
+threads. Provider conversation is advisory. Python owns current world files,
+revision preconditions, edit-package validation, creator-action enforcement,
+promotion, rollback, indexes, receipts, and durable session snapshots.
+
+The documented Codex app-server `thread/inject_items` operation performs that
+history append without starting a model turn. Python records the accepted
+envelope first, injects its canonical `[TURN ACCEPTED]` representation, and
+then records synchronization. A failure is terminal and blocks continuation;
+CERA never silently resends the envelope or falls back to next-turn prompt
+piggybacking. The provider thread remains context only, never story authority.
+
+The only V1 route mappings are Planner Sol/xhigh to Validator Sol/medium and
+Planner Sol/medium to Validator Terra/high. Sol/high and every other mapping
+fail explicitly. Scene Change is a distinct Validator task, uses an explicit
+accepted-turn allow-list, and continues both existing physical sessions.
+
+Each Codex role receives one request-bound authenticated read-only world MCP
+view with `cera_world_list`, `cera_world_search`, and `cera_world_read`.
+Planner can inspect only ACTIVE; Validator can additionally inspect only its
+current candidate ACTIVE_VIEW. The transport's highest supported 32-call
+ceiling is runaway protection, not a retrieval quota; reaching it fails the
+turn. No filesystem write tool is exposed.
+
 ## 2. Stage assignment
 
 | Stage | Owner | Why | Input -> output | Authority | Validation/failure | Calls/latency |
@@ -154,9 +195,10 @@ CERA therefore archives rejected/failed candidate leaves, which makes them
 non-resumable and keeps them outside accepted ancestry. Accepted ancestors are
 never archived while active.
 
-Acceptance does not create a second model call or inject an undocumented raw
-provider item. Python stores the accepted receipt and the next canonical turn
-packet reasserts authoritative branch state. SQLite custody evidence contains
+Acceptance on the active D-180 immutable-checkpoint path does not create a
+second model call or inject a provider item. D-186 is a separate shadow
+experiment and uses the documented app-server history-injection operation
+described in section 1A. SQLite custody evidence contains
 only provider-thread hashes, lifecycle status, retention status, and the fixed
 fact that provider context is not story authority.
 

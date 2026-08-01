@@ -913,3 +913,23 @@ packet/prompt/schema remain the default and v7 has no production selector.
 `medium`, `high`, or `xhigh`. It controls only the Scene Reasoner. The value is
 included in the Reasoner session compatibility hash, so changing it rotates and
 reconstructs the session; it does not change the Sol-medium verifier.
+
+## Continuous Planner/Validator V1 shadow contracts
+
+D-186 registers the following additive schemas without changing active D-180
+provider identities:
+
+| Schema | Owner | Purpose |
+|---|---|---|
+| `cera.rich_planner_sequence.v1` | runtime Codex Planner, advisory | Material beats with actors, evidence perception, goal, pressures, tactic, causality, private/material continuity, result, realization space, protected-user allowance, and evidence bindings |
+| `cera.character_summary_envelope.v1` | Python projection | Explicitly incomplete, revision-bound summary with latest accepted changes and a stable source locator |
+| `cera.accepted_final_sequence_envelope.v1` | Python after creator acceptance | Exact user message plus Validator final sequence, appended once and superseding the provisional Planner sequence |
+| `cera.validator_finalization_package.v1` | runtime Codex Validator, advisory until Python validation and creator action | Closed final sequence, existing creator review, no-more-than-100 semantic edits, created-field log, event, or an explicit scene summary |
+| `cera.continuous_session_snapshot.v1` | Python | Role-separated stored-thread handle, compatibility, context-event hashes, and accepted-turn index; persisted under `PLANNER_SESSION` or `VALIDATOR_SESSION` |
+| `cera.continuous_world_promotion_receipt.v1` | Python | Revision-bound candidate-to-ACTIVE promotion or unchanged nonaccepting action |
+| `cera.sillytavern_chat_request.v4` | Python/browser ingress | Adds the one-shot boolean `cera_scene_change` flag; no automatic scene inference |
+
+World operations are `add`, `replace`, `remove`, `append_unique`, `increment`,
+or `create_file`. Stable relative JSON paths and expected internal revisions are
+mandatory. Every `add` and `create_file` has an exact created-field/root log
+with value type, value, reason, and source final-sequence item.

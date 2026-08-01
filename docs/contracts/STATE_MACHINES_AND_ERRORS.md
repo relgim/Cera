@@ -286,3 +286,35 @@ Deployment readiness is a second independent gate. Missing role qualification, h
 ## 10. Repair policy
 
 Default remains zero automatic repairs. The separately authorized provider-free Adult ON/EX gate implements one production-prohibited, validation-directed beat replacement when exactly one beat fails deterministic or semantic specificity. It cannot change provider, source, authority packet, route, decision, branch, or locked non-target text. Python splices the replacement, runs a new no-retry semantic verification, and then reruns all deterministic and structural checks. Semantic failure after the splice ends the turn without a second repair. Live use still requires qualification, promotion evidence, and creator authorization.
+
+## 11. D-186 shadow continuous candidate and Scene Change states
+
+```text
+ACTIVE snapshot
+-> isolated CANDIDATE copy
+-> Planner provisional sequence
+-> DeepSeek candidate prose
+-> Validator closed package
+-> creator review pending
+-> Accept | False Positive
+   -> verify all file revisions and package invariants
+   -> apply every edit to prepared files
+   -> event + accepted exact pair + index + world revision
+   -> atomic ACTIVE directory replacement
+   -> record accepted-final envelope in Python ledger
+   -> inject canonical envelope once into Planner model-visible history
+   -> record synchronized event
+or
+-> Rewrite | Replan | Adjustment | Decline
+   -> ACTIVE unchanged; candidate remains diagnostic only
+```
+
+Scene Change is an explicit creator flag on the first new-scene message. Python
+holds that message, gives the separate Validator only the old scene's accepted
+turn allow-list and exact pairs, saves the resulting summary, then supplies the
+summary, at most five exact accepted pairs, and held message to the same Planner
+thread. Provider failure, schema failure, revision conflict, missing accepted
+pair, summary leakage, or promotion failure stops without retry or fallback.
+An accepted-final history-injection failure also blocks the next Planner turn;
+an unsynchronized accepted ledger entry is never silently piggybacked or
+replayed.

@@ -16,6 +16,7 @@ _REQUIRED_PACKAGES = frozenset(
         "adult_craft",
         "composer",
         "consolidation",
+        "continuous",
         "contracts",
         "evaluation",
         "evidence",

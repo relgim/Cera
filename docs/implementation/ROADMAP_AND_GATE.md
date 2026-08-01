@@ -832,6 +832,20 @@ uncommitted.
 
 Read `SILLYTAVERN_ZERO_CALL_HANDOFF_CORRECTION_RESULT.md`.
 
+## D-186 shadow continuous Planner/Validator gate
+
+Progressions 1-3 implement and provider-free verify rich Planner sequences,
+separate continuous Validator finalization/edit packages, and the ignored
+`runtime/continuous_worlds/<world>/<branch>` candidate/promotion/Scene Change
+layout. They do not activate the shadow route.
+
+The next bounded gate is only the identity-bound
+`continuous-planner-validator-three-turn-scene-change-canary-v1`: exactly ten
+one-shot calls from the frozen checkpoint, using Sol-medium Planner, DeepSeek
+V4 Flash non-thinking, and Terra-high Validator. A terminal failure stops the
+schedule with no patch, retry, fallback, route change, or live-story write.
+Successful canary evidence remains disposable and does not promote the route.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

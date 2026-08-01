@@ -157,6 +157,7 @@ class SillyTavernServerTests(unittest.TestCase):
                 "cera_character_autonomy": "MIND",
                 "cera_prompt_handling": "MODIFICATION",
                 "cera_reasoning_effort": "XHIGH",
+                "cera_scene_change": True,
                 "messages": [{"role": "user", "content": "test"}],
             },
         )
@@ -174,6 +175,7 @@ class SillyTavernServerTests(unittest.TestCase):
         self.assertEqual(self.adapter.last_request.cera_character_autonomy, "mind")
         self.assertEqual(self.adapter.last_request.cera_prompt_handling, "modification")
         self.assertEqual(self.adapter.last_request.cera_reasoning_effort, "xhigh")
+        self.assertTrue(self.adapter.last_request.cera_scene_change)
 
     def test_health_exposes_the_validated_active_runtime_profile(self) -> None:
         status, result = self.request("GET", "/health")

@@ -33,8 +33,8 @@ def _validate_request(request: dict) -> None:
     }
     if set(request) != required:
         raise ValueError("stored Codex request has an invalid field set")
-    if request["role"] != "scene_reasoner":
-        raise ValueError("stored Codex worker is Reasoner-only")
+    if request["role"] not in {"scene_reasoner", "scene_realization_verifier"}:
+        raise ValueError("stored Codex worker role is unsupported")
     if request["service_tier"] not in {None, "priority"}:
         raise ValueError("stored Codex service tier is unsupported")
     if not isinstance(request["provider_thread_id"], str) or not request[

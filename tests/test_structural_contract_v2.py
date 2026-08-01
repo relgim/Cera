@@ -622,4 +622,6 @@ class StructuralV2FailureAndInventoryTests(unittest.TestCase):
         self.assertIn("runtime", receipt.package_names)
         self.assertIn("ingress", receipt.package_names)
         self.assertIn("realization", receipt.package_names)
+        self.assertIn("continuous", receipt.package_names)
         self.assertIn("src/cera/runtime/pipeline.py", receipt.source_paths)
+        self.assertIn("src/cera/continuous/runtime.py", receipt.source_paths)

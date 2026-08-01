@@ -27,7 +27,7 @@ class ChatMessage:
 
 @dataclass(frozen=True, slots=True)
 class SillyTavernChatRequest:
-    SCHEMA_VERSION: ClassVar[str] = "cera.sillytavern_chat_request.v3"
+    SCHEMA_VERSION: ClassVar[str] = "cera.sillytavern_chat_request.v4"
 
     model: str
     messages: tuple[ChatMessage, ...]
@@ -38,6 +38,7 @@ class SillyTavernChatRequest:
     cera_character_autonomy: str | None = None
     cera_prompt_handling: str | None = None
     cera_reasoning_effort: str | None = None
+    cera_scene_change: bool = False
 
     def __post_init__(self) -> None:
         if self.model != CERA_VIRTUAL_MODEL:
@@ -87,6 +88,8 @@ class SillyTavernChatRequest:
             "xhigh",
         }:
             raise ContractValidationError("invalid CERA Sol reasoning effort")
+        if type(self.cera_scene_change) is not bool:
+            raise ContractValidationError("cera_scene_change must be boolean")
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "SillyTavernChatRequest":
@@ -143,6 +146,7 @@ class SillyTavernChatRequest:
                 "cera_reasoning_effort",
                 normalize=True,
             ),
+            cera_scene_change=_optional_bool_control(value, "cera_scene_change"),
         )
 
     @property
@@ -218,3 +222,10 @@ def _optional_control(
         raise ContractValidationError(f"{field_name} must be a non-empty string")
     result = raw.strip()
     return result.casefold() if normalize else result.lower()
+
+
+def _optional_bool_control(value: Mapping[str, Any], field_name: str) -> bool:
+    raw = value.get(field_name, False)
+    if type(raw) is not bool:
+        raise ContractValidationError(f"{field_name} must be boolean")
+    return raw

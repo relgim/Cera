@@ -1,19 +1,38 @@
 # Current CERA Handoff
 
-**Updated:** 2026-07-31
+**Updated:** 2026-08-01
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-180 stabilization checkpoint; canonical active runtime profile installed
+**Phase:** D-186 continuous Planner/Validator V1 shadow checkpoint; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** 648/648 tests passed in 310.714 seconds; one optional live test skipped
+**Provider-free current verification:** 685/685 tests passed in 472.551 seconds with one expected optional live test skipped
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
+**D-186 shadow continuity work:** rich Planner, separate Validator, candidate world, and explicit Scene Change contracts implemented provider-free; active route unchanged
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
+
+- D-186 Progressions 1-3 add a shadow/test-only continuous Planner and separate
+  Validator architecture. The Planner authors rich causal beats; DeepSeek owns
+  prose realization; the Validator returns the complete final sequence,
+  existing creator review, semantic edit package, event, or explicit scene
+  summary; Python owns all authority and promotion.
+- Runtime state is isolated under ignored
+  `runtime/continuous_worlds/<world>/<branch>`. Accept and False Positive alone
+  can atomically promote a good validated disposable candidate. Rewrite,
+  Replan, Adjustment, and Decline leave ACTIVE unchanged.
+- Planner and Validator snapshots persist in separate role directories. Typed
+  IDs use portable hash-bound filenames, accepted final sequences append once,
+  and explicit Scene Change continues the same physical sessions while using
+  only an accepted-turn allow-list and exact tail.
+- D-180 remains the active route. No provider, service, installed SillyTavern,
+  story/database, deployment, retry, fallback, remote, or push effect occurred
+  in Progressions 1-3. The only next authorized live work is the frozen exact
+  ten-call Job 4 after identity-bound Pro publication and trigger.
 
 - D-185 Progressions 1-3 are additive and shadow-only. The exact frozen
   continuation derives Hana and Mia from the accepted branch head while keeping
