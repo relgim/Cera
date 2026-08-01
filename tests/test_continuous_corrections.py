@@ -48,12 +48,15 @@ from tests.test_continuous_world import (
     character_summary,
     concern_assessment,
     final_sequence,
+    ingress_fixture,
     ingress_reference,
     ingress_units,
+    make_ingress_authority,
     composer_draft,
     stage_candidate,
     staged_authority_kwargs,
     package,
+    protected_semantic_adjudication,
     rich_sequence,
     scene_summary_package,
     session_compatibility,
@@ -62,12 +65,17 @@ from cera.continuous.contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     CharacterRoleLedgerV1,
     CharacterSummaryEnvelopeV1,
+    FrozenContinuousIngressFixtureV1,
     IngressSourceUnitKind,
     IngressSourceUnitV1,
     ProtectedUserAllowanceMode,
     ProtectedUserAllowanceV1,
     ProtectedUserRealizationSpanV1,
     ProtectedUserSourceClaimKind,
+    ProtectedSemanticRelationKind,
+    ProtectedSemanticAdjudicationV1,
+    PersistenceDirectiveV1,
+    PersistenceRecordClass,
     StoryRealizationKind,
     StoryRealizationSegmentV1,
     SceneSummaryV1,
@@ -326,7 +334,7 @@ class ContinuousEvidenceCorrectionTests(unittest.TestCase):
             realizations=draft.protected_user_realizations,
             story_segments=draft.story_segments,
         )
-        registry.validate_traceability(sequence, package())
+        registry.validate_traceability(sequence, package(), branch_root=self.root)
         broken = replace(
             package(),
             complete_final_sequence=replace(
@@ -339,7 +347,9 @@ class ContinuousEvidenceCorrectionTests(unittest.TestCase):
             ),
         )
         with self.assertRaisesRegex(StateConflictError, "unknown Planner beat"):
-            registry.validate_traceability(sequence, broken)
+            registry.validate_traceability(
+                sequence, broken, branch_root=self.root
+            )
         ownership_item = replace(
             final_sequence().items[0],
             roles=CharacterRoleLedgerV1(
@@ -378,7 +388,147 @@ class ContinuousEvidenceCorrectionTests(unittest.TestCase):
             ),
         )
         with self.assertRaisesRegex(StateConflictError, "role or claim ownership"):
-            registry.validate_traceability(sequence, ownership_broken)
+            registry.validate_traceability(
+                sequence, ownership_broken, branch_root=self.root
+            )
+
+    def _package_for_semantic_segment(
+        self,
+        segment: StoryRealizationSegmentV1,
+        adjudication: ProtectedSemanticAdjudicationV1,
+    ):
+        base = package()
+        base_item = base.complete_final_sequence.items[0]
+        scopes = tuple(
+            replace(
+                scope,
+                story_segment_keys=(segment.segment_key,),
+                roles=segment.roles,
+                protected_user_source_claim_keys=(),
+                persistence_directives=(),
+            )
+            for scope in base_item.field_scopes
+            if scope.field_name in {"realized_event", "resulting_state"}
+        )
+        item = replace(
+            base_item,
+            story_segment_keys=(segment.segment_key,),
+            realized_event=segment.exact_text,
+            valid_deepseek_additions=(),
+            private_state_owner_ids=(),
+            knowledge_changes=(),
+            material_changes=(),
+            resulting_state=segment.exact_text,
+            roles=segment.roles,
+            protected_user_source_claim_keys=(),
+            field_scopes=scopes,
+        )
+        sequence = replace(
+            base.complete_final_sequence,
+            items=(item,),
+            final_stop_state=segment.exact_text,
+        )
+        return replace(
+            base,
+            complete_final_sequence=sequence,
+            world_edit_operations=(),
+            created_field_log=(),
+            event_record=replace(
+                base.event_record,
+                participant_ids=segment.roles.involved_ids,
+                item_role_ledgers=(
+                    replace(
+                        base.event_record.item_role_ledgers[0],
+                        roles=segment.roles,
+                    ),
+                ),
+                summary=segment.exact_text,
+            ),
+            protected_semantic_adjudications=(adjudication,),
+        )
+
+    def test_independent_semantics_rejects_explicit_and_pronoun_laundering(self) -> None:
+        for index, text in enumerate(
+            ("Sakura watches as Ted steps inside.", "Sakura watches as he steps inside."),
+            1,
+        ):
+            with self.subTest(text=text):
+                registry, sequence, _ = self._registry_and_sequence()
+                segment = StoryRealizationSegmentV1(
+                    schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+                    segment_key=f"segment_laundered_{index}",
+                    kind=StoryRealizationKind.ACTION,
+                    output_start=0,
+                    output_end=len(text),
+                    exact_text=text,
+                    roles=CharacterRoleLedgerV1(
+                        action_owner_ids=("character:sakura_hanezawa",),
+                        referenced_ids=("character:ted",),
+                    ),
+                )
+                registry.validate_composer_realization(
+                    story_text=text,
+                    realizations=(),
+                    story_segments=(segment,),
+                )
+                adjudication = ProtectedSemanticAdjudicationV1(
+                    schema_version=ProtectedSemanticAdjudicationV1.SCHEMA_VERSION,
+                    adjudication_key=f"adjudicate_laundered_{index}",
+                    segment_key=segment.segment_key,
+                    output_start=0,
+                    output_end=len(text),
+                    exact_text_sha256=text_sha256(text),
+                    protected_user_id="character:ted",
+                    relation=ProtectedSemanticRelationKind.PROTECTED_ASSERTION,
+                    npc_assertion_owner_ids=(),
+                    protected_user_source_claim_keys=("claim_unsupplied",),
+                )
+                with self.assertRaisesRegex(
+                    StateConflictError, "laundered through Composer roles"
+                ):
+                    registry.validate_traceability(
+                        sequence,
+                        self._package_for_semantic_segment(
+                            segment, adjudication
+                        ),
+                    )
+
+    def test_independent_semantics_allows_npc_action_toward_ted_without_reaction(self) -> None:
+        text = "Sakura closes the door in front of Ted."
+        registry, sequence, _ = self._registry_and_sequence()
+        segment = StoryRealizationSegmentV1(
+            schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+            segment_key="segment_npc_affects_ted",
+            kind=StoryRealizationKind.ACTION,
+            output_start=0,
+            output_end=len(text),
+            exact_text=text,
+            roles=CharacterRoleLedgerV1(
+                action_owner_ids=("character:sakura_hanezawa",),
+                affected_ids=("character:ted",),
+            ),
+        )
+        registry.validate_composer_realization(
+            story_text=text,
+            realizations=(),
+            story_segments=(segment,),
+        )
+        adjudication = ProtectedSemanticAdjudicationV1(
+            schema_version=ProtectedSemanticAdjudicationV1.SCHEMA_VERSION,
+            adjudication_key="adjudicate_npc_affects_ted",
+            segment_key=segment.segment_key,
+            output_start=0,
+            output_end=len(text),
+            exact_text_sha256=text_sha256(text),
+            protected_user_id="character:ted",
+            relation=ProtectedSemanticRelationKind.AFFECTED_BY_NPC,
+            npc_assertion_owner_ids=("character:sakura_hanezawa",),
+            protected_user_source_claim_keys=(),
+        )
+        registry.validate_traceability(
+            sequence,
+            self._package_for_semantic_segment(segment, adjudication),
+        )
 
     def test_protected_user_claims_bind_exact_spans_across_all_beat_text(self) -> None:
         registry = RequestEvidenceBindingRegistry(
@@ -485,7 +635,13 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             store = ContinuousWorldStore(Path(directory).resolve() / "worlds")
             root = _seed_character(store)
-            ingress_authority = ContinuousIngressAuthorityStore()
+            new_prompt = "Several days later, Ted asks about the threshold check."
+            ingress_authority = make_ingress_authority(
+                Path(directory).resolve() / "ingress_authority",
+                ("Hello, my name is Ted.", "turn-001"),
+                ("I am the expected tenant.", "turn-002"),
+                (new_prompt, "turn-003"),
+            )
             port = InMemoryContinuousStoredSessionPort()
             planner_session = ContinuousSessionCoordinator(
                 session_compatibility(ContinuousSessionRole.PLANNER), port
@@ -501,9 +657,10 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
             second_pair = AcceptedTurnPairV1(
                 accepted_turn_id="turn-002",
                 user_message="I am the expected tenant.",
-                complete_final_sequence=final_sequence("turn-002"),
+                complete_final_sequence=final_sequence(
+                    "turn-002", revision=2
+                ),
             )
-            new_prompt = "Several days later, Ted asks about the threshold check."
             planner = _QueueStage(
                 rich_sequence(),
                 replace(rich_sequence(), sequence_id="sequence:turn_002"),
@@ -528,13 +685,29 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                 ),
             )
             validator = _QueueStage(
-                package(turn_id="turn-001", revision=1),
-                package(turn_id="turn-002", revision=2),
+                package(
+                    turn_id="turn-001",
+                    revision=1,
+                    story_text="Sakura requests proof.",
+                ),
+                package(
+                    turn_id="turn-002",
+                    revision=2,
+                    story_text="Sakura acknowledges the visitor's answer.",
+                ),
                 summary_package,
                 replace(
-                    package(turn_id="turn-003", revision=3),
+                    package(
+                        turn_id="turn-003",
+                        revision=3,
+                        story_text="Sakura answers in the later scene.",
+                    ),
                     event_record=replace(
-                        package(turn_id="turn-003", revision=3).event_record,
+                        package(
+                            turn_id="turn-003",
+                            revision=3,
+                            story_text="Sakura answers in the later scene.",
+                        ).event_record,
                         scene_id="scene-002",
                     ),
                 ),
@@ -679,7 +852,10 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
             with self.subTest(stage=stage), TemporaryDirectory() as directory:
                 store = ContinuousWorldStore(Path(directory).resolve() / "worlds")
                 root = _seed_character(store)
-                ingress_authority = ContinuousIngressAuthorityStore()
+                ingress_authority = make_ingress_authority(
+                    Path(directory).resolve() / "ingress_authority",
+                    ("Hello.", "turn-001"),
+                )
                 session_port = InMemoryContinuousStoredSessionPort()
                 planner_session = ContinuousSessionCoordinator(
                     session_compatibility(ContinuousSessionRole.PLANNER), session_port
@@ -1153,7 +1329,10 @@ class ContinuousWorldHardeningTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             store = ContinuousWorldStore(Path(directory).resolve() / "worlds")
             root = _seed_character(store)
-            ingress_authority = ContinuousIngressAuthorityStore()
+            ingress_authority = make_ingress_authority(
+                Path(directory).resolve() / "ingress_authority",
+                ("Hello.", "turn-001"),
+            )
             port = FailingAppendPort()
             planner_session = ContinuousSessionCoordinator(
                 session_compatibility(ContinuousSessionRole.PLANNER), port
@@ -1538,10 +1717,10 @@ class ContinuousEvidenceAuthorityV2Tests(unittest.TestCase):
         self.assertIn("cera.request_evidence_binding.v4", versions)
         self.assertIn("cera.protected_user_source_claim.v3", versions)
         self.assertIn("cera.continuous_ingress_source_unit.v1", versions)
-        self.assertIn("cera.story_realization_segment.v2", versions)
+        self.assertIn("cera.story_realization_segment.v3", versions)
         self.assertIn("cera.protected_user_realization_span.v1", versions)
-        self.assertIn("cera.accepted_session_projection.v4", versions)
-        self.assertIn("cera.accepted_session_fact.v1", versions)
+        self.assertIn("cera.accepted_session_projection.v5", versions)
+        self.assertIn("cera.accepted_session_fact.v2", versions)
         self.assertIn("cera.character_role_ledger.v1", versions)
         self.assertIn("cera.event_item_role_ledger.v1", versions)
         self.assertIn("cera.continuous_context_injection_receipt.v1", versions)
@@ -1648,14 +1827,16 @@ class ContinuousAuthorityV5Tests(unittest.TestCase):
     def test_continuous_request_rejects_unclassified_source_gaps(self) -> None:
         text = "Prefix Hello."
         with self.assertRaisesRegex(ContractValidationError, "gap-free"):
-            ContinuousIngressAuthorityStore().issue_frozen_fixture(
+            FrozenContinuousIngressFixtureV1(
+                schema_version=FrozenContinuousIngressFixtureV1.SCHEMA_VERSION,
                 fixture_id="cera.fixture.continuous_authority.gap",
+                fixture_schema_id="cera.fixture_registry.gap_test.v1",
                 world_id="world-test",
                 branch_id="main",
                 session_id="session:test",
                 request_id="request:turn-001",
                 turn_id="turn-001",
-                idempotency_key="gap-test",
+                idempotency_key_sha256=text_sha256("gap-test"),
                 raw_source=text,
                 protected_user_id="character:ted",
                 source_units=(
@@ -1893,6 +2074,16 @@ class ContinuousAuthorityV5Tests(unittest.TestCase):
                 summary=text,
                 protected_user_source_claim_keys=(claim["claim_key"],),
             ),
+            protected_semantic_adjudications=(
+                replace(
+                    protected_semantic_adjudication(text),
+                    adjudication_key="adjudicate_segment_ted_exact",
+                    segment_key=segment.segment_key,
+                    relation=ProtectedSemanticRelationKind.PROTECTED_ASSERTION,
+                    npc_assertion_owner_ids=(),
+                    protected_user_source_claim_keys=(claim["claim_key"],),
+                ),
+            ),
         )
         registry.validate_traceability(sequence, valid)
 
@@ -1930,32 +2121,56 @@ class ContinuousAuthorityV5Tests(unittest.TestCase):
             source_final_field_name="realized_event",
             protected_user_source_claim_keys=(claim["claim_key"],),
         )
-        with self.assertRaisesRegex(StateConflictError, "world edit changed"):
-            registry.validate_traceability(
-                sequence,
-                replace(valid, world_edit_operations=(invented_edit,)),
-            )
+        with self.assertRaisesRegex(
+            ContractValidationError, "persistable final fields"
+        ):
+            replace(valid, world_edit_operations=(invented_edit,))
 
 
 class ContinuousAuthorityV6Tests(unittest.TestCase):
+    def test_v7_persistence_rejects_record_classes_without_typed_subject_schemas(self) -> None:
+        for record_class, target_file in (
+            (PersistenceRecordClass.RULE, "Rules/arrival.json"),
+            (PersistenceRecordClass.LOCATION, "Locations/entry.json"),
+            (PersistenceRecordClass.EVENT, "Events/arrival.json"),
+            (PersistenceRecordClass.SCENE, "Scenes/arrival.json"),
+        ):
+            with self.subTest(record_class=record_class), self.assertRaisesRegex(
+                ContractValidationError, "only character or relationship"
+            ):
+                PersistenceDirectiveV1(
+                    schema_version=PersistenceDirectiveV1.SCHEMA_VERSION,
+                    directive_key=f"persist_{record_class.value}",
+                    target_file=target_file,
+                    target_record_class=record_class,
+                    target_record_id=f"{record_class.value}:arrival",
+                    target_subject_ids=("character:sakura_hanezawa",),
+                    expected_file_revision=1,
+                    operation=WorldEditOperationKind.ADD,
+                    field_path="/accepted_facts/turn-001",
+                    expected_prior_value_sha256=None,
+                    source_value_index=0,
+                )
+
     def test_ingress_receipt_custody_and_all_request_identities_are_enforced(self) -> None:
         with TemporaryDirectory() as directory:
             store = ContinuousWorldStore(Path(directory).resolve() / "worlds")
             _seed_character(store)
-            authority = ContinuousIngressAuthorityStore()
             text = "Hello."
             idempotency_key = "authority-v6-turn-001"
+            fixture = ingress_fixture(text, "turn-001")
+            fixture = replace(
+                fixture,
+                fixture_id="cera.fixture.continuous_authority.v6",
+                idempotency_key_sha256=text_sha256(idempotency_key),
+            )
+            authority = ContinuousIngressAuthorityStore(
+                Path(directory).resolve() / "ingress_authority",
+                fixture_registry=(fixture,),
+            )
             receipt = authority.issue_frozen_fixture(
                 fixture_id="cera.fixture.continuous_authority.v6",
-                world_id="world-test",
-                branch_id="main",
-                session_id="session:authority-v6",
-                request_id="request:authority-v6-turn-001",
-                turn_id="turn-001",
                 idempotency_key=idempotency_key,
-                raw_source=text,
-                protected_user_id="character:ted",
-                source_units=ingress_units(text),
             )
             port = InMemoryContinuousStoredSessionPort()
             coordinator = ContinuousShadowTurnCoordinator(
@@ -2021,6 +2236,18 @@ class ContinuousAuthorityV6Tests(unittest.TestCase):
             self.assertNotEqual(
                 candidate.candidate_sha256,
                 replace(candidate, request=changed_reference).candidate_sha256,
+            )
+            changed_semantics = replace(
+                candidate,
+                protected_semantic_adjudication_ledger_sha256="c" * 64,
+            )
+            self.assertNotEqual(
+                candidate.authority_context_sha256,
+                changed_semantics.authority_context_sha256,
+            )
+            self.assertNotEqual(
+                candidate.candidate_sha256,
+                changed_semantics.candidate_sha256,
             )
 
     def test_protected_assertion_roles_require_claims_but_npc_address_does_not(self) -> None:
@@ -2121,7 +2348,7 @@ class ContinuousAuthorityV6Tests(unittest.TestCase):
                 story_segments=draft.story_segments,
             )
             valid = package()
-            registry.validate_traceability(sequence, valid)
+            registry.validate_traceability(sequence, valid, branch_root=root)
             changed = replace(
                 valid.world_edit_operations[0],
                 value="Sakura now trusts Ted completely.",
@@ -2130,19 +2357,72 @@ class ContinuousAuthorityV6Tests(unittest.TestCase):
                 valid.created_field_log[0],
                 value="Sakura now trusts Ted completely.",
             )
-            with self.assertRaisesRegex(StateConflictError, "world edit changed"):
-                registry.validate_traceability(
-                    sequence,
-                    replace(
-                        valid,
-                        world_edit_operations=(changed,),
-                        created_field_log=(changed_created,),
-                    ),
+            with self.assertRaisesRegex(
+                ContractValidationError, "field-level persistence directive"
+            ):
+                replace(
+                    valid,
+                    world_edit_operations=(changed,),
+                    created_field_log=(changed_created,),
                 )
             with self.assertRaisesRegex(
                 ContractValidationError, "changed the proposed value"
             ):
                 replace(valid, created_field_log=(changed_created,))
+
+            mia = root / "ACTIVE" / "Characters" / "Mia.json"
+            mia.write_bytes(
+                canonical_bytes(
+                    {
+                        "schema_version": "cera.continuous_character.v1",
+                        "_cera_revision": 1,
+                        "character_id": "character:mia_hanezawa",
+                        "turn_claims": {},
+                    }
+                )
+                + b"\n"
+            )
+            item = valid.complete_final_sequence.items[0]
+            wrong_scopes = tuple(
+                replace(
+                    scope,
+                    persistence_directives=tuple(
+                        replace(
+                            directive,
+                            target_file="Characters/Mia.json",
+                            target_record_id="character:mia_hanezawa",
+                            target_subject_ids=("character:mia_hanezawa",),
+                        )
+                        for directive in scope.persistence_directives
+                    ),
+                )
+                for scope in item.field_scopes
+            )
+            wrong_target = replace(
+                valid,
+                complete_final_sequence=replace(
+                    valid.complete_final_sequence,
+                    items=(replace(item, field_scopes=wrong_scopes),),
+                ),
+                world_edit_operations=(
+                    replace(
+                        valid.world_edit_operations[0],
+                        target_file="Characters/Mia.json",
+                    ),
+                ),
+                created_field_log=(
+                    replace(
+                        valid.created_field_log[0],
+                        target_file="Characters/Mia.json",
+                    ),
+                ),
+            )
+            with self.assertRaisesRegex(
+                StateConflictError, "wrong character"
+            ):
+                registry.validate_traceability(
+                    sequence, wrong_target, branch_root=root
+                )
 
     def test_accepted_projection_rejects_public_or_cross_owner_private_state(self) -> None:
         private_item = final_sequence().items[0]

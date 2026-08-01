@@ -2,13 +2,13 @@
 
 **Status:** controlling index
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-193 provider-free continuous Planner/Validator correction cycle 006; D-180 remains active
+**Phase:** D-194 provider-free continuous Planner/Validator correction cycle 007; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** D-193 complete repository suite passes 742/742 in 297.803 seconds with one expected environment-dependent skip; zero live provider calls
+**Provider-free current verification:** D-194 complete repository suite passes 750/750 in 302.051 seconds with one expected environment-dependent skip; actual CLI passes ten scripted transports with zero external provider calls
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page
@@ -98,6 +98,7 @@ the active D-180 route.
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_004_RESULT.md` | D-191 attribution-safe protected-user claims, owner-scoped accepted context, exact realization spans, immutable snapshot receipts, true submission accounting, and one shared Job 4 coordinator |
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_005_RESULT.md` | D-192 explicit ingress ownership, exhaustive Composer segment custody, field-scoped accepted facts, candidate-authority identity binding, v5 compatibility, and exact parameterized fake-canary qualification |
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_006_RESULT.md` | D-193 trusted ingress receipt custody, owner/non-owner roles, universal final-field edit authority, Python-derived event roles, v6 compatibility, real-port scripted harness, and worker-stage matrix |
+| `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_007_RESULT.md` | D-194 durable prepared ingress, closed fixture registry, independent exact-span protected semantics, typed persistence targets, pre-v7 compatibility, and actual scripted Job 4 CLI qualification |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |
 | `ROADMAP_AND_GATE.md` | Ordered implementation plan and authorization gates |
 | `CREATOR_REVIEW_PRESENTATION_V1_RESULT.md` | Active severity colors, Adjustment label, False Positive acceptance, and CERA-owned character-color presentation |

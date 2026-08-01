@@ -19,6 +19,7 @@ from cera.continuous import (
     FinalInformationVisibility,
     FinalSequenceItemV1,
     FinalSequenceV1,
+    FrozenContinuousIngressFixtureV1,
     SceneSummaryV1,
     ValidatorFinalizationPackageV1,
     ValidatorSemanticStatus,
@@ -32,6 +33,10 @@ from cera.continuous import (
     IngressSourceUnitKind,
     IngressSourceUnitV1,
     ContinuousIngressAuthorityStore,
+    PersistenceDirectiveV1,
+    PersistenceRecordClass,
+    ProtectedSemanticAdjudicationV1,
+    ProtectedSemanticRelationKind,
     StoryRealizationKind,
     StoryRealizationSegmentV1,
 )
@@ -68,7 +73,7 @@ from cera.serialization import canonical_bytes, canonical_sha256, to_primitive
 from cera.serialization import text_sha256
 
 
-def final_sequence(turn_id: str = "turn-001") -> FinalSequenceV1:
+def final_sequence(turn_id: str = "turn-001", *, revision: int = 1) -> FinalSequenceV1:
     return FinalSequenceV1(
         schema_version=FinalSequenceV1.SCHEMA_VERSION,
         sequence_id=f"sequence:{turn_id}",
@@ -119,6 +124,21 @@ def final_sequence(turn_id: str = "turn-001") -> FinalSequenceV1:
                             action_owner_ids=("character:sakura_hanezawa",),
                             addressed_ids=("character:ted",),
                         ),
+                        persistence_directives=(
+                            PersistenceDirectiveV1(
+                                schema_version=PersistenceDirectiveV1.SCHEMA_VERSION,
+                                directive_key="record_tenant_claim",
+                                target_file="Characters/Sakura.json",
+                                target_record_class=PersistenceRecordClass.CHARACTER,
+                                target_record_id="character:sakura_hanezawa",
+                                target_subject_ids=("character:sakura_hanezawa",),
+                                expected_file_revision=revision,
+                                operation=WorldEditOperationKind.ADD,
+                                field_path=f"/turn_claims/{turn_id}",
+                                expected_prior_value_sha256=None,
+                                source_value_index=0,
+                            ),
+                        ),
                     ),
                     FinalFieldScopeV1(
                         field_name="resulting_state",
@@ -137,11 +157,13 @@ def final_sequence(turn_id: str = "turn-001") -> FinalSequenceV1:
     )
 
 
-def accepted_pair(turn_id: str = "turn-001") -> AcceptedTurnPairV1:
+def accepted_pair(
+    turn_id: str = "turn-001", *, revision: int = 1
+) -> AcceptedTurnPairV1:
     return AcceptedTurnPairV1(
         accepted_turn_id=turn_id,
         user_message="Hello.",
-        complete_final_sequence=final_sequence(turn_id),
+        complete_final_sequence=final_sequence(turn_id, revision=revision),
     )
 
 
@@ -206,7 +228,12 @@ def character_summary(
     )
 
 
-def package(*, turn_id: str = "turn-001", revision: int = 1) -> ValidatorFinalizationPackageV1:
+def package(
+    *,
+    turn_id: str = "turn-001",
+    revision: int = 1,
+    story_text: str = "Sakura requests proof.",
+) -> ValidatorFinalizationPackageV1:
     return ValidatorFinalizationPackageV1(
         schema_version=ValidatorFinalizationPackageV1.SCHEMA_VERSION,
         package_id=f"package:{turn_id}",
@@ -214,7 +241,7 @@ def package(*, turn_id: str = "turn-001", revision: int = 1) -> ValidatorFinaliz
         branch_id="main",
         task_mode=ValidatorTaskMode.FINALIZE_TURN,
         semantic_status=ValidatorSemanticStatus.ACCEPTED,
-        complete_final_sequence=final_sequence(turn_id),
+        complete_final_sequence=final_sequence(turn_id, revision=revision),
         creator_review=good_assessment(),
         world_edit_operations=(
             WorldEditOperationV1(
@@ -227,6 +254,7 @@ def package(*, turn_id: str = "turn-001", revision: int = 1) -> ValidatorFinaliz
                 reason="Persist accepted final field knowledge_changes.",
                 source_final_sequence_item="verify_arrival",
                 source_final_field_name="knowledge_changes",
+                persistence_directive_key="record_tenant_claim",
             ),
         ),
         created_field_log=(
@@ -238,6 +266,7 @@ def package(*, turn_id: str = "turn-001", revision: int = 1) -> ValidatorFinaliz
                 reason="Persist accepted final field knowledge_changes.",
                 source_final_sequence_item="verify_arrival",
                 source_final_field_name="knowledge_changes",
+                persistence_directive_key="record_tenant_claim",
             ),
         ),
         event_record=EventRecordCandidateV1(
@@ -256,6 +285,26 @@ def package(*, turn_id: str = "turn-001", revision: int = 1) -> ValidatorFinaliz
             final_sequence_item_keys=("verify_arrival",),
         ),
         optional_scene_summary=None,
+        protected_semantic_adjudications=(
+            protected_semantic_adjudication(story_text),
+        ),
+    )
+
+
+def protected_semantic_adjudication(
+    story_text: str,
+) -> ProtectedSemanticAdjudicationV1:
+    return ProtectedSemanticAdjudicationV1(
+        schema_version=ProtectedSemanticAdjudicationV1.SCHEMA_VERSION,
+        adjudication_key="adjudicate_segment_entire_story",
+        segment_key="segment_entire_story",
+        output_start=0,
+        output_end=len(story_text),
+        exact_text_sha256=text_sha256(story_text),
+        protected_user_id="character:ted",
+        relation=ProtectedSemanticRelationKind.ADDRESSED_BY_NPC,
+        npc_assertion_owner_ids=("character:sakura_hanezawa",),
+        protected_user_source_claim_keys=(),
     )
 
 
@@ -349,6 +398,35 @@ def ingress_units(text: str) -> tuple[IngressSourceUnitV1, ...]:
     )
 
 
+def ingress_fixture(text: str, turn_id: str) -> FrozenContinuousIngressFixtureV1:
+    idempotency_key = f"continuous-world-{turn_id}"
+    return FrozenContinuousIngressFixtureV1(
+        schema_version=FrozenContinuousIngressFixtureV1.SCHEMA_VERSION,
+        fixture_id=f"cera.fixture.continuous_world.{turn_id}",
+        fixture_schema_id="cera.fixture_registry.continuous_world_tests.v1",
+        world_id="world-test",
+        branch_id="main",
+        session_id="session:continuous_world",
+        request_id=f"request:{turn_id}",
+        turn_id=turn_id,
+        idempotency_key_sha256=text_sha256(idempotency_key),
+        raw_source=text,
+        protected_user_id="character:ted",
+        source_units=ingress_units(text),
+    )
+
+
+def make_ingress_authority(
+    root: Path, *fixtures: tuple[str, str]
+) -> ContinuousIngressAuthorityStore:
+    return ContinuousIngressAuthorityStore(
+        root,
+        fixture_registry=tuple(
+            ingress_fixture(text, turn_id) for text, turn_id in fixtures
+        ),
+    )
+
+
 def ingress_reference(
     authority: ContinuousIngressAuthorityStore,
     text: str,
@@ -357,15 +435,7 @@ def ingress_reference(
     idempotency_key = f"continuous-world-{turn_id}"
     receipt = authority.issue_frozen_fixture(
         fixture_id=f"cera.fixture.continuous_world.{turn_id}",
-        world_id="world-test",
-        branch_id="main",
-        session_id="session:continuous_world",
-        request_id=f"request:{turn_id}",
-        turn_id=turn_id,
         idempotency_key=idempotency_key,
-        raw_source=text,
-        protected_user_id="character:ted",
-        source_units=ingress_units(text),
     )
     return {
         "session_id": receipt.session_id,
@@ -452,8 +522,8 @@ def session_compatibility(role: ContinuousSessionRole) -> ContinuousSessionCompa
         world_directory_identity_sha256=text_sha256("world-test/main"),
         authority_policy_version="test-authority-v1",
         privacy_policy_version="test-privacy-v1",
-        protected_user_policy_version="cera.continuous_protected_user_policy.v6",
-        session_policy_version="cera.continuous_session_policy.v6",
+        protected_user_policy_version="cera.continuous_protected_user_policy.v7",
+        session_policy_version="cera.continuous_session_policy.v7",
     )
 
 
@@ -632,7 +702,7 @@ class ContinuousWorldTests(unittest.TestCase):
                 action=CreatorReviewAction.ACCEPT,
                 package=package(revision=9),
                 **staged_authority_kwargs(self.store, package(revision=9)),
-                accepted_pair=accepted_pair(),
+                accepted_pair=accepted_pair(revision=9),
             )
         self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
 
@@ -644,6 +714,10 @@ class ContinuousWorldTests(unittest.TestCase):
                     "schema_version": "cera.continuous_relationship.v1",
                     "_cera_revision": 1,
                     "relationship_id": "relationship:sakura_ted",
+                    "participant_ids": [
+                        "character:sakura_hanezawa",
+                        "character:ted",
+                    ],
                     "observations": {},
                 }
             )
@@ -656,15 +730,50 @@ class ContinuousWorldTests(unittest.TestCase):
             expected_file_revision=1,
             operation=WorldEditOperationKind.ADD,
             field_path="/observations/turn-001",
-            value="Sakura retained control of the threshold.",
-            reason="The accepted sequence changed the current relationship evidence.",
+            value="The visitor remains outside awaiting verification.",
+            reason="Persist accepted final field resulting_state.",
             source_final_sequence_item="verify_arrival",
+            source_final_field_name="resulting_state",
+            persistence_directive_key="record_threshold_observation",
+        )
+        base = package()
+        base_item = base.complete_final_sequence.items[0]
+        revised_scopes = tuple(
+            replace(
+                scope,
+                persistence_directives=(
+                    *scope.persistence_directives,
+                    PersistenceDirectiveV1(
+                        schema_version=PersistenceDirectiveV1.SCHEMA_VERSION,
+                        directive_key="record_threshold_observation",
+                        target_file="Relationships/Sakura_Ted.json",
+                        target_record_class=PersistenceRecordClass.RELATIONSHIP,
+                        target_record_id="relationship:sakura_ted",
+                        target_subject_ids=(
+                            "character:sakura_hanezawa",
+                            "character:ted",
+                        ),
+                        expected_file_revision=1,
+                        operation=WorldEditOperationKind.ADD,
+                        field_path="/observations/turn-001",
+                        expected_prior_value_sha256=None,
+                        source_value_index=0,
+                    ),
+                ),
+            )
+            if scope.field_name == "resulting_state"
+            else scope
+            for scope in base_item.field_scopes
         )
         candidate = replace(
-            package(),
+            base,
+            complete_final_sequence=replace(
+                base.complete_final_sequence,
+                items=(replace(base_item, field_scopes=revised_scopes),),
+            ),
             world_edit_operations=(first, second),
             created_field_log=(
-                package().created_field_log[0],
+                base.created_field_log[0],
                 CreatedFieldLogEntryV1(
                     target_file=second.target_file,
                     field_path=second.field_path,
@@ -672,6 +781,8 @@ class ContinuousWorldTests(unittest.TestCase):
                     value=second.value,
                     reason=second.reason,
                     source_final_sequence_item=second.source_final_sequence_item,
+                    source_final_field_name="resulting_state",
+                    persistence_directive_key="record_threshold_observation",
                 ),
             ),
         )
@@ -683,7 +794,10 @@ class ContinuousWorldTests(unittest.TestCase):
             action=CreatorReviewAction.ACCEPT,
             package=candidate,
             **staged_authority_kwargs(self.store, candidate),
-            accepted_pair=accepted_pair(),
+            accepted_pair=replace(
+                accepted_pair(),
+                complete_final_sequence=candidate.complete_final_sequence,
+            ),
         )
         self.assertEqual(
             receipt.changed_files,
@@ -705,32 +819,14 @@ class ContinuousWorldTests(unittest.TestCase):
             reason="An accepted creator-approved rule candidate requires a stable file.",
             source_final_sequence_item="verify_arrival",
         )
-        candidate = replace(
-            package(),
-            world_edit_operations=(create,),
-            created_field_log=(
-                CreatedFieldLogEntryV1(
-                    target_file=create.target_file,
-                    field_path="/",
-                    value_type="object",
-                    value=create.value,
-                    reason=create.reason,
-                    source_final_sequence_item=create.source_final_sequence_item,
-                ),
-            ),
-        )
-        stage_candidate(self.store, candidate)
-        self.store.apply_creator_action(
-            world_id="world-test",
-            branch_id="main",
-            turn_id="turn-001",
-            action=CreatorReviewAction.ACCEPT,
-            package=candidate,
-            **staged_authority_kwargs(self.store, candidate),
-            accepted_pair=accepted_pair(),
-        )
-        created = json.loads((self.root / "ACTIVE" / "Rules" / "arrival_rule.json").read_text())
-        self.assertEqual(created["_cera_revision"], 1)
+        with self.assertRaisesRegex(
+            ContractValidationError, "untyped persistence transform"
+        ):
+            replace(
+                package(),
+                world_edit_operations=(create,),
+                created_field_log=(),
+            )
         with self.assertRaisesRegex(ContractValidationError, "ceiling"):
             replace(package(), world_edit_operations=tuple(create for _ in range(101)))
 
@@ -845,8 +941,11 @@ class ContinuousWorldTests(unittest.TestCase):
 
     def test_provider_free_turn_coordinator_prepares_then_accepts_once(self) -> None:
         port = InMemoryContinuousStoredSessionPort()
-        ingress_authority = ContinuousIngressAuthorityStore()
         message = "Hello, my name is Ted. Is this the Hanezawa residence?"
+        ingress_authority = make_ingress_authority(
+            self.root.parent / "ingress_authority_turn_1",
+            (message, "turn-001"),
+        )
         planner_session = ContinuousSessionCoordinator(
             session_compatibility(ContinuousSessionRole.PLANNER), port
         )
@@ -862,7 +961,12 @@ class ContinuousWorldTests(unittest.TestCase):
                 composer_draft("Sakura keeps the threshold and requests proof."),
                 "compose",
             ),
-            validator=_FakeStage(package(), "validate"),
+            validator=_FakeStage(
+                package(
+                    story_text="Sakura keeps the threshold and requests proof."
+                ),
+                "validate",
+            ),
             ingress_authority=ingress_authority,
         )
         candidate = coordinator.prepare(
@@ -915,7 +1019,10 @@ class ContinuousWorldTests(unittest.TestCase):
 
     def test_provider_failure_leaves_complete_secret_free_debug_skeleton(self) -> None:
         port = InMemoryContinuousStoredSessionPort()
-        ingress_authority = ContinuousIngressAuthorityStore()
+        ingress_authority = make_ingress_authority(
+            self.root.parent / "ingress_authority_failure",
+            ("Hello.", "turn-001"),
+        )
         coordinator = ContinuousShadowTurnCoordinator(
             world=self.store,
             planner_session=ContinuousSessionCoordinator(
@@ -949,7 +1056,11 @@ class ContinuousWorldTests(unittest.TestCase):
 
     def test_scene_change_uses_same_sessions_and_calls_validator_summary_before_planner(self) -> None:
         port = InMemoryContinuousStoredSessionPort()
-        ingress_authority = ContinuousIngressAuthorityStore()
+        new_prompt = "Several days later, Ted asks Mia about Sakura."
+        ingress_authority = make_ingress_authority(
+            self.root.parent / "ingress_authority_scene_change",
+            (new_prompt, "turn-002"),
+        )
         planner_session = ContinuousSessionCoordinator(
             session_compatibility(ContinuousSessionRole.PLANNER), port
         )
@@ -962,7 +1073,6 @@ class ContinuousWorldTests(unittest.TestCase):
             complete_final_sequence=final_sequence("turn-001"),
         )
         self.store.write_accepted_pair("world-test", "main", pair)
-        new_prompt = "Several days later, Ted asks Mia about Sakura."
         coordinator = ContinuousShadowTurnCoordinator(
             world=self.store,
             planner_session=planner_session,
@@ -977,9 +1087,15 @@ class ContinuousWorldTests(unittest.TestCase):
             validator=_FakeQueueStage(
                 scene_summary_package(pair, new_prompt=new_prompt),
                 replace(
-                    package(turn_id="turn-002"),
+                    package(
+                        turn_id="turn-002",
+                        story_text="Mia answers cautiously in the kitchen.",
+                    ),
                     event_record=replace(
-                        package(turn_id="turn-002").event_record,
+                        package(
+                            turn_id="turn-002",
+                            story_text="Mia answers cautiously in the kitchen.",
+                        ).event_record,
                         scene_id="scene-002",
                     ),
                 ),

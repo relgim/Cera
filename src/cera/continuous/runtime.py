@@ -122,6 +122,7 @@ class ContinuousTurnCandidateV1:
     protected_user_claim_ledger_sha256: str
     protected_user_realization_ledger_sha256: str
     story_segment_ledger_sha256: str
+    protected_semantic_adjudication_ledger_sha256: str
     accepted_session_projection_ledger_sha256: str
 
     @property
@@ -132,6 +133,9 @@ class ContinuousTurnCandidateV1:
                 "protected_user_claim_ledger_sha256": self.protected_user_claim_ledger_sha256,
                 "protected_user_realization_ledger_sha256": self.protected_user_realization_ledger_sha256,
                 "story_segment_ledger_sha256": self.story_segment_ledger_sha256,
+                "protected_semantic_adjudication_ledger_sha256": (
+                    self.protected_semantic_adjudication_ledger_sha256
+                ),
                 "accepted_session_projection_ledger_sha256": self.accepted_session_projection_ledger_sha256,
                 "ingress_receipt_sha256": self.request.ingress_receipt_sha256,
                 "planner_prompt_sha256": self.planner_prompt_sha256,
@@ -575,7 +579,11 @@ class ContinuousShadowTurnCoordinator:
             or package.event_record.scene_id != request.scene_id
         ):
             raise StateConflictError("Validator changed turn scope")
-        evidence_registry.validate_traceability(planner_sequence, package)
+        evidence_registry.validate_traceability(
+            planner_sequence,
+            package,
+            branch_root=branch_root,
+        )
         self.validator_session.record_validator_candidate(
             request.turn_id, package.package_sha256
         )
@@ -604,6 +612,9 @@ class ContinuousShadowTurnCoordinator:
             ),
             story_segment_ledger_sha256=canonical_sha256(
                 to_primitive(story_segments)
+            ),
+            protected_semantic_adjudication_ledger_sha256=canonical_sha256(
+                to_primitive(package.protected_semantic_adjudications)
             ),
             accepted_session_projection_ledger_sha256=canonical_sha256(
                 accepted_session_bindings

@@ -19,7 +19,9 @@ from .contracts import (
     FinalSequenceItemV1,
     IngressSourceUnitKind,
     IngressSourceUnitV1,
+    PersistenceRecordClass,
     ProtectedUserAllowanceMode,
+    ProtectedSemanticRelationKind,
     ProtectedUserRealizationSpanV1,
     ProtectedUserSourceClaimKind,
     ProtectedUserSourceClaimV1,
@@ -32,7 +34,7 @@ from .contracts import (
 
 @dataclass(frozen=True, slots=True)
 class AcceptedSessionFactV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.accepted_session_fact.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.accepted_session_fact.v2"
 
     fact_key: str
     source_item_key: str
@@ -70,7 +72,7 @@ class AcceptedSessionFactV1:
 class AcceptedSessionProjectionV1:
     """Exact accepted current-scene context visible to one audience."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.accepted_session_projection.v4"
+    SCHEMA_VERSION: ClassVar[str] = "cera.accepted_session_projection.v5"
 
     schema_version: str
     projection_key: str
@@ -347,7 +349,7 @@ class RequestEvidenceBindingV1:
 class RequestEvidenceBindingRegistry:
     """Mutable request ledger whose exported bindings are immutable records."""
 
-    SCHEMA_VERSION = "cera.request_evidence_binding_registry.v7"
+    SCHEMA_VERSION = "cera.request_evidence_binding_registry.v8"
 
     def __init__(self, *, world_id: str, branch_id: str, turn_id: str) -> None:
         if not all(isinstance(value, str) and value.strip() for value in (world_id, branch_id, turn_id)):
@@ -1029,9 +1031,12 @@ class RequestEvidenceBindingRegistry:
         self,
         sequence: RichPlannerSequenceV1,
         package: ValidatorFinalizationPackageV1,
+        *,
+        branch_root: Path | None = None,
     ) -> None:
         if package.complete_final_sequence is None:
             return
+        self._validate_protected_semantics(package)
         beats = {value.beat_key: value for value in sequence.beats}
         items = {value.item_key: value for value in package.complete_final_sequence.items}
         cited_story_segments: set[str] = set()
@@ -1176,6 +1181,28 @@ class RequestEvidenceBindingRegistry:
                 raise StateConflictError(
                     "world edit changed final-field value, reason, or claim provenance"
                 )
+            directive = next(
+                (
+                    value
+                    for value in scope.persistence_directives
+                    if value.directive_key == operation.persistence_directive_key
+                ),
+                None,
+            )
+            if directive is None:
+                raise StateConflictError(
+                    "world edit lacks an exact field-level persistence directive"
+                )
+            if branch_root is None:
+                raise StateConflictError(
+                    "persistence target validation lacks the exact branch root"
+                )
+            self._validate_persistence_target(
+                branch_root=branch_root,
+                item=item,
+                scope=scope,
+                directive=directive,
+            )
         for created in package.created_field_log:
             item = items.get(created.source_final_sequence_item)
             scope = next(
@@ -1221,6 +1248,162 @@ class RequestEvidenceBindingRegistry:
         )
         if package.event_record.summary != expected_event_summary:
             raise StateConflictError("event summary changed final-sequence facts")
+
+    def _validate_protected_semantics(
+        self, package: ValidatorFinalizationPackageV1
+    ) -> None:
+        adjudications = {
+            value.segment_key: value
+            for value in package.protected_semantic_adjudications
+        }
+        if set(adjudications) != set(self._story_segments):
+            raise StateConflictError(
+                "Validator did not independently adjudicate every Composer segment"
+            )
+        relation_fields = {
+            ProtectedSemanticRelationKind.AFFECTED_BY_NPC: "affected_ids",
+            ProtectedSemanticRelationKind.ADDRESSED_BY_NPC: "addressed_ids",
+            ProtectedSemanticRelationKind.OBSERVED_BY_NPC: "observing_ids",
+            ProtectedSemanticRelationKind.REFERENCED_ONLY_BY_NPC: "referenced_ids",
+        }
+        for segment_key, segment in self._story_segments.items():
+            adjudication = adjudications[segment_key]
+            if (
+                adjudication.protected_user_id != "character:ted"
+                or adjudication.output_start != segment.output_start
+                or adjudication.output_end != segment.output_end
+                or adjudication.exact_text_sha256 != text_sha256(segment.exact_text)
+            ):
+                raise StateConflictError(
+                    "protected semantic adjudication changed the exact Composer span"
+                )
+            npc_owners = tuple(
+                value
+                for value in segment.roles.assertion_owner_ids
+                if value != adjudication.protected_user_id
+            )
+            if adjudication.relation is ProtectedSemanticRelationKind.PROTECTED_ASSERTION:
+                if (
+                    adjudication.protected_user_id
+                    not in segment.roles.assertion_owner_ids
+                    or adjudication.npc_assertion_owner_ids
+                    or adjudication.protected_user_source_claim_keys
+                    != segment.protected_user_source_claim_keys
+                ):
+                    raise StateConflictError(
+                        "protected-user assertion was laundered through Composer roles"
+                    )
+                claim = self._protected_user_claims.get(
+                    adjudication.protected_user_source_claim_keys[0]
+                )
+                if claim is None or segment.exact_text != claim.exact_text:
+                    raise StateConflictError(
+                        "protected semantic assertion lacks exact ingress authority"
+                    )
+                continue
+            if adjudication.relation is ProtectedSemanticRelationKind.NONE:
+                if (
+                    adjudication.protected_user_id in segment.roles.involved_ids
+                    or re.search(
+                        r"\bTed\b", segment.exact_text, re.IGNORECASE
+                    )
+                ):
+                    raise StateConflictError(
+                        "protected-user involvement was mislabeled as absent"
+                    )
+                continue
+            role_field = relation_fields[adjudication.relation]
+            ted_role_fields = tuple(
+                field
+                for field in (
+                    "affected_ids",
+                    "addressed_ids",
+                    "observing_ids",
+                    "referenced_ids",
+                )
+                if adjudication.protected_user_id in getattr(segment.roles, field)
+            )
+            if (
+                ted_role_fields != (role_field,)
+                or adjudication.protected_user_id
+                in segment.roles.assertion_owner_ids
+                or set(adjudication.npc_assertion_owner_ids) != set(npc_owners)
+                or not npc_owners
+            ):
+                raise StateConflictError(
+                    "non-owning protected relation lacks an exact NPC-owned predicate"
+                )
+
+    @staticmethod
+    def _validate_persistence_target(
+        *, branch_root: Path,
+        item: FinalSequenceItemV1,
+        scope: Any,
+        directive: Any,
+    ) -> None:
+        active_root = (branch_root / "ACTIVE").resolve()
+        target = (active_root / directive.target_file).resolve()
+        if active_root not in target.parents or not target.is_file() or target.is_symlink():
+            raise StateConflictError(
+                "persistence directive target is unavailable or escaped branch"
+            )
+        payload = json.loads(target.read_text(encoding="utf-8"))
+        if not isinstance(payload, dict):
+            raise StateConflictError(
+                "persistence directive target is not a mutable semantic record"
+            )
+        if payload.get("_cera_revision") != directive.expected_file_revision:
+            raise StateConflictError("persistence directive revision is stale")
+        identity_fields = {
+            PersistenceRecordClass.CHARACTER: "character_id",
+            PersistenceRecordClass.RELATIONSHIP: "relationship_id",
+            PersistenceRecordClass.RULE: "rule_id",
+            PersistenceRecordClass.LOCATION: "location_id",
+            PersistenceRecordClass.EVENT: "event_id",
+            PersistenceRecordClass.SCENE: "scene_id",
+        }
+        if payload.get(identity_fields[directive.target_record_class]) != (
+            directive.target_record_id
+        ):
+            raise StateConflictError(
+                "persistence directive targets the wrong record identity"
+            )
+        subjects = set(directive.target_subject_ids)
+        if directive.target_record_class is PersistenceRecordClass.CHARACTER:
+            if subjects != {directive.target_record_id} or not subjects.issubset(
+                set(scope.roles.involved_ids)
+            ):
+                raise StateConflictError(
+                    "character persistence targets the wrong character"
+                )
+            if (
+                scope.visibility is FinalInformationVisibility.CHARACTER_PRIVATE
+                and scope.knowledge_owner_id != directive.target_record_id
+            ):
+                raise StateConflictError(
+                    "private character persistence targets another owner"
+                )
+        elif directive.target_record_class is PersistenceRecordClass.RELATIONSHIP:
+            participants = payload.get("participant_ids")
+            if not isinstance(participants, list) or set(participants) != subjects:
+                raise StateConflictError(
+                    "relationship persistence targets the wrong participant pair"
+                )
+        prior_found, prior = _try_json_pointer(payload, directive.field_path)
+        if directive.operation.value == "add":
+            if prior_found:
+                raise StateConflictError(
+                    "add persistence directive target already exists"
+                )
+        else:
+            if (
+                not prior_found
+                or canonical_sha256(prior)
+                != directive.expected_prior_value_sha256
+            ):
+                raise StateConflictError(
+                    "replace persistence directive prior value changed"
+                )
 
     def _validate_world_binding(self, binding: RequestEvidenceBindingV1, branch_root: Path) -> None:
         assert binding.relative_path is not None
@@ -1459,3 +1642,15 @@ def _json_pointer_value(payload: Any, pointer: str) -> Any:
             raise StateConflictError("character summary field pointer is unavailable")
         current = current[key]
     return current
+
+
+def _try_json_pointer(payload: Any, pointer: str) -> tuple[bool, Any]:
+    if not pointer.startswith("/") or pointer == "/":
+        raise ContractValidationError("persistence field pointer is invalid")
+    current = payload
+    for encoded in pointer[1:].split("/"):
+        key = encoded.replace("~1", "/").replace("~0", "~")
+        if not isinstance(current, dict) or key not in current:
+            return False, None
+        current = current[key]
+    return True, current

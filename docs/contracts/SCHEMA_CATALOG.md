@@ -923,45 +923,54 @@ provider identities:
 |---|---|---|
 | `cera.rich_planner_sequence.v4` | runtime Codex Planner, advisory | Material beats with explicit assertion-owner and non-owning character roles, evidence perception, goal, pressures, tactic, causality, private/material continuity, result, realization space, Python-owned protected-user source-claim references, and evidence bindings |
 | `cera.continuous_ingress_source_unit.v1` | Python ingress | Exact typed action, dialogue, state, narration, or instruction span with explicit actor/speaker ownership; replaces runtime text heuristics |
-| `cera.continuous_ingress_receipt.v1` | Python ingress authority | Exact raw-source and ordered-unit custody bound to world, branch, session, request, turn, idempotency, adapter/fixture, and protected-user identities; continuous requests carry only its verified reference |
+| `cera.continuous_ingress_classification_receipt.v1` | Python ingress authority | Exact prepared-envelope, prepared-turn, interpretation, adapter, protected-user, raw-source, and ordered source-unit custody recomputed by the prepared-ingress bridge |
+| `cera.frozen_continuous_ingress_fixture.v1` | Python qualification authority | One closed repository-owned fixture identity bound to exact world, branch, session, request, turn, idempotency, protected user, raw source, and source units; prefixes never create fixture authority |
+| `cera.continuous_ingress_receipt.v2` | Python ingress authority | Restart-safe immutable raw-source and ordered-unit custody bound to an exact verified prepared-ingress record or frozen fixture entry plus world, branch, session, request, turn, idempotency, adapter, and protected-user identities |
 | `cera.character_role_ledger.v1` | provider declaration, Python validated | Closed action-owner, state-owner, speaker, affected, addressed, observing, and referenced roles for one scoped assertion; owning and non-owning roles cannot be conflated |
 | `cera.protected_user_source_claim.v3` | Python | Exact Ted-owned action/state or dialogue span derived only from an ingress-owned source unit and bound to its source handle and hash |
 | `cera.protected_user_realization_span.v1` | DeepSeek draft, Python validated | Exact zero-based occurrence of one protected-user source claim in accepted-candidate prose; undeclared exact copies and changed spans fail |
-| `cera.story_realization_segment.v2` | DeepSeek draft, Python validated | Exhaustive gap-free exact output segments with semantic kind, closed owner/non-owner roles, and protected-user-claim ownership |
+| `cera.story_realization_segment.v3` | DeepSeek draft, advisory until independent validation | Exhaustive gap-free exact output segments with semantic kind, closed owner/non-owner roles, and protected-user-claim ownership; Composer role labels do not independently establish semantic authority |
+| `cera.protected_semantic_adjudication.v1` | separate runtime Codex Validator, Python validated | Independent exact-span classification of every Composer segment as a protected assertion, one closed NPC-owned non-owning relation, or no protected involvement, with exact ingress claims required for protected assertions |
 | `cera.character_summary_envelope.v3` | Python projection | Explicitly incomplete exact-field projection bound only to an ACTIVE character record, stable JSON pointers, revision, content hash, payload, and derivation receipt; candidate-derived character summaries are not accepted |
 | `cera.accepted_final_sequence_envelope.v1` | Python after creator acceptance | Exact user message plus Validator final sequence, appended once and superseding the provisional Planner sequence |
-| `cera.complete_final_sequence.v5` | runtime Codex Validator, advisory until Python validation and creator action | Closed realized items retaining exact Planner beats and Composer segments plus field-level role, visibility, owner, and protected-user claim provenance; the final stop is the exact last resulting state |
-| `cera.validator_finalization_package.v6` | runtime Codex Validator, advisory until Python validation and creator action | Closed final sequence, existing creator review, no-more-than-100 exact-final-field semantic edits, created-field log, Python-derived event participants/item roles with exact claim/item unions and deterministic summary custody, or an explicit scene summary |
+| `cera.persistence_directive.v1` | runtime Codex Validator selection, Python validated | Exact add/replace projection destination bound to one final-field value, Character or Relationship record identity, typed subject identities, JSON path, current revision, and prior-value hash for replace; Rule, Location, Event, and Scene classes are reserved but disabled until their subject schemas are typed; Python derives edit and created-field bookkeeping |
+| `cera.complete_final_sequence.v6` | runtime Codex Validator, advisory until Python validation and creator action | Closed realized items retaining exact Planner beats and Composer segments plus field-level role, visibility, owner, protected-user claim, and typed persistence-destination provenance; the final stop is the exact last resulting state |
+| `cera.validator_finalization_package.v7` | runtime Codex Validator draft compiled by Python | Closed final sequence, independent exact-span protected semantics, existing creator review, Python-derived add/replace operations and created-field log, Python-derived event participants/item roles, or an explicit scene summary |
 | `cera.continuous_session_snapshot.v1` | Python | Role-separated stored-thread handle, compatibility, context-event hashes, and accepted-turn index; persisted under `PLANNER_SESSION` or `VALIDATOR_SESSION` |
 | `cera.continuous_context_injection_receipt.v1` | Python | Exact accepted envelope, stored Planner thread, injected context bytes, and deterministic non-generating injection operation receipt |
 | `cera.continuous_session_snapshot_receipt.v1` | Python | Acceptance-bound immutable Planner snapshot bytes, exact synchronized event/envelope/thread/injection hashes, retained path, and current-pointer path |
 | `cera.continuous_world_promotion_receipt.v2` | Python | Revision-bound candidate-to-ACTIVE promotion or unchanged nonaccepting action, bound to the complete candidate and authority-context hashes |
-| `cera.accepted_session_fact.v1` | Python | One exact accepted field value with visibility, owner, closed character roles, and protected-user claim provenance |
-| `cera.accepted_session_projection.v4` | Python | Same-scene accepted public field-level facts or public plus one exact owner's private facts, retaining each field's closed roles, Composer segments, and claim provenance and bound to exact pair/event/envelope/snapshot/receipt bytes |
+| `cera.accepted_session_fact.v2` | Python | One exact independently adjudicated accepted field value with visibility, owner, closed character roles, and protected-user claim provenance |
+| `cera.accepted_session_projection.v5` | Python | Same-scene independently adjudicated accepted public field-level facts or public plus one exact owner's private facts, retaining each field's closed roles, Composer segments, and claim provenance and bound to exact pair/event/envelope/snapshot/receipt bytes |
 | `cera.event_item_role_ledger.v1` | Python over accepted final sequence | Per-final-item role custody used to derive event participants without model-authored participant bookkeeping |
 | `cera.request_evidence_binding.v4` | Python | Request-local current-source, mechanical-connective, ACTIVE, DERIVED-navigation, or synchronized accepted-session projection handle bound to exact scope, hashes, visibility, owner, receipt, stored thread, and immutable snapshot |
-| `cera.request_evidence_binding_registry.v7` | Python runtime ledger | Current request bindings, trusted ingress receipt/units, protected-user claims, role-scoped Composer segments, universal final/edit custody, and owner-scoped accepted facts included in the registry hash |
+| `cera.request_evidence_binding_registry.v8` | Python runtime ledger | Current request bindings, restart-safe ingress authority, protected-user claims, Composer segments, independent semantic adjudications, exact persistence targets, and owner-scoped accepted facts included in candidate and acceptance validation |
 | `cera.continuous_provider_call_ledger_event.v3` | Python | Durable prepared/worker-started/worker-preflight/true-transport-invoked/completed/failed/post-validation/accepted accounting with privacy-safe receipts, telemetry, exact stored-thread hash, and tool bindings |
 | `cera.scene_summary_derived_view.v2` | Python over Validator draft | Explicitly non-authoritative scene view with complete per-turn exact-pair authority provenance, optional event cross-check hashes, revision, and regeneration identity |
 | `cera.continuous_acceptance_journal.v5` | Python operational journal | Complete creator-acceptance transaction binding the ingress-receipt-aware candidate and authority context, role-scoped package/event/facts/edits, action, exact pair/event, ACTIVE trees, receipt/diagnostic/timeline, Planner ledger, stored thread, injection receipt, immutable Planner snapshot receipt, and final synchronization receipt |
 | `cera.continuous_root_diagnostic.v1` | Python | Secret-safe owning stage, operation, contract name, and stack evidence for failures before per-turn diagnostics exist |
 | `cera.sillytavern_chat_request.v4` | Python/browser ingress | Adds the one-shot boolean `cera_scene_change` flag; no automatic scene inference |
 
-World operations are `add`, `replace`, `remove`, `append_unique`, `increment`,
-or `create_file`. Mutable `create_file` values must be JSON objects and Python
-adds `_cera_revision`; arrays/strings are not mutable V1 semantic records.
-Stable relative JSON paths and expected internal revisions are
-mandatory. Every `add` and `create_file` has an exact created-field/root log
-with value type, value, reason, and source final-sequence item.
+The general world store retains typed `add`, `replace`, `remove`,
+`append_unique`, `increment`, and `create_file` operations. The continuous V7
+Validator contract enables only exact `add` and `replace` projections because
+the other transforms do not yet have closed field-level authority contracts.
+Every enabled target requires an exact mutable JSON object, record identity,
+subject identity, stable JSON path, and internal revision. Replace also binds
+the prior value hash; Python derives all operation and created-field metadata.
 
 `cera.continuous_ingress_source_unit.v1`,
-`cera.continuous_ingress_receipt.v1`,
+`cera.continuous_ingress_classification_receipt.v1`,
+`cera.frozen_continuous_ingress_fixture.v1`,
+`cera.continuous_ingress_receipt.v2`,
 `cera.character_role_ledger.v1`,
 `cera.protected_user_source_claim.v3`,
 `cera.protected_user_realization_span.v1`,
-`cera.story_realization_segment.v2`,
-`cera.accepted_session_fact.v1`,
-`cera.accepted_session_projection.v4`,
+`cera.story_realization_segment.v3`,
+`cera.protected_semantic_adjudication.v1`,
+`cera.persistence_directive.v1`,
+`cera.accepted_session_fact.v2`,
+`cera.accepted_session_projection.v5`,
 `cera.event_item_role_ledger.v1`,
 `cera.request_evidence_binding.v4`,
 `cera.continuous_context_injection_receipt.v1`,

@@ -30,6 +30,7 @@ from cera.continuous.ingress import ContinuousIngressAuthorityStore
 from cera.continuous.contracts import (
     AcceptedTurnPairV1,
     CharacterSummaryEnvelopeV1,
+    FrozenContinuousIngressFixtureV1,
     IngressSourceUnitKind,
     IngressSourceUnitV1,
     RichPlannerSequenceV1,
@@ -53,7 +54,13 @@ from cera.continuous.sessions import (
     ContinuousSessionCompatibilityV1,
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
+    InMemoryContinuousStoredSessionPort,
     assert_separate_role_sessions,
+)
+from cera.continuous.scripted_job4 import (
+    SCRIPTED_JOB4_FIXTURE_ID,
+    SCRIPTED_JOB4_FIXTURE_SHA256,
+    ScriptedJob4FixtureRuntime,
 )
 from cera.continuous.runtime import (
     ContinuousShadowTurnCoordinator,
@@ -166,6 +173,30 @@ def canary_source_units(turn_number: int) -> tuple[IngressSourceUnitV1, ...]:
             speaker_id=None,
             classification_basis="explicit_ingress_narration",
         ),
+    )
+
+
+def canary_ingress_fixtures() -> tuple[FrozenContinuousIngressFixtureV1, ...]:
+    """Closed repository-owned registry for the three exact canary turns."""
+
+    return tuple(
+        FrozenContinuousIngressFixtureV1(
+            schema_version=FrozenContinuousIngressFixtureV1.SCHEMA_VERSION,
+            fixture_id=f"cera.fixture.continuous_job4.turn_{turn_number}",
+            fixture_schema_id="cera.fixture_registry.continuous_job4.v1",
+            world_id=WORLD_ID,
+            branch_id=BRANCH_ID,
+            session_id="session:continuous_job4",
+            request_id=f"request:turn-{turn_number:03d}",
+            turn_id=f"turn-{turn_number:03d}",
+            idempotency_key_sha256=text_sha256(
+                f"continuous-job4-turn-{turn_number:03d}"
+            ),
+            raw_source=TURN_MESSAGES[turn_number - 1],
+            protected_user_id="character:ted",
+            source_units=canary_source_units(turn_number),
+        )
+        for turn_number in (1, 2, 3)
     )
 
 
@@ -380,8 +411,8 @@ def compatibility(
         world_directory_identity_sha256=world.world_identity_sha256(WORLD_ID, BRANCH_ID),
         authority_policy_version="cera.owner_architecture.v2+d186",
         privacy_policy_version="cera.privacy.v1",
-        protected_user_policy_version="cera.continuous_protected_user_policy.v6",
-        session_policy_version="cera.continuous_session_policy.v6",
+        protected_user_policy_version="cera.continuous_protected_user_policy.v7",
+        session_policy_version="cera.continuous_session_policy.v7",
     )
 
 
@@ -392,6 +423,10 @@ def read_world_revision(world: ContinuousWorldStore, character: str) -> int:
 
 class ProCorrectionStop(RuntimeError):
     pass
+
+
+class _ScriptedExecutionComplete(RuntimeError):
+    """Internal non-error jump from the isolated scripted branch to cleanup."""
 
 
 class _HarnessPlannerPort:
@@ -481,7 +516,10 @@ class JobHarness:
         self._active_turn_number = 0
         self._active_turn_id = ""
         self._active_validator_label: str | None = None
-        self.ingress_authority = ContinuousIngressAuthorityStore()
+        self.ingress_authority = ContinuousIngressAuthorityStore(
+            lifecycle_root / "ingress_authority",
+            fixture_registry=canary_ingress_fixtures(),
+        )
         self.coordinator = ContinuousShadowTurnCoordinator(
             world=world,
             planner_session=planner_session,
@@ -497,15 +535,7 @@ class JobHarness:
         idempotency_key = f"continuous-job4-{turn_id}"
         receipt = self.ingress_authority.issue_frozen_fixture(
             fixture_id=f"cera.fixture.continuous_job4.turn_{turn_number}",
-            world_id=WORLD_ID,
-            branch_id=BRANCH_ID,
-            session_id="session:continuous_job4",
-            request_id=f"request:{turn_id}",
-            turn_id=turn_id,
             idempotency_key=idempotency_key,
-            raw_source=TURN_MESSAGES[turn_number - 1],
-            protected_user_id="character:ted",
-            source_units=canary_source_units(turn_number),
         )
         return {
             "session_id": receipt.session_id,
@@ -931,9 +961,165 @@ def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
     return "\n".join(lines)
 
 
+def execute_job4_schedule(
+    *,
+    harness: JobHarness,
+    world: ContinuousWorldStore,
+    planner_session: ContinuousSessionCoordinator,
+    planner_handle: str,
+    validator_handle: str,
+    result: dict[str, Any],
+    scripted_provider_free: bool,
+) -> None:
+    """Run the one exact ten-stage schedule shared by both CLI modes."""
+
+    result.update(
+        {
+            "planner_thread_sha256": text_sha256(planner_handle),
+            "validator_thread_sha256": text_sha256(validator_handle),
+            "separate_thread_ids": planner_handle != validator_handle,
+        }
+    )
+    sakura_summary = source_character_summary(
+        ROOT,
+        "sakura",
+        world=world,
+        world_file_revision=read_world_revision(world, "Sakura"),
+    )
+    result["turns"].append(
+        harness.run_turn(
+            turn_number=1,
+            scene_id="scene-001",
+            summaries=(sakura_summary,),
+        )
+    )
+    result["turns"].append(
+        harness.run_turn(turn_number=2, scene_id="scene-001", summaries=())
+    )
+    result["scene_summary"] = harness.summarize_scene()
+    mia_summary = source_character_summary(
+        ROOT,
+        "mia",
+        world=world,
+        world_file_revision=read_world_revision(world, "Mia"),
+    )
+    result["turns"].append(
+        harness.run_turn(
+            turn_number=3,
+            scene_id="scene-002",
+            summaries=(mia_summary,),
+            scene_change_context=to_primitive(harness.scene_change_envelope),
+        )
+    )
+    if len(harness.call_records) != 10:
+        raise RuntimeError("successful Job 4 did not use the exact ten-call schedule")
+    if scripted_provider_free:
+        if harness.provider_calls != 0 or harness.scripted_transport_invocations != 10:
+            raise RuntimeError(
+                "scripted Job 4 did not preserve zero external and ten local invocations"
+            )
+    elif harness.provider_calls != 10:
+        raise RuntimeError("successful Job 4 provider-call accounting changed")
+    if planner_session.unsynchronized_accepted_turn_ids:
+        raise RuntimeError("accepted Planner context remained unsynchronized")
+    result["status"] = "completed"
+
+
+def execute_scripted_job4(
+    *,
+    cycle: Path,
+    world: ContinuousWorldStore,
+    lifecycle_root: Path,
+    call_ledger: ContinuousProviderCallLedger,
+    root_diagnostic: ContinuousRootDiagnosticRecorder,
+    result: dict[str, Any],
+    harness_holder: dict[str, JobHarness] | None = None,
+) -> JobHarness:
+    """Cross the actual executable path with closed local transports only."""
+
+    session_port = InMemoryContinuousStoredSessionPort()
+    planner_session = root_diagnostic.run(
+        "session_construction",
+        "construct_scripted_planner_session",
+        lambda: ContinuousSessionCoordinator(
+            compatibility(world, ContinuousSessionRole.PLANNER), session_port
+        ),
+    )
+    validator_session = root_diagnostic.run(
+        "session_construction",
+        "construct_scripted_validator_session",
+        lambda: ContinuousSessionCoordinator(
+            compatibility(world, ContinuousSessionRole.VALIDATOR), session_port
+        ),
+    )
+    planner_handle = root_diagnostic.run(
+        "stored_thread_construction",
+        "ensure_scripted_planner_thread",
+        lambda: planner_session.ensure_session().provider_thread_id,
+    )
+    validator_handle = root_diagnostic.run(
+        "stored_thread_construction",
+        "ensure_scripted_validator_thread",
+        lambda: validator_session.ensure_session().provider_thread_id,
+    )
+    root_diagnostic.run(
+        "role_separation",
+        "assert_scripted_role_separation",
+        lambda: assert_separate_role_sessions(planner_session, validator_session),
+    )
+    fixture = ScriptedJob4FixtureRuntime(world_id=WORLD_ID, branch_id=BRANCH_ID)
+    harness = JobHarness(
+        source_root=ROOT,
+        cycle=cycle,
+        world=world,
+        planner_session=planner_session,
+        validator_session=validator_session,
+        planner_handle=planner_handle,
+        validator_handle=validator_handle,
+        lifecycle_root=lifecycle_root,
+        call_ledger=call_ledger,
+        root_diagnostic=root_diagnostic,
+        planner_transport_factory=fixture.planner_transport,
+        validator_transport_factory=fixture.validator_transport,
+        composer_transport_factory=fixture.composer_transport,
+        scripted_provider_free=True,
+    )
+    if harness_holder is not None:
+        harness_holder["harness"] = harness
+    fixture.bind(harness)
+    try:
+        execute_job4_schedule(
+            harness=harness,
+            world=world,
+            planner_session=planner_session,
+            planner_handle=planner_handle,
+            validator_handle=validator_handle,
+            result=result,
+            scripted_provider_free=True,
+        )
+    finally:
+        archived: dict[str, bool] = {}
+        for role, coordinator in (
+            ("planner", planner_session),
+            ("validator", validator_session),
+        ):
+            handle = coordinator.ensure_session()
+            session_port.archive(handle, "provider_free_job4_complete")
+            archived[role] = not session_port.resume(handle)
+        result["thread_archival"] = archived
+        if not all(archived.values()):
+            raise RuntimeError("scripted canary thread archival failed")
+    return harness
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--confirm-live", action="store_true")
+    confirmation = parser.add_mutually_exclusive_group(required=True)
+    confirmation.add_argument("--confirm-live", action="store_true")
+    confirmation.add_argument(
+        "--confirm-provider-free-scripted-v7", action="store_true"
+    )
+    parser.add_argument("--expected-scripted-fixture-sha256")
     parser.add_argument("--cycle-directory", type=Path, required=True)
     parser.add_argument("--source-database", type=Path, required=True)
     parser.add_argument("--runtime-root", type=Path, required=True)
@@ -943,8 +1129,14 @@ def main() -> int:
     parser.add_argument("--expected-authorization-sha256", required=True)
     parser.add_argument("--maximum-provider-calls", type=int, required=True)
     args = parser.parse_args()
-    if not args.confirm_live:
-        parser.error("--confirm-live is required")
+    scripted_provider_free = args.confirm_provider_free_scripted_v7
+    if scripted_provider_free:
+        if args.expected_scripted_fixture_sha256 != SCRIPTED_JOB4_FIXTURE_SHA256:
+            parser.error(
+                "--expected-scripted-fixture-sha256 must match the frozen v7 fixture"
+            )
+    elif args.expected_scripted_fixture_sha256 is not None:
+        parser.error("scripted fixture identity is forbidden in live mode")
     cycle = args.cycle_directory.resolve()
     source_db = args.source_database.resolve()
     runtime_root = args.runtime_root.resolve()
@@ -1035,7 +1227,19 @@ def main() -> int:
         "authorization_sha256": args.expected_authorization_sha256,
         "started_at": utc_now(),
         "status": "running",
+        "execution_mode": (
+            "provider_free_scripted_v7"
+            if scripted_provider_free
+            else "live_one_shot"
+        ),
+        "scripted_fixture_id": (
+            SCRIPTED_JOB4_FIXTURE_ID if scripted_provider_free else None
+        ),
+        "scripted_fixture_sha256": (
+            SCRIPTED_JOB4_FIXTURE_SHA256 if scripted_provider_free else None
+        ),
         "provider_calls": 0,
+        "scripted_transport_invocations": 0,
         "retry_count": 0,
         "fallback_count": 0,
         "story_database_writes": 0,
@@ -1052,7 +1256,22 @@ def main() -> int:
     planner_handle = None
     validator_handle = None
     harness = None
+    scripted_harness_holder: dict[str, JobHarness] = {}
     try:
+        if scripted_provider_free:
+            harness = execute_scripted_job4(
+                cycle=cycle,
+                world=world,
+                lifecycle_root=lifecycle_root,
+                call_ledger=call_ledger,
+                root_diagnostic=root_diagnostic,
+                result=result,
+                harness_holder=scripted_harness_holder,
+            )
+            planner_handle = harness.planner_handle
+            validator_handle = harness.validator_handle
+            raise _ScriptedExecutionComplete()
+
         def import_codex_sdk():
             from openai_codex import Codex, CodexConfig
 
@@ -1164,55 +1383,15 @@ def main() -> int:
                 root_diagnostic=root_diagnostic,
             )
             try:
-                result.update(
-                    {
-                        "planner_thread_sha256": text_sha256(planner_handle),
-                        "validator_thread_sha256": text_sha256(validator_handle),
-                        "separate_thread_ids": planner_handle != validator_handle,
-                    }
-                )
-                sakura_summary = source_character_summary(
-                    ROOT,
-                    "sakura",
+                execute_job4_schedule(
+                    harness=harness,
                     world=world,
-                    world_file_revision=read_world_revision(world, "Sakura"),
+                    planner_session=planner_session,
+                    planner_handle=planner_handle,
+                    validator_handle=validator_handle,
+                    result=result,
+                    scripted_provider_free=False,
                 )
-                result["turns"].append(
-                    harness.run_turn(
-                        turn_number=1,
-                        scene_id="scene-001",
-                        summaries=(sakura_summary,),
-                    )
-                )
-                result["turns"].append(
-                    harness.run_turn(
-                        turn_number=2,
-                        scene_id="scene-001",
-                        summaries=(),
-                    )
-                )
-                result["scene_summary"] = harness.summarize_scene()
-                mia_summary = source_character_summary(
-                    ROOT,
-                    "mia",
-                    world=world,
-                    world_file_revision=read_world_revision(world, "Mia"),
-                )
-                result["turns"].append(
-                    harness.run_turn(
-                        turn_number=3,
-                        scene_id="scene-002",
-                        summaries=(mia_summary,),
-                        scene_change_context=to_primitive(harness.scene_change_envelope),
-                    )
-                )
-                if len(harness.call_records) != 10:
-                    raise RuntimeError("successful Job 4 did not use the exact ten-call schedule")
-                if harness.provider_calls != 10:
-                    raise RuntimeError("successful Job 4 provider-call accounting changed")
-                if planner_session.unsynchronized_accepted_turn_ids:
-                    raise RuntimeError("accepted Planner context remained unsynchronized")
-                result["status"] = "completed"
             finally:
                 archived: dict[str, bool] = {}
                 archive_failed = False
@@ -1231,7 +1410,11 @@ def main() -> int:
                 result["thread_archival"] = archived
                 if archive_failed:
                     raise RuntimeError("stored canary thread archival failed")
+    except _ScriptedExecutionComplete:
+        pass
     except BaseException as exc:
+        if harness is None:
+            harness = scripted_harness_holder.get("harness")
         result["status"] = "failed"
         result["failure"] = {
             "stage": (
@@ -1247,6 +1430,9 @@ def main() -> int:
             result["calls"] = harness.call_records
             result["pro_polls"] = harness.poll_records
             result["provider_calls"] = harness.provider_calls
+            result["scripted_transport_invocations"] = (
+                harness.scripted_transport_invocations
+            )
             result["continuous_thread_hashes_verified"] = all(
                 call.get("result", {})
                 .get("operation_telemetry", {})
@@ -1258,7 +1444,8 @@ def main() -> int:
                 )
                 for call in harness.call_records
                 if call.get("owner") in {"planner", "validator"}
-                and call.get("status") == "passed"
+                and call.get("status")
+                in {"passed", "scripted_provider_free_passed"}
             )
         result["source_database_sha256_after"] = bytes_sha256(source_db.read_bytes())
         result["copy_database_sha256_after"] = bytes_sha256(copied_db.read_bytes())
@@ -1297,6 +1484,9 @@ def main() -> int:
             "report_sha256": text_sha256(report),
             "effects": {
                 "provider_calls": int(result["provider_calls"]),
+                "scripted_transport_invocations": int(
+                    result["scripted_transport_invocations"]
+                ),
                 "story_database_writes": 0,
                 "active_route_changes": 0,
                 "deployment_remote_or_push_effects": 0,

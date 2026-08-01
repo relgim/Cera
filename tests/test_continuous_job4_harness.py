@@ -4,6 +4,9 @@ from pathlib import Path
 from dataclasses import dataclass, replace
 import json
 import re
+import sqlite3
+import subprocess
+import sys
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
@@ -20,6 +23,7 @@ from scripts.run_continuous_planner_validator_job4 import (
     source_character_summary,
     seed_world,
     validate_declared_unittest_ids,
+    git_head,
 )
 from cera.continuous.call_ledger import (
     ContinuousProviderCallLedger,
@@ -41,6 +45,7 @@ from cera.continuous.sessions import (
     ContinuousSessionRole,
     InMemoryContinuousStoredSessionPort,
 )
+from cera.continuous.scripted_job4 import SCRIPTED_JOB4_FIXTURE_SHA256
 from cera.continuous.world import ContinuousWorldStore
 from cera.providers import (
     CodexMcpRuntimeBinding,
@@ -150,10 +155,97 @@ class _ScriptedDeepSeekTransport:
 
 
 class ContinuousJob4HarnessTests(unittest.TestCase):
+    def test_actual_cli_completes_closed_provider_free_scripted_v7_mode(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            cycle = root / "cycle"
+            (cycle / "receipts").mkdir(parents=True)
+            authorization = "a" * 64
+            cycle_id = "cycle:scripted-cli-v7"
+            task_id = "task:scripted-cli-v7"
+            (cycle / "CYCLE_MANIFEST.json").write_text(
+                json.dumps(
+                    {
+                        "cycle_id": cycle_id,
+                        "job4": {
+                            "task_id": task_id,
+                            "authorization_record_sha256": authorization,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (cycle / "receipts" / "TRIGGER_SENT.json").write_text(
+                "{}\n", encoding="utf-8"
+            )
+            source_database = root / "source.sqlite3"
+            connection = sqlite3.connect(source_database)
+            try:
+                connection.execute("CREATE TABLE qualification(value TEXT)")
+                connection.execute("INSERT INTO qualification VALUES ('unchanged')")
+                connection.commit()
+            finally:
+                connection.close()
+            runtime_root = root / "runtime"
+            completed = subprocess.run(
+                (
+                    sys.executable,
+                    str(ROOT / "scripts" / "run_continuous_planner_validator_job4.py"),
+                    "--confirm-provider-free-scripted-v7",
+                    "--expected-scripted-fixture-sha256",
+                    SCRIPTED_JOB4_FIXTURE_SHA256,
+                    "--cycle-directory",
+                    str(cycle),
+                    "--source-database",
+                    str(source_database),
+                    "--runtime-root",
+                    str(runtime_root),
+                    "--expected-checkpoint-sha",
+                    git_head(ROOT),
+                    "--expected-cycle-id",
+                    cycle_id,
+                    "--expected-task-id",
+                    task_id,
+                    "--expected-authorization-sha256",
+                    authorization,
+                    "--maximum-provider-calls",
+                    "10",
+                ),
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                timeout=120,
+                check=False,
+            )
+            detail_path = runtime_root / "JOB4_DETAIL.json"
+            failure_detail = (
+                detail_path.read_text(encoding="utf-8")
+                if detail_path.is_file()
+                else ""
+            )
+            self.assertEqual(
+                completed.returncode,
+                0,
+                completed.stderr + completed.stdout + failure_detail,
+            )
+            detail = json.loads(detail_path.read_text())
+            result = json.loads((cycle / "source" / "JOB4_RESULT.json").read_text())
+            self.assertEqual(detail["status"], "completed")
+            self.assertEqual(detail["execution_mode"], "provider_free_scripted_v7")
+            self.assertEqual(detail["provider_calls"], 0)
+            self.assertEqual(detail["scripted_transport_invocations"], 10)
+            self.assertEqual(len(detail["calls"]), 10)
+            self.assertEqual(detail["thread_archival"], {"planner": True, "validator": True})
+            self.assertTrue(detail["source_database_unchanged"])
+            self.assertTrue(detail["copy_database_unchanged"])
+            self.assertTrue(detail["active_route_unchanged"])
+            self.assertEqual(result["effects"]["provider_calls"], 0)
+            self.assertEqual(result["effects"]["scripted_transport_invocations"], 10)
+
     def test_declared_unittest_ids_must_resolve_before_publication(self) -> None:
         valid = (
             "tests.test_continuous_planner_validator.ContinuousSessionTests."
-            "test_restart_rejects_pre_v6_policy_compatibility",
+                "test_restart_rejects_pre_v7_policy_compatibility",
         )
         self.assertEqual(validate_declared_unittest_ids(valid), {valid[0]: 1})
         with self.assertRaisesRegex(ValueError, "did not resolve"):
@@ -161,7 +253,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 (
                     "tests.test_continuous_planner_validator."
                     "ContinuousSessionLifecycleTests."
-                    "test_restart_rejects_pre_v6_policy_compatibility",
+                    "test_restart_rejects_pre_v7_policy_compatibility",
                 )
             )
 
@@ -600,7 +692,16 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     )
                     return self._result(result)
                 revision = int(turn_id.rsplit("-", 1)[1])
-                result = package(turn_id=turn_id, revision=revision)
+                story_text = (
+                    "Mia answers cautiously."
+                    if turn_id == "turn-003"
+                    else "Sakura requests bounded proof."
+                )
+                result = package(
+                    turn_id=turn_id,
+                    revision=revision,
+                    story_text=story_text,
+                )
                 if turn_id == "turn-003":
                     item = result.complete_final_sequence.items[0]
                     item = replace(
@@ -646,11 +747,33 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                             ),
                             summary="Mia answers cautiously in the later scene.",
                         ),
+                        protected_semantic_adjudications=(
+                            replace(
+                                result.protected_semantic_adjudications[0],
+                                npc_assertion_owner_ids=(
+                                    "character:mia_hanezawa",
+                                ),
+                            ),
+                        ),
                     )
+                stripped_items = tuple(
+                    replace(
+                        item,
+                        field_scopes=tuple(
+                            replace(scope, persistence_directives=())
+                            for scope in item.field_scopes
+                        ),
+                    )
+                    for item in result.complete_final_sequence.items
+                )
                 result = replace(
                     result,
                     world_id=WORLD_ID,
                     branch_id=BRANCH_ID,
+                    complete_final_sequence=replace(
+                        result.complete_final_sequence,
+                        items=stripped_items,
+                    ),
                     world_edit_operations=(),
                     created_field_log=(),
                     event_record=replace(
@@ -826,8 +949,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         ).semantic_status,
                         complete_final_sequence=None,
                         creator_review=None,
-                        world_edit_operations=(),
-                        created_field_log=(),
+                        protected_semantic_adjudications=(),
                         event_record=None,
                         optional_scene_summary=ProviderSceneSummaryDraftV1(
                             summary_id=summary.summary_id,
@@ -840,9 +962,15 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     )
 
                 turn_id = harness._active_turn_id
+                story_text = (
+                    "Mia answers cautiously in the later scene."
+                    if turn_id == "turn-003"
+                    else "Sakura requests bounded proof."
+                )
                 result = package(
                     turn_id=turn_id,
                     revision=int(turn_id.rsplit("-", 1)[1]),
+                    story_text=story_text,
                 )
                 if turn_id == "turn-003":
                     item = replace(
@@ -888,11 +1016,33 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                             ),
                             summary=item.realized_event,
                         ),
+                        protected_semantic_adjudications=(
+                            replace(
+                                result.protected_semantic_adjudications[0],
+                                npc_assertion_owner_ids=(
+                                    "character:mia_hanezawa",
+                                ),
+                            ),
+                        ),
                     )
+                stripped_items = tuple(
+                    replace(
+                        item,
+                        field_scopes=tuple(
+                            replace(scope, persistence_directives=())
+                            for scope in item.field_scopes
+                        ),
+                    )
+                    for item in result.complete_final_sequence.items
+                )
                 result = replace(
                     result,
                     world_id=WORLD_ID,
                     branch_id=BRANCH_ID,
+                    complete_final_sequence=replace(
+                        result.complete_final_sequence,
+                        items=stripped_items,
+                    ),
                     world_edit_operations=(),
                     created_field_log=(),
                     event_record=replace(
@@ -912,8 +1062,9 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     semantic_status=result.semantic_status,
                     complete_final_sequence=result.complete_final_sequence,
                     creator_review=result.creator_review,
-                    world_edit_operations=(),
-                    created_field_log=(),
+                    protected_semantic_adjudications=(
+                        result.protected_semantic_adjudications
+                    ),
                     event_record=ProviderEventRecordDraftV1(
                         event_id=event.event_id,
                         accepted_turn_id=event.accepted_turn_id,

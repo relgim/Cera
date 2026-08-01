@@ -18,7 +18,7 @@ from cera.creator_review.models import (
     CreatorReviewAction,
 )
 from cera.errors import ContractValidationError
-from cera.serialization import canonical_sha256, domain_sha256, re_is_sha256
+from cera.serialization import canonical_sha256, domain_sha256, re_is_sha256, text_sha256
 
 
 _KEY = re.compile(r"[a-z][a-z0-9_]{0,95}\Z")
@@ -149,10 +149,125 @@ class IngressSourceUnitV1:
 
 
 @dataclass(frozen=True, slots=True)
-class ContinuousIngressReceiptV1:
-    """Python-owned custody receipt for continuous source classifications."""
+class ContinuousIngressClassificationReceiptV1:
+    """Exact output of one trusted prepared-ingress classification adapter."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_ingress_receipt.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_ingress_classification_receipt.v1"
+
+    schema_version: str
+    envelope_sha256: str
+    prepared_turn_sha256: str
+    interpretation_receipt_sha256: str
+    classification_adapter_id: str
+    protected_user_id: str
+    raw_source_sha256: str
+    source_units: tuple[IngressSourceUnitV1, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous ingress classification schema changed"
+            )
+        for field in (
+            "envelope_sha256",
+            "prepared_turn_sha256",
+            "interpretation_receipt_sha256",
+            "raw_source_sha256",
+        ):
+            if not re_is_sha256(getattr(self, field)):
+                raise ContractValidationError(
+                    f"continuous ingress classification {field} is invalid"
+                )
+        _identity(
+            self.classification_adapter_id,
+            "continuous_ingress_classification.classification_adapter_id",
+        )
+        _identity(
+            self.protected_user_id,
+            "continuous_ingress_classification.protected_user_id",
+        )
+        if not self.source_units:
+            raise ContractValidationError(
+                "continuous ingress classification has no source units"
+            )
+        _unique(
+            tuple(value.source_unit_key for value in self.source_units),
+            "continuous_ingress_classification.source_units",
+        )
+
+    @property
+    def receipt_sha256(self) -> str:
+        return domain_sha256(self.SCHEMA_VERSION, self)
+
+
+@dataclass(frozen=True, slots=True)
+class FrozenContinuousIngressFixtureV1:
+    """Repository-owned exact fixture entry; prefixes never grant authority."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.frozen_continuous_ingress_fixture.v1"
+
+    schema_version: str
+    fixture_id: str
+    fixture_schema_id: str
+    world_id: str
+    branch_id: str
+    session_id: str
+    request_id: str
+    turn_id: str
+    idempotency_key_sha256: str
+    raw_source: str
+    protected_user_id: str
+    source_units: tuple[IngressSourceUnitV1, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("continuous fixture schema changed")
+        for field in (
+            "fixture_id",
+            "fixture_schema_id",
+            "world_id",
+            "branch_id",
+            "session_id",
+            "request_id",
+            "turn_id",
+            "protected_user_id",
+        ):
+            _identity(getattr(self, field), f"continuous_fixture.{field}")
+        if not re_is_sha256(self.idempotency_key_sha256):
+            raise ContractValidationError(
+                "continuous fixture idempotency identity is invalid"
+            )
+        if not self.raw_source or not self.source_units:
+            raise ContractValidationError(
+                "continuous fixture requires exact source and source units"
+            )
+        cursor = 0
+        for unit in self.source_units:
+            if (
+                unit.source_start != cursor
+                or unit.source_end > len(self.raw_source)
+                or self.raw_source[unit.source_start : unit.source_end]
+                != unit.exact_text
+            ):
+                raise ContractValidationError(
+                    "continuous fixture source units are not gap-free exact source"
+                )
+            cursor = unit.source_end
+        if cursor != len(self.raw_source):
+            raise ContractValidationError(
+                "continuous fixture source units do not cover the raw source"
+            )
+
+    @property
+    def fixture_sha256(self) -> str:
+        return domain_sha256(self.SCHEMA_VERSION, self)
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousIngressReceiptV2:
+    """Restart-safe Python-owned custody receipt for continuous ingress."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_ingress_receipt.v2"
 
     schema_version: str
     receipt_id: str
@@ -167,6 +282,11 @@ class ContinuousIngressReceiptV1:
     authority_kind: ContinuousIngressAuthorityKind
     authority_identity_sha256: str
     classification_adapter_id: str
+    prepared_envelope_sha256: str | None
+    prepared_turn_sha256: str | None
+    interpretation_receipt_sha256: str | None
+    classification_receipt_sha256: str | None
+    fixture_entry_sha256: str | None
     source_units: tuple[IngressSourceUnitV1, ...]
 
     def __post_init__(self) -> None:
@@ -200,10 +320,38 @@ class ContinuousIngressReceiptV1:
         )
         if (
             self.authority_kind is ContinuousIngressAuthorityKind.FROZEN_PYTHON_FIXTURE
-            and not self.classification_adapter_id.startswith("cera.fixture.")
+            and self.fixture_entry_sha256 is None
         ):
             raise ContractValidationError(
-                "frozen continuous ingress receipt lacks a fixture adapter identity"
+                "frozen continuous ingress receipt lacks an exact registry entry"
+            )
+        prepared_fields = (
+            self.prepared_envelope_sha256,
+            self.prepared_turn_sha256,
+            self.interpretation_receipt_sha256,
+            self.classification_receipt_sha256,
+        )
+        if self.authority_kind is ContinuousIngressAuthorityKind.PREPARED_INGRESS:
+            if any(value is None or not re_is_sha256(value) for value in prepared_fields):
+                raise ContractValidationError(
+                    "prepared continuous ingress receipt lacks exact source records"
+                )
+            if self.fixture_entry_sha256 is not None:
+                raise ContractValidationError(
+                    "prepared continuous ingress receipt cannot cite a fixture"
+                )
+        else:
+            if any(value is not None for value in prepared_fields):
+                raise ContractValidationError(
+                    "frozen continuous ingress receipt cannot cite prepared records"
+                )
+            if not re_is_sha256(self.fixture_entry_sha256):
+                raise ContractValidationError(
+                    "frozen continuous ingress registry hash is invalid"
+                )
+        if text_sha256("".join(value.exact_text for value in self.source_units)) != self.raw_source_sha256:
+            raise ContractValidationError(
+                "continuous ingress receipt source-unit bytes changed"
             )
         for unit in self.source_units:
             owner = unit.actor_id or unit.speaker_id
@@ -654,6 +802,99 @@ class WorldEditOperationKind(StrEnum):
     CREATE_FILE = "create_file"
 
 
+class PersistenceRecordClass(StrEnum):
+    """Closed record-class vocabulary; V1 enables only typed subject schemas."""
+
+    CHARACTER = "character"
+    RELATIONSHIP = "relationship"
+    RULE = "rule"
+    LOCATION = "location"
+    EVENT = "event"
+    SCENE = "scene"
+
+
+@dataclass(frozen=True, slots=True)
+class PersistenceDirectiveV1:
+    """Validator-selected destination; Python derives the exact edit value."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.persistence_directive.v1"
+
+    schema_version: str
+    directive_key: str
+    target_file: str
+    target_record_class: PersistenceRecordClass
+    target_record_id: str
+    target_subject_ids: tuple[str, ...]
+    expected_file_revision: int
+    operation: WorldEditOperationKind
+    field_path: str
+    expected_prior_value_sha256: str | None
+    source_value_index: int
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("persistence directive schema changed")
+        _key(self.directive_key, "persistence_directive.directive_key")
+        _relative_path(self.target_file, "persistence_directive.target_file")
+        if self.target_record_class not in {
+            PersistenceRecordClass.CHARACTER,
+            PersistenceRecordClass.RELATIONSHIP,
+        }:
+            raise ContractValidationError(
+                "continuous persistence V1 supports only character or relationship "
+                "records with typed subject schemas"
+            )
+        expected_category = {
+            PersistenceRecordClass.CHARACTER: "Characters",
+            PersistenceRecordClass.RELATIONSHIP: "Relationships",
+        }[self.target_record_class]
+        normalized = self.target_file.replace("\\", "/")
+        if (
+            normalized.split("/", 1)[0] != expected_category
+            or not normalized.casefold().endswith(".json")
+        ):
+            raise ContractValidationError(
+                "persistence directive record class disagrees with its target"
+            )
+        _identity(self.target_record_id, "persistence_directive.target_record_id")
+        if not self.target_subject_ids:
+            raise ContractValidationError("persistence directive requires exact subjects")
+        for value in self.target_subject_ids:
+            _identity(value, "persistence_directive.target_subject_ids")
+        _unique(self.target_subject_ids, "persistence_directive.target_subject_ids")
+        if type(self.expected_file_revision) is not int or self.expected_file_revision < 1:
+            raise ContractValidationError(
+                "persistence directive requires a positive record revision"
+            )
+        if self.operation not in {
+            WorldEditOperationKind.ADD,
+            WorldEditOperationKind.REPLACE,
+        }:
+            raise ContractValidationError(
+                "continuous persistence supports only exact add or replace projections"
+            )
+        if (
+            not self.field_path.startswith("/")
+            or self.field_path in {"/", "/_cera_revision", "/schema_version"}
+        ):
+            raise ContractValidationError(
+                "persistence directive field path is not an editable JSON pointer"
+            )
+        if self.operation is WorldEditOperationKind.ADD:
+            if self.expected_prior_value_sha256 is not None:
+                raise ContractValidationError(
+                    "add persistence directive cannot bind a prior value"
+                )
+        elif not re_is_sha256(self.expected_prior_value_sha256):
+            raise ContractValidationError(
+                "replace persistence directive requires the exact prior value hash"
+            )
+        if type(self.source_value_index) is not int or self.source_value_index < 0:
+            raise ContractValidationError(
+                "persistence directive source value index is invalid"
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class WorldEditOperationV1:
     operation_key: str
@@ -666,6 +907,7 @@ class WorldEditOperationV1:
     source_final_sequence_item: str
     source_final_field_name: str = "realized_event"
     protected_user_source_claim_keys: tuple[str, ...] = ()
+    persistence_directive_key: str | None = None
 
     def __post_init__(self) -> None:
         _key(self.operation_key, "operation_key")
@@ -714,6 +956,11 @@ class WorldEditOperationV1:
             self.protected_user_source_claim_keys,
             "operation.protected_user_source_claim_keys",
         )
+        if self.persistence_directive_key is not None:
+            _key(
+                self.persistence_directive_key,
+                "operation.persistence_directive_key",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -726,6 +973,7 @@ class CreatedFieldLogEntryV1:
     source_final_sequence_item: str
     source_final_field_name: str = "realized_event"
     protected_user_source_claim_keys: tuple[str, ...] = ()
+    persistence_directive_key: str | None = None
 
     def __post_init__(self) -> None:
         _relative_path(self.target_file, "created_field.target_file")
@@ -749,6 +997,11 @@ class CreatedFieldLogEntryV1:
             self.protected_user_source_claim_keys,
             "created_field.protected_user_source_claim_keys",
         )
+        if self.persistence_directive_key is not None:
+            _key(
+                self.persistence_directive_key,
+                "created_field.persistence_directive_key",
+            )
 
 
 class FinalInformationVisibility(StrEnum):
@@ -764,6 +1017,7 @@ class FinalFieldScopeV1:
     story_segment_keys: tuple[str, ...]
     roles: CharacterRoleLedgerV1
     protected_user_source_claim_keys: tuple[str, ...] = ()
+    persistence_directives: tuple[PersistenceDirectiveV1, ...] = ()
 
     def __post_init__(self) -> None:
         if self.field_name not in {
@@ -798,6 +1052,10 @@ class FinalFieldScopeV1:
             raise ContractValidationError(
                 "protected-user final field authorship must match exact claims"
             )
+        _unique(
+            tuple(value.directive_key for value in self.persistence_directives),
+            "final_field_scope.persistence_directives",
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -926,7 +1184,7 @@ class FinalSequenceItemV1:
 
 @dataclass(frozen=True, slots=True)
 class FinalSequenceV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.complete_final_sequence.v5"
+    SCHEMA_VERSION: ClassVar[str] = "cera.complete_final_sequence.v6"
 
     schema_version: str
     sequence_id: str
@@ -1058,7 +1316,7 @@ class StoryRealizationKind(StrEnum):
 class StoryRealizationSegmentV1:
     """Exhaustive typed ownership for one exact Composer output segment."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.story_realization_segment.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.story_realization_segment.v3"
 
     schema_version: str
     segment_key: str
@@ -1114,6 +1372,90 @@ class StoryRealizationSegmentV1:
         if protected != bool(self.protected_user_source_claim_keys):
             raise ContractValidationError(
                 "protected-user realization requires exact supplied claim keys"
+            )
+
+
+class ProtectedSemanticRelationKind(StrEnum):
+    NONE = "none"
+    PROTECTED_ASSERTION = "protected_assertion"
+    AFFECTED_BY_NPC = "affected_by_npc"
+    ADDRESSED_BY_NPC = "addressed_by_npc"
+    OBSERVED_BY_NPC = "observed_by_npc"
+    REFERENCED_ONLY_BY_NPC = "referenced_only_by_npc"
+
+
+@dataclass(frozen=True, slots=True)
+class ProtectedSemanticAdjudicationV1:
+    """Independent Validator judgment over one exact Composer segment."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.protected_semantic_adjudication.v1"
+
+    schema_version: str
+    adjudication_key: str
+    segment_key: str
+    output_start: int
+    output_end: int
+    exact_text_sha256: str
+    protected_user_id: str
+    relation: ProtectedSemanticRelationKind
+    npc_assertion_owner_ids: tuple[str, ...]
+    protected_user_source_claim_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "protected semantic adjudication schema changed"
+            )
+        _key(self.adjudication_key, "protected_semantic.adjudication_key")
+        _key(self.segment_key, "protected_semantic.segment_key")
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError(
+                "protected semantic adjudication span is invalid"
+            )
+        if not re_is_sha256(self.exact_text_sha256):
+            raise ContractValidationError(
+                "protected semantic adjudication text hash is invalid"
+            )
+        _identity(self.protected_user_id, "protected_semantic.protected_user_id")
+        for value in self.npc_assertion_owner_ids:
+            _identity(value, "protected_semantic.npc_assertion_owner_ids")
+            if value == self.protected_user_id:
+                raise ContractValidationError(
+                    "protected semantic NPC owner cannot be the protected user"
+                )
+        _unique(
+            self.npc_assertion_owner_ids,
+            "protected_semantic.npc_assertion_owner_ids",
+        )
+        for value in self.protected_user_source_claim_keys:
+            _key(value, "protected_semantic.protected_user_source_claim_keys")
+        _unique(
+            self.protected_user_source_claim_keys,
+            "protected_semantic.protected_user_source_claim_keys",
+        )
+        if self.relation is ProtectedSemanticRelationKind.PROTECTED_ASSERTION:
+            if self.npc_assertion_owner_ids or len(
+                self.protected_user_source_claim_keys
+            ) != 1:
+                raise ContractValidationError(
+                    "protected assertion adjudication requires one exact claim"
+                )
+        elif self.relation is ProtectedSemanticRelationKind.NONE:
+            if self.npc_assertion_owner_ids or self.protected_user_source_claim_keys:
+                raise ContractValidationError(
+                    "no-relation adjudication cannot carry owners or claims"
+                )
+        elif (
+            not self.npc_assertion_owner_ids
+            or self.protected_user_source_claim_keys
+        ):
+            raise ContractValidationError(
+                "non-owning protected relation requires an exact NPC predicate owner"
             )
 
 
@@ -1216,7 +1558,7 @@ class SceneSummaryDerivedViewV1:
 
 @dataclass(frozen=True, slots=True)
 class ValidatorFinalizationPackageV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.validator_finalization_package.v6"
+    SCHEMA_VERSION: ClassVar[str] = "cera.validator_finalization_package.v7"
     MAX_EDIT_OPERATIONS: ClassVar[int] = 100
 
     schema_version: str
@@ -1231,6 +1573,9 @@ class ValidatorFinalizationPackageV1:
     created_field_log: tuple[CreatedFieldLogEntryV1, ...]
     event_record: EventRecordCandidateV1 | None
     optional_scene_summary: SceneSummaryV1 | None
+    protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ] = ()
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
@@ -1243,6 +1588,24 @@ class ValidatorFinalizationPackageV1:
         if self.task_mode is ValidatorTaskMode.FINALIZE_TURN:
             if self.complete_final_sequence is None or self.creator_review is None or self.event_record is None:
                 raise ContractValidationError("turn finalization package is incomplete")
+            if not self.protected_semantic_adjudications:
+                raise ContractValidationError(
+                    "turn finalization lacks independent protected semantics"
+                )
+            _unique(
+                tuple(
+                    value.adjudication_key
+                    for value in self.protected_semantic_adjudications
+                ),
+                "protected semantic adjudication keys",
+            )
+            _unique(
+                tuple(
+                    value.segment_key
+                    for value in self.protected_semantic_adjudications
+                ),
+                "protected semantic adjudication segments",
+            )
             if self.optional_scene_summary is not None:
                 raise ContractValidationError("turn finalization cannot create a scene summary")
             from cera.creator_review.models import CreatorReviewSeverity
@@ -1288,6 +1651,72 @@ class ValidatorFinalizationPackageV1:
                 raise ContractValidationError("scene-summary task cannot finalize a turn")
             if self.world_edit_operations or self.created_field_log:
                 raise ContractValidationError("scene-summary task cannot edit world state")
+            if self.protected_semantic_adjudications:
+                raise ContractValidationError(
+                    "scene-summary task cannot adjudicate Composer segments"
+                )
+        directives = {
+            directive.directive_key: (item, scope, directive)
+            for item in (
+                self.complete_final_sequence.items
+                if self.complete_final_sequence is not None
+                else ()
+            )
+            for scope in item.field_scopes
+            for directive in scope.persistence_directives
+        }
+        declared_directive_count = sum(
+            len(scope.persistence_directives)
+            for item in (
+                self.complete_final_sequence.items
+                if self.complete_final_sequence is not None
+                else ()
+            )
+            for scope in item.field_scopes
+        )
+        if len(directives) != declared_directive_count:
+            raise ContractValidationError("persistence directive keys are duplicated")
+        if len(self.world_edit_operations) != len(directives):
+            raise ContractValidationError(
+                "Python-derived edits do not equal the persistable final fields"
+            )
+        for operation in self.world_edit_operations:
+            if operation.operation not in {
+                WorldEditOperationKind.ADD,
+                WorldEditOperationKind.REPLACE,
+            }:
+                raise ContractValidationError(
+                    "continuous finalization cannot use an untyped persistence transform"
+                )
+            if operation.persistence_directive_key not in directives:
+                raise ContractValidationError(
+                    "world edit lacks its field-level persistence directive"
+                )
+            item, scope, directive = directives[operation.persistence_directive_key]
+            raw_values = getattr(item, scope.field_name)
+            source_values = raw_values if isinstance(raw_values, tuple) else (raw_values,)
+            if directive.source_value_index >= len(source_values):
+                raise ContractValidationError(
+                    "persistence directive selected a missing final-field value"
+                )
+            expected_value = source_values[directive.source_value_index]
+            if (
+                operation.target_file != directive.target_file
+                or operation.expected_file_revision
+                != directive.expected_file_revision
+                or operation.operation is not directive.operation
+                or operation.field_path != directive.field_path
+                or operation.value != expected_value
+                or operation.source_final_sequence_item != item.item_key
+                or operation.source_final_field_name != scope.field_name
+                or operation.protected_user_source_claim_keys
+                != scope.protected_user_source_claim_keys
+                or operation.reason
+                != f"Persist accepted final field {scope.field_name}."
+            ):
+                raise ContractValidationError(
+                    "world edit changed its field-level persistence directive"
+                )
         created_pairs = {(value.target_file, value.field_path) for value in self.created_field_log}
         for operation in self.world_edit_operations:
             if operation.operation in {
@@ -1322,6 +1751,8 @@ class ValidatorFinalizationPackageV1:
                 != entry.source_final_field_name
                 or operation.protected_user_source_claim_keys
                 != entry.protected_user_source_claim_keys
+                or operation.persistence_directive_key
+                != entry.persistence_directive_key
             ):
                 raise ContractValidationError("created_field_log changed edit provenance")
         if self.task_mode is ValidatorTaskMode.FINALIZE_TURN:

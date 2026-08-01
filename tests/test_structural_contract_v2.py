@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import replace
 import json
 from pathlib import Path
+from tempfile import TemporaryDirectory
 import unittest
 
 from jsonschema import Draft202012Validator
@@ -26,7 +27,13 @@ from cera.evidence import (
     EvidenceSearchRequest,
     EvidenceWorldMode,
 )
-from cera.errors import ContractValidationError, EvidenceServiceError
+from cera.continuous import (
+    ContinuousIngressAuthorityStore,
+    IngressSourceUnitKind,
+    IngressSourceUnitV1,
+    PreparedContinuousIngressBridge,
+)
+from cera.errors import ContractValidationError, EvidenceServiceError, StateConflictError
 from cera.genesis.hanezawa_builder import CHARACTER_IDS
 from cera.ids import IdKind, deterministic_id
 from cera.ingress import (
@@ -75,6 +82,26 @@ from tests.structural_v2_fixtures import (
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+class _PreparedContinuousClassifier:
+    classification_adapter_id = "cera.prepared_ingress_classifier.test.v1"
+
+    def classify(self, envelope, prepared):
+        del prepared
+        return (
+            IngressSourceUnitV1(
+                schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
+                source_unit_key="source_unit_001",
+                kind=IngressSourceUnitKind.ACTION,
+                source_start=0,
+                source_end=len(envelope.raw_message),
+                exact_text=envelope.raw_message,
+                actor_id=str(envelope.protected_user_id),
+                speaker_id=None,
+                classification_basis="explicit_ingress_actor",
+            ),
+        )
 
 
 def _obligation(
@@ -548,6 +575,158 @@ class StructuralV2IngressTests(unittest.TestCase):
             "Responder selection",
             first.interpretation.explicit_unknowns[0],
         )
+
+    def test_prepared_continuous_ingress_is_durable_and_revalidated_after_restart(self) -> None:
+        message = "Ted asks Hana about the unanswered messages."
+        envelope = self._envelope(message)
+        prepared = RawTurnIngressFacade(
+            turn_kernel=TurnKernel(self.sandbox.service),
+            seed_assembler=SeedDossierAssembler(self.sandbox.service),
+        ).prepare(envelope)
+        with TemporaryDirectory() as directory:
+            root = Path(directory) / "continuous-ingress"
+            first_store = ContinuousIngressAuthorityStore(root)
+            receipt = PreparedContinuousIngressBridge(
+                authority=first_store,
+                classifier=_PreparedContinuousClassifier(),
+            ).issue(
+                envelope=envelope,
+                prepared=prepared,
+                turn_id="turn-001",
+            )
+
+            restarted_store = ContinuousIngressAuthorityStore(root)
+            self.assertEqual(
+                restarted_store.resolve(
+                    receipt_id=receipt.receipt_id,
+                    receipt_sha256=receipt.receipt_sha256,
+                ),
+                receipt,
+            )
+
+            record_path = root / f"{receipt.receipt_sha256}.json"
+            record = json.loads(record_path.read_text(encoding="utf-8"))
+            record["authority_evidence"]["classification_receipt"][
+                "classification_adapter_id"
+            ] = "cera.prepared_ingress_classifier.substituted.v1"
+            record_path.write_text(json.dumps(record), encoding="utf-8")
+            with self.assertRaises(StateConflictError):
+                restarted_store.resolve(
+                    receipt_id=receipt.receipt_id,
+                    receipt_sha256=receipt.receipt_sha256,
+                )
+
+    def test_prepared_continuous_ingress_rejects_envelope_substitution(self) -> None:
+        message = "Ted asks Hana whether she wants coffee."
+        envelope = self._envelope(message)
+        prepared = RawTurnIngressFacade(
+            turn_kernel=TurnKernel(self.sandbox.service),
+            seed_assembler=SeedDossierAssembler(self.sandbox.service),
+        ).prepare(envelope)
+        substituted = replace(
+            envelope,
+            raw_message=message + " Now.",
+            request_id=deterministic_id(
+                IdKind.REQUEST,
+                "cera.test.structural_v2.raw_turn",
+                "substituted-continuous-ingress",
+            ),
+        )
+        with TemporaryDirectory() as directory:
+            bridge = PreparedContinuousIngressBridge(
+                authority=ContinuousIngressAuthorityStore(Path(directory)),
+                classifier=_PreparedContinuousClassifier(),
+            )
+            with self.assertRaises(StateConflictError):
+                bridge.issue(
+                    envelope=substituted,
+                    prepared=prepared,
+                    turn_id="turn-001",
+                )
+
+    def test_prepared_ingress_authority_rejects_identity_and_span_substitutions(self) -> None:
+        message = "Ted asks Hana whether she wants coffee."
+        envelope = self._envelope(message)
+        prepared = RawTurnIngressFacade(
+            turn_kernel=TurnKernel(self.sandbox.service),
+            seed_assembler=SeedDossierAssembler(self.sandbox.service),
+        ).prepare(envelope)
+        mutations = {
+            "world": lambda record: record["authority_evidence"]["envelope"].__setitem__(
+                "world_id", "world:substituted"
+            ),
+            "branch": lambda record: record["authority_evidence"]["envelope"].__setitem__(
+                "branch_id", "branch:substituted"
+            ),
+            "session": lambda record: record["authority_evidence"]["envelope"].__setitem__(
+                "session_id", "session:substituted"
+            ),
+            "request": lambda record: record["authority_evidence"]["envelope"].__setitem__(
+                "request_id", "request:substituted"
+            ),
+            "idempotency": lambda record: record["authority_evidence"]["envelope"].__setitem__(
+                "idempotency_key", "substituted-idempotency"
+            ),
+            "raw_source": lambda record: record["authority_evidence"]["envelope"].__setitem__(
+                "raw_message", message + " Changed."
+            ),
+            "protected_user": lambda record: record["authority_evidence"]["envelope"].__setitem__(
+                "protected_user_id", "character:substituted"
+            ),
+            "adapter": lambda record: record["authority_evidence"]["classification_receipt"].__setitem__(
+                "classification_adapter_id", "cera.prepared_ingress_classifier.substituted.v1"
+            ),
+            "source_span": lambda record: record["authority_evidence"]["classification_receipt"][
+                "source_units"
+            ][0].__setitem__("exact_text", message[:-1]),
+            "actor": lambda record: record["authority_evidence"]["classification_receipt"][
+                "source_units"
+            ][0].__setitem__("actor_id", "character:substituted"),
+            "speaker": lambda record: record["authority_evidence"]["classification_receipt"][
+                "source_units"
+            ][0].__setitem__("speaker_id", "character:substituted"),
+            "turn": lambda record: record["receipt"].__setitem__(
+                "turn_id", "turn-substituted"
+            ),
+        }
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            store = ContinuousIngressAuthorityStore(root)
+            receipt = PreparedContinuousIngressBridge(
+                authority=store,
+                classifier=_PreparedContinuousClassifier(),
+            ).issue(envelope=envelope, prepared=prepared, turn_id="turn-001")
+            record_path = root / f"{receipt.receipt_sha256}.json"
+            original = json.loads(record_path.read_text(encoding="utf-8"))
+            for label, mutate in mutations.items():
+                with self.subTest(label=label):
+                    changed = json.loads(json.dumps(original))
+                    mutate(changed)
+                    record_path.write_text(json.dumps(changed), encoding="utf-8")
+                    with self.assertRaises(
+                        (StateConflictError, ContractValidationError)
+                    ):
+                        store.resolve(
+                            receipt_id=receipt.receipt_id,
+                            receipt_sha256=receipt.receipt_sha256,
+                        )
+            record_path.write_text(json.dumps(original), encoding="utf-8")
+            self.assertEqual(
+                store.resolve(
+                    receipt_id=receipt.receipt_id,
+                    receipt_sha256=receipt.receipt_sha256,
+                ),
+                receipt,
+            )
+
+    def test_continuous_fixture_prefix_is_not_authority(self) -> None:
+        with TemporaryDirectory() as directory:
+            store = ContinuousIngressAuthorityStore(Path(directory))
+            with self.assertRaises(ContractValidationError):
+                store.issue_frozen_fixture(
+                    fixture_id="cera.fixture.unregistered",
+                    idempotency_key="unregistered-fixture",
+                )
 
 
 class StructuralV2FailureAndInventoryTests(unittest.TestCase):

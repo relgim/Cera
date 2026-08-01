@@ -177,8 +177,8 @@ def compatibility(role: ContinuousSessionRole, branch: str = "branch:main") -> C
         world_directory_identity_sha256=text_sha256(f"hanezawa/{branch}"),
         authority_policy_version="cera.owner_architecture.v2",
         privacy_policy_version="cera.privacy.v1",
-        protected_user_policy_version="cera.continuous_protected_user_policy.v6",
-        session_policy_version="cera.continuous_session_policy.v6",
+        protected_user_policy_version="cera.continuous_protected_user_policy.v7",
+        session_policy_version="cera.continuous_session_policy.v7",
     )
 
 
@@ -296,8 +296,7 @@ class RichPlannerContractTests(unittest.TestCase):
             semantic_status=ValidatorSemanticStatus.ACCEPTED,
             complete_final_sequence=None,
             creator_review=None,
-            world_edit_operations=(),
-            created_field_log=(),
+            protected_semantic_adjudications=(),
             event_record=None,
             optional_scene_summary=ProviderSceneSummaryDraftV1(
                 summary_id="summary:arrival",
@@ -453,15 +452,15 @@ class ContinuousSessionTests(unittest.TestCase):
                 expected_compatibility=current,
             )
 
-    def test_restart_rejects_pre_v6_policy_compatibility(self) -> None:
+    def test_restart_rejects_pre_v7_policy_compatibility(self) -> None:
         port = InMemoryContinuousStoredSessionPort()
         current = compatibility(ContinuousSessionRole.PLANNER)
-        pre_v6 = replace(
+        pre_v7 = replace(
             current,
-            protected_user_policy_version="cera.continuous_protected_user_policy.v5",
-            session_policy_version="cera.continuous_session_policy.v5",
+            protected_user_policy_version="cera.continuous_protected_user_policy.v6",
+            session_policy_version="cera.continuous_session_policy.v6",
         )
-        snapshot = ContinuousSessionCoordinator(pre_v6, port).snapshot()
+        snapshot = ContinuousSessionCoordinator(pre_v7, port).snapshot()
         with self.assertRaisesRegex(StateConflictError, "incompatible"):
             ContinuousSessionCoordinator.reconstruct(
                 snapshot,

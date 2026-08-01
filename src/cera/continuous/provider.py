@@ -34,6 +34,7 @@ from .contracts import (
     EventItemRoleLedgerV1,
     FinalSequenceItemV1,
     FinalSequenceV1,
+    ProtectedSemanticAdjudicationV1,
     ProtectedUserRealizationSpanV1,
     RichPlannerSequenceV1,
     SceneSummaryV1,
@@ -52,10 +53,10 @@ from .prompting import (
 )
 
 
-CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v6"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v7"
-CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v4"
-CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v4"
+CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v7"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v8"
+CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v5"
+CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v5"
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,7 +109,7 @@ class ProviderEventRecordDraftV1:
 
 @dataclass(frozen=True, slots=True)
 class ContinuousValidatorDraftV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_validator_draft.v6"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_validator_draft.v7"
 
     schema_version: str
     package_id: str
@@ -118,60 +119,22 @@ class ContinuousValidatorDraftV1:
     semantic_status: ValidatorSemanticStatus
     complete_final_sequence: FinalSequenceV1 | None
     creator_review: CreatorReviewAssessment | None
-    world_edit_operations: tuple[ProviderWorldEditOperationV1, ...]
-    created_field_log: tuple[ProviderCreatedFieldLogEntryV1, ...]
+    protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ]
     event_record: ProviderEventRecordDraftV1 | None
     optional_scene_summary: ProviderSceneSummaryDraftV1 | None
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("continuous Validator provider schema changed")
-        if len(self.world_edit_operations) > ValidatorFinalizationPackageV1.MAX_EDIT_OPERATIONS:
-            raise ContractValidationError("continuous Validator edit ceiling exceeded")
 
     def compile(
         self, *, accepted_pairs: tuple[AcceptedTurnPairV1, ...] = ()
     ) -> ValidatorFinalizationPackageV1:
-        operations = []
-        for value in self.world_edit_operations:
-            try:
-                decoded = json.loads(value.value_json)
-            except json.JSONDecodeError as exc:
-                raise ContractValidationError("Validator edit value_json is malformed") from exc
-            operations.append(
-                WorldEditOperationV1(
-                    operation_key=value.operation_key,
-                    target_file=value.target_file,
-                    expected_file_revision=value.expected_file_revision,
-                    operation=value.operation,
-                    field_path=value.field_path,
-                    value=decoded,
-                    reason=value.reason,
-                    source_final_sequence_item=value.source_final_sequence_item,
-                    source_final_field_name=value.source_final_field_name,
-                    protected_user_source_claim_keys=value.protected_user_source_claim_keys,
-                )
-            )
-        created = []
-        for value in self.created_field_log:
-            try:
-                decoded = json.loads(value.value_json)
-            except json.JSONDecodeError as exc:
-                raise ContractValidationError("Validator created-field value_json is malformed") from exc
-            if json_value_type(decoded) != value.value_type:
-                raise ContractValidationError("Validator created-field value type changed")
-            created.append(
-                CreatedFieldLogEntryV1(
-                    target_file=value.target_file,
-                    field_path=value.field_path,
-                    value_type=value.value_type,
-                    value=decoded,
-                    reason=value.reason,
-                    source_final_sequence_item=value.source_final_sequence_item,
-                    source_final_field_name=value.source_final_field_name,
-                    protected_user_source_claim_keys=value.protected_user_source_claim_keys,
-                )
-            )
+        operations, created = _derive_persistence_operations(
+            self.complete_final_sequence
+        )
         scene_summary = None
         if self.optional_scene_summary is not None:
             draft = self.optional_scene_summary
@@ -248,12 +211,68 @@ class ContinuousValidatorDraftV1:
             created_field_log=tuple(created),
             event_record=event_record,
             optional_scene_summary=scene_summary,
+            protected_semantic_adjudications=self.protected_semantic_adjudications,
         )
+
+
+def _derive_persistence_operations(
+    sequence: FinalSequenceV1 | None,
+) -> tuple[tuple[WorldEditOperationV1, ...], tuple[CreatedFieldLogEntryV1, ...]]:
+    """Compile model-selected destinations into exact Python-owned bookkeeping."""
+
+    if sequence is None:
+        return (), ()
+    operations: list[WorldEditOperationV1] = []
+    created: list[CreatedFieldLogEntryV1] = []
+    for item in sequence.items:
+        for scope in item.field_scopes:
+            raw_values = getattr(item, scope.field_name)
+            source_values = raw_values if isinstance(raw_values, tuple) else (raw_values,)
+            for directive in scope.persistence_directives:
+                if directive.source_value_index >= len(source_values):
+                    raise ContractValidationError(
+                        "persistence directive selected a missing final-field value"
+                    )
+                value = source_values[directive.source_value_index]
+                reason = f"Persist accepted final field {scope.field_name}."
+                operation = WorldEditOperationV1(
+                    operation_key=directive.directive_key,
+                    target_file=directive.target_file,
+                    expected_file_revision=directive.expected_file_revision,
+                    operation=directive.operation,
+                    field_path=directive.field_path,
+                    value=value,
+                    reason=reason,
+                    source_final_sequence_item=item.item_key,
+                    source_final_field_name=scope.field_name,
+                    protected_user_source_claim_keys=(
+                        scope.protected_user_source_claim_keys
+                    ),
+                    persistence_directive_key=directive.directive_key,
+                )
+                operations.append(operation)
+                if directive.operation is WorldEditOperationKind.ADD:
+                    created.append(
+                        CreatedFieldLogEntryV1(
+                            target_file=directive.target_file,
+                            field_path=directive.field_path,
+                            value_type=json_value_type(value),
+                            value=value,
+                            reason=reason,
+                            source_final_sequence_item=item.item_key,
+                            source_final_field_name=scope.field_name,
+                            protected_user_source_claim_keys=(
+                                scope.protected_user_source_claim_keys
+                            ),
+                            persistence_directive_key=directive.directive_key,
+                        )
+                    )
+    return tuple(operations), tuple(created)
 
 
 @dataclass(frozen=True, slots=True)
 class ContinuousDeepSeekDraftV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v4"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v5"
 
     schema_version: str
     story_text: str

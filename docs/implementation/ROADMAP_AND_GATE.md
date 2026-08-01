@@ -916,6 +916,19 @@ worker-stage accounting matrix. Its Stage 4 remains a new zero-provider
 integration audit. No live canary, route activation, story mutation, service
 change, deployment, merge, remote, or push is authorized.
 
+D-194 is correction cycle 007 under the same standing provider-free authority.
+Its progressions are `continuous-prepared-ingress-bridge-and-fixture-registry-v7`,
+`continuous-independent-protected-semantics-and-persistence-target-v7`, and
+`continuous-executable-canary-and-contract-qualification-v7`. It binds
+continuous ingress to exact durable prepared records or closed fixture entries,
+survives restart without trusting process-local state, requires independent
+exact-span protected semantics, limits persistence to Python-verified add or
+replace projections with exact target identities and preconditions, advances
+pre-v7 compatibility, and runs the complete actual Job 4 CLI with ten local
+scripted stage invocations and zero external calls. Its Stage 4 remains a new
+provider-free integration audit. No live canary, route activation, story
+mutation, service change, deployment, merge, remote, or push is authorized.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.
