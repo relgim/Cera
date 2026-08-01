@@ -878,6 +878,17 @@ authority, closes acceptance through an atomic Planner snapshot, and removes
 candidate-derived character summaries from the current contract. Its Stage 4
 remains a new zero-provider integration audit; no live canary is authorized.
 
+D-191 is correction cycle 004 under the same standing provider-free authority.
+Its progressions are `continuous-protected-source-and-final-output-authority-v4`,
+`continuous-owner-scoped-accepted-context-and-validator-parity-v4`, and
+`continuous-true-submission-snapshot-and-identity-v4`. It makes exact
+protected-user source authority attribution-aware, binds every realized claim
+to exact Composer spans, represents accepted context as scene- and owner-scoped
+typed projections, makes accepted Planner snapshot proof immutable, counts a
+Codex call at the actual `thread_run` boundary, and removes the duplicate Job 4
+pipeline in favor of the shared coordinator. Its Stage 4 remains a new
+zero-provider integration audit; no live canary is authorized.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

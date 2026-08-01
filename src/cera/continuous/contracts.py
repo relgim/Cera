@@ -73,9 +73,9 @@ class ProtectedUserSourceClaimKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ProtectedUserSourceClaimV1:
-    """Python-owned exact span from the current protected-user source."""
+    """Ingress-owned exact protected-user event or utterance."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.protected_user_source_claim.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.protected_user_source_claim.v2"
 
     schema_version: str
     claim_key: str
@@ -85,6 +85,8 @@ class ProtectedUserSourceClaimV1:
     source_start: int
     source_end: int
     exact_text: str
+    speaker_id: str = "character:ted"
+    deterministic_projection_rule: str = "explicit_protected_user_source"
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
@@ -103,6 +105,12 @@ class ProtectedUserSourceClaimV1:
         _text(self.exact_text, "protected_user_source_claim.exact_text", maximum=8_000)
         if self.source_end - self.source_start != len(self.exact_text):
             raise ContractValidationError("protected-user source span length changed")
+        if self.speaker_id != "character:ted":
+            raise ContractValidationError("protected-user source claim speaker changed")
+        _identity(
+            self.deterministic_projection_rule,
+            "protected_user_source_claim.deterministic_projection_rule",
+        )
 
     @property
     def claim_sha256(self) -> str:
@@ -222,7 +230,7 @@ class RichSequenceBeatV1:
 
 @dataclass(frozen=True, slots=True)
 class RichPlannerSequenceV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.rich_planner_sequence.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.rich_planner_sequence.v3"
 
     schema_version: str
     sequence_id: str
@@ -273,7 +281,7 @@ class RichPlannerSequenceV1:
 class CharacterSummaryEnvelopeV1:
     """Exact record-derived summary; the class name remains for API continuity."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.character_summary_envelope.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.character_summary_envelope.v3"
 
     schema_version: str
     character_id: str
@@ -485,6 +493,7 @@ class FinalSequenceItemV1:
     knowledge_changes: tuple[str, ...]
     material_changes: tuple[str, ...]
     resulting_state: str
+    protected_user_source_claim_keys: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         _key(self.item_key, "final_sequence.item_key")
@@ -508,11 +517,21 @@ class FinalSequenceItemV1:
         for value in self.private_state_owner_ids:
             _identity(value, "final_sequence.private_state_owner_ids")
         _unique(self.private_state_owner_ids, "final_sequence.private_state_owner_ids")
+        if len(self.private_state_owner_ids) > 1:
+            raise ContractValidationError(
+                "final sequence private state must have one exact owner"
+            )
+        for value in self.protected_user_source_claim_keys:
+            _key(value, "final_sequence.protected_user_source_claim_keys")
+        _unique(
+            self.protected_user_source_claim_keys,
+            "final_sequence.protected_user_source_claim_keys",
+        )
 
 
 @dataclass(frozen=True, slots=True)
 class FinalSequenceV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.complete_final_sequence.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.complete_final_sequence.v2"
 
     schema_version: str
     sequence_id: str
@@ -543,6 +562,7 @@ class EventRecordCandidateV1:
     participant_ids: tuple[str, ...]
     summary: str
     final_sequence_item_keys: tuple[str, ...]
+    protected_user_source_claim_keys: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for field in ("event_id", "accepted_turn_id", "scene_id"):
@@ -556,6 +576,43 @@ class EventRecordCandidateV1:
             _key(value, "final_sequence_item_keys")
         _unique(self.final_sequence_item_keys, "final_sequence_item_keys")
         _text(self.summary, "event.summary", maximum=16_000)
+        for value in self.protected_user_source_claim_keys:
+            _key(value, "event.protected_user_source_claim_keys")
+        _unique(
+            self.protected_user_source_claim_keys,
+            "event.protected_user_source_claim_keys",
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProtectedUserRealizationSpanV1:
+    """Provider-declared exact occurrence of one supplied protected-user claim."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.protected_user_realization_span.v1"
+
+    schema_version: str
+    claim_key: str
+    kind: ProtectedUserSourceClaimKind
+    output_start: int
+    output_end: int
+    exact_text: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("protected-user realization span schema changed")
+        _key(self.claim_key, "protected_user_realization.claim_key")
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError("protected-user realization span is invalid")
+        _text(self.exact_text, "protected_user_realization.exact_text", maximum=8_000)
+        if self.output_end - self.output_start != len(self.exact_text):
+            raise ContractValidationError(
+                "protected-user realization span length changed"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -657,7 +714,7 @@ class SceneSummaryDerivedViewV1:
 
 @dataclass(frozen=True, slots=True)
 class ValidatorFinalizationPackageV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.validator_finalization_package.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.validator_finalization_package.v2"
     MAX_EDIT_OPERATIONS: ClassVar[int] = 100
 
     schema_version: str
@@ -749,6 +806,15 @@ class ValidatorFinalizationPackageV1:
             item_keys = {value.item_key for value in self.complete_final_sequence.items}
             if set(self.event_record.final_sequence_item_keys) != item_keys:
                 raise ContractValidationError("event record does not cover the complete final sequence")
+            item_claim_keys = {
+                claim_key
+                for item in self.complete_final_sequence.items
+                for claim_key in item.protected_user_source_claim_keys
+            }
+            if set(self.event_record.protected_user_source_claim_keys) != item_claim_keys:
+                raise ContractValidationError(
+                    "event record changed protected-user claim provenance"
+                )
             for operation in self.world_edit_operations:
                 if operation.source_final_sequence_item not in item_keys:
                     raise ContractValidationError("world edit cites an unknown final-sequence item")

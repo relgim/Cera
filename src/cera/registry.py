@@ -167,6 +167,8 @@ from .continuous import (
     ValidatorFinalizationPackageV1,
     RequestEvidenceBindingV1,
     ProtectedUserSourceClaimV1,
+    ProtectedUserRealizationSpanV1,
+    AcceptedSessionProjectionV1,
     ProviderCallLedgerEventV1,
     SceneSummaryDerivedViewV1,
 )
@@ -175,6 +177,7 @@ from .continuous.sessions import (
     ContinuousSessionCompatibilityV1,
     ContinuousSessionHandleV1,
     ContinuousSessionSnapshotV1,
+    ContinuousSessionSnapshotReceiptV1,
 )
 from .continuous.world import WorldPromotionReceiptV1
 from .continuous.provider import (
@@ -319,12 +322,15 @@ def build_schema_registry() -> SchemaRegistry:
         ValidatorFinalizationPackageV1,
         RequestEvidenceBindingV1,
         ProtectedUserSourceClaimV1,
+        ProtectedUserRealizationSpanV1,
+        AcceptedSessionProjectionV1,
         ProviderCallLedgerEventV1,
         SceneSummaryDerivedViewV1,
         ContinuousSessionCompatibilityV1,
         ContinuousContextInjectionReceiptV1,
         ContinuousSessionHandleV1,
         ContinuousSessionSnapshotV1,
+        ContinuousSessionSnapshotReceiptV1,
         WorldPromotionReceiptV1,
         ContinuousValidatorDraftV1,
         ContinuousDeepSeekDraftV1,

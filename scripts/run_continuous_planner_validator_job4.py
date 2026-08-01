@@ -23,31 +23,24 @@ from cera.continuous.codex_stored import CodexContinuousStoredSessionPort
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.diagnostics import ContinuousRootDiagnosticRecorder
 from cera.continuous.evidence import (
-    RequestEvidenceBindingRegistry,
-    bind_character_summary_envelopes,
     build_character_summary_envelope,
 )
 from cera.continuous.contracts import (
-    AcceptedFinalSequenceEnvelopeV1,
     AcceptedTurnPairV1,
     CharacterSummaryEnvelopeV1,
     RichPlannerSequenceV1,
-    ValidatorTaskMode,
 )
 from cera.continuous.prompting import (
     CONTINUOUS_PLANNER_PROMPT_VERSION,
     CONTINUOUS_VALIDATOR_PROMPT_VERSION,
     PLANNER_STABLE_INSTRUCTIONS,
     VALIDATOR_STABLE_INSTRUCTIONS,
-    build_continuous_composer_prompt,
-    build_planner_turn_prompt,
-    build_validator_prompt,
-    character_summary_share,
 )
 from cera.continuous.provider import (
     CodexContinuousPlannerPort,
     CodexContinuousValidatorPort,
     DeepSeekContinuousComposerPort,
+    ContinuousValidatorDraftV1,
     continuous_deepseek_route,
     continuous_planner_route,
     continuous_validator_route,
@@ -56,13 +49,14 @@ from cera.continuous.sessions import (
     ContinuousSessionCompatibilityV1,
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
-    ContinuousSessionSnapshotStore,
     assert_separate_role_sessions,
 )
+from cera.continuous.runtime import (
+    ContinuousShadowTurnCoordinator,
+    ContinuousTurnRequestV1,
+)
 from cera.continuous.world import (
-    ContinuousDebugRecorder,
     ContinuousWorldStore,
-    SceneChangeCoordinator,
 )
 from cera.continuous.world_mcp import (
     ContinuousWorldMcpBridge,
@@ -252,7 +246,7 @@ def compatibility(
         output_schema_version=(
             RichPlannerSequenceV1.SCHEMA_VERSION
             if role is ContinuousSessionRole.PLANNER
-            else "cera.continuous_validator_draft.v1"
+            else ContinuousValidatorDraftV1.SCHEMA_VERSION
         ),
         world_directory_identity_sha256=world.world_identity_sha256(WORLD_ID, BRANCH_ID),
         authority_policy_version="cera.owner_architecture.v2+d186",
@@ -269,6 +263,51 @@ def read_world_revision(world: ContinuousWorldStore, character: str) -> int:
 
 class ProCorrectionStop(RuntimeError):
     pass
+
+
+class _HarnessPlannerPort:
+    def __init__(self, harness: "JobHarness") -> None:
+        self.harness = harness
+
+    def plan(self, prompt: str):
+        number = self.harness._active_turn_number
+        turn_id = self.harness._active_turn_id
+        return self.harness.provider_call(
+            f"turn-{number}-planner",
+            "planner",
+            lambda: self.harness.codex_planner(prompt, turn_id),
+        )
+
+
+class _HarnessComposerPort:
+    def __init__(self, harness: "JobHarness") -> None:
+        self.harness = harness
+
+    def compose(self, prompt: str):
+        number = self.harness._active_turn_number
+        return self.harness.provider_call(
+            f"turn-{number}-deepseek",
+            "composer",
+            lambda: self.harness.deepseek(prompt),
+        )
+
+
+class _HarnessValidatorPort:
+    def __init__(self, harness: "JobHarness") -> None:
+        self.harness = harness
+
+    def validate(self, prompt: str, **kwargs):
+        number = self.harness._active_turn_number
+        turn_id = self.harness._active_turn_id
+        return self.harness.provider_call(
+            self.harness._active_validator_label or f"turn-{number}-validator",
+            "validator",
+            lambda: self.harness.codex_validator(
+                prompt,
+                turn_id,
+                accepted_pairs=tuple(kwargs.get("accepted_pairs", ())),
+            ),
+        )
 
 
 class JobHarness:
@@ -301,6 +340,17 @@ class JobHarness:
         self.poll_records: list[dict[str, Any]] = []
         self.provider_calls = 0
         self.scene_change_envelope = None
+        self._active_turn_number = 0
+        self._active_turn_id = ""
+        self._active_validator_label: str | None = None
+        self.coordinator = ContinuousShadowTurnCoordinator(
+            world=world,
+            planner_session=planner_session,
+            validator_session=validator_session,
+            planner=_HarnessPlannerPort(self),
+            composer=_HarnessComposerPort(self),
+            validator=_HarnessValidatorPort(self),
+        )
 
     def poll_pro(self, boundary: str) -> None:
         response = self.cycle / "inbox" / "PRO_RESPONSE.md"
@@ -488,6 +538,9 @@ class JobHarness:
             call_ledger=self.call_ledger,
         ).compose(prompt)
 
+    # The canary executes turns through the exact shared
+    # ContinuousShadowTurnCoordinator used by runtime instead of maintaining a
+    # second orchestration implementation.
     def run_turn(
         self,
         *,
@@ -496,240 +549,75 @@ class JobHarness:
         summaries: tuple[CharacterSummaryEnvelopeV1, ...],
         scene_change_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        message = TURN_MESSAGES[turn_number - 1]
-        turn_id = f"turn-{turn_number:03d}"
-        candidate = self.world.create_candidate(WORLD_ID, BRANCH_ID, turn_id)
-        debug = ContinuousDebugRecorder(
-            self.world.branch_root(WORLD_ID, BRANCH_ID), scene_id, turn_id
-        )
-        debug.initialize()
-        evidence_registry = RequestEvidenceBindingRegistry(
+        self._active_turn_number = turn_number
+        self._active_turn_id = f"turn-{turn_number:03d}"
+        self._active_validator_label = None
+        request = ContinuousTurnRequestV1(
             world_id=WORLD_ID,
             branch_id=BRANCH_ID,
-            turn_id=turn_id,
-        )
-        current_source_binding = evidence_registry.allocate_current_source(
-            source_identity=f"current_user_source:{turn_id}",
-            source_text=message,
-            protected_user_allowance_scope="exact supplied source plus minimal nonbranching connective",
-        )
-        summary_bindings = bind_character_summary_envelopes(
-            registry=evidence_registry,
-            branch_root=self.world.branch_root(WORLD_ID, BRANCH_ID),
-            summaries=summaries,
-        )
-        packet = {
-            "schema_version": "cera.continuous_job4_turn_packet.v1",
-            "world_id": WORLD_ID,
-            "branch_id": BRANCH_ID,
-            "scene_id": scene_id,
-            "turn_id": turn_id,
-            "current_user_message": message,
-            "request_local_evidence_bindings": evidence_registry.prompt_manifest(),
-            "current_source_binding_key": current_source_binding.binding_key,
-            "protected_user_source_claims": evidence_registry.protected_user_claim_manifest(),
-            "character_summary_bindings": tuple(summary_bindings),
-            "protected_user_id": "character:ted",
-            "content_class": "ordinary",
-            "depth": "auto",
-            "story_posture": (
-                "initial doorway turn; Sakura is the primary relevant household character"
-                if turn_number == 1
-                else "continue from accepted stored context and current ACTIVE world"
-            ),
-            "hard_boundaries": [
-                "Do not invent Ted's unsupplied thought, dialogue, or consequential action.",
-                "Preserve character knowledge ownership and branch isolation.",
-                "Stop only after a materially developed unit reaches a real protected-user choice.",
-            ],
-        }
-        planner_prompt, planner_usage = build_planner_turn_prompt(
-            current_packet=packet,
-            accepted_envelopes=(),
+            scene_id=scene_id,
+            turn_id=self._active_turn_id,
+            user_message=TURN_MESSAGES[turn_number - 1],
+            current_authority_packet={
+                "schema_version": "cera.continuous_job4_turn_packet.v2",
+                "protected_user_id": "character:ted",
+                "content_class": "ordinary",
+                "depth": "auto",
+                "story_posture": (
+                    "initial doorway turn; Sakura is the primary relevant household character"
+                    if turn_number == 1
+                    else "continue from exact accepted current-scene authority"
+                ),
+                "hard_boundaries": (
+                    "Do not invent Ted's unsupplied thought, dialogue, or consequential action.",
+                    "Preserve character knowledge ownership and branch isolation.",
+                    "Stop only after a materially developed unit reaches a real protected-user choice.",
+                ),
+            },
             character_summaries=summaries,
-            scene_change_envelope=scene_change_context,
+            cera_scene_change=scene_change_context is not None,
         )
-        debug.write_text("planner_raw_prompt.txt", planner_prompt)
-        debug.write_json(
-            "planner_prompt_components.json",
-            [to_primitive(value) for value in planner_usage],
-        )
-        planner_result = self.provider_call(
-            f"turn-{turn_number}-planner",
-            "planner",
-            lambda: self.codex_planner(planner_prompt, turn_id),
-        )
-        sequence = planner_result.value
-        evidence_registry.import_provider_debug(planner_result.world_tool_debug)
-        if sequence.world_id != WORLD_ID or sequence.branch_id != BRANCH_ID or sequence.scene_id != scene_id:
-            raise RuntimeError("Planner changed world, branch, or scene scope")
-        evidence_registry.validate_sequence(
-            sequence,
-            branch_root=self.world.branch_root(WORLD_ID, BRANCH_ID),
-        )
-        self.planner_session.record_planner_provisional(turn_id, sequence.sequence_sha256)
-        debug.write_json("planner_output.json", to_primitive(sequence))
-        debug.write_json("planner_tools.json", provider_debug(planner_result))
-
-        composer_prompt, composer_usage = build_continuous_composer_prompt(
-            current_user_source=message,
-            planner_sequence=sequence,
-            character_summaries=summaries,
-        )
-        debug.write_json("deepseek_request.json", {"prompt": composer_prompt})
-        composer_result = self.provider_call(
-            f"turn-{turn_number}-deepseek",
-            "composer",
-            lambda: self.deepseek(composer_prompt),
-        )
-        story = composer_result.value.story_text
-        debug.write_json("deepseek_output.json", {"story_text": story})
-
-        validator_prompt, validator_usage = build_validator_prompt(
-            task_mode=ValidatorTaskMode.FINALIZE_TURN,
-            current_user_source=message,
-            planner_sequence=sequence,
-            deepseek_realization=story,
-            accepted_turn_id=turn_id,
-            world_file_manifest=self.world.active_manifest(WORLD_ID, BRANCH_ID),
-            evidence_binding_manifest=evidence_registry.prompt_manifest(),
-        )
-        debug.write_json("validator_request.json", {"prompt": validator_prompt})
-        validator_result = self.provider_call(
-            f"turn-{turn_number}-validator",
-            "validator",
-            lambda: self.codex_validator(validator_prompt, turn_id),
-        )
-        package = validator_result.value
-        debug.write_json("validator_output.json", to_primitive(package))
-        debug.write_json("validator_tools.json", provider_debug(validator_result))
-        if package.world_id != WORLD_ID or package.branch_id != BRANCH_ID:
-            raise RuntimeError("Validator changed world or branch scope")
-        evidence_registry.validate_traceability(sequence, package)
+        if scene_change_context is None:
+            candidate = self.coordinator.prepare(request)
+        else:
+            if self.scene_change_envelope is None:
+                raise RuntimeError("validated scene-change envelope is unavailable")
+            candidate = self.coordinator.prepare_after_validated_scene_change(
+                request,
+                scene_change_envelope=self.scene_change_envelope,
+                summary_provider_calls=1,
+            )
+        package = candidate.validator_package
         if not package.permits_disposable_acceptance(CreatorReviewAction.ACCEPT):
             raise RuntimeError("Validator package did not qualify for disposable acceptance")
-        self.validator_session.record_validator_candidate(turn_id, package.package_sha256)
-        self.world.record_candidate_package(WORLD_ID, BRANCH_ID, candidate, package)
-        before = snapshot_files(candidate.root / "ACTIVE_VIEW")
-        pair = AcceptedTurnPairV1(
-            accepted_turn_id=turn_id,
-            user_message=message,
-            complete_final_sequence=package.complete_final_sequence,
+        receipt = self.coordinator.apply_creator_action(
+            self._active_turn_id, CreatorReviewAction.ACCEPT
         )
-        receipt = self.world.apply_creator_action(
-            world_id=WORLD_ID,
-            branch_id=BRANCH_ID,
-            turn_id=turn_id,
-            action=CreatorReviewAction.ACCEPT,
-            package=package,
-            accepted_pair=pair,
-        )
-        envelope = AcceptedFinalSequenceEnvelopeV1(
-            schema_version=AcceptedFinalSequenceEnvelopeV1.SCHEMA_VERSION,
-            accepted_turn_id=turn_id,
-            user_message=message,
-            complete_final_sequence=package.complete_final_sequence,
-            acceptance_receipt_sha256=receipt.receipt_sha256,
-        )
-        handle = self.planner_session.ensure_session()
-        self.planner_session.append_accepted_final_sequence(envelope)
-        self.world.mark_acceptance_planner_ledger_appended(
-            WORLD_ID,
-            BRANCH_ID,
-            turn_id,
-            envelope.envelope_sha256,
-            handle.provider_thread_id_sha256,
-        )
-        injection = self.planner_session.synchronize_accepted_final_sequence_with_receipt(
-            envelope
-        )
-        if injection is None:
-            raise RuntimeError("accepted final sequence was not injected exactly once")
-        injected = True
-        self.world.mark_acceptance_injection_returned(
-            WORLD_ID,
-            BRANCH_ID,
-            turn_id,
-            envelope_sha256=envelope.envelope_sha256,
-            provider_thread_sha256=handle.provider_thread_id_sha256,
-            injection_operation_receipt_sha256=injection.operation_receipt_sha256,
-        )
-        snapshot_store = ContinuousSessionSnapshotStore(
-            self.world.branch_root(WORLD_ID, BRANCH_ID)
-        )
-        planner_snapshot = self.planner_session.snapshot()
-        planner_snapshot_path = snapshot_store.save(planner_snapshot)
-        self.validator_session.checkpoint(snapshot_store)
-        self.world.mark_acceptance_session_snapshot_persisted(
-            WORLD_ID,
-            BRANCH_ID,
-            turn_id,
-            envelope_sha256=envelope.envelope_sha256,
-            provider_thread_sha256=handle.provider_thread_id_sha256,
-            session_snapshot_sha256=planner_snapshot.snapshot_sha256,
-            session_snapshot_relative_path=planner_snapshot_path.relative_to(
-                self.world.branch_root(WORLD_ID, BRANCH_ID)
-            ).as_posix(),
-        )
-        self.world.mark_acceptance_model_synchronized(
-            WORLD_ID,
-            BRANCH_ID,
-            turn_id,
-            envelope.envelope_sha256,
-        )
+        pair = self.world.accepted_turn_pairs(
+            WORLD_ID, BRANCH_ID, (self._active_turn_id,)
+        )[0]
         self.accepted_pairs.append(pair)
-        after = snapshot_files(candidate.root / "ACTIVE_VIEW")
-        debug.write_json("candidate_before.json", before)
-        debug.write_json("candidate_after.json", after)
-        debug.write_json("exact_diff.json", exact_diff(before, after))
-        debug.write_json("edit_package.json", to_primitive(package.world_edit_operations))
-        debug.write_json("new_field_log.json", to_primitive(package.created_field_log))
-        debug.write_json("creator_action.json", {"action": "accept", "disposable_test_only": True})
-        debug.write_json("promotion_or_discard_receipt.json", to_primitive(receipt))
-        debug.write_json(
-            "provider_routes.json",
-            {
-                "planner": provider_debug(planner_result),
-                "composer": provider_debug(composer_result),
-                "validator": provider_debug(validator_result),
-            },
+        usage = json.loads(
+            (candidate.debug_root / "usage.json").read_text(encoding="utf-8")
         )
-        debug.write_json(
-            "usage.json",
-            {
-                "planner_prompt_components": to_primitive(planner_usage),
-                "composer_prompt_components": to_primitive(composer_usage),
-                "validator_prompt_components": to_primitive(validator_usage),
-            },
+        planner_usage = tuple(usage.get("planner_prompt_components", ()))
+        summary_bytes = sum(
+            int(value.get("byte_count", 0))
+            for value in planner_usage
+            if value.get("component") == "character_summaries"
         )
-        debug.write_json("stage_timings.json", {"recorded_in_provider_call_records": True})
-        debug.write_json("errors.json", [])
-        debug.write_json(
-            "replay_input.json",
-            {
-                "turn_packet": packet,
-                "character_summaries": to_primitive(summaries),
-                "accepted_envelopes_sent": [],
-                "accepted_envelope_injected_sha256": envelope.envelope_sha256,
-                "scene_change_context": scene_change_context,
-                "planner_output": to_primitive(sequence),
-                "deepseek_output_sha256": text_sha256(story),
-                "validator_output": to_primitive(package),
-            },
-        )
-        if debug.validate_complete():
-            raise RuntimeError("continuous turn debug artifact set is incomplete")
+        total_bytes = sum(int(value.get("byte_count", 0)) for value in planner_usage)
         return {
-            "turn_id": turn_id,
-            "sequence_sha256": sequence.sequence_sha256,
-            "story_sha256": text_sha256(story),
+            "turn_id": self._active_turn_id,
+            "sequence_sha256": candidate.planner_sequence.sequence_sha256,
+            "story_sha256": text_sha256(candidate.deepseek_story_text),
             "validator_package_sha256": package.package_sha256,
             "promotion_receipt_sha256": receipt.receipt_sha256,
-            "planner_prompt_usage": to_primitive(planner_usage),
-            "composer_prompt_usage": to_primitive(composer_usage),
-            "validator_prompt_usage": to_primitive(validator_usage),
-            "character_summary_share": character_summary_share(planner_usage),
-            "beat_count": len(sequence.beats),
+            "planner_prompt_usage": planner_usage,
+            "composer_prompt_usage": tuple(usage.get("composer_prompt_components", ())),
+            "validator_prompt_usage": tuple(usage.get("validator_prompt_components", ())),
+            "character_summary_share": 0.0 if total_bytes == 0 else summary_bytes / total_bytes,
+            "beat_count": len(candidate.planner_sequence.beats),
             "rich_beat_field_coverage": all(
                 all(
                     (
@@ -747,70 +635,50 @@ class JobHarness:
                         beat.source_evidence_bindings,
                     )
                 )
-                for beat in sequence.beats
+                for beat in candidate.planner_sequence.beats
             ),
             "operation_count": len(package.world_edit_operations),
             "changed_files": list(receipt.changed_files),
             "created_fields": list(receipt.created_fields),
-            "debug_complete": True,
-            "accepted_final_injected": injected,
+            "debug_complete": not candidate.debug_root.joinpath("errors.json").is_symlink(),
+            "accepted_final_injected": True,
         }
 
     def summarize_scene(self) -> dict[str, Any]:
-        pairs = tuple(self.accepted_pairs[:2])
-        accepted_ids = tuple(value.accepted_turn_id for value in pairs)
-        prompt, usage = build_validator_prompt(
-            task_mode=ValidatorTaskMode.SCENE_SUMMARY,
-            current_user_source=None,
-            planner_sequence=None,
-            deepseek_realization=None,
-            accepted_turn_id=None,
-            accepted_scene_turn_ids=accepted_ids,
-            accepted_pairs=tuple(to_primitive(value) for value in pairs),
-            world_file_manifest=self.world.active_manifest(WORLD_ID, BRANCH_ID),
-        )
-        result = self.provider_call(
-            "scene-1-validator-summary",
-            "validator",
-            lambda: self.codex_validator(
-                prompt, "turn-003", accepted_pairs=pairs
-            ),
-        )
-        package = result.value
-        if package.optional_scene_summary is None:
-            raise RuntimeError("Validator omitted the Scene 1 summary")
-        envelope = SceneChangeCoordinator(self.world).process(
+        self._active_turn_number = 3
+        self._active_turn_id = "turn-003"
+        self._active_validator_label = "scene-1-validator-summary"
+        request = ContinuousTurnRequestV1(
             world_id=WORLD_ID,
             branch_id=BRANCH_ID,
+            scene_id="scene-002",
+            turn_id="turn-003",
+            user_message=TURN_MESSAGES[2],
+            current_authority_packet={"protected_user_id": "character:ted"},
+            cera_scene_change=True,
+        )
+        summary = self.coordinator.prepare_scene_change_summary(
+            request,
             completed_scene_id="scene-001",
-            first_new_scene_prompt=TURN_MESSAGES[2],
-            accepted_turn_ids=accepted_ids,
-            summarize=lambda _pairs: package.optional_scene_summary,
+            accepted_turn_ids=tuple(value.accepted_turn_id for value in self.accepted_pairs[:2]),
         )
-        self.validator_session.record_scene_summary("scene-001", package.package_sha256)
-        self.planner_session.record_scene_change(
-            "scene-001", canonical_sha256(to_primitive(envelope))
-        )
-        self.scene_change_envelope = envelope
-        branch = self.world.branch_root(WORLD_ID, BRANCH_ID)
-        debug = ContinuousDebugRecorder(branch, "scene-002", "turn-003")
-        debug.initialize()
-        debug.write_json("scene_change_request.json", {"prompt": prompt, "usage": to_primitive(usage)})
-        debug.write_json("scene_change_output.json", to_primitive(package))
-        debug.write_json("scene_change_tools.json", provider_debug(result))
-        debug.write_json("scene_change_timing.json", {"recorded_in_provider_call_records": True})
+        self.scene_change_envelope = summary.scene_change_envelope
+        package = summary.scene_summary_package
         return {
             "package_sha256": package.package_sha256,
             "summary_sha256": canonical_sha256(package.optional_scene_summary),
-            "accepted_turn_ids": list(accepted_ids),
-            "exact_pair_count": len(package.optional_scene_summary.last_five_exact_pairs),
+            "accepted_turn_ids": list(
+                package.optional_scene_summary.accepted_turn_ids
+            ),
+            "exact_pair_count": len(
+                package.optional_scene_summary.last_five_exact_pairs
+            ),
             "new_prompt_excluded": (
                 TURN_MESSAGES[2]
                 not in package.optional_scene_summary.shortest_complete_summary
             ),
             "same_validator_thread_sha256": text_sha256(self.validator_handle),
         }
-
 
 def build_report(result: dict[str, Any]) -> str:
     calls = result.get("calls", [])

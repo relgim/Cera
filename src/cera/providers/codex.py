@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import inspect
 import json
 import os
 from pathlib import Path
@@ -218,6 +219,9 @@ class CodexTransportRunner(Protocol):
         output_schema: dict[str, Any],
         workspace: Path,
         mcp_binding: CodexMcpRuntimeBinding | None,
+        on_worker_started: Callable[[], None] | None = None,
+        on_worker_preflight: Callable[[], None] | None = None,
+        on_provider_submit: Callable[[], None] | None = None,
     ) -> CodexWorkerResult: ...
 
 
@@ -246,6 +250,8 @@ class CodexSDKTransport:
         output_schema: dict[str, Any],
         output_mode: ProviderOutputMode = ProviderOutputMode.JSON_SCHEMA,
         mcp_binding: CodexMcpRuntimeBinding | None = None,
+        on_worker_started: Callable[[], None] | None = None,
+        on_worker_preflight: Callable[[], None] | None = None,
         on_transport_invoke: Callable[[], None] | None = None,
     ) -> ProviderCallResult:
         if output_mode is not ProviderOutputMode.JSON_SCHEMA:
@@ -273,16 +279,31 @@ class CodexSDKTransport:
                 "Codex request exceeds the configured byte budget",
             )
         request_sha256 = text_sha256(request_text)
-        if on_transport_invoke is not None:
-            on_transport_invoke()
         try:
-            result = self.runner.run(
-                route=self.route,
-                prompt=prompt,
-                output_schema=provider_schema,
-                workspace=self.workspace,
-                mcp_binding=mcp_binding,
-            )
+            parameters = inspect.signature(self.runner.run).parameters
+            # Only an explicit callback parameter proves that a runner owns
+            # the stage contract.  Generic **kwargs wrappers often forward to
+            # legacy runners and must not be treated as stage-aware.
+            supports_stages = "on_provider_submit" in parameters
+            kwargs = {
+                "route": self.route,
+                "prompt": prompt,
+                "output_schema": provider_schema,
+                "workspace": self.workspace,
+                "mcp_binding": mcp_binding,
+            }
+            if supports_stages:
+                kwargs.update(
+                    on_worker_started=on_worker_started,
+                    on_worker_preflight=on_worker_preflight,
+                    on_provider_submit=on_transport_invoke,
+                )
+            result = self.runner.run(**kwargs)
+            # Older provider-free fakes lack stage callbacks.  A successful
+            # result proves one completed provider operation; failures carry
+            # external_provider_calls_observed and are reconciled by the ledger.
+            if on_transport_invoke is not None:
+                on_transport_invoke()
         except ProviderTransportError:
             raise
         except Exception as exc:
@@ -555,6 +576,9 @@ class _SubprocessCodexRunner:
         output_schema: dict[str, Any],
         workspace: Path,
         mcp_binding: CodexMcpRuntimeBinding | None,
+        on_worker_started: Callable[[], None] | None = None,
+        on_worker_preflight: Callable[[], None] | None = None,
+        on_provider_submit: Callable[[], None] | None = None,
     ) -> CodexWorkerResult:
         progress_path = _initialize_codex_worker_progress(workspace)
         request_payload = {
@@ -601,6 +625,13 @@ class _SubprocessCodexRunner:
             stderr=subprocess.PIPE,
             **popen_kwargs,
         )
+        if on_worker_started is not None:
+            on_worker_started()
+        observer_stop, observer = _start_codex_stage_observer(
+            progress_path,
+            on_worker_preflight=on_worker_preflight,
+            on_provider_submit=on_provider_submit,
+        )
         try:
             stdout, stderr = process.communicate(
                 payload,
@@ -620,6 +651,14 @@ class _SubprocessCodexRunner:
                     _codex_stage_observed_provider_call(stage)
                 ),
             ) from None
+        finally:
+            observer_stop.set()
+            observer.join(timeout=1)
+            _emit_codex_stage_markers(
+                _read_codex_worker_stage(progress_path),
+                on_worker_preflight=on_worker_preflight,
+                on_provider_submit=on_provider_submit,
+            )
         if process.returncode != 0:
             stage = _read_codex_worker_stage(progress_path)
             diagnostic = stderr.strip()
@@ -742,6 +781,9 @@ class PersistentNoMcpCodexRunner:
         output_schema: dict[str, Any],
         workspace: Path,
         mcp_binding: CodexMcpRuntimeBinding | None,
+        on_worker_started: Callable[[], None] | None = None,
+        on_worker_preflight: Callable[[], None] | None = None,
+        on_provider_submit: Callable[[], None] | None = None,
     ) -> CodexWorkerResult:
         if mcp_binding is not None:
             raise ProviderTransportError(
@@ -784,6 +826,8 @@ class PersistentNoMcpCodexRunner:
             )
             started = time.perf_counter()
             process = self._ensure_process()
+            if on_worker_started is not None:
+                on_worker_started()
             try:
                 assert process.stdin is not None
                 process.stdin.write(payload + "\n")
@@ -800,6 +844,11 @@ class PersistentNoMcpCodexRunner:
                         f"worker_stage:{_read_codex_worker_stage(progress_path)}",
                     ),
                 ) from None
+            observer_stop, observer = _start_codex_stage_observer(
+                progress_path,
+                on_worker_preflight=on_worker_preflight,
+                on_provider_submit=on_provider_submit,
+            )
             try:
                 line = self._readline(process, route.timeout_seconds)
             except (UnicodeError, OSError):
@@ -817,6 +866,14 @@ class PersistentNoMcpCodexRunner:
                         _codex_stage_observed_provider_call(stage)
                     ),
                 ) from None
+            finally:
+                observer_stop.set()
+                observer.join(timeout=1)
+                _emit_codex_stage_markers(
+                    _read_codex_worker_stage(progress_path),
+                    on_worker_preflight=on_worker_preflight,
+                    on_provider_submit=on_provider_submit,
+                )
             if line is None:
                 stage = _read_codex_worker_stage(progress_path)
                 _terminate_codex_worker_tree(process)
@@ -1068,6 +1125,45 @@ _CODEX_PROVIDER_CALL_OBSERVED_STAGES = frozenset(
 
 def _codex_stage_observed_provider_call(stage: str) -> bool:
     return stage in _CODEX_PROVIDER_CALL_OBSERVED_STAGES
+
+
+def _emit_codex_stage_markers(
+    stage: str,
+    *,
+    on_worker_preflight: Callable[[], None] | None,
+    on_provider_submit: Callable[[], None] | None,
+) -> None:
+    if stage in _CODEX_WORKER_PROGRESS_STAGES and stage != "worker_launch":
+        if on_worker_preflight is not None:
+            on_worker_preflight()
+    if _codex_stage_observed_provider_call(stage) and on_provider_submit is not None:
+        on_provider_submit()
+
+
+def _start_codex_stage_observer(
+    progress_path: Path,
+    *,
+    on_worker_preflight: Callable[[], None] | None,
+    on_provider_submit: Callable[[], None] | None,
+) -> tuple[threading.Event, threading.Thread]:
+    stop = threading.Event()
+
+    def observe() -> None:
+        prior = ""
+        while not stop.wait(0.01):
+            stage = _read_codex_worker_stage(progress_path)
+            if stage == prior:
+                continue
+            prior = stage
+            _emit_codex_stage_markers(
+                stage,
+                on_worker_preflight=on_worker_preflight,
+                on_provider_submit=on_provider_submit,
+            )
+
+    thread = threading.Thread(target=observe, daemon=True)
+    thread.start()
+    return stop, thread
 
 
 def _read_codex_worker_stage(progress_path: Path) -> str:

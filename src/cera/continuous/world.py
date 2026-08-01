@@ -1067,34 +1067,35 @@ class ContinuousWorldStore:
         branch_id: str,
         turn_id: str,
         *,
-        envelope_sha256: str,
-        provider_thread_sha256: str,
-        session_snapshot_sha256: str,
-        session_snapshot_relative_path: str,
+        snapshot_receipt: Any,
+        injection_receipt: Any,
     ) -> None:
-        if any(
-            re.fullmatch(r"[0-9a-f]{64}", value) is None
-            for value in (
-                envelope_sha256,
-                provider_thread_sha256,
-                session_snapshot_sha256,
-            )
-        ):
-            raise ContractValidationError("acceptance snapshot binding is invalid")
-        if session_snapshot_relative_path != "PLANNER_SESSION/SESSION_SNAPSHOT.json":
-            raise ContractValidationError("acceptance snapshot path changed")
-        root = self.branch_root(world_id, branch_id)
-        snapshot_path = root / session_snapshot_relative_path
-        if not snapshot_path.is_file() or snapshot_path.is_symlink():
-            raise StateConflictError("acceptance Planner snapshot is unavailable")
-        snapshot_envelope = json.loads(snapshot_path.read_text(encoding="utf-8"))
-        snapshot = snapshot_envelope.get("snapshot", {})
-        handle = snapshot.get("handle", {}) if isinstance(snapshot, dict) else {}
-        accepted_turn_ids = snapshot.get("accepted_turn_ids", ()) if isinstance(snapshot, dict) else ()
+        from .sessions import (
+            ContinuousContextInjectionReceiptV1,
+            ContinuousSessionSnapshotReceiptV1,
+            ContinuousSessionSnapshotStore,
+        )
+        if not isinstance(snapshot_receipt, ContinuousSessionSnapshotReceiptV1):
+            raise ContractValidationError("acceptance snapshot receipt type changed")
+        if not isinstance(injection_receipt, ContinuousContextInjectionReceiptV1):
+            raise ContractValidationError("acceptance injection receipt type changed")
         if (
-            snapshot_envelope.get("snapshot_sha256") != session_snapshot_sha256
-            or handle.get("provider_thread_id_sha256") != provider_thread_sha256
-            or turn_id not in accepted_turn_ids
+            snapshot_receipt.world_id != world_id
+            or snapshot_receipt.branch_id != branch_id
+            or snapshot_receipt.accepted_turn_id != turn_id
+            or injection_receipt.accepted_turn_id != turn_id
+            or snapshot_receipt.injection_operation_receipt_sha256
+            != injection_receipt.operation_receipt_sha256
+        ):
+            raise StateConflictError("acceptance snapshot receipt scope changed")
+        root = self.branch_root(world_id, branch_id)
+        snapshot = ContinuousSessionSnapshotStore(root).load_immutable(snapshot_receipt)
+        if (
+            turn_id not in snapshot.accepted_turn_ids
+            or snapshot_receipt.accepted_envelope_sha256
+            != injection_receipt.accepted_envelope_sha256
+            or snapshot_receipt.provider_thread_sha256
+            != injection_receipt.provider_thread_sha256
         ):
             raise StateConflictError("acceptance Planner snapshot identity changed")
         self._update_acceptance_sync_state(
@@ -1102,10 +1103,11 @@ class ContinuousWorldStore:
             branch_id,
             turn_id,
             planner_snapshot_state="persisted",
-            accepted_final_envelope_sha256=envelope_sha256,
-            planner_provider_thread_sha256=provider_thread_sha256,
-            planner_session_snapshot_sha256=session_snapshot_sha256,
-            planner_session_snapshot_relative_path=session_snapshot_relative_path,
+            accepted_final_envelope_sha256=snapshot_receipt.accepted_envelope_sha256,
+            planner_provider_thread_sha256=snapshot_receipt.provider_thread_sha256,
+            planner_session_snapshot_sha256=snapshot_receipt.snapshot_sha256,
+            planner_session_snapshot_relative_path=snapshot_receipt.immutable_relative_path,
+            planner_session_snapshot_receipt=to_primitive(snapshot_receipt),
         )
 
     def mark_acceptance_model_synchronized(

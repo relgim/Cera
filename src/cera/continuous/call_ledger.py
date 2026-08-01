@@ -17,6 +17,8 @@ from cera.serialization import canonical_bytes, canonical_sha256, re_is_sha256, 
 
 class ProviderCallState(StrEnum):
     PREPARED = "prepared_not_invoked"
+    WORKER_STARTED = "worker_started_not_invoked"
+    WORKER_PREFLIGHT = "worker_preflight_not_invoked"
     PRETRANSPORT_FAILED = "pretransport_failed"
     TRANSPORT_INVOKED = "transport_invoked"
     DISPATCH_INITIATED = "transport_invoked"  # decode-only source compatibility
@@ -28,7 +30,7 @@ class ProviderCallState(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ProviderCallLedgerEventV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_provider_call_ledger_event.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_provider_call_ledger_event.v3"
 
     schema_version: str
     call_id: str
@@ -74,6 +76,13 @@ T = TypeVar("T")
 R = TypeVar("R")
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderCallStageMarkersV1:
+    mark_worker_started: Callable[[], None]
+    mark_worker_preflight: Callable[[], None]
+    mark_transport_invoked: Callable[[], None]
+
+
 class ContinuousProviderCallLedger:
     """Append-only events; only transport invocation consumes the call count."""
 
@@ -101,12 +110,23 @@ class ContinuousProviderCallLedger:
         dispatch_with_invocation_marker: (
             Callable[[Callable[[], None]], T] | None
         ) = None,
+        dispatch_with_stage_markers: (
+            Callable[[ProviderCallStageMarkersV1], T] | None
+        ) = None,
         finalize: Callable[[T], R],
         receipt_of: Callable[[T], Any] = lambda value: getattr(value, "receipt", None),
         telemetry_of: Callable[[T], Any] = lambda value: getattr(value, "operation_telemetry", None),
         stored_thread_sha256: str | None = None,
     ) -> R:
-        if (dispatch is None) == (dispatch_with_invocation_marker is None):
+        selected_dispatches = sum(
+            value is not None
+            for value in (
+                dispatch,
+                dispatch_with_invocation_marker,
+                dispatch_with_stage_markers,
+            )
+        )
+        if selected_dispatches != 1:
             raise ContractValidationError(
                 "provider call requires exactly one dispatch contract"
             )
@@ -127,12 +147,40 @@ class ContinuousProviderCallLedger:
         )[:24]
         self._record(call_id, owner, operation, ProviderCallState.PREPARED, route, model, effort, stored_thread_sha256=stored_thread_sha256)
         invocation_marked = False
+        worker_started_marked = False
+        worker_preflight_marked = False
+        use_worker_stages = dispatch_with_stage_markers is not None
+
+        def mark_worker_started() -> None:
+            nonlocal worker_started_marked
+            with self._lock:
+                if worker_started_marked:
+                    return
+                self._record(
+                    call_id, owner, operation, ProviderCallState.WORKER_STARTED,
+                    route, model, effort, stored_thread_sha256=stored_thread_sha256,
+                )
+                worker_started_marked = True
+
+        def mark_worker_preflight() -> None:
+            nonlocal worker_preflight_marked
+            with self._lock:
+                if worker_preflight_marked:
+                    return
+                mark_worker_started()
+                self._record(
+                    call_id, owner, operation, ProviderCallState.WORKER_PREFLIGHT,
+                    route, model, effort, stored_thread_sha256=stored_thread_sha256,
+                )
+                worker_preflight_marked = True
 
         def mark_transport_invoked() -> None:
             nonlocal invocation_marked
             with self._lock:
                 if invocation_marked:
                     return
+                if use_worker_stages:
+                    mark_worker_preflight()
                 self._record(
                     call_id,
                     owner,
@@ -146,11 +194,19 @@ class ContinuousProviderCallLedger:
                 invocation_marked = True
 
         try:
-            raw = (
-                dispatch_with_invocation_marker(mark_transport_invoked)
-                if dispatch_with_invocation_marker is not None
-                else dispatch()
-            )
+            if dispatch_with_stage_markers is not None:
+                raw = dispatch_with_stage_markers(
+                    ProviderCallStageMarkersV1(
+                        mark_worker_started=mark_worker_started,
+                        mark_worker_preflight=mark_worker_preflight,
+                        mark_transport_invoked=mark_transport_invoked,
+                    )
+                )
+            elif dispatch_with_invocation_marker is not None:
+                raw = dispatch_with_invocation_marker(mark_transport_invoked)
+            else:
+                assert dispatch is not None
+                raw = dispatch()
         except BaseException as exc:
             observed = getattr(exc, "external_provider_calls_observed", None)
             receipt = (
@@ -295,7 +351,12 @@ class ContinuousProviderCallLedger:
             sorted(
                 call_id
                 for call_id, state in terminal_by_call.items()
-                if state == ProviderCallState.PREPARED.value
+                if state
+                in {
+                    ProviderCallState.PREPARED.value,
+                    ProviderCallState.WORKER_STARTED.value,
+                    ProviderCallState.WORKER_PREFLIGHT.value,
+                }
             )
         )
 

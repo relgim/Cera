@@ -33,6 +33,7 @@ from .contracts import (
     EventRecordCandidateV1,
     FinalSequenceItemV1,
     FinalSequenceV1,
+    ProtectedUserRealizationSpanV1,
     RichPlannerSequenceV1,
     SceneSummaryV1,
     ValidatorFinalizationPackageV1,
@@ -49,10 +50,10 @@ from .prompting import (
 )
 
 
-CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v3"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v2"
-CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v1"
-CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v1"
+CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v4"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v3"
+CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v2"
+CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,7 +90,7 @@ class ProviderSceneSummaryDraftV1:
 
 @dataclass(frozen=True, slots=True)
 class ContinuousValidatorDraftV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_validator_draft.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_validator_draft.v2"
 
     schema_version: str
     package_id: str
@@ -189,16 +190,28 @@ class ContinuousValidatorDraftV1:
 
 @dataclass(frozen=True, slots=True)
 class ContinuousDeepSeekDraftV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v2"
 
     schema_version: str
     story_text: str
+    protected_user_realizations: tuple[ProtectedUserRealizationSpanV1, ...] = ()
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("continuous DeepSeek draft schema changed")
         if not self.story_text.strip() or len(self.story_text) > 256_000:
             raise ContractValidationError("continuous DeepSeek story text is invalid")
+        spans = tuple(
+            (value.output_start, value.output_end) for value in self.protected_user_realizations
+        )
+        if len(spans) != len(set(spans)):
+            raise ContractValidationError(
+                "continuous DeepSeek protected-user spans are duplicated"
+            )
+        if tuple(sorted(spans)) != spans:
+            raise ContractValidationError(
+                "continuous DeepSeek protected-user spans are out of order"
+            )
 
 
 def _schema_for(annotation: Any, *, field_name: str | None = None, owner: type | None = None) -> dict[str, Any]:
@@ -288,12 +301,14 @@ class CodexContinuousPlannerPort:
         )
         stored_thread_sha256 = _transport_stored_thread_sha256(self.transport)
 
-        def dispatch(mark_transport_invoked):
+        def dispatch(markers):
             return self.transport.invoke(
                 prompt,
                 output_schema=output_schema,
                 mcp_binding=mcp_binding,
-                on_transport_invoke=mark_transport_invoked,
+                on_worker_started=markers.mark_worker_started,
+                on_worker_preflight=markers.mark_worker_preflight,
+                on_transport_invoke=markers.mark_transport_invoked,
             )
 
         def finalize(result):
@@ -318,7 +333,7 @@ class CodexContinuousPlannerPort:
             route=route.route_id,
             model=route.model_name,
             effort=route.reasoning_effort,
-            dispatch_with_invocation_marker=dispatch,
+            dispatch_with_stage_markers=dispatch,
             finalize=finalize,
             stored_thread_sha256=stored_thread_sha256,
         )
@@ -358,12 +373,14 @@ class CodexContinuousValidatorPort:
         )
         stored_thread_sha256 = _transport_stored_thread_sha256(self.transport)
 
-        def dispatch(mark_transport_invoked):
+        def dispatch(markers):
             return self.transport.invoke(
                 prompt,
                 output_schema=output_schema,
                 mcp_binding=mcp_binding,
-                on_transport_invoke=mark_transport_invoked,
+                on_worker_started=markers.mark_worker_started,
+                on_worker_preflight=markers.mark_worker_preflight,
+                on_transport_invoke=markers.mark_transport_invoked,
             )
 
         def finalize(result):
@@ -386,7 +403,7 @@ class CodexContinuousValidatorPort:
             route=route.route_id,
             model=route.model_name,
             effort=route.reasoning_effort,
-            dispatch_with_invocation_marker=dispatch,
+            dispatch_with_stage_markers=dispatch,
             finalize=finalize,
             stored_thread_sha256=stored_thread_sha256,
         )
@@ -410,7 +427,7 @@ class DeepSeekContinuousComposerPort:
         messages = (
             DeepSeekMessage(
                 "system",
-                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Do not invent protected-user thought, dialogue, or consequential action. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
+                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. Copy protected-user material only from an exact supplied claim. For every copied occurrence, declare its exact zero-based story_text span in protected_user_realizations; return an empty array when none is copied. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
             ),
             DeepSeekMessage(
                 "user",

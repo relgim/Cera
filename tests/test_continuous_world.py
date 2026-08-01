@@ -185,7 +185,7 @@ def package(*, turn_id: str = "turn-001", revision: int = 1) -> ValidatorFinaliz
         event_record=EventRecordCandidateV1(
             event_id=f"event:{turn_id}",
             accepted_turn_id=turn_id,
-            scene_id="scene:arrival",
+            scene_id="scene-001",
             participant_ids=("character:sakura_hanezawa", "character:ted"),
             summary="Sakura requested proof after Ted identified himself as the expected tenant.",
             final_sequence_item_keys=("verify_arrival",),
@@ -789,7 +789,13 @@ class ContinuousWorldTests(unittest.TestCase):
             ),
             validator=_FakeQueueStage(
                 scene_summary_package(pair, new_prompt=new_prompt),
-                package(turn_id="turn-002"),
+                replace(
+                    package(turn_id="turn-002"),
+                    event_record=replace(
+                        package(turn_id="turn-002").event_record,
+                        scene_id="scene-002",
+                    ),
+                ),
             ),
         )
         planner_thread = planner_session.ensure_session().provider_thread_id

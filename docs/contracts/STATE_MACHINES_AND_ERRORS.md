@@ -304,7 +304,8 @@ ACTIVE snapshot
    -> record accepted-final envelope in Python ledger
    -> inject canonical envelope once into Planner model-visible history
    -> record injection-returned receipt
-   -> atomically persist Planner session snapshot
+   -> atomically persist immutable per-turn Planner session snapshot
+   -> reload/hash/type-check the immutable snapshot receipt
    -> record snapshot and final synchronization receipt
 or
 -> Rewrite | Replan | Adjustment | Decline
@@ -333,7 +334,23 @@ ledger append, injection return, journal update, snapshot replacement, or final
 synchronization. It binds the exact Planner thread, envelope, injection
 operation, session snapshot, and final synchronization receipt. `synchronized`
 is impossible before the atomic snapshot exists. Ambiguous injection is never
-automatically replayed.
+automatically replayed. The mutable current-session pointer is convenience
+state only; synchronization proof binds the immutable per-turn snapshot path
+and hash and revalidates both before finalization.
+
+Accepted-session context is not raw conversational memory. Python reconstructs
+typed, same-scene projections from exact accepted pair/event/envelope bytes.
+The public projection contains public items only. Each private projection adds
+only one knowledge owner's private items and is rejected if another owner's
+private material appears. Scene, revision, pair, event, envelope, item, and hash
+agreement must all hold before a projection can enter a request binding.
+
+Protected-user realization follows a separate exact-proof path. Python projects
+only source spans whose attribution proves Ted owns the action or dialogue,
+each final sequence item names the exact claim keys it uses, and DeepSeek marks
+every copied occurrence with exact candidate offsets. Python validates those
+spans before Validator assessment; search, pronouns, NPC-attributed quotations,
+or unattributed quotations do not create protected-user authority.
 
 Directory promotion journal v2 records prepared, ACTIVE-moved, prepared-
 installed, backup-removed, committed, and finalized states with exact prior and

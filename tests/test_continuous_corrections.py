@@ -13,13 +13,16 @@ from cera.continuous.call_ledger import (
 )
 from cera.continuous.diagnostics import ContinuousRootDiagnosticRecorder
 from cera.continuous.evidence import (
+    AcceptedSessionProjectionV1,
     EvidenceVisibility,
     RequestEvidenceBindingRegistry,
     build_character_summary_envelope,
     validate_character_summary_envelope,
+    project_protected_user_source_claims,
 )
 from cera.continuous.sessions import ContinuousSessionRole
 from cera.continuous.sessions import (
+    ContinuousSessionSnapshotStore,
     ContinuousSessionCoordinator,
     InMemoryContinuousStoredSessionPort,
 )
@@ -50,9 +53,12 @@ from tests.test_continuous_world import (
     session_compatibility,
 )
 from cera.continuous.contracts import (
+    AcceptedFinalSequenceEnvelopeV1,
     CharacterSummaryEnvelopeV1,
     ProtectedUserAllowanceMode,
     ProtectedUserAllowanceV1,
+    ProtectedUserRealizationSpanV1,
+    ProtectedUserSourceClaimKind,
     SceneSummaryV1,
     ValidatorSemanticStatus,
     WorldEditOperationKind,
@@ -303,9 +309,7 @@ class ContinuousEvidenceCorrectionTests(unittest.TestCase):
                 replace(
                     base.beats[0],
                     actor_ids=("character:ted",),
-                    observable_action_or_dialogue_direction=(
-                        'Ted says exactly "Hello, my name is Ted."'
-                    ),
+                    observable_action_or_dialogue_direction=claim["exact_text"],
                     protected_user_allowance=ProtectedUserAllowanceV1(
                         mode=ProtectedUserAllowanceMode.EXACT_SOURCE_ONLY,
                         source_binding_keys=(current.binding_key,),
@@ -326,30 +330,19 @@ class ContinuousEvidenceCorrectionTests(unittest.TestCase):
             knowledge_owner_id="character:sakura_hanezawa",
         )
 
-        for actor_ids in (("character:ted",), ("character:sakura_hanezawa",)):
-            with self.subTest(actor_ids=actor_ids), self.assertRaisesRegex(
-                PermissionError, "exact Python-owned source span"
-            ):
-                registry.validate_sequence(
-                    replace(
-                        exact,
-                        beats=(
-                            replace(
-                                exact.beats[0],
-                                actor_ids=actor_ids,
-                                observable_action_or_dialogue_direction=(
-                                    "Ted enters the house without a supplied action."
-                                ),
-                                source_evidence_bindings=(
-                                    (current.binding_key,)
-                                    if actor_ids == ("character:ted",)
-                                    else (current.binding_key, active.binding_key)
-                                ),
-                            ),
+        with self.assertRaisesRegex(PermissionError, "must equal"):
+            registry.validate_sequence(
+                replace(
+                    exact,
+                    beats=(replace(
+                        exact.beats[0],
+                        observable_action_or_dialogue_direction=(
+                            "Ted enters the house without a supplied action."
                         ),
-                    ),
-                    branch_root=self.root,
-                )
+                    ),),
+                ),
+                branch_root=self.root,
+            )
 
     def test_derived_character_summary_mcp_read_is_private_and_owner_bound(self) -> None:
         path = self.root / "DERIVED" / "CharacterSummaries" / "Sakura.json"
@@ -435,7 +428,13 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                 package(turn_id="turn-001", revision=1),
                 package(turn_id="turn-002", revision=2),
                 summary_package,
-                package(turn_id="turn-003", revision=3),
+                replace(
+                    package(turn_id="turn-003", revision=3),
+                    event_record=replace(
+                        package(turn_id="turn-003", revision=3).event_record,
+                        scene_id="scene-002",
+                    ),
+                ),
             )
             coordinator = ContinuousShadowTurnCoordinator(
                 world=store,
@@ -506,6 +505,14 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
             self.assertEqual(changed.turn_candidate.provider_calls, 0)
             coordinator.apply_creator_action("turn-003", CreatorReviewAction.ACCEPT)
 
+            # The provider-free fake route exercises the exact shared
+            # coordinator schedule used by the ten-stage live shape:
+            # 3 Planner + 3 Composer + 3 finalizer + 1 scene-summary call.
+            self.assertEqual(
+                len(planner.prompts) + len(composer.prompts) + len(validator.prompts),
+                10,
+            )
+
             self.assertEqual(
                 planner_session.snapshot().accepted_turn_ids,
                 ("turn-001", "turn-002", "turn-003"),
@@ -543,6 +550,15 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                 "synchronization_receipt_sha256",
             ):
                 self.assertEqual(len(journal[key]), 64)
+            self.assertEqual(
+                journal["planner_session_snapshot_receipt"]["accepted_turn_id"],
+                "turn-003",
+            )
+            self.assertTrue(
+                journal["planner_session_snapshot_relative_path"].startswith(
+                    "PLANNER_SESSION/ACCEPTED/"
+                )
+            )
 
     def test_acceptance_synchronization_crash_points_remain_pending_without_replay(self) -> None:
         stages = (
@@ -742,6 +758,51 @@ class ContinuousCallAccountingTests(unittest.TestCase):
         )
         self.assertTrue(
             all(value["stored_thread_sha256"] == "c" * 64 for value in self.ledger.events)
+        )
+
+    def test_true_submission_marker_distinguishes_preflight_from_thread_run(self) -> None:
+        def preflight_only(markers):
+            markers.mark_worker_started()
+            markers.mark_worker_preflight()
+            raise ContractValidationError("thread was never run")
+
+        with self.assertRaises(ContractValidationError):
+            self.ledger.execute(
+                owner="planner",
+                operation="pre_thread_run",
+                route="test-route",
+                model="fake-model",
+                effort="medium",
+                stored_thread_sha256="f" * 64,
+                dispatch_with_stage_markers=preflight_only,
+                finalize=lambda raw: raw,
+            )
+        self.assertEqual(self.ledger.dispatched_call_count, 0)
+        self.assertEqual(
+            self.ledger.events[-1]["state"],
+            ProviderCallState.PRETRANSPORT_FAILED.value,
+        )
+
+        def submitted(markers):
+            markers.mark_worker_started()
+            markers.mark_worker_preflight()
+            markers.mark_transport_invoked()
+            raise ContractValidationError("failed after thread_run")
+
+        with self.assertRaises(ContractValidationError):
+            self.ledger.execute(
+                owner="planner",
+                operation="at_thread_run",
+                route="test-route",
+                model="fake-model",
+                effort="medium",
+                stored_thread_sha256="f" * 64,
+                dispatch_with_stage_markers=submitted,
+                finalize=lambda raw: raw,
+            )
+        self.assertEqual(self.ledger.dispatched_call_count, 1)
+        self.assertEqual(
+            self.ledger.events[-1]["state"], ProviderCallState.PROVIDER_FAILED.value
         )
 
     def test_planner_adapter_precomputes_mcp_before_ledger_and_binds_thread(self) -> None:
@@ -1321,10 +1382,13 @@ class ContinuousEvidenceAuthorityV2Tests(unittest.TestCase):
 
     def test_persisted_continuous_records_are_in_schema_registry(self) -> None:
         versions = build_schema_registry().versions
-        self.assertIn("cera.request_evidence_binding.v3", versions)
-        self.assertIn("cera.protected_user_source_claim.v1", versions)
+        self.assertIn("cera.request_evidence_binding.v4", versions)
+        self.assertIn("cera.protected_user_source_claim.v2", versions)
+        self.assertIn("cera.protected_user_realization_span.v1", versions)
+        self.assertIn("cera.accepted_session_projection.v1", versions)
         self.assertIn("cera.continuous_context_injection_receipt.v1", versions)
-        self.assertIn("cera.continuous_provider_call_ledger_event.v2", versions)
+        self.assertIn("cera.continuous_session_snapshot_receipt.v1", versions)
+        self.assertIn("cera.continuous_provider_call_ledger_event.v3", versions)
         self.assertIn("cera.scene_summary_derived_view.v2", versions)
 
     def test_embedded_secret_redaction_and_root_attribute_diagnostic(self) -> None:
@@ -1368,6 +1432,150 @@ class ContinuousEvidenceAuthorityV2Tests(unittest.TestCase):
                 value.world_directory_identity_sha256,
                 store.world_identity_sha256("hanezawa-job4", "canary-main"),
             )
+
+
+class ContinuousAuthorityV4Tests(unittest.TestCase):
+    def test_source_projector_is_attribution_aware_and_keeps_doorway_questions(self) -> None:
+        npc = project_protected_user_source_claims(
+            source_text='Sakura says, "I am worried." "So am I," Sakura replies.',
+            source_binding_key="binding_source_test",
+            source_sha256=text_sha256(
+                'Sakura says, "I am worried." "So am I," Sakura replies.'
+            ),
+        )
+        self.assertEqual(npc, ())
+
+        doorway_text = "Hello, my name is Ted. Is this the Hanezawa residence?"
+        doorway = project_protected_user_source_claims(
+            source_text=doorway_text,
+            source_binding_key="binding_source_test",
+            source_sha256=text_sha256(doorway_text),
+        )
+        self.assertEqual(tuple(value.kind for value in doorway), (
+            ProtectedUserSourceClaimKind.DIALOGUE,
+            ProtectedUserSourceClaimKind.DIALOGUE,
+        ))
+        self.assertEqual(
+            doorway[1].deterministic_projection_rule,
+            "continued_unquoted_user_utterance",
+        )
+        self.assertEqual(doorway[1].exact_text, "Is this the Hanezawa residence?")
+        direct = project_protected_user_source_claims(
+            source_text="Enne, would you wait here?",
+            source_binding_key="binding_source_test",
+            source_sha256=text_sha256("Enne, would you wait here?"),
+        )
+        self.assertEqual(len(direct), 1)
+        self.assertEqual(
+            direct[0].deterministic_projection_rule,
+            "direct_unquoted_user_utterance",
+        )
+
+    def test_composer_must_annotate_every_exact_protected_source_occurrence(self) -> None:
+        registry = RequestEvidenceBindingRegistry(
+            world_id="world-test", branch_id="main", turn_id="turn-001"
+        )
+        registry.allocate_current_source(
+            source_identity="current_user_source:turn-001",
+            source_text='Ted says, "Please wait."',
+            protected_user_allowance_scope="exact source only",
+        )
+        claim = next(
+            value
+            for value in registry.protected_user_claim_manifest()
+            if value["kind"] == "dialogue"
+        )
+        story = "Please wait. Sakura pauses."
+        realization = ProtectedUserRealizationSpanV1(
+            schema_version=ProtectedUserRealizationSpanV1.SCHEMA_VERSION,
+            claim_key=claim["claim_key"],
+            kind=ProtectedUserSourceClaimKind.DIALOGUE,
+            output_start=0,
+            output_end=len("Please wait."),
+            exact_text="Please wait.",
+        )
+        registry.validate_composer_realization(
+            story_text=story, realizations=(realization,)
+        )
+        with self.assertRaisesRegex(PermissionError, "without a typed realization"):
+            registry.validate_composer_realization(story_text=story, realizations=())
+        with self.assertRaisesRegex(PermissionError, "span changed"):
+            registry.validate_composer_realization(
+                story_text="X" + story,
+                realizations=(realization,),
+            )
+
+    def test_accepted_projection_rejects_public_or_cross_owner_private_state(self) -> None:
+        private_item = final_sequence().items[0]
+        common = dict(
+            schema_version=AcceptedSessionProjectionV1.SCHEMA_VERSION,
+            projection_key="projection_session_test",
+            world_id="world-test",
+            branch_id="main",
+            request_turn_id="turn-002",
+            accepted_turn_id="turn-001",
+            scene_id="scene-001",
+            accepted_user_message="Hello.",
+            items=(private_item,),
+            accepted_pair_sha256="1" * 64,
+            accepted_event_sha256="2" * 64,
+            accepted_envelope_sha256="3" * 64,
+            acceptance_receipt_sha256="4" * 64,
+            provider_thread_sha256="5" * 64,
+            session_snapshot_sha256="6" * 64,
+            synchronization_receipt_sha256="7" * 64,
+        )
+        with self.assertRaisesRegex(ContractValidationError, "public.*private"):
+            AcceptedSessionProjectionV1(knowledge_owner_id=None, **common)
+        with self.assertRaisesRegex(ContractValidationError, "another owner's"):
+            AcceptedSessionProjectionV1(
+                knowledge_owner_id="character:mia_hanezawa", **common
+            )
+        accepted = AcceptedSessionProjectionV1(
+            knowledge_owner_id="character:sakura_hanezawa", **common
+        )
+        self.assertEqual(
+            accepted.items[0].private_state_owner_ids,
+            ("character:sakura_hanezawa",),
+        )
+
+    def test_acceptance_snapshot_is_immutable_after_current_pointer_advances(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            port = InMemoryContinuousStoredSessionPort()
+            coordinator = ContinuousSessionCoordinator(
+                session_compatibility(ContinuousSessionRole.PLANNER), port
+            )
+            envelope = AcceptedFinalSequenceEnvelopeV1(
+                schema_version=AcceptedFinalSequenceEnvelopeV1.SCHEMA_VERSION,
+                accepted_turn_id="turn-001",
+                user_message="Hello.",
+                complete_final_sequence=final_sequence(),
+                acceptance_receipt_sha256="8" * 64,
+            )
+            coordinator.record_planner_provisional(
+                "turn-001", rich_sequence().sequence_sha256
+            )
+            coordinator.append_accepted_final_sequence(envelope)
+            injection = coordinator.synchronize_accepted_final_sequence_with_receipt(
+                envelope
+            )
+            self.assertIsNotNone(injection)
+            store = ContinuousSessionSnapshotStore(root)
+            receipt = store.save_for_acceptance(
+                coordinator.snapshot(),
+                accepted_turn_id="turn-001",
+                accepted_envelope_sha256=envelope.envelope_sha256,
+                injection_receipt=injection,
+            )
+            coordinator.record_planner_provisional("turn-002", "9" * 64)
+            store.save(coordinator.snapshot())
+            immutable = store.load_immutable(receipt)
+            self.assertEqual(immutable.accepted_turn_ids, ("turn-001",))
+            path = root / receipt.immutable_relative_path
+            path.write_text(path.read_text(encoding="utf-8") + " ", encoding="utf-8")
+            with self.assertRaisesRegex(StateConflictError, "bytes changed"):
+                store.load_immutable(receipt)
 
 
 if __name__ == "__main__":

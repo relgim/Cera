@@ -13,6 +13,7 @@ from .contracts import (
     ProtectedUserAllowanceV1,
     ProtectedUserSourceClaimKind,
     ProtectedUserSourceClaimV1,
+    ProtectedUserRealizationSpanV1,
     RichPlannerSequenceV1,
     RichSequenceBeatV1,
     SceneSummaryV1,
@@ -26,13 +27,18 @@ from .contracts import (
     validator_route_for,
 )
 from .codex_stored import CodexContinuousStoredSessionPort
-from .sessions import ContinuousContextInjectionReceiptV1, ContinuousSessionSnapshotStore
+from .sessions import (
+    ContinuousContextInjectionReceiptV1,
+    ContinuousSessionSnapshotReceiptV1,
+    ContinuousSessionSnapshotStore,
+)
 from .runtime import ContinuousSceneChangeCandidateV1
 from .world_mcp import (
     ContinuousWorldMcpBridge,
     ContinuousWorldToolDispatcher,
 )
 from .evidence import (
+    AcceptedSessionProjectionV1,
     EvidenceBindingKind,
     EvidenceVisibility,
     RequestEvidenceBindingRegistry,
@@ -58,6 +64,7 @@ __all__ = [
     "ProtectedUserAllowanceV1",
     "ProtectedUserSourceClaimKind",
     "ProtectedUserSourceClaimV1",
+    "ProtectedUserRealizationSpanV1",
     "RichPlannerSequenceV1",
     "RichSequenceBeatV1",
     "SceneSummaryV1",
@@ -72,10 +79,12 @@ __all__ = [
     "CodexContinuousStoredSessionPort",
     "ContinuousSessionSnapshotStore",
     "ContinuousContextInjectionReceiptV1",
+    "ContinuousSessionSnapshotReceiptV1",
     "ContinuousSceneChangeCandidateV1",
     "ContinuousWorldMcpBridge",
     "ContinuousWorldToolDispatcher",
     "EvidenceBindingKind",
+    "AcceptedSessionProjectionV1",
     "EvidenceVisibility",
     "RequestEvidenceBindingRegistry",
     "RequestEvidenceBindingV1",

@@ -62,10 +62,13 @@ CERA never silently resends the envelope or falls back to next-turn prompt
 piggybacking. The provider thread remains context only, never story authority.
 
 Recent accepted same-scene context is exposed to the next request only through
-a Python-owned accepted-session binding. It binds the accepted turn/envelope,
-promotion receipt, exact Planner thread, atomically persisted snapshot, final
-synchronization receipt, world, branch, and character owner. A single-NPC beat
-may use its exact owner-bound binding without resending the complete character
+a Python-owned typed accepted-session projection. Python reloads the exact
+accepted pair and event, validates their envelope/item/scene/revision/hash
+agreement, and binds the promotion receipt, exact Planner thread, immutable
+per-turn snapshot, final synchronization receipt, world, branch, and optional
+single knowledge owner. The public projection contains no private items; one
+owner projection may add only that owner's private items. A single-NPC beat may
+use its exact owner-bound projection without resending the complete character
 card. ACTIVE remains required for durable card facts, rules, older recalled
 events, and private information absent from that accepted context.
 
@@ -85,11 +88,15 @@ owner, and read operation. Invented, stale, sibling, unread, or owner-transferre
 bindings fail before composition. Final sequence items and edits remain
 traceable through Planner beat keys to those bindings.
 
-Python mechanically projects exact Ted/I action-state and dialogue spans from
-the current user source. Planner output cites those claim keys and their source
-binding. Whole-beat validation rejects protected-user semantics that do not
-preserve an exact supplied span, including when Ted is omitted from
-`actor_ids`. Mechanical connectives cannot carry semantic claims.
+Python projects exact Ted action-state and dialogue spans only when a bounded
+attribution grammar proves that Ted owns them. NPC-attributed and unattributed
+quotations do not create authority. Planner output cites those claim keys and
+their source binding; final sequence items carry the exact claim-key union.
+DeepSeek returns exact occurrence spans for every realized claim, and Python
+validates them before Validator assessment. Whole-beat validation rejects
+protected-user semantics that do not preserve an exact supplied span,
+including when Ted is omitted from `actor_ids`. Mechanical connectives cannot
+carry semantic claims.
 
 Planner can inspect only ACTIVE, labeled non-authoritative DERIVED views, and
 its own session; Validator can additionally inspect only its current candidate
@@ -98,12 +105,14 @@ ceiling is runaway protection, not a retrieval quota; reaching it fails the
 turn. No filesystem write tool is exposed.
 
 Every Planner, Composer, Validator, and Scene Summary transport durably marks
-`transport_invoked` immediately before external submission. A response that later fails bridge
-finalization, decoding, schema/domain validation, or world-MCP reconciliation
-still counts as one call and retains privacy-safe receipt/telemetry/tool hashes.
-No optional exception attribute can reduce the conservative count.
-An unresolved prepared/in-flight record consumes the bounded slot after
-restart until governed diagnosis resolves the ambiguity.
+the true provider-submission boundary. Codex distinguishes worker start and
+local preflight from `thread_run`; only `thread_run` proves a call was submitted.
+DeepSeek marks the immediate HTTP dispatch boundary. A response that later
+fails bridge finalization, decoding, schema/domain validation, or world-MCP
+reconciliation still counts as one call and retains privacy-safe
+receipt/telemetry/tool hashes. An unresolved submitted/in-flight record consumes
+the bounded slot after restart until governed diagnosis resolves the ambiguity;
+a proven local preflight failure consumes zero.
 
 ## 2. Stage assignment
 
