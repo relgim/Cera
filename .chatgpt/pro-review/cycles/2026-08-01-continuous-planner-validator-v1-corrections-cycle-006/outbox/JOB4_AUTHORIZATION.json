@@ -1,0 +1,15 @@
+{
+  "schema_version": "cera.pro_review_job4_authorization.v1",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-006",
+  "task_id": "continuous-corrections-v6-provider-free-integration-audit",
+  "scope": "Run exactly the eighteen labeled provider-free correction-v6 integration assertions: trusted ingress receipt custody; protected assertion-owner enforcement and non-owning addressed roles; universal final-field edit authority; accepted-fact privacy; immutable candidate authority; real pre-v6 session incompatibility; declared unittest preflight; actual-port ten-stage scripted JobHarness execution; complete parent-child sidecar stage and stranded-accounting matrix; Scene Change context expiry and ordering; Good Accept; Concern False Positive; Critical False Positive; repository source inventory; controlling documentation; unchanged D-180 identity; and unchanged source/disposable SQLite hashes. Use actual stage ports only behind scripted provider-free transports, disposable worlds, and read-only source/disposable SQLite checks. External provider calls are exactly zero.",
+  "scope_sha256": "c99b2ebe4fa3a7e74d368a934d559e62ea5e7a1233b8a4fc519002a05bd6a42a",
+  "expected_result_relative_path": "source/JOB4_RESULT.json",
+  "authority_source_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-corrections-006\\REQUEST.md",
+  "authority_source_sha256": "eddbcdabeeb62a6cae8583b4082083c57bc1cb83b964d57e8497b3627797d287",
+  "explicit_exclusions": [
+    "no external provider call, retry, fallback, hidden repair, provider substitution, or Detailer",
+    "no live story, production database, active route, service, installed SillyTavern, deployment, merge, remote, push, or Job 5 effect",
+    "no compact-v7 repair or activation and no correction, rerun, overwrite, or reinterpretation of any prior Job 4"
+  ]
+}
