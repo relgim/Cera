@@ -1,0 +1,44 @@
+{
+  "schema_version": "cera.continuous_live_canary_preflight_failure.v1",
+  "checkpoint_id": "2026-08-01-continuous-planner-validator-v1-live-canary-001",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-live-canary-cycle-001",
+  "job4_task_id": "continuous-planner-validator-three-turn-scene-change-live-canary-v1",
+  "recorded_at_utc": "2026-08-01T22:04:08Z",
+  "status": "blocked_before_publication",
+  "accepted_predecessor": {
+    "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-008",
+    "checkpoint_id": "2026-08-01-continuous-planner-validator-v1-corrections-008",
+    "checkpoint_git_sha": "34d44b5f4717d59153a4e38999f29489f979d6fc",
+    "accepted_response_sha256": "9e84e4994256a3663ee551ba99b8f6cd6f9fd049b6615beb6030efadb704635b",
+    "latest_consumed_validation": "passed"
+  },
+  "frozen_source_git_sha": "62af0b10ef0df64a3fff76b8140776045bb1108b",
+  "failure_stage": "provider_free_preflight_job4_result_contract",
+  "diagnostics": [
+    "Job 4 result fields do not match contract; missing=[], unexpected=['authorization_sha256']",
+    "Job 4 effects fields do not match contract; missing=[], unexpected=['scripted_transport_invocations']"
+  ],
+  "source_hashes": {
+    "live_canary_harness_sha256": "6a4c64827db04108b6804099c8e49ac0386062abc1783e214b1250d9a3a7ad22",
+    "review_cycle_decoder_sha256": "99d2ff9ef7239bf669cb42c044111892ee7b0f2dda98147caccec2380acc29fa"
+  },
+  "preflight_tests": {
+    "scripted_v8_cli": "passed",
+    "documentation": "passed",
+    "active_runtime_profile": "passed",
+    "production_result_decoder": "failed"
+  },
+  "effects": {
+    "provider_calls": 0,
+    "retry_count": 0,
+    "fallback_count": 0,
+    "story_database_writes": 0,
+    "active_route_changes": 0,
+    "installed_sillytavern_changes": 0,
+    "service_restarts": 0,
+    "deployment_remote_merge_or_push_effects": 0
+  },
+  "cycle_published": false,
+  "job4_started": false,
+  "terminal_rule": "preserve_notify_and_stop_without_patch"
+}
