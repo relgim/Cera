@@ -1,0 +1,8 @@
+CERA repository review cycle 2026-08-01-continuous-planner-validator-v1-corrections-cycle-004 is published and its exact pre-authorized Job 4 has started.
+
+Review: D:\AIChatBot\Cera\.chatgpt\pro-review\cycles\2026-08-01-continuous-planner-validator-v1-corrections-cycle-004\outbox\REVIEW_REQUEST.md
+Manifest root: 368e8ddd43ba896bcffa56505cd0a15e2136b5c00edecb3d0b54bc2a8c578c82
+Task-set SHA-256: c21e767f76f0c2326a86331bc195980336515e41b91d36d82e32ee61d50118b6
+Response target: D:\AIChatBot\Cera\.chatgpt\pro-review\cycles\2026-08-01-continuous-planner-validator-v1-corrections-cycle-004\inbox\PRO_RESPONSE.md
+
+Inspect the bound source snapshot and repository files, then write the identity-bound response atomically through the repository connector. Do not ask Ted to relay or operate files. The review is advisory.

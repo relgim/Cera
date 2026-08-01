@@ -1,0 +1,15 @@
+{
+  "schema_version": "cera.pro_review_job4_authorization.v1",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-004",
+  "task_id": "continuous-corrections-v4-provider-free-integration-audit",
+  "scope": "Run exactly the thirteen labeled provider-free correction-v4 integration assertions: attribution-aware protected-user source projection; NPC and unattributed quotation exclusion; exact protected-user realization spans and malformed-span rejection; public and owner-scoped accepted projection isolation; immutable accepted Planner snapshot proof; true Codex preflight versus thread_run submission accounting; three-turn two-scene execution through ten shared coordinator stages; Scene Change delegation through the shared coordinator; exact Job 4 first-provider-boundary preparation; unchanged D-180 identity; and unchanged source/disposable SQLite hashes. Use scripted fake stored runners or pre-provider sentinels, disposable worlds, and read-only source/disposable SQLite checks. Provider calls are exactly zero.",
+  "scope_sha256": "f76d0fb332fe60afb0b1751e4cf1b4a1be9908925fc12e88f36663d4d0793c65",
+  "expected_result_relative_path": "source/JOB4_RESULT.json",
+  "authority_source_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-01-continuous-planner-validator-v1-corrections-004\\REQUEST.md",
+  "authority_source_sha256": "0e61dadbd95eac9f78d0822130f66c7c39311226b3005f11a74c7176c905e155",
+  "explicit_exclusions": [
+    "no provider call, retry, fallback, hidden repair, or provider substitution",
+    "no live story, production database, active route, service, installed SillyTavern, deployment, merge, remote, push, or Job 5 effect",
+    "no compact-v7 repair or activation and no rerun or rewrite of any prior Job 4"
+  ]
+}
