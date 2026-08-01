@@ -18,10 +18,15 @@ import tempfile
 import time
 import unittest
 
+ROOT = Path(__file__).resolve().parents[1]
+import sys
+
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from cera.serialization import canonical_bytes
 
 
-ROOT = Path(__file__).resolve().parents[1]
 CYCLE_ID = "2026-08-01-continuous-planner-validator-v1-corrections-cycle-001"
 TASK_ID = "continuous-corrections-provider-free-integration-audit-v1"
 
@@ -71,9 +76,12 @@ def sqlite_check(source: Path) -> dict[str, object]:
         copied = Path(directory) / "disposable.sqlite3"
         shutil.copy2(source, copied)
         copy_before = digest(copied)
-        with sqlite3.connect(f"file:{copied.as_posix()}?mode=ro", uri=True) as connection:
+        connection = sqlite3.connect(f"file:{copied.as_posix()}?mode=ro", uri=True)
+        try:
             integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
             foreign_keys = connection.execute("PRAGMA foreign_key_check").fetchall()
+        finally:
+            connection.close()
         copy_after = digest(copied)
     after = digest(source)
     return {

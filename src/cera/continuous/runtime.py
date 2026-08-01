@@ -23,6 +23,7 @@ from .contracts import (
 from .evidence import (
     EvidenceVisibility,
     RequestEvidenceBindingRegistry,
+    validate_character_summary_envelope,
 )
 from .prompting import (
     build_continuous_composer_prompt,
@@ -143,20 +144,29 @@ class ContinuousShadowTurnCoordinator:
         diagnosis.
         """
 
+        world_pending = self.world.pending_acceptance_synchronization(
+            self.planner_session.compatibility.world_id,
+            self.planner_session.compatibility.branch_id,
+        )
         restored = []
-        for turn_id in self.planner_session.unsynchronized_accepted_turn_ids:
+        for turn_id in tuple(dict.fromkeys(
+            world_pending + self.planner_session.unsynchronized_accepted_turn_ids
+        )):
             envelope = self.world.accepted_final_envelope(
                 self.planner_session.compatibility.world_id,
                 self.planner_session.compatibility.branch_id,
                 turn_id,
             )
             expected = next(
-                value.payload_sha256
-                for value in self.planner_session.snapshot().context_events
-                if value.event_type == "accepted_final_sequence"
-                and value.turn_or_scene_id == turn_id
+                (
+                    value.payload_sha256
+                    for value in self.planner_session.snapshot().context_events
+                    if value.event_type == "accepted_final_sequence"
+                    and value.turn_or_scene_id == turn_id
+                ),
+                None,
             )
-            if envelope.envelope_sha256 != expected:
+            if expected is not None and envelope.envelope_sha256 != expected:
                 raise StateConflictError("restored accepted-final envelope hash changed")
             restored.append(turn_id)
         return tuple(restored)
@@ -274,6 +284,12 @@ class ContinuousShadowTurnCoordinator:
             raise StateConflictError(
                 "accepted Planner context is not synchronized; continuation is blocked"
             )
+        if self.world.pending_acceptance_synchronization(
+            request.world_id, request.branch_id
+        ):
+            raise StateConflictError(
+                "accepted Planner context is not synchronized; continuation is blocked"
+            )
         branch_root = self.world.initialize(request.world_id, request.branch_id)
         debug = ContinuousDebugRecorder(branch_root, request.scene_id, request.turn_id)
         debug.initialize()
@@ -290,15 +306,20 @@ class ContinuousShadowTurnCoordinator:
             source_text=request.user_message,
             protected_user_allowance_scope="exact supplied source plus minimal nonbranching connective",
         )
+        mechanical_binding = evidence_registry.allocate_mechanical_connective_allowance()
         summary_bindings = []
         for summary in request.character_summaries:
             if summary.source_path_or_record_id.startswith("record:"):
                 raise StateConflictError(
                     "continuous V1 character summary requires a revision-bound world path"
                 )
+            summary_path = validate_character_summary_envelope(
+                branch_root=branch_root,
+                envelope=summary,
+            )
             binding = evidence_registry.allocate_initial_projection(
                 branch_root=branch_root,
-                relative_path="ACTIVE/" + summary.source_path_or_record_id,
+                relative_path=summary_path.relative_to(branch_root).as_posix(),
                 record_type="characters",
                 visibility=EvidenceVisibility.CHARACTER_PRIVATE,
                 knowledge_owner_id=summary.character_id,
@@ -322,6 +343,7 @@ class ContinuousShadowTurnCoordinator:
                 "current_user_message": request.user_message,
                 "request_local_evidence_bindings": evidence_registry.prompt_manifest(),
                 "current_source_binding_key": current_source_binding.binding_key,
+                "mechanical_connective_binding_key": mechanical_binding.binding_key,
                 "character_summary_bindings": tuple(summary_bindings),
             },
             accepted_envelopes=(),
@@ -551,7 +573,19 @@ class ContinuousShadowTurnCoordinator:
                 acceptance_receipt_sha256=receipt.receipt_sha256,
             )
             self.planner_session.append_accepted_final_sequence(envelope)
+            self.world.mark_acceptance_planner_ledger_appended(
+                candidate.request.world_id,
+                candidate.request.branch_id,
+                turn_id,
+                envelope.envelope_sha256,
+            )
             self.planner_session.synchronize_accepted_final_sequence(envelope)
+            self.world.mark_acceptance_model_synchronized(
+                candidate.request.world_id,
+                candidate.request.branch_id,
+                turn_id,
+                envelope.envelope_sha256,
+            )
         else:
             self.validator_session.record_validator_candidate(
                 turn_id, package.package_sha256, rejected=True

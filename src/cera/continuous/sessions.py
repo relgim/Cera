@@ -489,7 +489,11 @@ def assert_separate_role_sessions(
         raise StateConflictError("Planner session has the wrong role")
     if validator.compatibility.role is not ContinuousSessionRole.VALIDATOR:
         raise StateConflictError("Validator session has the wrong role")
-    if planner.ensure_session().provider_thread_id == validator.ensure_session().provider_thread_id:
+    if (
+        planner.handle is not None
+        and validator.handle is not None
+        and planner.handle.provider_thread_id == validator.handle.provider_thread_id
+    ):
         raise StateConflictError("Planner and Validator cannot share one provider thread")
 
 

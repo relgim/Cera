@@ -497,6 +497,7 @@ def _binding_descriptor(value: RequestEvidenceBindingV1) -> dict[str, Any]:
         "source_identity": value.source_identity,
         "source_sha256": value.source_sha256,
         "protected_user_allowance_scope": value.protected_user_allowance_scope,
+        "authority_classification": value.authority_classification.value,
         "relative_path": value.relative_path,
         "record_revision": value.record_revision,
         "record_type": value.record_type,

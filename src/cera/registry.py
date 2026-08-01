@@ -165,6 +165,9 @@ from .continuous import (
     RichPlannerSequenceV1,
     SceneSummaryV1,
     ValidatorFinalizationPackageV1,
+    RequestEvidenceBindingV1,
+    ProviderCallLedgerEventV1,
+    SceneSummaryDerivedViewV1,
 )
 from .continuous.sessions import (
     ContinuousSessionCompatibilityV1,
@@ -312,6 +315,9 @@ def build_schema_registry() -> SchemaRegistry:
         FinalSequenceV1,
         SceneSummaryV1,
         ValidatorFinalizationPackageV1,
+        RequestEvidenceBindingV1,
+        ProviderCallLedgerEventV1,
+        SceneSummaryDerivedViewV1,
         ContinuousSessionCompatibilityV1,
         ContinuousSessionHandleV1,
         ContinuousSessionSnapshotV1,

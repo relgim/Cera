@@ -861,6 +861,13 @@ embedded-secret redaction. It cannot call a provider, rerun the failed Job 4,
 alter the active D-180 route, write live story/database state, mutate installed
 SillyTavern or a service, deploy, merge, push, retry, or use fallback.
 
+D-189 is the second provider-free correction tranche under D-187. Its three
+progressions are `continuous-summary-and-actor-evidence-authority-v2`,
+`continuous-atomic-acceptance-recovery-v2`, and
+`continuous-dispatch-diagnostics-and-contract-inventory-v2`. Stage 4 is a new
+zero-provider integration audit under correction-cycle-002. It does not
+authorize the historical or a fresh live ten-call canary.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

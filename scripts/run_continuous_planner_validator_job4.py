@@ -22,7 +22,11 @@ from typing import Any, Callable
 from cera.continuous.codex_stored import CodexContinuousStoredSessionPort
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.diagnostics import ContinuousRootDiagnosticRecorder
-from cera.continuous.evidence import EvidenceVisibility, RequestEvidenceBindingRegistry
+from cera.continuous.evidence import (
+    EvidenceVisibility,
+    RequestEvidenceBindingRegistry,
+    build_character_summary_envelope,
+)
 from cera.continuous.contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     AcceptedTurnPairV1,
@@ -30,6 +34,8 @@ from cera.continuous.contracts import (
     ValidatorTaskMode,
 )
 from cera.continuous.prompting import (
+    CONTINUOUS_PLANNER_PROMPT_VERSION,
+    CONTINUOUS_VALIDATOR_PROMPT_VERSION,
     PLANNER_STABLE_INSTRUCTIONS,
     VALIDATOR_STABLE_INSTRUCTIONS,
     build_continuous_composer_prompt,
@@ -156,31 +162,15 @@ def source_character_summary(
     root: Path,
     character: str,
     *,
+    world: ContinuousWorldStore,
     world_file_revision: int,
     latest_changes: tuple[str, ...] = (),
 ) -> CharacterSummaryEnvelopeV1:
-    path = root / "genesis" / "packages" / "hanezawa_core_v1_2" / "modules" / "characters" / f"{character}.json"
-    module = json.loads(path.read_text(encoding="utf-8"))
-    desired = {
-        "Core premise",
-        "Speech system",
-        "Initial stance toward Ted",
-        "Fidelity invariants",
-    }
-    sections = []
-    for record in module["records"]:
-        payload = json.loads(record["payload_json"])
-        if payload.get("heading") in desired and isinstance(payload.get("source_text"), str):
-            sections.append(payload["source_text"])
-    if len(sections) != len(desired):
-        raise RuntimeError(f"{character} concise summary source sections are incomplete")
-    return CharacterSummaryEnvelopeV1(
-        schema_version=CharacterSummaryEnvelopeV1.SCHEMA_VERSION,
+    del root, world_file_revision, latest_changes
+    return build_character_summary_envelope(
+        branch_root=world.branch_root(WORLD_ID, BRANCH_ID),
+        source_path=f"ACTIVE/Characters/{character.capitalize()}.json",
         character_id=f"character:{character}_hanezawa",
-        source_path_or_record_id=f"Characters/{character.capitalize()}.json",
-        source_revision=world_file_revision,
-        latest_accepted_changes=latest_changes,
-        summary="\n\n".join(sections),
     )
 
 
@@ -188,6 +178,20 @@ def seed_world(store: ContinuousWorldStore, root: Path) -> None:
     package = root / "genesis" / "packages" / "hanezawa_core_v1_2" / "modules"
     for name in ("hana", "sakura", "mia", "enne", "tomi", "aoi", "yuuni"):
         source = package / "characters" / f"{name}.json"
+        module = json.loads(source.read_text(encoding="utf-8"))
+        desired = {
+            "Core premise",
+            "Speech system",
+            "Initial stance toward Ted",
+            "Fidelity invariants",
+        }
+        sections = []
+        for record in module["records"]:
+            payload = json.loads(record["payload_json"])
+            if payload.get("heading") in desired and isinstance(payload.get("source_text"), str):
+                sections.append(payload["source_text"])
+        if len(sections) != len(desired):
+            raise RuntimeError(f"{name} concise summary source sections are incomplete")
         store.seed_active_json(
             WORLD_ID,
             BRANCH_ID,
@@ -198,6 +202,8 @@ def seed_world(store: ContinuousWorldStore, root: Path) -> None:
                 "source_path": source.relative_to(root).as_posix(),
                 "source_sha256": bytes_sha256(source.read_bytes()),
                 "genesis_records": json.loads(source.read_text(encoding="utf-8"))["records"],
+                "reasoning_summary": "\n\n".join(sections),
+                "latest_accepted_changes": [],
                 "accepted_state": {
                     "knowledge": {},
                     "relationships": {},
@@ -238,9 +244,9 @@ def compatibility(
         model="gpt-5.6-sol" if role is ContinuousSessionRole.PLANNER else "gpt-5.6-terra",
         reasoning_effort="medium" if role is ContinuousSessionRole.PLANNER else "high",
         prompt_version=(
-            "cera.continuous_planner_prompt.v2"
+            CONTINUOUS_PLANNER_PROMPT_VERSION
             if role is ContinuousSessionRole.PLANNER
-            else "cera.continuous_validator_prompt.v2"
+            else CONTINUOUS_VALIDATOR_PROMPT_VERSION
         ),
         output_schema_version=(
             "cera.rich_planner_sequence.v1"
@@ -878,7 +884,9 @@ def main() -> int:
     branch_root = world.branch_root(WORLD_ID, BRANCH_ID)
     lifecycle_root = runtime_root / "provider_workspaces"
     lifecycle_root.mkdir()
-    active_runtime_before = active_runtime_status()
+    active_runtime_before = root_diagnostic.run(
+        "active_profile", "inspect_active_runtime_profile", active_runtime_status
+    )
     result: dict[str, Any] = {
         "schema_version": "cera.continuous_planner_validator_job4_detail.v1",
         "cycle_id": CYCLE_ID,
@@ -903,7 +911,14 @@ def main() -> int:
     validator_handle = None
     harness = None
     try:
-        from openai_codex import Codex, CodexConfig
+        def import_codex_sdk():
+            from openai_codex import Codex, CodexConfig
+
+            return Codex, CodexConfig
+
+        Codex, CodexConfig = root_diagnostic.run(
+            "sdk_capability", "import_codex_sdk", import_codex_sdk
+        )
 
         with ExitStack() as stack:
             codex_context = root_diagnostic.run(
@@ -973,7 +988,6 @@ def main() -> int:
                     CodexContinuousStoredSessionPort(validator_backend),
                 ),
             )
-            assert_separate_role_sessions(planner_session, validator_session)
             planner_handle = root_diagnostic.run(
                 "stored_thread_construction",
                 "ensure_planner_stored_thread",
@@ -983,6 +997,13 @@ def main() -> int:
                 "stored_thread_construction",
                 "ensure_validator_stored_thread",
                 lambda: validator_session.ensure_session().provider_thread_id,
+            )
+            root_diagnostic.run(
+                "role_separation",
+                "assert_materialized_role_separation",
+                lambda: assert_separate_role_sessions(
+                    planner_session, validator_session
+                ),
             )
             harness = JobHarness(
                 source_root=ROOT,
@@ -1006,6 +1027,7 @@ def main() -> int:
                 sakura_summary = source_character_summary(
                     ROOT,
                     "sakura",
+                    world=world,
                     world_file_revision=read_world_revision(world, "Sakura"),
                 )
                 result["turns"].append(
@@ -1018,6 +1040,7 @@ def main() -> int:
                 sakura_summary_2 = source_character_summary(
                     ROOT,
                     "sakura",
+                    world=world,
                     world_file_revision=read_world_revision(world, "Sakura"),
                     latest_changes=(
                         "Sakura directly heard Ted identify himself at the threshold.",
@@ -1034,6 +1057,7 @@ def main() -> int:
                 mia_summary = source_character_summary(
                     ROOT,
                     "mia",
+                    world=world,
                     world_file_revision=read_world_revision(world, "Mia"),
                 )
                 result["turns"].append(

@@ -41,6 +41,9 @@ def main() -> int:
     parser.add_argument("--baseline", required=True)
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--suite-passed", type=int, required=True)
+    parser.add_argument("--suite-duration-seconds", required=True)
+    parser.add_argument("--suite-skipped", type=int, default=0)
     arguments = parser.parse_args()
     baseline = git("rev-parse", "--verify", f"{arguments.baseline}^{{commit}}").decode().strip()
     checkpoint = git("rev-parse", "--verify", f"{arguments.checkpoint}^{{commit}}").decode().strip()
@@ -63,7 +66,10 @@ def main() -> int:
                     f"- Baseline: `{baseline}`\n"
                     f"- Checkpoint: `{checkpoint}`\n"
                     "- Provider calls during Progressions 1-3: `0`\n"
-                    "- Complete provider-free suite: `701/701` passed; one expected skip\n"
+                    "- Complete provider-free suite: "
+                    f"`{arguments.suite_passed}/{arguments.suite_passed}` passed "
+                    f"in {arguments.suite_duration_seconds} seconds; "
+                    f"{arguments.suite_skipped} expected skip(s)\n"
                 ).encode("utf-8"),
             )
         )
@@ -81,6 +87,9 @@ def main() -> int:
             "baseline_git_sha": baseline,
             "checkpoint_git_sha": checkpoint,
             "provider_calls": 0,
+            "suite_passed": arguments.suite_passed,
+            "suite_duration_seconds": arguments.suite_duration_seconds,
+            "suite_skipped": arguments.suite_skipped,
             "entries": entries,
         }
         add(

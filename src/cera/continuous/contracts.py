@@ -77,8 +77,13 @@ class ProtectedUserAllowanceV1:
         for value in self.source_binding_keys:
             _key(value, "protected_user_allowance.source_binding_keys")
         _unique(self.source_binding_keys, "protected_user_allowance.source_binding_keys")
-        if self.mode is ProtectedUserAllowanceMode.EXACT_SOURCE_ONLY and not self.source_binding_keys:
-            raise ContractValidationError("exact protected-user allowance requires source bindings")
+        if self.mode in {
+            ProtectedUserAllowanceMode.EXACT_SOURCE_ONLY,
+            ProtectedUserAllowanceMode.MINIMAL_NONBRANCHING_CONNECTIVE,
+        } and not self.source_binding_keys:
+            raise ContractValidationError(
+                "protected-user allowance requires Python-owned bindings"
+            )
         if self.mode is ProtectedUserAllowanceMode.NONE and self.source_binding_keys:
             raise ContractValidationError("no protected-user allowance cannot carry source bindings")
 
@@ -151,11 +156,14 @@ class RichSequenceBeatV1:
         normalized = {" ".join(value.casefold().split()) for value in reasoning}
         if len(normalized) < 4 or any(len(value.split()) < 3 for value in reasoning):
             raise ContractValidationError("rich sequence beat is structurally shallow")
-        if "character:ted" in self.actor_ids:
-            if self.protected_user_allowance.mode is ProtectedUserAllowanceMode.NONE:
-                raise ContractValidationError(
-                    "protected user cannot be an actor without an explicit allowance"
-                )
+        if (
+            "character:ted" in self.actor_ids
+            and self.protected_user_allowance.mode
+            is not ProtectedUserAllowanceMode.EXACT_SOURCE_ONLY
+        ):
+            raise ContractValidationError(
+                "protected user can be an actor only through exact supplied source"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -209,14 +217,21 @@ class RichPlannerSequenceV1:
 
 @dataclass(frozen=True, slots=True)
 class CharacterSummaryEnvelopeV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.character_summary_envelope.v1"
+    """Exact record-derived summary; the class name remains for API continuity."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.character_summary_envelope.v2"
 
     schema_version: str
     character_id: str
     source_path_or_record_id: str
     source_revision: int
+    source_sha256: str
+    source_authority_classification: str
+    summary_field_path: str
+    latest_changes_field_path: str
     latest_accepted_changes: tuple[str, ...]
     summary: str
+    derivation_receipt_sha256: str
     incomplete: bool = True
     more_information_available: bool = True
 
@@ -230,13 +245,50 @@ class CharacterSummaryEnvelopeV1:
             _relative_path(self.source_path_or_record_id, "source_path_or_record_id")
         if type(self.source_revision) is not int or self.source_revision < 1:
             raise ContractValidationError("character summary revision must be positive")
+        if not re_is_sha256(self.source_sha256):
+            raise ContractValidationError("character summary source hash is invalid")
+        if self.source_authority_classification not in {
+            "active_authoritative_record_fields",
+            "validator_derived_summary_record",
+        }:
+            raise ContractValidationError(
+                "character summary authority classification is invalid"
+            )
+        for field in ("summary_field_path", "latest_changes_field_path"):
+            value = getattr(self, field)
+            if not isinstance(value, str) or not value.startswith("/"):
+                raise ContractValidationError(
+                    f"character summary {field} must be a JSON pointer"
+                )
         for value in self.latest_accepted_changes:
             _text(value, "latest_accepted_changes", maximum=2_000)
         _unique(self.latest_accepted_changes, "latest_accepted_changes")
         _text(self.summary, "summary", maximum=16_000)
         if not self.incomplete or not self.more_information_available:
             raise ContractValidationError(
-                "V1 character summary must disclose that it is incomplete and expandable"
+                "V2 character summary must disclose that it is incomplete and expandable"
+            )
+        if not re_is_sha256(self.derivation_receipt_sha256):
+            raise ContractValidationError(
+                "character summary derivation receipt hash is invalid"
+            )
+        expected = canonical_sha256(
+            {
+                "schema_version": self.SCHEMA_VERSION,
+                "character_id": self.character_id,
+                "source_path_or_record_id": self.source_path_or_record_id,
+                "source_revision": self.source_revision,
+                "source_sha256": self.source_sha256,
+                "source_authority_classification": self.source_authority_classification,
+                "summary_field_path": self.summary_field_path,
+                "latest_changes_field_path": self.latest_changes_field_path,
+                "summary": self.summary,
+                "latest_accepted_changes": self.latest_accepted_changes,
+            }
+        )
+        if self.derivation_receipt_sha256 != expected:
+            raise ContractValidationError(
+                "character summary derivation receipt does not match its exact fields"
             )
 
     @property
@@ -500,18 +552,37 @@ class SceneSummaryV1:
 
 
 @dataclass(frozen=True, slots=True)
+class SceneSummaryTurnProvenanceV2:
+    accepted_turn_id: str
+    accepted_pair_sha256: str
+    accepted_event_sha256: tuple[str, ...]
+    authority_basis: str
+
+    def __post_init__(self) -> None:
+        _identity(self.accepted_turn_id, "scene_summary_provenance.accepted_turn_id")
+        if not re_is_sha256(self.accepted_pair_sha256):
+            raise ContractValidationError("scene summary pair provenance hash is invalid")
+        if any(not re_is_sha256(value) for value in self.accepted_event_sha256):
+            raise ContractValidationError("scene summary event provenance hash is invalid")
+        _unique(self.accepted_event_sha256, "scene summary event provenance")
+        if self.authority_basis != "exact_accepted_pair":
+            raise ContractValidationError(
+                "scene summary authority must remain the exact accepted pair"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class SceneSummaryDerivedViewV1:
     """Regenerable, explicitly non-authoritative view over accepted facts."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.scene_summary_derived_view.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.scene_summary_derived_view.v2"
 
     schema_version: str
     authority_classification: str
     summary_revision: int
     regeneration_identity_sha256: str
     source_accepted_turn_ids: tuple[str, ...]
-    source_pair_sha256: tuple[str, ...]
-    source_event_sha256: tuple[str, ...]
+    source_turn_provenance: tuple[SceneSummaryTurnProvenanceV2, ...]
     summary: SceneSummaryV1
 
     def __post_init__(self) -> None:
@@ -525,10 +596,12 @@ class SceneSummaryDerivedViewV1:
             raise ContractValidationError("scene summary regeneration identity is invalid")
         if self.source_accepted_turn_ids != self.summary.accepted_turn_ids:
             raise ContractValidationError("scene summary source allow-list changed")
-        if len(self.source_pair_sha256) != len(self.source_accepted_turn_ids):
-            raise ContractValidationError("scene summary source pair hashes are incomplete")
-        if any(not re_is_sha256(value) for value in self.source_pair_sha256 + self.source_event_sha256):
-            raise ContractValidationError("scene summary source hash is invalid")
+        if tuple(value.accepted_turn_id for value in self.source_turn_provenance) != (
+            self.source_accepted_turn_ids
+        ):
+            raise ContractValidationError(
+                "scene summary per-turn provenance is incomplete or reordered"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -562,6 +635,22 @@ class ValidatorFinalizationPackageV1:
                 raise ContractValidationError("turn finalization package is incomplete")
             if self.optional_scene_summary is not None:
                 raise ContractValidationError("turn finalization cannot create a scene summary")
+            from cera.creator_review.models import CreatorReviewSeverity
+
+            expected_semantics = {
+                CreatorReviewSeverity.GOOD: ValidatorSemanticStatus.ACCEPTED,
+                CreatorReviewSeverity.CONCERN: ValidatorSemanticStatus.CONCERN,
+                # The semantic enum intentionally has no second Critical value.
+                # A Critical assessment is a verifier-owned severity over a
+                # semantically concerning candidate and may still be creator-
+                # accepted as False Positive when publication eligibility allows.
+                CreatorReviewSeverity.CRITICAL: ValidatorSemanticStatus.CONCERN,
+            }
+            expected = expected_semantics.get(self.creator_review.severity)
+            if expected is not None and self.semantic_status is not expected:
+                raise ContractValidationError(
+                    "Validator semantic status and creator-review severity disagree"
+                )
         else:
             if self.optional_scene_summary is None:
                 raise ContractValidationError("scene-summary task requires a summary")
@@ -637,9 +726,7 @@ class ValidatorFinalizationPackageV1:
             )
         if action is CreatorReviewAction.FALSE_POSITIVE:
             return (
-                self.semantic_status
-                in {ValidatorSemanticStatus.ACCEPTED, ValidatorSemanticStatus.CONCERN}
-                and self.creator_review.severity
+                self.creator_review.severity
                 in {CreatorReviewSeverity.CONCERN, CreatorReviewSeverity.CRITICAL}
             )
         return False

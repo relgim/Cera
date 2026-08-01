@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
 
@@ -9,7 +10,9 @@ from scripts.run_continuous_planner_validator_job4 import (
     StablePrefixTransport,
     build_report,
     source_character_summary,
+    seed_world,
 )
+from cera.continuous.world import ContinuousWorldStore
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -37,14 +40,17 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
         self.assertNotIn(PLANNER_STABLE_INSTRUCTIONS, inner.prompts[0])
 
     def test_hanezawa_canary_summaries_use_real_genesis_sections(self) -> None:
-        for character in ("sakura", "mia"):
-            summary = source_character_summary(
-                ROOT, character, world_file_revision=1
-            )
-            self.assertTrue(summary.incomplete)
-            self.assertTrue(summary.more_information_available)
-            self.assertIn("Characters/", summary.source_path_or_record_id)
-            self.assertGreater(len(summary.summary), 100)
+        with TemporaryDirectory() as directory:
+            world = ContinuousWorldStore(Path(directory).resolve() / "worlds")
+            seed_world(world, ROOT)
+            for character in ("sakura", "mia"):
+                summary = source_character_summary(
+                    ROOT, character, world=world, world_file_revision=1
+                )
+                self.assertTrue(summary.incomplete)
+                self.assertTrue(summary.more_information_available)
+                self.assertIn("Characters/", summary.source_path_or_record_id)
+                self.assertGreater(len(summary.summary), 100)
 
     def test_report_contains_terminal_route_and_effect_accounting(self) -> None:
         report = build_report(

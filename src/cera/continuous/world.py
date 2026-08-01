@@ -23,6 +23,7 @@ from .contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     AcceptedTurnPairV1,
     SceneSummaryDerivedViewV1,
+    SceneSummaryTurnProvenanceV2,
     SceneSummaryV1,
     ValidatorFinalizationPackageV1,
     WorldEditOperationKind,
@@ -328,7 +329,11 @@ class ContinuousWorldStore:
             raise StateConflictError("Validator package does not permit acceptance")
         if package.world_id != world_id or package.branch_id != branch_id:
             raise StateConflictError("Validator package belongs to another world or branch")
-        if accepted_pair is not None and (
+        if accepted_pair is None:
+            raise StateConflictError(
+                "accepted creator action requires the exact accepted turn pair"
+            )
+        if (
             package.complete_final_sequence is None
             or accepted_pair.complete_final_sequence.sequence_sha256
             != package.complete_final_sequence.sequence_sha256
@@ -340,28 +345,30 @@ class ContinuousWorldStore:
             raise StateConflictError("candidate base no longer matches ACTIVE")
         changed = self._apply_operations(view, package)
         self._save_event(view, package)
-        if accepted_pair is not None:
-            self._write_json(
-                view
-                / "Events"
-                / _identity_filename(
-                    accepted_pair.accepted_turn_id, ".accepted_pair.json"
-                ),
-                to_primitive(accepted_pair),
+        self._write_json(
+            view
+            / "Events"
+            / _identity_filename(
+                accepted_pair.accepted_turn_id, ".accepted_pair.json"
+            ),
+            to_primitive(accepted_pair),
+        )
+        accepted_pair_path = (
+            view
+            / "Events"
+            / _identity_filename(
+                accepted_pair.accepted_turn_id, ".accepted_pair.json"
             )
+        )
+        accepted_event_path = (
+            view
+            / "Events"
+            / _identity_filename(package.event_record.event_id, ".json")
+        )
         self._rebuild_index(view)
         self._increment_world_state(view, turn_id)
         after = self.tree_sha256(view)
-        with self._lock:
-            if self.tree_sha256(root / "ACTIVE") != before:
-                raise StateConflictError("ACTIVE changed during candidate validation")
-            self._promote_directory(root, view, turn_id)
-        if action is CreatorReviewAction.FALSE_POSITIVE:
-            self._record_false_positive_diagnostic(
-                root=root,
-                turn_id=turn_id,
-                package=package,
-            )
+        recorded_at = _utc_now()
         receipt = WorldPromotionReceiptV1(
             schema_version=WorldPromotionReceiptV1.SCHEMA_VERSION,
             world_id=world_id,
@@ -377,10 +384,59 @@ class ContinuousWorldStore:
             ),
             accepted=True,
             planner_append_required=True,
-            recorded_at_utc=_utc_now(),
+            recorded_at_utc=recorded_at,
         )
-        self._write_json(candidate_root / "PROMOTION_RECEIPT.json", to_primitive(receipt))
-        self._append_timeline(root, receipt)
+        diagnostic_payload = (
+            self._false_positive_diagnostic_payload(
+                turn_id=turn_id,
+                package=package,
+                recorded_at=recorded_at,
+            )
+            if action is CreatorReviewAction.FALSE_POSITIVE
+            else None
+        )
+        transaction_root = root / f".acceptance-{_slug(turn_id, 'turn_id')}"
+        if transaction_root.exists():
+            raise StateConflictError("creator acceptance journal already exists")
+        transaction_root.mkdir(parents=False)
+        journal_base = {
+            "schema_version": "cera.continuous_acceptance_journal.v2",
+            "world_id": world_id,
+            "branch_id": branch_id,
+            "turn_id": turn_id,
+            "creator_action": action.value,
+            "package_sha256": package.package_sha256,
+            "accepted_pair_sha256": text_sha256(
+                accepted_pair_path.read_text(encoding="utf-8")
+            ),
+            "accepted_pair_relative_path": accepted_pair_path.relative_to(view).as_posix(),
+            "accepted_event_sha256": text_sha256(
+                accepted_event_path.read_text(encoding="utf-8")
+            ),
+            "accepted_event_relative_path": accepted_event_path.relative_to(view).as_posix(),
+            "prior_sha256": before,
+            "prepared_sha256": after,
+            "promotion_receipt_payload": to_primitive(receipt),
+            "false_positive_diagnostic_payload": diagnostic_payload,
+            "planner_ledger_state": "pending",
+            "model_injection_state": "pending",
+        }
+        self._write_json(
+            transaction_root / "JOURNAL.json",
+            {**journal_base, "state": "acceptance_prepared"},
+        )
+        self._failpoint("acceptance_journal_created")
+        with self._lock:
+            if self.tree_sha256(root / "ACTIVE") != before:
+                raise StateConflictError("ACTIVE changed during candidate validation")
+            self._promote_directory(
+                root,
+                view,
+                turn_id,
+                transaction_root=transaction_root,
+                journal_base=journal_base,
+            )
+        self._finish_local_acceptance(root, transaction_root)
         return receipt
 
     def save_scene_summary(
@@ -399,22 +455,34 @@ class ContinuousWorldStore:
             summary.accepted_turn_ids,
         )
         pair_hashes = tuple(canonical_sha256(to_primitive(value)) for value in pairs)
-        event_hashes = self._accepted_event_hashes(
+        event_hashes_by_turn = self._accepted_event_hashes_by_turn(
             root / "ACTIVE", summary.accepted_turn_ids
+        )
+        provenance = tuple(
+            SceneSummaryTurnProvenanceV2(
+                accepted_turn_id=turn_id,
+                accepted_pair_sha256=pair_sha256,
+                accepted_event_sha256=event_hashes_by_turn.get(turn_id, ()),
+                authority_basis="exact_accepted_pair",
+            )
+            for turn_id, pair_sha256 in zip(
+                summary.accepted_turn_ids, pair_hashes, strict=True
+            )
         )
         revision = 1
         if path.exists():
             prior = json.loads(path.read_text(encoding="utf-8"))
             prior_summary = prior.get("summary") if isinstance(prior, dict) else None
-            prior_sources = tuple(prior.get("source_pair_sha256", ())) if isinstance(prior, dict) else ()
-            if prior_summary == to_primitive(summary) and prior_sources == pair_hashes:
+            prior_sources = tuple(prior.get("source_turn_provenance", ())) if isinstance(prior, dict) else ()
+            if prior_summary == to_primitive(summary) and prior_sources == tuple(
+                to_primitive(value) for value in provenance
+            ):
                 return path
             revision = int(prior.get("summary_revision", 0)) + 1
         regeneration_identity = canonical_sha256(
             {
                 "completed_scene_id": summary.completed_scene_id,
-                "source_pair_sha256": pair_hashes,
-                "source_event_sha256": event_hashes,
+                "source_turn_provenance": provenance,
                 "summary": summary,
             }
         )
@@ -424,8 +492,7 @@ class ContinuousWorldStore:
             summary_revision=revision,
             regeneration_identity_sha256=regeneration_identity,
             source_accepted_turn_ids=summary.accepted_turn_ids,
-            source_pair_sha256=pair_hashes,
-            source_event_sha256=event_hashes,
+            source_turn_provenance=provenance,
             summary=summary,
         )
         self._write_json(path, to_primitive(derived))
@@ -571,7 +638,23 @@ class ContinuousWorldStore:
         path = root / "VALIDATOR_DIAGNOSTICS" / _identity_filename(
             turn_id, ".false_positive.json"
         )
-        payload = {
+        payload = self._false_positive_diagnostic_payload(
+            turn_id=turn_id,
+            package=package,
+            recorded_at=_utc_now(),
+        )
+        return self._write_false_positive_diagnostic(root, payload)
+
+    def _false_positive_diagnostic_payload(
+        self,
+        *,
+        turn_id: str,
+        package: ValidatorFinalizationPackageV1,
+        recorded_at: str,
+    ) -> dict[str, Any]:
+        if package.creator_review is None:
+            raise StateConflictError("false-positive action lacks Validator assessment")
+        return {
             "schema_version": "cera.continuous_validator_false_positive_diagnostic.v1",
             "authority_classification": "validator_owned_non_story_diagnostic",
             "turn_id": turn_id,
@@ -581,25 +664,29 @@ class ContinuousWorldStore:
             "reason_codes": package.creator_review.reason_codes,
             "creator_action": CreatorReviewAction.FALSE_POSITIVE.value,
             "creates_story_constraint": False,
-            "recorded_at_utc": _utc_now(),
+            "recorded_at_utc": recorded_at,
         }
+
+    def _write_false_positive_diagnostic(
+        self, root: Path, payload: dict[str, Any]
+    ) -> Path:
+        turn_id = str(payload["turn_id"])
+        path = root / "VALIDATOR_DIAGNOSTICS" / _identity_filename(
+            turn_id, ".false_positive.json"
+        )
         if path.exists():
             prior = json.loads(path.read_text(encoding="utf-8"))
-            if any(
-                prior.get(key) != value
-                for key, value in payload.items()
-                if key != "recorded_at_utc"
-            ):
+            if prior != payload:
                 raise StateConflictError("false-positive diagnostic changed")
             return path
         self._write_json(path, payload)
         return path
 
-    def _accepted_event_hashes(
+    def _accepted_event_hashes_by_turn(
         self,
         active_root: Path,
         accepted_turn_ids: tuple[str, ...],
-    ) -> tuple[str, ...]:
+    ) -> dict[str, tuple[str, ...]]:
         wanted = set(accepted_turn_ids)
         rows: list[tuple[str, str]] = []
         for path in sorted((active_root / "Events").glob("*.json")):
@@ -613,7 +700,10 @@ class ContinuousWorldStore:
                         text_sha256(path.read_text(encoding="utf-8")),
                     )
                 )
-        return tuple(value for _turn, value in sorted(rows))
+        result: dict[str, list[str]] = {turn_id: [] for turn_id in accepted_turn_ids}
+        for turn_id, value in sorted(rows):
+            result[turn_id].append(value)
+        return {turn_id: tuple(values) for turn_id, values in result.items()}
 
     def _apply_operations(
         self, active_view: Path, package: ValidatorFinalizationPackageV1
@@ -720,7 +810,10 @@ class ContinuousWorldStore:
         if not root.exists():
             return ()
         recovered: list[str] = []
-        for transaction_root in sorted(root.glob(".promotion-*")):
+        transaction_roots = tuple(sorted(root.glob(".promotion-*"))) + tuple(
+            sorted(root.glob(".acceptance-*"))
+        )
+        for transaction_root in transaction_roots:
             if not transaction_root.is_dir():
                 continue
             journal = transaction_root / "JOURNAL.json"
@@ -728,7 +821,7 @@ class ContinuousWorldStore:
                 raise StateConflictError("promotion transaction lacks a journal")
             payload = json.loads(journal.read_text(encoding="utf-8"))
             state = payload.get("state")
-            if state in {"finalized", "rolled_back"}:
+            if state in {"finalized", "local_acceptance_complete", "rolled_back"}:
                 continue
             prior_hash = payload.get("prior_sha256")
             prepared_hash = payload.get("prepared_sha256")
@@ -751,11 +844,11 @@ class ContinuousWorldStore:
                     shutil.rmtree(backup)
                 if prepared.is_dir():
                     shutil.rmtree(prepared)
-                terminal = "finalized"
+                terminal = "active_installed"
             elif active_hash is None and prepared_actual == prepared_hash and backup_actual == prior_hash:
                 os.replace(prepared, active)
                 shutil.rmtree(backup)
-                terminal = "finalized"
+                terminal = "active_installed"
             elif active_hash == prior_hash:
                 if prepared.is_dir():
                     shutil.rmtree(prepared)
@@ -767,26 +860,40 @@ class ContinuousWorldStore:
                 terminal = "rolled_back"
             else:
                 raise StateConflictError("promotion recovery cannot verify an exact tree")
-            self._write_json(
-                journal,
-                {
-                    **payload,
-                    "state": terminal,
-                    "recovered_at_utc": _utc_now(),
-                    "active_sha256": self.tree_sha256(active),
-                },
-            )
+            recovered_payload = {
+                **payload,
+                "state": terminal,
+                "recovered_at_utc": _utc_now(),
+                "active_sha256": self.tree_sha256(active),
+            }
+            self._write_json(journal, recovered_payload)
+            if (
+                terminal == "active_installed"
+                and payload.get("schema_version")
+                == "cera.continuous_acceptance_journal.v2"
+            ):
+                self._finish_local_acceptance(root, transaction_root)
             recovered.append(str(payload.get("turn_id", transaction_root.name)))
         return tuple(recovered)
 
-    def _promote_directory(self, branch_root: Path, candidate_active: Path, turn_id: str) -> None:
+    def _promote_directory(
+        self,
+        branch_root: Path,
+        candidate_active: Path,
+        turn_id: str,
+        *,
+        transaction_root: Path | None = None,
+        journal_base: dict[str, Any] | None = None,
+    ) -> None:
         active = branch_root / "ACTIVE"
-        transaction_root = Path(mkdtemp(prefix=f".promotion-{turn_id}-", dir=branch_root))
+        transaction_root = transaction_root or Path(
+            mkdtemp(prefix=f".promotion-{turn_id}-", dir=branch_root)
+        )
         prepared = transaction_root / "PREPARED_ACTIVE"
         shutil.copytree(candidate_active, prepared)
         backup = transaction_root / "PRIOR_ACTIVE"
         journal = transaction_root / "JOURNAL.json"
-        base = {
+        base = journal_base or {
             "schema_version": "cera.continuous_world_promotion_journal.v2",
             "turn_id": turn_id,
             "prior_sha256": self.tree_sha256(active),
@@ -814,10 +921,128 @@ class ContinuousWorldStore:
             journal,
             {
                 **base,
-                "state": "finalized",
+                "state": "active_installed",
                 "active_sha256": self.tree_sha256(active),
             },
         )
+
+    def _finish_local_acceptance(
+        self, branch_root: Path, transaction_root: Path
+    ) -> None:
+        journal_path = transaction_root / "JOURNAL.json"
+        payload = json.loads(journal_path.read_text(encoding="utf-8"))
+        if payload.get("schema_version") != "cera.continuous_acceptance_journal.v2":
+            return
+        active = branch_root / "ACTIVE"
+        if self.tree_sha256(active) != payload.get("prepared_sha256"):
+            raise StateConflictError("acceptance journal ACTIVE hash changed")
+        for label in ("accepted_pair", "accepted_event"):
+            relative = payload.get(f"{label}_relative_path")
+            expected = payload.get(f"{label}_sha256")
+            if not isinstance(relative, str) or not isinstance(expected, str):
+                raise StateConflictError(f"acceptance journal lacks {label} identity")
+            target = (active / relative).resolve()
+            if (
+                active.resolve() not in target.parents
+                or not target.is_file()
+                or target.is_symlink()
+                or text_sha256(target.read_text(encoding="utf-8")) != expected
+            ):
+                raise StateConflictError(f"acceptance journal {label} changed")
+        receipt_payload = payload.get("promotion_receipt_payload")
+        if not isinstance(receipt_payload, dict):
+            raise StateConflictError("acceptance journal lacks promotion receipt payload")
+        turn_id = str(payload["turn_id"])
+        candidate_root = branch_root / "CANDIDATES" / _slug(turn_id, "turn_id")
+        receipt_path = candidate_root / "PROMOTION_RECEIPT.json"
+        self._write_idempotent_json(receipt_path, receipt_payload, "promotion receipt")
+        self._write_json(journal_path, {**payload, "state": "promotion_receipt_written"})
+        self._failpoint("promotion_receipt_written")
+        diagnostic = payload.get("false_positive_diagnostic_payload")
+        if diagnostic is not None:
+            if not isinstance(diagnostic, dict):
+                raise StateConflictError("acceptance journal diagnostic is invalid")
+            self._write_false_positive_diagnostic(branch_root, diagnostic)
+        self._write_json(journal_path, {**payload, "state": "diagnostic_written"})
+        self._failpoint("false_positive_diagnostic_written")
+        from cera.schema import from_mapping
+
+        receipt = from_mapping(WorldPromotionReceiptV1, receipt_payload)
+        if (
+            receipt.turn_id != payload.get("turn_id")
+            or receipt.package_sha256 != payload.get("package_sha256")
+            or receipt.creator_action.value != payload.get("creator_action")
+            or receipt.active_before_sha256 != payload.get("prior_sha256")
+            or receipt.active_after_sha256 != payload.get("prepared_sha256")
+            or not receipt.accepted
+            or not receipt.planner_append_required
+        ):
+            raise StateConflictError("acceptance journal receipt binding changed")
+        self._append_timeline(branch_root, receipt)
+        self._write_json(journal_path, {**payload, "state": "timeline_written"})
+        self._failpoint("timeline_written")
+        self._write_json(
+            journal_path,
+            {
+                **payload,
+                "state": "local_acceptance_complete",
+                "active_sha256": self.tree_sha256(active),
+                "local_acceptance_completed_at_utc": _utc_now(),
+            },
+        )
+
+    def pending_acceptance_synchronization(
+        self, world_id: str, branch_id: str
+    ) -> tuple[str, ...]:
+        root = self.initialize(world_id, branch_id)
+        pending = []
+        for transaction_root in sorted(root.glob(".acceptance-*")):
+            path = transaction_root / "JOURNAL.json"
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if payload.get("state") != "local_acceptance_complete":
+                continue
+            if payload.get("model_injection_state") != "synchronized":
+                pending.append(str(payload["turn_id"]))
+        return tuple(pending)
+
+    def mark_acceptance_planner_ledger_appended(
+        self, world_id: str, branch_id: str, turn_id: str, envelope_sha256: str
+    ) -> None:
+        self._update_acceptance_sync_state(
+            world_id,
+            branch_id,
+            turn_id,
+            planner_ledger_state="appended",
+            accepted_final_envelope_sha256=envelope_sha256,
+        )
+
+    def mark_acceptance_model_synchronized(
+        self, world_id: str, branch_id: str, turn_id: str, envelope_sha256: str
+    ) -> None:
+        self._update_acceptance_sync_state(
+            world_id,
+            branch_id,
+            turn_id,
+            planner_ledger_state="appended",
+            model_injection_state="synchronized",
+            accepted_final_envelope_sha256=envelope_sha256,
+        )
+
+    def _update_acceptance_sync_state(
+        self, world_id: str, branch_id: str, turn_id: str, **changes: Any
+    ) -> None:
+        root = self.branch_root(world_id, branch_id)
+        journal = root / f".acceptance-{_slug(turn_id, 'turn_id')}" / "JOURNAL.json"
+        if not journal.is_file():
+            raise StateConflictError("acceptance synchronization journal is unavailable")
+        payload = json.loads(journal.read_text(encoding="utf-8"))
+        if payload.get("state") != "local_acceptance_complete":
+            raise StateConflictError("local acceptance evidence is incomplete")
+        prior_hash = payload.get("accepted_final_envelope_sha256")
+        supplied_hash = changes.get("accepted_final_envelope_sha256")
+        if prior_hash is not None and supplied_hash is not None and prior_hash != supplied_hash:
+            raise StateConflictError("accepted-final synchronization hash changed")
+        self._write_json(journal, {**payload, **changes})
 
     def _failpoint(self, stage: str) -> None:
         if self._promotion_failpoint is not None:
@@ -826,6 +1051,10 @@ class ContinuousWorldStore:
     def _append_timeline(self, root: Path, receipt: WorldPromotionReceiptV1) -> None:
         path = root / "DEBUG" / "TIMELINE.jsonl"
         path.parent.mkdir(parents=True, exist_ok=True)
+        if path.is_file():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if line and json.loads(line).get("receipt_sha256") == receipt.receipt_sha256:
+                    return
         with path.open("a", encoding="utf-8", newline="\n") as stream:
             stream.write(
                 json.dumps(
@@ -842,6 +1071,15 @@ class ContinuousWorldStore:
                 )
                 + "\n"
             )
+
+    def _write_idempotent_json(
+        self, path: Path, value: Any, label: str
+    ) -> None:
+        if path.is_file():
+            if json.loads(path.read_text(encoding="utf-8")) != to_primitive(value):
+                raise StateConflictError(f"{label} changed during acceptance recovery")
+            return
+        self._write_json(path, value)
 
     @staticmethod
     def _write_json(path: Path, value: Any) -> None:
@@ -973,8 +1211,9 @@ class SceneChangeEnvelopeV1:
                 {
                     "authority_classification": self.previous_scene_summary_view.authority_classification,
                     "source_accepted_turn_ids": self.previous_scene_summary_view.source_accepted_turn_ids,
-                    "source_pair_sha256": self.previous_scene_summary_view.source_pair_sha256,
-                    "source_event_sha256": self.previous_scene_summary_view.source_event_sha256,
+                    "source_turn_provenance": to_primitive(
+                        self.previous_scene_summary_view.source_turn_provenance
+                    ),
                     "summary_revision": self.previous_scene_summary_view.summary_revision,
                     "regeneration_identity_sha256": self.previous_scene_summary_view.regeneration_identity_sha256,
                 },

@@ -55,7 +55,7 @@ from cera.creator_review.models import (
     ReviewIssueOwner,
 )
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import canonical_bytes, to_primitive
+from cera.serialization import canonical_bytes, canonical_sha256, to_primitive
 from cera.serialization import text_sha256
 
 
@@ -78,6 +78,14 @@ def final_sequence(turn_id: str = "turn-001") -> FinalSequenceV1:
             ),
         ),
         final_stop_state="Ted must supply the requested identifying detail.",
+    )
+
+
+def accepted_pair(turn_id: str = "turn-001") -> AcceptedTurnPairV1:
+    return AcceptedTurnPairV1(
+        accepted_turn_id=turn_id,
+        user_message="Hello.",
+        complete_final_sequence=final_sequence(turn_id),
     )
 
 
@@ -105,14 +113,38 @@ def concern_assessment() -> CreatorReviewAssessment:
     )
 
 
-def character_summary() -> CharacterSummaryEnvelopeV1:
+def character_summary(
+    *, source_sha256: str | None = None, source_revision: int = 1
+) -> CharacterSummaryEnvelopeV1:
+    source_path = "ACTIVE/Characters/Sakura.json"
+    summary_text = "Sakura is guarded at an unfamiliar arrival and retains threshold control."
+    source_hash = source_sha256 or "0" * 64
+    receipt = canonical_sha256(
+        {
+            "schema_version": CharacterSummaryEnvelopeV1.SCHEMA_VERSION,
+            "character_id": "character:sakura_hanezawa",
+            "source_path_or_record_id": source_path,
+            "source_revision": source_revision,
+            "source_sha256": source_hash,
+            "source_authority_classification": "active_authoritative_record_fields",
+            "summary_field_path": "/reasoning_summary",
+            "latest_changes_field_path": "/latest_accepted_changes",
+            "summary": summary_text,
+            "latest_accepted_changes": (),
+        }
+    )
     return CharacterSummaryEnvelopeV1(
         schema_version=CharacterSummaryEnvelopeV1.SCHEMA_VERSION,
         character_id="character:sakura_hanezawa",
-        source_path_or_record_id="Characters/Sakura.json",
-        source_revision=1,
+        source_path_or_record_id=source_path,
+        source_revision=source_revision,
+        source_sha256=source_hash,
+        source_authority_classification="active_authoritative_record_fields",
+        summary_field_path="/reasoning_summary",
+        latest_changes_field_path="/latest_accepted_changes",
         latest_accepted_changes=(),
-        summary="Sakura is guarded at an unfamiliar arrival and retains threshold control.",
+        summary=summary_text,
+        derivation_receipt_sha256=receipt,
         incomplete=True,
         more_information_available=True,
     )
@@ -313,6 +345,8 @@ class ContinuousWorldTests(unittest.TestCase):
                     "schema_version": "cera.continuous_character.v1",
                     "_cera_revision": 1,
                     "character_id": "character:sakura_hanezawa",
+                    "reasoning_summary": "Sakura is guarded at an unfamiliar arrival and retains threshold control.",
+                    "latest_accepted_changes": [],
                     "turn_claims": {},
                 }
             )
@@ -339,6 +373,7 @@ class ContinuousWorldTests(unittest.TestCase):
             turn_id="turn-001",
             action=CreatorReviewAction.ACCEPT,
             package=package(),
+            accepted_pair=accepted_pair(),
         )
         self.assertTrue(receipt.accepted)
         self.assertTrue(receipt.planner_append_required)
@@ -367,6 +402,7 @@ class ContinuousWorldTests(unittest.TestCase):
             turn_id="turn-001",
             action=CreatorReviewAction.FALSE_POSITIVE,
             package=candidate,
+            accepted_pair=accepted_pair(),
         )
         self.assertTrue(receipt.accepted)
         diagnostic = tuple((self.root / "VALIDATOR_DIAGNOSTICS").glob("*.json"))
@@ -382,6 +418,7 @@ class ContinuousWorldTests(unittest.TestCase):
                 turn_id="turn-001",
                 action=CreatorReviewAction.FALSE_POSITIVE,
                 package=package(),
+                accepted_pair=accepted_pair(),
             )
 
     def test_nonaccepting_actions_never_change_active(self) -> None:
@@ -418,6 +455,7 @@ class ContinuousWorldTests(unittest.TestCase):
                 turn_id="turn-001",
                 action=CreatorReviewAction.ACCEPT,
                 package=package(revision=9),
+                accepted_pair=accepted_pair(),
             )
         self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
 
@@ -467,6 +505,7 @@ class ContinuousWorldTests(unittest.TestCase):
             turn_id="turn-001",
             action=CreatorReviewAction.ACCEPT,
             package=candidate,
+            accepted_pair=accepted_pair(),
         )
         self.assertEqual(
             receipt.changed_files,
@@ -509,6 +548,7 @@ class ContinuousWorldTests(unittest.TestCase):
             turn_id="turn-001",
             action=CreatorReviewAction.ACCEPT,
             package=candidate,
+            accepted_pair=accepted_pair(),
         )
         created = json.loads((self.root / "ACTIVE" / "Rules" / "arrival_rule.json").read_text())
         self.assertEqual(created["_cera_revision"], 1)
@@ -651,7 +691,9 @@ class ContinuousWorldTests(unittest.TestCase):
                 turn_id="turn-001",
                 user_message="Hello, my name is Ted. Is this the Hanezawa residence?",
                 current_authority_packet={"protected_user_id": "character:ted"},
-                character_summaries=(character_summary(),),
+                character_summaries=(character_summary(source_sha256=text_sha256(
+                    (self.root / "ACTIVE" / "Characters" / "Sakura.json").read_text(encoding="utf-8")
+                )),),
             )
         )
         self.assertEqual(candidate.provider_calls, 0)
@@ -760,7 +802,9 @@ class ContinuousWorldTests(unittest.TestCase):
                 turn_id="turn-002",
                 user_message=new_prompt,
                 current_authority_packet={"protected_user_id": "character:ted"},
-                character_summaries=(character_summary(),),
+                character_summaries=(character_summary(source_sha256=text_sha256(
+                    (self.root / "ACTIVE" / "Characters" / "Sakura.json").read_text(encoding="utf-8")
+                )),),
                 cera_scene_change=True,
             ),
             completed_scene_id="scene:arrival",

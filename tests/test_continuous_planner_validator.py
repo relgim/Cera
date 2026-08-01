@@ -35,7 +35,7 @@ from cera.continuous.sessions import (
 )
 from cera.continuous.codex_stored import CodexContinuousStoredSessionPort
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import text_sha256
+from cera.serialization import canonical_sha256, text_sha256
 from cera.providers import ProviderSchemaDialect, project_provider_output_schema
 from cera.registry import build_schema_registry
 
@@ -165,13 +165,21 @@ class RichPlannerContractTests(unittest.TestCase):
         self.assertIn("Choose exact formal wording and pacing.", beat().deepseek_realization_space)
 
     def test_character_summary_is_incomplete_hash_bound_and_measured(self) -> None:
+        payload = {
+            "schema_version": CharacterSummaryEnvelopeV1.SCHEMA_VERSION,
+            "character_id": "character:mia_hanezawa",
+            "source_path_or_record_id": "ACTIVE/Characters/Mia.json",
+            "source_revision": 4,
+            "source_sha256": "1" * 64,
+            "source_authority_classification": "active_authoritative_record_fields",
+            "summary_field_path": "/reasoning_summary",
+            "latest_changes_field_path": "/latest_accepted_changes",
+            "summary": "Warm and observant; current branch relationship remains cautious acquaintance.",
+            "latest_accepted_changes": ("Mia now recognizes Ted as the verified tenant.",),
+        }
         summary = CharacterSummaryEnvelopeV1(
-            schema_version=CharacterSummaryEnvelopeV1.SCHEMA_VERSION,
-            character_id="character:mia_hanezawa",
-            source_path_or_record_id="Characters/Mia.json",
-            source_revision=4,
-            latest_accepted_changes=("Mia now recognizes Ted as the verified tenant.",),
-            summary="Warm and observant; current branch relationship remains cautious acquaintance.",
+            **payload,
+            derivation_receipt_sha256=canonical_sha256(payload),
         )
         _, usage = build_planner_turn_prompt(
             current_packet={"turn_id": "turn:003"},

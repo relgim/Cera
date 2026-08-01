@@ -12,12 +12,14 @@ from threading import RLock
 from typing import Any, Callable, ClassVar, TypeVar
 
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import canonical_bytes, canonical_sha256, to_primitive
+from cera.serialization import canonical_bytes, canonical_sha256, re_is_sha256, to_primitive
 
 
 class ProviderCallState(StrEnum):
-    PREPARED = "prepared_not_dispatched"
-    DISPATCH_INITIATED = "dispatch_initiated"
+    PREPARED = "prepared_not_invoked"
+    PRETRANSPORT_FAILED = "pretransport_failed"
+    TRANSPORT_INVOKED = "transport_invoked"
+    DISPATCH_INITIATED = "transport_invoked"  # decode-only source compatibility
     PROVIDER_COMPLETED = "provider_completed"
     PROVIDER_FAILED = "provider_failed"
     POST_VALIDATION_FAILED = "provider_completed_post_validation_failed"
@@ -26,7 +28,7 @@ class ProviderCallState(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ProviderCallLedgerEventV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_provider_call_ledger_event.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_provider_call_ledger_event.v2"
 
     schema_version: str
     call_id: str
@@ -45,13 +47,35 @@ class ProviderCallLedgerEventV1:
     failure_type: str | None
     recorded_at_utc: str
 
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("provider call ledger schema changed")
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (self.call_id, self.owner, self.operation, self.route, self.model)
+        ):
+            raise ContractValidationError("provider call ledger identity is incomplete")
+        if type(self.event_index) is not int or self.event_index < 1:
+            raise ContractValidationError("provider call event index is invalid")
+        for value in (
+            self.provider_receipt_sha256,
+            self.failure_receipt_sha256,
+            self.operation_telemetry_sha256,
+            self.tool_sequence_sha256,
+            self.stored_thread_sha256,
+        ):
+            if value is not None and not re_is_sha256(value):
+                raise ContractValidationError("provider call ledger hash is invalid")
+        if self.owner in {"planner", "validator", "scene_summary"} and not self.stored_thread_sha256:
+            raise ContractValidationError("Codex call ledger event lacks stored-thread identity")
+
 
 T = TypeVar("T")
 R = TypeVar("R")
 
 
 class ContinuousProviderCallLedger:
-    """Append-only events; dispatch initiation is the conservative call count."""
+    """Append-only events; only transport invocation consumes the call count."""
 
     def __init__(self, path: Path, *, maximum_calls: int | None = None) -> None:
         if not path.is_absolute():
@@ -95,10 +119,27 @@ class ContinuousProviderCallLedger:
             }
         )[:24]
         self._record(call_id, owner, operation, ProviderCallState.PREPARED, route, model, effort, stored_thread_sha256=stored_thread_sha256)
-        self._record(call_id, owner, operation, ProviderCallState.DISPATCH_INITIATED, route, model, effort, stored_thread_sha256=stored_thread_sha256)
         try:
             raw = dispatch()
         except BaseException as exc:
+            observed = getattr(exc, "external_provider_calls_observed", None)
+            if observed == 0 or (
+                observed is None
+                and isinstance(exc, (ContractValidationError, StateConflictError))
+            ):
+                self._record(
+                    call_id,
+                    owner,
+                    operation,
+                    ProviderCallState.PRETRANSPORT_FAILED,
+                    route,
+                    model,
+                    effort,
+                    failure_type=type(exc).__name__,
+                    stored_thread_sha256=stored_thread_sha256,
+                )
+                raise
+            self._record(call_id, owner, operation, ProviderCallState.TRANSPORT_INVOKED, route, model, effort, stored_thread_sha256=stored_thread_sha256)
             self._record(
                 call_id,
                 owner,
@@ -118,6 +159,7 @@ class ContinuousProviderCallLedger:
                 stored_thread_sha256=stored_thread_sha256,
             )
             raise
+        self._record(call_id, owner, operation, ProviderCallState.TRANSPORT_INVOKED, route, model, effort, stored_thread_sha256=stored_thread_sha256)
         receipt_hash = _safe_hash(receipt_of(raw))
         telemetry_hash = _safe_hash(telemetry_of(raw))
         tool_sequence_hash = _safe_hash(
@@ -190,7 +232,7 @@ class ContinuousProviderCallLedger:
 
     @property
     def dispatched_call_count(self) -> int:
-        return len({value["call_id"] for value in self.events if value["state"] == ProviderCallState.DISPATCH_INITIATED.value})
+        return len({value["call_id"] for value in self.events if value["state"] == ProviderCallState.TRANSPORT_INVOKED.value})
 
     def terminal_state(self, call_id: str) -> ProviderCallState:
         values = [value for value in self.events if value["call_id"] == call_id]

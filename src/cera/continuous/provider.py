@@ -25,7 +25,7 @@ from cera.providers import (
     deepseek_composer_candidate,
 )
 from cera.schema import from_mapping
-from cera.serialization import re_is_sha256
+from cera.serialization import re_is_sha256, text_sha256
 
 from .contracts import (
     AcceptedTurnPairV1,
@@ -49,8 +49,8 @@ from .prompting import (
 )
 
 
-CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v1"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v1"
+CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v2"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v2"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v1"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v1"
 
@@ -280,14 +280,19 @@ class CodexContinuousPlannerPort:
     def plan(self, prompt: str) -> ContinuousProviderResultV1:
         self._operation_index += 1
         route = self.transport.route
+        # All local schema and MCP construction completes before the provider
+        # ledger records a transport invocation.
+        output_schema = rich_planner_sequence_json_schema()
+        mcp_binding = (
+            self.world_bridge.runtime_binding if self.world_bridge is not None else None
+        )
+        stored_thread_sha256 = _transport_stored_thread_sha256(self.transport)
 
         def dispatch():
             return self.transport.invoke(
                 prompt,
-                output_schema=rich_planner_sequence_json_schema(),
-                mcp_binding=(
-                    self.world_bridge.runtime_binding if self.world_bridge is not None else None
-                ),
+                output_schema=output_schema,
+                mcp_binding=mcp_binding,
             )
 
         def finalize(result):
@@ -314,6 +319,7 @@ class CodexContinuousPlannerPort:
             effort=route.reasoning_effort,
             dispatch=dispatch,
             finalize=finalize,
+            stored_thread_sha256=stored_thread_sha256,
         )
 
 
@@ -345,14 +351,17 @@ class CodexContinuousValidatorPort:
     ) -> ContinuousProviderResultV1:
         self._operation_index += 1
         route = self.transport.route
+        output_schema = continuous_validator_draft_json_schema()
+        mcp_binding = (
+            self.world_bridge.runtime_binding if self.world_bridge is not None else None
+        )
+        stored_thread_sha256 = _transport_stored_thread_sha256(self.transport)
 
         def dispatch():
             return self.transport.invoke(
                 prompt,
-                output_schema=continuous_validator_draft_json_schema(),
-                mcp_binding=(
-                    self.world_bridge.runtime_binding if self.world_bridge is not None else None
-                ),
+                output_schema=output_schema,
+                mcp_binding=mcp_binding,
             )
 
         def finalize(result):
@@ -377,6 +386,7 @@ class CodexContinuousValidatorPort:
             effort=route.reasoning_effort,
             dispatch=dispatch,
             finalize=finalize,
+            stored_thread_sha256=stored_thread_sha256,
         )
 
 
@@ -464,3 +474,12 @@ def continuous_deepseek_route():
         prompt_version=CONTINUOUS_DEEPSEEK_PROMPT_VERSION,
         maximum_output_tokens=32_768,
     )
+
+
+def _transport_stored_thread_sha256(transport: CodexSDKTransport) -> str:
+    provider_thread_id = getattr(transport.runner, "provider_thread_id", None)
+    if not isinstance(provider_thread_id, str) or not provider_thread_id.strip():
+        raise ContractValidationError(
+            "continuous Codex transport lacks a bound stored-thread identity"
+        )
+    return text_sha256(provider_thread_id)
