@@ -35,7 +35,7 @@ from cera.schema import require_schema
 from cera.serialization import domain_sha256, re_is_sha256
 
 if TYPE_CHECKING:
-    from cera.providers import LiveProviderCallReceipt
+    from cera.providers import CodexOperationTelemetryV1, LiveProviderCallReceipt
     from .mcp_bridge import McpEvidenceBridgeReceipt
 
 
@@ -389,6 +389,7 @@ class SceneReasonerAdapterCall:
     external_provider_calls: int
     provider_call_receipt: LiveProviderCallReceipt | None = None
     mcp_bridge_receipt: McpEvidenceBridgeReceipt | None = None
+    operation_telemetry: CodexOperationTelemetryV1 | None = None
 
     def __post_init__(self) -> None:
         _non_empty(self.adapter_version, "adapter_version")
@@ -421,6 +422,7 @@ class SceneReasonerAdapterCall:
                 or self.bridge_receipt_id is not None
                 or self.provider_call_receipt is not None
                 or self.mcp_bridge_receipt is not None
+                or self.operation_telemetry is not None
             ):
                 raise ContractValidationError("fake reasoner cannot report live bridge evidence")
         else:
@@ -443,6 +445,14 @@ class SceneReasonerAdapterCall:
                 or self.mcp_bridge_receipt.receipt_sha256 != self.bridge_receipt_sha256
             ):
                 raise ContractValidationError("reasoner bridge receipt does not match handle")
+            if (
+                self.operation_telemetry is not None
+                and self.operation_telemetry.request_sha256
+                != self.provider_call_receipt.request_sha256
+            ):
+                raise ContractValidationError(
+                    "reasoner operation telemetry does not match provider request"
+                )
 
 
 @dataclass(frozen=True, slots=True)
@@ -533,6 +543,7 @@ class ReasonerExecutionResult:
     authorized_exact_evidence: tuple[ExactEvidence, ...]
     evidence_lookup_receipts: tuple[EvidenceLookupReceipt, ...] = ()
     state_delta_validation_receipt: StateDeltaValidationReceipt | None = None
+    operation_telemetry: CodexOperationTelemetryV1 | None = None
 
     def __post_init__(self) -> None:
         _unique(
@@ -562,11 +573,22 @@ class ReasonerExecutionResult:
         ):
             raise ContractValidationError("state-delta receipt payload does not match its ID")
         if self.receipt.adapter_role is ReasonerAdapterRole.SCRIPTED_FAKE:
-            if self.provider_call_receipt is not None or self.mcp_bridge_receipt is not None:
+            if (
+                self.provider_call_receipt is not None
+                or self.mcp_bridge_receipt is not None
+                or self.operation_telemetry is not None
+            ):
                 raise ContractValidationError("fake execution cannot retain live receipts")
         else:
             if self.provider_call_receipt is None:
                 raise ContractValidationError("Codex execution requires a provider receipt")
+            if self.operation_telemetry is not None and (
+                self.operation_telemetry.request_sha256
+                != self.provider_call_receipt.request_sha256
+            ):
+                raise ContractValidationError(
+                    "Codex execution telemetry does not match provider receipt"
+                )
             if (
                 self.provider_call_receipt.provider_receipt_id
                 != self.receipt.provider_receipt_id

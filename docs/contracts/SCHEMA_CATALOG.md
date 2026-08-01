@@ -888,6 +888,27 @@ only its hashes and explicit creator constraint in authority records, never raw
 rejected prose. Migration 18 adds `rejected_archived` and `failed_archived`;
 the earlier deletion values remain decode-only compatibility records.
 
+## Compact Reasoner v7 shadow contracts
+
+D-185 adds these provider-facing or transient shadow contracts without changing
+the active D-180 route:
+
+| Schema | Owner | Purpose |
+|---|---|---|
+| `cera.scene_cast_scope.v1` | Python | Separates world-known, physically present, scene-reachable, currently active, exact-source, eligible, and selected cast sets; current-only continuation inherits the exact accepted branch head rather than a named fixture cast |
+| `cera.codex_reasoner_packet.v15.compact_shadow` | Python | Supplies the scoped prepared turn, compact exact-evidence views, hard boundaries, and a discardable reading capsule while retaining the full authoritative evidence in Python |
+| `cera.reasoner_reading_capsule.v1` | Python | Alias-based branch/generation/floor/continuity/material/thread reconstruction aid that is explicitly non-authoritative and discarded on rejection, regeneration, fork, stale snapshot, provider loss, or shutdown |
+| `cera.codex_reasoner_draft.v7.compact_shadow` | Runtime Codex, advisory | Authors each responder and causal beat once; Python deterministically compiles it into the existing v6/domain path before unchanged validation and Composer construction |
+| `cera.codex_operation_telemetry.v1` | Provider adapter plus Python | Content-free timestamps, per-step and cumulative token usage, hashed operation/thread/root/checkpoint identities, tool timings, actual attempt count, finish state, and transport error; unknown fields remain null and named unsupported rather than zero |
+
+Compact evidence aliases retain the exact fetched section content together with
+record type, subjects/owner, authority, truth, epistemic/knowledge boundaries,
+visibility, record version, exact-evidence hash, and retrieval relevance. They
+do not replace `ExactEvidence`, relax alias resolution, or become durable story
+authority. The v7 compiler cannot add a responder, beat, source claim, Ted
+allowance, or state change that runtime Codex did not supply. The active v6
+packet/prompt/schema remain the default and v7 has no production selector.
+
 `cera.sillytavern.request.v3` adds `cera_reasoning_effort` with exact values
 `medium`, `high`, or `xhigh`. It controls only the Scene Reasoner. The value is
 included in the Reasoner session compatibility hash, so changing it rotates and

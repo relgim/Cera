@@ -8,12 +8,33 @@
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** 634/634 tests passed in 353.478 seconds; one optional live test skipped
+**Provider-free current verification:** 648/648 tests passed in 310.714 seconds; one optional live test skipped
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
+**D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
 
+- D-185 Progressions 1-3 are additive and shadow-only. The exact frozen
+  continuation derives Hana and Mia from the accepted branch head while keeping
+  the other household members world-known and scene-reachable. It reduces exact
+  seed records from 18 to 8; no character name is hardcoded into the scope rule.
+- The current v6 prompt, packet, schema, adapter identity, active runtime
+  profile, and Composer/verifier routes are unchanged. The recoverability tag
+  is `cera-pre-compact-reasoner-v7-20260801T021530Z` at
+  `a25fd363819dd326014963f22fbc435543907106`.
+- The exact provider-free anatomy estimates reduce complete Reasoner prompt
+  size from 50,389 bytes (broad v6) to 21,659 bytes (scoped v7), and ordinary
+  provider schema size from 20,090 to 11,032 bytes. These byte-based token
+  estimates are not provider measurements and do not establish latency or
+  quality improvement.
+- Focused D-185 checks pass 94/94 in 39.287 seconds. The complete provider-free
+  repository suite passes 648/648 in 310.714 seconds with one optional live
+  test skipped. Progressions 1-3 made zero provider calls.
+- The next authorized action is the governed four-call Job 4 comparison from
+  an isolated worktree while Pro reviews the Progressions 1-3 checkpoint. It
+  must stop after Job 4 and cannot activate v7 or self-authorize Job 5. Read
+  `implementation/COMPACT_REASONER_V7_AND_INPUT_OPTIMIZATION_RESULT.md`.
 - D-183 corrects the 2026-07-31 fresh-chat SillyTavern failure. The exact turn
   failed at `scene_reasoner` in 0.356 seconds with zero provider calls, zero
   authoritative writes, no output hash, and no accepted artifact. Its failed

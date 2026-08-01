@@ -6,8 +6,15 @@ import json
 from importlib.metadata import version
 from pathlib import Path
 import sys
+import time
 
 from .codex_worker import _runtime_config_and_environment, _safe_error_text
+from .codex_observability import (
+    CodexOperationTelemetryV1,
+    CodexToolTimingV1,
+    CodexUsageAccumulator,
+)
+from cera.serialization import text_sha256, to_primitive
 
 
 def _validate_request(request: dict) -> None:
@@ -108,12 +115,95 @@ def main() -> int:
             if thread.id != request["provider_thread_id"]:
                 raise RuntimeError("Codex resumed a different stored thread")
             record_stage("thread_run")
-            result = thread.run(
+            request_start_us = time.time_ns() // 1_000
+            turn = thread.turn(
                 request["prompt"],
                 effort=ReasoningEffort(request["effort"]),
                 output_schema=request["output_schema"],
                 service_tier=request["service_tier"],
             )
+            from openai_codex._run import _collect_turn_result
+            from openai_codex.generated.v2_all import (
+                ItemCompletedNotification,
+                ItemStartedNotification,
+                ThreadTokenUsageUpdatedNotification,
+                TurnCompletedNotification,
+            )
+
+            events = []
+            usage_accumulator = CodexUsageAccumulator()
+            item_start_times: dict[str, int] = {}
+            first_reasoning_us = None
+            first_structured_output_us = None
+            final_evidence_result_us = None
+            provider_completion_us = None
+            stream = turn.stream()
+            try:
+                for event in stream:
+                    events.append(event)
+                    payload = event.payload
+                    observed_us = time.time_ns() // 1_000
+                    if isinstance(payload, ItemStartedNotification):
+                        item = (
+                            payload.item.root
+                            if hasattr(payload.item, "root")
+                            else payload.item
+                        )
+                        item_type = getattr(item, "type", None)
+                        item_id = getattr(item, "id", None)
+                        started_us = payload.started_at_ms * 1_000
+                        if isinstance(item_id, str):
+                            item_start_times[item_id] = started_us
+                        if item_type == "reasoning" and first_reasoning_us is None:
+                            first_reasoning_us = started_us
+                        if (
+                            item_type == "agentMessage"
+                            and first_structured_output_us is None
+                        ):
+                            first_structured_output_us = started_us
+                    elif isinstance(payload, ItemCompletedNotification):
+                        item = (
+                            payload.item.root
+                            if hasattr(payload.item, "root")
+                            else payload.item
+                        )
+                        item_type = getattr(item, "type", None)
+                        completed_us = payload.completed_at_ms * 1_000
+                        if item_type == "reasoning" and first_reasoning_us is None:
+                            first_reasoning_us = completed_us
+                        if (
+                            item_type == "agentMessage"
+                            and first_structured_output_us is None
+                        ):
+                            first_structured_output_us = completed_us
+                        if item_type == "mcpToolCall":
+                            final_evidence_result_us = completed_us
+                    elif isinstance(payload, ThreadTokenUsageUpdatedNotification):
+                        usage = payload.token_usage
+                        usage_accumulator.observe(
+                            observed_at_unix_us=observed_us,
+                            last={
+                                "input_tokens": usage.last.input_tokens,
+                                "cached_input_tokens": usage.last.cached_input_tokens,
+                                "output_tokens": usage.last.output_tokens,
+                                "reasoning_output_tokens": (
+                                    usage.last.reasoning_output_tokens
+                                ),
+                            },
+                            total={
+                                "input_tokens": usage.total.input_tokens,
+                                "cached_input_tokens": usage.total.cached_input_tokens,
+                                "output_tokens": usage.total.output_tokens,
+                                "reasoning_output_tokens": (
+                                    usage.total.reasoning_output_tokens
+                                ),
+                            },
+                        )
+                    elif isinstance(payload, TurnCompletedNotification):
+                        provider_completion_us = observed_us
+            finally:
+                stream.close()
+            result = _collect_turn_result(iter(events), turn_id=turn.id)
             record_stage("thread_read")
             thread_state = thread.read()
             record_stage("model_provider_check")
@@ -126,9 +216,19 @@ def main() -> int:
         record_stage("result_check")
         if result.final_response is None or result.usage is None:
             raise RuntimeError("Codex stored turn omitted response or usage")
-        usage = result.usage.last
+        cumulative = usage_accumulator.cumulative
+        if cumulative is None:
+            raise RuntimeError("Codex stored turn omitted cumulative usage")
+        (
+            cumulative_input_tokens,
+            cumulative_cached_input_tokens,
+            cumulative_uncached_input_tokens,
+            cumulative_output_tokens,
+            cumulative_reasoning_tokens,
+        ) = cumulative
         mcp_server_names: list[str] = []
         mcp_tool_names: list[str] = []
+        mcp_tool_timings: list[CodexToolTimingV1] = []
         failed_mcp_calls = 0
         for wrapped in result.items:
             item = wrapped.root if hasattr(wrapped, "root") else wrapped
@@ -139,15 +239,94 @@ def main() -> int:
             status = getattr(item.status, "value", item.status)
             if status != "completed":
                 failed_mcp_calls += 1
+            item_id = getattr(item, "id", None)
+            completed_at_us = None
+            for event in events:
+                payload = event.payload
+                if not isinstance(payload, ItemCompletedNotification):
+                    continue
+                completed_item = (
+                    payload.item.root
+                    if hasattr(payload.item, "root")
+                    else payload.item
+                )
+                if getattr(completed_item, "id", None) == item_id:
+                    completed_at_us = payload.completed_at_ms * 1_000
+                    break
+            mcp_tool_timings.append(
+                CodexToolTimingV1(
+                    sequence=len(mcp_tool_timings) + 1,
+                    server_name=item.server,
+                    tool_name=item.tool,
+                    started_at_unix_us=(
+                        item_start_times.get(item_id)
+                        if isinstance(item_id, str)
+                        else None
+                    ),
+                    completed_at_unix_us=completed_at_us,
+                    status=str(status),
+                )
+            )
+        telemetry = CodexOperationTelemetryV1(
+            schema_version=CodexOperationTelemetryV1.SCHEMA_VERSION,
+            request_sha256=None,
+            provider_operation_id_sha256=text_sha256(result.id),
+            provider_thread_id_sha256=text_sha256(request["provider_thread_id"]),
+            provider_root_thread_id_sha256=None,
+            accepted_parent_checkpoint_id_sha256=None,
+            candidate_checkpoint_id_sha256=None,
+            model=request["model"],
+            reasoning_effort=request["effort"],
+            fast_mode_enabled=False,
+            packet_ready_unix_us=None,
+            request_start_unix_us=request_start_us,
+            first_reasoning_item_unix_us=first_reasoning_us,
+            first_structured_output_item_unix_us=first_structured_output_us,
+            final_evidence_result_unix_us=final_evidence_result_us,
+            provider_completion_unix_us=(
+                provider_completion_us or time.time_ns() // 1_000
+            ),
+            python_parse_start_unix_us=None,
+            python_parse_completion_unix_us=None,
+            python_validation_start_unix_us=None,
+            python_validation_completion_unix_us=None,
+            usage_steps=usage_accumulator.steps,
+            cumulative_input_tokens=cumulative_input_tokens,
+            cumulative_cached_input_tokens=cumulative_cached_input_tokens,
+            cumulative_uncached_input_tokens=cumulative_uncached_input_tokens,
+            cumulative_output_tokens=cumulative_output_tokens,
+            cumulative_reasoning_tokens=cumulative_reasoning_tokens,
+            tool_timings=tuple(mcp_tool_timings),
+            tool_call_count=len(mcp_tool_timings),
+            provider_attempt_count=1,
+            finish_status=getattr(result.status, "value", str(result.status)),
+            transport_error=None,
+            unsupported_fields=(
+                "request_sha256",
+                "packet_ready_unix_us",
+                "provider_root_thread_id_sha256",
+                "accepted_parent_checkpoint_id_sha256",
+                "candidate_checkpoint_id_sha256",
+                "python_parse_start_unix_us",
+                "python_parse_completion_unix_us",
+                "python_validation_start_unix_us",
+                "python_validation_completion_unix_us",
+            ),
+            retains_prompt=False,
+            retains_output=False,
+            retains_reasoning=False,
+            retains_tool_arguments=False,
+        )
         payload = {
             "output_text": result.final_response,
             "provider_request_id": result.id,
             "returned_model": request["model"],
             "duration_ms": result.duration_ms or 0,
-            "input_tokens": usage.input_tokens,
-            "cached_input_tokens": usage.cached_input_tokens,
-            "output_tokens": usage.output_tokens,
-            "reasoning_output_tokens": usage.reasoning_output_tokens,
+            "input_tokens": cumulative_input_tokens,
+            "cached_input_tokens": cumulative_cached_input_tokens,
+            "output_tokens": cumulative_output_tokens,
+            "reasoning_output_tokens": cumulative_reasoning_tokens,
+            "last_step_output_tokens": result.usage.last.output_tokens,
             "transport_version": thread_state.thread.cli_version,
             "mcp_server_names": mcp_server_names,
             "mcp_tool_names": mcp_tool_names,
@@ -160,6 +339,7 @@ def main() -> int:
                 compatibility_state.buffered_early_completion_count
             ),
             "pre_registered_turn_count": compatibility_state.pre_registered_turn_count,
+            "operation_telemetry": to_primitive(telemetry),
         }
         record_stage("response_encode")
         sys.stdout.write(

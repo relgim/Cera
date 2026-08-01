@@ -240,6 +240,17 @@ class NativeStoredReasonerSessionRuntime:
             reasoner_port=CodexSceneReasonerPort(
                 transport,
                 evidence_tools_enabled=True,
+                provider_root_thread_id_sha256=text_sha256(
+                    ledger.provider_root_handle.provider_thread_id
+                ),
+                accepted_parent_checkpoint_id_sha256=(
+                    text_sha256(str(checkpoint.parent_checkpoint_id))
+                    if checkpoint.parent_checkpoint_id is not None
+                    else None
+                ),
+                candidate_checkpoint_id_sha256=text_sha256(
+                    str(checkpoint.checkpoint_id)
+                ),
             ),
             effort=normalized_effort,
             provider_thread_id_sha256=text_sha256(

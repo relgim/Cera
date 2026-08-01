@@ -140,6 +140,7 @@ class SceneReasonerPortFailure(Exception):
         self.external_provider_calls_observed = external_provider_calls_observed
         self.provider_call_receipt = None
         self.mcp_bridge_receipt = None
+        self.operation_telemetry = None
         super().__init__(message)
 
 

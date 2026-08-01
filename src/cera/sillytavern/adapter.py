@@ -45,6 +45,10 @@ from cera.providers import (
     deepseek_composer_candidate,
 )
 from cera.reasoner import CodexSceneReasonerPort, ReasonerCoordinator
+from cera.reasoner.input_preparation import (
+    SceneCastScopeV1,
+    derive_scene_cast_scope,
+)
 from cera.reasoner_session import NativeStoredReasonerSessionRuntime
 from cera.realization import (
     CodexSceneRealizationVerifierPort,
@@ -895,6 +899,37 @@ def select_candidate_cast(
     return (
         (world.protected_user_id, *candidates),
         candidates,
+    )
+
+
+def select_scoped_candidate_cast_shadow(
+    raw_message: str,
+    world: HanezawaHumanTestWorld,
+    *,
+    branch_id: TypedId,
+) -> SceneCastScopeV1:
+    """Derive compact-v7 cast scope without changing the active v6 route."""
+
+    branch = world.store.get_branch(branch_id)
+    accepted_active = (
+        world.store.get_artifact(branch.head_artifact_id).responding_npc_ids
+        if branch.head_artifact_id is not None
+        else ()
+    )
+    explicit = tuple(
+        character_id
+        for name, character_id in CHARACTER_IDS.items()
+        if re.search(rf"\b{re.escape(name)}\b", raw_message, re.IGNORECASE)
+    )
+    if _HANA_ALIASES.search(raw_message) and CHARACTER_IDS["Hana"] not in explicit:
+        explicit = (*explicit, CHARACTER_IDS["Hana"])
+    return derive_scene_cast_scope(
+        raw_message=raw_message,
+        protected_user_id=world.protected_user_id,
+        world_known_npc_ids=tuple(CHARACTER_IDS.values()),
+        accepted_active_npc_ids=accepted_active,
+        explicitly_named_npc_ids=explicit,
+        all_cast_requested=_ALL_CAST_PHRASES.search(raw_message) is not None,
     )
 
 

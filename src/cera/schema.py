@@ -134,6 +134,10 @@ def _resolved_type_hints(model_type: type[Any]) -> dict[str, Any]:
         from cera.reasoner.mcp_bridge import McpEvidenceBridgeReceipt
 
         namespace["McpEvidenceBridgeReceipt"] = McpEvidenceBridgeReceipt
+    if "CodexOperationTelemetryV1" in rendered:
+        from cera.providers.codex_observability import CodexOperationTelemetryV1
+
+        namespace["CodexOperationTelemetryV1"] = CodexOperationTelemetryV1
     return get_type_hints(model_type, globalns=namespace, localns=namespace)
 
 

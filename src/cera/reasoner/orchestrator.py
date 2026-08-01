@@ -218,6 +218,7 @@ class ReasonerCoordinator:
             )
             failure.provider_call_receipt = exc.provider_call_receipt
             failure.mcp_bridge_receipt = exc.mcp_bridge_receipt
+            failure.operation_telemetry = exc.operation_telemetry
             failure.lookup_receipts = tuple(tools.lookup_receipts)
             failure.external_provider_calls_observed = (
                 1
@@ -233,6 +234,7 @@ class ReasonerCoordinator:
             if adapter_call is not None:
                 exc.provider_call_receipt = adapter_call.provider_call_receipt
                 exc.mcp_bridge_receipt = adapter_call.mcp_bridge_receipt
+                exc.operation_telemetry = adapter_call.operation_telemetry
                 exc.external_provider_calls_observed = (
                     adapter_call.external_provider_calls
                 )
@@ -283,6 +285,7 @@ class ReasonerCoordinator:
             ),
             tuple(tools.lookup_receipts),
             state_receipt,
+            adapter_call.operation_telemetry,
         )
 
     def _validate_outcome(

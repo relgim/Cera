@@ -14,6 +14,8 @@ from cera.ids import IdKind, TypedId, require_kind
 from cera.schema import require_schema
 from cera.serialization import domain_sha256, re_is_sha256, text_sha256
 
+from .codex_observability import CodexOperationTelemetryV1
+
 
 class ProviderName(StrEnum):
     OPENAI_CODEX = "openai_codex"
@@ -439,6 +441,7 @@ class ProviderCallResult:
     tool_names: tuple[str, ...] = ()
     tool_call_count: int = 0
     failed_tool_call_count: int = 0
+    operation_telemetry: CodexOperationTelemetryV1 | None = None
 
     def __post_init__(self) -> None:
         _non_empty(self.output_text, "provider output")
@@ -452,6 +455,31 @@ class ProviderCallResult:
             raise ContractValidationError("provider tool names do not match call count")
         if self.failed_tool_call_count > self.tool_call_count:
             raise ContractValidationError("failed provider tool calls exceed total calls")
+        if self.operation_telemetry is not None:
+            if self.receipt.provider is not ProviderName.OPENAI_CODEX:
+                raise ContractValidationError(
+                    "Codex operation telemetry cannot attach to another provider"
+                )
+            if self.operation_telemetry.request_sha256 != self.receipt.request_sha256:
+                raise ContractValidationError(
+                    "Codex operation telemetry request does not match receipt"
+                )
+            totals = (
+                self.operation_telemetry.cumulative_input_tokens,
+                self.operation_telemetry.cumulative_cached_input_tokens,
+                self.operation_telemetry.cumulative_output_tokens,
+                self.operation_telemetry.cumulative_reasoning_tokens,
+            )
+            receipt_totals = (
+                self.receipt.input_tokens,
+                self.receipt.cached_input_tokens,
+                self.receipt.output_tokens,
+                self.receipt.reasoning_output_tokens,
+            )
+            if totals != receipt_totals:
+                raise ContractValidationError(
+                    "Codex operation telemetry totals do not match receipt"
+                )
 
 
 class ProviderTransportError(Exception):
@@ -497,6 +525,7 @@ class ProviderTransportError(Exception):
         self.mcp_tool_names: tuple[str, ...] = ()
         self.mcp_tool_call_count = 0
         self.mcp_failed_tool_call_count = 0
+        self.operation_telemetry: CodexOperationTelemetryV1 | None = None
         super().__init__(message)
 
 

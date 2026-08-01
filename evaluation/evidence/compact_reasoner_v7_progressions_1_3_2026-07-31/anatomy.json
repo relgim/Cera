@@ -1,0 +1,172 @@
+{
+  "accepted_head_artifact_id": "artifact:c856dbce-ace3-5330-bec6-d6ef8c652f53",
+  "branch_id": "branch:e6d8da85-744a-5cde-a168-431f65d1c3a7",
+  "estimates_are_provider_reported": false,
+  "generation": 2,
+  "message_sha256": "85f16ed3d2333a096a13aee216acf62e0b4445eb04f52674742a7585842aeffa",
+  "output_anatomy": {
+    "beat_count_after": 2,
+    "beat_count_before": 2,
+    "compact_v7_bytes": 3302,
+    "compact_v7_estimated_tokens_at_4_bytes": 826,
+    "compact_v7_sha256": "b35ef060ade7ceed7af27e5d408c3555a117048f13a68334f864f6ef7c7c602b",
+    "expanded_v6_bytes": 4488,
+    "expanded_v6_estimated_tokens_at_4_bytes": 1122,
+    "expanded_v6_sha256": "15137cb2f5784199dcd5f9e9735b86e29dee81d5d34912051b9f9fd4326c4af7",
+    "kind": "deterministic illustrative semantic-equivalent fixture",
+    "provider_reported": false
+  },
+  "provider_calls": 0,
+  "schema_version": "cera.compact_reasoner_v7_anatomy.v1",
+  "scope": {
+    "currently_active": [
+      "character:ted",
+      "character:hana_hanezawa",
+      "character:mia_hanezawa"
+    ],
+    "eligible": [
+      "character:hana_hanezawa",
+      "character:mia_hanezawa"
+    ],
+    "exact_source_responders": [],
+    "physically_present": [
+      "character:ted",
+      "character:hana_hanezawa",
+      "character:mia_hanezawa"
+    ],
+    "reasons": [
+      "current-only continuation cue",
+      "active cast inherited from exact accepted branch head"
+    ],
+    "scene_reachable": [
+      "character:ted",
+      "character:hana_hanezawa",
+      "character:sakura_hanezawa",
+      "character:mia_hanezawa",
+      "character:enne_hanezawa",
+      "character:tomi_hanezawa",
+      "character:aoi_hanezawa",
+      "character:yuuni_hanezawa"
+    ],
+    "selected": [],
+    "world_known": [
+      "character:ted",
+      "character:hana_hanezawa",
+      "character:sakura_hanezawa",
+      "character:mia_hanezawa",
+      "character:enne_hanezawa",
+      "character:tomi_hanezawa",
+      "character:aoi_hanezawa",
+      "character:yuuni_hanezawa"
+    ]
+  },
+  "source_database_sha256": "bfbf23eb2fa7199fad38e8fb3f1ae0d6b547467f17ed68e84b7115275a2fc555",
+  "story_database_mutated": false,
+  "variants": [
+    {
+      "aware_character_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "complete_prompt_bytes": 50389,
+      "complete_prompt_sha256": "7a9b49b927206a18fa0995cc7df02d3b21895ae2cadb9e8110333ac8bc4a7811",
+      "draft_schema_version": "cera.codex_reasoner_draft.v6",
+      "eligible_responder_ids": [
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "estimated_complete_prompt_tokens_at_4_bytes": 12597,
+      "estimated_schema_tokens_at_4_bytes": 5022,
+      "name": "broad_v6",
+      "packet_bytes": 32258,
+      "packet_schema_version": "cera.codex_scene_reasoner_packet.v14",
+      "packet_sha256": "0bd29c436de37ebb8f3ab8cda2a2a629538a890bc7d7dca6ef9b18b8e83d594d",
+      "present_character_ids": [
+        "character:ted",
+        "character:hana_hanezawa",
+        "character:sakura_hanezawa",
+        "character:mia_hanezawa",
+        "character:enne_hanezawa",
+        "character:tomi_hanezawa",
+        "character:aoi_hanezawa",
+        "character:yuuni_hanezawa"
+      ],
+      "prompt_version": "cera.codex_scene_reasoner_prompt.v25",
+      "provider_schema_bytes": 20090,
+      "provider_schema_sha256": "4fc01c942f1ec4b8d3b6ae4e9c9220042fdf96c8b78f32ce4d20ed7ffbb19620",
+      "seed_record_count": 18,
+      "stable_instruction_bytes": 18069,
+      "stable_instruction_sha256": "3075e396a8d518e35baf5c01f75f0fd90f11666d5eb656939b76c2c1e005b327"
+    },
+    {
+      "aware_character_ids": [
+        "character:hana_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "complete_prompt_bytes": 36375,
+      "complete_prompt_sha256": "08cad6b38e89d7fc947b8d58f82c1bf644859bac1d5127d9bdf3c6e8651f45fb",
+      "draft_schema_version": "cera.codex_reasoner_draft.v6",
+      "eligible_responder_ids": [
+        "character:hana_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "estimated_complete_prompt_tokens_at_4_bytes": 9094,
+      "estimated_schema_tokens_at_4_bytes": 4822,
+      "name": "scoped_v6",
+      "packet_bytes": 18244,
+      "packet_schema_version": "cera.codex_reasoner_packet.v15.compact_shadow",
+      "packet_sha256": "9dfed67b9ab23565a2f3949ee514f4a95a8096ce5624ae5c5d473cbf1c710755",
+      "present_character_ids": [
+        "character:ted",
+        "character:hana_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "prompt_version": "cera.codex_scene_reasoner_prompt.v25",
+      "provider_schema_bytes": 19290,
+      "provider_schema_sha256": "1d034584580c5d3b0b6f18d555e6b8cdc63d296bcac1256880fec4e9cbac5fcf",
+      "seed_record_count": 8,
+      "stable_instruction_bytes": 18069,
+      "stable_instruction_sha256": "3075e396a8d518e35baf5c01f75f0fd90f11666d5eb656939b76c2c1e005b327"
+    },
+    {
+      "aware_character_ids": [
+        "character:hana_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "complete_prompt_bytes": 21659,
+      "complete_prompt_sha256": "2ff21a51d4db8f3b3e7bdf64fccda02b98dbc1605822b7dba0a9d4b05db67c9e",
+      "draft_schema_version": "cera.codex_reasoner_draft.v7.compact_shadow",
+      "eligible_responder_ids": [
+        "character:hana_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "estimated_complete_prompt_tokens_at_4_bytes": 5415,
+      "estimated_schema_tokens_at_4_bytes": 2758,
+      "name": "scoped_v7",
+      "packet_bytes": 18262,
+      "packet_schema_version": "cera.codex_reasoner_packet.v15.compact_shadow",
+      "packet_sha256": "276001d80e9392a6bd96c0f53cd0e1f8f7b0508fb76a1229e6bbdab9d926dc8a",
+      "present_character_ids": [
+        "character:ted",
+        "character:hana_hanezawa",
+        "character:mia_hanezawa"
+      ],
+      "prompt_version": "cera.codex_reasoner_prompt.v26.compact_shadow",
+      "provider_schema_bytes": 11032,
+      "provider_schema_sha256": "6009a693351186176ca9dc5ccf142705b035711701e44eb75939a19c5676075d",
+      "seed_record_count": 8,
+      "stable_instruction_bytes": 3335,
+      "stable_instruction_sha256": "1347684b8987253990e194df4d6b9f34fbfbabb23c87ac8c0860f12435dc331c"
+    }
+  ]
+}

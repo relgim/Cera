@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from copy import deepcopy
+import time
 from typing import Protocol
 
 from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
@@ -24,7 +25,7 @@ from cera.ids import (
     TypedId,
     deterministic_id,
 )
-from cera.kernel import ProtectedUserProvenance, StateMutationTarget
+from cera.kernel import ProtectedUserProvenance, StateMutationTarget, TurnRoute
 from cera.providers import (
     CodexMcpRuntimeBinding,
     CodexSDKTransport,
@@ -54,11 +55,22 @@ from .drafts import (
     safe_reasoner_contract_diagnostics,
     validate_reasoner_draft_payload_semantics,
 )
+from .compact_v7 import (
+    CodexReasonerDraftV7Compact,
+    build_compact_v7_reasoner_prompt,
+    codex_reasoner_draft_v7_compact_json_schema,
+    compile_compact_v7_to_v6,
+)
 from .mcp_bridge import (
     MAX_FETCH_CITATION_ALIASES,
     McpEvidenceBridgeError,
     McpEvidenceBridgeReceipt,
     RequestBoundMcpEvidenceBridge,
+)
+from .input_preparation import (
+    SceneCastScopeV1,
+    build_reasoner_reading_capsule,
+    compact_evidence_view,
 )
 from .models import (
     InterventionReason,
@@ -74,6 +86,8 @@ from .models import (
 CODEX_REASONER_ADAPTER_VERSION = ACTIVE_RUNTIME_PROFILE.reasoner.domain_adapter_version
 CODEX_REASONER_PACKET_VERSION = ACTIVE_RUNTIME_PROFILE.reasoner.packet_version
 CODEX_REASONER_PROMPT_VERSION = ACTIVE_RUNTIME_PROFILE.reasoner.prompt_version
+COMPACT_REASONER_PACKET_VERSION = "cera.codex_reasoner_packet.v15.compact_shadow"
+COMPACT_REASONER_PROMPT_VERSION = "cera.codex_reasoner_prompt.v26.compact_shadow"
 
 
 class ReasonerEvidenceBridgePort(Protocol):
@@ -137,6 +151,8 @@ def _resolve_provider_evidence_aliases(
         "character_moves",
         "event_blocks",
         "development_atoms",
+        "responders",
+        "beats",
     ):
         collection = resolved.get(collection_name)
         if not isinstance(collection, list):
@@ -175,12 +191,31 @@ class CodexSceneReasonerPort(SceneReasonerPort):
         bridge_factory: ReasonerEvidenceBridgeFactory | None = None,
         maximum_tool_calls: int = 12,
         evidence_tools_enabled: bool = True,
+        provider_root_thread_id_sha256: str | None = None,
+        accepted_parent_checkpoint_id_sha256: str | None = None,
+        candidate_checkpoint_id_sha256: str | None = None,
+        compact_input: bool = False,
+        scene_cast_scope: SceneCastScopeV1 | None = None,
+        draft_schema_version: str = CodexReasonerDraftV6.SCHEMA_VERSION,
     ) -> None:
         if type(maximum_tool_calls) is not int or not 1 <= maximum_tool_calls <= 32:
             raise ContractValidationError("reasoner MCP maximum tool calls must be 1..32")
         self.transport = transport
         self.maximum_tool_calls = maximum_tool_calls
         self.evidence_tools_enabled = evidence_tools_enabled
+        self.provider_root_thread_id_sha256 = provider_root_thread_id_sha256
+        self.accepted_parent_checkpoint_id_sha256 = (
+            accepted_parent_checkpoint_id_sha256
+        )
+        self.candidate_checkpoint_id_sha256 = candidate_checkpoint_id_sha256
+        self.compact_input = compact_input
+        self.scene_cast_scope = scene_cast_scope
+        if draft_schema_version not in {
+            CodexReasonerDraftV6.SCHEMA_VERSION,
+            CodexReasonerDraftV7Compact.SCHEMA_VERSION,
+        }:
+            raise ContractValidationError("unsupported Reasoner draft schema")
+        self.draft_schema_version = draft_schema_version
         self._bridge_factory = bridge_factory or self._default_bridge
 
     def _default_bridge(
@@ -204,8 +239,14 @@ class CodexSceneReasonerPort(SceneReasonerPort):
         packet = build_codex_reasoner_packet(
             request,
             evidence_tools_available=self.evidence_tools_enabled,
+            compact_input=self.compact_input,
+            scene_cast_scope=self.scene_cast_scope,
+            draft_schema_version=self.draft_schema_version,
         )
-        prompt = build_codex_reasoner_prompt(packet)
+        prompt = build_codex_reasoner_prompt(
+            packet,
+            draft_schema_version=self.draft_schema_version,
+        )
         seed_aliases = _seed_citation_aliases(request)
         provider_aliases = tuple(seed_aliases)
         if self.evidence_tools_enabled:
@@ -213,13 +254,24 @@ class CodexSceneReasonerPort(SceneReasonerPort):
                 f"evidence:fetch_{index:03d}"
                 for index in range(1, MAX_FETCH_CITATION_ALIASES + 1)
             )
-        output_schema = codex_reasoner_draft_v6_json_schema(
-            allowed_evidence_ids=tuple(
-                TypedId.parse(value, IdKind.EVIDENCE)
-                for value in provider_aliases
+        allowed_aliases = tuple(
+            TypedId.parse(value, IdKind.EVIDENCE) for value in provider_aliases
+        )
+        output_schema = (
+            codex_reasoner_draft_v7_compact_json_schema(
+                allowed_evidence_ids=allowed_aliases,
+                adult_route=(
+                    request.prepared_turn.route is TurnRoute.CONSENT_VALID_ADULT
+                ),
+            )
+            if self.draft_schema_version
+            == CodexReasonerDraftV7Compact.SCHEMA_VERSION
+            else codex_reasoner_draft_v6_json_schema(
+                allowed_evidence_ids=allowed_aliases
             )
         )
         bridge = None
+        packet_ready_us = time.time_ns() // 1_000
         try:
             if self.evidence_tools_enabled:
                 bridge = self._bridge_factory(tools, request)
@@ -246,6 +298,7 @@ class CodexSceneReasonerPort(SceneReasonerPort):
                 "reasoner_evidence",
             ) from exc
 
+        validation_started_us = time.time_ns() // 1_000
         try:
             if provider_result.parsed_json is None:
                 raise ContractValidationError("Codex reasoner omitted its JSON object")
@@ -267,10 +320,13 @@ class CodexSceneReasonerPort(SceneReasonerPort):
                 alias_map=alias_map,
                 authorized_evidence_ids={value.evidence_id for value in authorized},
             )
-            validate_reasoner_draft_payload_semantics(resolved_payload)
             draft_version = resolved_payload.get("schema_version")
+            if draft_version != CodexReasonerDraftV7Compact.SCHEMA_VERSION:
+                validate_reasoner_draft_payload_semantics(resolved_payload)
             draft_type = (
-                CodexReasonerDraftV6
+                CodexReasonerDraftV7Compact
+                if draft_version == CodexReasonerDraftV7Compact.SCHEMA_VERSION
+                else CodexReasonerDraftV6
                 if draft_version == CodexReasonerDraftV6.SCHEMA_VERSION
                 else CodexReasonerDraftV5
                 if draft_version == CodexReasonerDraftV5.SCHEMA_VERSION
@@ -281,6 +337,8 @@ class CodexSceneReasonerPort(SceneReasonerPort):
                 else CodexReasonerDraftV2
             )
             draft = from_mapping(draft_type, resolved_payload)
+            if isinstance(draft, CodexReasonerDraftV7Compact):
+                draft = compile_compact_v7_to_v6(draft)
             outcome = compile_reasoner_draft(
                 request,
                 draft,
@@ -296,7 +354,44 @@ class CodexSceneReasonerPort(SceneReasonerPort):
             )
             failure.provider_call_receipt = provider_result.receipt
             failure.mcp_bridge_receipt = bridge_receipt
+            if provider_result.operation_telemetry is not None:
+                failure.operation_telemetry = (
+                    provider_result.operation_telemetry.bind_reasoner_context(
+                        packet_ready_unix_us=packet_ready_us,
+                        provider_root_thread_id_sha256=(
+                            self.provider_root_thread_id_sha256
+                        ),
+                        accepted_parent_checkpoint_id_sha256=(
+                            self.accepted_parent_checkpoint_id_sha256
+                        ),
+                        candidate_checkpoint_id_sha256=(
+                            self.candidate_checkpoint_id_sha256
+                        ),
+                    ).bind_validation_phase(
+                        validation_start_unix_us=validation_started_us,
+                        validation_completion_unix_us=time.time_ns() // 1_000,
+                    )
+                )
             raise failure from exc
+
+        validation_completed_us = time.time_ns() // 1_000
+        operation_telemetry = provider_result.operation_telemetry
+        if operation_telemetry is not None:
+            operation_telemetry = operation_telemetry.bind_reasoner_context(
+                packet_ready_unix_us=packet_ready_us,
+                provider_root_thread_id_sha256=(
+                    self.provider_root_thread_id_sha256
+                ),
+                accepted_parent_checkpoint_id_sha256=(
+                    self.accepted_parent_checkpoint_id_sha256
+                ),
+                candidate_checkpoint_id_sha256=(
+                    self.candidate_checkpoint_id_sha256
+                ),
+            ).bind_validation_phase(
+                validation_start_unix_us=validation_started_us,
+                validation_completion_unix_us=validation_completed_us,
+            )
 
         provider_receipt = provider_result.receipt
         return SceneReasonerAdapterCall(
@@ -316,6 +411,7 @@ class CodexSceneReasonerPort(SceneReasonerPort):
             external_provider_calls=provider_receipt.external_provider_calls,
             provider_call_receipt=provider_receipt,
             mcp_bridge_receipt=bridge_receipt,
+            operation_telemetry=operation_telemetry,
         )
 
 
@@ -323,30 +419,75 @@ def build_codex_reasoner_packet(
     request: SceneReasonerRequest,
     *,
     evidence_tools_available: bool = True,
+    compact_input: bool = False,
+    scene_cast_scope: SceneCastScopeV1 | None = None,
+    draft_schema_version: str = CodexReasonerDraftV6.SCHEMA_VERSION,
 ) -> dict[str, object]:
     prepared = request.prepared_turn
     intake = prepared.request
-    return {
-        "schema_version": CODEX_REASONER_PACKET_VERSION,
-        "prompt_version": CODEX_REASONER_PROMPT_VERSION,
-        "identity": {
+    if compact_input:
+        compact_evidence = tuple(
+            compact_evidence_view(
+                value,
+                alias=f"evidence:seed_{index:03d}",
+            )
+            for index, value in enumerate(
+                request.seed_dossier.exact_seed_evidence, start=1
+            )
+        )
+        if scene_cast_scope is None:
+            scene_cast_scope = SceneCastScopeV1(
+                schema_version=SceneCastScopeV1.SCHEMA_VERSION,
+                protected_user_id=intake.protected_user_id,
+                world_known_character_ids=prepared.present_character_ids,
+                physically_present_character_ids=prepared.present_character_ids,
+                scene_reachable_character_ids=prepared.present_character_ids,
+                currently_active_character_ids=prepared.present_character_ids,
+                exact_source_responder_ids=(),
+                eligible_responder_ids=prepared.eligible_responding_npc_ids,
+                selected_responder_ids=(),
+                derivation_reasons=("bounded prepared-turn scope",),
+            )
+        if (
+            scene_cast_scope.protected_user_id != intake.protected_user_id
+            or scene_cast_scope.physically_present_character_ids
+            != prepared.present_character_ids
+            or scene_cast_scope.eligible_responder_ids
+            != prepared.eligible_responding_npc_ids
+        ):
+            raise ContractValidationError(
+                "compact scene scope does not match authoritative prepared turn"
+            )
+        capsule = build_reasoner_reading_capsule(
+            request,
+            compact_evidence,
+            stable_prompt_identity=(
+                COMPACT_REASONER_PROMPT_VERSION
+                if draft_schema_version
+                == CodexReasonerDraftV7Compact.SCHEMA_VERSION
+                else CODEX_REASONER_PROMPT_VERSION
+            ),
+        )
+        seed_payload = {
+            "aware_character_ids": [
+                str(value) for value in request.seed_dossier.aware_character_ids
+            ],
+            "compact_exact_evidence": [
+                to_primitive(value) for value in compact_evidence
+            ],
+            "scene_anchors": list(request.seed_dossier.scene_anchors),
+            "explicit_unknowns": list(request.seed_dossier.explicit_unknowns),
+            "prohibited_inferences": list(
+                request.seed_dossier.prohibited_inferences
+            ),
+        }
+        identity_payload = {
             "protected_user_id": str(intake.protected_user_id),
             "route": prepared.route.value,
-            "present_character_ids": [
-                str(value) for value in prepared.present_character_ids
-            ],
-            "eligible_responder_ids": [
-                str(value) for value in prepared.eligible_responding_npc_ids
-            ],
-        },
-        "source_view": {
-            "mode": request.source_view.mode.value,
-            "units": [to_primitive(value) for value in request.source_view.units],
-            "contains_exact_protected_adult_prose": (
-                request.source_view.contains_exact_protected_adult_prose
-            ),
-        },
-        "seed_dossier": {
+            "cast_scope": to_primitive(scene_cast_scope),
+        }
+    else:
+        seed_payload = {
             "aware_character_ids": [
                 str(value) for value in request.seed_dossier.aware_character_ids
             ],
@@ -364,7 +505,42 @@ def build_codex_reasoner_packet(
             "prohibited_inferences": list(
                 request.seed_dossier.prohibited_inferences
             ),
+        }
+        identity_payload = {
+            "protected_user_id": str(intake.protected_user_id),
+            "route": prepared.route.value,
+            "present_character_ids": [
+                str(value) for value in prepared.present_character_ids
+            ],
+            "eligible_responder_ids": [
+                str(value) for value in prepared.eligible_responding_npc_ids
+            ],
+        }
+    return {
+        "schema_version": (
+            COMPACT_REASONER_PACKET_VERSION
+            if compact_input
+            else CODEX_REASONER_PACKET_VERSION
+        ),
+        "prompt_version": (
+            COMPACT_REASONER_PROMPT_VERSION
+            if draft_schema_version == CodexReasonerDraftV7Compact.SCHEMA_VERSION
+            else CODEX_REASONER_PROMPT_VERSION
+        ),
+        "identity": identity_payload,
+        "source_view": {
+            "mode": request.source_view.mode.value,
+            "units": [to_primitive(value) for value in request.source_view.units],
+            "contains_exact_protected_adult_prose": (
+                request.source_view.contains_exact_protected_adult_prose
+            ),
         },
+        "seed_dossier": seed_payload,
+        **(
+            {"reading_capsule": to_primitive(capsule)}
+            if compact_input
+            else {}
+        ),
         "hard_boundaries": list(request.hard_boundaries),
         "scene_development_contract": build_scene_development_contract(
             request.scene_depth_mode
@@ -403,7 +579,15 @@ def build_codex_reasoner_packet(
     }
 
 
-def build_codex_reasoner_prompt(packet: dict[str, object]) -> str:
+def build_codex_reasoner_prompt(
+    packet: dict[str, object],
+    *,
+    draft_schema_version: str = CodexReasonerDraftV6.SCHEMA_VERSION,
+) -> str:
+    if draft_schema_version == CodexReasonerDraftV7Compact.SCHEMA_VERSION:
+        return build_compact_v7_reasoner_prompt(packet)
+    if draft_schema_version != CodexReasonerDraftV6.SCHEMA_VERSION:
+        raise ContractValidationError("unsupported Reasoner prompt schema")
     tools_available = bool(packet["tool_policy"]["evidence_tools_available"])
     tool_instruction = (
         "Use exact seed evidence when sufficient. If more evidence is needed, use only the request-bound CERA tools. Start with cera_get_turn_snapshot and read cera_tool_budget after every tool result. cera_resolve_entities, cera_search_evidence, and cera_search_query_plan share exactly four search operations for the entire turn; resolving an entity is not free. Never call one of those tools when remaining_followup_searches is zero, never repeat a failed tool call, and never spend another search merely to restate a typed entity ID already present in the request. Prefer one cera_search_query_plan for indirect or paraphrased cues. Terms within one term set are all required while alternate term sets are OR variants, so use one or two discriminative concepts per set instead of copying the complete user sentence. Search results are references; fetch only exact expandable_sections advertised by the returned reference before using evidence in a hard decision. Once exact fetched evidence is sufficient, stop searching and complete the draft; if the bounded search cannot establish the needed fact, return insufficient_evidence. Never guess a section heading. The provider-facing cera_fetch_evidence tool expands one record per call: pass exactly evidence_id as one returned evidence ID and sections as an array of advertised section-name strings. For cera_search_evidence and cera_search_query_plan, record_types is optional and accepts only genesis_fact, source_fact, event_fact, memory, relationship, thread, material, or development. Use memory for private or recalled experience and relationship for directional relationship state. Python owns ambiguity handling and returns bounded candidates for exact follow-up; do not supply an ambiguity_policy field. Do not add fields."
@@ -862,4 +1046,5 @@ def _provider_failure(
         external_provider_calls_observed=exc.external_provider_calls_observed,
     )
     failure.provider_call_receipt = getattr(exc, "provider_call_receipt", None)
+    failure.operation_telemetry = getattr(exc, "operation_telemetry", None)
     return failure
