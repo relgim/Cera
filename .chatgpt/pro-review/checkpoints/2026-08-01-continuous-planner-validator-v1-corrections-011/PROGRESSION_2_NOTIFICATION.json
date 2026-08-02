@@ -1,0 +1,22 @@
+{
+  "schema_version": "cera.continuous_progression_notification_receipt.v1",
+  "queue_revision": "0005",
+  "job_id": "continuous-durable-terminal-evidence-and-capability-ledger-v11",
+  "status": "completed",
+  "checkpoint_id": "2026-08-01-continuous-planner-validator-v1-corrections-011",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-011",
+  "git_sha": "1eb5b0147d5aefe8e7f3360c3eb9f67d5870a703",
+  "result_relative_path": ".chatgpt/pro-review/checkpoints/2026-08-01-continuous-planner-validator-v1-corrections-011/PROGRESSION_2_RESULT.md",
+  "result_sha256": "3edf121e6f9d2f976cbf8af9df6ebaa9079f76200987fb29756f9ffce1ec3ea3",
+  "transport": "codex_app_send_message_to_thread",
+  "target_id_sha256": "f0fd00d836b16ff0d8bcda67ee47fd6f224b4b4c496fdeb82cdfba383deeaddb",
+  "app_result_sha256": "f447fc13bc0887d63a586e472d30dec62eba6c956dbb2a89ad340de78c635b81",
+  "app_result_attested_success": true,
+  "independent_delivery_proof": false,
+  "raw_target_message_or_app_result_retained": false,
+  "external_provider_calls": 0,
+  "retry_count": 0,
+  "fallback_count": 0,
+  "next_job": "continuous-live-archive-and-canary-publication-readiness-v11",
+  "recorded_at_utc": "2026-08-02T01:06:48.382920Z"
+}

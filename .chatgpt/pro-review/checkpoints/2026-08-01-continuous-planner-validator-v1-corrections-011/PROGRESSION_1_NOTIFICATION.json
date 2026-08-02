@@ -1,0 +1,22 @@
+{
+  "schema_version": "cera.continuous_progression_notification_receipt.v1",
+  "queue_revision": "0005",
+  "job_id": "continuous-total-lifecycle-terminalization-v11",
+  "status": "completed",
+  "checkpoint_id": "2026-08-01-continuous-planner-validator-v1-corrections-011",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-011",
+  "git_sha": "6aff1d121a3bdffa93bcba1e247994082b5c205b",
+  "result_relative_path": ".chatgpt/pro-review/checkpoints/2026-08-01-continuous-planner-validator-v1-corrections-011/PROGRESSION_1_RESULT.md",
+  "result_sha256": "f5498ddb755426dab87770140cc4da491cb6a201c3969eacd11e04d210fd61cf",
+  "transport": "codex_app_send_message_to_thread",
+  "target_id_sha256": "f0fd00d836b16ff0d8bcda67ee47fd6f224b4b4c496fdeb82cdfba383deeaddb",
+  "app_result_sha256": "f447fc13bc0887d63a586e472d30dec62eba6c956dbb2a89ad340de78c635b81",
+  "app_result_attested_success": true,
+  "independent_delivery_proof": false,
+  "raw_target_message_or_app_result_retained": false,
+  "external_provider_calls": 0,
+  "retry_count": 0,
+  "fallback_count": 0,
+  "next_job": "continuous-durable-terminal-evidence-and-capability-ledger-v11",
+  "recorded_at_utc": "2026-08-02T00:52:39.834533Z"
+}

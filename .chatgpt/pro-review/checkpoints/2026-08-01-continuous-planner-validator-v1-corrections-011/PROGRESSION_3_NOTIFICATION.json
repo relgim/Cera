@@ -1,0 +1,22 @@
+{
+  "schema_version": "cera.continuous_progression_notification_receipt.v1",
+  "queue_revision": "0007",
+  "job_id": "continuous-live-archive-and-canary-publication-readiness-v11",
+  "status": "completed",
+  "checkpoint_id": "2026-08-01-continuous-planner-validator-v1-corrections-011",
+  "cycle_id": "2026-08-01-continuous-planner-validator-v1-corrections-cycle-011",
+  "git_sha": "14ee3c3f9887021dc1875fadddf3af42c316555b",
+  "result_relative_path": ".chatgpt/pro-review/checkpoints/2026-08-01-continuous-planner-validator-v1-corrections-011/PROGRESSION_3_RESULT.md",
+  "result_sha256": "eac9609c687f4f12ec735f4b74c960917f64bed7d7c033713234c8c6c9bb6e38",
+  "transport": "codex_app_send_message_to_thread",
+  "target_id_sha256": "f0fd00d836b16ff0d8bcda67ee47fd6f224b4b4c496fdeb82cdfba383deeaddb",
+  "app_result_sha256": "f447fc13bc0887d63a586e472d30dec62eba6c956dbb2a89ad340de78c635b81",
+  "app_result_attested_success": true,
+  "independent_delivery_proof": false,
+  "raw_target_message_or_app_result_retained": false,
+  "external_provider_calls": 0,
+  "retry_count": 0,
+  "fallback_count": 0,
+  "next_job": "continuous-corrections-v11-provider-free-lifecycle-evidence-audit",
+  "recorded_at_utc": "2026-08-02T01:40:54.085669Z"
+}
