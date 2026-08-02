@@ -40,6 +40,7 @@ from cera.continuous.job4_terminal import (
     ContinuousJob4PostconditionsV1,
     ContinuousJob4TerminalEvidenceV1,
     ContinuousJob4TerminalEvidenceV2,
+    ContinuousJob4TerminalEvidenceV3,
     decode_continuous_job4_terminal_evidence,
 )
 from cera.continuous.job4_transaction import (
@@ -380,7 +381,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             terminal = decode_continuous_job4_terminal_evidence(
                 json.loads(terminal_path.read_text(encoding="utf-8"))
             )
-            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV2)
+            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV3)
             self.assertEqual(result["terminal_evidence_sha256"], terminal.sha256)
             self.assertEqual(
                 result["terminal_evidence_sha256"],
@@ -388,6 +389,17 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             )
             self.assertTrue(
                 terminal.capability_ledger.all_zero_effects_structurally_denied
+            )
+            self.assertEqual(
+                set(terminal.thread_archival_evidence),
+                {"planner", "validator"},
+            )
+            self.assertEqual(
+                terminal.postconditions.thread_archival,
+                {
+                    role: evidence.verified
+                    for role, evidence in terminal.thread_archival_evidence.items()
+                },
             )
 
     def test_terminal_archive_invalidates_resume_and_accepted_ancestry(self) -> None:
@@ -414,6 +426,131 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertFalse(port.selectable_as_active_or_accepted_ancestry(handle))
             with self.assertRaisesRegex(Exception, "terminally archived"):
                 coordinator.ensure_session()
+
+    def test_terminal_v3_owns_complete_archival_dtos_and_derived_status(self) -> None:
+        verified = {
+            role.value: ContinuousThreadArchiveEvidenceV1(
+                role=role,
+                provider_thread_id_sha256=text_sha256(
+                    f"terminal-v3-{role.value}"
+                ),
+                archive_reason_sha256=text_sha256("terminal-v3-complete"),
+                archive_request_completed=True,
+                resume_succeeded_after_archive=False,
+                backend_selectable_after_archive=False,
+                coordinator_selectable_as_accepted_ancestry=False,
+            )
+            for role in (
+                ContinuousSessionRole.PLANNER,
+                ContinuousSessionRole.VALIDATOR,
+            )
+        }
+
+        def postconditions(
+            archival: dict[str, bool],
+        ) -> ContinuousJob4PostconditionsV1:
+            return ContinuousJob4PostconditionsV1(
+                execution_mode="provider_free_scripted_v8",
+                source_database_sha256_before="1" * 64,
+                source_database_sha256_after="1" * 64,
+                disposable_database_sha256_before="2" * 64,
+                disposable_database_sha256_after="2" * 64,
+                database_integrity_check="ok",
+                database_foreign_key_findings=0,
+                active_profile_sha256_before="3" * 64,
+                active_profile_sha256_after="3" * 64,
+                active_profile_inspection_status="verified",
+                thread_archival=archival,
+                accepted_session_synchronized=True,
+                accepted_final_sequences_injected=True,
+                call_ledger_dispatches=10,
+                scripted_transport_invocations=10,
+            )
+
+        terminal = ContinuousJob4TerminalEvidenceV3.build(
+            execution_status="completed",
+            provider_calls=0,
+            capability_ledger=ContinuousJob4CapabilityCustody().evidence,
+            postconditions=postconditions(
+                {role: value.verified for role, value in verified.items()}
+            ),
+            thread_archival_evidence=verified,
+        )
+        self.assertEqual(terminal.status, "completed")
+        self.assertEqual(
+            decode_continuous_job4_terminal_evidence(terminal.to_dict()),
+            terminal,
+        )
+
+        variants = {
+            "resume_success": replace(
+                verified["planner"], resume_succeeded_after_archive=True
+            ),
+            "backend_selectable": replace(
+                verified["planner"], backend_selectable_after_archive=True
+            ),
+            "unknown_resume": replace(
+                verified["planner"], resume_succeeded_after_archive=None
+            ),
+            "verification_error": replace(
+                verified["planner"], selection_error_type="RuntimeError"
+            ),
+        }
+        for label, invalid in variants.items():
+            with self.subTest(label=label):
+                evidence = {**verified, "planner": invalid}
+                failed = ContinuousJob4TerminalEvidenceV3.build(
+                    execution_status="completed",
+                    provider_calls=0,
+                    capability_ledger=ContinuousJob4CapabilityCustody().evidence,
+                    postconditions=postconditions(
+                        {
+                            role: value.verified
+                            for role, value in evidence.items()
+                        }
+                    ),
+                    thread_archival_evidence=evidence,
+                )
+                self.assertEqual(failed.status, "failed")
+                self.assertIn("thread_archival_incomplete", failed.failure_codes)
+
+        with self.assertRaisesRegex(ValueError, "fields differ"):
+            ContinuousJob4TerminalEvidenceV3.build(
+                execution_status="completed",
+                provider_calls=0,
+                capability_ledger=ContinuousJob4CapabilityCustody().evidence,
+                postconditions=postconditions(
+                    {"planner": True, "validator": True}
+                ),
+                thread_archival_evidence={"planner": verified["planner"]},
+            )
+        with self.assertRaisesRegex(ValueError, "role changed"):
+            ContinuousJob4TerminalEvidenceV3.build(
+                execution_status="completed",
+                provider_calls=0,
+                capability_ledger=ContinuousJob4CapabilityCustody().evidence,
+                postconditions=postconditions(
+                    {"planner": True, "validator": True}
+                ),
+                thread_archival_evidence={
+                    "planner": verified["validator"],
+                    "validator": verified["validator"],
+                },
+            )
+        with self.assertRaisesRegex(ValueError, "not derived"):
+            invalid = {
+                **verified,
+                "planner": variants["resume_success"],
+            }
+            ContinuousJob4TerminalEvidenceV3.build(
+                execution_status="completed",
+                provider_calls=0,
+                capability_ledger=ContinuousJob4CapabilityCustody().evidence,
+                postconditions=postconditions(
+                    {"planner": True, "validator": True}
+                ),
+                thread_archival_evidence=invalid,
+            )
 
     def test_actual_cli_completes_closed_provider_free_scripted_v8_mode(self) -> None:
         with TemporaryDirectory() as directory:
@@ -583,6 +720,20 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertIn(
                 "source_database_unverified_or_changed",
                 detail["terminal_evidence"]["failure_codes"],
+            )
+            terminal = decode_continuous_job4_terminal_evidence(
+                detail["terminal_evidence"]
+            )
+            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV3)
+            self.assertEqual(
+                set(terminal.thread_archival_evidence),
+                {"planner", "validator"},
+            )
+            self.assertFalse(
+                any(
+                    evidence.verified
+                    for evidence in terminal.thread_archival_evidence.values()
+                )
             )
             self.assertTrue(
                 (

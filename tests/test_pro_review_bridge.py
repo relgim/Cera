@@ -26,14 +26,21 @@ import pro_review_cycle as review_cycle  # noqa: E402
 import pro_review_cycle_core as review_cycle_core  # noqa: E402
 from cera.continuous.scripted_job4 import SCRIPTED_JOB4_FIXTURE_SHA256  # noqa: E402
 from cera.continuous.job4_terminal import (  # noqa: E402
+    ContinuousJob4CapabilityCustody,
     ContinuousJob4OperationalCountersV1,
     ContinuousJob4PostconditionsV1,
     ContinuousJob4TerminalEvidenceV1,
+    ContinuousJob4TerminalEvidenceV3,
+    decode_continuous_job4_terminal_evidence,
+)
+from cera.continuous.sessions import (  # noqa: E402
+    ContinuousSessionRole,
+    ContinuousThreadArchiveEvidenceV1,
 )
 from cera.continuous.job4_transaction import (  # noqa: E402
     ContinuousJob4TerminalTransactionV1,
 )
-from cera.serialization import canonical_bytes  # noqa: E402
+from cera.serialization import canonical_bytes, text_sha256  # noqa: E402
 from scripts.run_continuous_planner_validator_job4 import (  # noqa: E402
     build_canonical_job4_result,
     build_report,
@@ -592,6 +599,10 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         scripted_transport_invocations: int,
         operational_counters: ContinuousJob4OperationalCountersV1 | None = None,
         postcondition_changes: dict[str, object] | None = None,
+        thread_archival_evidence: dict[
+            str, ContinuousThreadArchiveEvidenceV1
+        ]
+        | None = None,
     ) -> dict[str, object]:
         report = self.source / "JOB4_REPORT.md"
         counters = operational_counters or ContinuousJob4OperationalCountersV1(
@@ -626,13 +637,27 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             "scripted_transport_invocations": scripted_transport_invocations,
         }
         postcondition_values.update(postcondition_changes or {})
+        if thread_archival_evidence is not None:
+            postcondition_values["thread_archival"] = {
+                role: evidence.verified
+                for role, evidence in thread_archival_evidence.items()
+            }
         postconditions = ContinuousJob4PostconditionsV1(**postcondition_values)
-        terminal = ContinuousJob4TerminalEvidenceV1.build(
-            execution_status=status,
-            provider_calls=provider_calls,
-            operational_counters=counters,
-            postconditions=postconditions,
-        )
+        if thread_archival_evidence is None:
+            terminal = ContinuousJob4TerminalEvidenceV1.build(
+                execution_status=status,
+                provider_calls=provider_calls,
+                operational_counters=counters,
+                postconditions=postconditions,
+            )
+        else:
+            terminal = ContinuousJob4TerminalEvidenceV3.build(
+                execution_status=status,
+                provider_calls=provider_calls,
+                capability_ledger=ContinuousJob4CapabilityCustody().evidence,
+                postconditions=postconditions,
+                thread_archival_evidence=thread_archival_evidence,
+            )
         effects = terminal.effect_evidence.canonical_effects
         detail = {
             "cycle_id": self.cycle_id,
@@ -658,6 +683,24 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             ),
             "active_route_unchanged": postconditions.active_route_changes == 0,
             "thread_archival": dict(postconditions.thread_archival),
+            "thread_archival_evidence": (
+                None
+                if thread_archival_evidence is None
+                else {
+                    role: evidence.to_dict()
+                    for role, evidence in thread_archival_evidence.items()
+                }
+            ),
+            "capability_ledger": (
+                None
+                if thread_archival_evidence is None
+                else terminal.capability_ledger.to_dict()
+            ),
+            "capability_ledger_sha256": (
+                None
+                if thread_archival_evidence is None
+                else terminal.capability_ledger.sha256
+            ),
             "terminal_evidence": terminal.to_dict(),
             "terminal_evidence_sha256": terminal.sha256,
             "calls": [],
@@ -1202,6 +1245,7 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             "unittest_result_collection",
             "active_profile_after",
             "sqlite_inspection",
+            "archive_evidence_construction",
             "terminal_evidence_construction",
             "terminal_evidence_serialization",
             "report_construction",
@@ -1444,11 +1488,33 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                 detail = json.loads(
                     (runtime / "JOB4_DETAIL.json").read_text(encoding="utf-8")
                 )
+                terminal = decode_continuous_job4_terminal_evidence(
+                    json.loads(
+                        (self.source / "JOB4_TERMINAL_EVIDENCE.json").read_text(
+                            encoding="utf-8"
+                        )
+                    )
+                )
+                self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV3)
                 self.assertEqual(
                     result["status"], "failed" if started_recovery else "completed"
                 )
                 self.assertEqual(result["effects"]["provider_calls"], 0)
                 self.assertEqual(detail["scripted_transport_invocations"], 0)
+                self.assertEqual(
+                    detail["thread_archival_evidence"],
+                    {
+                        role: terminal.thread_archival_evidence[role].to_dict()
+                        for role in ("planner", "validator")
+                    },
+                )
+                self.assertEqual(
+                    detail["thread_archival"],
+                    {
+                        role: terminal.thread_archival_evidence[role].verified
+                        for role in ("planner", "validator")
+                    },
+                )
                 if started_recovery:
                     self.assertEqual(detail["failure"]["stage"], "restart_recovery")
                     self.assertEqual(detail["preflight_resolved_tests"], 0)
@@ -1464,6 +1530,19 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     state["state"], review_cycle.STATE_RESPONSE_PENDING
+                )
+                recovered = review_cycle.recover_cycle(
+                    self.cycle, repository_root_path=self.root
+                )
+                self.assertEqual(
+                    recovered["state"], review_cycle.STATE_RESPONSE_PENDING
+                )
+                copied_terminal = (
+                    self.cycle / "artifacts" / "JOB4_TERMINAL_EVIDENCE.json"
+                )
+                self.assertEqual(
+                    copied_terminal.read_bytes(),
+                    (self.source / "JOB4_TERMINAL_EVIDENCE.json").read_bytes(),
                 )
 
     def test_28e_complete_job4_rejects_legacy_canary_fields(self) -> None:
@@ -1693,6 +1772,90 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             review_cycle.recover_cycle(
                 self.cycle, repository_root_path=self.root
             )
+
+    def test_28l_terminal_v3_archival_custody_crosses_real_chain(self) -> None:
+        self.publish()
+        self.record_trigger()
+        archival = {
+            role.value: ContinuousThreadArchiveEvidenceV1(
+                role=role,
+                provider_thread_id_sha256=text_sha256(
+                    f"pro-review-terminal-v3-{role.value}"
+                ),
+                archive_reason_sha256=text_sha256(
+                    "pro-review-terminal-v3-complete"
+                ),
+                archive_request_completed=True,
+                resume_succeeded_after_archive=False,
+                backend_selectable_after_archive=False,
+                coordinator_selectable_as_accepted_ancestry=False,
+            )
+            for role in (
+                ContinuousSessionRole.PLANNER,
+                ContinuousSessionRole.VALIDATOR,
+            )
+        }
+        self.write_canary_job4_result(
+            status="completed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=10,
+            thread_archival_evidence=archival,
+        )
+        terminal_path = self.source / "JOB4_TERMINAL_EVIDENCE.json"
+        result_path = self.source / "JOB4_RESULT.json"
+        exact_terminal = terminal_path.read_bytes()
+        exact_result = result_path.read_bytes()
+        terminal_raw = json.loads(exact_terminal)
+        for label, mutate in (
+            (
+                "missing_role",
+                lambda value: value["thread_archival_evidence"].pop("planner"),
+            ),
+            (
+                "role_mismatch",
+                lambda value: value["thread_archival_evidence"].__setitem__(
+                    "planner", value["thread_archival_evidence"]["validator"]
+                ),
+            ),
+            (
+                "extra_role",
+                lambda value: value["thread_archival_evidence"].__setitem__(
+                    "observer", value["thread_archival_evidence"]["planner"]
+                ),
+            ),
+        ):
+            with self.subTest(label=label):
+                changed = json.loads(json.dumps(terminal_raw))
+                mutate(changed)
+                terminal_path.write_bytes(canonical_bytes(changed))
+                changed_result = json.loads(exact_result)
+                changed_result["terminal_evidence_sha256"] = self._hash(
+                    terminal_path
+                )
+                result_path.write_bytes(canonical_bytes(changed_result) + b"\n")
+                with self.assertRaisesRegex(
+                    review_cycle.CycleError, "terminal evidence is invalid"
+                ):
+                    review_cycle.complete_job4(
+                        self.cycle,
+                        stability_delay_milliseconds=0,
+                        repository_root_path=self.root,
+                    )
+                terminal_path.write_bytes(exact_terminal)
+                result_path.write_bytes(exact_result)
+
+        review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        copied = self.cycle / "artifacts" / "JOB4_TERMINAL_EVIDENCE.json"
+        self.assertEqual(copied.read_bytes(), exact_terminal)
+        recovered = review_cycle.recover_cycle(
+            self.cycle, repository_root_path=self.root
+        )
+        self.assertEqual(recovered["state"], review_cycle.STATE_RESPONSE_PENDING)
 
     def test_29_placeholder_or_bodyless_response_is_rejected(self) -> None:
         self.publish()

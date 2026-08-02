@@ -27,13 +27,21 @@ for import_root in (SOURCE_ROOT, ROOT):
 from cera.continuous.job4_terminal import (
     ContinuousJob4CapabilityCustody,
     ContinuousJob4PostconditionsV1,
-    ContinuousJob4TerminalEvidenceV2,
+    ContinuousJob4TerminalEvidenceV3,
 )
 from cera.continuous.job4_transaction import (
     ContinuousJob4TerminalTransactionV1,
     ContinuousJob4TransactionError,
 )
 from cera.serialization import canonical_sha256
+from cera.continuous.sessions import (
+    ContinuousSessionCompatibilityV1,
+    ContinuousSessionCoordinator,
+    ContinuousSessionRole,
+    ContinuousThreadArchiveEvidenceV1,
+    InMemoryContinuousStoredSessionPort,
+    unavailable_thread_archive_evidence,
+)
 from scripts.run_continuous_corrections_v10_job4 import (
     RecordingResult,
     inspect_active_profile,
@@ -112,6 +120,18 @@ CASES = (
         "tests.test_active_runtime_profile.ActiveRuntimeProfileTests."
         "test_all_active_source_bindings_match_the_canonical_profile",
     ),
+    (
+        10,
+        "Terminal v3 owns complete archival DTOs and derived status",
+        "tests.test_continuous_job4_harness.ContinuousJob4HarnessTests."
+        "test_terminal_v3_owns_complete_archival_dtos_and_derived_status",
+    ),
+    (
+        11,
+        "Archival custody crosses completion receipt and recovery",
+        "tests.test_pro_review_bridge.ProReviewRepositoryCycleTests."
+        "test_28l_terminal_v3_archival_custody_crosses_real_chain",
+    ),
 )
 
 _TEST_FIXTURE_CASES = (
@@ -138,6 +158,7 @@ FAILPOINTS = frozenset(
         "unittest_result_collection",
         "active_profile_after",
         "sqlite_inspection",
+        "archive_evidence_construction",
         "terminal_evidence_construction",
         "terminal_evidence_serialization",
         "report_construction",
@@ -227,12 +248,70 @@ def _empty_database_evidence() -> dict[str, object]:
     }
 
 
+def _audit_compatibility(
+    role: ContinuousSessionRole,
+) -> ContinuousSessionCompatibilityV1:
+    return ContinuousSessionCompatibilityV1(
+        schema_version=ContinuousSessionCompatibilityV1.SCHEMA_VERSION,
+        world_id="world:continuous-corrections-v12-audit",
+        branch_id="branch:provider-free",
+        role=role,
+        provider="provider_free_in_memory",
+        model="none",
+        reasoning_effort="none",
+        prompt_version="cera.continuous_corrections_v12_audit_prompt.v1",
+        output_schema_version="cera.continuous_corrections_v12_audit_output.v1",
+        world_directory_identity_sha256=canonical_sha256(
+            "continuous-corrections-v12-audit-world"
+        ),
+        authority_policy_version="cera.owner_architecture.v2+d199",
+        privacy_policy_version="cera.privacy.v1",
+        protected_user_policy_version="cera.continuous_protected_user_policy.v8",
+        session_policy_version="cera.continuous_session_policy.v8",
+        ingress_classifier_registry_sha256=canonical_sha256(
+            "continuous-corrections-v12-audit-ingress"
+        ),
+        persistence_policy_sha256=canonical_sha256(
+            "continuous-corrections-v12-audit-persistence"
+        ),
+    )
+
+
+def _unavailable_archive_pair(
+    error_type: str,
+) -> dict[str, ContinuousThreadArchiveEvidenceV1]:
+    return {
+        role.value: unavailable_thread_archive_evidence(
+            role, error_type=error_type
+        )
+        for role in (ContinuousSessionRole.PLANNER, ContinuousSessionRole.VALIDATOR)
+    }
+
+
+def _provider_free_audit_archive_pair(
+) -> dict[str, ContinuousThreadArchiveEvidenceV1]:
+    port = InMemoryContinuousStoredSessionPort()
+    evidence: dict[str, ContinuousThreadArchiveEvidenceV1] = {}
+    for role in (ContinuousSessionRole.PLANNER, ContinuousSessionRole.VALIDATOR):
+        coordinator = ContinuousSessionCoordinator(
+            compatibility=_audit_compatibility(role),
+            port=port,
+        )
+        coordinator.ensure_session()
+        record = coordinator.archive_and_verify_terminal(
+            "provider_free_corrections_v12_audit_complete"
+        )
+        evidence[role.value] = record
+    return evidence
+
+
 def _postconditions(
     *,
     database: dict[str, object],
     profile_before: str | None,
     profile_after: str | None,
     profile_status: str,
+    thread_archival: dict[str, bool],
     scripted_completed: bool,
     scripted_transport_invocations: int,
 ) -> ContinuousJob4PostconditionsV1:
@@ -247,10 +326,7 @@ def _postconditions(
         active_profile_sha256_before=profile_before,
         active_profile_sha256_after=profile_after,
         active_profile_inspection_status=profile_status,
-        thread_archival={
-            "planner": scripted_completed,
-            "validator": scripted_completed,
-        },
+        thread_archival=thread_archival,
         accepted_session_synchronized=scripted_completed,
         accepted_final_sequences_injected=scripted_completed,
         call_ledger_dispatches=scripted_transport_invocations,
@@ -306,6 +382,7 @@ def main() -> int:
     fault = _AuditFaultInjector(args.provider_free_test_failpoint)
     capability_ledger = ContinuousJob4CapabilityCustody().evidence
     database = _empty_database_evidence()
+    thread_archival_evidence = _unavailable_archive_pair("NotExecuted")
     profile_before: str | None = None
     profile_after: str | None = None
     profile_status = "failed"
@@ -365,6 +442,8 @@ def main() -> int:
 
             fault.hit("sqlite_inspection")
             database = sqlite_check(args.source_database.resolve())
+            fault.hit("archive_evidence_construction")
+            thread_archival_evidence = _provider_free_audit_archive_pair()
         except BaseException as exc:
             failure = exc
             failure_stage = (
@@ -417,26 +496,32 @@ def main() -> int:
         profile_before=profile_before,
         profile_after=profile_after,
         profile_status=profile_status,
+        thread_archival={
+            role: thread_archival_evidence[role].verified
+            for role in ("planner", "validator")
+        },
         scripted_completed=scripted_completed,
         scripted_transport_invocations=scripted_transport_invocations,
     )
     try:
         fault.hit("terminal_evidence_construction")
-        terminal = ContinuousJob4TerminalEvidenceV2.build(
+        terminal = ContinuousJob4TerminalEvidenceV3.build(
             execution_status="completed" if execution_completed else "failed",
             provider_calls=0,
             capability_ledger=capability_ledger,
             postconditions=postconditions,
+            thread_archival_evidence=thread_archival_evidence,
         )
     except BaseException as exc:
         if failure is None:
             failure = exc
             failure_stage = "terminal_evidence_construction"
-        terminal = ContinuousJob4TerminalEvidenceV2.build(
+        terminal = ContinuousJob4TerminalEvidenceV3.build(
             execution_status="failed",
             provider_calls=0,
             capability_ledger=capability_ledger,
             postconditions=postconditions,
+            thread_archival_evidence=thread_archival_evidence,
         )
 
     detail: dict[str, Any] = {
@@ -457,6 +542,10 @@ def main() -> int:
         "copy_database_unchanged": database_passed,
         "active_route_unchanged": postconditions.active_route_changes == 0,
         "thread_archival": dict(postconditions.thread_archival),
+        "thread_archival_evidence": {
+            role: thread_archival_evidence[role].to_dict()
+            for role in ("planner", "validator")
+        },
         "capability_ledger": capability_ledger.to_dict(),
         "capability_ledger_sha256": capability_ledger.sha256,
         "calls": [],

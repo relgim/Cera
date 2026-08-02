@@ -2,19 +2,37 @@
 
 **Updated:** 2026-08-01
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-199 provider-free continuous Planner/Validator correction cycle 012 Progression 1; D-180 remains active
+**Phase:** D-199 provider-free continuous Planner/Validator correction cycle 012 Progressions 1-2; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** D-199 exact Stage 4 transaction/recovery gates pass provider-free; complete-suite qualification remains in Progression 3
+**Provider-free current verification:** D-199 exact Stage 4 transaction and immutable archival-custody gates pass provider-free; complete-suite qualification remains in Progression 3
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
 **D-186/D-199 shadow continuity work:** all earlier canary/audit evidence remains immutable; Cycle 012 Progression 1 moves the exact correction audit runner onto the shared root transaction and adds report/result/terminal/commit publication recovery; active route unchanged
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
+
+- D-199 Progression 2 is complete provider-free. Terminal evidence v3 embeds
+  both complete `ContinuousThreadArchiveEvidenceV1` records alongside existing
+  postconditions and capability custody. Planner/Validator archival booleans
+  are derived from those DTOs and cannot contradict them.
+- The live/scripted canary preserves its actual session archival records. The
+  exact Stage 4 audit runner creates and archives two provider-free in-memory
+  role sessions; failure before that point still emits two complete negative
+  custody records rather than missing evidence.
+- Resume success, backend selectability, unknown outcomes, missing roles, role
+  swaps, and verification errors force terminal failure. Exact v3 bytes are
+  stable-read, copied, receipt-bound, completed-chain validated, and recovered
+  through the existing terminal-artifact chain. Historical v1/v2 terminal
+  evidence remains decodable.
+- Focused verification passes the 29-test continuous Job 4 harness, the exact
+  V12 failure/success/restart matrix, v3 adversarial completion/recovery tests,
+  and the shared actual-CLI failure matrix. The next authorized job is
+  `continuous-enforced-capability-boundary-and-canary-readiness-v12`.
 
 - D-199 Progression 1 is complete provider-free. The exact correction-cycle
   Stage 4 runner now creates `ContinuousJob4TerminalTransactionV1` before
@@ -30,9 +48,9 @@
   real `complete-job4`, completed-chain recovery, and shared canary publication
   matrix pass. Compilation, documentation/source inventory, active-profile
   validation, and diff checks pass with zero external provider calls.
-- The next authorized job is
-  `continuous-archive-evidence-immutable-custody-v12`. Cycle 012 remains
-  unpublished; no provider dispatch is authorized.
+- Progression 1's next-job note is superseded by the completed Progression 2
+  status above. Cycle 012 remains unpublished; no provider dispatch is
+  authorized.
 
 - D-198 Progression 3 is complete provider-free. Live and scripted stored-thread
   archival now share one closed typed contract requiring archive-request

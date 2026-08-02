@@ -182,6 +182,31 @@ class ContinuousThreadArchiveEvidenceV1:
         return instance
 
 
+def unavailable_thread_archive_evidence(
+    role: ContinuousSessionRole,
+    *,
+    error_type: str = "Unavailable",
+) -> ContinuousThreadArchiveEvidenceV1:
+    """Build complete negative custody when no terminal handle was available."""
+
+    return ContinuousThreadArchiveEvidenceV1(
+        role=role,
+        provider_thread_id_sha256=text_sha256(
+            f"continuous-job4-unavailable-{role.value}"
+        ),
+        archive_reason_sha256=text_sha256(
+            "continuous_job4_terminal_archive_evidence_unavailable"
+        ),
+        archive_request_completed=False,
+        resume_succeeded_after_archive=None,
+        backend_selectable_after_archive=None,
+        coordinator_selectable_as_accepted_ancestry=False,
+        archive_error_type=error_type,
+        resume_error_type=None,
+        selection_error_type=None,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ContinuousSessionCompatibilityV1:
     SCHEMA_VERSION: ClassVar[str] = "cera.continuous_session_compatibility.v2"

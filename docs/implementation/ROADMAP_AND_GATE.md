@@ -1010,9 +1010,14 @@ frozen publication owns audit report construction, terminal/result
 serialization, canonical projection, report/result/terminal writes, and the
 commit marker. Seventeen exact failure boundaries, started/frozen recovery,
 real completion/recovery, and committed rerun refusal are qualified
-provider-free. Progressions 2 and 3 must still add immutable per-role archival
-DTO custody and an enforceable process capability boundary before Cycle 012
-publication. D-180 remains active; no provider, live-story, production
+provider-free. Progression 2, `continuous-archive-evidence-immutable-custody-v12`,
+adds terminal evidence v3 with complete closed Planner/Validator archive DTOs.
+Their derived verification states are the only source of archival booleans;
+the exact bytes cross stable read, artifact copy, completion receipt,
+completed-chain validation, and recovery. Missing, role-mismatched, resumable,
+selectable, unknown, or errored outcomes force failure. Progression 3 must still
+add an enforceable process capability boundary before Cycle 012 publication.
+D-180 remains active; no provider, live-story, production
 database, route, service, installed-client, deployment, merge, remote, or push
 effect is authorized.
 

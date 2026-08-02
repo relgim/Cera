@@ -8,6 +8,8 @@ from typing import Any, Mapping
 
 from cera.serialization import canonical_sha256
 
+from .sessions import ContinuousThreadArchiveEvidenceV1
+
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 
@@ -801,8 +803,169 @@ class ContinuousJob4TerminalEvidenceV2:
         return rebuilt
 
 
+@dataclass(frozen=True, slots=True)
+class ContinuousJob4TerminalEvidenceV3:
+    """Terminal custody including complete per-role archival evidence."""
+
+    execution_status: str
+    effect_evidence: ContinuousJob4EffectEvidenceV1
+    postconditions: ContinuousJob4PostconditionsV1
+    capability_ledger: ContinuousJob4CapabilityLedgerV1
+    thread_archival_evidence: Mapping[
+        str, ContinuousThreadArchiveEvidenceV1
+    ]
+    status: str
+    failure_codes: tuple[str, ...]
+
+    SCHEMA_VERSION = "cera.continuous_job4_terminal_evidence.v3"
+
+    def __post_init__(self) -> None:
+        archival = _closed(
+            self.thread_archival_evidence,
+            {"planner", "validator"},
+            "terminal thread archival evidence",
+        )
+        derived: dict[str, bool] = {}
+        for role in ("planner", "validator"):
+            evidence = archival[role]
+            if not isinstance(evidence, ContinuousThreadArchiveEvidenceV1):
+                raise ValueError(
+                    f"terminal thread archival evidence is invalid: {role}"
+                )
+            if evidence.role.value != role:
+                raise ValueError(
+                    f"terminal thread archival evidence role changed: {role}"
+                )
+            derived[role] = evidence.verified
+        if dict(self.postconditions.thread_archival) != derived:
+            raise ValueError(
+                "thread archival postconditions are not derived from evidence"
+            )
+
+    @property
+    def sha256(self) -> str:
+        return canonical_sha256(self.to_dict())
+
+    @classmethod
+    def build(
+        cls,
+        *,
+        execution_status: str,
+        provider_calls: int,
+        capability_ledger: ContinuousJob4CapabilityLedgerV1,
+        postconditions: ContinuousJob4PostconditionsV1,
+        thread_archival_evidence: Mapping[
+            str, ContinuousThreadArchiveEvidenceV1
+        ],
+    ) -> "ContinuousJob4TerminalEvidenceV3":
+        if execution_status not in {"completed", "failed"}:
+            raise ValueError("execution status must be completed or failed")
+        effects = ContinuousJob4EffectEvidenceV1(
+            provider_calls=provider_calls,
+            active_route_changes=max(
+                postconditions.active_route_changes,
+                capability_ledger.active_route_mutations,
+            ),
+            operational_counters=capability_ledger.operational_counters,
+        )
+        failures = list(postconditions.failure_codes(provider_calls))
+        if execution_status != "completed":
+            failures.insert(0, "execution_not_completed")
+        if effects.canonical_effects["story_database_writes"]:
+            failures.append("story_database_effect_detected")
+        if effects.active_route_changes:
+            failures.append("active_route_effect_detected")
+        if effects.canonical_effects["deployment_remote_or_push_effects"]:
+            failures.append("prohibited_operational_effect_detected")
+        unique_failures = tuple(dict.fromkeys(failures))
+        return cls(
+            execution_status=execution_status,
+            effect_evidence=effects,
+            postconditions=postconditions,
+            capability_ledger=capability_ledger,
+            thread_archival_evidence=thread_archival_evidence,
+            status="completed" if not unique_failures else "failed",
+            failure_codes=unique_failures,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.SCHEMA_VERSION,
+            "execution_status": self.execution_status,
+            "effect_evidence": self.effect_evidence.to_dict(),
+            "postconditions": self.postconditions.to_dict(),
+            "capability_ledger": self.capability_ledger.to_dict(),
+            "thread_archival_evidence": {
+                role: self.thread_archival_evidence[role].to_dict()
+                for role in ("planner", "validator")
+            },
+            "status": self.status,
+            "failure_codes": list(self.failure_codes),
+        }
+
+    @classmethod
+    def from_dict(cls, raw: object) -> "ContinuousJob4TerminalEvidenceV3":
+        value = _closed(
+            raw,
+            {
+                "schema_version",
+                "execution_status",
+                "effect_evidence",
+                "postconditions",
+                "capability_ledger",
+                "thread_archival_evidence",
+                "status",
+                "failure_codes",
+            },
+            "terminal evidence v3",
+        )
+        if value["schema_version"] != cls.SCHEMA_VERSION:
+            raise ValueError("terminal evidence v3 schema version changed")
+        if not isinstance(value["failure_codes"], list) or not all(
+            isinstance(item, str) and item for item in value["failure_codes"]
+        ):
+            raise ValueError("terminal failure_codes must be a string array")
+        archival_raw = _closed(
+            value["thread_archival_evidence"],
+            {"planner", "validator"},
+            "terminal thread archival evidence",
+        )
+        try:
+            archival = {
+                role: ContinuousThreadArchiveEvidenceV1.from_dict(
+                    archival_raw[role]
+                )
+                for role in ("planner", "validator")
+            }
+        except Exception as exc:
+            raise ValueError("terminal thread archival evidence is invalid") from exc
+        supplied_effects = ContinuousJob4EffectEvidenceV1.from_dict(
+            value["effect_evidence"]
+        )
+        rebuilt = cls.build(
+            execution_status=value["execution_status"],
+            provider_calls=supplied_effects.provider_calls,
+            capability_ledger=ContinuousJob4CapabilityLedgerV1.from_dict(
+                value["capability_ledger"]
+            ),
+            postconditions=ContinuousJob4PostconditionsV1.from_dict(
+                value["postconditions"]
+            ),
+            thread_archival_evidence=archival,
+        )
+        if supplied_effects != rebuilt.effect_evidence:
+            raise ValueError("effect evidence contradicts capability custody")
+        if value["status"] != rebuilt.status:
+            raise ValueError("terminal status contradicts mandatory evidence")
+        if tuple(value["failure_codes"]) != rebuilt.failure_codes:
+            raise ValueError("terminal failure codes contradict mandatory evidence")
+        return rebuilt
+
+
 ContinuousJob4TerminalEvidence = (
-    ContinuousJob4TerminalEvidenceV1 | ContinuousJob4TerminalEvidenceV2
+    ContinuousJob4TerminalEvidenceV1
+    | ContinuousJob4TerminalEvidenceV2
+    | ContinuousJob4TerminalEvidenceV3
 )
 
 
@@ -816,12 +979,22 @@ def decode_continuous_job4_terminal_evidence(
         return ContinuousJob4TerminalEvidenceV1.from_dict(raw)
     if version == ContinuousJob4TerminalEvidenceV2.SCHEMA_VERSION:
         return ContinuousJob4TerminalEvidenceV2.from_dict(raw)
+    if version == ContinuousJob4TerminalEvidenceV3.SCHEMA_VERSION:
+        return ContinuousJob4TerminalEvidenceV3.from_dict(raw)
     raise ValueError("terminal evidence schema version is unsupported")
 
 
 def rebuild_failed_continuous_job4_terminal_evidence(
     terminal: ContinuousJob4TerminalEvidence,
 ) -> ContinuousJob4TerminalEvidence:
+    if isinstance(terminal, ContinuousJob4TerminalEvidenceV3):
+        return ContinuousJob4TerminalEvidenceV3.build(
+            execution_status="failed",
+            provider_calls=terminal.effect_evidence.provider_calls,
+            capability_ledger=terminal.capability_ledger,
+            postconditions=terminal.postconditions,
+            thread_archival_evidence=terminal.thread_archival_evidence,
+        )
     if isinstance(terminal, ContinuousJob4TerminalEvidenceV2):
         return ContinuousJob4TerminalEvidenceV2.build(
             execution_status="failed",

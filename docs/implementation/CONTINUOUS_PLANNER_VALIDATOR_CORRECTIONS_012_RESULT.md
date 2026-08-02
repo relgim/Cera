@@ -2,7 +2,7 @@
 
 **Decision:** D-199
 
-**Status:** provider-free Progression 1 complete; Progressions 2-3 and Cycle 012 pending
+**Status:** provider-free Progressions 1-2 complete; Progression 3 and Cycle 012 pending
 **Active route:** unchanged `cera.active_runtime.d180.v1`
 
 ## Progression 1 - exact Stage 4 transaction ownership
@@ -38,10 +38,33 @@
 - Story/database, active-route, service, installed-SillyTavern, deployment,
   merge, remote, and push effects: **0**.
 
+## Progression 2 - immutable per-role archival custody
+
+- `cera.continuous_job4_terminal_evidence.v3` adds exact closed Planner and
+  Validator `ContinuousThreadArchiveEvidenceV1` records to the already
+  immutable, hash-bound terminal artifact. Historical v1/v2 decode remains.
+- `thread_archival` postconditions must equal the two DTOs' derived `verified`
+  states. The detailed runner record must match terminal custody exactly.
+- Live/scripted canaries retain actual coordinator archival records. The exact
+  provider-free audit runner creates, archives, and verifies two local role
+  sessions; pre-archive failures produce complete negative evidence for both
+  roles rather than an absent map.
+- Resume success, backend selectability, unknown results, missing roles, role
+  mismatch, and archive/resume/selection errors force terminal failure.
+- Existing stable read, terminal hash, artifact copy, completion receipt,
+  completed-chain validation, and recovery now carry the complete DTO bytes.
+
+Progression 2 verification:
+
+- Continuous Job 4 harness: `29/29 passed` in `24.362` seconds.
+- Exact V12 failure/success/restart and v3 real-chain gate: passed.
+- Shared actual-CLI failure/completion/recovery matrix: passed in `137.598`
+  seconds.
+- External provider calls and all excluded effects: `0`.
+
 ## Remaining Cycle 012 work
 
-Progression 2 must place complete per-role archival DTOs into immutable terminal
-custody. Progression 3 must enforce the closed capability container at the
-actual process/entrypoint boundary and run the complete provider-free gate.
-Cycle 012 publication and its Stage 4 audit remain pending; provider dispatch
-is not authorized.
+Progression 3 must enforce the closed capability container at the actual
+process/entrypoint boundary and run the complete provider-free gate. Cycle 012
+publication and its Stage 4 audit remain pending; provider dispatch is not
+authorized.

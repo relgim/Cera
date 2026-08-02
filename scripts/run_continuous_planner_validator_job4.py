@@ -37,6 +37,7 @@ from cera.continuous.job4_terminal import (
     ContinuousJob4TerminalEvidence,
     ContinuousJob4TerminalEvidenceV1,
     ContinuousJob4TerminalEvidenceV2,
+    ContinuousJob4TerminalEvidenceV3,
     decode_continuous_job4_terminal_evidence,
     rebuild_failed_continuous_job4_terminal_evidence,
 )
@@ -78,6 +79,7 @@ from cera.continuous.sessions import (
     ContinuousThreadArchiveEvidenceV1,
     InMemoryContinuousStoredSessionPort,
     assert_separate_role_sessions,
+    unavailable_thread_archive_evidence,
 )
 from cera.continuous.scripted_job4 import (
     SCRIPTED_JOB4_FIXTURE_ID,
@@ -1133,7 +1135,10 @@ def build_canonical_job4_result(
     for field, expected in duplicate_claims.items():
         if result.get(field) != expected:
             raise ValueError(f"detailed result contradicts terminal evidence: {field}")
-    if isinstance(terminal, ContinuousJob4TerminalEvidenceV2):
+    if isinstance(
+        terminal,
+        (ContinuousJob4TerminalEvidenceV2, ContinuousJob4TerminalEvidenceV3),
+    ):
         if (
             result.get("capability_ledger") != terminal.capability_ledger.to_dict()
             or result.get("capability_ledger_sha256")
@@ -1160,7 +1165,21 @@ def build_canonical_job4_result(
         terminal.postconditions.thread_archival
     ):
         raise ValueError("thread archival summary contradicts terminal evidence")
-    archival_evidence = result.get("thread_archival_evidence")
+    archival_evidence = (
+        {
+            role: terminal.thread_archival_evidence[role].to_dict()
+            for role in ("planner", "validator")
+        }
+        if isinstance(terminal, ContinuousJob4TerminalEvidenceV3)
+        else result.get("thread_archival_evidence")
+    )
+    if (
+        isinstance(terminal, ContinuousJob4TerminalEvidenceV3)
+        and result.get("thread_archival_evidence") != archival_evidence
+    ):
+        raise ValueError(
+            "detailed thread archival custody contradicts terminal evidence"
+        )
     if archival_evidence is not None:
         if not isinstance(archival_evidence, dict) or set(archival_evidence) != {
             "planner",
@@ -1217,6 +1236,42 @@ def build_canonical_job4_result(
             },
         ],
     }
+
+
+def _complete_thread_archival_evidence(
+    result: dict[str, Any],
+) -> dict[str, ContinuousThreadArchiveEvidenceV1]:
+    """Normalize both role records without converting absence into success."""
+
+    raw = result.get("thread_archival_evidence")
+    shape_valid = isinstance(raw, dict) and set(raw) == {"planner", "validator"}
+    supplied = raw if shape_valid else {}
+    evidence: dict[str, ContinuousThreadArchiveEvidenceV1] = {}
+    for role in (ContinuousSessionRole.PLANNER, ContinuousSessionRole.VALIDATOR):
+        candidate = supplied.get(role.value)
+        try:
+            decoded = ContinuousThreadArchiveEvidenceV1.from_dict(candidate)
+            if decoded.role is not role:
+                raise ValueError("archive evidence role changed")
+        except Exception as exc:
+            if raw is not None and not shape_valid:
+                error_type = "ArchiveEvidenceMapFieldsChanged"
+            elif candidate is None:
+                error_type = "MissingArchiveEvidence"
+            else:
+                error_type = type(exc).__name__
+            decoded = unavailable_thread_archive_evidence(
+                role,
+                error_type=error_type,
+            )
+        evidence[role.value] = decoded
+    result["thread_archival_evidence"] = {
+        role: evidence[role].to_dict() for role in ("planner", "validator")
+    }
+    result["thread_archival"] = {
+        role: evidence[role].verified for role in ("planner", "validator")
+    }
+    return evidence
 
 
 def execute_job4_schedule(
@@ -2235,16 +2290,11 @@ def main() -> int:
     ) != 64:
         active_runtime_before_sha256 = None
         active_profile_inspection_status = "failed"
-    thread_archival = result.get("thread_archival")
-    if not isinstance(thread_archival, dict) or set(thread_archival) != {
-        "planner",
-        "validator",
-    }:
-        thread_archival = {"planner": False, "validator": False}
-        result["thread_archival"] = thread_archival
-    thread_archival_evidence = result.get("thread_archival_evidence")
-    if not isinstance(thread_archival_evidence, dict):
-        result["thread_archival_evidence"] = {}
+    thread_archival_evidence = _complete_thread_archival_evidence(result)
+    thread_archival = {
+        role: thread_archival_evidence[role].verified
+        for role in ("planner", "validator")
+    }
     result["accepted_final_sequences_injected"] = (
         len(result.get("turns", [])) == 3
         and all(
@@ -2293,11 +2343,12 @@ def main() -> int:
     execution_status = result.get("execution_status")
     if execution_status not in {"completed", "failed"}:
         execution_status = "failed"
-    terminal = ContinuousJob4TerminalEvidenceV2.build(
+    terminal = ContinuousJob4TerminalEvidenceV3.build(
         execution_status=execution_status,
         provider_calls=provider_calls,
         capability_ledger=capability_ledger,
         postconditions=postconditions,
+        thread_archival_evidence=thread_archival_evidence,
     )
     _apply_terminal_evidence(result, terminal=terminal)
     canonical_result = freeze_terminal_publication(
