@@ -904,8 +904,8 @@ def validate_authority(
         cycle,
         manifest,
         "job4_in_progress",
-        "JOB4_STARTED.json",
-        started_sha256,
+        "TRIGGER_SENT.json",
+        trigger_sha256,
     )
     return {
         "manifest": manifest,

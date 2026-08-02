@@ -334,6 +334,10 @@ class ContinuousV3ExecutableReadinessTests(unittest.TestCase):
                 timeout=180,
             )
             self.assertEqual(first.returncode, 1, first.stdout + first.stderr)
+            self.assertTrue(
+                (first_root / "CAMPAIGN_RESULT.json").is_file(),
+                first.stdout + first.stderr,
+            )
             first_result = json.loads(
                 (first_root / "CAMPAIGN_RESULT.json").read_text(encoding="utf-8")
             )
