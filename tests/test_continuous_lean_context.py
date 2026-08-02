@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import replace
 import json
 from pathlib import Path
-import shutil
 from tempfile import TemporaryDirectory
 import unittest
 from unittest import mock
@@ -13,6 +12,7 @@ from cera.continuous.evidence import (
     RequestEvidenceBindingRegistry,
     StableAcceptedContextReferenceStore,
     ValidatorCitedAcceptedEvidenceV1,
+    build_character_summary_envelope,
     build_stable_accepted_context_references,
     project_final_sequence_facts,
     rebind_stable_accepted_context_references_for_reconstruction,
@@ -36,7 +36,7 @@ from cera.continuous.prompting import (
     planner_base_instruction_usage,
 )
 from cera.continuous.sessions import (
-    ContinuousBranchForkReceiptV1,
+    ContinuousBranchForkReceiptV2,
     ContinuousReconstructionAcceptedTurnV1,
     ContinuousSessionCoordinator,
     ContinuousSessionInitializationKind,
@@ -945,12 +945,23 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 (message, "turn-001"),
             )
             port = InMemoryContinuousStoredSessionPort()
-            parent = ContinuousSessionCoordinator(
+            parent_compatibility = replace(
                 session_compatibility(ContinuousSessionRole.PLANNER),
+                world_directory_identity_sha256=(
+                    world.branch_directory_identity_sha256("world-test", "main")
+                ),
+            )
+            parent = ContinuousSessionCoordinator(
+                parent_compatibility,
                 port,
             )
             validator_session = ContinuousSessionCoordinator(
-                session_compatibility(ContinuousSessionRole.VALIDATOR),
+                replace(
+                    session_compatibility(ContinuousSessionRole.VALIDATOR),
+                    world_directory_identity_sha256=(
+                        world.branch_directory_identity_sha256("world-test", "main")
+                    ),
+                ),
                 port,
             )
             parent_runtime = ContinuousShadowTurnCoordinator(
@@ -995,36 +1006,41 @@ class ContinuousLeanContextTests(unittest.TestCase):
             parent_runtime.apply_creator_action(
                 "turn-001", CreatorReviewAction.ACCEPT
             )
+            updated_summary = build_character_summary_envelope(
+                branch_root=world.branch_root("world-test", "main"),
+                source_path="ACTIVE/Characters/Sakura.json",
+                character_id="character:sakura_hanezawa",
+            )
+            parent.record_character_summary_deliveries(
+                (updated_summary,),
+                ("material_revision_change",),
+                planner_prompt_sha256=text_sha256("updated summary prompt"),
+            )
 
             parent_root = world.branch_root("world-test", "main")
-            child_root = world.initialize("world-test", "child")
             pair = world.accepted_turn_pairs(
                 "world-test", "main", ("turn-001",)
             )[0]
-            world.write_accepted_pair("world-test", "child", pair)
-            source_receipt_path = (
-                parent_root
-                / "CANDIDATES"
-                / "turn-001"
-                / "PROMOTION_RECEIPT.json"
-            )
-            target_receipt_path = (
-                child_root
-                / "CANDIDATES"
-                / "turn-001"
-                / "PROMOTION_RECEIPT.json"
-            )
-            target_receipt_path.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source_receipt_path, target_receipt_path)
 
             target = replace(
-                session_compatibility(ContinuousSessionRole.PLANNER),
+                parent_compatibility,
                 branch_id="child",
-                world_directory_identity_sha256=text_sha256("world-test/child"),
+                world_directory_identity_sha256=(
+                    world.branch_directory_identity_sha256("world-test", "child")
+                ),
             )
-            custody = branch_receipt(parent, "child")
+            materialization = parent_runtime.materialize_planner_branch(
+                target_compatibility=target
+            )
+            child_root = world.branch_root("world-test", "child")
+            custody = branch_receipt(
+                parent,
+                "child",
+                materialization_receipt_sha256=materialization.receipt_sha256,
+            )
             forked = parent_runtime.fork_planner_session_for_branch(
                 target_compatibility=target,
+                materialization_receipt=materialization,
                 branch_receipt=custody,
             )
             child = forked.coordinator
@@ -1110,8 +1126,10 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 replace(
                     session_compatibility(ContinuousSessionRole.VALIDATOR),
                     branch_id="child",
-                    world_directory_identity_sha256=text_sha256(
-                        "world-test/child"
+                    world_directory_identity_sha256=(
+                        world.branch_directory_identity_sha256(
+                            "world-test", "child"
+                        )
                     ),
                 ),
                 port,
@@ -1230,25 +1248,26 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 forked.transfer_receipt.operation_receipt_sha256,
             )
 
-            def seed_child_checkpoint(branch_id: str) -> Path:
-                seeded = world.initialize("world-test", branch_id)
-                world.write_accepted_pair("world-test", branch_id, pair)
-                target_receipt = (
-                    seeded
-                    / "CANDIDATES"
-                    / "turn-001"
-                    / "PROMOTION_RECEIPT.json"
-                )
-                target_receipt.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source_receipt_path, target_receipt)
-                return seeded
-
-            persistence_root = seed_child_checkpoint("child-persistence-failure")
             persistence_target = replace(
                 target,
                 branch_id="child-persistence-failure",
-                world_directory_identity_sha256=text_sha256(
-                    "world-test/child-persistence-failure"
+                world_directory_identity_sha256=(
+                    world.branch_directory_identity_sha256(
+                        "world-test", "child-persistence-failure"
+                    )
+                ),
+            )
+            persistence_materialization = parent_runtime.materialize_planner_branch(
+                target_compatibility=persistence_target
+            )
+            persistence_root = world.branch_root(
+                "world-test", "child-persistence-failure"
+            )
+            persistence_custody = branch_receipt(
+                parent,
+                "child-persistence-failure",
+                materialization_receipt_sha256=(
+                    persistence_materialization.receipt_sha256
                 ),
             )
             with mock.patch.object(
@@ -1261,9 +1280,8 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 ):
                     parent_runtime.fork_planner_session_for_branch(
                         target_compatibility=persistence_target,
-                        branch_receipt=branch_receipt(
-                            parent, "child-persistence-failure"
-                        ),
+                        materialization_receipt=persistence_materialization,
+                        branch_receipt=persistence_custody,
                     )
             self.assertFalse(
                 (
@@ -1274,12 +1292,26 @@ class ContinuousLeanContextTests(unittest.TestCase):
             )
             self.assertIs(parent_runtime.planner_session, parent)
 
-            injection_root = seed_child_checkpoint("child-injection-failure")
             injection_target = replace(
                 target,
                 branch_id="child-injection-failure",
-                world_directory_identity_sha256=text_sha256(
-                    "world-test/child-injection-failure"
+                world_directory_identity_sha256=(
+                    world.branch_directory_identity_sha256(
+                        "world-test", "child-injection-failure"
+                    )
+                ),
+            )
+            injection_materialization = parent_runtime.materialize_planner_branch(
+                target_compatibility=injection_target
+            )
+            injection_root = world.branch_root(
+                "world-test", "child-injection-failure"
+            )
+            injection_custody = branch_receipt(
+                parent,
+                "child-injection-failure",
+                materialization_receipt_sha256=(
+                    injection_materialization.receipt_sha256
                 ),
             )
             original_append = port.append_context
@@ -1301,9 +1333,8 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 ):
                     parent_runtime.fork_planner_session_for_branch(
                         target_compatibility=injection_target,
-                        branch_receipt=branch_receipt(
-                            parent, "child-injection-failure"
-                        ),
+                        materialization_receipt=injection_materialization,
+                        branch_receipt=injection_custody,
                     )
             self.assertFalse(
                 any(
@@ -1365,9 +1396,12 @@ class ContinuousLeanContextTests(unittest.TestCase):
                         valid.parent_provider_thread_sha256
                     ),
                     "privacy_boundary_sha256": valid.privacy_boundary_sha256,
+                    "branch_materialization_receipt_sha256": (
+                        valid.branch_materialization_receipt_sha256
+                    ),
                     **changes,
                 }
-                forged = ContinuousBranchForkReceiptV1(
+                forged = ContinuousBranchForkReceiptV2(
                     **payload,
                     receipt_sha256=canonical_sha256(payload),
                 )

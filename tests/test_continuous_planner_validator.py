@@ -31,7 +31,7 @@ from cera.continuous.provider import (
 )
 from cera.continuous import AcceptedTurnPairV1, ValidatorSemanticStatus, ValidatorTaskMode
 from cera.continuous.sessions import (
-    ContinuousBranchForkReceiptV1,
+    ContinuousBranchForkReceiptV2,
     ContinuousSessionCompatibilityV1,
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
@@ -194,7 +194,9 @@ def compatibility(role: ContinuousSessionRole, branch: str = "branch:main") -> C
 def branch_receipt(
     planner: ContinuousSessionCoordinator,
     child_branch: str,
-) -> ContinuousBranchForkReceiptV1:
+    *,
+    materialization_receipt_sha256: str | None = None,
+) -> ContinuousBranchForkReceiptV2:
     snapshot = planner.snapshot()
     return planner.build_branch_fork_receipt(
         replace(
@@ -203,7 +205,10 @@ def branch_receipt(
             world_directory_identity_sha256=text_sha256(
                 f"{snapshot.compatibility.world_id}/{child_branch}"
             ),
-        )
+        ),
+        branch_materialization_receipt_sha256=(
+            materialization_receipt_sha256 or text_sha256("test materialization")
+        ),
     )
 
 

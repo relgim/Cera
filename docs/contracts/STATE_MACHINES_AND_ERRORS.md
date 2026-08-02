@@ -81,11 +81,20 @@ Exact replay of an accepted request/generation returns its stored artifact and c
 
 ```text
 branch main at artifact B
--> fork branch X at B
--> fork branch Y at B
+-> atomically materialize complete child X at B
+-> validate materialization receipt before transport
+-> fork provider thread X at B
+-> atomically materialize complete child Y at B
+-> validate materialization receipt before transport
+-> fork provider thread Y at B
 ```
 
 X and Y inherit committed ancestors only. New events, memories, relationship records, summaries, projections, receipts, and overlays are branch-local. A merge is not supported until separately designed and authorized.
+
+An existing empty or partial child, a mismatched physical directory identity,
+any ACTIVE record/index/WORLD_STATE change, a stale parent cutoff, a changed
+accepted checkpoint artifact, a foreign/replayed receipt, or a mismatched
+summary source terminates before provider fork or cross-branch reconstruction.
 
 ## 6. Restart recovery
 

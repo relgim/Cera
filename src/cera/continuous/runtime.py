@@ -26,6 +26,7 @@ from .evidence import (
     RequestEvidenceBindingRegistry,
     StableAcceptedContextReferenceStore,
     bind_character_summary_envelopes,
+    build_character_summary_envelope,
     build_stable_accepted_context_references,
     project_final_sequence_facts,
     provider_fork_reference_synchronization_sha256,
@@ -47,7 +48,7 @@ from .prompting import (
 from .packets import LeanSceneChangeContextV1, build_continuous_planner_turn_packet
 from .record_policy import PERSISTENCE_POLICY_SHA256
 from .sessions import (
-    ContinuousBranchForkReceiptV1,
+    ContinuousBranchForkReceiptV2,
     ContinuousBranchReferenceTransferReceiptV1,
     ContinuousSessionCoordinator,
     ContinuousSessionCompatibilityV1,
@@ -62,7 +63,9 @@ from .sessions import (
 )
 from .world import (
     CandidateWorldViewV1,
+    ContinuousBranchMaterializationReceiptV1,
     ContinuousDebugRecorder,
+    ContinuousInheritedSummarySourceV1,
     ContinuousWorldStore,
     SceneChangeCoordinator,
     SceneChangeEnvelopeV1,
@@ -306,37 +309,120 @@ class ContinuousShadowTurnCoordinator:
                 "continuous Planner base omits stable D-200 instructions"
             )
 
+    def materialize_planner_branch(
+        self,
+        *,
+        target_compatibility: ContinuousSessionCompatibilityV1,
+        required_character_summaries: tuple[CharacterSummaryEnvelopeV1, ...] = (),
+    ) -> ContinuousBranchMaterializationReceiptV1:
+        """Create the complete child ACTIVE snapshot before any fork transport."""
+
+        parent = self.planner_session
+        self._assert_branch_compatibility(target_compatibility)
+        parent_handle = parent.ensure_session()
+        parent_snapshot = parent.snapshot()
+        accepted_turn_ids = parent_snapshot.accepted_turn_ids
+        if not accepted_turn_ids:
+            raise StateConflictError("branch materialization lacks an accepted checkpoint")
+        accepted_envelopes = {
+            event.turn_or_scene_id: event.payload_sha256
+            for event in parent_snapshot.context_events
+            if event.event_type == "accepted_final_sequence"
+        }
+        accepted_ancestry_sha256 = canonical_sha256(
+            {
+                "accepted_turn_ids": accepted_turn_ids,
+                "accepted_envelopes": tuple(
+                    (turn_id, accepted_envelopes[turn_id])
+                    for turn_id in accepted_turn_ids
+                ),
+            }
+        )
+        inherited_summary_sources = self._merge_summary_sources(
+            self._current_inherited_summary_sources(
+                parent_snapshot,
+                branch_id=parent.compatibility.branch_id,
+            ),
+            self._summary_sources_for_envelopes(
+                required_character_summaries,
+                branch_id=parent.compatibility.branch_id,
+            ),
+        )
+        return self.world.materialize_branch_from_checkpoint(
+            world_id=parent.compatibility.world_id,
+            parent_branch_id=parent.compatibility.branch_id,
+            child_branch_id=target_compatibility.branch_id,
+            accepted_checkpoint_turn_id=accepted_turn_ids[-1],
+            ordered_accepted_turn_ids=accepted_turn_ids,
+            accepted_ancestry_sha256=accepted_ancestry_sha256,
+            parent_provider_thread_sha256=parent_handle.provider_thread_id_sha256,
+            parent_world_directory_identity_sha256=(
+                parent.compatibility.world_directory_identity_sha256
+            ),
+            child_world_directory_identity_sha256=(
+                target_compatibility.world_directory_identity_sha256
+            ),
+            authority_policy_version=parent.compatibility.authority_policy_version,
+            privacy_policy_version=parent.compatibility.privacy_policy_version,
+            protected_user_policy_version=(
+                parent.compatibility.protected_user_policy_version
+            ),
+            session_policy_version=parent.compatibility.session_policy_version,
+            persistence_policy_sha256=parent.compatibility.persistence_policy_sha256,
+            inherited_summary_sources=inherited_summary_sources,
+        )
+
     def fork_planner_session_for_branch(
         self,
         *,
         target_compatibility: ContinuousSessionCompatibilityV1,
-        branch_receipt: ContinuousBranchForkReceiptV1,
+        materialization_receipt: ContinuousBranchMaterializationReceiptV1,
+        branch_receipt: ContinuousBranchForkReceiptV2,
     ) -> ContinuousForkedPlannerSessionV2:
         """Fork one accepted Planner checkpoint and close child reference custody."""
 
         parent = self.planner_session
-        if (
-            target_compatibility.role is not ContinuousSessionRole.PLANNER
-            or target_compatibility.world_id != parent.compatibility.world_id
-            or target_compatibility.branch_id == parent.compatibility.branch_id
-        ):
-            raise StateConflictError("provider-fork target scope is invalid")
-        normalized_target = replace(
-            target_compatibility,
-            branch_id=parent.compatibility.branch_id,
-            world_directory_identity_sha256=(
-                parent.compatibility.world_directory_identity_sha256
-            ),
-        )
-        if normalized_target != parent.compatibility:
-            raise StateConflictError(
-                "provider fork changed Planner provider or policy compatibility"
-            )
+        self._assert_branch_compatibility(target_compatibility)
         parent_handle = parent.ensure_session()
         parent_snapshot = parent.snapshot()
         accepted_turn_ids = parent_snapshot.accepted_turn_ids
         if not accepted_turn_ids:
             raise StateConflictError("provider fork lacks an accepted checkpoint")
+        expected_summaries = self._current_inherited_summary_sources(
+            parent_snapshot,
+            branch_id=parent.compatibility.branch_id,
+        )
+        if (
+            branch_receipt.branch_materialization_receipt_sha256
+            != materialization_receipt.receipt_sha256
+            or materialization_receipt.world_id != parent.compatibility.world_id
+            or materialization_receipt.parent_branch_id
+            != parent.compatibility.branch_id
+            or materialization_receipt.child_branch_id
+            != target_compatibility.branch_id
+            or materialization_receipt.accepted_checkpoint_turn_id
+            != accepted_turn_ids[-1]
+            or materialization_receipt.accepted_ancestry_sha256
+            != branch_receipt.accepted_ancestry_sha256
+            or materialization_receipt.parent_provider_thread_sha256
+            != parent_handle.provider_thread_id_sha256
+            or materialization_receipt.inherited_summary_sources
+            != expected_summaries
+            or materialization_receipt.authority_policy_version
+            != parent.compatibility.authority_policy_version
+            or materialization_receipt.privacy_policy_version
+            != parent.compatibility.privacy_policy_version
+            or materialization_receipt.protected_user_policy_version
+            != parent.compatibility.protected_user_policy_version
+            or materialization_receipt.session_policy_version
+            != parent.compatibility.session_policy_version
+            or materialization_receipt.persistence_policy_sha256
+            != parent.compatibility.persistence_policy_sha256
+        ):
+            raise StateConflictError(
+                "provider fork materialization receipt changed branch custody"
+            )
+        self.world.validate_branch_materialization(materialization_receipt)
         parent_root = self.world.branch_root(
             parent.compatibility.world_id,
             parent.compatibility.branch_id,
@@ -386,9 +472,13 @@ class ContinuousShadowTurnCoordinator:
                 )
             source_sets.append((source_receipt, source_references))
             child_envelopes.append(child_envelope)
+        self.world.validate_branch_materialization(materialization_receipt)
         child = parent.fork_for_branch(
             target_compatibility,
             branch_receipt=branch_receipt,
+            inherited_summary_envelope_sha256s=tuple(
+                value.envelope_sha256 for value in expected_summaries
+            ),
         )
         child_descriptors = tuple(
             descriptor
@@ -452,7 +542,8 @@ class ContinuousShadowTurnCoordinator:
         *,
         bundle: ContinuousSessionReconstructionBundleV1,
         expected_compatibility: ContinuousSessionCompatibilityV1 | None = None,
-        branch_receipt: ContinuousBranchForkReceiptV1 | None = None,
+        branch_receipt: ContinuousBranchForkReceiptV2 | None = None,
+        materialization_receipt: ContinuousBranchMaterializationReceiptV1 | None = None,
     ) -> ContinuousSessionInitializationReceiptV1:
         """Replace a lost/non-forkable Planner thread with bounded authority."""
 
@@ -460,17 +551,6 @@ class ContinuousShadowTurnCoordinator:
         target_compatibility = expected_compatibility or prior.compatibility
         if target_compatibility.role is not ContinuousSessionRole.PLANNER:
             raise StateConflictError("reconstruction target is not a Planner session")
-        normalized_target = replace(
-            target_compatibility,
-            branch_id=prior.compatibility.branch_id,
-            world_directory_identity_sha256=(
-                prior.compatibility.world_directory_identity_sha256
-            ),
-        )
-        if normalized_target != prior.compatibility:
-            raise StateConflictError(
-                "reconstruction changed Planner provider or policy compatibility"
-            )
         prior_handle = prior.handle
         if prior_handle is None:
             prior_handle = prior.ensure_session()
@@ -487,7 +567,12 @@ class ContinuousShadowTurnCoordinator:
             )
         if target_compatibility.world_id != prior.compatibility.world_id:
             raise StateConflictError("reconstruction changed world identity")
+        if not branch_changed and target_compatibility != prior.compatibility:
+            raise StateConflictError(
+                "same-branch reconstruction changed Planner compatibility"
+            )
         if branch_changed:
+            self._assert_branch_compatibility(target_compatibility)
             if branch_receipt is None:
                 raise StateConflictError(
                     "non-forkable branch reconstruction lacks its Python receipt"
@@ -517,6 +602,10 @@ class ContinuousShadowTurnCoordinator:
                     prior_handle.provider_thread_id_sha256
                 ),
             )
+            if materialization_receipt is None:
+                raise StateConflictError(
+                    "non-forkable branch reconstruction lacks materialization custody"
+                )
             if (
                 not accepted_turn_ids
                 or branch_receipt.world_id != target_compatibility.world_id
@@ -532,11 +621,47 @@ class ContinuousShadowTurnCoordinator:
                 != prior_handle.provider_thread_id_sha256
                 or branch_receipt.privacy_boundary_sha256
                 != expected_privacy_boundary
+                or branch_receipt.branch_materialization_receipt_sha256
+                != materialization_receipt.receipt_sha256
+                or materialization_receipt.world_id
+                != target_compatibility.world_id
+                or materialization_receipt.parent_branch_id
+                != prior.compatibility.branch_id
+                or materialization_receipt.child_branch_id
+                != target_compatibility.branch_id
+                or materialization_receipt.accepted_checkpoint_turn_id
+                != accepted_turn_ids[-1]
+                or materialization_receipt.accepted_ancestry_sha256
+                != expected_ancestry
+                or materialization_receipt.parent_provider_thread_sha256
+                != prior_handle.provider_thread_id_sha256
+                or materialization_receipt.authority_policy_version
+                != prior.compatibility.authority_policy_version
+                or materialization_receipt.privacy_policy_version
+                != prior.compatibility.privacy_policy_version
+                or materialization_receipt.protected_user_policy_version
+                != prior.compatibility.protected_user_policy_version
+                or materialization_receipt.session_policy_version
+                != prior.compatibility.session_policy_version
+                or materialization_receipt.persistence_policy_sha256
+                != prior.compatibility.persistence_policy_sha256
+                or materialization_receipt.inherited_summary_sources
+                != self._merge_summary_sources(
+                    self._current_inherited_summary_sources(
+                        prior_snapshot,
+                        branch_id=prior.compatibility.branch_id,
+                    ),
+                    self._summary_sources_for_envelopes(
+                        bundle.character_summaries,
+                        branch_id=prior.compatibility.branch_id,
+                    ),
+                )
             ):
                 raise StateConflictError(
                     "non-forkable branch reconstruction receipt changed ancestry"
                 )
-        elif branch_receipt is not None:
+            self.world.validate_branch_materialization(materialization_receipt)
+        elif branch_receipt is not None or materialization_receipt is not None:
             raise StateConflictError(
                 "same-branch reconstruction cannot carry a branch receipt"
             )
@@ -585,6 +710,18 @@ class ContinuousShadowTurnCoordinator:
             )
         )
         target_bundle = replace(bundle, accepted_tail=target_tail)
+        target_branch_root = self.world.branch_root(
+            target_compatibility.world_id,
+            target_compatibility.branch_id,
+        )
+        for summary in target_bundle.character_summaries:
+            validate_character_summary_envelope(
+                branch_root=target_branch_root,
+                envelope=summary,
+            )
+        if branch_changed:
+            assert materialization_receipt is not None
+            self.world.validate_branch_materialization(materialization_receipt)
         rebuilt = ContinuousSessionCoordinator.reconstruct_new_thread(
             port=prior.port,
             expected_compatibility=target_compatibility,
@@ -635,6 +772,149 @@ class ContinuousShadowTurnCoordinator:
         self.planner_session = rebuilt
         assert_separate_role_sessions(rebuilt, self.validator_session)
         return initialization
+
+    def _assert_branch_compatibility(
+        self, target: ContinuousSessionCompatibilityV1
+    ) -> None:
+        parent = self.planner_session.compatibility
+        if (
+            target.role is not ContinuousSessionRole.PLANNER
+            or target.world_id != parent.world_id
+            or target.branch_id == parent.branch_id
+        ):
+            raise StateConflictError("provider-fork target scope is invalid")
+        comparable_fields = (
+            "role",
+            "world_id",
+            "provider",
+            "model",
+            "reasoning_effort",
+            "prompt_version",
+            "output_schema_version",
+            "authority_policy_version",
+            "privacy_policy_version",
+            "protected_user_policy_version",
+            "session_policy_version",
+            "ingress_classifier_registry_sha256",
+            "persistence_policy_sha256",
+            "default_context_mode",
+            "allowed_context_modes",
+        )
+        if any(getattr(target, field) != getattr(parent, field) for field in comparable_fields):
+            raise StateConflictError(
+                "provider fork changed Planner provider or policy compatibility"
+            )
+        if (
+            parent.world_directory_identity_sha256
+            != self.world.branch_directory_identity_sha256(
+                parent.world_id, parent.branch_id
+            )
+            or target.world_directory_identity_sha256
+            != self.world.branch_directory_identity_sha256(
+                target.world_id, target.branch_id
+            )
+        ):
+            raise StateConflictError(
+                "provider fork compatibility does not bind actual world directories"
+            )
+
+    def _current_inherited_summary_sources(
+        self,
+        snapshot,
+        *,
+        branch_id: str,
+    ) -> tuple[ContinuousInheritedSummarySourceV1, ...]:
+        branch_root = self.world.branch_root(snapshot.compatibility.world_id, branch_id)
+        current = []
+        for receipt in snapshot.character_summary_deliveries:
+            try:
+                envelope = build_character_summary_envelope(
+                    branch_root=branch_root,
+                    source_path=receipt.source_path_or_record_id,
+                    character_id=receipt.character_id,
+                )
+            except (ContractValidationError, StateConflictError):
+                continue
+            if (
+                envelope.source_revision != receipt.source_revision
+                or envelope.source_sha256 != receipt.source_sha256
+                or envelope.envelope_sha256 != receipt.envelope_sha256
+            ):
+                continue
+            current.append(
+                ContinuousInheritedSummarySourceV1(
+                    character_id=receipt.character_id,
+                    source_path_or_record_id=receipt.source_path_or_record_id,
+                    source_revision=receipt.source_revision,
+                    source_sha256=receipt.source_sha256,
+                    source_authority_classification=(
+                        envelope.source_authority_classification
+                    ),
+                    envelope_sha256=receipt.envelope_sha256,
+                )
+            )
+        return tuple(
+            sorted(
+                current,
+                key=lambda value: (
+                    value.character_id,
+                    value.source_path_or_record_id,
+                ),
+            )
+        )
+
+    def _summary_sources_for_envelopes(
+        self,
+        summaries: tuple[CharacterSummaryEnvelopeV1, ...],
+        *,
+        branch_id: str,
+    ) -> tuple[ContinuousInheritedSummarySourceV1, ...]:
+        branch_root = self.world.branch_root(
+            self.planner_session.compatibility.world_id,
+            branch_id,
+        )
+        result = []
+        for summary in summaries:
+            validate_character_summary_envelope(
+                branch_root=branch_root,
+                envelope=summary,
+            )
+            result.append(
+                ContinuousInheritedSummarySourceV1(
+                    character_id=summary.character_id,
+                    source_path_or_record_id=summary.source_path_or_record_id,
+                    source_revision=summary.source_revision,
+                    source_sha256=summary.source_sha256,
+                    source_authority_classification=(
+                        summary.source_authority_classification
+                    ),
+                    envelope_sha256=summary.envelope_sha256,
+                )
+            )
+        return tuple(
+            sorted(
+                result,
+                key=lambda value: (
+                    value.character_id,
+                    value.source_path_or_record_id,
+                ),
+            )
+        )
+
+    @staticmethod
+    def _merge_summary_sources(
+        *groups: tuple[ContinuousInheritedSummarySourceV1, ...],
+    ) -> tuple[ContinuousInheritedSummarySourceV1, ...]:
+        merged: dict[tuple[str, str], ContinuousInheritedSummarySourceV1] = {}
+        for source in (value for group in groups for value in group):
+            key = (source.character_id, source.source_path_or_record_id)
+            prior = merged.get(key)
+            if prior is not None and prior != source:
+                raise StateConflictError(
+                    "branch materialization summary sources conflict"
+                )
+            merged[key] = source
+        return tuple(merged[key] for key in sorted(merged))
 
     def restore_pending_accepted_context(self) -> tuple[str, ...]:
         """Report incomplete physical-thread synchronization after restart.

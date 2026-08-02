@@ -940,7 +940,9 @@ provider identities:
 | `cera.continuous_session_compatibility.v3` | Python session custody | Role/provider/model/prompt/output/world compatibility, exact policy hashes, and closed default/allowed Planner context modes; pre-D-200 sessions fail compatibility |
 | `cera.continuous_session_initialization_receipt.v1` | Python | One physical thread's base-instruction identity/bytes and lean, fork, or reconstruction provenance, including parent/branch and bounded reconstruction custody |
 | `cera.continuous_session_initialization_packet.v1` | Python session custody | Closed first-thread, reconstruction, or accepted-checkpoint-fork initialization identity wrapping the exact receipt before any turn submission |
-| `cera.continuous_branch_fork_receipt.v1` | Python branch authority | Accepted-checkpoint parent/child branch, ancestry, parent-thread, and privacy-boundary proof required before a provider fork |
+| `cera.continuous_branch_materialization_receipt.v1` | Python world authority | Immutable pre-transport proof of the actual parent/child directories, parent cutoff and accepted order, complete parent and child ACTIVE manifests, WORLD_STATE and index, accepted checkpoint artifacts, policy identities, and exact inherited summary sources |
+| `cera.continuous_branch_fork_receipt.v1` | Python branch authority, historical decode | Historical accepted-checkpoint parent/child branch, ancestry, parent-thread, and privacy-boundary proof retained for immutable V2 artifacts; it cannot authorize the V3 runtime route |
+| `cera.continuous_branch_fork_receipt.v2` | Python branch authority | Accepted-checkpoint parent/child branch, ancestry, parent-thread, privacy-boundary, and exact branch-materialization receipt proof required before a provider fork |
 | `cera.character_summary_delivery_receipt.v1` | Python Planner-thread custody | Character, revision, selected-content, source, thread, reason, and prompt identities for one Planner summary delivery |
 | `cera.continuous_session_reconstruction_bundle.v1` | Python | Bounded accepted tail, exact synchronization/reference descriptors, and only required character summaries for a new physical thread |
 | `cera.continuous_session_snapshot.v2` | Python | Role-separated stored-thread handle, compatibility, context-event hashes, accepted-turn index, initialization receipt, and summary-delivery ledger |
@@ -994,13 +996,14 @@ the prior value hash; Python derives all operation and created-field metadata.
 `cera.request_evidence_binding.v4`,
 `cera.continuous_session_initialization_receipt.v1`,
 `cera.continuous_branch_fork_receipt.v1`,
+`cera.continuous_branch_fork_receipt.v2`,
 `cera.character_summary_delivery_receipt.v1`,
 `cera.continuous_context_injection_receipt.v1`,
 `cera.continuous_session_snapshot_receipt.v1`,
 `cera.continuous_provider_call_ledger_event.v3`, and
 `cera.scene_summary_derived_view.v2` are registered durable dataclass records.
 The request-local registry, mutable acceptance journal, root diagnostic, and
-world promotion journal, continuous Planner turn packet, session initialization
+world promotion journal, branch materialization receipt, continuous Planner turn packet, session initialization
 packet, and lean Scene Change context are Python runtime-operational records with dedicated
 writers, invariant checks, and recovery readers; they are intentionally not
 decoded through the generic immutable schema registry.

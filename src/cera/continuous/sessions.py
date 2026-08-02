@@ -554,7 +554,7 @@ class ContinuousSessionInitializationPacketV1:
 
 @dataclass(frozen=True, slots=True)
 class ContinuousBranchForkReceiptV1:
-    """Python custody for a provider fork at one accepted checkpoint."""
+    """Historical V1 fork custody retained for immutable-artifact decoding."""
 
     SCHEMA_VERSION: ClassVar[str] = "cera.continuous_branch_fork_receipt.v1"
 
@@ -603,6 +603,68 @@ class ContinuousBranchForkReceiptV1:
                 "accepted_ancestry_sha256": self.accepted_ancestry_sha256,
                 "parent_provider_thread_sha256": self.parent_provider_thread_sha256,
                 "privacy_boundary_sha256": self.privacy_boundary_sha256,
+            }
+        )
+        if self.receipt_sha256 != expected:
+            raise ContractValidationError("continuous branch-fork receipt changed")
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousBranchForkReceiptV2:
+    """Python custody for a provider fork at one accepted checkpoint."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_branch_fork_receipt.v2"
+
+    schema_version: str
+    world_id: str
+    parent_branch_id: str
+    child_branch_id: str
+    accepted_checkpoint_turn_id: str
+    accepted_ancestry_sha256: str
+    parent_provider_thread_sha256: str
+    privacy_boundary_sha256: str
+    branch_materialization_receipt_sha256: str
+    receipt_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("continuous branch-fork receipt schema changed")
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (
+                self.world_id,
+                self.parent_branch_id,
+                self.child_branch_id,
+                self.accepted_checkpoint_turn_id,
+            )
+        ):
+            raise ContractValidationError("continuous branch-fork scope is incomplete")
+        if self.parent_branch_id == self.child_branch_id:
+            raise ContractValidationError("continuous branch fork did not create a branch")
+        if any(
+            not re_is_sha256(value)
+            for value in (
+                self.accepted_ancestry_sha256,
+                self.parent_provider_thread_sha256,
+                self.privacy_boundary_sha256,
+                self.branch_materialization_receipt_sha256,
+                self.receipt_sha256,
+            )
+        ):
+            raise ContractValidationError("continuous branch-fork hash is invalid")
+        expected = canonical_sha256(
+            {
+                "schema_version": self.SCHEMA_VERSION,
+                "world_id": self.world_id,
+                "parent_branch_id": self.parent_branch_id,
+                "child_branch_id": self.child_branch_id,
+                "accepted_checkpoint_turn_id": self.accepted_checkpoint_turn_id,
+                "accepted_ancestry_sha256": self.accepted_ancestry_sha256,
+                "parent_provider_thread_sha256": self.parent_provider_thread_sha256,
+                "privacy_boundary_sha256": self.privacy_boundary_sha256,
+                "branch_materialization_receipt_sha256": (
+                    self.branch_materialization_receipt_sha256
+                ),
             }
         )
         if self.receipt_sha256 != expected:
@@ -1984,7 +2046,9 @@ class ContinuousSessionCoordinator:
     def build_branch_fork_receipt(
         self,
         compatibility: ContinuousSessionCompatibilityV1,
-    ) -> ContinuousBranchForkReceiptV1:
+        *,
+        branch_materialization_receipt_sha256: str,
+    ) -> ContinuousBranchForkReceiptV2:
         """Issue the sole valid Python-owned receipt for the current checkpoint."""
 
         if (
@@ -1993,6 +2057,10 @@ class ContinuousSessionCoordinator:
             or compatibility.branch_id == self.compatibility.branch_id
         ):
             raise StateConflictError("continuous branch-fork target scope is invalid")
+        if not re_is_sha256(branch_materialization_receipt_sha256):
+            raise ContractValidationError(
+                "continuous branch-fork materialization receipt is invalid"
+            )
         parent = self.ensure_session()
         accepted_turn_ids = tuple(self._accepted_envelopes)
         if not accepted_turn_ids:
@@ -2009,7 +2077,7 @@ class ContinuousSessionCoordinator:
             }
         )
         payload = {
-            "schema_version": ContinuousBranchForkReceiptV1.SCHEMA_VERSION,
+            "schema_version": ContinuousBranchForkReceiptV2.SCHEMA_VERSION,
             "world_id": self.compatibility.world_id,
             "parent_branch_id": self.compatibility.branch_id,
             "child_branch_id": compatibility.branch_id,
@@ -2023,8 +2091,11 @@ class ContinuousSessionCoordinator:
                 accepted_ancestry_sha256=accepted_ancestry_sha256,
                 parent_provider_thread_sha256=parent.provider_thread_id_sha256,
             ),
+            "branch_materialization_receipt_sha256": (
+                branch_materialization_receipt_sha256
+            ),
         }
-        return ContinuousBranchForkReceiptV1(
+        return ContinuousBranchForkReceiptV2(
             **payload,
             receipt_sha256=canonical_sha256(payload),
         )
@@ -2033,7 +2104,8 @@ class ContinuousSessionCoordinator:
         self,
         compatibility: ContinuousSessionCompatibilityV1,
         *,
-        branch_receipt: ContinuousBranchForkReceiptV1,
+        branch_receipt: ContinuousBranchForkReceiptV2,
+        inherited_summary_envelope_sha256s: tuple[str, ...] = (),
     ) -> "ContinuousSessionCoordinator":
         if compatibility.role is not self.compatibility.role:
             raise StateConflictError("continuous branch fork changed session role")
@@ -2071,9 +2143,28 @@ class ContinuousSessionCoordinator:
             != parent.provider_thread_id_sha256
             or branch_receipt.privacy_boundary_sha256
             != expected_privacy_boundary
+            or not re_is_sha256(
+                branch_receipt.branch_materialization_receipt_sha256
+            )
         ):
             raise StateConflictError(
                 "continuous branch-fork receipt changed accepted ancestry"
+            )
+        if (
+            len(inherited_summary_envelope_sha256s)
+            != len(set(inherited_summary_envelope_sha256s))
+            or any(
+                not re_is_sha256(value)
+                for value in inherited_summary_envelope_sha256s
+            )
+            or set(inherited_summary_envelope_sha256s)
+            - {
+                value.envelope_sha256
+                for value in self._summary_deliveries.values()
+            }
+        ):
+            raise StateConflictError(
+                "continuous branch fork summary inheritance is invalid"
             )
         child = self.port.fork_branch(parent, compatibility)
         coordinator = ContinuousSessionCoordinator(
@@ -2090,6 +2181,8 @@ class ContinuousSessionCoordinator:
         )
         coordinator._accepted_envelopes.update(self._accepted_envelopes)
         for key, prior in self._summary_deliveries.items():
+            if prior.envelope_sha256 not in inherited_summary_envelope_sha256s:
+                continue
             payload = {
                 "schema_version": CharacterSummaryDeliveryReceiptV1.SCHEMA_VERSION,
                 "character_id": prior.character_id,
@@ -2123,7 +2216,7 @@ class ContinuousSessionCoordinator:
         self,
         envelope: AcceptedFinalSequenceEnvelopeV1,
         *,
-        branch_receipt: ContinuousBranchForkReceiptV1,
+        branch_receipt: ContinuousBranchForkReceiptV2,
         parent_reference_keys: tuple[str, ...],
         child_reference_descriptors: tuple[dict[str, Any], ...],
     ) -> ContinuousBranchReferenceTransferReceiptV1:

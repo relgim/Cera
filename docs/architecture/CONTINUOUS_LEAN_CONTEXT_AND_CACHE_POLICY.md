@@ -47,7 +47,23 @@ Reconstruction is physical-thread initialization, never an ordinary-turn packet 
 
 ## 3. Branch precedence
 
-For a child branch, CERA first attempts a physical provider fork only from a validated accepted checkpoint and only with a Python-owned branch receipt binding the parent/child branches, accepted ancestry, parent thread, and privacy boundary.
+For a child branch, Python must first atomically materialize the complete parent
+cutoff into a previously nonexistent child directory. The immutable
+materialization receipt binds both actual directory identities, the ordered
+accepted head, complete parent and initial-child ACTIVE manifests, every
+Character/Relationship/Rule/Location/Event/Scene record, WORLD_STATE, the
+deterministic world index, accepted checkpoint artifacts, policy identities,
+and every current character-summary source eligible for child-thread
+suppression. Child WORLD_STATE differs only by its child branch identity; its
+index is deterministically rebuilt from that state.
+
+CERA attempts a physical provider fork only after revalidating that exact
+materialization receipt and a Python-owned branch-fork receipt binding it to
+the parent/child branches, accepted ancestry, parent thread, and privacy
+boundary. Empty, partial, stale, foreign, replayed, or modified child snapshots
+fail before transport. A summary delivery is inherited only while its child
+source path, revision, bytes, character owner, authority class, and derived
+envelope remain exact; stale deliveries are not suppression authority.
 
 If fork is unavailable, lost, incompatible, or unsafe, CERA creates a new physical thread through `reconstruction`. After either valid initialization, ordinary child turns use `lean_continuous`.
 
@@ -159,7 +175,8 @@ prior pairs, sequences, projections, prose/history, unchanged summaries,
 stable-instruction duplication, foreign payloads, initialization material, or
 untyped data.
 
-After a successful provider fork, the child receives a distinct physical
+After a successful materialization and provider fork, the child receives a distinct physical
 thread and child-rekeyed stable references. The child first lean packet rejects
 parent and sibling keys. If the fork is not safe or available, reconstruction
-uses its distinct initialization contract and returns to lean mode.
+uses the same required child materialization custody before its distinct
+initialization contract and returns to lean mode.

@@ -1146,31 +1146,23 @@ class JobHarness:
         parent = self.planner_session
         parent_handle = parent.ensure_session()
         child_branch = "canary-fork-child"
-        child_root = self.world.initialize(WORLD_ID, child_branch)
-        for pair in self.accepted_pairs:
-            self.world.write_accepted_pair(WORLD_ID, child_branch, pair)
-            source_receipt = (
-                self.world.branch_root(WORLD_ID, BRANCH_ID)
-                / "CANDIDATES"
-                / pair.accepted_turn_id
-                / "PROMOTION_RECEIPT.json"
-            )
-            target_receipt = (
-                child_root
-                / "CANDIDATES"
-                / pair.accepted_turn_id
-                / "PROMOTION_RECEIPT.json"
-            )
-            target_receipt.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source_receipt, target_receipt)
         child_compatibility = replace(
             parent.compatibility,
             branch_id=child_branch,
-            world_directory_identity_sha256=self.world.world_identity_sha256(
+            world_directory_identity_sha256=self.world.branch_directory_identity_sha256(
                 WORLD_ID, child_branch
             ),
         )
-        branch_receipt = parent.build_branch_fork_receipt(child_compatibility)
+        materialization_receipt = self.coordinator.materialize_planner_branch(
+            target_compatibility=child_compatibility
+        )
+        child_root = self.world.branch_root(WORLD_ID, child_branch)
+        branch_receipt = parent.build_branch_fork_receipt(
+            child_compatibility,
+            branch_materialization_receipt_sha256=(
+                materialization_receipt.receipt_sha256
+            ),
+        )
         expected_privacy = continuous_branch_privacy_boundary_sha256(
             parent_compatibility=parent.compatibility,
             child_compatibility=child_compatibility,
@@ -1186,6 +1178,7 @@ class JobHarness:
             raise RuntimeError("provider-fork privacy identity changed")
         forked = self.coordinator.fork_planner_session_for_branch(
             target_compatibility=child_compatibility,
+            materialization_receipt=materialization_receipt,
             branch_receipt=branch_receipt,
         )
         child = forked.coordinator

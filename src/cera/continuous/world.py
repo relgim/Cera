@@ -6,6 +6,7 @@ from contextlib import contextmanager
 import copy
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -217,6 +218,233 @@ class WorldPromotionReceiptV1:
         return canonical_sha256(to_primitive(self))
 
 
+@dataclass(frozen=True, slots=True)
+class ContinuousActiveManifestEntryV1:
+    """One byte-exact file in an accepted branch ACTIVE tree."""
+
+    relative_path: str
+    record_category: str
+    content_sha256: str
+    size_bytes: int
+    revision: int | None
+
+    def __post_init__(self) -> None:
+        normalized = self.relative_path.replace("\\", "/")
+        if (
+            normalized != self.relative_path
+            or not normalized
+            or normalized.startswith("/")
+            or ".." in Path(normalized).parts
+        ):
+            raise ContractValidationError("branch materialization manifest path is invalid")
+        if self.record_category not in {
+            "characters",
+            "relationships",
+            "rules",
+            "locations",
+            "events",
+            "scenes",
+            "world_state",
+            "world_index",
+            "accepted_checkpoint_artifact",
+        }:
+            raise ContractValidationError(
+                "branch materialization manifest category is invalid"
+            )
+        if not re.fullmatch(r"[0-9a-f]{64}", self.content_sha256):
+            raise ContractValidationError(
+                "branch materialization manifest hash is invalid"
+            )
+        if type(self.size_bytes) is not int or self.size_bytes < 0:
+            raise ContractValidationError(
+                "branch materialization manifest byte count is invalid"
+            )
+        if self.revision is not None and (
+            type(self.revision) is not int or self.revision < 1
+        ):
+            raise ContractValidationError(
+                "branch materialization manifest revision is invalid"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousInheritedSummarySourceV1:
+    """Exact child-side authority required before a summary may be suppressed."""
+
+    character_id: str
+    source_path_or_record_id: str
+    source_revision: int
+    source_sha256: str
+    source_authority_classification: str
+    envelope_sha256: str
+
+    def __post_init__(self) -> None:
+        if not self.character_id.strip():
+            raise ContractValidationError("branch summary owner is invalid")
+        normalized = self.source_path_or_record_id.replace("\\", "/")
+        if (
+            normalized != self.source_path_or_record_id
+            or not normalized.startswith("ACTIVE/Characters/")
+            or ".." in Path(normalized).parts
+        ):
+            raise ContractValidationError("branch summary source path is invalid")
+        if type(self.source_revision) is not int or self.source_revision < 1:
+            raise ContractValidationError("branch summary source revision is invalid")
+        if self.source_authority_classification != "active_authoritative_record_fields":
+            raise ContractValidationError("branch summary source authority is invalid")
+        for value in (self.source_sha256, self.envelope_sha256):
+            if not re.fullmatch(r"[0-9a-f]{64}", value):
+                raise ContractValidationError("branch summary source hash is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousBranchMaterializationReceiptV1:
+    """Immutable Python custody for a complete child ACTIVE snapshot."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_branch_materialization_receipt.v1"
+
+    schema_version: str
+    world_id: str
+    parent_branch_id: str
+    child_branch_id: str
+    accepted_checkpoint_turn_id: str
+    ordered_accepted_turn_ids: tuple[str, ...]
+    accepted_ancestry_sha256: str
+    branch_cutoff_sha256: str
+    parent_provider_thread_sha256: str
+    parent_world_directory_identity_sha256: str
+    child_world_directory_identity_sha256: str
+    parent_active_tree_sha256: str
+    child_initial_active_tree_sha256: str
+    parent_active_manifest: tuple[ContinuousActiveManifestEntryV1, ...]
+    child_initial_active_manifest: tuple[ContinuousActiveManifestEntryV1, ...]
+    parent_accepted_checkpoint_manifest: tuple[ContinuousActiveManifestEntryV1, ...]
+    child_accepted_checkpoint_manifest: tuple[ContinuousActiveManifestEntryV1, ...]
+    parent_world_state_sha256: str
+    child_world_state_sha256: str
+    world_state_revision: int
+    current_scene_id: str
+    accepted_head_turn_id: str
+    authority_policy_version: str
+    privacy_policy_version: str
+    protected_user_policy_version: str
+    session_policy_version: str
+    persistence_policy_sha256: str
+    inherited_summary_sources: tuple[ContinuousInheritedSummarySourceV1, ...]
+    receipt_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous branch materialization schema changed"
+            )
+        for field_name in (
+            "world_id",
+            "parent_branch_id",
+            "child_branch_id",
+            "accepted_checkpoint_turn_id",
+            "current_scene_id",
+            "accepted_head_turn_id",
+            "authority_policy_version",
+            "privacy_policy_version",
+            "protected_user_policy_version",
+            "session_policy_version",
+        ):
+            value = getattr(self, field_name)
+            if not isinstance(value, str) or not value.strip():
+                raise ContractValidationError(
+                    f"branch materialization {field_name} is invalid"
+                )
+        if self.parent_branch_id == self.child_branch_id:
+            raise ContractValidationError("branch materialization did not create a child")
+        if (
+            not self.ordered_accepted_turn_ids
+            or len(self.ordered_accepted_turn_ids)
+            != len(set(self.ordered_accepted_turn_ids))
+            or self.ordered_accepted_turn_ids[-1] != self.accepted_checkpoint_turn_id
+            or self.accepted_head_turn_id != self.accepted_checkpoint_turn_id
+        ):
+            raise ContractValidationError(
+                "branch materialization accepted-turn order is invalid"
+            )
+        if type(self.world_state_revision) is not int or self.world_state_revision < 1:
+            raise ContractValidationError("branch materialization revision is invalid")
+        for field_name in (
+            "accepted_ancestry_sha256",
+            "branch_cutoff_sha256",
+            "parent_provider_thread_sha256",
+            "parent_world_directory_identity_sha256",
+            "child_world_directory_identity_sha256",
+            "parent_active_tree_sha256",
+            "child_initial_active_tree_sha256",
+            "parent_world_state_sha256",
+            "child_world_state_sha256",
+            "persistence_policy_sha256",
+            "receipt_sha256",
+        ):
+            if not re.fullmatch(r"[0-9a-f]{64}", getattr(self, field_name)):
+                raise ContractValidationError(
+                    f"branch materialization {field_name} is invalid"
+                )
+        for manifest in (
+            self.parent_active_manifest,
+            self.child_initial_active_manifest,
+        ):
+            paths = tuple(value.relative_path for value in manifest)
+            if (
+                not paths
+                or paths != tuple(sorted(paths))
+                or len(paths) != len(set(paths))
+                or "WORLD_STATE.json" not in paths
+                or "WORLD_INDEX.jsonl" not in paths
+            ):
+                raise ContractValidationError(
+                    "branch materialization manifest is incomplete or unordered"
+                )
+        for manifest in (
+            self.parent_accepted_checkpoint_manifest,
+            self.child_accepted_checkpoint_manifest,
+        ):
+            paths = tuple(value.relative_path for value in manifest)
+            if (
+                len(paths) != len(self.ordered_accepted_turn_ids)
+                or paths != tuple(sorted(paths))
+                or len(paths) != len(set(paths))
+            ):
+                raise ContractValidationError(
+                    "branch materialization checkpoint-artifact manifest is incomplete"
+                )
+        summary_keys = tuple(
+            (value.character_id, value.source_path_or_record_id)
+            for value in self.inherited_summary_sources
+        )
+        if summary_keys != tuple(sorted(summary_keys)) or len(summary_keys) != len(
+            set(summary_keys)
+        ):
+            raise ContractValidationError(
+                "branch materialization summary sources are duplicated or unordered"
+            )
+        expected_cutoff = canonical_sha256(
+            {
+                "world_id": self.world_id,
+                "parent_branch_id": self.parent_branch_id,
+                "child_branch_id": self.child_branch_id,
+                "accepted_checkpoint_turn_id": self.accepted_checkpoint_turn_id,
+                "ordered_accepted_turn_ids": self.ordered_accepted_turn_ids,
+                "accepted_ancestry_sha256": self.accepted_ancestry_sha256,
+                "parent_provider_thread_sha256": self.parent_provider_thread_sha256,
+                "parent_active_tree_sha256": self.parent_active_tree_sha256,
+                "parent_world_state_sha256": self.parent_world_state_sha256,
+            }
+        )
+        if self.branch_cutoff_sha256 != expected_cutoff:
+            raise ContractValidationError("branch materialization cutoff changed")
+        payload = to_primitive(self)
+        payload.pop("receipt_sha256")
+        if self.receipt_sha256 != canonical_sha256(payload):
+            raise ContractValidationError("branch materialization receipt changed")
+
+
 class ContinuousWorldStore:
     """One repository-local shadow world with atomic directory promotion."""
 
@@ -272,6 +500,453 @@ class ContinuousWorldStore:
     def world_identity_sha256(self, world_id: str, branch_id: str) -> str:
         root = self.initialize(world_id, branch_id)
         return text_sha256(str(root.resolve()).casefold())
+
+    def branch_directory_identity_sha256(
+        self, world_id: str, branch_id: str
+    ) -> str:
+        """Hash the actual branch path without creating or normalizing the target."""
+
+        return text_sha256(
+            str(self.branch_root(world_id, branch_id).resolve()).casefold()
+        )
+
+    def materialize_branch_from_checkpoint(
+        self,
+        *,
+        world_id: str,
+        parent_branch_id: str,
+        child_branch_id: str,
+        accepted_checkpoint_turn_id: str,
+        ordered_accepted_turn_ids: tuple[str, ...],
+        accepted_ancestry_sha256: str,
+        parent_provider_thread_sha256: str,
+        parent_world_directory_identity_sha256: str,
+        child_world_directory_identity_sha256: str,
+        authority_policy_version: str,
+        privacy_policy_version: str,
+        protected_user_policy_version: str,
+        session_policy_version: str,
+        persistence_policy_sha256: str,
+        inherited_summary_sources: tuple[ContinuousInheritedSummarySourceV1, ...] = (),
+    ) -> ContinuousBranchMaterializationReceiptV1:
+        """Atomically materialize one child branch before provider transport."""
+
+        parent_root = self.branch_root(world_id, parent_branch_id)
+        child_root = self.branch_root(world_id, child_branch_id)
+        if parent_branch_id == child_branch_id:
+            raise StateConflictError("branch materialization target is the parent")
+        if not parent_root.is_dir() or not (parent_root / "ACTIVE").is_dir():
+            raise StateConflictError("branch materialization parent is unavailable")
+        actual_parent_identity = self.branch_directory_identity_sha256(
+            world_id, parent_branch_id
+        )
+        actual_child_identity = self.branch_directory_identity_sha256(
+            world_id, child_branch_id
+        )
+        if (
+            parent_world_directory_identity_sha256 != actual_parent_identity
+            or child_world_directory_identity_sha256 != actual_child_identity
+        ):
+            raise StateConflictError(
+                "branch materialization directory identity does not match physical custody"
+            )
+        if child_root.exists():
+            raise StateConflictError(
+                "branch materialization requires a previously nonexistent child"
+            )
+        if (
+            not ordered_accepted_turn_ids
+            or ordered_accepted_turn_ids[-1] != accepted_checkpoint_turn_id
+        ):
+            raise StateConflictError("branch materialization checkpoint order changed")
+
+        staging_root: Path | None = None
+        with self._lock:
+            if child_root.exists():
+                raise StateConflictError(
+                    "branch materialization child appeared during validation"
+                )
+            parent_active = parent_root / "ACTIVE"
+            parent_state_path = parent_active / "WORLD_STATE.json"
+            if not parent_state_path.is_file():
+                raise StateConflictError("branch materialization lacks parent WORLD_STATE")
+            parent_state_text = parent_state_path.read_text(encoding="utf-8")
+            parent_state = json.loads(parent_state_text)
+            if (
+                not isinstance(parent_state, dict)
+                or parent_state.get("world_id") != world_id
+                or parent_state.get("branch_id") != parent_branch_id
+                or tuple(parent_state.get("accepted_turn_ids", ()))
+                != ordered_accepted_turn_ids
+            ):
+                raise StateConflictError(
+                    "branch materialization parent state changed branch or cutoff"
+                )
+            world_state_revision = parent_state.get("_cera_revision")
+            current_scene_id = parent_state.get("current_scene_id")
+            if (
+                type(world_state_revision) is not int
+                or world_state_revision < 1
+                or not isinstance(current_scene_id, str)
+                or not current_scene_id.strip()
+            ):
+                raise ContractValidationError(
+                    "branch materialization parent WORLD_STATE is invalid"
+                )
+            parent_manifest = self._active_manifest_for_path(parent_active)
+            parent_tree_sha256 = self.tree_sha256(parent_active)
+            parent_world_state_sha256 = hashlib.sha256(
+                parent_state_path.read_bytes()
+            ).hexdigest()
+            branch_cutoff_sha256 = canonical_sha256(
+                {
+                    "world_id": world_id,
+                    "parent_branch_id": parent_branch_id,
+                    "child_branch_id": child_branch_id,
+                    "accepted_checkpoint_turn_id": accepted_checkpoint_turn_id,
+                    "ordered_accepted_turn_ids": ordered_accepted_turn_ids,
+                    "accepted_ancestry_sha256": accepted_ancestry_sha256,
+                    "parent_provider_thread_sha256": parent_provider_thread_sha256,
+                    "parent_active_tree_sha256": parent_tree_sha256,
+                    "parent_world_state_sha256": parent_world_state_sha256,
+                }
+            )
+            try:
+                child_root.parent.mkdir(parents=True, exist_ok=True)
+                staging_root = Path(
+                    mkdtemp(prefix=f".{child_root.name}-materializing-", dir=child_root.parent)
+                )
+                child_active = staging_root / "ACTIVE"
+                shutil.copytree(parent_active, child_active)
+                child_state_path = child_active / "WORLD_STATE.json"
+                child_state = json.loads(child_state_path.read_text(encoding="utf-8"))
+                child_state["branch_id"] = child_branch_id
+                self._write_json(child_state_path, child_state)
+                self._rebuild_index(child_active)
+                for directory in (
+                    "CANDIDATES",
+                    "DEBUG",
+                    "DERIVED/Scenes",
+                    "PLANNER_SESSION",
+                    "VALIDATOR_SESSION",
+                    "VALIDATOR_DIAGNOSTICS",
+                ):
+                    (staging_root / directory).mkdir(parents=True, exist_ok=True)
+                for turn_id in ordered_accepted_turn_ids:
+                    source_receipt = (
+                        parent_root
+                        / "CANDIDATES"
+                        / _slug(turn_id, "turn_id")
+                        / "PROMOTION_RECEIPT.json"
+                    )
+                    if not source_receipt.is_file():
+                        raise StateConflictError(
+                            "branch materialization accepted checkpoint artifact is absent"
+                        )
+                    target_receipt = (
+                        staging_root
+                        / "CANDIDATES"
+                        / turn_id
+                        / "PROMOTION_RECEIPT.json"
+                    )
+                    target_receipt.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source_receipt, target_receipt)
+                child_manifest = self._active_manifest_for_path(child_active)
+                child_tree_sha256 = self.tree_sha256(child_active)
+                child_world_state_sha256 = hashlib.sha256(
+                    child_state_path.read_bytes()
+                ).hexdigest()
+                self._validate_inherited_summary_sources(
+                    parent_root=parent_root,
+                    child_root=staging_root,
+                    sources=inherited_summary_sources,
+                )
+                payload = {
+                    "schema_version": ContinuousBranchMaterializationReceiptV1.SCHEMA_VERSION,
+                    "world_id": world_id,
+                    "parent_branch_id": parent_branch_id,
+                    "child_branch_id": child_branch_id,
+                    "accepted_checkpoint_turn_id": accepted_checkpoint_turn_id,
+                    "ordered_accepted_turn_ids": ordered_accepted_turn_ids,
+                    "accepted_ancestry_sha256": accepted_ancestry_sha256,
+                    "branch_cutoff_sha256": branch_cutoff_sha256,
+                    "parent_provider_thread_sha256": parent_provider_thread_sha256,
+                    "parent_world_directory_identity_sha256": actual_parent_identity,
+                    "child_world_directory_identity_sha256": actual_child_identity,
+                    "parent_active_tree_sha256": parent_tree_sha256,
+                    "child_initial_active_tree_sha256": child_tree_sha256,
+                    "parent_active_manifest": parent_manifest,
+                    "child_initial_active_manifest": child_manifest,
+                    "parent_accepted_checkpoint_manifest": (
+                        self._accepted_checkpoint_manifest(
+                            parent_root, ordered_accepted_turn_ids
+                        )
+                    ),
+                    "child_accepted_checkpoint_manifest": (
+                        self._accepted_checkpoint_manifest(
+                            staging_root, ordered_accepted_turn_ids
+                        )
+                    ),
+                    "parent_world_state_sha256": parent_world_state_sha256,
+                    "child_world_state_sha256": child_world_state_sha256,
+                    "world_state_revision": world_state_revision,
+                    "current_scene_id": current_scene_id,
+                    "accepted_head_turn_id": accepted_checkpoint_turn_id,
+                    "authority_policy_version": authority_policy_version,
+                    "privacy_policy_version": privacy_policy_version,
+                    "protected_user_policy_version": protected_user_policy_version,
+                    "session_policy_version": session_policy_version,
+                    "persistence_policy_sha256": persistence_policy_sha256,
+                    "inherited_summary_sources": tuple(
+                        sorted(
+                            inherited_summary_sources,
+                            key=lambda value: (
+                                value.character_id,
+                                value.source_path_or_record_id,
+                            ),
+                        )
+                    ),
+                }
+                receipt = ContinuousBranchMaterializationReceiptV1(
+                    **payload,
+                    receipt_sha256=canonical_sha256(payload),
+                )
+                self._write_json(
+                    staging_root
+                    / "BRANCH_MATERIALIZATION"
+                    / f"{receipt.receipt_sha256}.json",
+                    to_primitive(receipt),
+                )
+                os.replace(staging_root, child_root)
+                staging_root = None
+            finally:
+                if staging_root is not None and staging_root.exists():
+                    shutil.rmtree(staging_root)
+        self.validate_branch_materialization(receipt)
+        return receipt
+
+    def validate_branch_materialization(
+        self, receipt: ContinuousBranchMaterializationReceiptV1
+    ) -> Path:
+        """Revalidate immutable parent/child bytes without creating either branch."""
+
+        parent_root = self.branch_root(receipt.world_id, receipt.parent_branch_id)
+        child_root = self.branch_root(receipt.world_id, receipt.child_branch_id)
+        if not parent_root.is_dir() or not child_root.is_dir():
+            raise StateConflictError("branch materialization scope is unavailable")
+        if (
+            self.branch_directory_identity_sha256(
+                receipt.world_id, receipt.parent_branch_id
+            )
+            != receipt.parent_world_directory_identity_sha256
+            or self.branch_directory_identity_sha256(
+                receipt.world_id, receipt.child_branch_id
+            )
+            != receipt.child_world_directory_identity_sha256
+        ):
+            raise StateConflictError("branch materialization physical directory changed")
+        receipt_path = (
+            child_root
+            / "BRANCH_MATERIALIZATION"
+            / f"{receipt.receipt_sha256}.json"
+        )
+        if (
+            not receipt_path.is_file()
+            or json.loads(receipt_path.read_text(encoding="utf-8"))
+            != to_primitive(receipt)
+        ):
+            raise StateConflictError("branch materialization receipt is absent or changed")
+        parent_active = parent_root / "ACTIVE"
+        child_active = child_root / "ACTIVE"
+        if (
+            self.tree_sha256(parent_active) != receipt.parent_active_tree_sha256
+            or self.tree_sha256(child_active)
+            != receipt.child_initial_active_tree_sha256
+            or self._active_manifest_for_path(parent_active)
+            != receipt.parent_active_manifest
+            or self._active_manifest_for_path(child_active)
+            != receipt.child_initial_active_manifest
+            or self._accepted_checkpoint_manifest(
+                parent_root, receipt.ordered_accepted_turn_ids
+            )
+            != receipt.parent_accepted_checkpoint_manifest
+            or self._accepted_checkpoint_manifest(
+                child_root, receipt.ordered_accepted_turn_ids
+            )
+            != receipt.child_accepted_checkpoint_manifest
+            or receipt.parent_accepted_checkpoint_manifest
+            != receipt.child_accepted_checkpoint_manifest
+        ):
+            raise StateConflictError("branch materialization ACTIVE snapshot changed")
+        parent_state_path = parent_active / "WORLD_STATE.json"
+        child_state_path = child_active / "WORLD_STATE.json"
+        if (
+            hashlib.sha256(parent_state_path.read_bytes()).hexdigest()
+            != receipt.parent_world_state_sha256
+            or hashlib.sha256(child_state_path.read_bytes()).hexdigest()
+            != receipt.child_world_state_sha256
+        ):
+            raise StateConflictError("branch materialization WORLD_STATE changed")
+        parent_state = json.loads(parent_state_path.read_text(encoding="utf-8"))
+        child_state = json.loads(child_state_path.read_text(encoding="utf-8"))
+        if (
+            parent_state.get("world_id") != receipt.world_id
+            or child_state.get("world_id") != receipt.world_id
+            or parent_state.get("branch_id") != receipt.parent_branch_id
+            or child_state.get("branch_id") != receipt.child_branch_id
+            or parent_state.get("_cera_revision") != receipt.world_state_revision
+            or child_state.get("_cera_revision") != receipt.world_state_revision
+            or parent_state.get("current_scene_id") != receipt.current_scene_id
+            or child_state.get("current_scene_id") != receipt.current_scene_id
+            or tuple(parent_state.get("accepted_turn_ids", ()))
+            != receipt.ordered_accepted_turn_ids
+            or tuple(child_state.get("accepted_turn_ids", ()))
+            != receipt.ordered_accepted_turn_ids
+        ):
+            raise StateConflictError("branch materialization semantic state changed")
+        expected_child_state = copy.deepcopy(parent_state)
+        expected_child_state["branch_id"] = receipt.child_branch_id
+        if child_state != expected_child_state:
+            raise StateConflictError(
+                "branch materialization child state diverged from its parent cutoff"
+            )
+        self._validate_materialized_active_equivalence(
+            parent_active=parent_active,
+            child_active=child_active,
+        )
+        self._validate_inherited_summary_sources(
+            parent_root=parent_root,
+            child_root=child_root,
+            sources=receipt.inherited_summary_sources,
+        )
+        return receipt_path
+
+    def _active_manifest_for_path(
+        self, active_root: Path
+    ) -> tuple[ContinuousActiveManifestEntryV1, ...]:
+        entries: list[ContinuousActiveManifestEntryV1] = []
+        for path in sorted(value for value in active_root.rglob("*") if value.is_file()):
+            relative = path.relative_to(active_root).as_posix()
+            if relative == "WORLD_STATE.json":
+                category = "world_state"
+            elif relative == "WORLD_INDEX.jsonl":
+                category = "world_index"
+            else:
+                category = relative.split("/", 1)[0].casefold()
+            revision = None
+            raw = path.read_bytes()
+            if path.suffix.casefold() == ".json":
+                value = json.loads(raw.decode("utf-8"))
+                if isinstance(value, dict):
+                    revision = value.get("_cera_revision")
+            entries.append(
+                ContinuousActiveManifestEntryV1(
+                    relative_path=relative,
+                    record_category=category,
+                    content_sha256=hashlib.sha256(raw).hexdigest(),
+                    size_bytes=len(raw),
+                    revision=revision,
+                )
+            )
+        return tuple(entries)
+
+    def _accepted_checkpoint_manifest(
+        self, branch_root: Path, accepted_turn_ids: tuple[str, ...]
+    ) -> tuple[ContinuousActiveManifestEntryV1, ...]:
+        entries = []
+        for turn_id in accepted_turn_ids:
+            path = (
+                branch_root
+                / "CANDIDATES"
+                / _slug(turn_id, "turn_id")
+                / "PROMOTION_RECEIPT.json"
+            )
+            if not path.is_file():
+                raise StateConflictError(
+                    "branch materialization checkpoint artifact is unavailable"
+                )
+            raw = path.read_bytes()
+            payload = json.loads(raw.decode("utf-8"))
+            revision = payload.get("_cera_revision") if isinstance(payload, dict) else None
+            entries.append(
+                ContinuousActiveManifestEntryV1(
+                    relative_path=path.relative_to(branch_root).as_posix(),
+                    record_category="accepted_checkpoint_artifact",
+                    content_sha256=hashlib.sha256(raw).hexdigest(),
+                    size_bytes=len(raw),
+                    revision=revision,
+                )
+            )
+        return tuple(sorted(entries, key=lambda value: value.relative_path))
+
+    def _validate_materialized_active_equivalence(
+        self, *, parent_active: Path, child_active: Path
+    ) -> None:
+        parent_paths = {
+            value.relative_to(parent_active).as_posix()
+            for value in parent_active.rglob("*")
+            if value.is_file()
+        }
+        child_paths = {
+            value.relative_to(child_active).as_posix()
+            for value in child_active.rglob("*")
+            if value.is_file()
+        }
+        if parent_paths != child_paths:
+            raise StateConflictError("branch materialization file set diverged")
+        for relative in sorted(parent_paths - {"WORLD_STATE.json", "WORLD_INDEX.jsonl"}):
+            if (parent_active / relative).read_bytes() != (child_active / relative).read_bytes():
+                raise StateConflictError(
+                    "branch materialization authoritative record diverged"
+                )
+        expected_index_root = Path(
+            mkdtemp(prefix=".branch-index-check-", dir=child_active.parent)
+        )
+        try:
+            shutil.copytree(parent_active, expected_index_root / "ACTIVE")
+            expected_state_path = expected_index_root / "ACTIVE" / "WORLD_STATE.json"
+            expected_state = json.loads(expected_state_path.read_text(encoding="utf-8"))
+            expected_state["branch_id"] = json.loads(
+                (child_active / "WORLD_STATE.json").read_text(encoding="utf-8")
+            )["branch_id"]
+            self._write_json(expected_state_path, expected_state)
+            self._rebuild_index(expected_index_root / "ACTIVE")
+            if (
+                (expected_index_root / "ACTIVE" / "WORLD_INDEX.jsonl").read_bytes()
+                != (child_active / "WORLD_INDEX.jsonl").read_bytes()
+            ):
+                raise StateConflictError(
+                    "branch materialization index is not the deterministic child index"
+                )
+        finally:
+            shutil.rmtree(expected_index_root)
+
+    @staticmethod
+    def _validate_inherited_summary_sources(
+        *,
+        parent_root: Path,
+        child_root: Path,
+        sources: tuple[ContinuousInheritedSummarySourceV1, ...],
+    ) -> None:
+        from .evidence import build_character_summary_envelope
+
+        for source in sources:
+            for root in (parent_root, child_root):
+                envelope = build_character_summary_envelope(
+                    branch_root=root,
+                    source_path=source.source_path_or_record_id,
+                    character_id=source.character_id,
+                )
+                if (
+                    envelope.source_revision != source.source_revision
+                    or envelope.source_sha256 != source.source_sha256
+                    or envelope.source_authority_classification
+                    != source.source_authority_classification
+                    or envelope.envelope_sha256 != source.envelope_sha256
+                ):
+                    raise StateConflictError(
+                        "branch materialization inherited summary source changed"
+                    )
 
     def create_candidate(self, world_id: str, branch_id: str, turn_id: str) -> CandidateWorldViewV1:
         _slug(turn_id, "turn_id")

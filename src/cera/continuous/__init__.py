@@ -56,6 +56,7 @@ from .ingress import (
 from .sessions import (
     CharacterSummaryDeliveryReceiptV1,
     ContinuousBranchForkReceiptV1,
+    ContinuousBranchForkReceiptV2,
     ContinuousBranchReferenceTransferReceiptV1,
     ContinuousContextInjectionReceiptV1,
     ContinuousReconstructionAcceptedTurnV1,
@@ -69,6 +70,7 @@ from .sessions import (
     continuous_branch_privacy_boundary_sha256,
 )
 from .runtime import ContinuousSceneChangeCandidateV1
+from .world import ContinuousBranchMaterializationReceiptV1
 from .packets import (
     ContinuousPlannerPacketKind,
     ContinuousPlannerTurnPacketV1,
@@ -163,6 +165,8 @@ __all__ = [
     "ContinuousReconstructionAcceptedTurnV1",
     "ContinuousSessionReconstructionBundleV1",
     "ContinuousBranchForkReceiptV1",
+    "ContinuousBranchForkReceiptV2",
+    "ContinuousBranchMaterializationReceiptV1",
     "ContinuousBranchReferenceTransferReceiptV1",
     "CharacterSummaryDeliveryReceiptV1",
     "ContinuousContextInjectionReceiptV1",
