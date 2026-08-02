@@ -2,7 +2,7 @@
 
 **Updated:** 2026-08-01
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-197 provider-free continuous Planner/Validator correction cycle 010; D-180 remains active
+**Phase:** D-198 provider-free continuous Planner/Validator correction cycle 011 Progression 1; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
@@ -11,10 +11,29 @@
 **Provider-free current verification:** D-197 complete repository suite passes 773/773 in 315.785 seconds with one expected environment-dependent skip; zero external provider calls
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
-**D-186/D-197 shadow continuity work:** all earlier canary/audit evidence remains immutable; tenth provider-free terminal-effect/republication correction tranche passed its complete offline gate; active route unchanged
+**D-186/D-198 shadow continuity work:** all earlier canary/audit evidence remains immutable; Cycle 011 Progression 1 adds total-lifecycle terminal ownership and restart-safe publication; active route unchanged
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
+
+- D-198 Progression 1 is complete provider-free. One root terminal transaction
+  now exists before every canary setup operation. Missing source data and other
+  setup/execution/cleanup failures produce a canonical failed result and report
+  instead of escaping before terminal evidence. Complete terminal bytes freeze
+  before result/report publication; an explicit commit marker binds the final
+  hashes. Restart republishes only frozen bytes, while a started-but-unfrozen
+  identity is terminalized without repeating semantic or provider work.
+- The focused continuous Job 4 harness passes 25/25, including actual missing-
+  source CLI terminalization, started/frozen restart paths, final report-
+  construction failure, publication-cut recovery, and the successful scripted
+  ten-stage path. The related repository completion chain passes 7/7. External
+  provider calls, retries, fallbacks, and all canonical runtime effects are
+  zero.
+- The next authorized job is
+  `continuous-durable-terminal-evidence-and-capability-ledger-v11`. It must
+  publish and bind immutable terminal-evidence bytes through `complete-job4`
+  and replace compatibility zero counters with capability-owned custody.
+  Cycle 011 is not published and no live provider dispatch is authorized.
 
 - D-197 is the current provider-free correction tranche. A closed typed terminal
   record now owns all canonical effects and mandatory postconditions. Exact

@@ -10,7 +10,9 @@ import sys
 from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 import unittest
+from unittest.mock import patch
 
+import cera.continuous.job4_transaction as job4_transaction
 from cera.continuous.prompting import PLANNER_STABLE_INSTRUCTIONS
 from scripts.run_continuous_planner_validator_job4 import (
     BRANCH_ID,
@@ -21,6 +23,7 @@ from scripts.run_continuous_planner_validator_job4 import (
     WORLD_ID,
     build_report,
     compatibility,
+    _freeze_terminal_publication,
     source_character_summary,
     seed_world,
     validate_declared_unittest_ids,
@@ -34,6 +37,9 @@ from cera.continuous.job4_terminal import (
     ContinuousJob4OperationalCountersV1,
     ContinuousJob4PostconditionsV1,
     ContinuousJob4TerminalEvidenceV1,
+)
+from cera.continuous.job4_transaction import (
+    ContinuousJob4TerminalTransactionV1,
 )
 from cera.continuous.contracts import CharacterRoleLedgerV1
 from cera.continuous.provider import (
@@ -445,6 +451,306 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertIn(
                 "scripted_transport_invocations=10",
                 result["verification"][0]["summary"],
+            )
+
+    def test_missing_source_database_terminalizes_before_any_provider_work(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            cycle = root / "cycle"
+            (cycle / "receipts").mkdir(parents=True)
+            authorization = "c" * 64
+            cycle_id = "cycle:missing-source-terminalization"
+            task_id = "task:missing-source-terminalization"
+            (cycle / "CYCLE_MANIFEST.json").write_text(
+                json.dumps(
+                    {
+                        "cycle_id": cycle_id,
+                        "job4": {
+                            "task_id": task_id,
+                            "authorization_record_sha256": authorization,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (cycle / "receipts" / "TRIGGER_SENT.json").write_text(
+                "{}\n", encoding="utf-8"
+            )
+            runtime_root = root / "runtime"
+            completed = subprocess.run(
+                (
+                    sys.executable,
+                    str(ROOT / "scripts" / "run_continuous_planner_validator_job4.py"),
+                    "--confirm-provider-free-scripted-v8",
+                    "--expected-scripted-fixture-sha256",
+                    SCRIPTED_JOB4_FIXTURE_SHA256,
+                    "--cycle-directory",
+                    str(cycle),
+                    "--source-database",
+                    str(root / "missing.sqlite3"),
+                    "--runtime-root",
+                    str(runtime_root),
+                    "--expected-checkpoint-sha",
+                    git_head(ROOT),
+                    "--expected-cycle-id",
+                    cycle_id,
+                    "--expected-task-id",
+                    task_id,
+                    "--expected-authorization-sha256",
+                    authorization,
+                    "--maximum-provider-calls",
+                    "10",
+                ),
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                timeout=60,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 1, completed.stderr)
+            result = json.loads(
+                (cycle / "source" / "JOB4_RESULT.json").read_text(encoding="utf-8")
+            )
+            detail = json.loads(
+                (runtime_root / "JOB4_DETAIL.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(result["status"], "failed")
+            self.assertEqual(result["effects"]["provider_calls"], 0)
+            self.assertEqual(detail["failure"]["stage"], "pre_provider")
+            self.assertIn(
+                "source_database_unverified_or_changed",
+                detail["terminal_evidence"]["failure_codes"],
+            )
+            self.assertTrue(
+                (
+                    cycle
+                    / "transaction"
+                    / "job4"
+                    / "JOB4_PUBLICATION_COMMITTED.json"
+                ).is_file()
+            )
+            self.assertTrue((cycle / "source" / "JOB4_REPORT.md").is_file())
+
+    def test_frozen_terminal_bytes_republish_without_semantic_reentry(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            cycle = root / "cycle"
+            cycle.mkdir()
+            transaction = ContinuousJob4TerminalTransactionV1.begin(
+                cycle_directory=cycle,
+                cycle_id="cycle:frozen-recovery",
+                task_id="task:frozen-recovery",
+                authorization_sha256="d" * 64,
+                runtime_root=root / "runtime",
+            )
+            transaction.freeze(
+                detail_bytes=b'{"status":"failed"}\n',
+                report_bytes=b"# Frozen terminal report\n",
+                result_bytes=b'{"status":"failed"}\n',
+                recovery_terminalization=False,
+            )
+            restarted = ContinuousJob4TerminalTransactionV1.begin(
+                cycle_directory=cycle,
+                cycle_id="cycle:frozen-recovery",
+                task_id="task:frozen-recovery",
+                authorization_sha256="d" * 64,
+                runtime_root=root / "runtime",
+            )
+            self.assertFalse(restarted.is_new)
+            self.assertEqual(restarted.state, "frozen")
+            committed = restarted.publish_frozen()
+            self.assertFalse(committed["semantic_work_repeated"])
+            self.assertEqual(
+                (cycle / "source" / "JOB4_RESULT.json").read_bytes(),
+                b'{"status":"failed"}\n',
+            )
+            self.assertEqual(restarted.state, "committed")
+
+    def test_started_transaction_restart_terminalizes_instead_of_rerunning(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            cycle = root / "cycle"
+            (cycle / "receipts").mkdir(parents=True)
+            authorization = "e" * 64
+            cycle_id = "cycle:started-recovery"
+            task_id = "task:started-recovery"
+            (cycle / "CYCLE_MANIFEST.json").write_text(
+                json.dumps(
+                    {
+                        "cycle_id": cycle_id,
+                        "job4": {
+                            "task_id": task_id,
+                            "authorization_record_sha256": authorization,
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+            (cycle / "receipts" / "TRIGGER_SENT.json").write_text(
+                "{}\n", encoding="utf-8"
+            )
+            source_database = root / "source.sqlite3"
+            connection = sqlite3.connect(source_database)
+            connection.execute("CREATE TABLE qualification(value TEXT)")
+            connection.commit()
+            connection.close()
+            runtime_root = root / "runtime"
+            ContinuousJob4TerminalTransactionV1.begin(
+                cycle_directory=cycle,
+                cycle_id=cycle_id,
+                task_id=task_id,
+                authorization_sha256=authorization,
+                runtime_root=runtime_root,
+            )
+            command = (
+                sys.executable,
+                str(ROOT / "scripts" / "run_continuous_planner_validator_job4.py"),
+                "--confirm-provider-free-scripted-v8",
+                "--expected-scripted-fixture-sha256",
+                SCRIPTED_JOB4_FIXTURE_SHA256,
+                "--cycle-directory",
+                str(cycle),
+                "--source-database",
+                str(source_database),
+                "--runtime-root",
+                str(runtime_root),
+                "--expected-checkpoint-sha",
+                git_head(ROOT),
+                "--expected-cycle-id",
+                cycle_id,
+                "--expected-task-id",
+                task_id,
+                "--expected-authorization-sha256",
+                authorization,
+                "--maximum-provider-calls",
+                "10",
+            )
+            recovered = subprocess.run(
+                command,
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                timeout=60,
+                check=False,
+            )
+            self.assertEqual(recovered.returncode, 1, recovered.stderr)
+            detail = json.loads(
+                (runtime_root / "JOB4_DETAIL.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(detail["failure"]["stage"], "restart_recovery")
+            self.assertTrue(
+                detail["root_terminal_transaction"]["recovery_terminalization"]
+            )
+            self.assertEqual(detail["provider_calls"], 0)
+            self.assertEqual(detail["scripted_transport_invocations"], 0)
+            repeated = subprocess.run(
+                command,
+                cwd=ROOT,
+                text=True,
+                capture_output=True,
+                timeout=60,
+                check=False,
+            )
+            self.assertNotEqual(repeated.returncode, 0)
+            self.assertIn(
+                "already committed", (repeated.stderr + repeated.stdout).lower()
+            )
+
+    def test_report_construction_failure_still_commits_failed_terminal_result(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            cycle = root / "cycle"
+            cycle.mkdir()
+            transaction = ContinuousJob4TerminalTransactionV1.begin(
+                cycle_directory=cycle,
+                cycle_id="cycle:report-construction-failure",
+                task_id="task:report-construction-failure",
+                authorization_sha256="f" * 64,
+                runtime_root=root / "runtime",
+            )
+            detail = terminalized_detail(
+                cycle_id="cycle:report-construction-failure",
+                execution_status="completed",
+                execution_mode="provider_free_scripted_v8",
+                provider_calls=0,
+                scripted_transport_invocations=10,
+            )
+            terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
+                detail["terminal_evidence"]
+            )
+            with patch(
+                "scripts.run_continuous_planner_validator_job4.build_report",
+                side_effect=RuntimeError("bounded report failure"),
+            ):
+                canonical = _freeze_terminal_publication(
+                    transaction,
+                    detail,
+                    task_id="task:report-construction-failure",
+                    operational_counters=terminal.effect_evidence.operational_counters,
+                    postconditions=terminal.postconditions,
+                    recovery_terminalization=False,
+                )
+            self.assertEqual(canonical["status"], "failed")
+            self.assertEqual(canonical["effects"]["provider_calls"], 0)
+            self.assertEqual(
+                detail["terminal_publication_failure"]["error_type"],
+                "RuntimeError",
+            )
+            self.assertEqual(transaction.state, "committed")
+            self.assertIn(
+                "bounded finalization failure",
+                (cycle / "source" / "JOB4_REPORT.md").read_text(encoding="utf-8"),
+            )
+
+    def test_publication_cut_recovers_exact_frozen_bytes(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            cycle = root / "cycle"
+            cycle.mkdir()
+            transaction = ContinuousJob4TerminalTransactionV1.begin(
+                cycle_directory=cycle,
+                cycle_id="cycle:publication-cut",
+                task_id="task:publication-cut",
+                authorization_sha256="1" * 64,
+                runtime_root=root / "runtime",
+            )
+            result_bytes = b'{"status":"failed"}\n'
+            report_bytes = b"# Publication cut\n"
+            transaction.freeze(
+                detail_bytes=b'{"status":"failed"}\n',
+                report_bytes=report_bytes,
+                result_bytes=result_bytes,
+                recovery_terminalization=False,
+            )
+            original_write = job4_transaction._atomic_immutable_write
+
+            def fail_result_publication(path: Path, data: bytes) -> None:
+                if path == cycle / "source" / "JOB4_RESULT.json":
+                    raise OSError("simulated publication cut")
+                original_write(path, data)
+
+            with patch.object(
+                job4_transaction,
+                "_atomic_immutable_write",
+                side_effect=fail_result_publication,
+            ):
+                with self.assertRaisesRegex(OSError, "publication cut"):
+                    transaction.publish_frozen()
+            self.assertEqual(transaction.state, "frozen")
+            restarted = ContinuousJob4TerminalTransactionV1.begin(
+                cycle_directory=cycle,
+                cycle_id="cycle:publication-cut",
+                task_id="task:publication-cut",
+                authorization_sha256="1" * 64,
+                runtime_root=root / "runtime",
+            )
+            restarted.publish_frozen()
+            self.assertEqual(restarted.state, "committed")
+            self.assertEqual(
+                (cycle / "source" / "JOB4_RESULT.json").read_bytes(), result_bytes
+            )
+            self.assertEqual(
+                (cycle / "source" / "JOB4_REPORT.md").read_bytes(), report_bytes
             )
 
     def test_live_and_scripted_terminal_results_match_strict_cycle_schema(self) -> None:

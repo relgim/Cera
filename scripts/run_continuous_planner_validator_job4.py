@@ -36,6 +36,10 @@ from cera.continuous.job4_terminal import (
     ContinuousJob4PostconditionsV1,
     ContinuousJob4TerminalEvidenceV1,
 )
+from cera.continuous.job4_transaction import (
+    ContinuousJob4TerminalTransactionV1,
+    ContinuousJob4TransactionError,
+)
 from cera.continuous.shadow_ingress import (
     ContinuousSillyTavernShadowRequestBridge,
 )
@@ -1323,6 +1327,219 @@ def execute_scripted_job4(
     return harness
 
 
+def _operational_counters_zero() -> ContinuousJob4OperationalCountersV1:
+    # V11-2 replaces this compatibility value with capability-owned custody.
+    return ContinuousJob4OperationalCountersV1(
+        live_story_writes=0,
+        production_database_writes=0,
+        deployment_operations=0,
+        remote_operations=0,
+        merge_operations=0,
+        push_operations=0,
+        service_changes=0,
+        installed_sillytavern_changes=0,
+    )
+
+
+def _record_terminal_failure(
+    result: dict[str, Any],
+    error: BaseException,
+    *,
+    stage: str,
+    message: str = "Terminal one-shot Job 4 failure; inspect privacy-safe stage evidence.",
+) -> None:
+    result["execution_status"] = "failed"
+    if result.get("failure") is None:
+        result["failure"] = {
+            "stage": stage,
+            "error_type": type(error).__name__,
+            "message": message,
+        }
+
+
+def _apply_terminal_evidence(
+    result: dict[str, Any],
+    *,
+    execution_status: str,
+    provider_calls: int,
+    operational_counters: ContinuousJob4OperationalCountersV1,
+    postconditions: ContinuousJob4PostconditionsV1,
+) -> ContinuousJob4TerminalEvidenceV1:
+    terminal = ContinuousJob4TerminalEvidenceV1.build(
+        execution_status=execution_status,
+        provider_calls=provider_calls,
+        operational_counters=operational_counters,
+        postconditions=postconditions,
+    )
+    effects = terminal.effect_evidence.canonical_effects
+    result["execution_status"] = execution_status
+    result["provider_calls"] = effects["provider_calls"]
+    result["operational_counters"] = operational_counters.to_dict()
+    result["terminal_evidence"] = terminal.to_dict()
+    result["terminal_evidence_sha256"] = terminal.sha256
+    result["status"] = terminal.status
+    result["story_database_writes"] = effects["story_database_writes"]
+    result["active_route_changes"] = effects["active_route_changes"]
+    result["deployment_remote_or_push_effects"] = effects[
+        "deployment_remote_or_push_effects"
+    ]
+    result["active_route_unchanged"] = effects["active_route_changes"] == 0
+    result["finished_at"] = utc_now()
+    return terminal
+
+
+def _emergency_report(result: dict[str, Any], *, task_id: str) -> str:
+    terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
+        result["terminal_evidence"]
+    )
+    return "\n".join(
+        (
+            "# Continuous Planner/Validator Job 4 Terminal Report",
+            "",
+            f"**Task:** `{task_id}`  ",
+            "**Status:** `failed`  ",
+            f"**Provider calls observed:** {terminal.effect_evidence.provider_calls}  ",
+            "**Retry/fallback:** 0 / 0",
+            "",
+            "Terminal publication encountered a bounded finalization failure.",
+            "No semantic or provider work may be repeated under this identity.",
+            f"Terminal evidence SHA-256: `{terminal.sha256}`.",
+            f"Canonical effects: `{canonical_json(terminal.effect_evidence.canonical_effects)}`.",
+            f"Failure codes: `{canonical_json(list(terminal.failure_codes))}`.",
+            "",
+        )
+    )
+
+
+def _emergency_canonical_result(
+    result: dict[str, Any], *, task_id: str, report_sha256: str
+) -> dict[str, Any]:
+    terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
+        result["terminal_evidence"]
+    )
+    return {
+        "schema_version": "cera.pro_review_job4_result.v1",
+        "cycle_id": result["cycle_id"],
+        "task_id": task_id,
+        "status": "failed",
+        "report_relative_path": "source/JOB4_REPORT.md",
+        "report_sha256": report_sha256,
+        "effects": terminal.effect_evidence.canonical_effects,
+        "verification": [
+            {
+                "command": "continuous-job4-terminal-publication",
+                "status": "failed",
+                "summary": (
+                    "terminalized_finalization_failure; terminal_evidence_sha256="
+                    + terminal.sha256
+                ),
+            }
+        ],
+    }
+
+
+def _freeze_terminal_publication(
+    transaction: ContinuousJob4TerminalTransactionV1,
+    result: dict[str, Any],
+    *,
+    task_id: str,
+    operational_counters: ContinuousJob4OperationalCountersV1,
+    postconditions: ContinuousJob4PostconditionsV1,
+    recovery_terminalization: bool,
+) -> dict[str, Any]:
+    try:
+        report = build_report(result, task_id=task_id)
+        report_bytes = report.encode("utf-8")
+        canonical_result = build_canonical_job4_result(
+            result,
+            task_id=task_id,
+            report_sha256=bytes_sha256(report_bytes),
+        )
+        detail_bytes = canonical_bytes(result) + b"\n"
+        result_bytes = canonical_bytes(canonical_result) + b"\n"
+    except BaseException as exc:
+        _record_terminal_failure(
+            result,
+            exc,
+            stage="terminal_publication_construction",
+            message="Terminal publication construction failed and was terminalized.",
+        )
+        terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
+            result["terminal_evidence"]
+        )
+        _apply_terminal_evidence(
+            result,
+            execution_status="failed",
+            provider_calls=terminal.effect_evidence.provider_calls,
+            operational_counters=operational_counters,
+            postconditions=postconditions,
+        )
+        result["terminal_publication_failure"] = {
+            "error_type": type(exc).__name__,
+            "semantic_work_repeated": False,
+        }
+        report = _emergency_report(result, task_id=task_id)
+        report_bytes = report.encode("utf-8")
+        canonical_result = _emergency_canonical_result(
+            result,
+            task_id=task_id,
+            report_sha256=bytes_sha256(report_bytes),
+        )
+        detail_bytes = canonical_bytes(result) + b"\n"
+        result_bytes = canonical_bytes(canonical_result) + b"\n"
+    transaction.freeze(
+        detail_bytes=detail_bytes,
+        report_bytes=report_bytes,
+        result_bytes=result_bytes,
+        recovery_terminalization=recovery_terminalization,
+    )
+    transaction.publish_frozen()
+    return canonical_result
+
+
+def _recovered_ledger_counts(path: Path, *, scripted: bool) -> tuple[int, int, int]:
+    """Conservatively recover counts without constructing or executing a port."""
+
+    if not path.is_file():
+        return 0, 0, 0
+    try:
+        events = tuple(
+            json.loads(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        )
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return 0, 0, 0
+    last: dict[str, str] = {}
+    invoked: set[str] = set()
+    for event in events:
+        if not isinstance(event, dict):
+            continue
+        call_id = event.get("call_id")
+        state = event.get("state")
+        if not isinstance(call_id, str) or not isinstance(state, str):
+            continue
+        last[call_id] = state
+        if state == "transport_invoked":
+            invoked.add(call_id)
+    invoked.update(
+        call_id
+        for call_id, state in last.items()
+        if state
+        in {
+            "prepared_not_invoked",
+            "worker_started_not_invoked",
+            "worker_preflight_not_invoked",
+        }
+    )
+    ledger_dispatches = len(invoked)
+    return (
+        0 if scripted else ledger_dispatches,
+        ledger_dispatches if scripted else 0,
+        ledger_dispatches,
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     confirmation = parser.add_mutually_exclusive_group(required=True)
@@ -1350,6 +1567,11 @@ def main() -> int:
     scripted_mode_version = (
         "v8" if args.confirm_provider_free_scripted_v8 else "v7"
     )
+    execution_mode = (
+        f"provider_free_scripted_{scripted_mode_version}"
+        if scripted_provider_free
+        else "live_one_shot"
+    )
     if scripted_provider_free:
         if args.expected_scripted_fixture_sha256 != SCRIPTED_JOB4_FIXTURE_SHA256:
             parser.error(
@@ -1375,386 +1597,453 @@ def main() -> int:
         raise SystemExit(str(error)) from error
     if not (cycle / "receipts" / "TRIGGER_SENT.json").is_file():
         raise SystemExit("Job 4 cannot start before the Pro trigger receipt")
-    report_path = cycle / "source" / "JOB4_REPORT.md"
-    result_path = cycle / "source" / "JOB4_RESULT.json"
-    if report_path.exists() or result_path.exists() or runtime_root.exists():
-        raise SystemExit("refusing to overwrite Job 4 evidence")
-    root_diagnostic = ContinuousRootDiagnosticRecorder(runtime_root)
-    if not source_db.is_file():
-        error = FileNotFoundError("Hanezawa human-test SQLite source is unavailable")
-        root_diagnostic.record_failure("source_database", "inspect_source_database", error)
-        raise SystemExit(str(error))
-    call_ledger = ContinuousProviderCallLedger(
-        runtime_root / "PROVIDER_CALL_LEDGER.jsonl",
-        maximum_calls=args.maximum_provider_calls,
-    )
-    operational_counters = ContinuousJob4OperationalCountersV1(
-        live_story_writes=0,
-        production_database_writes=0,
-        deployment_operations=0,
-        remote_operations=0,
-        merge_operations=0,
-        push_operations=0,
-        service_changes=0,
-        installed_sillytavern_changes=0,
-    )
-    copied_db = runtime_root / "hanezawa_human_test_disposable.sqlite3"
-    source_hash_before = root_diagnostic.run(
-        "source_database", "hash_source_database", lambda: bytes_sha256(source_db.read_bytes())
-    )
-    root_diagnostic.run(
-        "source_database", "copy_disposable_database", lambda: shutil.copy2(source_db, copied_db)
-    )
-    copy_hash_before = bytes_sha256(copied_db.read_bytes())
-    connection = root_diagnostic.run(
-        "source_database",
-        "open_disposable_database_read_only",
-        lambda: sqlite3.connect(f"file:{copied_db.as_posix()}?mode=ro", uri=True),
-    )
+
+    # This is the first mutable operation after immutable authorization.  Every
+    # later setup, execution, cleanup, and publication operation is owned by
+    # this one-shot transaction.
     try:
-        integrity = root_diagnostic.run(
-            "source_database",
-            "check_disposable_database_integrity",
-            lambda: connection.execute("PRAGMA integrity_check").fetchone()[0],
+        transaction = ContinuousJob4TerminalTransactionV1.begin(
+            cycle_directory=cycle,
+            cycle_id=args.expected_cycle_id,
+            task_id=args.expected_task_id,
+            authorization_sha256=args.expected_authorization_sha256,
+            runtime_root=runtime_root,
         )
-        foreign_keys = root_diagnostic.run(
-            "source_database",
-            "check_disposable_database_foreign_keys",
-            lambda: connection.execute("PRAGMA foreign_key_check").fetchall(),
+    except ContinuousJob4TransactionError as error:
+        raise SystemExit(str(error)) from error
+    if transaction.state == "committed":
+        raise SystemExit("Job 4 terminal publication is already committed")
+    if transaction.state == "frozen":
+        transaction.publish_frozen()
+        return 0 if transaction.frozen_result().get("status") == "completed" else 1
+
+    recovery_terminalization = not transaction.is_new
+    operational_counters = _operational_counters_zero()
+    provider_calls = 0
+    scripted_transport_invocations = 0
+    ledger_dispatches = 0
+    if recovery_terminalization:
+        (
+            provider_calls,
+            scripted_transport_invocations,
+            ledger_dispatches,
+        ) = _recovered_ledger_counts(
+            runtime_root / "PROVIDER_CALL_LEDGER.jsonl",
+            scripted=scripted_provider_free,
         )
-    except BaseException:
-        root_diagnostic.run(
-            "source_database",
-            "close_disposable_database_after_check_failure",
-            connection.close,
-        )
-        raise
-    root_diagnostic.run(
-        "source_database",
-        "close_disposable_database",
-        connection.close,
-    )
-    world = root_diagnostic.run(
-        "world_construction",
-        "construct_continuous_world_store",
-        lambda: ContinuousWorldStore(runtime_root / "worlds"),
-    )
-    root_diagnostic.run("world_seeding", "seed_disposable_world", lambda: seed_world(world, ROOT))
-    branch_root = world.branch_root(WORLD_ID, BRANCH_ID)
-    lifecycle_root = runtime_root / "provider_workspaces"
-    root_diagnostic.run(
-        "lifecycle_directory",
-        "create_provider_workspace_root",
-        lifecycle_root.mkdir,
-    )
-    active_runtime_before: dict[str, Any] | None = None
-    active_runtime_before_error_type: str | None = None
-    try:
-        active_runtime_before = root_diagnostic.run(
-            "active_profile", "inspect_active_runtime_profile", active_runtime_status
-        )
-    except Exception as exc:
-        active_runtime_before_error_type = type(exc).__name__
     result: dict[str, Any] = {
-        "schema_version": "cera.continuous_planner_validator_job4_detail.v2",
+        "schema_version": "cera.continuous_planner_validator_job4_detail.v3",
         "cycle_id": args.expected_cycle_id,
         "task_id": args.expected_task_id,
         "authorization_sha256": args.expected_authorization_sha256,
         "started_at": utc_now(),
         "status": "running",
         "execution_status": "running",
-        "execution_mode": (
-            f"provider_free_scripted_{scripted_mode_version}"
-            if scripted_provider_free
-            else "live_one_shot"
-        ),
+        "execution_mode": execution_mode,
         "scripted_fixture_id": (
             SCRIPTED_JOB4_FIXTURE_ID if scripted_provider_free else None
         ),
         "scripted_fixture_sha256": (
             SCRIPTED_JOB4_FIXTURE_SHA256 if scripted_provider_free else None
         ),
-        "provider_calls": 0,
-        "scripted_transport_invocations": 0,
+        "provider_calls": provider_calls,
+        "scripted_transport_invocations": scripted_transport_invocations,
         "retry_count": 0,
         "fallback_count": 0,
         "operational_counters": operational_counters.to_dict(),
-        "active_runtime_before": active_runtime_before,
-        "active_runtime_before_error_type": active_runtime_before_error_type,
+        "active_runtime_before": None,
+        "active_runtime_before_error_type": None,
         "turns": [],
         "calls": [],
         "pro_polls": [],
-        "source_database_sha256_before": source_hash_before,
-        "copy_database_sha256_before": copy_hash_before,
-        "copy_database_integrity": integrity,
-        "copy_database_foreign_key_findings": len(foreign_keys),
+        "source_database_sha256_before": None,
+        "copy_database_sha256_before": None,
+        "copy_database_integrity": None,
+        "copy_database_foreign_key_findings": None,
         "runtime_root": str(runtime_root),
+        "root_terminal_transaction": {
+            "schema_version": transaction.SCHEMA_VERSION,
+            "semantic_reentry_allowed": False,
+            "recovery_terminalization": recovery_terminalization,
+        },
     }
+    root_diagnostic: ContinuousRootDiagnosticRecorder | None = None
+    call_ledger: ContinuousProviderCallLedger | None = None
+    copied_db = runtime_root / "hanezawa_human_test_disposable.sqlite3"
+    source_hash_before: str | None = None
+    copy_hash_before: str | None = None
+    integrity: str | None = None
+    foreign_key_count: int | None = None
+    world: ContinuousWorldStore | None = None
+    branch_root: Path | None = None
+    lifecycle_root = runtime_root / "provider_workspaces"
+    active_runtime_before: dict[str, Any] | None = None
+    active_runtime_before_error_type: str | None = None
     planner_handle = None
     validator_handle = None
     harness = None
     scripted_harness_holder: dict[str, JobHarness] = {}
-    try:
-        if active_runtime_before_error_type is not None:
-            raise RuntimeError("active runtime profile inspection failed before Job 4")
-        if scripted_provider_free:
-            harness = execute_scripted_job4(
-                cycle=cycle,
-                world=world,
-                lifecycle_root=lifecycle_root,
-                call_ledger=call_ledger,
-                root_diagnostic=root_diagnostic,
-                result=result,
-                harness_holder=scripted_harness_holder,
-            )
-            planner_handle = harness.planner_handle
-            validator_handle = harness.validator_handle
-            raise _ScriptedExecutionComplete()
 
-        def import_codex_sdk():
-            from openai_codex import Codex, CodexConfig
-
-            return Codex, CodexConfig
-
-        Codex, CodexConfig = root_diagnostic.run(
-            "sdk_capability", "import_codex_sdk", import_codex_sdk
+    if recovery_terminalization:
+        _record_terminal_failure(
+            result,
+            RuntimeError("interrupted terminal transaction"),
+            stage="restart_recovery",
+            message=(
+                "An interrupted Job 4 identity was terminalized without repeating "
+                "semantic or provider work."
+            ),
         )
-
-        with ExitStack() as stack:
-            codex_context = root_diagnostic.run(
-                "backend_construction",
-                "construct_codex_client",
-                lambda: Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={})),
+    else:
+        try:
+            if (
+                (cycle / "source" / "JOB4_REPORT.md").exists()
+                or (cycle / "source" / "JOB4_RESULT.json").exists()
+                or runtime_root.exists()
+            ):
+                raise RuntimeError("refusing to overwrite pre-existing Job 4 evidence")
+            root_diagnostic = ContinuousRootDiagnosticRecorder(runtime_root)
+            if not source_db.is_file():
+                error = FileNotFoundError(
+                    "Hanezawa human-test SQLite source is unavailable"
+                )
+                root_diagnostic.record_failure(
+                    "source_database", "inspect_source_database", error
+                )
+                raise error
+            call_ledger = ContinuousProviderCallLedger(
+                runtime_root / "PROVIDER_CALL_LEDGER.jsonl",
+                maximum_calls=args.maximum_provider_calls,
             )
-            codex = root_diagnostic.run(
-                "backend_context",
-                "enter_codex_client_context",
-                lambda: stack.enter_context(codex_context),
+            source_hash_before = root_diagnostic.run(
+                "source_database",
+                "hash_source_database",
+                lambda: bytes_sha256(source_db.read_bytes()),
             )
-            account = root_diagnostic.run(
-                "account_inspection", "inspect_codex_account", codex.account
-            )
-            if account.account is None:
-                raise RuntimeError("ChatGPT Codex session is unavailable")
-            planner_backend = root_diagnostic.run(
-                "backend_construction",
-                "construct_planner_backend",
-                lambda: OpenAICodexStoredThreadBackend(
-                    codex=codex,
-                    model="gpt-5.6-sol",
-                    cwd=str(lifecycle_root),
-                    base_instructions=(
-                        _BASE_INSTRUCTIONS_BY_ROLE["scene_reasoner"]
-                        + "\n\n"
-                        + PLANNER_STABLE_INSTRUCTIONS
-                    ),
-                    service_name="cera_continuous_job4_planner",
-                ),
-            )
-            validator_backend = root_diagnostic.run(
-                "backend_construction",
-                "construct_validator_backend",
-                lambda: OpenAICodexStoredThreadBackend(
-                    codex=codex,
-                    model="gpt-5.6-terra",
-                    cwd=str(lifecycle_root),
-                    base_instructions=(
-                        _BASE_INSTRUCTIONS_BY_ROLE["scene_realization_verifier"]
-                        + "\n\n"
-                        + VALIDATOR_STABLE_INSTRUCTIONS
-                    ),
-                    service_name="cera_continuous_job4_validator",
-                ),
-            )
-            planner_compatibility = root_diagnostic.run(
-                "compatibility_creation",
-                "create_planner_compatibility",
-                lambda: compatibility(world, ContinuousSessionRole.PLANNER),
-            )
-            validator_compatibility = root_diagnostic.run(
-                "compatibility_creation",
-                "create_validator_compatibility",
-                lambda: compatibility(world, ContinuousSessionRole.VALIDATOR),
-            )
-            planner_session = root_diagnostic.run(
-                "session_construction",
-                "construct_planner_session",
-                lambda: ContinuousSessionCoordinator(
-                    planner_compatibility,
-                    CodexContinuousStoredSessionPort(planner_backend),
-                ),
-            )
-            validator_session = root_diagnostic.run(
-                "session_construction",
-                "construct_validator_session",
-                lambda: ContinuousSessionCoordinator(
-                    validator_compatibility,
-                    CodexContinuousStoredSessionPort(validator_backend),
-                ),
-            )
-            planner_handle = root_diagnostic.run(
-                "stored_thread_construction",
-                "ensure_planner_stored_thread",
-                lambda: planner_session.ensure_session().provider_thread_id,
-            )
-            validator_handle = root_diagnostic.run(
-                "stored_thread_construction",
-                "ensure_validator_stored_thread",
-                lambda: validator_session.ensure_session().provider_thread_id,
-            )
+            result["source_database_sha256_before"] = source_hash_before
             root_diagnostic.run(
-                "role_separation",
-                "assert_materialized_role_separation",
-                lambda: assert_separate_role_sessions(
-                    planner_session, validator_session
-                ),
+                "source_database",
+                "copy_disposable_database",
+                lambda: shutil.copy2(source_db, copied_db),
             )
-            harness = JobHarness(
-                source_root=ROOT,
-                cycle=cycle,
-                world=world,
-                planner_session=planner_session,
-                validator_session=validator_session,
-                planner_handle=planner_handle,
-                validator_handle=validator_handle,
-                lifecycle_root=lifecycle_root,
-                call_ledger=call_ledger,
-                root_diagnostic=root_diagnostic,
+            copy_hash_before = root_diagnostic.run(
+                "source_database",
+                "hash_disposable_database_before",
+                lambda: bytes_sha256(copied_db.read_bytes()),
+            )
+            result["copy_database_sha256_before"] = copy_hash_before
+            connection = root_diagnostic.run(
+                "source_database",
+                "open_disposable_database_read_only",
+                lambda: sqlite3.connect(
+                    f"file:{copied_db.as_posix()}?mode=ro", uri=True
+                ),
             )
             try:
-                execute_job4_schedule(
-                    harness=harness,
+                integrity = root_diagnostic.run(
+                    "source_database",
+                    "check_disposable_database_integrity",
+                    lambda: connection.execute("PRAGMA integrity_check").fetchone()[0],
+                )
+                foreign_keys = root_diagnostic.run(
+                    "source_database",
+                    "check_disposable_database_foreign_keys",
+                    lambda: connection.execute("PRAGMA foreign_key_check").fetchall(),
+                )
+                foreign_key_count = len(foreign_keys)
+            finally:
+                try:
+                    root_diagnostic.run(
+                        "source_database",
+                        "close_disposable_database",
+                        connection.close,
+                    )
+                except Exception:
+                    connection.close()
+            result["copy_database_integrity"] = integrity
+            result["copy_database_foreign_key_findings"] = foreign_key_count
+            world = root_diagnostic.run(
+                "world_construction",
+                "construct_continuous_world_store",
+                lambda: ContinuousWorldStore(runtime_root / "worlds"),
+            )
+            root_diagnostic.run(
+                "world_seeding", "seed_disposable_world", lambda: seed_world(world, ROOT)
+            )
+            branch_root = world.branch_root(WORLD_ID, BRANCH_ID)
+            root_diagnostic.run(
+                "lifecycle_directory",
+                "create_provider_workspace_root",
+                lifecycle_root.mkdir,
+            )
+            try:
+                active_runtime_before = root_diagnostic.run(
+                    "active_profile",
+                    "inspect_active_runtime_profile",
+                    active_runtime_status,
+                )
+            except Exception as exc:
+                active_runtime_before_error_type = type(exc).__name__
+            result["active_runtime_before"] = active_runtime_before
+            result["active_runtime_before_error_type"] = (
+                active_runtime_before_error_type
+            )
+            if active_runtime_before_error_type is not None:
+                raise RuntimeError(
+                    "active runtime profile inspection failed before Job 4"
+                )
+            if scripted_provider_free:
+                harness = execute_scripted_job4(
+                    cycle=cycle,
+                    world=world,
+                    lifecycle_root=lifecycle_root,
+                    call_ledger=call_ledger,
+                    root_diagnostic=root_diagnostic,
+                    result=result,
+                    harness_holder=scripted_harness_holder,
+                )
+                planner_handle = harness.planner_handle
+                validator_handle = harness.validator_handle
+                raise _ScriptedExecutionComplete()
+
+            def import_codex_sdk():
+                from openai_codex import Codex, CodexConfig
+
+                return Codex, CodexConfig
+
+            Codex, CodexConfig = root_diagnostic.run(
+                "sdk_capability", "import_codex_sdk", import_codex_sdk
+            )
+            with ExitStack() as stack:
+                codex_context = root_diagnostic.run(
+                    "backend_construction",
+                    "construct_codex_client",
+                    lambda: Codex(
+                        CodexConfig(config_overrides=("mcp_servers={}",), env={})
+                    ),
+                )
+                codex = root_diagnostic.run(
+                    "backend_context",
+                    "enter_codex_client_context",
+                    lambda: stack.enter_context(codex_context),
+                )
+                account = root_diagnostic.run(
+                    "account_inspection", "inspect_codex_account", codex.account
+                )
+                if account.account is None:
+                    raise RuntimeError("ChatGPT Codex session is unavailable")
+                planner_backend = root_diagnostic.run(
+                    "backend_construction",
+                    "construct_planner_backend",
+                    lambda: OpenAICodexStoredThreadBackend(
+                        codex=codex,
+                        model="gpt-5.6-sol",
+                        cwd=str(lifecycle_root),
+                        base_instructions=(
+                            _BASE_INSTRUCTIONS_BY_ROLE["scene_reasoner"]
+                            + "\n\n"
+                            + PLANNER_STABLE_INSTRUCTIONS
+                        ),
+                        service_name="cera_continuous_job4_planner",
+                    ),
+                )
+                validator_backend = root_diagnostic.run(
+                    "backend_construction",
+                    "construct_validator_backend",
+                    lambda: OpenAICodexStoredThreadBackend(
+                        codex=codex,
+                        model="gpt-5.6-terra",
+                        cwd=str(lifecycle_root),
+                        base_instructions=(
+                            _BASE_INSTRUCTIONS_BY_ROLE[
+                                "scene_realization_verifier"
+                            ]
+                            + "\n\n"
+                            + VALIDATOR_STABLE_INSTRUCTIONS
+                        ),
+                        service_name="cera_continuous_job4_validator",
+                    ),
+                )
+                planner_session = root_diagnostic.run(
+                    "session_construction",
+                    "construct_planner_session",
+                    lambda: ContinuousSessionCoordinator(
+                        compatibility(world, ContinuousSessionRole.PLANNER),
+                        CodexContinuousStoredSessionPort(planner_backend),
+                    ),
+                )
+                validator_session = root_diagnostic.run(
+                    "session_construction",
+                    "construct_validator_session",
+                    lambda: ContinuousSessionCoordinator(
+                        compatibility(world, ContinuousSessionRole.VALIDATOR),
+                        CodexContinuousStoredSessionPort(validator_backend),
+                    ),
+                )
+                planner_handle = root_diagnostic.run(
+                    "stored_thread_construction",
+                    "ensure_planner_stored_thread",
+                    lambda: planner_session.ensure_session().provider_thread_id,
+                )
+                validator_handle = root_diagnostic.run(
+                    "stored_thread_construction",
+                    "ensure_validator_stored_thread",
+                    lambda: validator_session.ensure_session().provider_thread_id,
+                )
+                root_diagnostic.run(
+                    "role_separation",
+                    "assert_materialized_role_separation",
+                    lambda: assert_separate_role_sessions(
+                        planner_session, validator_session
+                    ),
+                )
+                harness = JobHarness(
+                    source_root=ROOT,
+                    cycle=cycle,
                     world=world,
                     planner_session=planner_session,
+                    validator_session=validator_session,
                     planner_handle=planner_handle,
                     validator_handle=validator_handle,
-                    result=result,
-                    scripted_provider_free=False,
+                    lifecycle_root=lifecycle_root,
+                    call_ledger=call_ledger,
+                    root_diagnostic=root_diagnostic,
                 )
-            finally:
-                archived: dict[str, bool] = {}
-                archive_failed = False
-                for role, backend, handle in (
-                    ("planner", planner_backend, planner_handle),
-                    ("validator", validator_backend, validator_handle),
-                ):
-                    if handle is None:
-                        continue
-                    try:
-                        backend.archive_stored_thread(handle)
-                        archived[role] = True
-                    except Exception:
-                        archived[role] = False
-                        archive_failed = True
-                result["thread_archival"] = archived
-                if archive_failed:
-                    raise RuntimeError("stored canary thread archival failed")
-    except _ScriptedExecutionComplete:
-        pass
-    except BaseException as exc:
-        if harness is None:
-            harness = scripted_harness_holder.get("harness")
-        result["execution_status"] = "failed"
-        result["failure"] = {
-            "stage": (
-                harness.call_records[-1]["label"]
-                if harness is not None and harness.call_records
-                else "pre_provider"
-            ),
-            "error_type": type(exc).__name__,
-            "message": "Terminal one-shot Job 4 failure; inspect privacy-safe stage evidence.",
+                try:
+                    execute_job4_schedule(
+                        harness=harness,
+                        world=world,
+                        planner_session=planner_session,
+                        planner_handle=planner_handle,
+                        validator_handle=validator_handle,
+                        result=result,
+                        scripted_provider_free=False,
+                    )
+                finally:
+                    archived: dict[str, bool] = {}
+                    archive_failed = False
+                    for role, backend, handle in (
+                        ("planner", planner_backend, planner_handle),
+                        ("validator", validator_backend, validator_handle),
+                    ):
+                        if handle is None:
+                            continue
+                        try:
+                            backend.archive_stored_thread(handle)
+                            archived[role] = True
+                        except Exception:
+                            archived[role] = False
+                            archive_failed = True
+                    result["thread_archival"] = archived
+                    if archive_failed:
+                        raise RuntimeError("stored canary thread archival failed")
+        except _ScriptedExecutionComplete:
+            pass
+        except BaseException as exc:
+            if harness is None:
+                harness = scripted_harness_holder.get("harness")
+            if root_diagnostic is not None:
+                try:
+                    root_diagnostic.record_failure(
+                        "terminal_lifecycle", "terminalize_job4_failure", exc
+                    )
+                except Exception:
+                    pass
+            _record_terminal_failure(
+                result,
+                exc,
+                stage=(
+                    harness.call_records[-1]["label"]
+                    if harness is not None and harness.call_records
+                    else "pre_provider"
+                ),
+            )
+
+    if harness is not None:
+        result["calls"] = harness.call_records
+        result["pro_polls"] = harness.poll_records
+        provider_calls = harness.provider_calls
+        scripted_transport_invocations = harness.scripted_transport_invocations
+        result["provider_calls"] = provider_calls
+        result["scripted_transport_invocations"] = scripted_transport_invocations
+        result["continuous_thread_hashes_verified"] = all(
+            call.get("result", {})
+            .get("operation_telemetry", {})
+            .get("provider_thread_id_sha256")
+            == (
+                result.get("planner_thread_sha256")
+                if call.get("owner") == "planner"
+                else result.get("validator_thread_sha256")
+            )
+            for call in harness.call_records
+            if call.get("owner") in {"planner", "validator"}
+            and call.get("status") in {"passed", "scripted_provider_free_passed"}
+        )
+    if call_ledger is not None:
+        ledger_dispatches = call_ledger.dispatched_call_count
+    try:
+        result["source_database_sha256_after"] = bytes_sha256(source_db.read_bytes())
+        result["source_database_hash_after_error_type"] = None
+    except Exception as exc:
+        result["source_database_sha256_after"] = None
+        result["source_database_hash_after_error_type"] = type(exc).__name__
+    try:
+        result["copy_database_sha256_after"] = bytes_sha256(copied_db.read_bytes())
+        result["copy_database_hash_after_error_type"] = None
+    except Exception as exc:
+        result["copy_database_sha256_after"] = None
+        result["copy_database_hash_after_error_type"] = type(exc).__name__
+    result["source_database_unchanged"] = (
+        source_hash_before is not None
+        and result["source_database_sha256_after"] == source_hash_before
+    )
+    result["copy_database_unchanged"] = (
+        copy_hash_before is not None
+        and result["copy_database_sha256_after"] == copy_hash_before
+    )
+    active_runtime_after_sha256: str | None = None
+    active_profile_inspection_status = "failed"
+    try:
+        result["active_runtime_after"] = active_runtime_status()
+        result["active_runtime_after_error_type"] = None
+        candidate = result["active_runtime_after"].get("profile_sha256")
+        if (
+            active_runtime_before is not None
+            and isinstance(candidate, str)
+            and len(candidate) == 64
+        ):
+            active_runtime_after_sha256 = candidate
+            active_profile_inspection_status = "verified"
+    except Exception as exc:
+        result["active_runtime_after"] = {
+            "valid": False,
+            "diagnostic": "active runtime validation failed after Job 4",
         }
-    finally:
-        if harness is not None:
-            result["calls"] = harness.call_records
-            result["pro_polls"] = harness.poll_records
-            result["provider_calls"] = harness.provider_calls
-            result["scripted_transport_invocations"] = (
-                harness.scripted_transport_invocations
-            )
-            result["continuous_thread_hashes_verified"] = all(
-                call.get("result", {})
-                .get("operation_telemetry", {})
-                .get("provider_thread_id_sha256")
-                == (
-                    result.get("planner_thread_sha256")
-                    if call.get("owner") == "planner"
-                    else result.get("validator_thread_sha256")
-                )
-                for call in harness.call_records
-                if call.get("owner") in {"planner", "validator"}
-                and call.get("status")
-                in {"passed", "scripted_provider_free_passed"}
-            )
-        try:
-            result["source_database_sha256_after"] = bytes_sha256(
-                source_db.read_bytes()
-            )
-            result["source_database_hash_after_error_type"] = None
-        except Exception as exc:
-            result["source_database_sha256_after"] = None
-            result["source_database_hash_after_error_type"] = type(exc).__name__
-        try:
-            result["copy_database_sha256_after"] = bytes_sha256(
-                copied_db.read_bytes()
-            )
-            result["copy_database_hash_after_error_type"] = None
-        except Exception as exc:
-            result["copy_database_sha256_after"] = None
-            result["copy_database_hash_after_error_type"] = type(exc).__name__
-        result["source_database_unchanged"] = (
-            result["source_database_sha256_after"] is not None
-            and result["source_database_sha256_after"] == source_hash_before
-        )
-        result["copy_database_unchanged"] = (
-            result["copy_database_sha256_after"] is not None
-            and result["copy_database_sha256_after"] == copy_hash_before
-        )
-        active_runtime_after_sha256: str | None = None
+        result["active_runtime_after_error_type"] = type(exc).__name__
+    active_runtime_before_sha256 = (
+        active_runtime_before.get("profile_sha256")
+        if active_runtime_before is not None
+        else None
+    )
+    if not isinstance(active_runtime_before_sha256, str) or len(
+        active_runtime_before_sha256
+    ) != 64:
+        active_runtime_before_sha256 = None
         active_profile_inspection_status = "failed"
-        try:
-            result["active_runtime_after"] = active_runtime_status()
-            result["active_runtime_after_error_type"] = None
-            candidate_profile_sha256 = result["active_runtime_after"].get(
-                "profile_sha256"
-            )
-            if (
-                active_runtime_before is not None
-                and isinstance(candidate_profile_sha256, str)
-                and len(candidate_profile_sha256) == 64
-            ):
-                active_runtime_after_sha256 = candidate_profile_sha256
-                active_profile_inspection_status = "verified"
-        except Exception as exc:
-            result["active_runtime_after"] = {
-                "valid": False,
-                "diagnostic": "active runtime validation failed after Job 4",
-            }
-            result["active_runtime_after_error_type"] = type(exc).__name__
-        active_runtime_before_sha256 = (
-            active_runtime_before.get("profile_sha256")
-            if active_runtime_before is not None
-            else None
+    thread_archival = result.get("thread_archival")
+    if not isinstance(thread_archival, dict) or set(thread_archival) != {
+        "planner",
+        "validator",
+    }:
+        thread_archival = {"planner": False, "validator": False}
+        result["thread_archival"] = thread_archival
+    result["accepted_final_sequences_injected"] = (
+        len(result.get("turns", [])) == 3
+        and all(
+            value.get("accepted_final_injected") for value in result.get("turns", [])
         )
-        if not isinstance(active_runtime_before_sha256, str) or len(
-            active_runtime_before_sha256
-        ) != 64:
-            active_runtime_before_sha256 = None
-            active_profile_inspection_status = "failed"
-        thread_archival = result.get("thread_archival")
-        if not isinstance(thread_archival, dict) or set(thread_archival) != {
-            "planner",
-            "validator",
-        }:
-            thread_archival = {"planner": False, "validator": False}
-            result["thread_archival"] = thread_archival
-        result["accepted_final_sequences_injected"] = (
-            len(result.get("turns", [])) == 3
-            and all(
-                value.get("accepted_final_injected")
-                for value in result.get("turns", [])
-            )
-        )
+    )
+    if world is not None and branch_root is not None:
         try:
             result["world_active_sha256"] = world.tree_sha256(
                 branch_root / "ACTIVE"
@@ -1763,76 +2052,55 @@ def main() -> int:
         except Exception as exc:
             result["world_active_sha256"] = None
             result["world_active_hash_error_type"] = type(exc).__name__
-            result["execution_status"] = "failed"
-            if result.get("failure") is None:
-                result["failure"] = {
-                    "stage": "terminal_world_evidence",
-                    "error_type": type(exc).__name__,
-                    "message": "Terminal world evidence could not be verified.",
-                }
-        postconditions = ContinuousJob4PostconditionsV1(
-            execution_mode=result["execution_mode"],
-            source_database_sha256_before=source_hash_before,
-            source_database_sha256_after=result["source_database_sha256_after"],
-            disposable_database_sha256_before=copy_hash_before,
-            disposable_database_sha256_after=result["copy_database_sha256_after"],
-            database_integrity_check=result.get("copy_database_integrity"),
-            database_foreign_key_findings=result.get(
-                "copy_database_foreign_key_findings"
-            ),
-            active_profile_sha256_before=active_runtime_before_sha256,
-            active_profile_sha256_after=active_runtime_after_sha256,
-            active_profile_inspection_status=active_profile_inspection_status,
-            thread_archival=thread_archival,
-            accepted_session_synchronized=bool(
-                result.get("accepted_session_synchronized", False)
-            ),
-            accepted_final_sequences_injected=result[
-                "accepted_final_sequences_injected"
-            ],
-            call_ledger_dispatches=call_ledger.dispatched_call_count,
-            scripted_transport_invocations=result[
-                "scripted_transport_invocations"
-            ],
-        )
-        execution_status = result.get("execution_status")
-        if execution_status not in {"completed", "failed"}:
-            execution_status = "failed"
-            result["execution_status"] = execution_status
-        terminal = ContinuousJob4TerminalEvidenceV1.build(
-            execution_status=execution_status,
-            provider_calls=result["provider_calls"],
-            operational_counters=operational_counters,
-            postconditions=postconditions,
-        )
-        result["terminal_evidence"] = terminal.to_dict()
-        result["terminal_evidence_sha256"] = terminal.sha256
-        result["status"] = terminal.status
-        result["story_database_writes"] = terminal.effect_evidence.canonical_effects[
-            "story_database_writes"
-        ]
-        result["active_route_changes"] = terminal.effect_evidence.canonical_effects[
-            "active_route_changes"
-        ]
-        result["deployment_remote_or_push_effects"] = (
-            terminal.effect_evidence.canonical_effects[
-                "deployment_remote_or_push_effects"
-            ]
-        )
-        result["active_route_unchanged"] = result["active_route_changes"] == 0
-        result["finished_at"] = utc_now()
-        detail_path = runtime_root / "JOB4_DETAIL.json"
-        write_json(detail_path, result)
-        report = build_report(result, task_id=args.expected_task_id)
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(report, encoding="utf-8", newline="\n")
-        job4_result = build_canonical_job4_result(
-            result,
-            task_id=args.expected_task_id,
-            report_sha256=text_sha256(report),
-        )
-        write_json(result_path, job4_result)
-    return 0 if result["status"] == "completed" else 1
+            _record_terminal_failure(
+                result,
+                exc,
+                stage="terminal_world_evidence",
+                message="Terminal world evidence could not be verified.",
+            )
+    else:
+        result["world_active_sha256"] = None
+        result["world_active_hash_error_type"] = "Unavailable"
+    postconditions = ContinuousJob4PostconditionsV1(
+        execution_mode=execution_mode,
+        source_database_sha256_before=source_hash_before,
+        source_database_sha256_after=result["source_database_sha256_after"],
+        disposable_database_sha256_before=copy_hash_before,
+        disposable_database_sha256_after=result["copy_database_sha256_after"],
+        database_integrity_check=integrity,
+        database_foreign_key_findings=foreign_key_count,
+        active_profile_sha256_before=active_runtime_before_sha256,
+        active_profile_sha256_after=active_runtime_after_sha256,
+        active_profile_inspection_status=active_profile_inspection_status,
+        thread_archival=thread_archival,
+        accepted_session_synchronized=bool(
+            result.get("accepted_session_synchronized", False)
+        ),
+        accepted_final_sequences_injected=result[
+            "accepted_final_sequences_injected"
+        ],
+        call_ledger_dispatches=ledger_dispatches,
+        scripted_transport_invocations=scripted_transport_invocations,
+    )
+    execution_status = result.get("execution_status")
+    if execution_status not in {"completed", "failed"}:
+        execution_status = "failed"
+    _apply_terminal_evidence(
+        result,
+        execution_status=execution_status,
+        provider_calls=provider_calls,
+        operational_counters=operational_counters,
+        postconditions=postconditions,
+    )
+    canonical_result = _freeze_terminal_publication(
+        transaction,
+        result,
+        task_id=args.expected_task_id,
+        operational_counters=operational_counters,
+        postconditions=postconditions,
+        recovery_terminalization=recovery_terminalization,
+    )
+    return 0 if canonical_result["status"] == "completed" else 1
 
 
 if __name__ == "__main__":

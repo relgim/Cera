@@ -970,6 +970,21 @@ accepted Cycle 010 response and provider-free publication progression. D-180
 remains active; no live story, production database, installed client, service,
 deployment, merge, remote, or push effect is authorized.
 
+D-198 is correction cycle 011 under the same creator-authorized continuous-work
+queue. Progression 1, `continuous-total-lifecycle-terminalization-v11`, moves a
+one-shot root terminal transaction ahead of source-database inspection,
+provider-call ledger construction, disposable copying/checks, world setup,
+lifecycle directories, active-profile inspection, and provider/session setup.
+Every bounded setup/execution/cleanup failure now reaches a privacy-safe failed
+terminal result and report. Complete detail/report/result bytes freeze before
+publication, an explicit commit marker binds the final result/report, and
+restart may publish only frozen bytes or terminalize an interrupted identity
+without repeating semantic or provider work. The progression makes zero
+provider calls and leaves D-180 unchanged. Progressions 2 and 3 still must add
+durable cycle-local terminal-evidence custody, capability-owned effect
+accounting, verified live archival, and the actual complete failure matrix
+before Cycle 011 publication.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.
