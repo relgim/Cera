@@ -128,6 +128,10 @@ from cera.sillytavern.models import (
     ChatMessage,
     SillyTavernChatRequest,
 )
+from cera.sillytavern.continuous_test import (
+    AcceptedContinuousTestTurn,
+    PreparedContinuousTestTurn,
+)
 from cera.serialization import (
     bytes_sha256,
     canonical_bytes,
@@ -691,6 +695,8 @@ class JobHarness:
         self._active_turn_number = 0
         self._active_turn_id = ""
         self._active_validator_label: str | None = None
+        self._http_pending: dict[int, Any] = {}
+        self.http_turn_results: list[dict[str, Any]] = []
         self.ingress_authority = ContinuousIngressAuthorityStore(
             lifecycle_root / "ingress_authority",
             fixture_registry=canary_ingress_fixtures(),
@@ -940,6 +946,125 @@ class JobHarness:
             ),
             call_ledger=self.call_ledger,
         ).compose(prompt)
+
+    def prepare_http_turn(self, turn_number: int) -> PreparedContinuousTestTurn:
+        """Prepare one frozen fixture turn without crossing the creator gate."""
+
+        if turn_number in self._http_pending:
+            raise StateConflictError("continuous HTTP turn is already pending")
+        if turn_number != len(self.accepted_pairs) + 1:
+            raise StateConflictError("continuous HTTP turn order changed")
+        before_calls = len(self.call_records)
+        self._active_turn_number = turn_number
+        self._active_turn_id = f"turn-{turn_number:03d}"
+        self._active_validator_label = None
+        if turn_number == 3:
+            if len(self.accepted_pairs) != 2:
+                raise StateConflictError("scene summary lacks two accepted turns")
+            self.summarize_scene()
+            self._active_turn_number = turn_number
+            self._active_turn_id = "turn-003"
+            self._active_validator_label = None
+        summaries: tuple[CharacterSummaryEnvelopeV1, ...]
+        if turn_number == 1:
+            summaries = (
+                source_character_summary(
+                    ROOT,
+                    "sakura",
+                    world=self.world,
+                    world_file_revision=read_world_revision(self.world, "Sakura"),
+                ),
+            )
+        elif turn_number == 3:
+            summaries = (
+                source_character_summary(
+                    ROOT,
+                    "mia",
+                    world=self.world,
+                    world_file_revision=read_world_revision(self.world, "Mia"),
+                ),
+            )
+        else:
+            summaries = ()
+        request = ContinuousTurnRequestV1(
+            world_id=WORLD_ID,
+            branch_id=BRANCH_ID,
+            scene_id="scene-002" if turn_number == 3 else "scene-001",
+            turn_id=self._active_turn_id,
+            user_message=TURN_MESSAGES[turn_number - 1],
+            **self.ingress_reference(turn_number),
+            character_summaries=summaries,
+            cera_scene_change=turn_number == 3,
+        )
+        if turn_number == 3:
+            if self.scene_change_envelope is None:
+                raise StateConflictError("validated scene summary is unavailable")
+            candidate = self.coordinator.prepare_after_validated_scene_change(
+                request,
+                scene_change_envelope=self.scene_change_envelope,
+                summary_provider_calls=1,
+            )
+        else:
+            candidate = self.coordinator.prepare(request)
+        accept_allowed = candidate.validator_package.permits_disposable_acceptance(
+            CreatorReviewAction.ACCEPT
+        )
+        calls = len(self.call_records) - before_calls
+        expected_calls = 4 if turn_number == 3 else 3
+        if calls != expected_calls:
+            raise StateConflictError("continuous HTTP provider schedule changed")
+        self._http_pending[turn_number] = candidate
+        return PreparedContinuousTestTurn(
+            turn_number=turn_number,
+            turn_id=self._active_turn_id,
+            candidate_text=candidate.deepseek_story_text,
+            candidate_sha256=candidate.candidate_sha256,
+            sequence_beats=tuple(
+                beat.observable_action_or_dialogue_direction
+                for beat in candidate.planner_sequence.beats
+            ),
+            validator_package_sha256=candidate.validator_package.package_sha256,
+            provider_calls=calls,
+            accept_allowed=accept_allowed,
+        )
+
+    def accept_http_turn(self, turn_number: int) -> AcceptedContinuousTestTurn:
+        """Cross strict disposable acceptance only after the HTTP decision."""
+
+        try:
+            candidate = self._http_pending.pop(turn_number)
+        except KeyError as exc:
+            raise StateConflictError("continuous HTTP candidate is unavailable") from exc
+        if not candidate.validator_package.permits_disposable_acceptance(
+            CreatorReviewAction.ACCEPT
+        ):
+            raise StateConflictError("continuous HTTP candidate is not accept eligible")
+        receipt = self.coordinator.apply_creator_action(
+            f"turn-{turn_number:03d}", CreatorReviewAction.ACCEPT
+        )
+        pair = self.world.accepted_turn_pairs(
+            WORLD_ID, BRANCH_ID, (f"turn-{turn_number:03d}",)
+        )[0]
+        self.accepted_pairs.append(pair)
+        result = {
+            "turn_id": f"turn-{turn_number:03d}",
+            "candidate_sha256": candidate.candidate_sha256,
+            "validator_package_sha256": candidate.validator_package.package_sha256,
+            "promotion_receipt_sha256": receipt.receipt_sha256,
+            "context_mode": candidate.context_mode.value,
+            "planner_packet_kind": candidate.planner_authority_packet_kind,
+            "compact_accepted_head_receipt_sha256": (
+                candidate.compact_accepted_head_receipt_sha256
+            ),
+            "accepted_final_injected": True,
+        }
+        self.http_turn_results.append(result)
+        return AcceptedContinuousTestTurn(
+            turn_number=turn_number,
+            artifact_id=receipt.receipt_sha256,
+            generation=turn_number,
+            promotion_receipt_sha256=receipt.receipt_sha256,
+        )
 
     # The canary executes turns through the exact shared
     # ContinuousShadowTurnCoordinator used by runtime instead of maintaining a

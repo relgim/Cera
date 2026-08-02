@@ -114,6 +114,8 @@ the active D-180 route.
 | `CONTINUOUS_LEAN_CONTEXT_SHORT_CANARY_V1_SPEC.md` | Frozen contract for a later separately authorized live lean canary; not dispatch authority |
 | `CONTINUOUS_LEAN_CONTEXT_V2_RESULT.md` | Closed mode-specific Planner packets, cited-only Validator closure, accepted-checkpoint fork/privacy custody, reconstruction fallback, and provider-free v10 integration |
 | `CONTINUOUS_LEAN_CONTEXT_SHORT_CANARY_V2_SPEC.md` | Revised non-dispatching ten-call lean canary measurement and stop contract; not provider authority |
+| `CONTINUOUS_LEAN_CONTEXT_SHORT_CANARY_V3_SPEC.md` | V3 branch-materialization and total-thread-lineage canary contract; dispatch requires a separate identity |
+| `SILLYTAVERN_CONTINUOUS_V3_TWO_RUN_READINESS_RESULT.md` | Test-only HTTP/review bridge, isolated two-run campaign, provider-free evidence, and live-dispatch boundary |
 | `PRO_REVIEW_CONSUMED_RESPONSE_AUTHORITY_REPAIR_RESULT.md` | D-201 receipt-bound accepted-response authority, post-consumption inbox diagnostics, historical recovery, active-source strictness, and non-mutation evidence |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |
 | `ROADMAP_AND_GATE.md` | Ordered implementation plan and authorization gates |

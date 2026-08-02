@@ -25,12 +25,16 @@ from .models import CERA_VIRTUAL_MODEL, SillyTavernChatRequest
 class CeraSillyTavernServerConfig:
     host: str = "127.0.0.1"
     port: int = 5101
+    model: str = CERA_VIRTUAL_MODEL
+    service: str = "cera-sillytavern-development"
 
     def __post_init__(self) -> None:
         if self.host not in {"127.0.0.1", "localhost"}:
             raise ValueError("CERA development server must remain loopback-only")
         if not (0 <= self.port <= 65535):
             raise ValueError("CERA development server port is invalid")
+        if not self.model.strip() or not self.service.strip():
+            raise ValueError("CERA development server identity is invalid")
 
 
 def build_server(
@@ -58,8 +62,8 @@ def build_server(
                     HTTPStatus.OK,
                     {
                         "status": "ok",
-                        "service": "cera-sillytavern-development",
-                        "model": CERA_VIRTUAL_MODEL,
+                        "service": config.service,
+                        "model": config.model,
                         "production": False,
                         "active_runtime": active_runtime_status(),
                         "reasoner_session": adapter.reasoner_session_status,
@@ -73,7 +77,7 @@ def build_server(
                         "object": "list",
                         "data": [
                             {
-                                "id": CERA_VIRTUAL_MODEL,
+                                "id": config.model,
                                 "object": "model",
                                 "owned_by": "cera-local-development",
                             }
@@ -85,7 +89,11 @@ def build_server(
             if review_id is not None:
                 try:
                     record = adapter.get_review(review_id)
-                    self._json(HTTPStatus.OK, _review_payload(record))
+                    serializer = getattr(adapter, "review_payload", None)
+                    self._json(
+                        HTTPStatus.OK,
+                        serializer(record) if serializer is not None else _review_payload(record),
+                    )
                 except Exception as exc:
                     self._error(
                         HTTPStatus.BAD_REQUEST,
@@ -110,6 +118,13 @@ def build_server(
                         action,
                         feedback=feedback,
                     )
+                    serializer = getattr(adapter, "review_decision_payload", None)
+                    if serializer is not None:
+                        self._json(
+                            HTTPStatus.OK,
+                            serializer(review_id, action, result),
+                        )
+                        return
                     if action in {
                         CreatorReviewAction.ACCEPT,
                         CreatorReviewAction.FALSE_POSITIVE,
@@ -169,7 +184,7 @@ def build_server(
                         "id": completion_id,
                         "object": "chat.completion",
                         "created": int(time.time()),
-                        "model": CERA_VIRTUAL_MODEL,
+                        "model": config.model,
                         "choices": [
                             {
                                 "index": 0,

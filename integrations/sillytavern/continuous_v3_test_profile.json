@@ -1,0 +1,29 @@
+{
+  "schema_version": "cera.sillytavern_continuous_v3_test_profile.v1",
+  "profile_id": "cera.sillytavern.continuous_v3_test.v1",
+  "production": false,
+  "endpoint": "http://127.0.0.1:5113/v1",
+  "model": "cera-continuous-v3-test",
+  "stream": false,
+  "route": "continuous_v3_test_only",
+  "planner": {
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "fast_mode": false
+  },
+  "composer": {
+    "model": "deepseek-v4-flash",
+    "thinking": false
+  },
+  "validator": {
+    "model": "gpt-5.6-terra",
+    "reasoning_effort": "high",
+    "fast_mode": false
+  },
+  "automatic_retry": false,
+  "fallback": false,
+  "automatic_false_positive": false,
+  "creator_review_required": true,
+  "database_policy": "fresh_disposable_per_run",
+  "lan_binding_allowed": false
+}

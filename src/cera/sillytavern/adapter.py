@@ -67,7 +67,7 @@ from cera.serialization import text_sha256
 from cera.schema import from_mapping
 from cera.serialization import canonical_json
 
-from .models import SillyTavernChatRequest, SillyTavernTurnReply
+from .models import CERA_VIRTUAL_MODEL, SillyTavernChatRequest, SillyTavernTurnReply
 
 
 _SESSION_RE = re.compile(r"(?m)^\[\[CERA_SESSION:([0-9a-f]{64})\]\]\s*$")
@@ -599,6 +599,10 @@ class CeraSillyTavernAdapter:
         )
 
     def complete(self, request: SillyTavernChatRequest) -> SillyTavernTurnReply:
+        if request.model != CERA_VIRTUAL_MODEL:
+            raise ValueError(
+                "the ordinary CERA adapter rejects the continuous V3 test model"
+            )
         controls = parse_cera_controls(
             request.latest_user_content,
             session_key=request.cera_session_id,

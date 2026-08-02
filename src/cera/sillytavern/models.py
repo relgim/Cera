@@ -11,6 +11,10 @@ from cera.serialization import text_sha256
 
 
 CERA_VIRTUAL_MODEL = "cera-alpha"
+CERA_CONTINUOUS_V3_TEST_MODEL = "cera-continuous-v3-test"
+SUPPORTED_CERA_VIRTUAL_MODELS = frozenset(
+    {CERA_VIRTUAL_MODEL, CERA_CONTINUOUS_V3_TEST_MODEL}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +45,7 @@ class SillyTavernChatRequest:
     cera_scene_change: bool = False
 
     def __post_init__(self) -> None:
-        if self.model != CERA_VIRTUAL_MODEL:
+        if self.model not in SUPPORTED_CERA_VIRTUAL_MODELS:
             raise ContractValidationError("unknown CERA virtual model")
         if self.stream:
             raise ContractValidationError(
@@ -176,11 +180,28 @@ class SillyTavernTurnReply:
     provisional_review_id: str | None = None
     candidate_id: str | None = None
     review_status: str | None = None
+    route_kind: str = "ordinary"
 
     def __post_init__(self) -> None:
         if not self.prose.strip():
             raise ContractValidationError("accepted SillyTavern prose is empty")
+        if self.route_kind not in {"ordinary", "continuous_v3_test"}:
+            raise ContractValidationError("unknown SillyTavern reply route")
         provisional = self.provisional_review_id is not None
+        if self.route_kind == "continuous_v3_test":
+            if (
+                not provisional
+                or self.artifact_id is not None
+                or self.candidate_id is None
+                or self.review_status != "review_ready"
+                or self.generation < 1
+                or self.provider_calls not in {3, 4}
+                or self.exact_replay
+            ):
+                raise ContractValidationError(
+                    "continuous V3 test reply has inconsistent bindings"
+                )
+            return
         if provisional:
             if (
                 self.artifact_id is not None
