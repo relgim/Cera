@@ -1,0 +1,8 @@
+CERA repository review cycle 2026-08-02-continuous-sillytavern-overnight-v2-cycle-001 is published and its exact pre-authorized Job 4 has started.
+
+Review: D:\AIChatBot\Cera\.chatgpt\pro-review\cycles\2026-08-02-continuous-sillytavern-overnight-v2-cycle-001\outbox\REVIEW_REQUEST.md
+Manifest root: 7aee6919e7f66125a1cdfb3894b5bb0f9a67a2059e9e9e4a957d0df29b90f059
+Task-set SHA-256: b663ad61825cb632f5c9e8d3ee5204172aa61b675ab8fab4eafece34817fcfc1
+Response target: D:\AIChatBot\Cera\.chatgpt\pro-review\cycles\2026-08-02-continuous-sillytavern-overnight-v2-cycle-001\inbox\PRO_RESPONSE.md
+
+Inspect the bound source snapshot and repository files, then write the identity-bound response atomically through the repository connector. Do not ask Ted to relay or operate files. The review is advisory.

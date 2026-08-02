@@ -1,0 +1,15 @@
+{
+  "schema_version": "cera.pro_review_job4_authorization.v1",
+  "cycle_id": "2026-08-02-continuous-sillytavern-overnight-v2-cycle-001",
+  "task_id": "continuous-sillytavern-v2-provider-free-readiness-audit",
+  "scope": "Run exactly the Cycle 22 provider-free Continuous SillyTavern V2 readiness audit through the hash-bound cycle-local JOB4_AUDIT_RUNNER.py and repository-owned scripted-v10 terminal transaction: independently validate exact checkpoint/evidence Git SHA, execution-source Git SHA and tree, manual-route execution identity, cycle/task/authorization/receipt bindings, consumed Cycle 21 predecessor and immutable Run 001 one-call debit; run the exact targeted execution-authority, Validator review projection, role-conflict, corrected Turn 1, transport-live archival, partial/cumulative accounting, immutable-recovery, arbitrary typed-turn, durable-cast, explicit Scene Change, stale-review, route/profile/non-loopback rejection, process lifecycle, two-consecutive-readiness, documentation, active-profile, and source-inventory tests; verify frozen 875/875 and 16/16 evidence, two ten-stage local readiness runs with controlled restart, unchanged persistent SQLite and D-180 route, terminal-evidence V5, lineage, canonical result/report/detail, transaction publication, completion, completed-chain, and recovery. Use only local scripted transports and disposable test state. External provider calls, retries, fallbacks, hidden repairs, excluded effects, and live authority are exactly zero.",
+  "scope_sha256": "e09f7bd308fadf0471433bf24d68c0d3548ef88dbe7f25984a7741efe2a0d53b",
+  "expected_result_relative_path": "source/JOB4_RESULT.json",
+  "authority_source_path": "D:\\AIChatBot\\Cera\\.chatgpt\\pro-review\\checkpoints\\2026-08-02-continuous-sillytavern-overnight-v2-001\\REQUEST.md",
+  "authority_source_sha256": "6dc11d6047cf4296796e04c7efac0ba00386a9b25727f259e5ba2c13565e6599",
+  "explicit_exclusions": [
+    "no external provider call, live qualification, retry, fallback, hidden repair, provider substitution, Fast mode, Detailer, extra verifier, Automatic False Positive, speculative dispatch, or call outside separately activated fresh identities",
+    "no production story acceptance, persistent or production database mutation, active/default route mutation, LAN/public exposure, installed-SillyTavern destructive change, deployment, merge, remote operation, push, Job 5, or live twenty-turn/63-call run",
+    "no modification, deletion, overwrite, normalization, regeneration, re-consumption, reinterpretation, or identity reuse for Cycle 21, immutable Run 001, any V1/V2/V3/lean/Cycle 011 predecessor, queue, response, receipt, manifest, transaction, artifact, or notification"
+  ]
+}

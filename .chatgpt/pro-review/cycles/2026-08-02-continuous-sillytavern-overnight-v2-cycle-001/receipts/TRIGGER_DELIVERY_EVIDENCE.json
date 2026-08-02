@@ -1,0 +1,35 @@
+{
+  "schema_version": "cera.pro_review_trigger_delivery_evidence.v1",
+  "cycle_id": "2026-08-02-continuous-sillytavern-overnight-v2-cycle-001",
+  "target_thread_id_sha256": "f0fd00d836b16ff0d8bcda67ee47fd6f224b4b4c496fdeb82cdfba383deeaddb",
+  "transport_order": [
+    "native_exact_thread",
+    "verified_exact_chatgpt_browser_conversation"
+  ],
+  "native_attempt": {
+    "status": "handler_unavailable_before_ack",
+    "error_type": "NoHandlerRegisteredForTool",
+    "duplicate_submission_performed": false
+  },
+  "browser_delivery": {
+    "status": "verified_visible_exact_once",
+    "browser_family": "iab",
+    "account_marker": "Ted Jang Pro",
+    "conversation_title": "CERA repository review",
+    "conversation_title_sha256": "d5667cba84711d43343828168ffe1396328f80140d6d1966385fecc57b02b421",
+    "url_sha256": "96aaff129b8812d2286297e9d1dbe30c9c81c95073e63cfe67404f98fd127c21",
+    "history_title_match_count": 1,
+    "trigger_match_count": 1,
+    "review_started_match_count": 1,
+    "source_message_sha256": "abe23ec1a726edfa4a592ab80cf56910ac135d59b9118a8c802b1e15e1652c44",
+    "normalized_source_message_sha256": "b4bf882c227919c558a7139b9d64f8abea3302292aaa902603ded25d569dcd96",
+    "normalized_visible_message_sha256": "b4bf882c227919c558a7139b9d64f8abea3302292aaa902603ded25d569dcd96",
+    "normalized_message_length": 791
+  },
+  "trigger_receipt_relative_path": "receipts/TRIGGER_SENT.json",
+  "trigger_receipt_sha256": "08c49770df65d165e83aff37bae4efa47f31d571b3017dcca220883d52d1287f",
+  "app_result_sha256": "12b846c8bdf624803448825af03e81c6d2b331aab358abec6bea7478c6a76b3c",
+  "credentials_cookies_or_secrets_retained": false,
+  "raw_browser_dom_retained": false,
+  "recorded_at_utc": "2026-08-02T20:09:01Z"
+}
