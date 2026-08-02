@@ -426,4 +426,3 @@ class ContinuousJob4TerminalTransactionV1:
             self.root / publication.result_relative_path,
             "frozen canonical result",
         )
-

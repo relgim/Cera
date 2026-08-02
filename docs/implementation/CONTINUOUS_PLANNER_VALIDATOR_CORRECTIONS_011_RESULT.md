@@ -2,7 +2,7 @@
 
 **Decision:** D-198
 
-**Status:** provider-free Progression 1 complete; Progressions 2-3 and Cycle 011 Job 4 pending  
+**Status:** provider-free Progression 1 complete; Progressions 2-3 and Cycle 011 Job 4 pending
 **Active route:** unchanged `cera.active_runtime.d180.v1`
 
 ## Progression 1 - total-lifecycle terminalization
