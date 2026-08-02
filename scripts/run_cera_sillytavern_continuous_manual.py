@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import ExitStack
 import ctypes
 from dataclasses import replace
 import json
@@ -32,7 +33,11 @@ from cera.continuous import (
     build_default_prepared_classifier_registry,
 )
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
-from cera.continuous.prompting import PLANNER_STABLE_INSTRUCTIONS
+from cera.continuous.codex_stored import CodexContinuousStoredSessionPort
+from cera.continuous.prompting import (
+    PLANNER_STABLE_INSTRUCTIONS,
+    VALIDATOR_STABLE_INSTRUCTIONS,
+)
 from cera.continuous.scripted_job4 import ScriptedJob4FixtureRuntime
 from cera.continuous.sessions import (
     ContinuousSessionCompatibilityV1,
@@ -50,6 +55,8 @@ from cera.ids import IdKind, TypedId, deterministic_id
 from cera.ingress import RawTurnEnvelope, RawTurnIngressFacade
 from cera.kernel import PreflightAuthority, RequestedContentClass, TurnKernel
 from cera.reasoner import SeedDossierAssembler
+from cera.providers.codex_worker import _BASE_INSTRUCTIONS_BY_ROLE
+from cera.reasoner_session import OpenAICodexStoredThreadBackend
 from cera.runtime import HanezawaContinuousManualWorld
 from cera.schema import from_mapping
 from cera.serialization import (
@@ -73,6 +80,13 @@ from cera.sillytavern.models import (
     CERA_CONTINUOUS_V3_MANUAL_MODEL,
     SillyTavernChatRequest,
 )
+from cera.sillytavern.manual_routes import (
+    PROVIDER_BACKED_MANUAL_ROUTE,
+    PROVIDER_FREE_MANUAL_ROUTE,
+    ContinuousManualRoute,
+    validate_manual_profile,
+)
+from cera.sillytavern.provider_authority import validate_provider_activation
 from cera.sillytavern.server import CeraSillyTavernServerConfig, build_server
 
 from scripts.run_continuous_planner_validator_job4 import (
@@ -81,6 +95,9 @@ from scripts.run_continuous_planner_validator_job4 import (
     read_world_revision,
     seed_world,
     source_character_summary,
+)
+from scripts.run_sillytavern_continuous_v3_campaign import (
+    validate_authority as validate_provider_cycle_authority,
 )
 
 
@@ -99,12 +116,18 @@ class ManualJobHarness(JobHarness):
         *args,
         authority_world: HanezawaContinuousManualWorld,
         execution_identity_sha256: str,
-        profile_id: str = CONTINUOUS_V3_MANUAL_PROFILE_ID,
+        profile_id: str | None = None,
+        provider_authority_guard=None,
+        provider_family_limits: Mapping[str, int] | None = None,
         **kwargs,
     ) -> None:
         self.authority_world = authority_world
         self.execution_identity_sha256 = execution_identity_sha256
-        self.profile_id = profile_id
+        self.profile_id = profile_id or CONTINUOUS_V3_MANUAL_PROFILE_ID
+        self.provider_authority_guard = provider_authority_guard
+        self.provider_family_limits = (
+            None if provider_family_limits is None else dict(provider_family_limits)
+        )
         world_id = authority_world.world_id.value
         branch_id = authority_world.branch_id.value
         registry = build_default_prepared_classifier_registry()
@@ -134,6 +157,47 @@ class ManualJobHarness(JobHarness):
         self._manual_pending: dict[
             int, tuple[Any, PreparedContinuousManualTurn]
         ] = {}
+
+    def _provider_family_consumed(self, family: str) -> int:
+        invoked = {
+            event["call_id"]
+            for event in self.call_ledger.events
+            if event["state"] == "transport_invoked"
+            and (
+                "deepseek" if event["owner"] == "composer" else "codex_family"
+            )
+            == family
+        }
+        last_by_call: dict[str, dict[str, Any]] = {}
+        for event in self.call_ledger.events:
+            last_by_call[str(event["call_id"])] = event
+        unresolved = {
+            call_id
+            for call_id, event in last_by_call.items()
+            if event["state"]
+            in {
+                "prepared_not_invoked",
+                "worker_started_not_invoked",
+                "worker_preflight_not_invoked",
+            }
+            and (
+                "deepseek" if event["owner"] == "composer" else "codex_family"
+            )
+            == family
+        }
+        return len(invoked | unresolved)
+
+    def provider_call(self, label: str, owner: str, operation):
+        if self.provider_family_limits is not None:
+            family = "deepseek" if owner == "composer" else "codex_family"
+            if (
+                self._provider_family_consumed(family)
+                >= self.provider_family_limits[family]
+            ):
+                raise RuntimeError(
+                    f"manual {family} provider authority is exhausted"
+                )
+        return super().provider_call(label, owner, operation)
 
     def restore_accepted_pairs(self, turn_ids: tuple[str, ...]) -> None:
         if self.accepted_pairs:
@@ -171,7 +235,11 @@ class ManualJobHarness(JobHarness):
             "validator_archive_verified": validator.verified,
             "planner_restart_state_retained": planner_selectable,
             "planner_thread_sha256": planner_handle.provider_thread_id_sha256,
-            "external_provider_calls": 0,
+            "external_provider_calls": (
+                0
+                if self.scripted_provider_free
+                else self.call_ledger.dispatched_call_count
+            ),
         }
 
     def prepare_manual_http_turn(
@@ -184,6 +252,20 @@ class ManualJobHarness(JobHarness):
         current_scene_character_ids: tuple[str, ...],
         process_instance_id: str,
     ) -> PreparedContinuousManualTurn:
+        if self.provider_authority_guard is not None:
+            self.provider_authority_guard()
+        if self.provider_family_limits is not None:
+            required_codex = 3 if request.cera_scene_change else 2
+            if (
+                self._provider_family_consumed("codex_family")
+                + required_codex
+                > self.provider_family_limits["codex_family"]
+                or self._provider_family_consumed("deepseek") + 1
+                > self.provider_family_limits["deepseek"]
+            ):
+                raise RuntimeError(
+                    "provider authority cannot cover the complete manual turn"
+                )
         if turn_number in self._manual_pending:
             raise RuntimeError("continuous manual turn is already pending")
         if accepted_generation != len(self.accepted_pairs) + 1:
@@ -626,6 +708,66 @@ _ROOT_SCHEMA = "cera.continuous_manual_root.v1"
 _EXECUTION_SCHEMA = "cera.continuous_manual_execution_manifest.v1"
 _SCRIPTED_SESSION_SCHEMA = "cera.file_backed_scripted_session_port.v1"
 _LOCAL_LAUNCHED_CHILDREN: dict[int, subprocess.Popen] = {}
+_ACTIVE_ROUTE = PROVIDER_FREE_MANUAL_ROUTE
+_ACTIVE_TRANSPORT_MODE = "scripted_provider_free"
+_ACTIVE_PROVIDER_ACTIVATION: Path | None = None
+_ACTIVE_PROVIDER_CYCLE_AUTHORITY: dict[str, Any] | None = None
+
+
+def configure_manual_execution(
+    route: ContinuousManualRoute,
+    *,
+    transport_mode: str,
+    provider_activation: Path | None = None,
+    provider_cycle_authority: Mapping[str, Any] | None = None,
+) -> None:
+    """Select one process-wide route before touching any managed root."""
+
+    if route is PROVIDER_FREE_MANUAL_ROUTE:
+        if (
+            transport_mode != "scripted_provider_free"
+            or provider_activation is not None
+            or provider_cycle_authority is not None
+        ):
+            raise RuntimeError("provider-free manual route rejects provider authority")
+    elif route is PROVIDER_BACKED_MANUAL_ROUTE:
+        if transport_mode not in {"non_network_fake_ports", "external_provider"}:
+            raise RuntimeError("provider-backed manual transport mode is invalid")
+        if transport_mode == "external_provider" and (
+            provider_activation is None or provider_cycle_authority is None
+        ):
+            raise RuntimeError(
+                "external provider manual mode requires one activation receipt"
+            )
+        if transport_mode == "non_network_fake_ports" and (
+            provider_activation is not None or provider_cycle_authority is not None
+        ):
+            raise RuntimeError("fake provider ports reject provider authority")
+    else:
+        raise RuntimeError("unknown continuous manual route")
+    global _ACTIVE_ROUTE, _ACTIVE_TRANSPORT_MODE, _ACTIVE_PROVIDER_ACTIVATION
+    global _ACTIVE_PROVIDER_CYCLE_AUTHORITY
+    global CONTINUOUS_V3_MANUAL_PROFILE_ID, CONTINUOUS_V3_MANUAL_PORT
+    global CONTINUOUS_V3_MANUAL_SERVICE, CERA_CONTINUOUS_V3_MANUAL_MODEL
+    global DEFAULT_MANUAL_ROOT, DEFAULT_MANUAL_SESSION_ID
+    _ACTIVE_ROUTE = route
+    _ACTIVE_TRANSPORT_MODE = transport_mode
+    _ACTIVE_PROVIDER_ACTIVATION = (
+        None if provider_activation is None else provider_activation.resolve()
+    )
+    _ACTIVE_PROVIDER_CYCLE_AUTHORITY = (
+        None
+        if provider_cycle_authority is None
+        else dict(provider_cycle_authority)
+    )
+    CONTINUOUS_V3_MANUAL_PROFILE_ID = route.profile_id
+    CONTINUOUS_V3_MANUAL_PORT = route.port
+    CONTINUOUS_V3_MANUAL_SERVICE = route.service
+    CERA_CONTINUOUS_V3_MANUAL_MODEL = route.model
+    DEFAULT_MANUAL_ROOT = (
+        PROJECT_ROOT / "runtime" / "manual" / route.default_root_name
+    )
+    DEFAULT_MANUAL_SESSION_ID = route.default_session_id
 
 
 def _atomic_json(path: Path, value: object) -> None:
@@ -845,6 +987,31 @@ def _execution_source_paths() -> tuple[Path, ...]:
                 / "sillytavern"
                 / "continuous_v3_manual_profile.json"
             ).resolve(),
+            (
+                PROJECT_ROOT
+                / "integrations"
+                / "sillytavern"
+                / "continuous_v3_provider_manual_profile.json"
+            ).resolve(),
+            (
+                PROJECT_ROOT
+                / "scripts"
+                / "run_cera_sillytavern_continuous_provider_manual.py"
+            ).resolve(),
+            (
+                PROJECT_ROOT
+                / "src"
+                / "cera"
+                / "sillytavern"
+                / "manual_routes.py"
+            ).resolve(),
+            (
+                PROJECT_ROOT
+                / "src"
+                / "cera"
+                / "sillytavern"
+                / "provider_authority.py"
+            ).resolve(),
         }
     )
     genesis = PROJECT_ROOT / "genesis" / "packages" / "hanezawa_core_v1_2"
@@ -853,6 +1020,16 @@ def _execution_source_paths() -> tuple[Path, ...]:
 
 
 def _validate_manual_sillytavern_profile(profile: object) -> None:
+    if _ACTIVE_ROUTE is PROVIDER_BACKED_MANUAL_ROUTE:
+        if not isinstance(profile, Mapping):
+            raise RuntimeError("provider-backed manual profile is not an object")
+        try:
+            validate_manual_profile(profile, route=_ACTIVE_ROUTE)
+        except Exception as exc:
+            raise RuntimeError(
+                "provider-backed manual SillyTavern profile changed"
+            ) from exc
+        return
     expected_profile = {
         "profile_id": CONTINUOUS_V3_MANUAL_PROFILE_ID,
         "production": False,
@@ -893,7 +1070,62 @@ def _validate_manual_sillytavern_profile(profile: object) -> None:
         raise RuntimeError("continuous manual SillyTavern profile changed")
 
 
+def _manual_provider_activation() -> dict[str, Any] | None:
+    if _ACTIVE_TRANSPORT_MODE != "external_provider":
+        if (
+            _ACTIVE_PROVIDER_ACTIVATION is not None
+            or _ACTIVE_PROVIDER_CYCLE_AUTHORITY is not None
+        ):
+            raise RuntimeError("fake manual route rejects provider activation")
+        return None
+    path = _ACTIVE_PROVIDER_ACTIVATION
+    expected = _ACTIVE_PROVIDER_CYCLE_AUTHORITY
+    if path is None or not path.is_file() or expected is None:
+        raise RuntimeError("provider-backed manual route lacks activation authority")
+    required = {
+        "cycle_directory",
+        "expected_checkpoint_sha",
+        "expected_cycle_id",
+        "expected_cycle_sequence",
+        "expected_job4_task_id",
+        "expected_authorization_sha256",
+    }
+    if set(expected) != required:
+        raise RuntimeError("provider-backed manual cycle authority is incomplete")
+    cycle_authority = validate_provider_cycle_authority(
+        Path(expected["cycle_directory"]).resolve(),
+        expected_checkpoint_sha=str(expected["expected_checkpoint_sha"]),
+        expected_authorization_sha256=str(
+            expected["expected_authorization_sha256"]
+        ),
+        expected_cycle_id=str(expected["expected_cycle_id"]),
+        expected_cycle_sequence=expected["expected_cycle_sequence"],
+        expected_task_id=str(expected["expected_job4_task_id"]),
+    )
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(raw, dict):
+        raise RuntimeError("provider-backed manual activation is malformed")
+    activation = validate_provider_activation(
+        raw,
+        expected_cycle_id=str(expected["expected_cycle_id"]),
+        expected_cycle_sequence=expected["expected_cycle_sequence"],
+        expected_job4_task_id=str(expected["expected_job4_task_id"]),
+        expected_job4_authorization_sha256=str(
+            expected["expected_authorization_sha256"]
+        ),
+        expected_route_profile_id=_ACTIVE_ROUTE.profile_id,
+        maximum_codex_family_calls=799,
+        maximum_deepseek_calls=800,
+    )
+    if activation["authority_source_sha256"] != cycle_authority[
+        "cycle_manifest_sha256"
+    ]:
+        raise RuntimeError("manual provider activation source is not the bound cycle")
+    return activation
+
+
 def manual_execution_manifest() -> dict[str, Any]:
+    activation = _manual_provider_activation()
     git_pathspecs = (
         "src/cera",
         "scripts/run_continuous_planner_validator_job4.py",
@@ -901,6 +1133,8 @@ def manual_execution_manifest() -> dict[str, Any]:
         "scripts/run_cera_sillytavern_continuous_manual_readiness.py",
         "genesis/packages/hanezawa_core_v1_2",
         "integrations/sillytavern/continuous_v3_manual_profile.json",
+        "integrations/sillytavern/continuous_v3_provider_manual_profile.json",
+        "scripts/run_cera_sillytavern_continuous_provider_manual.py",
     )
     git_execution_source_commit = subprocess.run(
         ["git", "log", "-1", "--format=%H", "--", *git_pathspecs],
@@ -931,12 +1165,7 @@ def manual_execution_manifest() -> dict[str, Any]:
         path.relative_to(PROJECT_ROOT).as_posix(): bytes_sha256(path.read_bytes())
         for path in _execution_source_paths()
     }
-    profile_path = (
-        PROJECT_ROOT
-        / "integrations"
-        / "sillytavern"
-        / "continuous_v3_manual_profile.json"
-    )
+    profile_path = _ACTIVE_ROUTE.profile_path(PROJECT_ROOT)
     profile = json.loads(profile_path.read_text(encoding="utf-8"))
     _validate_manual_sillytavern_profile(profile)
     payload = {
@@ -948,8 +1177,13 @@ def manual_execution_manifest() -> dict[str, Any]:
         "service": CONTINUOUS_V3_MANUAL_SERVICE,
         "host": "127.0.0.1",
         "port": CONTINUOUS_V3_MANUAL_PORT,
-        "provider_mode": "scripted_provider_free",
-        "external_provider_calls_authorized": 0,
+        "provider_mode": _ACTIVE_TRANSPORT_MODE,
+        "external_provider_calls_authorized": (
+            0
+            if activation is None
+            else activation["maximum_codex_family_calls"]
+            + activation["maximum_deepseek_calls"]
+        ),
         "route_profile": {
             "path": profile_path.relative_to(PROJECT_ROOT).as_posix(),
             "sha256": bytes_sha256(profile_path.read_bytes()),
@@ -957,6 +1191,30 @@ def manual_execution_manifest() -> dict[str, Any]:
         },
         "execution_critical_files": files,
     }
+    if _ACTIVE_ROUTE is PROVIDER_BACKED_MANUAL_ROUTE:
+        payload.update(
+            {
+                "provider_activation_path": (
+                    None
+                    if _ACTIVE_PROVIDER_ACTIVATION is None
+                    else str(_ACTIVE_PROVIDER_ACTIVATION)
+                ),
+                "provider_activation_file_sha256": (
+                    None
+                    if _ACTIVE_PROVIDER_ACTIVATION is None
+                    else bytes_sha256(_ACTIVE_PROVIDER_ACTIVATION.read_bytes())
+                ),
+                "provider_activation_receipt_sha256": (
+                    None if activation is None else activation["activation_sha256"]
+                ),
+                "provider_cycle_authority": _ACTIVE_PROVIDER_CYCLE_AUTHORITY,
+                "provider_cycle_authority_sha256": (
+                    None
+                    if _ACTIVE_PROVIDER_CYCLE_AUTHORITY is None
+                    else canonical_sha256(_ACTIVE_PROVIDER_CYCLE_AUTHORITY)
+                ),
+            }
+        )
     return {**payload, "execution_identity_sha256": canonical_sha256(payload)}
 
 
@@ -1068,10 +1326,12 @@ def _validate_managed_root(root: Path, *, must_exist: bool) -> Path:
 
 
 def reset_manual_root(
-    root: Path = DEFAULT_MANUAL_ROOT,
+    root: Path | None = None,
     *,
-    session_id: str = DEFAULT_MANUAL_SESSION_ID,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
+    root = DEFAULT_MANUAL_ROOT if root is None else root
+    session_id = DEFAULT_MANUAL_SESSION_ID if session_id is None else session_id
     root = _validate_managed_root(root, must_exist=False)
     if _port_open(CONTINUOUS_V3_MANUAL_PORT):
         raise RuntimeError("refusing to reset while the manual port is occupied")
@@ -1226,7 +1486,9 @@ def build_scripted_manual_adapter(
         lifecycle_root=root / "provider_workspaces",
         call_ledger=ContinuousProviderCallLedger(
             root / "evidence" / "PROVIDER_CALL_LEDGER.jsonl",
-            maximum_calls=10,
+            maximum_calls=(
+                10 if _ACTIVE_ROUTE is PROVIDER_FREE_MANUAL_ROUTE else 1599
+            ),
         ),
         planner_transport_factory=fixture.planner_transport,
         validator_transport_factory=fixture.validator_transport,
@@ -1243,6 +1505,7 @@ def build_scripted_manual_adapter(
     adapter = ContinuousSillyTavernManualAdapter(
         session_id=identity["session_id"],
         profile_id=CONTINUOUS_V3_MANUAL_PROFILE_ID,
+        model=CERA_CONTINUOUS_V3_MANUAL_MODEL,
         execution_identity_sha256=manifest["execution_identity_sha256"],
         process_instance_id=process_instance_id,
         state_store=state,
@@ -1252,12 +1515,200 @@ def build_scripted_manual_adapter(
         recover_decision=harness.recover_manual_decision,
         route_identity={
             "port": CONTINUOUS_V3_MANUAL_PORT,
-            "provider_mode": "scripted_provider_free",
+            "provider_mode": _ACTIVE_TRANSPORT_MODE,
             "external_provider_calls_authorized": 0,
         },
     )
     harness.restore_accepted_pairs(state.accepted_turn_ids)
     return adapter, harness
+
+
+def build_provider_backed_manual_adapter(
+    root: Path,
+    *,
+    process_instance_id: str,
+) -> tuple[ContinuousSillyTavernManualAdapter, ManualJobHarness, ExitStack]:
+    """Construct the provider profile through fake or authority-bound ports."""
+
+    if _ACTIVE_ROUTE is not PROVIDER_BACKED_MANUAL_ROUTE:
+        raise RuntimeError("provider-backed adapter rejects the provider-free profile")
+    if _ACTIVE_TRANSPORT_MODE == "non_network_fake_ports":
+        adapter, harness = build_scripted_manual_adapter(
+            root, process_instance_id=process_instance_id
+        )
+        return adapter, harness, ExitStack()
+
+    activation = _manual_provider_activation()
+    if activation is None:
+        raise RuntimeError("provider-backed adapter lacks activation authority")
+    manifest, identity = _load_root(root)
+    if (
+        manifest.get("provider_activation_receipt_sha256")
+        != activation["activation_sha256"]
+        or manifest.get("provider_activation_file_sha256")
+        != bytes_sha256(_ACTIVE_PROVIDER_ACTIVATION.read_bytes())
+    ):
+        raise RuntimeError("provider-backed root activation binding changed")
+    root = root.resolve()
+    authority = HanezawaContinuousManualWorld.open(
+        PROJECT_ROOT,
+        root / "authority" / "hanezawa_continuous_manual.sqlite3",
+    )
+    world = ContinuousWorldStore(root / "world")
+    world_id = authority.world_id.value
+    branch_id = authority.branch_id.value
+    lifecycle_root = root / "provider_workspaces"
+    stack = ExitStack()
+    try:
+        from openai_codex import Codex, CodexConfig
+
+        codex = stack.enter_context(
+            Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={}))
+        )
+        account = codex.account()
+        if account.account is None:
+            raise RuntimeError("ChatGPT Codex session is unavailable")
+        planner_backend = OpenAICodexStoredThreadBackend(
+            codex=codex,
+            model="gpt-5.6-sol",
+            cwd=str(lifecycle_root),
+            base_instructions=(
+                _BASE_INSTRUCTIONS_BY_ROLE["scene_reasoner"]
+                + "\n\n"
+                + PLANNER_STABLE_INSTRUCTIONS
+            ),
+            service_name="cera_manual_provider_planner",
+        )
+        validator_backend = OpenAICodexStoredThreadBackend(
+            codex=codex,
+            model="gpt-5.6-terra",
+            cwd=str(lifecycle_root),
+            base_instructions=(
+                _BASE_INSTRUCTIONS_BY_ROLE["scene_realization_verifier"]
+                + "\n\n"
+                + VALIDATOR_STABLE_INSTRUCTIONS
+            ),
+            service_name="cera_manual_provider_validator",
+        )
+        planner_port = CodexContinuousStoredSessionPort(planner_backend)
+        validator_port = CodexContinuousStoredSessionPort(validator_backend)
+        snapshot_store = ContinuousSessionSnapshotStore(
+            world.branch_root(world_id, branch_id)
+        )
+        snapshot_path = snapshot_store.path_for(ContinuousSessionRole.PLANNER)
+        if snapshot_path.is_file():
+            snapshot = snapshot_store.load(ContinuousSessionRole.PLANNER)
+            planner = ContinuousSessionCoordinator.resume_compatible(
+                snapshot,
+                planner_port,
+                expected_compatibility=snapshot.compatibility,
+                base_instructions=planner_backend.base_instructions,
+            )
+        else:
+            planner = ContinuousSessionCoordinator(
+                compatibility(
+                    world,
+                    ContinuousSessionRole.PLANNER,
+                    world_id=world_id,
+                    branch_id=branch_id,
+                ),
+                planner_port,
+                base_instructions=planner_backend.base_instructions,
+            )
+        validator = ContinuousSessionCoordinator(
+            compatibility(
+                world,
+                ContinuousSessionRole.VALIDATOR,
+                world_id=world_id,
+                branch_id=branch_id,
+            ),
+            validator_port,
+            base_instructions=validator_backend.base_instructions,
+        )
+        planner_handle = planner.ensure_session().provider_thread_id
+        validator_handle = validator.ensure_session().provider_thread_id
+
+        def authority_guard() -> None:
+            current = _manual_provider_activation()
+            if (
+                current is None
+                or current["activation_sha256"] != activation["activation_sha256"]
+                or bytes_sha256(_ACTIVE_PROVIDER_ACTIVATION.read_bytes())
+                != manifest["provider_activation_file_sha256"]
+            ):
+                raise RuntimeError(
+                    "provider activation changed before manual dispatch"
+                )
+
+        harness = ManualJobHarness(
+            source_root=PROJECT_ROOT,
+            cycle=root / "cycle",
+            world=world,
+            planner_session=planner,
+            validator_session=validator,
+            planner_handle=planner_handle,
+            validator_handle=validator_handle,
+            lifecycle_root=lifecycle_root,
+            call_ledger=ContinuousProviderCallLedger(
+                root / "evidence" / "PROVIDER_CALL_LEDGER.jsonl",
+                maximum_calls=(
+                    activation["maximum_codex_family_calls"]
+                    + activation["maximum_deepseek_calls"]
+                ),
+            ),
+            authority_world=authority,
+            execution_identity_sha256=manifest["execution_identity_sha256"],
+            profile_id=_ACTIVE_ROUTE.profile_id,
+            provider_authority_guard=authority_guard,
+            provider_family_limits={
+                "codex_family": activation["maximum_codex_family_calls"],
+                "deepseek": activation["maximum_deepseek_calls"],
+            },
+        )
+        state = ContinuousManualStateStore(
+            root / "state",
+            identity=_state_identity(manifest, session_id=identity["session_id"]),
+        )
+        adapter = ContinuousSillyTavernManualAdapter(
+            session_id=identity["session_id"],
+            profile_id=_ACTIVE_ROUTE.profile_id,
+            model=_ACTIVE_ROUTE.model,
+            execution_identity_sha256=manifest["execution_identity_sha256"],
+            process_instance_id=process_instance_id,
+            state_store=state,
+            prepare_turn=harness.prepare_manual_http_turn,
+            accept_turn=harness.accept_manual_http_turn,
+            reject_turn=harness.reject_manual_http_turn,
+            recover_decision=harness.recover_manual_decision,
+            route_identity={
+                "port": _ACTIVE_ROUTE.port,
+                "provider_mode": _ACTIVE_TRANSPORT_MODE,
+                "external_provider_calls_authorized": manifest[
+                    "external_provider_calls_authorized"
+                ],
+                "provider_activation_receipt_sha256": activation[
+                    "activation_sha256"
+                ],
+            },
+        )
+        harness.restore_accepted_pairs(state.accepted_turn_ids)
+        return adapter, harness, stack
+    except BaseException:
+        stack.close()
+        raise
+
+
+def build_selected_manual_adapter(
+    root: Path, *, process_instance_id: str
+) -> tuple[ContinuousSillyTavernManualAdapter, ManualJobHarness, ExitStack]:
+    if _ACTIVE_ROUTE is PROVIDER_FREE_MANUAL_ROUTE:
+        adapter, harness = build_scripted_manual_adapter(
+            root, process_instance_id=process_instance_id
+        )
+        return adapter, harness, ExitStack()
+    return build_provider_backed_manual_adapter(
+        root, process_instance_id=process_instance_id
+    )
 
 
 def _http_json(
@@ -1292,6 +1743,7 @@ def _stop_request_path(root: Path) -> Path:
 
 def _read_bound_process_record(root: Path) -> dict[str, Any]:
     root = _validate_managed_root(root, must_exist=True)
+    manifest, _identity = _load_root(root)
     record = _read_signed_record(
         _process_path(root),
         hash_field="process_record_sha256",
@@ -1329,8 +1781,9 @@ def _read_bound_process_record(root: Path) -> dict[str, Any]:
         or record.get("port") != CONTINUOUS_V3_MANUAL_PORT
         or record.get("model") != CERA_CONTINUOUS_V3_MANUAL_MODEL
         or record.get("profile_id") != CONTINUOUS_V3_MANUAL_PROFILE_ID
-        or record.get("provider_mode") != "scripted_provider_free"
-        or record.get("external_provider_calls_authorized") != 0
+        or record.get("provider_mode") != _ACTIVE_TRANSPORT_MODE
+        or record.get("external_provider_calls_authorized")
+        != manifest.get("external_provider_calls_authorized")
         or not isinstance(record.get("pid"), int)
         or int(record["pid"]) <= 0
         or not isinstance(record.get("started_unix_ns"), int)
@@ -1473,7 +1926,8 @@ def serve_manual_root(
     stop_request_path = _stop_request_path(root)
     if stop_request_path.exists():
         raise RuntimeError("continuous manual stop request requires recovery")
-    adapter, harness = build_scripted_manual_adapter(
+    manifest, _identity = _load_root(root)
+    adapter, harness, provider_stack = build_selected_manual_adapter(
         root,
         process_instance_id=process_instance_id,
     )
@@ -1499,8 +1953,10 @@ def serve_manual_root(
             "process_instance_id": process_instance_id,
             "process_instance_sha256": text_sha256(process_instance_id),
             "execution_identity_sha256": adapter.execution_identity_sha256,
-            "provider_mode": "scripted_provider_free",
-            "external_provider_calls_authorized": 0,
+            "provider_mode": _ACTIVE_TRANSPORT_MODE,
+            "external_provider_calls_authorized": manifest[
+                "external_provider_calls_authorized"
+            ],
             "started_unix_ns": time.time_ns(),
         },
         hash_field="process_record_sha256",
@@ -1563,6 +2019,7 @@ def serve_manual_root(
         watcher_done.set()
         watcher.join(timeout=2)
         server.server_close()
+        provider_stack.close()
         terminal_payload = dict(process_record)
         terminal_payload.pop("process_record_sha256")
         terminal_status = (
@@ -1584,7 +2041,7 @@ def serve_manual_root(
                     else None
                 ),
                 "stopped_unix_ns": time.time_ns(),
-                "external_provider_calls": 0,
+                "external_provider_calls": harness.provider_calls,
             },
             hash_field="terminal_record_sha256",
         )
@@ -1690,11 +2147,44 @@ def start_manual_root(root: Path) -> dict[str, Any]:
             | getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
     with stdout_path.open("ab") as stdout, stderr_path.open("ab") as stderr:
+        module_name = "scripts.run_cera_sillytavern_continuous_manual"
+        route_arguments: list[str] = []
+        if _ACTIVE_ROUTE is PROVIDER_BACKED_MANUAL_ROUTE:
+            module_name = (
+                "scripts.run_cera_sillytavern_continuous_provider_manual"
+            )
+            route_arguments = ["--transport-mode", _ACTIVE_TRANSPORT_MODE]
+            if _ACTIVE_PROVIDER_ACTIVATION is not None:
+                route_arguments.extend(
+                    [
+                        "--provider-activation",
+                        str(_ACTIVE_PROVIDER_ACTIVATION),
+                    ]
+                )
+            if _ACTIVE_PROVIDER_CYCLE_AUTHORITY is not None:
+                authority = _ACTIVE_PROVIDER_CYCLE_AUTHORITY
+                route_arguments.extend(
+                    [
+                        "--cycle-directory",
+                        str(authority["cycle_directory"]),
+                        "--expected-checkpoint-sha",
+                        str(authority["expected_checkpoint_sha"]),
+                        "--expected-cycle-id",
+                        str(authority["expected_cycle_id"]),
+                        "--expected-cycle-sequence",
+                        str(authority["expected_cycle_sequence"]),
+                        "--expected-job4-task-id",
+                        str(authority["expected_job4_task_id"]),
+                        "--expected-authorization-sha256",
+                        str(authority["expected_authorization_sha256"]),
+                    ]
+                )
         process = subprocess.Popen(
             [
                 sys.executable,
                 "-m",
-                "scripts.run_cera_sillytavern_continuous_manual",
+                module_name,
+                *route_arguments,
                 "serve",
                 "--root",
                 str(root),

@@ -117,6 +117,7 @@ the active D-180 route.
 | `CONTINUOUS_LEAN_CONTEXT_SHORT_CANARY_V3_SPEC.md` | V3 branch-materialization and total-thread-lineage canary contract; dispatch requires a separate identity |
 | `SILLYTAVERN_CONTINUOUS_V3_TWO_RUN_READINESS_RESULT.md` | Test-only HTTP/review bridge, isolated two-run campaign, provider-free evidence, and live-dispatch boundary |
 | `operations/CONTINUOUS_V3_MANUAL_TEST_ROUTE.md` | Exact loopback-only ordinary typed-turn reset, start, Custom Endpoint, review, decision, Scene Change, restart, recovery, isolation, and provider-free readiness operations |
+| `operations/CONTINUOUS_V3_PROVIDER_BACKED_MANUAL_ROUTE.md` | Separate port-5115 ordinary route, provider-model construction, fake-port qualification, exact cycle-bound activation, and two-way profile non-substitution |
 | `PRO_REVIEW_CONSUMED_RESPONSE_AUTHORITY_REPAIR_RESULT.md` | D-201 receipt-bound accepted-response authority, post-consumption inbox diagnostics, historical recovery, active-source strictness, and non-mutation evidence |
 | `CONTINUOUS_WINDOWS_PATH_BUDGET_AND_SNAPSHOT_CUSTODY_V3_RESULT.md` | D-202 compact full-hash-bound accepted snapshots, 248-character legacy Windows path custody, historical V1 decoding, long-root fork/base-transaction proof, and zero-call completion/recovery chain |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |

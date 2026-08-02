@@ -1,0 +1,40 @@
+{
+  "profile_id": "cera.continuous_v3.manual.provider_backed.v1",
+  "production": false,
+  "endpoint": "http://127.0.0.1:5115/v1",
+  "model": "cera-continuous-v3-manual-provider-backed",
+  "stream": false,
+  "route": "continuous_v3_manual_provider_backed",
+  "provider_mode": "authority_bound_provider",
+  "provider_activation_required": true,
+  "external_provider_calls_authorized_by_profile": 0,
+  "planner": {
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "fast_mode": false
+  },
+  "composer": {
+    "model": "deepseek-v4-flash",
+    "thinking": false
+  },
+  "validator": {
+    "model": "gpt-5.6-terra",
+    "reasoning_effort": "high",
+    "fast_mode": false
+  },
+  "creator_review_required": true,
+  "automatic_accept": false,
+  "automatic_retry": false,
+  "fallback": false,
+  "automatic_false_positive": false,
+  "database_policy": "isolated_resettable_provider_manual_root",
+  "lan_binding_allowed": false,
+  "sillytavern_custom_endpoint": {
+    "chat_completion_source": "custom",
+    "custom_include_body_yaml": "cera_session_id: cera-continuous-provider-manual\ncera_profile_id: cera.continuous_v3.manual.provider_backed.v1\ncera_scene_change: false",
+    "scene_change_one_shot_yaml": "cera_session_id: cera-continuous-provider-manual\ncera_profile_id: cera.continuous_v3.manual.provider_backed.v1\ncera_scene_change: true",
+    "review_workflow": "repository_cli_on_port_5115",
+    "installed_review_relay_changed": false
+  },
+  "notes": "Authority-bound provider manual profile. A separate runtime activation receipt is required before any external dispatch; the profile grants zero calls by itself."
+}

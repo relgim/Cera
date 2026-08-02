@@ -47,44 +47,62 @@ The integration test crosses the actual HTTP and review boundary with the
 production-shaped Continuous coordinator and scripted provider transports. It
 must report ten local invocations and zero external provider calls.
 
-## Live campaign
+## Fresh V2 executable
 
-The governed cycle supplies the checkpoint and authorization values. The
-campaign entry point is:
+The V1 run names are historical and the executable rejects them. The governed
+cycle supplies every authority value; there are no cycle, task, run, or call
+budget defaults. Provider-free qualification uses the same parent and child
+entrypoints with local fake provider ports:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_sillytavern_continuous_v3_campaign.py `
-  --confirm-live-two-run `
+  --confirm-v2-campaign `
   --cycle-directory <cycle-directory> `
   --source-database runtime\development\hanezawa_human_test_v1_2.sqlite3 `
   --runtime-root <new-campaign-runtime-root> `
+  --historical-v1-campaign-root <immutable-v1-campaign-root> `
+  --transport-mode non_network_fake_ports `
   --expected-checkpoint-sha <checkpoint-sha> `
+  --expected-cycle-id <cycle-id> `
+  --expected-cycle-sequence <cycle-sequence> `
+  --expected-job4-task-id <job4-task-id> `
   --expected-authorization-sha256 <authorization-sha256>
 ```
 
 The runtime root must not already exist. Every run and campaign result is
-immutable once written. Provider dispatch begins only after the repository
-cycle is published and the exact authorization hash is available.
+immutable once written. Fake mode records ten provider-shaped stage
+invocations per complete run and zero external calls.
+
+External mode additionally requires `--provider-activation
+<activation-receipt>`. That receipt must bind the same published cycle, Job 4,
+route, Sol-medium, non-thinking DeepSeek V4 Flash, Terra-high, and remaining
+ceilings. The route profile grants no calls by itself. Missing, mismatched, or
+tampered activation fails before provider construction or dispatch.
 
 If a terminal run requires an execution-affecting repair, preserve its entire
 campaign root and resume in a new root with the next unused run identity:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\run_sillytavern_continuous_v3_campaign.py `
-  --confirm-live-two-run `
+  --confirm-v2-campaign `
   --cycle-directory <cycle-directory> `
   --source-database runtime\development\hanezawa_human_test_v1_2.sqlite3 `
   --runtime-root <new-repair-campaign-runtime-root> `
-  --prior-campaign-root <immutable-prior-campaign-root> `
+  --historical-v1-campaign-root <immutable-v1-campaign-root> `
+  --prior-v2-campaign-root <immutable-prior-v2-campaign-root> `
+  --transport-mode <non_network_fake_ports-or-external_provider> `
   --expected-checkpoint-sha <published-cycle-checkpoint-sha> `
-  --execution-checkpoint-sha <repair-commit-sha> `
+  --expected-cycle-id <cycle-id> `
+  --expected-cycle-sequence <cycle-sequence> `
+  --expected-job4-task-id <job4-task-id> `
   --expected-authorization-sha256 <authorization-sha256>
 ```
 
-Recovery verifies each prior run against its immutable provider ledger and
-per-run result. It counts transport invocation before later decoding or domain
-validation, binds inherited evidence by hash, resets the qualifying streak,
-and never edits an earlier run or campaign result.
+Recovery accepts only the exact canonical V2 campaign configuration. It
+verifies each prior V2 run against its immutable parent reconciliation,
+provider ledger, child manifest, child configuration, and result. Historical
+V1 Run 001 is read only for its exact one-call debit and can never be selected
+as a current run.
 
 ## Manual-test handoff
 

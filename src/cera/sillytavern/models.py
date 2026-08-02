@@ -13,11 +13,15 @@ from cera.serialization import text_sha256
 CERA_VIRTUAL_MODEL = "cera-alpha"
 CERA_CONTINUOUS_V3_TEST_MODEL = "cera-continuous-v3-test"
 CERA_CONTINUOUS_V3_MANUAL_MODEL = "cera-continuous-v3-manual"
+CERA_CONTINUOUS_V3_PROVIDER_MANUAL_MODEL = (
+    "cera-continuous-v3-manual-provider-backed"
+)
 SUPPORTED_CERA_VIRTUAL_MODELS = frozenset(
     {
         CERA_VIRTUAL_MODEL,
         CERA_CONTINUOUS_V3_TEST_MODEL,
         CERA_CONTINUOUS_V3_MANUAL_MODEL,
+        CERA_CONTINUOUS_V3_PROVIDER_MANUAL_MODEL,
     }
 )
 

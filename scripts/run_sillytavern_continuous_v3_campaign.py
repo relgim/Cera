@@ -33,11 +33,20 @@ from cera.continuous.prompting import (
     PLANNER_STABLE_INSTRUCTIONS,
     VALIDATOR_STABLE_INSTRUCTIONS,
 )
+from cera.continuous.scripted_job4 import (
+    SCRIPTED_JOB4_FIXTURE_ID,
+    SCRIPTED_JOB4_FIXTURE_SHA256,
+    ScriptedJob4FixtureRuntime,
+)
+from cera.continuous.sessions import (
+    CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256,
+)
 from cera.continuous.provider import CONTINUOUS_DEEPSEEK_PROMPT_VERSION
 from cera.continuous.record_policy import PERSISTENCE_POLICY_SHA256
 from cera.continuous.sessions import (
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
+    InMemoryContinuousStoredSessionPort,
     assert_separate_role_sessions,
 )
 from cera.continuous.thread_lineage import ContinuousThreadLineageLedger
@@ -53,18 +62,30 @@ from cera.serialization import (
     text_sha256,
 )
 from cera.sillytavern.campaign import (
+    CONTINUOUS_V3_CAMPAIGN_CONFIGURATION_V2_SCHEMA,
     CAMPAIGN_TOTAL_CALL_CEILING,
     CONTINUOUS_V3_CALL_SCHEDULE,
     CONTINUOUS_V3_RUN_IDENTITIES,
+    CONTINUOUS_V3_V1_CAMPAIGN_ID,
+    CONTINUOUS_V3_V2_CAMPAIGN_ID,
+    CONTINUOUS_V3_V2_CAMPAIGN_TOTAL_CALL_CEILING,
+    CONTINUOUS_V3_V2_CODEX_FAMILY_CALL_CEILING,
+    CONTINUOUS_V3_V2_DEEPSEEK_CALL_CEILING,
     CampaignRunRecord,
     CampaignRunState,
     ContinuousV3TwoRunCampaign,
+    CONTINUOUS_V3_V2_RUN_IDENTITIES,
+    validate_v2_campaign_configuration,
 )
 from cera.sillytavern.continuous_test import (
     CONTINUOUS_V3_TEST_FIXTURE,
     ContinuousSillyTavernTestAdapter,
 )
 from cera.sillytavern.models import CERA_CONTINUOUS_V3_TEST_MODEL
+from cera.sillytavern.provider_authority import (
+    CONTINUOUS_PROVIDER_MODELS,
+    validate_provider_activation,
+)
 from cera.sillytavern.server import CeraSillyTavernServerConfig, build_server
 try:
     from tools.pro_review_cycle_core import (
@@ -106,9 +127,8 @@ else:
     )
 
 
-CAMPAIGN_ID = "2026-08-02-continuous-sillytavern-two-run-v1"
-CYCLE_ID = "2026-08-02-continuous-sillytavern-two-run-v1-cycle-001"
-TASK_ID = "continuous-sillytavern-two-consecutive-runs-live-qualification-v1"
+CAMPAIGN_ID = CONTINUOUS_V3_V2_CAMPAIGN_ID
+HISTORICAL_CAMPAIGN_ID = CONTINUOUS_V3_V1_CAMPAIGN_ID
 PROFILE_ID = "cera.sillytavern.continuous_v3_test.v1"
 FIXED_PORT = 5113
 
@@ -236,7 +256,7 @@ def _validate_child_reconciliation(
     run_root: Path,
     expected_run_id: str,
 ) -> None:
-    expected_fields = {
+    legacy_fields = {
         "schema_version",
         "run_id",
         "execution_identity_sha256",
@@ -257,9 +277,26 @@ def _validate_child_reconciliation(
         "raw_provider_output_retained",
         "reconciliation_sha256",
     }
-    if set(value) != expected_fields:
+    v2_fields = legacy_fields | {
+        "campaign_configuration_sha256",
+        "child_campaign_configuration_file_sha256",
+        "transport_mode",
+        "stage_invocations",
+        "external_provider_calls",
+    }
+    schema_version = value.get("schema_version")
+    if (
+        schema_version == "cera.sillytavern_child_run_reconciliation.v1"
+        and set(value) != legacy_fields
+    ) or (
+        schema_version == "cera.sillytavern_child_run_reconciliation.v2"
+        and set(value) != v2_fields
+    ):
         raise ValueError("child reconciliation fields changed")
-    if value.get("schema_version") != "cera.sillytavern_child_run_reconciliation.v1":
+    if schema_version not in {
+        "cera.sillytavern_child_run_reconciliation.v1",
+        "cera.sillytavern_child_run_reconciliation.v2",
+    }:
         raise ValueError("child reconciliation schema changed")
     receipt_sha256 = value.get("reconciliation_sha256")
     unsigned = dict(value)
@@ -289,6 +326,30 @@ def _validate_child_reconciliation(
     expected_calls = list(CONTINUOUS_V3_CALL_SCHEDULE[: len(calls)])
     if calls != expected_calls or value.get("provider_calls") != len(calls):
         raise ValueError("child reconciliation call accounting changed")
+    if schema_version.endswith(".v2"):
+        if (
+            not re_is_sha256(value.get("campaign_configuration_sha256"))
+            or (
+                value.get("child_campaign_configuration_file_sha256") is not None
+                and not re_is_sha256(
+                    value.get("child_campaign_configuration_file_sha256")
+                )
+            )
+            or value.get("transport_mode")
+            not in {"external_provider", "non_network_fake_ports"}
+            or value.get("stage_invocations") != len(calls)
+            or type(value.get("external_provider_calls")) is not int
+            or value["external_provider_calls"] < 0
+            or (
+                value["transport_mode"] == "non_network_fake_ports"
+                and value["external_provider_calls"] != 0
+            )
+            or (
+                value["transport_mode"] == "external_provider"
+                and value["external_provider_calls"] != len(calls)
+            )
+        ):
+            raise ValueError("child reconciliation transport accounting changed")
     codex_calls = sum(_call_owner(label) != "composer" for label in calls)
     deepseek_calls = sum(_call_owner(label) == "composer" for label in calls)
     if (
@@ -301,6 +362,10 @@ def _validate_child_reconciliation(
         "child_execution_manifest_sha256": run_root / "EXECUTION_MANIFEST.json",
         "provider_ledger_sha256": run_root / "PROVIDER_CALL_LEDGER.jsonl",
     }
+    if schema_version.endswith(".v2"):
+        artifact_paths["child_campaign_configuration_file_sha256"] = (
+            run_root / "CAMPAIGN_CONFIGURATION.json"
+        )
     for field, path in artifact_paths.items():
         expected = value.get(field)
         actual = _artifact_sha256(path)
@@ -332,6 +397,10 @@ def _validate_child_reconciliation(
         and child_result is not None
         and child_result.get("status") == "passed"
         and tuple(calls) == CONTINUOUS_V3_CALL_SCHEDULE
+        and (
+            schema_version.endswith(".v1")
+            or value.get("child_campaign_configuration_file_sha256") is not None
+        )
     )
     if value["passed"] is not derived_passed:
         raise ValueError("child reconciliation pass status is not derived")
@@ -350,6 +419,8 @@ def reconcile_child_run(
     execution_identity_sha256: str,
     process_returncode: int | None,
     process_error: BaseException | None = None,
+    campaign_configuration_sha256: str | None = None,
+    transport_mode: str | None = None,
 ) -> dict[str, Any]:
     """Freeze parent-owned truth even when a child never writes RUN_RESULT."""
 
@@ -378,7 +449,11 @@ def reconcile_child_run(
         and result.get("status") == "passed"
         and calls == CONTINUOUS_V3_CALL_SCHEDULE
     )
-    if result is not None and isinstance(result.get("error_type"), str):
+    child_configuration_path = run_root / "CAMPAIGN_CONFIGURATION.json"
+    if campaign_configuration_sha256 is not None and not child_configuration_path.is_file():
+        terminal_reason = "ChildCampaignConfigurationMissing"
+        failure_source = "child_result" if result is not None else "parent_process_exit"
+    elif result is not None and isinstance(result.get("error_type"), str):
         terminal_reason = result["error_type"]
         failure_source = "child_result"
     elif process_error is not None:
@@ -399,8 +474,15 @@ def reconcile_child_run(
     else:
         terminal_reason = "qualified"
         failure_source = None
+    if (campaign_configuration_sha256 is None) is not (transport_mode is None):
+        raise ValueError("child reconciliation V2 identity is incomplete")
+    schema_version = (
+        "cera.sillytavern_child_run_reconciliation.v1"
+        if campaign_configuration_sha256 is None
+        else "cera.sillytavern_child_run_reconciliation.v2"
+    )
     payload: dict[str, Any] = {
-        "schema_version": "cera.sillytavern_child_run_reconciliation.v1",
+        "schema_version": schema_version,
         "run_id": run_id,
         "execution_identity_sha256": execution_identity_sha256,
         "process_returncode": process_returncode,
@@ -431,6 +513,32 @@ def reconcile_child_run(
         "failure_source": failure_source,
         "raw_provider_output_retained": False,
     }
+    if campaign_configuration_sha256 is not None:
+        if (
+            not re_is_sha256(campaign_configuration_sha256)
+            or transport_mode not in {
+                "external_provider",
+                "non_network_fake_ports",
+            }
+        ):
+            raise ValueError("child reconciliation V2 authority is invalid")
+        payload.update(
+            {
+                "campaign_configuration_sha256": (
+                    campaign_configuration_sha256
+                ),
+                "child_campaign_configuration_file_sha256": _artifact_sha256(
+                    run_root / "CAMPAIGN_CONFIGURATION.json"
+                ),
+                "transport_mode": transport_mode,
+                "stage_invocations": len(calls),
+                "external_provider_calls": (
+                    0
+                    if transport_mode == "non_network_fake_ports"
+                    else len(calls)
+                ),
+            }
+        )
     payload["reconciliation_sha256"] = canonical_sha256(payload)
     run_root.mkdir(parents=True, exist_ok=True)
     reconciliation_path = run_root / "PARENT_RUN_RECONCILIATION.json"
@@ -459,7 +567,7 @@ def recover_prior_campaign(
     manifest_path = root / "EXECUTION_MANIFEST.json"
     prior = read_json(campaign_path)
     manifest = read_json(manifest_path)
-    if prior.get("campaign_id") != CAMPAIGN_ID:
+    if prior.get("campaign_id") != HISTORICAL_CAMPAIGN_ID:
         raise ValueError("prior campaign identity changed")
     prior_execution_identity = manifest.get("execution_identity_sha256")
     if (
@@ -699,7 +807,7 @@ def recover_prior_campaign(
     )
     recovery: dict[str, Any] = {
         "schema_version": "cera.sillytavern_continuous_v3_prior_recovery.v1",
-        "prior_campaign_id": CAMPAIGN_ID,
+        "prior_campaign_id": HISTORICAL_CAMPAIGN_ID,
         "prior_campaign_result_sha256": bytes_sha256(campaign_path.read_bytes()),
         "prior_execution_manifest_sha256": bytes_sha256(manifest_path.read_bytes()),
         "prior_recovery_sha256": prior_recovery_sha256,
@@ -719,14 +827,53 @@ def recover_prior_campaign(
     return campaign, recovery
 
 
+def historical_v1_one_call_debit(prior_root: Path) -> dict[str, Any]:
+    """Bind immutable Run 001 accounting without making V1 runs reusable."""
+
+    campaign, recovery = recover_prior_campaign(
+        prior_root,
+        execution_identity_sha256=text_sha256(
+            "cera.v2.historical_v1_one_call_debit.validation"
+        ),
+    )
+    if (
+        len(campaign.runs) != 1
+        or campaign.total_provider_calls != 1
+        or campaign.codex_family_calls != 1
+        or campaign.deepseek_calls != 0
+        or campaign.runs[0].run_id != CONTINUOUS_V3_RUN_IDENTITIES[0]
+        or campaign.runs[0].calls != (CONTINUOUS_V3_CALL_SCHEDULE[0],)
+        or len(recovery.get("runs", ())) != 1
+    ):
+        raise ValueError("historical V1 debit is not exactly immutable Run 001")
+    run = recovery["runs"][0]
+    payload = {
+        "schema_version": "cera.sillytavern_historical_v1_call_debit.v1",
+        "campaign_id": HISTORICAL_CAMPAIGN_ID,
+        "run_id": CONTINUOUS_V3_RUN_IDENTITIES[0],
+        "calls": [CONTINUOUS_V3_CALL_SCHEDULE[0]],
+        "codex_family_calls": 1,
+        "deepseek_calls": 0,
+        "campaign_result_sha256": recovery["prior_campaign_result_sha256"],
+        "campaign_execution_manifest_sha256": recovery[
+            "prior_execution_manifest_sha256"
+        ],
+        "run_result_sha256": run["run_result_sha256"],
+        "provider_ledger_sha256": run["provider_ledger_sha256"],
+        "run_execution_manifest_sha256": run["execution_manifest_sha256"],
+    }
+    payload["debit_sha256"] = canonical_sha256(payload)
+    return payload
+
+
 def validate_authority(
     cycle: Path,
     *,
     expected_checkpoint_sha: str,
     expected_authorization_sha256: str,
-    expected_cycle_id: str = CYCLE_ID,
-    expected_cycle_sequence: int = 21,
-    expected_task_id: str = TASK_ID,
+    expected_cycle_id: str,
+    expected_cycle_sequence: int,
+    expected_task_id: str,
 ) -> dict[str, Any]:
     manifest = load_v2_manifest(ROOT, cycle)
     if (
@@ -818,11 +965,14 @@ def execution_manifest(
     source_db: Path,
     *,
     cycle: Path,
+    historical_v1_campaign_root: Path,
+    transport_mode: str,
+    provider_activation_path: Path | None,
     expected_checkpoint_sha: str,
     expected_authorization_sha256: str,
-    expected_cycle_id: str = CYCLE_ID,
-    expected_cycle_sequence: int = 21,
-    expected_task_id: str = TASK_ID,
+    expected_cycle_id: str,
+    expected_cycle_sequence: int,
+    expected_task_id: str,
 ) -> dict[str, Any]:
     authority = validate_authority(
         cycle,
@@ -867,86 +1017,182 @@ def execution_manifest(
         != {"model": "gpt-5.6-terra", "reasoning_effort": "high", "fast_mode": False}
     ):
         raise ValueError("continuous provider route profile changed")
-    payload: dict[str, Any] = {
-        "schema_version": "cera.sillytavern_continuous_v3_execution_manifest.v2",
-        "campaign_id": CAMPAIGN_ID,
-        "git": {
-            "checkpoint_sha": expected_checkpoint_sha,
-            "actual_head_sha": actual_head,
-            "actual_tree_sha": actual_tree,
-            "tracked_file_count": len(tracked_files),
-            "tracked_files_root_sha256": canonical_sha256(tracked_files),
-            "tracked_files": tracked_files,
-        },
-        "cycle_authority": {
-            "cycle_id": manifest["cycle_id"],
-            "cycle_sequence": manifest["cycle_sequence"],
-            "cycle_manifest_sha256": authority["cycle_manifest_sha256"],
-            "manifest_root_sha256": manifest["manifest_root_sha256"],
-            "repository_identity_sha256": manifest["repository_identity_sha256"],
-            "task_set_sha256": manifest["task_set_sha256"],
-            "changed_source_manifest_sha256": authority[
-                "changed_source_manifest_sha256"
+    if provider_routes != CONTINUOUS_PROVIDER_MODELS:
+        raise ValueError("continuous provider authority model set changed")
+    if transport_mode == "non_network_fake_ports":
+        if provider_activation_path is not None:
+            raise ValueError("fake provider ports reject an activation receipt")
+        transport_binding = {
+            "mode": transport_mode,
+            "external_provider_calls_authorized": 0,
+            "provider_activation_relative_path": None,
+            "provider_activation_file_sha256": None,
+            "provider_activation_receipt_sha256": None,
+            "fake_fixture_id": SCRIPTED_JOB4_FIXTURE_ID,
+            "fake_fixture_sha256": SCRIPTED_JOB4_FIXTURE_SHA256,
+        }
+    elif transport_mode == "external_provider":
+        if provider_activation_path is None or not provider_activation_path.is_file():
+            raise ValueError("external provider mode requires activation authority")
+        activation = validate_provider_activation(
+            read_json(provider_activation_path),
+            expected_cycle_id=expected_cycle_id,
+            expected_cycle_sequence=expected_cycle_sequence,
+            expected_job4_task_id=expected_task_id,
+            expected_job4_authorization_sha256=expected_authorization_sha256,
+            expected_route_profile_id=PROFILE_ID,
+            maximum_codex_family_calls=(
+                CONTINUOUS_V3_V2_CODEX_FAMILY_CALL_CEILING
+            ),
+            maximum_deepseek_calls=CONTINUOUS_V3_V2_DEEPSEEK_CALL_CEILING,
+        )
+        if activation["authority_source_sha256"] != authority[
+            "cycle_manifest_sha256"
+        ]:
+            raise ValueError("provider activation source is not the bound cycle")
+        transport_binding = {
+            "mode": transport_mode,
+            "external_provider_calls_authorized": (
+                activation["maximum_codex_family_calls"]
+                + activation["maximum_deepseek_calls"]
+            ),
+            "provider_activation_relative_path": str(
+                provider_activation_path.resolve()
+            ),
+            "provider_activation_file_sha256": bytes_sha256(
+                provider_activation_path.read_bytes()
+            ),
+            "provider_activation_receipt_sha256": activation[
+                "activation_sha256"
             ],
-            "published_receipt_sha256": authority["published_receipt_sha256"],
-            "job4_task_id": manifest["job4"]["task_id"],
-            "job4_scope_sha256": manifest["job4"]["scope_sha256"],
-            "job4_started_receipt_sha256": authority[
-                "job4_started_receipt_sha256"
-            ],
-            "trigger_receipt_sha256": authority["trigger_receipt_sha256"],
-            "authorization_record_sha256": authority[
-                "authorization_record_sha256"
-            ],
-            "cycle_state": authority["cycle_state"],
-            "cycle_state_sha256": authority["cycle_state_sha256"],
-        },
-        "route": {
-            "profile_id": PROFILE_ID,
-            "profile_path": "integrations/sillytavern/continuous_v3_test_profile.json",
-            "profile_sha256": bytes_sha256(profile_path.read_bytes()),
-            "profile": profile,
-            "host": "127.0.0.1",
-            "port": FIXED_PORT,
-            "model": CERA_CONTINUOUS_V3_TEST_MODEL,
-        },
-        "providers": provider_routes,
-        "prompt_bindings": {
-            "planner_prompt_version": CONTINUOUS_PLANNER_PROMPT_VERSION,
-            "planner_stable_instructions_sha256": text_sha256(
-                PLANNER_STABLE_INSTRUCTIONS
-            ),
-            "planner_base_instructions_sha256": text_sha256(
-                _BASE_INSTRUCTIONS_BY_ROLE["scene_reasoner"]
-            ),
-            "composer_prompt_version": CONTINUOUS_DEEPSEEK_PROMPT_VERSION,
-            "validator_prompt_version": CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "validator_stable_instructions_sha256": text_sha256(
-                VALIDATOR_STABLE_INSTRUCTIONS
-            ),
-            "validator_base_instructions_sha256": text_sha256(
-                _BASE_INSTRUCTIONS_BY_ROLE["scene_realization_verifier"]
-            ),
-        },
-        "schema_bindings": {
-            "planner_sequence": RichPlannerSequenceV1.SCHEMA_VERSION,
-            "validator_package": ValidatorFinalizationPackageV1.SCHEMA_VERSION,
-            "http_review": "cera.sillytavern_continuous_v3_review.v2",
-        },
-        "policy_bindings": {
-            "persistence_policy_sha256": PERSISTENCE_POLICY_SHA256,
-            "strict_accept_only": True,
-            "automatic_retry": False,
-            "fallback": False,
-            "automatic_false_positive": False,
-        },
-        "fixture": {
-            "messages": list(CONTINUOUS_V3_TEST_FIXTURE),
-            "fixture_sha256": canonical_sha256(CONTINUOUS_V3_TEST_FIXTURE),
-            "call_schedule": list(CONTINUOUS_V3_CALL_SCHEDULE),
-            "call_schedule_sha256": canonical_sha256(CONTINUOUS_V3_CALL_SCHEDULE),
-        },
+            "fake_fixture_id": None,
+            "fake_fixture_sha256": None,
+        }
+    else:
+        raise ValueError("unknown continuous campaign transport mode")
+
+    cycle_authority = {
+        "cycle_id": manifest["cycle_id"],
+        "cycle_sequence": manifest["cycle_sequence"],
+        "checkpoint_git_sha": expected_checkpoint_sha,
+        "cycle_manifest_sha256": authority["cycle_manifest_sha256"],
+        "manifest_root_sha256": manifest["manifest_root_sha256"],
+        "repository_identity_sha256": manifest["repository_identity_sha256"],
+        "task_set_sha256": manifest["task_set_sha256"],
+        "changed_source_manifest_sha256": authority[
+            "changed_source_manifest_sha256"
+        ],
+        "published_receipt_sha256": authority["published_receipt_sha256"],
+        "job4_task_id": manifest["job4"]["task_id"],
+        "job4_scope_sha256": manifest["job4"]["scope_sha256"],
+        "job4_started_receipt_sha256": authority[
+            "job4_started_receipt_sha256"
+        ],
+        "trigger_receipt_sha256": authority["trigger_receipt_sha256"],
+        "authorization_record_sha256": authority[
+            "authorization_record_sha256"
+        ],
+        "cycle_state": authority["cycle_state"],
+        "cycle_state_sha256": authority["cycle_state_sha256"],
+    }
+    route_binding = {
+        "profile_id": PROFILE_ID,
+        "profile_path": "integrations/sillytavern/continuous_v3_test_profile.json",
+        "profile_sha256": bytes_sha256(profile_path.read_bytes()),
+        "profile": profile,
+        "host": "127.0.0.1",
+        "port": FIXED_PORT,
+        "model": CERA_CONTINUOUS_V3_TEST_MODEL,
+    }
+    prompt_bindings = {
+        "planner_prompt_version": CONTINUOUS_PLANNER_PROMPT_VERSION,
+        "planner_stable_instructions_sha256": text_sha256(
+            PLANNER_STABLE_INSTRUCTIONS
+        ),
+        "planner_base_instructions_sha256": text_sha256(
+            _BASE_INSTRUCTIONS_BY_ROLE["scene_reasoner"]
+        ),
+        "composer_prompt_version": CONTINUOUS_DEEPSEEK_PROMPT_VERSION,
+        "validator_prompt_version": CONTINUOUS_VALIDATOR_PROMPT_VERSION,
+        "validator_stable_instructions_sha256": text_sha256(
+            VALIDATOR_STABLE_INSTRUCTIONS
+        ),
+        "validator_base_instructions_sha256": text_sha256(
+            _BASE_INSTRUCTIONS_BY_ROLE["scene_realization_verifier"]
+        ),
+    }
+    schema_bindings = {
+        "planner_sequence": RichPlannerSequenceV1.SCHEMA_VERSION,
+        "validator_package": ValidatorFinalizationPackageV1.SCHEMA_VERSION,
+        "http_review": "cera.sillytavern_continuous_v3_review.v2",
+        "campaign_configuration": CONTINUOUS_V3_CAMPAIGN_CONFIGURATION_V2_SCHEMA,
+    }
+    policy_bindings = {
+        "persistence_policy_sha256": PERSISTENCE_POLICY_SHA256,
+        "accepted_snapshot_path_policy_sha256": (
+            CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256
+        ),
+        "strict_accept_only": True,
+        "automatic_retry": False,
+        "fallback": False,
+        "automatic_false_positive": False,
+    }
+    fixture_binding = {
+        "messages": list(CONTINUOUS_V3_TEST_FIXTURE),
+        "fixture_sha256": canonical_sha256(CONTINUOUS_V3_TEST_FIXTURE),
+        "call_schedule": list(CONTINUOUS_V3_CALL_SCHEDULE),
+        "call_schedule_sha256": canonical_sha256(CONTINUOUS_V3_CALL_SCHEDULE),
+    }
+    source_bindings = {
+        "checkpoint_sha": expected_checkpoint_sha,
+        "actual_head_sha": actual_head,
+        "actual_tree_sha": actual_tree,
+        "tracked_file_count": len(tracked_files),
+        "tracked_files_root_sha256": canonical_sha256(tracked_files),
+        "tracked_files": tracked_files,
         "source_database_sha256": bytes_sha256(source_db.read_bytes()),
+    }
+    configuration: dict[str, Any] = {
+        "schema_version": CONTINUOUS_V3_CAMPAIGN_CONFIGURATION_V2_SCHEMA,
+        "campaign_id": CAMPAIGN_ID,
+        "cycle_authority": cycle_authority,
+        "run_identities": list(CONTINUOUS_V3_V2_RUN_IDENTITIES),
+        "call_budget": {
+            "creator_codex_family_total": 800,
+            "creator_deepseek_total": 800,
+            "prior_codex_family_debit": 1,
+            "prior_deepseek_debit": 0,
+            "remaining_codex_family_calls": (
+                CONTINUOUS_V3_V2_CODEX_FAMILY_CALL_CEILING
+            ),
+            "remaining_deepseek_calls": (
+                CONTINUOUS_V3_V2_DEEPSEEK_CALL_CEILING
+            ),
+            "campaign_total_stage_ceiling": (
+                CONTINUOUS_V3_V2_CAMPAIGN_TOTAL_CALL_CEILING
+            ),
+            "per_run_stage_ceiling": len(CONTINUOUS_V3_CALL_SCHEDULE),
+        },
+        "historical_v1_debit": historical_v1_one_call_debit(
+            historical_v1_campaign_root
+        ),
+        "fixture": fixture_binding,
+        "route": route_binding,
+        "providers": provider_routes,
+        "prompt_bindings": prompt_bindings,
+        "schema_bindings": schema_bindings,
+        "policy_bindings": policy_bindings,
+        "source_bindings": source_bindings,
+        "transport_mode": transport_binding,
+    }
+    configuration["configuration_sha256"] = canonical_sha256(configuration)
+    configuration = validate_v2_campaign_configuration(configuration)
+    payload: dict[str, Any] = {
+        "schema_version": "cera.sillytavern_continuous_v3_execution_manifest.v3",
+        "campaign_configuration_sha256": configuration[
+            "configuration_sha256"
+        ],
+        "campaign_configuration": configuration,
     }
     payload["execution_identity_sha256"] = canonical_sha256(payload)
     return payload
@@ -975,6 +1221,212 @@ def assert_exact_execution_manifest(
         raise ValueError("command execution identity disagrees with supplied manifest")
     if canonical_bytes(supplied) != canonical_bytes(recomputed):
         raise ValueError("child recomputed execution or authority identity changed")
+
+
+def _manifest_configuration(manifest: dict[str, Any]) -> dict[str, Any]:
+    if set(manifest) != {
+        "schema_version",
+        "campaign_configuration_sha256",
+        "campaign_configuration",
+        "execution_identity_sha256",
+    } or manifest.get("schema_version") != (
+        "cera.sillytavern_continuous_v3_execution_manifest.v3"
+    ):
+        raise ValueError("V2 campaign execution manifest fields changed")
+    configuration = validate_v2_campaign_configuration(
+        manifest.get("campaign_configuration")
+    )
+    if manifest.get("campaign_configuration_sha256") != configuration[
+        "configuration_sha256"
+    ]:
+        raise ValueError("execution manifest campaign configuration changed")
+    return configuration
+
+
+def _new_v2_campaign(execution_identity_sha256: str) -> ContinuousV3TwoRunCampaign:
+    return ContinuousV3TwoRunCampaign(
+        execution_identity_sha256,
+        run_identities=CONTINUOUS_V3_V2_RUN_IDENTITIES,
+        total_call_ceiling=CONTINUOUS_V3_V2_CAMPAIGN_TOTAL_CALL_CEILING,
+        codex_family_call_ceiling=CONTINUOUS_V3_V2_CODEX_FAMILY_CALL_CEILING,
+        deepseek_call_ceiling=CONTINUOUS_V3_V2_DEEPSEEK_CALL_CEILING,
+    )
+
+
+def _v2_campaign_from_dict(
+    value: dict[str, Any], *, execution_identity_sha256: str
+) -> ContinuousV3TwoRunCampaign:
+    supplied_sha256 = value.get("campaign_state_sha256")
+    unsigned = dict(value)
+    unsigned.pop("campaign_state_sha256", None)
+    if supplied_sha256 != canonical_sha256(unsigned):
+        raise ValueError("V2 campaign state hash changed")
+    if value.get("execution_identity_sha256") != execution_identity_sha256:
+        raise ValueError("V2 campaign execution identity changed")
+    if tuple(value.get("run_identities", ())) != CONTINUOUS_V3_V2_RUN_IDENTITIES:
+        raise ValueError("V2 campaign state reused a historical run identity")
+    if (
+        value.get("total_call_ceiling")
+        != CONTINUOUS_V3_V2_CAMPAIGN_TOTAL_CALL_CEILING
+        or value.get("codex_family_call_ceiling")
+        != CONTINUOUS_V3_V2_CODEX_FAMILY_CALL_CEILING
+        or value.get("deepseek_call_ceiling")
+        != CONTINUOUS_V3_V2_DEEPSEEK_CALL_CEILING
+    ):
+        raise ValueError("V2 campaign state call ceiling changed")
+    raw_runs = value.get("runs")
+    if not isinstance(raw_runs, list):
+        raise ValueError("V2 campaign run history is malformed")
+    runs: list[CampaignRunRecord] = []
+    for raw in raw_runs:
+        if not isinstance(raw, dict):
+            raise ValueError("V2 campaign run history is malformed")
+        try:
+            state = CampaignRunState(raw["state"])
+        except (KeyError, ValueError) as exc:
+            raise ValueError("V2 campaign run state is invalid") from exc
+        calls = tuple(raw.get("calls", ()))
+        runs.append(
+            CampaignRunRecord(
+                run_id=str(raw.get("run_id", "")),
+                state=state,
+                execution_identity_sha256=str(
+                    raw.get("execution_identity_sha256", "")
+                ),
+                calls=calls,
+                terminal_reason=raw.get("terminal_reason"),
+            )
+        )
+    campaign = ContinuousV3TwoRunCampaign(
+        execution_identity_sha256,
+        runs=runs,
+        consecutive_passes=value.get("consecutive_passes"),
+        total_provider_calls=value.get("total_provider_calls"),
+        restart_after_last_pass=value.get("restart_after_last_pass"),
+        run_identities=CONTINUOUS_V3_V2_RUN_IDENTITIES,
+        total_call_ceiling=CONTINUOUS_V3_V2_CAMPAIGN_TOTAL_CALL_CEILING,
+        codex_family_call_ceiling=CONTINUOUS_V3_V2_CODEX_FAMILY_CALL_CEILING,
+        deepseek_call_ceiling=CONTINUOUS_V3_V2_DEEPSEEK_CALL_CEILING,
+    )
+    if canonical_bytes(campaign.to_dict()) != canonical_bytes(value):
+        raise ValueError("V2 campaign state is not canonical")
+    return campaign
+
+
+def _campaign_state_artifact(
+    configuration: dict[str, Any], campaign: ContinuousV3TwoRunCampaign
+) -> dict[str, Any]:
+    payload = {
+        "schema_version": "cera.sillytavern_continuous_v3_campaign_state.v2",
+        "campaign_configuration_sha256": configuration["configuration_sha256"],
+        "campaign": campaign.to_dict(),
+    }
+    return {**payload, "state_artifact_sha256": canonical_sha256(payload)}
+
+
+def recover_v2_campaign(
+    prior_root: Path, *, expected_manifest: dict[str, Any]
+) -> tuple[ContinuousV3TwoRunCampaign, dict[str, Any]]:
+    """Recover only immutable V2 evidence with the exact current authority."""
+
+    root = prior_root.resolve()
+    configuration = _manifest_configuration(expected_manifest)
+    configuration_path = root / "CAMPAIGN_CONFIGURATION.json"
+    result_path = root / "CAMPAIGN_RESULT.json"
+    if not configuration_path.is_file() or not result_path.is_file():
+        raise ValueError("prior V2 campaign evidence is incomplete")
+    stored_configuration = validate_v2_campaign_configuration(
+        read_json(configuration_path)
+    )
+    if canonical_bytes(stored_configuration) != canonical_bytes(configuration):
+        raise ValueError("prior V2 campaign authority differs from current authority")
+    result = read_json(result_path)
+    supplied_result_sha256 = result.get("result_sha256")
+    unsigned_result = dict(result)
+    unsigned_result.pop("result_sha256", None)
+    if (
+        result.get("schema_version")
+        != "cera.sillytavern_continuous_v3_campaign_result.v3"
+        or result.get("campaign_id") != CAMPAIGN_ID
+        or supplied_result_sha256 != canonical_sha256(unsigned_result)
+        or result.get("campaign_configuration_sha256")
+        != configuration["configuration_sha256"]
+        or result.get("campaign_configuration_file_sha256")
+        != bytes_sha256(configuration_path.read_bytes())
+        or result.get("execution_identity_sha256")
+        != expected_manifest["execution_identity_sha256"]
+    ):
+        raise ValueError("prior V2 campaign result authority changed")
+    campaign = _v2_campaign_from_dict(
+        result.get("campaign", {}),
+        execution_identity_sha256=expected_manifest["execution_identity_sha256"],
+    )
+    bindings = result.get("run_reconciliations")
+    if (
+        not isinstance(bindings, list)
+        or result.get("run_reconciliations_sha256")
+        != canonical_sha256(bindings)
+        or len(bindings) != len(campaign.runs)
+    ):
+        raise ValueError("prior V2 reconciliation index changed")
+    recovery_runs: list[dict[str, Any]] = []
+    for record, binding in zip(campaign.runs, bindings, strict=True):
+        if not isinstance(binding, dict) or binding.get("run_id") != record.run_id:
+            raise ValueError("prior V2 reconciliation binding changed")
+        evidence_root = Path(str(binding.get("evidence_root", ""))).resolve()
+        reconciliation_path = evidence_root / str(
+            binding.get("relative_path", "")
+        )
+        expected_path = (
+            evidence_root
+            / "runs"
+            / record.run_id
+            / "PARENT_RUN_RECONCILIATION.json"
+        )
+        if reconciliation_path.resolve() != expected_path.resolve():
+            raise ValueError("prior V2 reconciliation path changed")
+        reconciliation = read_json(reconciliation_path)
+        _validate_child_reconciliation(
+            reconciliation,
+            run_root=expected_path.parent,
+            expected_run_id=record.run_id,
+        )
+        if (
+            reconciliation.get("campaign_configuration_sha256")
+            != configuration["configuration_sha256"]
+            or tuple(reconciliation.get("calls", ())) != record.calls
+            or reconciliation.get("passed")
+            is not (record.state is CampaignRunState.PASSED)
+            or binding.get("file_sha256")
+            != bytes_sha256(reconciliation_path.read_bytes())
+            or binding.get("receipt_sha256")
+            != reconciliation["reconciliation_sha256"]
+        ):
+            raise ValueError("prior V2 run reconciliation changed")
+        recovery_runs.append(
+            {
+                "run_id": record.run_id,
+                "state": record.state.value,
+                "calls": list(record.calls),
+                "evidence_root": str(evidence_root),
+                "relative_path": binding["relative_path"],
+                "reconciliation_file_sha256": binding["file_sha256"],
+                "reconciliation_receipt_sha256": binding["receipt_sha256"],
+            }
+        )
+    payload = {
+        "schema_version": "cera.sillytavern_continuous_v3_prior_v2_recovery.v1",
+        "campaign_id": CAMPAIGN_ID,
+        "campaign_configuration_sha256": configuration["configuration_sha256"],
+        "prior_campaign_result_sha256": bytes_sha256(result_path.read_bytes()),
+        "prior_campaign_result_receipt_sha256": supplied_result_sha256,
+        "execution_identity_sha256": expected_manifest["execution_identity_sha256"],
+        "runs": recovery_runs,
+        "total_stage_invocations": campaign.total_provider_calls,
+        "codex_family_stage_invocations": campaign.codex_family_calls,
+        "deepseek_stage_invocations": campaign.deepseek_calls,
+    }
+    return campaign, {**payload, "recovery_sha256": canonical_sha256(payload)}
 
 
 def _record_primary_or_additive_failure(
@@ -1021,16 +1473,126 @@ def sqlite_checks(path: Path) -> dict[str, Any]:
         connection.close()
 
 
+def _build_campaign_harness(
+    *,
+    transport_mode: str,
+    run_id: str,
+    cycle: Path,
+    world: ContinuousWorldStore,
+    lifecycle_root: Path,
+    call_ledger: ContinuousProviderCallLedger,
+    lineage: ContinuousThreadLineageLedger,
+) -> tuple[
+    ExitStack,
+    ContinuousSessionCoordinator,
+    ContinuousSessionCoordinator,
+    JobHarness,
+]:
+    """Construct the exact provider route, with fake ports remaining offline."""
+
+    provider_stack = ExitStack()
+    if transport_mode == "non_network_fake_ports":
+        session_port = InMemoryContinuousStoredSessionPort()
+        planner_session = ContinuousSessionCoordinator(
+            compatibility(world, ContinuousSessionRole.PLANNER), session_port
+        )
+        validator_session = ContinuousSessionCoordinator(
+            compatibility(world, ContinuousSessionRole.VALIDATOR), session_port
+        )
+        planner_session.install_base_instructions(PLANNER_STABLE_INSTRUCTIONS)
+        validator_session.install_base_instructions(VALIDATOR_STABLE_INSTRUCTIONS)
+        fixture = ScriptedJob4FixtureRuntime(world_id=WORLD_ID, branch_id=BRANCH_ID)
+        factories = {
+            "planner_transport_factory": fixture.planner_transport,
+            "validator_transport_factory": fixture.validator_transport,
+            "composer_transport_factory": fixture.composer_transport,
+            "scripted_provider_free": True,
+        }
+    elif transport_mode == "external_provider":
+        from openai_codex import Codex, CodexConfig
+
+        codex = provider_stack.enter_context(
+            Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={}))
+        )
+        account = codex.account()
+        if account.account is None:
+            raise RuntimeError("ChatGPT Codex session is unavailable")
+        planner_backend = OpenAICodexStoredThreadBackend(
+            codex=codex,
+            model="gpt-5.6-sol",
+            cwd=str(lifecycle_root),
+            base_instructions=(
+                _BASE_INSTRUCTIONS_BY_ROLE["scene_reasoner"]
+                + "\n\n"
+                + PLANNER_STABLE_INSTRUCTIONS
+            ),
+            service_name=f"cera_st_v3_planner_{run_id[-3:]}",
+        )
+        validator_backend = OpenAICodexStoredThreadBackend(
+            codex=codex,
+            model="gpt-5.6-terra",
+            cwd=str(lifecycle_root),
+            base_instructions=(
+                _BASE_INSTRUCTIONS_BY_ROLE["scene_realization_verifier"]
+                + "\n\n"
+                + VALIDATOR_STABLE_INSTRUCTIONS
+            ),
+            service_name=f"cera_st_v3_validator_{run_id[-3:]}",
+        )
+        planner_session = ContinuousSessionCoordinator(
+            compatibility(world, ContinuousSessionRole.PLANNER),
+            CodexContinuousStoredSessionPort(planner_backend),
+            base_instructions=planner_backend.base_instructions,
+        )
+        validator_session = ContinuousSessionCoordinator(
+            compatibility(world, ContinuousSessionRole.VALIDATOR),
+            CodexContinuousStoredSessionPort(validator_backend),
+            base_instructions=validator_backend.base_instructions,
+        )
+        factories = {}
+    else:
+        provider_stack.close()
+        raise ValueError("unknown campaign transport mode")
+
+    planner_session.attach_thread_lineage(lineage, purpose="primary_planner")
+    validator_session.attach_thread_lineage(lineage, purpose="primary_validator")
+    planner_handle = planner_session.ensure_session().provider_thread_id
+    validator_handle = validator_session.ensure_session().provider_thread_id
+    assert_separate_role_sessions(planner_session, validator_session)
+    harness = JobHarness(
+        source_root=ROOT,
+        cycle=cycle,
+        world=world,
+        planner_session=planner_session,
+        validator_session=validator_session,
+        planner_handle=planner_handle,
+        validator_handle=validator_handle,
+        lifecycle_root=lifecycle_root,
+        call_ledger=call_ledger,
+        **factories,
+    )
+    if transport_mode == "non_network_fake_ports":
+        fixture.bind(harness)
+    return provider_stack, planner_session, validator_session, harness
+
+
 def run_single(args: argparse.Namespace) -> int:
     cycle = args.cycle_directory.resolve()
     source_db = args.source_database.resolve()
     run_root = args.runtime_root.resolve()
-    if args.run_id not in CONTINUOUS_V3_RUN_IDENTITIES:
-        raise ValueError("unknown campaign run identity")
+    if args.run_id not in CONTINUOUS_V3_V2_RUN_IDENTITIES:
+        raise ValueError("child accepts only a fresh V2 campaign run identity")
     supplied_manifest = read_json(args.execution_manifest)
     recomputed_manifest = execution_manifest(
         source_db,
         cycle=cycle,
+        historical_v1_campaign_root=args.historical_v1_campaign_root.resolve(),
+        transport_mode=args.transport_mode,
+        provider_activation_path=(
+            None
+            if args.provider_activation is None
+            else args.provider_activation.resolve()
+        ),
         expected_checkpoint_sha=args.expected_checkpoint_sha,
         expected_authorization_sha256=args.expected_authorization_sha256,
         expected_cycle_id=args.expected_cycle_id,
@@ -1042,6 +1604,12 @@ def run_single(args: argparse.Namespace) -> int:
         recomputed_manifest,
         expected_identity_sha256=args.execution_identity_sha256,
     )
+    configuration = _manifest_configuration(recomputed_manifest)
+    if (
+        args.run_id not in configuration["run_identities"]
+        or configuration["transport_mode"]["mode"] != args.transport_mode
+    ):
+        raise ValueError("child command differs from its campaign configuration")
     if run_root.exists():
         raise FileExistsError("refusing to overwrite immutable run evidence")
     run_root.mkdir(parents=True)
@@ -1059,8 +1627,12 @@ def run_single(args: argparse.Namespace) -> int:
         run_root / "PROVIDER_CALL_LEDGER.jsonl", maximum_calls=10
     )
     result: dict[str, Any] = {
-        "schema_version": "cera.sillytavern_continuous_v3_run_result.v1",
+        "schema_version": "cera.sillytavern_continuous_v3_run_result.v2",
         "run_id": args.run_id,
+        "campaign_configuration_sha256": configuration[
+            "configuration_sha256"
+        ],
+        "transport_mode": args.transport_mode,
         "status": "running",
         "source_database_sha256_before": source_before,
         "disposable_database_sha256_before": copy_before,
@@ -1075,6 +1647,7 @@ def run_single(args: argparse.Namespace) -> int:
         },
     }
     write_json(run_root / "EXECUTION_MANIFEST.json", recomputed_manifest)
+    write_json(run_root / "CAMPAIGN_CONFIGURATION.json", configuration)
     planner_session = validator_session = None
     lineage = ContinuousThreadLineageLedger()
     harness = None
@@ -1082,66 +1655,22 @@ def run_single(args: argparse.Namespace) -> int:
     server_thread = None
     provider_stack: ExitStack | None = None
     try:
-        from openai_codex import Codex, CodexConfig
-
-        provider_stack = ExitStack()
-        stack = provider_stack
+        (
+            provider_stack,
+            planner_session,
+            validator_session,
+            harness,
+        ) = _build_campaign_harness(
+            transport_mode=args.transport_mode,
+            run_id=args.run_id,
+            cycle=cycle,
+            world=world,
+            lifecycle_root=lifecycle_root,
+            call_ledger=call_ledger,
+            lineage=lineage,
+        )
+        result["transport_lifecycle"]["provider_context_opened"] = True
         if provider_stack is not None:
-            codex = stack.enter_context(
-                Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={}))
-            )
-            result["transport_lifecycle"]["provider_context_opened"] = True
-            account = codex.account()
-            if account.account is None:
-                raise RuntimeError("ChatGPT Codex session is unavailable")
-            planner_backend = OpenAICodexStoredThreadBackend(
-                codex=codex,
-                model="gpt-5.6-sol",
-                cwd=str(lifecycle_root),
-                base_instructions=(
-                    _BASE_INSTRUCTIONS_BY_ROLE["scene_reasoner"]
-                    + "\n\n"
-                    + PLANNER_STABLE_INSTRUCTIONS
-                ),
-                service_name=f"cera_st_v3_planner_{args.run_id[-3:]}",
-            )
-            validator_backend = OpenAICodexStoredThreadBackend(
-                codex=codex,
-                model="gpt-5.6-terra",
-                cwd=str(lifecycle_root),
-                base_instructions=(
-                    _BASE_INSTRUCTIONS_BY_ROLE["scene_realization_verifier"]
-                    + "\n\n"
-                    + VALIDATOR_STABLE_INSTRUCTIONS
-                ),
-                service_name=f"cera_st_v3_validator_{args.run_id[-3:]}",
-            )
-            planner_session = ContinuousSessionCoordinator(
-                compatibility(world, ContinuousSessionRole.PLANNER),
-                CodexContinuousStoredSessionPort(planner_backend),
-                base_instructions=planner_backend.base_instructions,
-            )
-            validator_session = ContinuousSessionCoordinator(
-                compatibility(world, ContinuousSessionRole.VALIDATOR),
-                CodexContinuousStoredSessionPort(validator_backend),
-                base_instructions=validator_backend.base_instructions,
-            )
-            planner_session.attach_thread_lineage(lineage, purpose="primary_planner")
-            validator_session.attach_thread_lineage(lineage, purpose="primary_validator")
-            planner_handle = planner_session.ensure_session().provider_thread_id
-            validator_handle = validator_session.ensure_session().provider_thread_id
-            assert_separate_role_sessions(planner_session, validator_session)
-            harness = JobHarness(
-                source_root=ROOT,
-                cycle=cycle,
-                world=world,
-                planner_session=planner_session,
-                validator_session=validator_session,
-                planner_handle=planner_handle,
-                validator_handle=validator_handle,
-                lifecycle_root=lifecycle_root,
-                call_ledger=call_ledger,
-            )
             adapter = ContinuousSillyTavernTestAdapter(
                 session_id=args.run_id,
                 prepare_turn=harness.prepare_http_turn,
@@ -1200,7 +1729,14 @@ def run_single(args: argparse.Namespace) -> int:
                 if status != 200 or decision.get("status") != "accepted":
                     raise RuntimeError(f"turn {turn_number} strict acceptance failed")
             labels = tuple(record["label"] for record in harness.call_records)
-            if labels != CONTINUOUS_V3_CALL_SCHEDULE or harness.provider_calls != 10:
+            expected_external_calls = (
+                0 if args.transport_mode == "non_network_fake_ports" else 10
+            )
+            if (
+                labels != CONTINUOUS_V3_CALL_SCHEDULE
+                or call_ledger.dispatched_call_count != 10
+                or harness.provider_calls != expected_external_calls
+            ):
                 raise RuntimeError("campaign run did not use the exact ten-call schedule")
             if tuple(value["planner_packet_kind"] for value in harness.http_turn_results) != (
                 "first_turn_initialization",
@@ -1291,6 +1827,12 @@ def run_single(args: argparse.Namespace) -> int:
         if harness is not None:
             result["calls"] = harness.call_records
         result["provider_calls"] = call_ledger.dispatched_call_count
+        result["stage_invocations"] = call_ledger.dispatched_call_count
+        result["external_provider_calls"] = (
+            0
+            if args.transport_mode == "non_network_fake_ports"
+            else call_ledger.dispatched_call_count
+        )
         result["source_database_sha256_after"] = bytes_sha256(source_db.read_bytes())
         result["disposable_database_sha256_after"] = bytes_sha256(copied_db.read_bytes())
         result["sqlite_after"] = sqlite_checks(copied_db)
@@ -1313,6 +1855,13 @@ def run_campaign(args: argparse.Namespace) -> int:
     manifest = execution_manifest(
         source_db,
         cycle=cycle,
+        historical_v1_campaign_root=args.historical_v1_campaign_root.resolve(),
+        transport_mode=args.transport_mode,
+        provider_activation_path=(
+            None
+            if args.provider_activation is None
+            else args.provider_activation.resolve()
+        ),
         expected_checkpoint_sha=args.expected_checkpoint_sha,
         expected_authorization_sha256=args.expected_authorization_sha256,
         expected_cycle_id=args.expected_cycle_id,
@@ -1322,23 +1871,51 @@ def run_campaign(args: argparse.Namespace) -> int:
     campaign_root.mkdir(parents=True)
     manifest_path = campaign_root / "EXECUTION_MANIFEST.json"
     write_json(manifest_path, manifest)
+    configuration = _manifest_configuration(manifest)
+    configuration_path = campaign_root / "CAMPAIGN_CONFIGURATION.json"
+    write_json(configuration_path, configuration)
     execution_identity = manifest["execution_identity_sha256"]
-    prior_recovery = None
-    if args.prior_campaign_root is None:
-        campaign = ContinuousV3TwoRunCampaign(execution_identity)
+    prior_v2_recovery = None
+    if args.prior_v2_campaign_root is None:
+        campaign = _new_v2_campaign(execution_identity)
     else:
-        campaign, prior_recovery = recover_prior_campaign(
-            args.prior_campaign_root,
-            execution_identity_sha256=execution_identity,
+        campaign, prior_v2_recovery = recover_v2_campaign(
+            args.prior_v2_campaign_root,
+            expected_manifest=manifest,
         )
-        write_json(campaign_root / "PRIOR_CAMPAIGN_RECOVERY.json", prior_recovery)
-    local_run_reconciliations: list[dict[str, Any]] = []
-    for run_id in CONTINUOUS_V3_RUN_IDENTITIES[len(campaign.runs) :]:
+        write_json(
+            campaign_root / "PRIOR_V2_CAMPAIGN_RECOVERY.json",
+            prior_v2_recovery,
+        )
+    run_reconciliations: list[dict[str, Any]] = (
+        []
+        if prior_v2_recovery is None
+        else [
+            {
+                "run_id": item["run_id"],
+                "evidence_root": item["evidence_root"],
+                "relative_path": item["relative_path"],
+                "file_sha256": item["reconciliation_file_sha256"],
+                "receipt_sha256": item["reconciliation_receipt_sha256"],
+            }
+            for item in prior_v2_recovery["runs"]
+        ]
+    )
+    for run_id in CONTINUOUS_V3_V2_RUN_IDENTITIES[len(campaign.runs) :]:
         if campaign.complete:
             break
         recomputed_manifest = execution_manifest(
             source_db,
             cycle=cycle,
+            historical_v1_campaign_root=(
+                args.historical_v1_campaign_root.resolve()
+            ),
+            transport_mode=args.transport_mode,
+            provider_activation_path=(
+                None
+                if args.provider_activation is None
+                else args.provider_activation.resolve()
+            ),
             expected_checkpoint_sha=args.expected_checkpoint_sha,
             expected_authorization_sha256=args.expected_authorization_sha256,
             expected_cycle_id=args.expected_cycle_id,
@@ -1362,6 +1939,10 @@ def run_campaign(args: argparse.Namespace) -> int:
             "--cycle-directory", str(cycle),
             "--source-database", str(source_db),
             "--runtime-root", str(run_root),
+            "--historical-v1-campaign-root",
+            str(args.historical_v1_campaign_root.resolve()),
+            "--transport-mode",
+            args.transport_mode,
             "--expected-checkpoint-sha", args.expected_checkpoint_sha,
             "--expected-cycle-id", args.expected_cycle_id,
             "--expected-cycle-sequence", str(args.expected_cycle_sequence),
@@ -1370,6 +1951,10 @@ def run_campaign(args: argparse.Namespace) -> int:
             "--execution-manifest", str(manifest_path),
             "--execution-identity-sha256", execution_identity,
         ]
+        if args.provider_activation is not None:
+            command.extend(
+                ["--provider-activation", str(args.provider_activation.resolve())]
+            )
         completed = None
         process_error: BaseException | None = None
         try:
@@ -1382,11 +1967,16 @@ def run_campaign(args: argparse.Namespace) -> int:
             execution_identity_sha256=execution_identity,
             process_returncode=(None if completed is None else completed.returncode),
             process_error=process_error,
+            campaign_configuration_sha256=configuration[
+                "configuration_sha256"
+            ],
+            transport_mode=args.transport_mode,
         )
         reconciliation_path = run_root / "PARENT_RUN_RECONCILIATION.json"
-        local_run_reconciliations.append(
+        run_reconciliations.append(
             {
                 "run_id": run_id,
+                "evidence_root": str(campaign_root),
                 "relative_path": reconciliation_path.relative_to(
                     campaign_root
                 ).as_posix(),
@@ -1401,43 +1991,81 @@ def run_campaign(args: argparse.Namespace) -> int:
             passed=passed,
             reason=str(reconciliation["terminal_reason"]),
         )
-        write_json(campaign_root / "CAMPAIGN_STATE.json", campaign.to_dict())
+        write_json(
+            campaign_root / "CAMPAIGN_STATE.json",
+            _campaign_state_artifact(configuration, campaign),
+        )
         if not passed:
             break
     result = {
-        "schema_version": "cera.sillytavern_continuous_v3_campaign_result.v2",
+        "schema_version": "cera.sillytavern_continuous_v3_campaign_result.v3",
         "campaign_id": CAMPAIGN_ID,
+        "campaign_configuration_sha256": configuration[
+            "configuration_sha256"
+        ],
+        "campaign_configuration_file_sha256": bytes_sha256(
+            configuration_path.read_bytes()
+        ),
         "status": "completed_two_consecutive_runs_passed" if campaign.complete else "stopped_without_two_consecutive_passes",
         "execution_manifest_sha256": bytes_sha256(manifest_path.read_bytes()),
         "execution_identity_sha256": execution_identity,
         "campaign": campaign.to_dict(),
-        "local_run_reconciliations": local_run_reconciliations,
-        "local_run_reconciliations_sha256": canonical_sha256(
-            local_run_reconciliations
+        "run_reconciliations": run_reconciliations,
+        "run_reconciliations_sha256": canonical_sha256(
+            run_reconciliations
         ),
-        "prior_campaign_recovery_sha256": (
-            None if prior_recovery is None else prior_recovery["recovery_sha256"]
+        "historical_v1_debit_sha256": configuration["historical_v1_debit"][
+            "debit_sha256"
+        ],
+        "prior_v2_campaign_recovery_sha256": (
+            None
+            if prior_v2_recovery is None
+            else prior_v2_recovery["recovery_sha256"]
+        ),
+        "stage_invocations": campaign.total_provider_calls,
+        "codex_family_stage_invocations": campaign.codex_family_calls,
+        "deepseek_stage_invocations": campaign.deepseek_calls,
+        "cumulative_codex_family_calls_with_historical_debit": (
+            configuration["historical_v1_debit"]["codex_family_calls"]
+            + campaign.codex_family_calls
+        ),
+        "cumulative_deepseek_calls_with_historical_debit": (
+            configuration["historical_v1_debit"]["deepseek_calls"]
+            + campaign.deepseek_calls
+        ),
+        "external_provider_calls": (
+            0
+            if args.transport_mode == "non_network_fake_ports"
+            else campaign.total_provider_calls
         ),
     }
+    result["result_sha256"] = canonical_sha256(result)
     write_json(campaign_root / "CAMPAIGN_RESULT.json", result)
     return 0 if campaign.complete else 1
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--confirm-live-two-run", action="store_true")
+    parser.add_argument("--confirm-v2-campaign", action="store_true")
     parser.add_argument("--single-run", action="store_true")
     parser.add_argument("--run-id")
     parser.add_argument("--cycle-directory", type=Path, required=True)
     parser.add_argument("--source-database", type=Path, required=True)
     parser.add_argument("--runtime-root", type=Path, required=True)
     parser.add_argument("--expected-checkpoint-sha", required=True)
-    parser.add_argument("--expected-cycle-id", default=CYCLE_ID)
-    parser.add_argument("--expected-cycle-sequence", type=int, default=21)
-    parser.add_argument("--expected-job4-task-id", default=TASK_ID)
+    parser.add_argument("--expected-cycle-id", required=True)
+    parser.add_argument("--expected-cycle-sequence", type=int, required=True)
+    parser.add_argument("--expected-job4-task-id", required=True)
     parser.add_argument("--execution-checkpoint-sha")
     parser.add_argument("--expected-authorization-sha256", required=True)
-    parser.add_argument("--prior-campaign-root", type=Path)
+    parser.add_argument("--historical-v1-campaign-root", type=Path, required=True)
+    parser.add_argument("--prior-v2-campaign-root", type=Path)
+    parser.add_argument(
+        "--transport-mode",
+        choices=("non_network_fake_ports", "external_provider"),
+        required=True,
+    )
+    parser.add_argument("--provider-activation", type=Path)
     parser.add_argument("--execution-manifest", type=Path)
     parser.add_argument("--execution-identity-sha256")
     args = parser.parse_args()
@@ -1450,8 +2078,8 @@ def main() -> int:
         if not all((args.run_id, args.execution_manifest, args.execution_identity_sha256)):
             parser.error("single-run mode requires exact run and execution identities")
         return run_single(args)
-    if not args.confirm_live_two_run:
-        parser.error("live campaign requires --confirm-live-two-run")
+    if not args.confirm_v2_campaign:
+        parser.error("V2 campaign requires --confirm-v2-campaign")
     return run_campaign(args)
 
 

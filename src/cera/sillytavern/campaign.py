@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Any, Mapping
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import canonical_sha256, re_is_sha256
+from cera.continuous.sessions import (
+    CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256,
+)
 
 
+CONTINUOUS_V3_V1_CAMPAIGN_ID = "2026-08-02-continuous-sillytavern-two-run-v1"
+CONTINUOUS_V3_V2_CAMPAIGN_ID = "2026-08-02-continuous-sillytavern-two-run-v2"
 CONTINUOUS_V3_RUN_IDENTITIES = tuple(
     f"2026-08-02-continuous-sillytavern-two-run-v1-run-{number:03d}"
     for number in range(1, 5)
@@ -33,6 +39,284 @@ CONTINUOUS_V3_CALL_SCHEDULE = (
 CAMPAIGN_TOTAL_CALL_CEILING = 40
 CODEX_FAMILY_CALL_CEILING = 800
 DEEPSEEK_CALL_CEILING = 800
+CONTINUOUS_V3_V2_CAMPAIGN_TOTAL_CALL_CEILING = 39
+CONTINUOUS_V3_V2_CODEX_FAMILY_CALL_CEILING = 799
+CONTINUOUS_V3_V2_DEEPSEEK_CALL_CEILING = 800
+CONTINUOUS_V3_V2_PRIOR_CODEX_FAMILY_DEBIT = 1
+CONTINUOUS_V3_V2_PRIOR_DEEPSEEK_DEBIT = 0
+
+CONTINUOUS_V3_CAMPAIGN_CONFIGURATION_V2_SCHEMA = (
+    "cera.sillytavern_continuous_v3_campaign_configuration.v2"
+)
+
+
+def validate_v2_campaign_configuration(
+    value: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Validate the one parent/child V2 authority configuration.
+
+    Expanded bindings stay in this document rather than being reconstructed
+    from abbreviated path or command-line identities.  Every consuming
+    artifact records its complete configuration SHA-256.
+    """
+
+    if not isinstance(value, Mapping):
+        raise ContractValidationError("V2 campaign configuration must be an object")
+    data = dict(value)
+    expected_fields = {
+        "schema_version",
+        "campaign_id",
+        "cycle_authority",
+        "run_identities",
+        "call_budget",
+        "historical_v1_debit",
+        "fixture",
+        "route",
+        "providers",
+        "prompt_bindings",
+        "schema_bindings",
+        "policy_bindings",
+        "source_bindings",
+        "transport_mode",
+        "configuration_sha256",
+    }
+    if set(data) != expected_fields:
+        raise ContractValidationError("V2 campaign configuration fields changed")
+    if (
+        data.get("schema_version")
+        != CONTINUOUS_V3_CAMPAIGN_CONFIGURATION_V2_SCHEMA
+        or data.get("campaign_id") != CONTINUOUS_V3_V2_CAMPAIGN_ID
+    ):
+        raise ContractValidationError("V2 campaign configuration identity changed")
+    if tuple(data.get("run_identities", ())) != CONTINUOUS_V3_V2_RUN_IDENTITIES:
+        raise ContractValidationError("V2 campaign run identities changed")
+    if set(CONTINUOUS_V3_RUN_IDENTITIES) & set(data["run_identities"]):
+        raise ContractValidationError("historical V1 run identity was reused")
+
+    call_budget = data.get("call_budget")
+    expected_budget = {
+        "creator_codex_family_total": CODEX_FAMILY_CALL_CEILING,
+        "creator_deepseek_total": DEEPSEEK_CALL_CEILING,
+        "prior_codex_family_debit": (
+            CONTINUOUS_V3_V2_PRIOR_CODEX_FAMILY_DEBIT
+        ),
+        "prior_deepseek_debit": CONTINUOUS_V3_V2_PRIOR_DEEPSEEK_DEBIT,
+        "remaining_codex_family_calls": (
+            CONTINUOUS_V3_V2_CODEX_FAMILY_CALL_CEILING
+        ),
+        "remaining_deepseek_calls": CONTINUOUS_V3_V2_DEEPSEEK_CALL_CEILING,
+        "campaign_total_stage_ceiling": (
+            CONTINUOUS_V3_V2_CAMPAIGN_TOTAL_CALL_CEILING
+        ),
+        "per_run_stage_ceiling": len(CONTINUOUS_V3_CALL_SCHEDULE),
+    }
+    if call_budget != expected_budget:
+        raise ContractValidationError("V2 campaign call budget changed")
+
+    debit = data.get("historical_v1_debit")
+    if (
+        not isinstance(debit, Mapping)
+        or debit.get("campaign_id") != CONTINUOUS_V3_V1_CAMPAIGN_ID
+        or debit.get("run_id") != CONTINUOUS_V3_RUN_IDENTITIES[0]
+        or debit.get("codex_family_calls")
+        != CONTINUOUS_V3_V2_PRIOR_CODEX_FAMILY_DEBIT
+        or debit.get("deepseek_calls") != CONTINUOUS_V3_V2_PRIOR_DEEPSEEK_DEBIT
+        or debit.get("calls") != [CONTINUOUS_V3_CALL_SCHEDULE[0]]
+    ):
+        raise ContractValidationError("V2 historical one-call debit changed")
+    debit_unsigned = dict(debit)
+    debit_sha256 = debit_unsigned.pop("debit_sha256", None)
+    required_debit_hashes = (
+        "campaign_result_sha256",
+        "campaign_execution_manifest_sha256",
+        "run_result_sha256",
+        "provider_ledger_sha256",
+        "run_execution_manifest_sha256",
+    )
+    if (
+        not re_is_sha256(debit_sha256)
+        or debit_sha256 != canonical_sha256(debit_unsigned)
+        or any(not re_is_sha256(debit.get(field)) for field in required_debit_hashes)
+    ):
+        raise ContractValidationError("V2 historical debit evidence changed")
+
+    cycle = data.get("cycle_authority")
+    if (
+        not isinstance(cycle, Mapping)
+        or not isinstance(cycle.get("cycle_id"), str)
+        or not cycle["cycle_id"].strip()
+        or type(cycle.get("cycle_sequence")) is not int
+        or cycle["cycle_sequence"] < 1
+        or not isinstance(cycle.get("job4_task_id"), str)
+        or not cycle["job4_task_id"].strip()
+    ):
+        raise ContractValidationError("V2 cycle authority is incomplete")
+    for field in (
+        "checkpoint_git_sha",
+        "authorization_record_sha256",
+        "cycle_manifest_sha256",
+        "manifest_root_sha256",
+        "repository_identity_sha256",
+        "task_set_sha256",
+        "changed_source_manifest_sha256",
+        "published_receipt_sha256",
+        "job4_scope_sha256",
+        "job4_started_receipt_sha256",
+        "trigger_receipt_sha256",
+        "cycle_state_sha256",
+    ):
+        candidate = cycle.get(field)
+        if field == "checkpoint_git_sha":
+            if not isinstance(candidate, str) or len(candidate) != 40:
+                raise ContractValidationError("V2 checkpoint Git identity is invalid")
+        elif not re_is_sha256(candidate):
+            raise ContractValidationError("V2 cycle authority hash is invalid")
+    if cycle.get("cycle_state") != "job4_in_progress":
+        raise ContractValidationError("V2 cycle is not dispatch-authorized")
+
+    required_mapping_blocks = (
+        "fixture",
+        "route",
+        "providers",
+        "prompt_bindings",
+        "schema_bindings",
+        "policy_bindings",
+        "source_bindings",
+        "transport_mode",
+    )
+    if any(not isinstance(data.get(field), Mapping) for field in required_mapping_blocks):
+        raise ContractValidationError("V2 campaign binding block is invalid")
+    if data["fixture"].get("call_schedule") != list(CONTINUOUS_V3_CALL_SCHEDULE):
+        raise ContractValidationError("V2 campaign call schedule changed")
+    fixture = data["fixture"]
+    if (
+        set(fixture)
+        != {
+            "messages",
+            "fixture_sha256",
+            "call_schedule",
+            "call_schedule_sha256",
+        }
+        or fixture.get("fixture_sha256")
+        != canonical_sha256(fixture.get("messages"))
+        or fixture.get("call_schedule_sha256")
+        != canonical_sha256(CONTINUOUS_V3_CALL_SCHEDULE)
+    ):
+        raise ContractValidationError("V2 campaign fixture binding changed")
+    if data["providers"] != {
+        "planner": {"model": "gpt-5.6-sol", "effort": "medium", "fast": False},
+        "composer": {"model": "deepseek-v4-flash", "thinking": False},
+        "validator": {"model": "gpt-5.6-terra", "effort": "high", "fast": False},
+    }:
+        raise ContractValidationError("V2 provider identities changed")
+    route = data["route"]
+    if (
+        route.get("profile_id")
+        != "cera.sillytavern.continuous_v3_test.v1"
+        or route.get("profile_path")
+        != "integrations/sillytavern/continuous_v3_test_profile.json"
+        or route.get("host") != "127.0.0.1"
+        or route.get("port") != 5113
+        or route.get("model") != "cera-continuous-v3-test"
+        or not re_is_sha256(route.get("profile_sha256"))
+        or not isinstance(route.get("profile"), Mapping)
+    ):
+        raise ContractValidationError("V2 campaign route binding changed")
+    policy = data["policy_bindings"]
+    if (
+        policy.get("accepted_snapshot_path_policy_sha256")
+        != CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256
+        or policy.get("strict_accept_only") is not True
+        or policy.get("automatic_retry") is not False
+        or policy.get("fallback") is not False
+        or policy.get("automatic_false_positive") is not False
+        or not re_is_sha256(policy.get("persistence_policy_sha256"))
+    ):
+        raise ContractValidationError("V2 campaign policy binding changed")
+    source = data["source_bindings"]
+    tracked = source.get("tracked_files")
+    if (
+        not isinstance(tracked, Mapping)
+        or source.get("tracked_file_count") != len(tracked)
+        or source.get("tracked_files_root_sha256") != canonical_sha256(tracked)
+        or source.get("checkpoint_sha") != cycle.get("checkpoint_git_sha")
+        or source.get("actual_head_sha") != cycle.get("checkpoint_git_sha")
+        or not isinstance(source.get("actual_tree_sha"), str)
+        or len(source["actual_tree_sha"]) != 40
+        or not re_is_sha256(source.get("source_database_sha256"))
+        or any(
+            not isinstance(path, str) or not re_is_sha256(file_sha256)
+            for path, file_sha256 in tracked.items()
+        )
+        or tracked.get(route.get("profile_path")) != route.get("profile_sha256")
+    ):
+        raise ContractValidationError("V2 campaign source binding changed")
+    prompts = data["prompt_bindings"]
+    schemas = data["schema_bindings"]
+    if (
+        any(
+            not isinstance(prompts.get(field), str)
+            or not prompts[field].strip()
+            for field in (
+                "planner_prompt_version",
+                "composer_prompt_version",
+                "validator_prompt_version",
+            )
+        )
+        or any(
+            not re_is_sha256(prompts.get(field))
+            for field in (
+                "planner_stable_instructions_sha256",
+                "planner_base_instructions_sha256",
+                "validator_stable_instructions_sha256",
+                "validator_base_instructions_sha256",
+            )
+        )
+        or any(
+            not isinstance(value, str) or not value.strip()
+            for value in schemas.values()
+        )
+        or schemas.get("campaign_configuration")
+        != CONTINUOUS_V3_CAMPAIGN_CONFIGURATION_V2_SCHEMA
+    ):
+        raise ContractValidationError("V2 prompt or schema binding changed")
+    transport = data["transport_mode"]
+    if transport.get("mode") not in {
+        "external_provider",
+        "non_network_fake_ports",
+    }:
+        raise ContractValidationError("V2 transport mode is invalid")
+    if type(transport.get("external_provider_calls_authorized")) is not int:
+        raise ContractValidationError("V2 transport authority is invalid")
+    if transport["mode"] == "non_network_fake_ports":
+        if (
+            transport.get("external_provider_calls_authorized") != 0
+            or transport.get("provider_activation_relative_path") is not None
+            or transport.get("provider_activation_file_sha256") is not None
+            or transport.get("provider_activation_receipt_sha256") is not None
+            or not isinstance(transport.get("fake_fixture_id"), str)
+            or not re_is_sha256(transport.get("fake_fixture_sha256"))
+        ):
+            raise ContractValidationError("V2 fake transport authority changed")
+    elif (
+        transport.get("external_provider_calls_authorized") < 1
+        or not isinstance(transport.get("provider_activation_relative_path"), str)
+        or not re_is_sha256(transport.get("provider_activation_file_sha256"))
+        or not re_is_sha256(transport.get("provider_activation_receipt_sha256"))
+        or transport.get("fake_fixture_id") is not None
+        or transport.get("fake_fixture_sha256") is not None
+    ):
+        raise ContractValidationError("V2 external transport authority changed")
+
+    configuration_sha256 = data.get("configuration_sha256")
+    unsigned = dict(data)
+    unsigned.pop("configuration_sha256", None)
+    if (
+        not re_is_sha256(configuration_sha256)
+        or configuration_sha256 != canonical_sha256(unsigned)
+    ):
+        raise ContractValidationError("V2 campaign configuration binding changed")
+    return data
 
 
 def _provider_family(label: str) -> str:

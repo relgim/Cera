@@ -467,7 +467,7 @@ class ContinuousV3CampaignStateTests(unittest.TestCase):
                 cycle_directory=root / "cycle",
                 source_database=source_db,
                 runtime_root=run_root,
-                run_id=CONTINUOUS_V3_RUN_IDENTITIES[0],
+                run_id=CONTINUOUS_V3_V2_RUN_IDENTITIES[0],
                 execution_manifest=manifest_path,
                 expected_checkpoint_sha="a" * 40,
                 expected_authorization_sha256=text_sha256("authorization"),
@@ -475,6 +475,9 @@ class ContinuousV3CampaignStateTests(unittest.TestCase):
                 expected_cycle_sequence=22,
                 expected_job4_task_id="provider-free-audit",
                 execution_identity_sha256=supplied["execution_identity_sha256"],
+                historical_v1_campaign_root=root / "historical-v1",
+                transport_mode="non_network_fake_ports",
+                provider_activation=None,
             )
             with (
                 patch.object(campaign_script, "execution_manifest", return_value=changed),
@@ -514,7 +517,10 @@ class ContinuousV3CampaignStateTests(unittest.TestCase):
                 expected_cycle_id="cycle-test",
                 expected_cycle_sequence=22,
                 expected_job4_task_id="provider-free-audit",
-                prior_campaign_root=None,
+                historical_v1_campaign_root=root / "historical-v1",
+                prior_v2_campaign_root=None,
+                transport_mode="non_network_fake_ports",
+                provider_activation=None,
             )
             with (
                 patch.object(
@@ -523,6 +529,13 @@ class ContinuousV3CampaignStateTests(unittest.TestCase):
                     side_effect=(supplied, changed),
                 ),
                 patch.object(campaign_script.subprocess, "run") as dispatch,
+                patch.object(
+                    campaign_script,
+                    "_manifest_configuration",
+                    return_value={
+                        "configuration_sha256": text_sha256("configuration"),
+                    },
+                ),
                 self.assertRaisesRegex(ValueError, "recomputed execution"),
             ):
                 campaign_script.run_campaign(arguments)
@@ -566,10 +579,23 @@ class ContinuousV3CampaignStateTests(unittest.TestCase):
                         "b" * 40,
                     ),
                 ),
+                patch.object(
+                    campaign_script,
+                    "historical_v1_one_call_debit",
+                    return_value={"debit_sha256": text_sha256("debit")},
+                ),
+                patch.object(
+                    campaign_script,
+                    "validate_v2_campaign_configuration",
+                    side_effect=lambda value: dict(value),
+                ),
             ):
                 value = execution_manifest(
                     source_db,
                     cycle=Path(temporary),
+                    historical_v1_campaign_root=Path(temporary) / "historical-v1",
+                    transport_mode="non_network_fake_ports",
+                    provider_activation_path=None,
                     expected_checkpoint_sha=checkpoint,
                     expected_authorization_sha256=text_sha256("authorization"),
                     expected_cycle_id="cycle-test",
@@ -578,14 +604,15 @@ class ContinuousV3CampaignStateTests(unittest.TestCase):
                 )
         self.assertEqual(
             value["schema_version"],
-            "cera.sillytavern_continuous_v3_execution_manifest.v2",
+            "cera.sillytavern_continuous_v3_execution_manifest.v3",
         )
-        self.assertEqual(value["git"]["actual_head_sha"], checkpoint)
-        self.assertEqual(value["cycle_authority"]["cycle_sequence"], 22)
-        self.assertEqual(value["route"]["profile_id"], campaign_script.PROFILE_ID)
-        self.assertIn("planner_prompt_version", value["prompt_bindings"])
-        self.assertIn("validator_package", value["schema_bindings"])
-        self.assertIn("persistence_policy_sha256", value["policy_bindings"])
+        configuration = value["campaign_configuration"]
+        self.assertEqual(configuration["source_bindings"]["actual_head_sha"], checkpoint)
+        self.assertEqual(configuration["cycle_authority"]["cycle_sequence"], 22)
+        self.assertEqual(configuration["route"]["profile_id"], campaign_script.PROFILE_ID)
+        self.assertIn("planner_prompt_version", configuration["prompt_bindings"])
+        self.assertIn("validator_package", configuration["schema_bindings"])
+        self.assertIn("persistence_policy_sha256", configuration["policy_bindings"])
         assert_exact_execution_manifest(
             value,
             dict(value),

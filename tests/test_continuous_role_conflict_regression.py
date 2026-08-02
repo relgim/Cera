@@ -39,6 +39,7 @@ from cera.serialization import (
 from cera.sillytavern.campaign import (
     CONTINUOUS_V3_CALL_SCHEDULE,
     CONTINUOUS_V3_RUN_IDENTITIES,
+    CONTINUOUS_V3_V2_RUN_IDENTITIES,
     ContinuousV3TwoRunCampaign,
 )
 from scripts.run_continuous_planner_validator_job4 import (
@@ -785,8 +786,19 @@ class ContinuousRoleConflictRegressionTests(unittest.TestCase):
                 expected_cycle_id="cycle-test",
                 expected_cycle_sequence=22,
                 expected_job4_task_id="provider-free-audit",
-                prior_campaign_root=None,
+                historical_v1_campaign_root=root / "historical-v1",
+                prior_v2_campaign_root=None,
+                transport_mode="non_network_fake_ports",
+                provider_activation=None,
             )
+            configuration = {
+                "configuration_sha256": text_sha256("configuration"),
+                "historical_v1_debit": {
+                    "debit_sha256": text_sha256("debit"),
+                    "codex_family_calls": 1,
+                    "deepseek_calls": 0,
+                },
+            }
 
             def partial_child(command, **_kwargs):
                 run_root = Path(command[command.index("--runtime-root") + 1])
@@ -815,6 +827,11 @@ class ContinuousRoleConflictRegressionTests(unittest.TestCase):
                     "run",
                     side_effect=partial_child,
                 ),
+                patch.object(
+                    campaign_script,
+                    "_manifest_configuration",
+                    return_value=configuration,
+                ),
             ):
                 return_code = campaign_script.run_campaign(arguments)
             self.assertEqual(return_code, 1)
@@ -826,7 +843,7 @@ class ContinuousRoleConflictRegressionTests(unittest.TestCase):
             self.assertEqual(result["campaign"]["deepseek_calls"], 0)
             self.assertEqual(result["campaign"]["runs"][0]["state"], "failed")
             run_root = (
-                campaign_root / "runs" / CONTINUOUS_V3_RUN_IDENTITIES[0]
+                campaign_root / "runs" / CONTINUOUS_V3_V2_RUN_IDENTITIES[0]
             )
             self.assertFalse((run_root / "RUN_RESULT.json").exists())
             reconciliation = json.loads(
@@ -840,53 +857,18 @@ class ContinuousRoleConflictRegressionTests(unittest.TestCase):
             )
             self.assertEqual(
                 result["schema_version"],
-                "cera.sillytavern_continuous_v3_campaign_result.v2",
+                "cera.sillytavern_continuous_v3_campaign_result.v3",
             )
-            self.assertEqual(len(result["local_run_reconciliations"]), 1)
+            self.assertEqual(len(result["run_reconciliations"]), 1)
             self.assertEqual(
-                result["local_run_reconciliations_sha256"],
-                canonical_sha256(result["local_run_reconciliations"]),
+                result["run_reconciliations_sha256"],
+                canonical_sha256(result["run_reconciliations"]),
             )
-
-            recovered, _receipt = recover_prior_campaign(
-                campaign_root,
-                execution_identity_sha256=text_sha256("next fixture execution"),
+            self.assertEqual(
+                reconciliation["terminal_reason"],
+                "ChildCampaignConfigurationMissing",
             )
-            self.assertEqual(recovered.total_provider_calls, 1)
-
-            reconciliation_path = run_root / "PARENT_RUN_RECONCILIATION.json"
-            original_reconciliation = reconciliation_path.read_bytes()
-            tampered_reconciliation = dict(reconciliation)
-            tampered_reconciliation["terminal_reason"] = "tampered"
-            tampered_reconciliation.pop("reconciliation_sha256")
-            tampered_reconciliation["reconciliation_sha256"] = canonical_sha256(
-                tampered_reconciliation
-            )
-            reconciliation_path.write_bytes(
-                canonical_bytes(tampered_reconciliation) + b"\n"
-            )
-            with self.assertRaisesRegex(
-                ValueError,
-                "parent child reconciliation changed after campaign publication",
-            ):
-                recover_prior_campaign(
-                    campaign_root,
-                    execution_identity_sha256=text_sha256("tamper fixture execution"),
-                )
-            reconciliation_path.write_bytes(original_reconciliation)
-
-            result_path = campaign_root / "CAMPAIGN_RESULT.json"
-            result["local_run_reconciliations"][0]["receipt_sha256"] = text_sha256(
-                "tampered receipt binding"
-            )
-            result_path.write_bytes(canonical_bytes(result) + b"\n")
-            with self.assertRaisesRegex(
-                ValueError, "prior campaign reconciliation index hash changed"
-            ):
-                recover_prior_campaign(
-                    campaign_root,
-                    execution_identity_sha256=text_sha256("index fixture execution"),
-                )
+            self.assertEqual(reconciliation["external_provider_calls"], 0)
 
 
 if __name__ == "__main__":

@@ -35,6 +35,7 @@ from cera.serialization import (
 
 from .models import (
     CERA_CONTINUOUS_V3_MANUAL_MODEL,
+    CERA_CONTINUOUS_V3_PROVIDER_MANUAL_MODEL,
     SillyTavernChatRequest,
     SillyTavernTurnReply,
 )
@@ -43,6 +44,20 @@ from .models import (
 CONTINUOUS_V3_MANUAL_PROFILE_ID = "cera.continuous_v3.manual.v1"
 CONTINUOUS_V3_MANUAL_PORT = 5114
 CONTINUOUS_V3_MANUAL_SERVICE = "cera-sillytavern-continuous-v3-manual"
+CONTINUOUS_V3_PROVIDER_MANUAL_PROFILE_ID = (
+    "cera.continuous_v3.manual.provider_backed.v1"
+)
+CONTINUOUS_V3_PROVIDER_MANUAL_PORT = 5115
+CONTINUOUS_V3_PROVIDER_MANUAL_SERVICE = (
+    "cera-sillytavern-continuous-v3-manual-provider-backed"
+)
+
+_MANUAL_MODEL_BY_PROFILE = {
+    CONTINUOUS_V3_MANUAL_PROFILE_ID: CERA_CONTINUOUS_V3_MANUAL_MODEL,
+    CONTINUOUS_V3_PROVIDER_MANUAL_PROFILE_ID: (
+        CERA_CONTINUOUS_V3_PROVIDER_MANUAL_MODEL
+    ),
+}
 
 
 class ContinuousManualReviewState(StrEnum):
@@ -718,6 +733,7 @@ class ContinuousSillyTavernManualAdapter:
         *,
         session_id: str,
         profile_id: str,
+        model: str = CERA_CONTINUOUS_V3_MANUAL_MODEL,
         execution_identity_sha256: str,
         process_instance_id: str,
         state_store: ContinuousManualStateStore,
@@ -746,12 +762,16 @@ class ContinuousSillyTavernManualAdapter:
         | None = None,
         route_identity: Mapping[str, object],
     ) -> None:
-        if not session_id.strip() or profile_id != CONTINUOUS_V3_MANUAL_PROFILE_ID:
+        if (
+            not session_id.strip()
+            or _MANUAL_MODEL_BY_PROFILE.get(profile_id) != model
+        ):
             raise ContractValidationError("continuous manual route identity is invalid")
         if not re_is_sha256(execution_identity_sha256) or not process_instance_id.strip():
             raise ContractValidationError("continuous manual execution identity is invalid")
         self.session_id = session_id
         self.profile_id = profile_id
+        self.model = model
         self.execution_identity_sha256 = execution_identity_sha256
         self.process_instance_id = process_instance_id
         self.state_store = state_store
@@ -771,7 +791,7 @@ class ContinuousSillyTavernManualAdapter:
 
     @property
     def virtual_model(self) -> str:
-        return CERA_CONTINUOUS_V3_MANUAL_MODEL
+        return self.model
 
     @property
     def reasoner_session_status(self) -> dict[str, object]:
@@ -1036,7 +1056,7 @@ class ContinuousSillyTavernManualAdapter:
         raise StateConflictError("continuous manual decision action changed")
 
     def _validate_request(self, request: SillyTavernChatRequest) -> None:
-        if request.model != CERA_CONTINUOUS_V3_MANUAL_MODEL:
+        if request.model != self.model:
             raise StateConflictError("continuous manual adapter rejects model substitution")
         if request.cera_profile_id != self.profile_id:
             raise StateConflictError("continuous manual profile identity changed")
