@@ -23,7 +23,18 @@ from urllib.request import Request, urlopen
 
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.codex_stored import CodexContinuousStoredSessionPort
-from cera.continuous.prompting import PLANNER_STABLE_INSTRUCTIONS, VALIDATOR_STABLE_INSTRUCTIONS
+from cera.continuous.contracts import (
+    RichPlannerSequenceV1,
+    ValidatorFinalizationPackageV1,
+)
+from cera.continuous.prompting import (
+    CONTINUOUS_PLANNER_PROMPT_VERSION,
+    CONTINUOUS_VALIDATOR_PROMPT_VERSION,
+    PLANNER_STABLE_INSTRUCTIONS,
+    VALIDATOR_STABLE_INSTRUCTIONS,
+)
+from cera.continuous.provider import CONTINUOUS_DEEPSEEK_PROMPT_VERSION
+from cera.continuous.record_policy import PERSISTENCE_POLICY_SHA256
 from cera.continuous.sessions import (
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
@@ -34,7 +45,13 @@ from cera.continuous.world import ContinuousWorldStore
 from cera.creator_review import CreatorReviewAction
 from cera.providers.codex_worker import _BASE_INSTRUCTIONS_BY_ROLE
 from cera.reasoner_session import OpenAICodexStoredThreadBackend
-from cera.serialization import bytes_sha256, canonical_bytes, canonical_sha256, re_is_sha256
+from cera.serialization import (
+    bytes_sha256,
+    canonical_bytes,
+    canonical_sha256,
+    re_is_sha256,
+    text_sha256,
+)
 from cera.sillytavern.campaign import (
     CONTINUOUS_V3_CALL_SCHEDULE,
     CONTINUOUS_V3_RUN_IDENTITIES,
@@ -48,6 +65,23 @@ from cera.sillytavern.continuous_test import (
 )
 from cera.sillytavern.models import CERA_CONTINUOUS_V3_TEST_MODEL
 from cera.sillytavern.server import CeraSillyTavernServerConfig, build_server
+try:
+    from tools.pro_review_cycle_core import (
+        load_v2_manifest,
+        validate_publication,
+        validate_state_view,
+        validate_trigger_receipt,
+    )
+except ModuleNotFoundError:
+    # Direct script execution starts with scripts/ on sys.path.  Bind the
+    # repository-owned cycle validator rather than accepting a weaker duplicate.
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+    from tools.pro_review_cycle_core import (
+        load_v2_manifest,
+        validate_publication,
+        validate_state_view,
+        validate_trigger_receipt,
+    )
 
 if __package__:
     from scripts.run_continuous_planner_validator_job4 import (
@@ -293,59 +327,257 @@ def validate_authority(
     *,
     expected_checkpoint_sha: str,
     expected_authorization_sha256: str,
+    expected_cycle_id: str = CYCLE_ID,
+    expected_cycle_sequence: int = 21,
+    expected_task_id: str = TASK_ID,
 ) -> dict[str, Any]:
-    manifest = read_json(cycle / "CYCLE_MANIFEST.json")
+    manifest = load_v2_manifest(ROOT, cycle)
     if (
-        manifest.get("cycle_id") != CYCLE_ID
-        or manifest.get("cycle_sequence") != 21
+        manifest.get("cycle_id") != expected_cycle_id
+        or manifest.get("cycle_sequence") != expected_cycle_sequence
         or manifest.get("checkpoint", {}).get("git_sha") != expected_checkpoint_sha
-        or manifest.get("job4", {}).get("task_id") != TASK_ID
+        or manifest.get("job4", {}).get("task_id") != expected_task_id
         or manifest.get("job4", {}).get("authorization_record_sha256")
         != expected_authorization_sha256
     ):
         raise ValueError("continuous SillyTavern campaign authority changed")
-    authorization = cycle / "source" / "JOB4_AUTHORIZATION.json"
-    if not authorization.is_file() or bytes_sha256(authorization.read_bytes()) != expected_authorization_sha256:
+    source_authorization = cycle / "source" / "JOB4_AUTHORIZATION.json"
+    outbox_authorization = cycle / "outbox" / "JOB4_AUTHORIZATION.json"
+    if any(
+        not path.is_file()
+        or bytes_sha256(path.read_bytes()) != expected_authorization_sha256
+        for path in (source_authorization, outbox_authorization)
+    ):
         raise ValueError("continuous SillyTavern campaign authorization bytes changed")
-    return manifest
-
-
-def execution_manifest(source_db: Path, *, checkpoint_sha: str) -> dict[str, Any]:
-    source_files = (
-        "src/cera/sillytavern/models.py",
-        "src/cera/sillytavern/server.py",
-        "src/cera/sillytavern/continuous_test.py",
-        "src/cera/sillytavern/campaign.py",
-        "src/cera/continuous/runtime.py",
-        "src/cera/continuous/provider.py",
-        "src/cera/continuous/prompting.py",
-        "src/cera/continuous/packets.py",
-        "scripts/run_continuous_planner_validator_job4.py",
-        "scripts/run_sillytavern_continuous_v3_campaign.py",
-        "docs/implementation/CONTINUOUS_LEAN_CONTEXT_SHORT_CANARY_V3_SPEC.md",
+    published_sha256, started_sha256 = validate_publication(
+        ROOT, cycle, manifest, require_current_source=True
     )
-    files = {
-        relative: bytes_sha256((ROOT / relative).read_bytes())
-        for relative in source_files
+    _, trigger_sha256 = validate_trigger_receipt(cycle, manifest, started_sha256)
+    state = validate_state_view(
+        cycle,
+        manifest,
+        "job4_in_progress",
+        "JOB4_STARTED.json",
+        started_sha256,
+    )
+    return {
+        "manifest": manifest,
+        "cycle_manifest_sha256": bytes_sha256(
+            (cycle / "CYCLE_MANIFEST.json").read_bytes()
+        ),
+        "changed_source_manifest_sha256": bytes_sha256(
+            (cycle / "outbox" / "CHANGED_SOURCE_MANIFEST.json").read_bytes()
+        ),
+        "published_receipt_sha256": published_sha256,
+        "job4_started_receipt_sha256": started_sha256,
+        "trigger_receipt_sha256": trigger_sha256,
+        "cycle_state_sha256": bytes_sha256(
+            (cycle / "state" / "CYCLE_STATE.json").read_bytes()
+        ),
+        "cycle_state": state["state"],
+        "authorization_record_sha256": expected_authorization_sha256,
     }
-    payload: dict[str, Any] = {
-        "schema_version": "cera.sillytavern_continuous_v3_execution_manifest.v1",
-        "campaign_id": CAMPAIGN_ID,
-        "checkpoint_git_sha": checkpoint_sha,
+
+
+def _git_output(*arguments: str) -> bytes:
+    completed = subprocess.run(
+        ("git", *arguments),
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    return completed.stdout
+
+
+def _tracked_execution_files() -> tuple[dict[str, str], str, str]:
+    for arguments in (("diff", "--quiet", "--no-ext-diff", "--"), ("diff", "--cached", "--quiet", "--")):
+        completed = subprocess.run(
+            ("git", *arguments),
+            cwd=ROOT,
+            check=False,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        if completed.returncode != 0:
+            raise ValueError("tracked repository bytes changed after checkpoint")
+    head = _git_output("rev-parse", "HEAD").decode("ascii").strip()
+    tree = _git_output("rev-parse", "HEAD^{tree}").decode("ascii").strip()
+    names = tuple(
+        value.decode("utf-8")
+        for value in _git_output("ls-files", "-z").split(b"\0")
+        if value
+    )
+    files: dict[str, str] = {}
+    for relative in names:
+        path = ROOT / relative
+        if not path.is_file():
+            raise ValueError(f"tracked execution file is unavailable: {relative}")
+        files[relative.replace("\\", "/")] = bytes_sha256(path.read_bytes())
+    return files, head, tree
+
+
+def execution_manifest(
+    source_db: Path,
+    *,
+    cycle: Path,
+    expected_checkpoint_sha: str,
+    expected_authorization_sha256: str,
+    expected_cycle_id: str = CYCLE_ID,
+    expected_cycle_sequence: int = 21,
+    expected_task_id: str = TASK_ID,
+) -> dict[str, Any]:
+    authority = validate_authority(
+        cycle,
+        expected_checkpoint_sha=expected_checkpoint_sha,
+        expected_authorization_sha256=expected_authorization_sha256,
+        expected_cycle_id=expected_cycle_id,
+        expected_cycle_sequence=expected_cycle_sequence,
+        expected_task_id=expected_task_id,
+    )
+    manifest = authority["manifest"]
+    tracked_files, actual_head, actual_tree = _tracked_execution_files()
+    if actual_head != expected_checkpoint_sha:
+        raise ValueError("runtime Git HEAD differs from the published checkpoint")
+    profile_path = ROOT / "integrations" / "sillytavern" / "continuous_v3_test_profile.json"
+    profile = read_json(profile_path)
+    expected_profile = {
         "profile_id": PROFILE_ID,
-        "host": "127.0.0.1",
-        "port": FIXED_PORT,
+        "production": False,
+        "endpoint": f"http://127.0.0.1:{FIXED_PORT}/v1",
         "model": CERA_CONTINUOUS_V3_TEST_MODEL,
+        "stream": False,
+        "route": "continuous_v3_test_only",
+        "automatic_retry": False,
+        "fallback": False,
+        "automatic_false_positive": False,
+        "creator_review_required": True,
+        "database_policy": "fresh_disposable_per_run",
+        "lan_binding_allowed": False,
+    }
+    if any(profile.get(key) != value for key, value in expected_profile.items()):
+        raise ValueError("continuous SillyTavern execution profile changed")
+    provider_routes = {
         "planner": {"model": "gpt-5.6-sol", "effort": "medium", "fast": False},
         "composer": {"model": "deepseek-v4-flash", "thinking": False},
         "validator": {"model": "gpt-5.6-terra", "effort": "high", "fast": False},
-        "fixture": list(CONTINUOUS_V3_TEST_FIXTURE),
-        "call_schedule": list(CONTINUOUS_V3_CALL_SCHEDULE),
+    }
+    if (
+        profile.get("planner")
+        != {"model": "gpt-5.6-sol", "reasoning_effort": "medium", "fast_mode": False}
+        or profile.get("composer") != provider_routes["composer"]
+        or profile.get("validator")
+        != {"model": "gpt-5.6-terra", "reasoning_effort": "high", "fast_mode": False}
+    ):
+        raise ValueError("continuous provider route profile changed")
+    payload: dict[str, Any] = {
+        "schema_version": "cera.sillytavern_continuous_v3_execution_manifest.v2",
+        "campaign_id": CAMPAIGN_ID,
+        "git": {
+            "checkpoint_sha": expected_checkpoint_sha,
+            "actual_head_sha": actual_head,
+            "actual_tree_sha": actual_tree,
+            "tracked_file_count": len(tracked_files),
+            "tracked_files_root_sha256": canonical_sha256(tracked_files),
+            "tracked_files": tracked_files,
+        },
+        "cycle_authority": {
+            "cycle_id": manifest["cycle_id"],
+            "cycle_sequence": manifest["cycle_sequence"],
+            "cycle_manifest_sha256": authority["cycle_manifest_sha256"],
+            "manifest_root_sha256": manifest["manifest_root_sha256"],
+            "repository_identity_sha256": manifest["repository_identity_sha256"],
+            "task_set_sha256": manifest["task_set_sha256"],
+            "changed_source_manifest_sha256": authority[
+                "changed_source_manifest_sha256"
+            ],
+            "published_receipt_sha256": authority["published_receipt_sha256"],
+            "job4_task_id": manifest["job4"]["task_id"],
+            "job4_scope_sha256": manifest["job4"]["scope_sha256"],
+            "job4_started_receipt_sha256": authority[
+                "job4_started_receipt_sha256"
+            ],
+            "trigger_receipt_sha256": authority["trigger_receipt_sha256"],
+            "authorization_record_sha256": authority[
+                "authorization_record_sha256"
+            ],
+            "cycle_state": authority["cycle_state"],
+            "cycle_state_sha256": authority["cycle_state_sha256"],
+        },
+        "route": {
+            "profile_id": PROFILE_ID,
+            "profile_path": "integrations/sillytavern/continuous_v3_test_profile.json",
+            "profile_sha256": bytes_sha256(profile_path.read_bytes()),
+            "profile": profile,
+            "host": "127.0.0.1",
+            "port": FIXED_PORT,
+            "model": CERA_CONTINUOUS_V3_TEST_MODEL,
+        },
+        "providers": provider_routes,
+        "prompt_bindings": {
+            "planner_prompt_version": CONTINUOUS_PLANNER_PROMPT_VERSION,
+            "planner_stable_instructions_sha256": text_sha256(
+                PLANNER_STABLE_INSTRUCTIONS
+            ),
+            "planner_base_instructions_sha256": text_sha256(
+                _BASE_INSTRUCTIONS_BY_ROLE["scene_reasoner"]
+            ),
+            "composer_prompt_version": CONTINUOUS_DEEPSEEK_PROMPT_VERSION,
+            "validator_prompt_version": CONTINUOUS_VALIDATOR_PROMPT_VERSION,
+            "validator_stable_instructions_sha256": text_sha256(
+                VALIDATOR_STABLE_INSTRUCTIONS
+            ),
+            "validator_base_instructions_sha256": text_sha256(
+                _BASE_INSTRUCTIONS_BY_ROLE["scene_realization_verifier"]
+            ),
+        },
+        "schema_bindings": {
+            "planner_sequence": RichPlannerSequenceV1.SCHEMA_VERSION,
+            "validator_package": ValidatorFinalizationPackageV1.SCHEMA_VERSION,
+            "http_review": "cera.sillytavern_continuous_v3_review.v2",
+        },
+        "policy_bindings": {
+            "persistence_policy_sha256": PERSISTENCE_POLICY_SHA256,
+            "strict_accept_only": True,
+            "automatic_retry": False,
+            "fallback": False,
+            "automatic_false_positive": False,
+        },
+        "fixture": {
+            "messages": list(CONTINUOUS_V3_TEST_FIXTURE),
+            "fixture_sha256": canonical_sha256(CONTINUOUS_V3_TEST_FIXTURE),
+            "call_schedule": list(CONTINUOUS_V3_CALL_SCHEDULE),
+            "call_schedule_sha256": canonical_sha256(CONTINUOUS_V3_CALL_SCHEDULE),
+        },
         "source_database_sha256": bytes_sha256(source_db.read_bytes()),
-        "source_files": files,
     }
     payload["execution_identity_sha256"] = canonical_sha256(payload)
     return payload
+
+
+def assert_exact_execution_manifest(
+    supplied: dict[str, Any],
+    recomputed: dict[str, Any],
+    *,
+    expected_identity_sha256: str,
+) -> None:
+    for label, value in (("supplied", supplied), ("recomputed", recomputed)):
+        identity = value.get("execution_identity_sha256")
+        unsigned = {
+            key: item
+            for key, item in value.items()
+            if key != "execution_identity_sha256"
+        }
+        if (
+            not isinstance(identity, str)
+            or not re_is_sha256(identity)
+            or canonical_sha256(unsigned) != identity
+        ):
+            raise ValueError(f"{label} execution manifest is not self-bound")
+    if supplied["execution_identity_sha256"] != expected_identity_sha256:
+        raise ValueError("command execution identity disagrees with supplied manifest")
+    if canonical_bytes(supplied) != canonical_bytes(recomputed):
+        raise ValueError("child recomputed execution or authority identity changed")
 
 
 def http_json(base: str, method: str, path: str, payload: dict[str, Any] | None = None) -> tuple[int, dict[str, Any]]:
@@ -380,10 +612,20 @@ def run_single(args: argparse.Namespace) -> int:
     run_root = args.runtime_root.resolve()
     if args.run_id not in CONTINUOUS_V3_RUN_IDENTITIES:
         raise ValueError("unknown campaign run identity")
-    validate_authority(
-        cycle,
+    supplied_manifest = read_json(args.execution_manifest)
+    recomputed_manifest = execution_manifest(
+        source_db,
+        cycle=cycle,
         expected_checkpoint_sha=args.expected_checkpoint_sha,
         expected_authorization_sha256=args.expected_authorization_sha256,
+        expected_cycle_id=args.expected_cycle_id,
+        expected_cycle_sequence=args.expected_cycle_sequence,
+        expected_task_id=args.expected_job4_task_id,
+    )
+    assert_exact_execution_manifest(
+        supplied_manifest,
+        recomputed_manifest,
+        expected_identity_sha256=args.execution_identity_sha256,
     )
     if run_root.exists():
         raise FileExistsError("refusing to overwrite immutable run evidence")
@@ -410,10 +652,7 @@ def run_single(args: argparse.Namespace) -> int:
         "sqlite_before": checks_before,
         "http": [],
     }
-    supplied_manifest = read_json(args.execution_manifest)
-    if supplied_manifest.get("execution_identity_sha256") != args.execution_identity_sha256:
-        raise ValueError("single-run execution identity disagrees with its manifest")
-    write_json(run_root / "EXECUTION_MANIFEST.json", supplied_manifest)
+    write_json(run_root / "EXECUTION_MANIFEST.json", recomputed_manifest)
     planner_session = validator_session = None
     lineage = ContinuousThreadLineageLedger()
     harness = None
@@ -622,13 +861,16 @@ def run_campaign(args: argparse.Namespace) -> int:
     campaign_root = args.runtime_root.resolve()
     if campaign_root.exists():
         raise FileExistsError("refusing to overwrite immutable campaign evidence")
-    validate_authority(
-        cycle,
+    manifest = execution_manifest(
+        source_db,
+        cycle=cycle,
         expected_checkpoint_sha=args.expected_checkpoint_sha,
         expected_authorization_sha256=args.expected_authorization_sha256,
+        expected_cycle_id=args.expected_cycle_id,
+        expected_cycle_sequence=args.expected_cycle_sequence,
+        expected_task_id=args.expected_job4_task_id,
     )
     campaign_root.mkdir(parents=True)
-    manifest = execution_manifest(source_db, checkpoint_sha=args.execution_checkpoint_sha)
     manifest_path = campaign_root / "EXECUTION_MANIFEST.json"
     write_json(manifest_path, manifest)
     execution_identity = manifest["execution_identity_sha256"]
@@ -644,6 +886,20 @@ def run_campaign(args: argparse.Namespace) -> int:
     for run_id in CONTINUOUS_V3_RUN_IDENTITIES[len(campaign.runs) :]:
         if campaign.complete:
             break
+        recomputed_manifest = execution_manifest(
+            source_db,
+            cycle=cycle,
+            expected_checkpoint_sha=args.expected_checkpoint_sha,
+            expected_authorization_sha256=args.expected_authorization_sha256,
+            expected_cycle_id=args.expected_cycle_id,
+            expected_cycle_sequence=args.expected_cycle_sequence,
+            expected_task_id=args.expected_job4_task_id,
+        )
+        assert_exact_execution_manifest(
+            manifest,
+            recomputed_manifest,
+            expected_identity_sha256=execution_identity,
+        )
         if campaign.consecutive_passes == 1:
             campaign.record_controlled_restart(execution_identity_sha256=execution_identity)
         campaign.begin_run(run_id, execution_identity_sha256=execution_identity)
@@ -657,6 +913,9 @@ def run_campaign(args: argparse.Namespace) -> int:
             "--source-database", str(source_db),
             "--runtime-root", str(run_root),
             "--expected-checkpoint-sha", args.expected_checkpoint_sha,
+            "--expected-cycle-id", args.expected_cycle_id,
+            "--expected-cycle-sequence", str(args.expected_cycle_sequence),
+            "--expected-job4-task-id", args.expected_job4_task_id,
             "--expected-authorization-sha256", args.expected_authorization_sha256,
             "--execution-manifest", str(manifest_path),
             "--execution-identity-sha256", execution_identity,
@@ -697,14 +956,20 @@ def main() -> int:
     parser.add_argument("--source-database", type=Path, required=True)
     parser.add_argument("--runtime-root", type=Path, required=True)
     parser.add_argument("--expected-checkpoint-sha", required=True)
+    parser.add_argument("--expected-cycle-id", default=CYCLE_ID)
+    parser.add_argument("--expected-cycle-sequence", type=int, default=21)
+    parser.add_argument("--expected-job4-task-id", default=TASK_ID)
     parser.add_argument("--execution-checkpoint-sha")
     parser.add_argument("--expected-authorization-sha256", required=True)
     parser.add_argument("--prior-campaign-root", type=Path)
     parser.add_argument("--execution-manifest", type=Path)
     parser.add_argument("--execution-identity-sha256")
     args = parser.parse_args()
-    if args.execution_checkpoint_sha is None:
-        args.execution_checkpoint_sha = args.expected_checkpoint_sha
+    if (
+        args.execution_checkpoint_sha is not None
+        and args.execution_checkpoint_sha != args.expected_checkpoint_sha
+    ):
+        parser.error("execution checkpoint must equal the published checkpoint")
     if args.single_run:
         if not all((args.run_id, args.execution_manifest, args.execution_identity_sha256)):
             parser.error("single-run mode requires exact run and execution identities")

@@ -13,8 +13,15 @@ from threading import Lock
 from typing import Callable, Mapping
 
 from cera.creator_review import CreatorReviewAction
+from cera.creator_review.models import (
+    CreatorReviewAssessment,
+    CreatorReviewSeverity,
+    PublicationEligibility,
+    ReviewIssueOwner,
+)
 from cera.errors import ContractValidationError, StateConflictError
 from cera.ids import IdKind, TypedId, deterministic_id
+from cera.serialization import canonical_sha256, re_is_sha256, text_sha256
 
 from .models import (
     CERA_CONTINUOUS_V3_TEST_MODEL,
@@ -41,8 +48,20 @@ class PreparedContinuousTestTurn:
     turn_id: str
     candidate_text: str
     candidate_sha256: str
+    candidate_text_sha256: str
     sequence_beats: tuple[str, ...]
+    sequence_plan_sha256: str
+    validator_package_id: str
     validator_package_sha256: str
+    validator_semantic_status: str
+    assessment_schema_version: str
+    assessment_severity: CreatorReviewSeverity
+    assessment_publication_eligibility: PublicationEligibility
+    assessment_issue_owner: ReviewIssueOwner
+    assessment_reason_codes: tuple[str, ...]
+    assessment_creator_reason: str
+    assessment_verifier_status: str
+    assessment_receipt_sha256: str
     provider_calls: int
     accept_allowed: bool
 
@@ -55,13 +74,72 @@ class PreparedContinuousTestTurn:
                 self.turn_id,
                 self.candidate_text,
                 self.candidate_sha256,
+                self.candidate_text_sha256,
+                self.sequence_plan_sha256,
+                self.validator_package_id,
                 self.validator_package_sha256,
+                self.validator_semantic_status,
+                self.assessment_schema_version,
+                self.assessment_creator_reason,
+                self.assessment_verifier_status,
+                self.assessment_receipt_sha256,
             )
         ):
             raise ContractValidationError("continuous test candidate is incomplete")
+        if not self.sequence_beats or any(not value.strip() for value in self.sequence_beats):
+            raise ContractValidationError("continuous test sequence plan is incomplete")
+        for value in (
+            self.candidate_sha256,
+            self.candidate_text_sha256,
+            self.sequence_plan_sha256,
+            self.validator_package_sha256,
+            self.assessment_receipt_sha256,
+        ):
+            if not re_is_sha256(value):
+                raise ContractValidationError("continuous test review hash is invalid")
+        if text_sha256(self.candidate_text) != self.candidate_text_sha256:
+            raise ContractValidationError("continuous test candidate prose hash changed")
+        assessment = CreatorReviewAssessment(
+            schema_version=self.assessment_schema_version,
+            severity=self.assessment_severity,
+            publication_eligibility=self.assessment_publication_eligibility,
+            issue_owner=self.assessment_issue_owner,
+            reason_codes=self.assessment_reason_codes,
+            creator_reason=self.assessment_creator_reason,
+            verifier_status=self.assessment_verifier_status,
+        )
+        if assessment.assessment_sha256 != self.assessment_receipt_sha256:
+            raise ContractValidationError("continuous test assessment receipt changed")
         expected_calls = 4 if self.turn_number == 3 else 3
         if self.provider_calls != expected_calls or type(self.accept_allowed) is not bool:
             raise ContractValidationError("continuous test candidate call/accept contract changed")
+        expected_accept = (
+            self.validator_semantic_status == "accepted"
+            and self.assessment_severity is CreatorReviewSeverity.GOOD
+            and self.assessment_publication_eligibility
+            is PublicationEligibility.ACCEPT_ALLOWED
+        )
+        if self.accept_allowed is not expected_accept:
+            raise ContractValidationError(
+                "continuous test acceptance disagrees with Validator evidence"
+            )
+
+    @property
+    def review_binding_sha256(self) -> str:
+        return canonical_sha256(
+            {
+                "turn_number": self.turn_number,
+                "turn_id": self.turn_id,
+                "candidate_sha256": self.candidate_sha256,
+                "candidate_text_sha256": self.candidate_text_sha256,
+                "sequence_plan_sha256": self.sequence_plan_sha256,
+                "validator_package_id": self.validator_package_id,
+                "validator_package_sha256": self.validator_package_sha256,
+                "validator_semantic_status": self.validator_semantic_status,
+                "assessment_receipt_sha256": self.assessment_receipt_sha256,
+                "accept_allowed": self.accept_allowed,
+            }
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +148,16 @@ class AcceptedContinuousTestTurn:
     artifact_id: str
     generation: int
     promotion_receipt_sha256: str
+    review_binding_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.turn_number not in {1, 2, 3} or self.generation != self.turn_number:
+            raise ContractValidationError("continuous accepted turn identity changed")
+        if not self.artifact_id.strip():
+            raise ContractValidationError("continuous accepted artifact identity is empty")
+        for value in (self.promotion_receipt_sha256, self.review_binding_sha256):
+            if not re_is_sha256(value):
+                raise ContractValidationError("continuous accepted receipt hash is invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,7 +178,7 @@ class ContinuousSillyTavernTestAdapter:
         *,
         session_id: str,
         prepare_turn: Callable[[int], PreparedContinuousTestTurn],
-        accept_turn: Callable[[int], AcceptedContinuousTestTurn],
+        accept_turn: Callable[[PreparedContinuousTestTurn], AcceptedContinuousTestTurn],
         route_identity: Mapping[str, object],
     ) -> None:
         if not session_id.strip():
@@ -135,16 +223,12 @@ class ContinuousSillyTavernTestAdapter:
             if request.cera_scene_change != (turn_number == 3):
                 raise StateConflictError("continuous V3 scene-change flag changed")
             prepared = self._prepare_turn(turn_number)
-            if not prepared.accept_allowed:
-                raise StateConflictError(
-                    "continuous V3 candidate did not qualify for strict acceptance"
-                )
             review_id = deterministic_id(
                 IdKind.REVIEW_PACKET,
                 "cera.sillytavern.continuous_v3_test_review.v1",
                 (
                     f"{self.session_id}\x1f{prepared.turn_id}\x1f"
-                    f"{prepared.candidate_sha256}"
+                    f"{prepared.review_binding_sha256}"
                 ),
             )
             if review_id in self._reviews:
@@ -192,9 +276,11 @@ class ContinuousSillyTavernTestAdapter:
                 )
             if not record.prepared.accept_allowed:
                 raise StateConflictError("continuous V3 Accept is not eligible")
-            accepted = self._accept_turn(record.prepared.turn_number)
+            accepted = self._accept_turn(record.prepared)
             if accepted.turn_number != record.prepared.turn_number:
                 raise StateConflictError("continuous V3 acceptance turn changed")
+            if accepted.review_binding_sha256 != record.prepared.review_binding_sha256:
+                raise StateConflictError("continuous V3 Accept changed its review binding")
             terminal = replace(
                 record,
                 state=ContinuousTestReviewState.ACCEPTED,
@@ -207,25 +293,39 @@ class ContinuousSillyTavernTestAdapter:
 
     def review_payload(self, record: ContinuousTestReviewRecord) -> dict[str, object]:
         return {
-            "schema_version": "cera.sillytavern_continuous_v3_review.v1",
+            "schema_version": "cera.sillytavern_continuous_v3_review.v2",
             "review_id": str(record.review_id),
             "state": record.state.value,
             "provisional": record.state is ContinuousTestReviewState.REVIEW_READY,
             "candidate_text": record.prepared.candidate_text,
             "candidate_sha256": record.prepared.candidate_sha256,
-            "candidate_text_sha256": record.prepared.candidate_sha256,
+            "candidate_text_sha256": record.prepared.candidate_text_sha256,
             "sequence_plan": list(record.prepared.sequence_beats),
-            "sequence_plan_sha256": record.prepared.validator_package_sha256,
+            "sequence_plan_sha256": record.prepared.sequence_plan_sha256,
             "speaker_marks": [],
             "assessment": {
-                "severity": "good",
-                "publication_eligibility": "accept_allowed",
+                "schema_version": record.prepared.assessment_schema_version,
+                "severity": record.prepared.assessment_severity.value,
+                "publication_eligibility": (
+                    record.prepared.assessment_publication_eligibility.value
+                ),
+                "issue_owner": record.prepared.assessment_issue_owner.value,
+                "reason_codes": list(record.prepared.assessment_reason_codes),
+                "creator_reason": record.prepared.assessment_creator_reason,
+                "verifier_status": record.prepared.assessment_verifier_status,
+                "assessment_receipt_sha256": (
+                    record.prepared.assessment_receipt_sha256
+                ),
             },
             "accept_enabled": (
                 record.state is ContinuousTestReviewState.REVIEW_READY
                 and record.prepared.accept_allowed
             ),
-            "prepared_package_id": record.prepared.validator_package_sha256,
+            "validator_semantic_status": record.prepared.validator_semantic_status,
+            "validator_package_id": record.prepared.validator_package_id,
+            "validator_package_sha256": record.prepared.validator_package_sha256,
+            "prepared_package_id": record.prepared.validator_package_id,
+            "review_binding_sha256": record.prepared.review_binding_sha256,
             "creator_action": (
                 record.creator_action.value if record.creator_action is not None else None
             ),
@@ -253,4 +353,5 @@ class ContinuousSillyTavernTestAdapter:
             "provider_calls": 0,
             "automatic_retries": 0,
             "promotion_receipt_sha256": record.accepted.promotion_receipt_sha256,
+            "review_binding_sha256": record.accepted.review_binding_sha256,
         }

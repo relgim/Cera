@@ -695,7 +695,9 @@ class JobHarness:
         self._active_turn_number = 0
         self._active_turn_id = ""
         self._active_validator_label: str | None = None
-        self._http_pending: dict[int, Any] = {}
+        self._http_pending: dict[
+            int, tuple[Any, PreparedContinuousTestTurn]
+        ] = {}
         self.http_turn_results: list[dict[str, Any]] = []
         self.ingress_authority = ContinuousIngressAuthorityStore(
             lifecycle_root / "ingress_authority",
@@ -1006,39 +1008,89 @@ class JobHarness:
             )
         else:
             candidate = self.coordinator.prepare(request)
-        accept_allowed = candidate.validator_package.permits_disposable_acceptance(
+        package = candidate.validator_package
+        assessment = package.creator_review
+        if assessment is None:
+            raise StateConflictError("continuous HTTP candidate lacks a review assessment")
+        accept_allowed = package.permits_disposable_acceptance(
             CreatorReviewAction.ACCEPT
         )
         calls = len(self.call_records) - before_calls
         expected_calls = 4 if turn_number == 3 else 3
         if calls != expected_calls:
             raise StateConflictError("continuous HTTP provider schedule changed")
-        self._http_pending[turn_number] = candidate
-        return PreparedContinuousTestTurn(
+        prepared = PreparedContinuousTestTurn(
             turn_number=turn_number,
             turn_id=self._active_turn_id,
             candidate_text=candidate.deepseek_story_text,
             candidate_sha256=candidate.candidate_sha256,
+            candidate_text_sha256=text_sha256(candidate.deepseek_story_text),
             sequence_beats=tuple(
                 beat.observable_action_or_dialogue_direction
                 for beat in candidate.planner_sequence.beats
             ),
-            validator_package_sha256=candidate.validator_package.package_sha256,
+            sequence_plan_sha256=candidate.planner_sequence.sequence_sha256,
+            validator_package_id=package.package_id,
+            validator_package_sha256=package.package_sha256,
+            validator_semantic_status=package.semantic_status.value,
+            assessment_schema_version=assessment.schema_version,
+            assessment_severity=assessment.severity,
+            assessment_publication_eligibility=assessment.publication_eligibility,
+            assessment_issue_owner=assessment.issue_owner,
+            assessment_reason_codes=assessment.reason_codes,
+            assessment_creator_reason=assessment.creator_reason,
+            assessment_verifier_status=assessment.verifier_status,
+            assessment_receipt_sha256=assessment.assessment_sha256,
             provider_calls=calls,
             accept_allowed=accept_allowed,
         )
+        self._http_pending[turn_number] = (candidate, prepared)
+        return prepared
 
-    def accept_http_turn(self, turn_number: int) -> AcceptedContinuousTestTurn:
+    def accept_http_turn(
+        self, prepared: PreparedContinuousTestTurn
+    ) -> AcceptedContinuousTestTurn:
         """Cross strict disposable acceptance only after the HTTP decision."""
 
+        turn_number = prepared.turn_number
         try:
-            candidate = self._http_pending.pop(turn_number)
+            candidate, bound = self._http_pending[turn_number]
         except KeyError as exc:
             raise StateConflictError("continuous HTTP candidate is unavailable") from exc
-        if not candidate.validator_package.permits_disposable_acceptance(
+        package = candidate.validator_package
+        assessment = package.creator_review
+        if bound != prepared:
+            raise StateConflictError("continuous HTTP review record is stale or substituted")
+        if assessment is None:
+            raise StateConflictError("continuous HTTP review assessment disappeared")
+        actual_bindings = {
+            "turn_id": f"turn-{turn_number:03d}",
+            "candidate_text": candidate.deepseek_story_text,
+            "candidate_sha256": candidate.candidate_sha256,
+            "candidate_text_sha256": text_sha256(candidate.deepseek_story_text),
+            "sequence_plan_sha256": candidate.planner_sequence.sequence_sha256,
+            "validator_package_id": package.package_id,
+            "validator_package_sha256": package.package_sha256,
+            "validator_semantic_status": package.semantic_status.value,
+            "assessment_schema_version": assessment.schema_version,
+            "assessment_severity": assessment.severity,
+            "assessment_publication_eligibility": assessment.publication_eligibility,
+            "assessment_issue_owner": assessment.issue_owner,
+            "assessment_reason_codes": assessment.reason_codes,
+            "assessment_creator_reason": assessment.creator_reason,
+            "assessment_verifier_status": assessment.verifier_status,
+            "assessment_receipt_sha256": assessment.assessment_sha256,
+            "accept_allowed": package.permits_disposable_acceptance(
+                CreatorReviewAction.ACCEPT
+            ),
+        }
+        if any(getattr(prepared, key) != value for key, value in actual_bindings.items()):
+            raise StateConflictError("continuous HTTP review binding changed before Accept")
+        if not package.permits_disposable_acceptance(
             CreatorReviewAction.ACCEPT
         ):
             raise StateConflictError("continuous HTTP candidate is not accept eligible")
+        self._http_pending.pop(turn_number)
         receipt = self.coordinator.apply_creator_action(
             f"turn-{turn_number:03d}", CreatorReviewAction.ACCEPT
         )
@@ -1064,6 +1116,7 @@ class JobHarness:
             artifact_id=receipt.receipt_sha256,
             generation=turn_number,
             promotion_receipt_sha256=receipt.receipt_sha256,
+            review_binding_sha256=prepared.review_binding_sha256,
         )
 
     # The canary executes turns through the exact shared

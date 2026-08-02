@@ -17,6 +17,7 @@ from cera.continuous.sessions import (
 )
 from cera.continuous.world import ContinuousWorldStore
 from cera.creator_review import CreatorReviewAction
+from cera.serialization import text_sha256
 from cera.sillytavern.campaign import CONTINUOUS_V3_CALL_SCHEDULE
 from cera.sillytavern.continuous_test import (
     CONTINUOUS_V3_TEST_FIXTURE,
@@ -120,6 +121,33 @@ class ContinuousV3HttpIntegrationTests(unittest.TestCase):
                     status, review = request("GET", f"/v1/cera/reviews/{review_id}")
                     self.assertEqual(status, 200)
                     self.assertTrue(review["accept_enabled"])
+                    candidate, bound = harness._http_pending[turn]
+                    assessment = candidate.validator_package.creator_review
+                    self.assertIsNotNone(assessment)
+                    self.assertEqual(
+                        review["candidate_text_sha256"],
+                        text_sha256(candidate.deepseek_story_text),
+                    )
+                    self.assertEqual(
+                        review["sequence_plan_sha256"],
+                        candidate.planner_sequence.sequence_sha256,
+                    )
+                    self.assertEqual(
+                        review["validator_package_id"],
+                        candidate.validator_package.package_id,
+                    )
+                    self.assertEqual(
+                        review["validator_package_sha256"],
+                        candidate.validator_package.package_sha256,
+                    )
+                    self.assertEqual(
+                        review["assessment"]["assessment_receipt_sha256"],
+                        assessment.assessment_sha256,
+                    )
+                    self.assertEqual(
+                        review["review_binding_sha256"],
+                        bound.review_binding_sha256,
+                    )
                     status, decision = request(
                         "POST",
                         f"/v1/cera/reviews/{review_id}/decision",
@@ -127,6 +155,10 @@ class ContinuousV3HttpIntegrationTests(unittest.TestCase):
                     )
                     self.assertEqual(status, 200)
                     self.assertEqual(decision["status"], "accepted")
+                    self.assertEqual(
+                        decision["review_binding_sha256"],
+                        bound.review_binding_sha256,
+                    )
             finally:
                 server.shutdown()
                 server.server_close()
