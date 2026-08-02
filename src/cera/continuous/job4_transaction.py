@@ -347,7 +347,11 @@ class ContinuousJob4TerminalTransactionV1:
                 raise ContinuousJob4TransactionError(f"{label} bytes changed")
         return publication
 
-    def publish_frozen(self) -> dict[str, Any]:
+    def publish_frozen(self, *, test_cut_point: str | None = None) -> dict[str, Any]:
+        if test_cut_point not in {None, "result_write", "publication_commit_marker"}:
+            raise ContinuousJob4TransactionError(
+                "terminal publication test cut point is invalid"
+            )
         publication = self.load_frozen()
         report_bytes = (self.root / publication.report_relative_path).read_bytes()
         result_bytes = (self.root / publication.result_relative_path).read_bytes()
@@ -361,6 +365,10 @@ class ContinuousJob4TerminalTransactionV1:
             self.cycle_directory / "source" / "JOB4_TERMINAL_EVIDENCE.json"
         )
         _atomic_immutable_write(report_path, report_bytes)
+        if test_cut_point == "result_write":
+            raise ContinuousJob4TransactionError(
+                "injected terminal publication result-write cut point"
+            )
         _atomic_immutable_write(result_path, result_bytes)
         _atomic_immutable_write(terminal_evidence_path, terminal_evidence_bytes)
         detail_published = False
@@ -391,6 +399,10 @@ class ContinuousJob4TerminalTransactionV1:
             "runtime_detail_published": detail_published,
             "semantic_work_repeated": False,
         }
+        if test_cut_point == "publication_commit_marker":
+            raise ContinuousJob4TransactionError(
+                "injected terminal publication commit-marker cut point"
+            )
         _atomic_immutable_write(
             self.committed_path, canonical_bytes(committed) + b"\n"
         )

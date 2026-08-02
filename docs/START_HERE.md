@@ -105,6 +105,8 @@ the active D-180 route.
 | `CONTINUOUS_SHORT_CANARY_V9_SPEC.md` | Later live-canary-002 readiness boundary; separately creator-gated and not execution authority |
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_010_RESULT.md` | D-197 typed terminal-effect custody, mandatory postconditions, exact effect preservation, and provider-free live-canary-002 readiness |
 | `CONTINUOUS_SHORT_CANARY_V10_SPEC.md` | Creator-authorized conditional live-canary-002 contract; dispatch remains gated by accepted Cycle 010 and Stage B publication |
+| `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_011_RESULT.md` | D-198 root terminal ownership, immutable terminal/capability custody, verified archival, actual-CLI failure matrix, and provider-free publication readiness |
+| `CONTINUOUS_SHORT_CANARY_V11_SPEC.md` | Frozen live-canary-002 contract after Cycle 011 provider-free lifecycle qualification; not dispatch authority |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |
 | `ROADMAP_AND_GATE.md` | Ordered implementation plan and authorization gates |
 | `CREATOR_REVIEW_PRESENTATION_V1_RESULT.md` | Active severity colors, Adjustment label, False Positive acceptance, and CERA-owned character-color presentation |

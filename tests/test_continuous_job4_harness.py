@@ -59,6 +59,7 @@ from cera.continuous.provider import (
 from cera.continuous.sessions import (
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
+    ContinuousThreadArchiveEvidenceV1,
     InMemoryContinuousStoredSessionPort,
 )
 from cera.continuous.scripted_job4 import SCRIPTED_JOB4_FIXTURE_SHA256
@@ -336,6 +337,23 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertEqual(detail["scripted_transport_invocations"], 10)
             self.assertEqual(len(detail["calls"]), 10)
             self.assertEqual(detail["thread_archival"], {"planner": True, "validator": True})
+            self.assertEqual(
+                set(detail["thread_archival_evidence"]),
+                {"planner", "validator"},
+            )
+            self.assertTrue(
+                all(
+                    evidence["archive_request_completed"]
+                    and evidence["resume_succeeded_after_archive"] is False
+                    and evidence["backend_selectable_after_archive"] is False
+                    and evidence[
+                        "coordinator_selectable_as_accepted_ancestry"
+                    ]
+                    is False
+                    and evidence["verified"]
+                    for evidence in detail["thread_archival_evidence"].values()
+                )
+            )
             self.assertTrue(detail["source_database_unchanged"])
             self.assertTrue(detail["copy_database_unchanged"])
             self.assertTrue(detail["active_route_unchanged"])
@@ -371,6 +389,31 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertTrue(
                 terminal.capability_ledger.all_zero_effects_structurally_denied
             )
+
+    def test_terminal_archive_invalidates_resume_and_accepted_ancestry(self) -> None:
+        with TemporaryDirectory() as directory:
+            world = ContinuousWorldStore(Path(directory).resolve() / "worlds")
+            seed_world(world, ROOT)
+            port = InMemoryContinuousStoredSessionPort()
+            coordinator = ContinuousSessionCoordinator(
+                compatibility(world, ContinuousSessionRole.PLANNER),
+                port,
+            )
+            handle = coordinator.ensure_session()
+            evidence = coordinator.archive_and_verify_terminal("job4_complete")
+            self.assertTrue(evidence.verified)
+            self.assertEqual(
+                ContinuousThreadArchiveEvidenceV1.from_dict(evidence.to_dict()),
+                evidence,
+            )
+            contradictory = evidence.to_dict()
+            contradictory["verified"] = False
+            with self.assertRaisesRegex(Exception, "contradictory"):
+                ContinuousThreadArchiveEvidenceV1.from_dict(contradictory)
+            self.assertFalse(port.resume(handle))
+            self.assertFalse(port.selectable_as_active_or_accepted_ancestry(handle))
+            with self.assertRaisesRegex(Exception, "terminally archived"):
+                coordinator.ensure_session()
 
     def test_actual_cli_completes_closed_provider_free_scripted_v8_mode(self) -> None:
         with TemporaryDirectory() as directory:
@@ -938,6 +981,47 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
         tampered["capabilities"]["live_story_write"]["count"] = 1
         with self.assertRaisesRegex(ValueError, "contradictory"):
             ContinuousJob4CapabilityLedgerV1.from_dict(tampered)
+
+    def test_counted_capability_ports_preserve_nonzero_terminal_effects(self) -> None:
+        base = terminalized_detail(
+            cycle_id="cycle:counted-capability-effects",
+            execution_status="completed",
+            execution_mode="live_one_shot",
+            provider_calls=0,
+            scripted_transport_invocations=0,
+        )
+        postconditions = ContinuousJob4PostconditionsV1.from_dict(
+            base["terminal_evidence"]["postconditions"]
+        )
+        custody = ContinuousJob4CapabilityCustody(
+            counted_capabilities=(
+                "live_story_write",
+                "active_route_mutation",
+                "deployment",
+            )
+        )
+        custody.record("live_story_write")
+        custody.record("live_story_write")
+        custody.record("active_route_mutation")
+        custody.record("deployment")
+        terminal = ContinuousJob4TerminalEvidenceV2.build(
+            execution_status="completed",
+            provider_calls=0,
+            capability_ledger=custody.evidence,
+            postconditions=postconditions,
+        )
+        rebuilt = decode_continuous_job4_terminal_evidence(terminal.to_dict())
+        self.assertEqual(rebuilt, terminal)
+        self.assertEqual(terminal.status, "failed")
+        self.assertEqual(
+            terminal.effect_evidence.canonical_effects,
+            {
+                "provider_calls": 0,
+                "story_database_writes": 2,
+                "active_route_changes": 1,
+                "deployment_remote_or_push_effects": 1,
+            },
+        )
 
     def test_terminal_effect_evidence_rejects_missing_boolean_negative_and_contradictory_values(self) -> None:
         detail = terminalized_detail(

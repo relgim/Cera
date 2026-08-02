@@ -107,6 +107,17 @@ class _FakeCodex:
     def thread_archive(self, thread_id):
         self.archive_calls.append(thread_id)
 
+    def thread_list(self, **_kwargs):
+        active = tuple(
+            thread_id
+            for thread_id in ("native-root", "native-child")
+            if thread_id not in self.archive_calls
+        )
+        return SimpleNamespace(
+            data=[SimpleNamespace(id=thread_id) for thread_id in active],
+            next_cursor=None,
+        )
+
 
 class CodexStoredThreadSessionTests(unittest.TestCase):
     def compatibility(self) -> ReasonerSessionCompatibility:
@@ -257,8 +268,10 @@ class CodexStoredThreadSessionTests(unittest.TestCase):
         )
         self.assertFalse(codex.fork_calls[0][1]["ephemeral"])
         self.assertTrue(backend.resume_stored_thread("native-child"))
+        self.assertTrue(backend.stored_thread_is_selectable("native-child"))
         backend.append_model_visible_context("native-child", "[TURN ACCEPTED]\nturn:001")
         backend.archive_stored_leaf("native-child")
+        self.assertFalse(backend.stored_thread_is_selectable("native-child"))
         self.assertEqual(codex.archive_calls, ["native-child"])
         self.assertEqual(
             [value[0] for value in codex._client.calls],

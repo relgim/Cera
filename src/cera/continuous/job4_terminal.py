@@ -276,19 +276,52 @@ class ContinuousJob4CapabilityLedgerV1:
 class ContinuousJob4CapabilityCustody:
     """Process-owned sealed port registry for otherwise excluded effects."""
 
-    def __init__(self) -> None:
-        self._ledger = ContinuousJob4CapabilityLedgerV1.structurally_unavailable()
+    def __init__(self, *, counted_capabilities: tuple[str, ...] = ()) -> None:
+        selected = set(counted_capabilities)
+        if len(selected) != len(counted_capabilities) or not selected.issubset(
+            _ALL_EFFECT_CAPABILITIES
+        ):
+            raise ValueError("Job 4 counted capability selection is invalid")
+        self._counted = frozenset(selected)
+        self._counts = {name: 0 for name in _ALL_EFFECT_CAPABILITIES}
 
     def record(self, capability: str) -> None:
         if capability not in _ALL_EFFECT_CAPABILITIES:
             raise ValueError("unknown Job 4 effect capability")
-        raise PermissionError(
-            f"Job 4 effect capability is structurally unavailable: {capability}"
-        )
+        if capability not in self._counted:
+            raise PermissionError(
+                f"Job 4 effect capability is structurally unavailable: {capability}"
+            )
+        self._counts[capability] += 1
 
     @property
     def evidence(self) -> ContinuousJob4CapabilityLedgerV1:
-        return self._ledger
+        capabilities: dict[str, dict[str, Any]] = {}
+        for name in sorted(_ALL_EFFECT_CAPABILITIES):
+            if name in self._counted:
+                capabilities[name] = {
+                    "mode": "counted_port",
+                    "count": self._counts[name],
+                    "port_id_sha256": canonical_sha256(
+                        {
+                            "schema_version": (
+                                "cera.continuous_job4_counted_effect_port.v1"
+                            ),
+                            "capability": name,
+                        }
+                    ),
+                    "denial_code": None,
+                    "sealed": True,
+                }
+            else:
+                capabilities[name] = {
+                    "mode": "structurally_unavailable",
+                    "count": 0,
+                    "port_id_sha256": None,
+                    "denial_code": ContinuousJob4CapabilityLedgerV1.DENIAL_CODE,
+                    "sealed": True,
+                }
+        return ContinuousJob4CapabilityLedgerV1(capabilities=capabilities)
 
 
 @dataclass(frozen=True, slots=True)

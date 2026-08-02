@@ -86,6 +86,8 @@ class StoredThreadBackend(Protocol):
 
     def archive_stored_leaf(self, thread_id: str) -> None: ...
 
+    def stored_thread_is_selectable(self, thread_id: str) -> bool: ...
+
 
 @dataclass(slots=True)
 class OpenAICodexStoredThreadBackend:
@@ -235,6 +237,29 @@ class OpenAICodexStoredThreadBackend:
         # supported terminal isolation operation: archived leaves cannot be
         # resumed or selected as accepted ancestry.
         self.codex.thread_archive(thread_id)
+
+    def stored_thread_is_selectable(self, thread_id: str) -> bool:
+        """Return whether the app server still exposes a thread as active.
+
+        The scan uses the supported state-database listing contract and walks
+        every page.  Any transport or decoding problem is propagated so an
+        unknown outcome cannot be presented as verified archival.
+        """
+
+        cursor: str | None = None
+        while True:
+            response = self.codex.thread_list(
+                archived=False,
+                cursor=cursor,
+                limit=100,
+                use_state_db_only=True,
+            )
+            for thread in response.data:
+                if self._thread_id(thread) == thread_id:
+                    return True
+            cursor = response.next_cursor
+            if cursor is None:
+                return False
 
     def _materialize_thread(self, thread_id: str, *, role: str) -> None:
         client = getattr(self.codex, "_client", None)

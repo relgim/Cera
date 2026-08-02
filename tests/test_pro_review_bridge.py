@@ -991,6 +991,187 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         )
         self.assertEqual(recovered["state"], review_cycle.STATE_RESPONSE_PENDING)
 
+    def test_28d2_actual_cli_failure_matrix_completes_and_recovers(self) -> None:
+        cases = (
+            ("missing_source_database", None, False),
+            ("unreadable_source_or_hash", "source_hash", True),
+            ("disposable_copy", "disposable_copy", True),
+            ("sqlite_open", "sqlite_open", True),
+            ("sqlite_integrity", "sqlite_integrity", True),
+            ("sqlite_foreign_keys", "sqlite_foreign_keys", True),
+            ("call_ledger", "call_ledger_construction", True),
+            ("world_construction", "world_construction", True),
+            ("world_seeding", "world_seeding", True),
+            ("lifecycle_directory", "lifecycle_directory", True),
+            ("active_profile", "active_profile", True),
+            ("sdk_import", "sdk_import_pre_submission", True),
+            ("account_inspection", "account_inspection_pre_submission", True),
+            ("backend_construction", "backend_construction_pre_submission", True),
+            ("session_construction", "session_construction_pre_submission", True),
+            ("stored_thread_construction", "stored_thread_construction_pre_submission", True),
+            ("archive_request", "archive_request", True),
+            ("archive_resume_verification", "archive_non_resumability", True),
+            ("archive_active_selection", "archive_active_selection", True),
+            ("accepted_session_sync", "accepted_session_synchronization", True),
+            ("accepted_final_injection", "accepted_final_sequence_injection", True),
+            ("detail_serialization", "detail_serialization", True),
+            ("terminal_serialization", "terminal_evidence_serialization", True),
+            ("report_construction", "report_construction", True),
+            ("canonical_projection", "canonical_projection", True),
+            ("result_serialization", "result_serialization", True),
+            ("result_write", "result_write", True),
+            ("commit_marker", "publication_commit_marker", True),
+        )
+        project_head = subprocess.run(
+            ["git", "-C", str(PROJECT_ROOT), "rev-parse", "HEAD"],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+
+        for index, (label, failpoint, source_exists) in enumerate(cases):
+            if index:
+                self.temporary.cleanup()
+                self.setUp()
+            with self.subTest(case=label):
+                self.publish()
+                self.record_trigger()
+                source_database = self.root / "runtime" / "source.sqlite3"
+                source_database.parent.mkdir()
+                if source_exists:
+                    connection = sqlite3.connect(source_database)
+                    try:
+                        connection.execute("CREATE TABLE qualification(value TEXT)")
+                        connection.execute(
+                            "INSERT INTO qualification VALUES ('unchanged')"
+                        )
+                        connection.commit()
+                    finally:
+                        connection.close()
+                manifest = json.loads(
+                    (self.cycle / "CYCLE_MANIFEST.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                runtime = self.root / "runtime" / "failure-matrix"
+                command = [
+                    sys.executable,
+                    str(
+                        PROJECT_ROOT
+                        / "scripts"
+                        / "run_continuous_planner_validator_job4.py"
+                    ),
+                    "--confirm-provider-free-scripted-v8",
+                    "--expected-scripted-fixture-sha256",
+                    SCRIPTED_JOB4_FIXTURE_SHA256,
+                    "--cycle-directory",
+                    str(self.cycle),
+                    "--source-database",
+                    str(source_database),
+                    "--runtime-root",
+                    str(runtime),
+                    "--expected-checkpoint-sha",
+                    project_head,
+                    "--expected-cycle-id",
+                    self.cycle_id,
+                    "--expected-task-id",
+                    self.job4_task_id,
+                    "--expected-authorization-sha256",
+                    manifest["job4"]["authorization_record_sha256"],
+                    "--maximum-provider-calls",
+                    "10",
+                ]
+                if failpoint is not None:
+                    command.extend(("--provider-free-test-failpoint", failpoint))
+
+                first = subprocess.run(
+                    command,
+                    cwd=PROJECT_ROOT,
+                    text=True,
+                    capture_output=True,
+                    timeout=120,
+                    check=False,
+                )
+                self.assertEqual(first.returncode, 1, first.stdout + first.stderr)
+                if failpoint in {"result_write", "publication_commit_marker"}:
+                    recovered_publication = subprocess.run(
+                        command,
+                        cwd=PROJECT_ROOT,
+                        text=True,
+                        capture_output=True,
+                        timeout=120,
+                        check=False,
+                    )
+                    self.assertEqual(
+                        recovered_publication.returncode,
+                        1,
+                        recovered_publication.stdout + recovered_publication.stderr,
+                    )
+
+                result_path = self.source / "JOB4_RESULT.json"
+                report_path = self.source / "JOB4_REPORT.md"
+                terminal_path = self.source / "JOB4_TERMINAL_EVIDENCE.json"
+                result = json.loads(result_path.read_text(encoding="utf-8"))
+                terminal = json.loads(terminal_path.read_text(encoding="utf-8"))
+                self.assertEqual(result["status"], "failed")
+                self.assertEqual(result["effects"]["provider_calls"], 0)
+                self.assertEqual(
+                    result["effects"],
+                    terminal["effect_evidence"]["canonical_effects"],
+                )
+                immutable_hashes = tuple(
+                    self._hash(path)
+                    for path in (result_path, report_path, terminal_path)
+                )
+                self.assertTrue(
+                    (
+                        self.cycle
+                        / "transaction"
+                        / "job4"
+                        / "JOB4_PUBLICATION_COMMITTED.json"
+                    ).is_file()
+                )
+
+                refused = subprocess.run(
+                    command,
+                    cwd=PROJECT_ROOT,
+                    text=True,
+                    capture_output=True,
+                    timeout=120,
+                    check=False,
+                )
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertEqual(
+                    immutable_hashes,
+                    tuple(
+                        self._hash(path)
+                        for path in (result_path, report_path, terminal_path)
+                    ),
+                )
+
+                state = review_cycle.complete_job4(
+                    self.cycle,
+                    stability_delay_milliseconds=0,
+                    repository_root_path=self.root,
+                )
+                self.assertEqual(
+                    state["state"], review_cycle.STATE_RESPONSE_PENDING
+                )
+                self.assertEqual(
+                    self._hash(
+                        self.cycle
+                        / "artifacts"
+                        / "JOB4_TERMINAL_EVIDENCE.json"
+                    ),
+                    immutable_hashes[2],
+                )
+                recovered = review_cycle.recover_cycle(
+                    self.cycle, repository_root_path=self.root
+                )
+                self.assertEqual(
+                    recovered["state"], review_cycle.STATE_RESPONSE_PENDING
+                )
+
     def test_28e_complete_job4_rejects_legacy_canary_fields(self) -> None:
         self.publish()
         self.record_trigger()
@@ -1176,6 +1357,20 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                 repository_root_path=self.root,
             )
         source_terminal.write_bytes(exact_terminal_bytes)
+        result_path = self.source / "JOB4_RESULT.json"
+        exact_result_bytes = result_path.read_bytes()
+        contradicted = json.loads(exact_result_bytes)
+        contradicted["effects"]["story_database_writes"] = 1
+        result_path.write_text(json.dumps(contradicted), encoding="utf-8")
+        with self.assertRaisesRegex(
+            review_cycle.CycleError, "contradicts typed terminal evidence"
+        ):
+            review_cycle.complete_job4(
+                self.cycle,
+                stability_delay_milliseconds=0,
+                repository_root_path=self.root,
+            )
+        result_path.write_bytes(exact_result_bytes)
         review_cycle.complete_job4(
             self.cycle,
             stability_delay_milliseconds=0,
@@ -1185,6 +1380,18 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             self.cycle / "artifacts" / "JOB4_TERMINAL_EVIDENCE.json"
         )
         self.assertEqual(copied_terminal.read_bytes(), exact_terminal_bytes)
+        receipt_path = self.cycle / "receipts" / "JOB4_COMPLETED.json"
+        exact_receipt_bytes = receipt_path.read_bytes()
+        contradicted_receipt = json.loads(exact_receipt_bytes)
+        contradicted_receipt["terminal_evidence_sha256"] = "9" * 64
+        receipt_path.write_text(json.dumps(contradicted_receipt), encoding="utf-8")
+        with self.assertRaisesRegex(
+            review_cycle.CycleError, "receipt identity is invalid"
+        ):
+            review_cycle.recover_cycle(
+                self.cycle, repository_root_path=self.root
+            )
+        receipt_path.write_bytes(exact_receipt_bytes)
         copied_terminal.write_text("{}", encoding="utf-8")
         with self.assertRaisesRegex(
             review_cycle.CycleError, "terminal evidence does not match"

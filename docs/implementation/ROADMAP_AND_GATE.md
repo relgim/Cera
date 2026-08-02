@@ -988,8 +988,17 @@ the completion receipt, completed-chain validator, and recovery path to prove
 the same status and effects. A sealed capability ledger gives every live-story,
 production-database, active-route, deployment, remote, merge, push, service,
 and installed-SillyTavern effect a typed structurally-unavailable denial rather
-than a caller-prefilled zero. Progression 3 still must verify live archival and
-run the actual complete failure matrix before Cycle 011 publication.
+than a caller-prefilled zero. Progression 3,
+`continuous-live-archive-and-canary-publication-readiness-v11`, gives live and
+scripted archival one typed proof-bearing meaning, verifies provider
+non-resumability and non-selectability plus local accepted-ancestry
+invalidation, and runs the named setup, synchronization, archive,
+serialization, result-write, and commit-marker failures through the actual CLI,
+real `complete-job4`, completed-chain validation, and recovery. The successful
+scripted ten-stage path crosses the same chain with zero external calls. The
+later canary boundary is frozen in `CONTINUOUS_SHORT_CANARY_V11_SPEC.md`; it is
+not provider-dispatch authority. Cycle 011 publication and its provider-free
+Stage 4 audit remain the next governed gate.
 
 ## Repair and pivot rule
 

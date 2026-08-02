@@ -62,6 +62,24 @@ class CodexContinuousStoredSessionPort:
         self.backend.archive_stored_thread(handle.provider_thread_id)
         self.operations.append(("thread/archive:continuous", handle.provider_thread_id_sha256))
 
+    def selectable_as_active_or_accepted_ancestry(
+        self, handle: ContinuousSessionHandleV1
+    ) -> bool:
+        selectable = self.backend.stored_thread_is_selectable(
+            handle.provider_thread_id
+        )
+        self.operations.append(
+            (
+                (
+                    "thread/selectable:continuous"
+                    if selectable
+                    else "thread/not_selectable:continuous"
+                ),
+                handle.provider_thread_id_sha256,
+            )
+        )
+        return selectable
+
     def _handle(self, thread_id: str) -> ContinuousSessionHandleV1:
         return ContinuousSessionHandleV1(
             schema_version=ContinuousSessionHandleV1.SCHEMA_VERSION,

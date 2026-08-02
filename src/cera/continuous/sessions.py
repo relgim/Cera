@@ -35,6 +35,154 @@ class ContinuousSessionRole(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class ContinuousThreadArchiveEvidenceV1:
+    """Privacy-safe proof that one stored role thread is terminally isolated."""
+
+    role: ContinuousSessionRole
+    provider_thread_id_sha256: str
+    archive_reason_sha256: str
+    archive_request_completed: bool
+    resume_succeeded_after_archive: bool | None
+    backend_selectable_after_archive: bool | None
+    coordinator_selectable_as_accepted_ancestry: bool
+    archive_error_type: str | None = None
+    resume_error_type: str | None = None
+    selection_error_type: str | None = None
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_thread_archive_evidence.v1"
+
+    def __post_init__(self) -> None:
+        for field_name in (
+            "provider_thread_id_sha256",
+            "archive_reason_sha256",
+        ):
+            if not re_is_sha256(getattr(self, field_name)):
+                raise ContractValidationError(
+                    f"continuous archive evidence {field_name} is invalid"
+                )
+        for field_name in (
+            "archive_request_completed",
+            "coordinator_selectable_as_accepted_ancestry",
+        ):
+            if not isinstance(getattr(self, field_name), bool):
+                raise ContractValidationError(
+                    f"continuous archive evidence {field_name} is invalid"
+                )
+        for field_name in (
+            "resume_succeeded_after_archive",
+            "backend_selectable_after_archive",
+        ):
+            value = getattr(self, field_name)
+            if value is not None and not isinstance(value, bool):
+                raise ContractValidationError(
+                    f"continuous archive evidence {field_name} is invalid"
+                )
+        for field_name in (
+            "archive_error_type",
+            "resume_error_type",
+            "selection_error_type",
+        ):
+            value = getattr(self, field_name)
+            if value is not None and (
+                not isinstance(value, str) or not value.strip() or len(value) > 128
+            ):
+                raise ContractValidationError(
+                    f"continuous archive evidence {field_name} is invalid"
+                )
+
+    @property
+    def verified(self) -> bool:
+        return (
+            self.archive_request_completed
+            and self.resume_succeeded_after_archive is False
+            and self.backend_selectable_after_archive is False
+            and self.coordinator_selectable_as_accepted_ancestry is False
+            and self.archive_error_type is None
+            and self.resume_error_type is None
+            and self.selection_error_type is None
+        )
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": self.SCHEMA_VERSION,
+            "role": self.role.value,
+            "provider_thread_id_sha256": self.provider_thread_id_sha256,
+            "archive_reason_sha256": self.archive_reason_sha256,
+            "archive_request_completed": self.archive_request_completed,
+            "resume_succeeded_after_archive": self.resume_succeeded_after_archive,
+            "backend_selectable_after_archive": self.backend_selectable_after_archive,
+            "coordinator_selectable_as_accepted_ancestry": (
+                self.coordinator_selectable_as_accepted_ancestry
+            ),
+            "archive_error_type": self.archive_error_type,
+            "resume_error_type": self.resume_error_type,
+            "selection_error_type": self.selection_error_type,
+            "verified": self.verified,
+        }
+
+    @classmethod
+    def from_dict(cls, raw: object) -> "ContinuousThreadArchiveEvidenceV1":
+        if not isinstance(raw, dict):
+            raise ContractValidationError(
+                "continuous archive evidence must be an object"
+            )
+        expected = {
+            "schema_version",
+            "role",
+            "provider_thread_id_sha256",
+            "archive_reason_sha256",
+            "archive_request_completed",
+            "resume_succeeded_after_archive",
+            "backend_selectable_after_archive",
+            "coordinator_selectable_as_accepted_ancestry",
+            "archive_error_type",
+            "resume_error_type",
+            "selection_error_type",
+            "verified",
+        }
+        if set(raw) != expected:
+            raise ContractValidationError(
+                "continuous archive evidence fields changed"
+            )
+        if raw["schema_version"] != cls.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous archive evidence schema changed"
+            )
+        try:
+            role = ContinuousSessionRole(raw["role"])
+        except (TypeError, ValueError) as exc:
+            raise ContractValidationError(
+                "continuous archive evidence role is invalid"
+            ) from exc
+        instance = cls(
+            role=role,
+            provider_thread_id_sha256=raw["provider_thread_id_sha256"],
+            archive_reason_sha256=raw["archive_reason_sha256"],
+            archive_request_completed=raw["archive_request_completed"],
+            resume_succeeded_after_archive=raw[
+                "resume_succeeded_after_archive"
+            ],
+            backend_selectable_after_archive=raw[
+                "backend_selectable_after_archive"
+            ],
+            coordinator_selectable_as_accepted_ancestry=raw[
+                "coordinator_selectable_as_accepted_ancestry"
+            ],
+            archive_error_type=raw["archive_error_type"],
+            resume_error_type=raw["resume_error_type"],
+            selection_error_type=raw["selection_error_type"],
+        )
+        if (
+            not isinstance(raw["verified"], bool)
+            or raw["verified"] != instance.verified
+        ):
+            raise ContractValidationError(
+                "continuous archive evidence verification is contradictory"
+            )
+        return instance
+
+
+@dataclass(frozen=True, slots=True)
 class ContinuousSessionCompatibilityV1:
     SCHEMA_VERSION: ClassVar[str] = "cera.continuous_session_compatibility.v2"
 
@@ -442,6 +590,10 @@ class ContinuousStoredSessionPort(Protocol):
 
     def archive(self, handle: ContinuousSessionHandleV1, reason: str) -> None: ...
 
+    def selectable_as_active_or_accepted_ancestry(
+        self, handle: ContinuousSessionHandleV1
+    ) -> bool: ...
+
 
 class InMemoryContinuousStoredSessionPort:
     """Provider-free stored-thread seam with physical-thread continuity."""
@@ -488,6 +640,18 @@ class InMemoryContinuousStoredSessionPort:
         self._valid.discard(handle.provider_thread_id)
         self.operations.append(("archive", handle.provider_thread_id_sha256))
 
+    def selectable_as_active_or_accepted_ancestry(
+        self, handle: ContinuousSessionHandleV1
+    ) -> bool:
+        selectable = handle.provider_thread_id in self._valid
+        self.operations.append(
+            (
+                "selectable" if selectable else "not_selectable",
+                handle.provider_thread_id_sha256,
+            )
+        )
+        return selectable
+
     def append_context(self, handle: ContinuousSessionHandleV1, text: str) -> None:
         if handle.provider_thread_id not in self._valid:
             raise StateConflictError("continuous session is unavailable")
@@ -506,13 +670,73 @@ class ContinuousSessionCoordinator:
     handle: ContinuousSessionHandleV1 | None = None
     _events: list[ContinuousContextEventV1] = field(default_factory=list)
     _accepted_envelopes: dict[str, str] = field(default_factory=dict)
+    _terminally_archived: bool = False
 
     def ensure_session(self) -> ContinuousSessionHandleV1:
+        if self._terminally_archived:
+            raise StateConflictError("continuous provider session is terminally archived")
         if self.handle is None:
             self.handle = self.port.create(self.compatibility)
         elif not self.port.resume(self.handle):
             raise StateConflictError("continuous provider session cannot be resumed")
         return self.handle
+
+    def archive_and_verify_terminal(
+        self, reason: str
+    ) -> ContinuousThreadArchiveEvidenceV1:
+        """Archive once and prove both provider and local ancestry isolation.
+
+        The coordinator is invalidated before the request.  Even a failed
+        provider archive can therefore never make this object select the old
+        handle as accepted ancestry again.  Provider request, resume, and
+        active-selection failures are represented explicitly rather than
+        being mistaken for successful archival.
+        """
+
+        if self._terminally_archived:
+            raise StateConflictError("continuous provider session was already archived")
+        if self.handle is None:
+            raise StateConflictError("continuous provider session was never created")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ContractValidationError("continuous archive reason is required")
+        handle = self.handle
+        self._terminally_archived = True
+
+        archive_completed = False
+        resume_succeeded: bool | None = None
+        backend_selectable: bool | None = None
+        archive_error: str | None = None
+        resume_error: str | None = None
+        selection_error: str | None = None
+        try:
+            self.port.archive(handle, reason)
+            archive_completed = True
+        except BaseException as exc:
+            archive_error = type(exc).__name__
+        if archive_completed:
+            try:
+                resume_succeeded = self.port.resume(handle)
+            except BaseException as exc:
+                resume_error = type(exc).__name__
+            try:
+                backend_selectable = (
+                    self.port.selectable_as_active_or_accepted_ancestry(handle)
+                )
+            except BaseException as exc:
+                selection_error = type(exc).__name__
+
+        return ContinuousThreadArchiveEvidenceV1(
+            role=self.compatibility.role,
+            provider_thread_id_sha256=handle.provider_thread_id_sha256,
+            archive_reason_sha256=text_sha256(reason),
+            archive_request_completed=archive_completed,
+            resume_succeeded_after_archive=resume_succeeded,
+            backend_selectable_after_archive=backend_selectable,
+            coordinator_selectable_as_accepted_ancestry=False,
+            archive_error_type=archive_error,
+            resume_error_type=resume_error,
+            selection_error_type=selection_error,
+        )
 
     def record_planner_provisional(self, turn_id: str, sequence_sha256: str) -> None:
         if self.compatibility.role is not ContinuousSessionRole.PLANNER:

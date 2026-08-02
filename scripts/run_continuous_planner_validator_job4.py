@@ -75,6 +75,7 @@ from cera.continuous.sessions import (
     ContinuousSessionCompatibilityV1,
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
+    ContinuousThreadArchiveEvidenceV1,
     InMemoryContinuousStoredSessionPort,
     assert_separate_role_sessions,
 )
@@ -463,6 +464,97 @@ class ProCorrectionStop(RuntimeError):
 
 class _ScriptedExecutionComplete(RuntimeError):
     """Internal non-error jump from the isolated scripted branch to cleanup."""
+
+
+_PROVIDER_FREE_TEST_FAILPOINTS = frozenset(
+    {
+        "source_hash",
+        "disposable_copy",
+        "sqlite_open",
+        "sqlite_integrity",
+        "sqlite_foreign_keys",
+        "call_ledger_construction",
+        "world_construction",
+        "world_seeding",
+        "lifecycle_directory",
+        "active_profile",
+        "sdk_import_pre_submission",
+        "account_inspection_pre_submission",
+        "backend_construction_pre_submission",
+        "session_construction_pre_submission",
+        "stored_thread_construction_pre_submission",
+        "archive_request",
+        "archive_non_resumability",
+        "archive_active_selection",
+        "accepted_session_synchronization",
+        "accepted_final_sequence_injection",
+        "detail_serialization",
+        "terminal_evidence_serialization",
+        "report_construction",
+        "canonical_projection",
+        "result_serialization",
+        "result_write",
+        "publication_commit_marker",
+    }
+)
+
+
+class _ProviderFreeTestFaultInjector:
+    """One-shot CLI cut points for provider-free lifecycle tests only."""
+
+    def __init__(self, selected: str | None) -> None:
+        if selected is not None and selected not in _PROVIDER_FREE_TEST_FAILPOINTS:
+            raise ValueError("provider-free Job 4 failpoint is unsupported")
+        self.selected = selected
+        self.consumed = False
+
+    def hit(self, name: str) -> None:
+        if self.selected == name and not self.consumed:
+            self.consumed = True
+            raise RuntimeError(f"provider-free Job 4 injected failure: {name}")
+
+
+class _FaultInjectedContinuousSessionPort(InMemoryContinuousStoredSessionPort):
+    """Narrow scripted seam for archive and injection failure qualification."""
+
+    def __init__(self, injector: _ProviderFreeTestFaultInjector) -> None:
+        super().__init__()
+        self.injector = injector
+
+    @staticmethod
+    def _planner(handle: Any) -> bool:
+        return "-planner-" in handle.provider_thread_id
+
+    def archive(self, handle: Any, reason: str) -> None:
+        if self._planner(handle):
+            self.injector.hit("archive_request")
+        super().archive(handle, reason)
+
+    def resume(self, handle: Any) -> bool:
+        if (
+            self._planner(handle)
+            and self.injector.selected == "archive_non_resumability"
+            and not self.injector.consumed
+            and handle.provider_thread_id not in self._valid
+        ):
+            self.injector.consumed = True
+            return True
+        return super().resume(handle)
+
+    def selectable_as_active_or_accepted_ancestry(self, handle: Any) -> bool:
+        if (
+            self._planner(handle)
+            and self.injector.selected == "archive_active_selection"
+            and not self.injector.consumed
+        ):
+            self.injector.consumed = True
+            return True
+        return super().selectable_as_active_or_accepted_ancestry(handle)
+
+    def append_context(self, handle: Any, text: str) -> None:
+        if self._planner(handle):
+            self.injector.hit("accepted_final_sequence_injection")
+        super().append_context(handle, text)
 
 
 class _HarnessPlannerPort:
@@ -971,6 +1063,7 @@ def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
         f"- Separate threads: `{result.get('separate_thread_ids')}`.",
         f"- Codex continuity hashes verified: `{result.get('continuous_thread_hashes_verified')}`.",
         f"- Stored threads archived: `{result.get('thread_archival')}`.",
+        f"- Stored-thread archive evidence: `{result.get('thread_archival_evidence')}`.",
         "",
         "## Calls",
         "",
@@ -1065,6 +1158,21 @@ def build_canonical_job4_result(
         terminal.postconditions.thread_archival
     ):
         raise ValueError("thread archival summary contradicts terminal evidence")
+    archival_evidence = result.get("thread_archival_evidence")
+    if archival_evidence is not None:
+        if not isinstance(archival_evidence, dict) or set(archival_evidence) != {
+            "planner",
+            "validator",
+        }:
+            raise ValueError("thread archival evidence is malformed")
+        for role, verified in terminal.postconditions.thread_archival.items():
+            evidence = ContinuousThreadArchiveEvidenceV1.from_dict(
+                archival_evidence.get(role)
+            )
+            if evidence.role.value != role or evidence.verified is not verified:
+                raise ValueError(
+                    "thread archival evidence contradicts postconditions"
+                )
     status = terminal.status
     provider_calls = effects["provider_calls"]
     scripted_invocations = terminal.postconditions.scripted_transport_invocations
@@ -1260,6 +1368,7 @@ def execute_scripted_job4(
     call_ledger: ContinuousProviderCallLedger,
     root_diagnostic: ContinuousRootDiagnosticRecorder,
     result: dict[str, Any],
+    fault_injector: _ProviderFreeTestFaultInjector,
     harness_holder: dict[str, JobHarness] | None = None,
 ) -> JobHarness:
     """Cross the actual executable path with closed local transports only."""
@@ -1269,7 +1378,7 @@ def execute_scripted_job4(
         "verify_repository_controlled_shadow_ingress",
         lambda: verify_prepared_shadow_ingress(lifecycle_root),
     )
-    session_port = InMemoryContinuousStoredSessionPort()
+    session_port = _FaultInjectedContinuousSessionPort(fault_injector)
     planner_session = root_diagnostic.run(
         "session_construction",
         "construct_scripted_planner_session",
@@ -1331,14 +1440,18 @@ def execute_scripted_job4(
         )
     finally:
         archived: dict[str, bool] = {}
+        archival_evidence: dict[str, dict[str, object]] = {}
         for role, coordinator in (
             ("planner", planner_session),
             ("validator", validator_session),
         ):
-            handle = coordinator.ensure_session()
-            session_port.archive(handle, "provider_free_job4_complete")
-            archived[role] = not session_port.resume(handle)
+            evidence = coordinator.archive_and_verify_terminal(
+                "provider_free_job4_complete"
+            )
+            archival_evidence[role] = evidence.to_dict()
+            archived[role] = evidence.verified
         result["thread_archival"] = archived
+        result["thread_archival_evidence"] = archival_evidence
         if not all(archived.values()):
             raise RuntimeError("scripted canary thread archival failed")
     return harness
@@ -1444,16 +1557,44 @@ def _freeze_terminal_publication(
     *,
     task_id: str,
     recovery_terminalization: bool,
+    fault_injector: _ProviderFreeTestFaultInjector | None = None,
 ) -> dict[str, Any]:
+    if fault_injector is None:
+        fault_injector = _ProviderFreeTestFaultInjector(None)
+    publication_cut = (
+        fault_injector.selected
+        if fault_injector.selected in {"result_write", "publication_commit_marker"}
+        and not fault_injector.consumed
+        else None
+    )
+    if publication_cut is not None:
+        _record_terminal_failure(
+            result,
+            RuntimeError(f"injected terminal publication cut: {publication_cut}"),
+            stage=publication_cut,
+            message="Terminal publication cut was frozen as a failed one-shot result.",
+        )
+        terminal = decode_continuous_job4_terminal_evidence(
+            result["terminal_evidence"]
+        )
+        _apply_terminal_evidence(
+            result,
+            terminal=rebuild_failed_continuous_job4_terminal_evidence(terminal),
+        )
     try:
+        fault_injector.hit("terminal_evidence_serialization")
+        fault_injector.hit("report_construction")
         report = build_report(result, task_id=task_id)
         report_bytes = report.encode("utf-8")
+        fault_injector.hit("canonical_projection")
         canonical_result = build_canonical_job4_result(
             result,
             task_id=task_id,
             report_sha256=bytes_sha256(report_bytes),
         )
+        fault_injector.hit("detail_serialization")
         detail_bytes = canonical_bytes(result) + b"\n"
+        fault_injector.hit("result_serialization")
         result_bytes = canonical_bytes(canonical_result) + b"\n"
     except BaseException as exc:
         _record_terminal_failure(
@@ -1495,7 +1636,9 @@ def _freeze_terminal_publication(
         result_bytes=result_bytes,
         recovery_terminalization=recovery_terminalization,
     )
-    transaction.publish_frozen()
+    if publication_cut is not None:
+        fault_injector.consumed = True
+    transaction.publish_frozen(test_cut_point=publication_cut)
     return canonical_result
 
 
@@ -1561,6 +1704,10 @@ def main() -> int:
     parser.add_argument("--expected-task-id", required=True)
     parser.add_argument("--expected-authorization-sha256", required=True)
     parser.add_argument("--maximum-provider-calls", type=int, required=True)
+    parser.add_argument(
+        "--provider-free-test-failpoint",
+        choices=sorted(_PROVIDER_FREE_TEST_FAILPOINTS),
+    )
     args = parser.parse_args()
     scripted_provider_free = (
         args.confirm_provider_free_scripted_v7
@@ -1579,8 +1726,20 @@ def main() -> int:
             parser.error(
                 "--expected-scripted-fixture-sha256 must match the frozen v7 fixture"
             )
+        if args.provider_free_test_failpoint is not None and (
+            not args.confirm_provider_free_scripted_v8
+            or args.maximum_provider_calls != 10
+        ):
+            parser.error(
+                "provider-free test failpoints require scripted v8 and the ten-stage ceiling"
+            )
     elif args.expected_scripted_fixture_sha256 is not None:
         parser.error("scripted fixture identity is forbidden in live mode")
+    elif args.provider_free_test_failpoint is not None:
+        parser.error("provider-free test failpoints are forbidden in live mode")
+    fault_injector = _ProviderFreeTestFaultInjector(
+        args.provider_free_test_failpoint
+    )
     cycle = args.cycle_directory.resolve()
     source_db = args.source_database.resolve()
     runtime_root = args.runtime_root.resolve()
@@ -1716,16 +1875,19 @@ def main() -> int:
                     "source_database", "inspect_source_database", error
                 )
                 raise error
+            fault_injector.hit("call_ledger_construction")
             call_ledger = ContinuousProviderCallLedger(
                 runtime_root / "PROVIDER_CALL_LEDGER.jsonl",
                 maximum_calls=args.maximum_provider_calls,
             )
+            fault_injector.hit("source_hash")
             source_hash_before = root_diagnostic.run(
                 "source_database",
                 "hash_source_database",
                 lambda: bytes_sha256(source_db.read_bytes()),
             )
             result["source_database_sha256_before"] = source_hash_before
+            fault_injector.hit("disposable_copy")
             root_diagnostic.run(
                 "source_database",
                 "copy_disposable_database",
@@ -1737,6 +1899,7 @@ def main() -> int:
                 lambda: bytes_sha256(copied_db.read_bytes()),
             )
             result["copy_database_sha256_before"] = copy_hash_before
+            fault_injector.hit("sqlite_open")
             connection = root_diagnostic.run(
                 "source_database",
                 "open_disposable_database_read_only",
@@ -1745,11 +1908,13 @@ def main() -> int:
                 ),
             )
             try:
+                fault_injector.hit("sqlite_integrity")
                 integrity = root_diagnostic.run(
                     "source_database",
                     "check_disposable_database_integrity",
                     lambda: connection.execute("PRAGMA integrity_check").fetchone()[0],
                 )
+                fault_injector.hit("sqlite_foreign_keys")
                 foreign_keys = root_diagnostic.run(
                     "source_database",
                     "check_disposable_database_foreign_keys",
@@ -1767,21 +1932,25 @@ def main() -> int:
                     connection.close()
             result["copy_database_integrity"] = integrity
             result["copy_database_foreign_key_findings"] = foreign_key_count
+            fault_injector.hit("world_construction")
             world = root_diagnostic.run(
                 "world_construction",
                 "construct_continuous_world_store",
                 lambda: ContinuousWorldStore(runtime_root / "worlds"),
             )
+            fault_injector.hit("world_seeding")
             root_diagnostic.run(
                 "world_seeding", "seed_disposable_world", lambda: seed_world(world, ROOT)
             )
             branch_root = world.branch_root(WORLD_ID, BRANCH_ID)
+            fault_injector.hit("lifecycle_directory")
             root_diagnostic.run(
                 "lifecycle_directory",
                 "create_provider_workspace_root",
                 lifecycle_root.mkdir,
             )
             try:
+                fault_injector.hit("active_profile")
                 active_runtime_before = root_diagnostic.run(
                     "active_profile",
                     "inspect_active_runtime_profile",
@@ -1798,6 +1967,14 @@ def main() -> int:
                     "active runtime profile inspection failed before Job 4"
                 )
             if scripted_provider_free:
+                for pre_submission_failpoint in (
+                    "sdk_import_pre_submission",
+                    "account_inspection_pre_submission",
+                    "backend_construction_pre_submission",
+                    "session_construction_pre_submission",
+                    "stored_thread_construction_pre_submission",
+                ):
+                    fault_injector.hit(pre_submission_failpoint)
                 harness = execute_scripted_job4(
                     cycle=cycle,
                     world=world,
@@ -1805,8 +1982,14 @@ def main() -> int:
                     call_ledger=call_ledger,
                     root_diagnostic=root_diagnostic,
                     result=result,
+                    fault_injector=fault_injector,
                     harness_holder=scripted_harness_holder,
                 )
+                if args.provider_free_test_failpoint == (
+                    "accepted_session_synchronization"
+                ):
+                    result["accepted_session_synchronized"] = False
+                fault_injector.hit("accepted_session_synchronization")
                 planner_handle = harness.planner_handle
                 validator_handle = harness.validator_handle
                 raise _ScriptedExecutionComplete()
@@ -1926,21 +2109,19 @@ def main() -> int:
                     )
                 finally:
                     archived: dict[str, bool] = {}
-                    archive_failed = False
-                    for role, backend, handle in (
-                        ("planner", planner_backend, planner_handle),
-                        ("validator", validator_backend, validator_handle),
+                    archival_evidence: dict[str, dict[str, object]] = {}
+                    for role, coordinator in (
+                        ("planner", planner_session),
+                        ("validator", validator_session),
                     ):
-                        if handle is None:
-                            continue
-                        try:
-                            backend.archive_stored_thread(handle)
-                            archived[role] = True
-                        except Exception:
-                            archived[role] = False
-                            archive_failed = True
+                        evidence = coordinator.archive_and_verify_terminal(
+                            "live_job4_complete"
+                        )
+                        archival_evidence[role] = evidence.to_dict()
+                        archived[role] = evidence.verified
                     result["thread_archival"] = archived
-                    if archive_failed:
+                    result["thread_archival_evidence"] = archival_evidence
+                    if not all(archived.values()):
                         raise RuntimeError("stored canary thread archival failed")
         except _ScriptedExecutionComplete:
             pass
@@ -2042,6 +2223,9 @@ def main() -> int:
     }:
         thread_archival = {"planner": False, "validator": False}
         result["thread_archival"] = thread_archival
+    thread_archival_evidence = result.get("thread_archival_evidence")
+    if not isinstance(thread_archival_evidence, dict):
+        result["thread_archival_evidence"] = {}
     result["accepted_final_sequences_injected"] = (
         len(result.get("turns", [])) == 3
         and all(
@@ -2102,6 +2286,7 @@ def main() -> int:
         result,
         task_id=args.expected_task_id,
         recovery_terminalization=recovery_terminalization,
+        fault_injector=fault_injector,
     )
     return 0 if canonical_result["status"] == "completed" else 1
 
