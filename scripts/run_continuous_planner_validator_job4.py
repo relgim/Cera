@@ -493,7 +493,9 @@ _PROVIDER_FREE_TEST_FAILPOINTS = frozenset(
         "report_construction",
         "canonical_projection",
         "result_serialization",
+        "report_write",
         "result_write",
+        "terminal_artifact_write",
         "publication_commit_marker",
     }
 )
@@ -1551,19 +1553,26 @@ def _emergency_canonical_result(
     }
 
 
-def _freeze_terminal_publication(
+def freeze_terminal_publication(
     transaction: ContinuousJob4TerminalTransactionV1,
     result: dict[str, Any],
     *,
     task_id: str,
     recovery_terminalization: bool,
     fault_injector: _ProviderFreeTestFaultInjector | None = None,
+    report_builder: Callable[[dict[str, Any], str], str] | None = None,
 ) -> dict[str, Any]:
     if fault_injector is None:
         fault_injector = _ProviderFreeTestFaultInjector(None)
     publication_cut = (
         fault_injector.selected
-        if fault_injector.selected in {"result_write", "publication_commit_marker"}
+        if fault_injector.selected
+        in {
+            "report_write",
+            "result_write",
+            "terminal_artifact_write",
+            "publication_commit_marker",
+        }
         and not fault_injector.consumed
         else None
     )
@@ -1583,8 +1592,18 @@ def _freeze_terminal_publication(
         )
     try:
         fault_injector.hit("terminal_evidence_serialization")
+        terminal = decode_continuous_job4_terminal_evidence(
+            result["terminal_evidence"]
+        )
+        terminal_evidence_bytes = canonical_bytes(terminal.to_dict())
+        if bytes_sha256(terminal_evidence_bytes) != terminal.sha256:
+            raise RuntimeError("terminal evidence byte identity changed before freeze")
         fault_injector.hit("report_construction")
-        report = build_report(result, task_id=task_id)
+        report = (
+            build_report(result, task_id=task_id)
+            if report_builder is None
+            else report_builder(result, task_id)
+        )
         report_bytes = report.encode("utf-8")
         fault_injector.hit("canonical_projection")
         canonical_result = build_canonical_job4_result(
@@ -1623,12 +1642,7 @@ def _freeze_terminal_publication(
         )
         detail_bytes = canonical_bytes(result) + b"\n"
         result_bytes = canonical_bytes(canonical_result) + b"\n"
-    terminal = decode_continuous_job4_terminal_evidence(
-        result["terminal_evidence"]
-    )
-    terminal_evidence_bytes = canonical_bytes(terminal.to_dict())
-    if bytes_sha256(terminal_evidence_bytes) != terminal.sha256:
-        raise RuntimeError("terminal evidence byte identity changed before freeze")
+        terminal_evidence_bytes = canonical_bytes(failed_terminal.to_dict())
     transaction.freeze(
         detail_bytes=detail_bytes,
         terminal_evidence_bytes=terminal_evidence_bytes,
@@ -1640,6 +1654,11 @@ def _freeze_terminal_publication(
         fault_injector.consumed = True
     transaction.publish_frozen(test_cut_point=publication_cut)
     return canonical_result
+
+
+# Historical tests and repository consumers imported the private name before
+# this became the shared correction-runner publication path.
+_freeze_terminal_publication = freeze_terminal_publication
 
 
 def _recovered_ledger_counts(path: Path, *, scripted: bool) -> tuple[int, int, int]:
@@ -2281,7 +2300,7 @@ def main() -> int:
         postconditions=postconditions,
     )
     _apply_terminal_evidence(result, terminal=terminal)
-    canonical_result = _freeze_terminal_publication(
+    canonical_result = freeze_terminal_publication(
         transaction,
         result,
         task_id=args.expected_task_id,

@@ -2,13 +2,13 @@
 
 **Status:** controlling index
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-197 provider-free continuous Planner/Validator correction cycle 010; D-180 remains active
+**Phase:** D-199 provider-free continuous Planner/Validator correction cycle 012 Progression 1; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** D-197 complete repository suite passes 773/773 in 315.785 seconds with one expected environment-dependent skip; zero external provider calls
+**Provider-free current verification:** D-199 V12 exact-runner transaction and recovery gates pass; zero external provider calls; complete-suite qualification remains in Progression 3
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page
@@ -107,6 +107,7 @@ the active D-180 route.
 | `CONTINUOUS_SHORT_CANARY_V10_SPEC.md` | Creator-authorized conditional live-canary-002 contract; dispatch remains gated by accepted Cycle 010 and Stage B publication |
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_011_RESULT.md` | D-198 root terminal ownership, immutable terminal/capability custody, verified archival, actual-CLI failure matrix, and provider-free publication readiness |
 | `CONTINUOUS_SHORT_CANARY_V11_SPEC.md` | Frozen live-canary-002 contract after Cycle 011 provider-free lifecycle qualification; not dispatch authority |
+| `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_012_RESULT.md` | D-199 exact Stage 4 transaction ownership and the pending V12 archival/capability corrections |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |
 | `ROADMAP_AND_GATE.md` | Ordered implementation plan and authorization gates |
 | `CREATOR_REVIEW_PRESENTATION_V1_RESULT.md` | Active severity colors, Adjustment label, False Positive acceptance, and CERA-owned character-color presentation |

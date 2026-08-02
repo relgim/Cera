@@ -348,7 +348,13 @@ class ContinuousJob4TerminalTransactionV1:
         return publication
 
     def publish_frozen(self, *, test_cut_point: str | None = None) -> dict[str, Any]:
-        if test_cut_point not in {None, "result_write", "publication_commit_marker"}:
+        if test_cut_point not in {
+            None,
+            "report_write",
+            "result_write",
+            "terminal_artifact_write",
+            "publication_commit_marker",
+        }:
             raise ContinuousJob4TransactionError(
                 "terminal publication test cut point is invalid"
             )
@@ -364,12 +370,20 @@ class ContinuousJob4TerminalTransactionV1:
         terminal_evidence_path = (
             self.cycle_directory / "source" / "JOB4_TERMINAL_EVIDENCE.json"
         )
+        if test_cut_point == "report_write":
+            raise ContinuousJob4TransactionError(
+                "injected terminal publication report-write cut point"
+            )
         _atomic_immutable_write(report_path, report_bytes)
         if test_cut_point == "result_write":
             raise ContinuousJob4TransactionError(
                 "injected terminal publication result-write cut point"
             )
         _atomic_immutable_write(result_path, result_bytes)
+        if test_cut_point == "terminal_artifact_write":
+            raise ContinuousJob4TransactionError(
+                "injected terminal publication terminal-artifact cut point"
+            )
         _atomic_immutable_write(terminal_evidence_path, terminal_evidence_bytes)
         detail_published = False
         try:

@@ -1000,6 +1000,22 @@ later canary boundary is frozen in `CONTINUOUS_SHORT_CANARY_V11_SPEC.md`; it is
 not provider-dispatch authority. Cycle 011 publication and its provider-free
 Stage 4 audit remain the next governed gate.
 
+D-199 is correction cycle 012 under the same creator-authorized continuous-work
+queue. Progression 1, `continuous-stage4-runner-terminal-transaction-v12`,
+moves the exact correction-cycle Stage 4 audit executable onto the shared
+`ContinuousJob4TerminalTransactionV1` before authority reads, unittest
+preflight/load/run/result collection, active-profile checks, and SQLite
+inspection. The runner has no direct canonical artifact-write path. Shared
+frozen publication owns audit report construction, terminal/result
+serialization, canonical projection, report/result/terminal writes, and the
+commit marker. Seventeen exact failure boundaries, started/frozen recovery,
+real completion/recovery, and committed rerun refusal are qualified
+provider-free. Progressions 2 and 3 must still add immutable per-role archival
+DTO custody and an enforceable process capability boundary before Cycle 012
+publication. D-180 remains active; no provider, live-story, production
+database, route, service, installed-client, deployment, merge, remote, or push
+effect is authorized.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

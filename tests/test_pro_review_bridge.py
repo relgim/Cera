@@ -30,10 +30,16 @@ from cera.continuous.job4_terminal import (  # noqa: E402
     ContinuousJob4PostconditionsV1,
     ContinuousJob4TerminalEvidenceV1,
 )
+from cera.continuous.job4_transaction import (  # noqa: E402
+    ContinuousJob4TerminalTransactionV1,
+)
 from cera.serialization import canonical_bytes  # noqa: E402
 from scripts.run_continuous_planner_validator_job4 import (  # noqa: E402
     build_canonical_job4_result,
     build_report,
+)
+from scripts.run_continuous_corrections_v12_job4 import (  # noqa: E402
+    TEST_FIXTURE_SHA256 as CORRECTIONS_V12_TEST_FIXTURE_SHA256,
 )
 
 
@@ -1024,7 +1030,9 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             ("report_construction", "report_construction", True),
             ("canonical_projection", "canonical_projection", True),
             ("result_serialization", "result_serialization", True),
+            ("report_write", "report_write", True),
             ("result_write", "result_write", True),
+            ("terminal_artifact_write", "terminal_artifact_write", True),
             ("commit_marker", "publication_commit_marker", True),
         )
         project_head = subprocess.run(
@@ -1098,7 +1106,12 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                     check=False,
                 )
                 self.assertEqual(first.returncode, 1, first.stdout + first.stderr)
-                if failpoint in {"result_write", "publication_commit_marker"}:
+                if failpoint in {
+                    "report_write",
+                    "result_write",
+                    "terminal_artifact_write",
+                    "publication_commit_marker",
+                }:
                     recovered_publication = subprocess.run(
                         command,
                         cwd=PROJECT_ROOT,
@@ -1116,6 +1129,9 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                 result_path = self.source / "JOB4_RESULT.json"
                 report_path = self.source / "JOB4_REPORT.md"
                 terminal_path = self.source / "JOB4_TERMINAL_EVIDENCE.json"
+                self.assertTrue(
+                    result_path.is_file(), first.stdout + first.stderr
+                )
                 result = json.loads(result_path.read_text(encoding="utf-8"))
                 terminal = json.loads(terminal_path.read_text(encoding="utf-8"))
                 self.assertEqual(result["status"], "failed")
@@ -1175,6 +1191,279 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                 )
                 self.assertEqual(
                     recovered["state"], review_cycle.STATE_RESPONSE_PENDING
+                )
+
+    def test_28j_v12_exact_correction_runner_failure_matrix(self) -> None:
+        cases = (
+            "unittest_preflight",
+            "active_profile_before",
+            "unittest_loading",
+            "unittest_execution",
+            "unittest_result_collection",
+            "active_profile_after",
+            "sqlite_inspection",
+            "terminal_evidence_construction",
+            "terminal_evidence_serialization",
+            "report_construction",
+            "canonical_projection",
+            "detail_serialization",
+            "result_serialization",
+            "report_write",
+            "result_write",
+            "terminal_artifact_write",
+            "publication_commit_marker",
+        )
+        publication_cuts = {
+            "report_write",
+            "result_write",
+            "terminal_artifact_write",
+            "publication_commit_marker",
+        }
+        project_head = subprocess.run(
+            ["git", "-C", str(PROJECT_ROOT), "rev-parse", "HEAD"],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+
+        for index, failpoint in enumerate(cases):
+            if index:
+                self.temporary.cleanup()
+                self.setUp()
+            with self.subTest(case=failpoint):
+                self.publish()
+                self.record_trigger()
+                source_database = self.root / "runtime" / "source.sqlite3"
+                source_database.parent.mkdir()
+                connection = sqlite3.connect(source_database)
+                try:
+                    connection.execute("CREATE TABLE qualification(value TEXT)")
+                    connection.execute(
+                        "INSERT INTO qualification VALUES ('unchanged')"
+                    )
+                    connection.commit()
+                finally:
+                    connection.close()
+                manifest = json.loads(
+                    (self.cycle / "CYCLE_MANIFEST.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                runtime = self.root / "runtime" / "corrections-v12"
+                command = [
+                    sys.executable,
+                    str(
+                        PROJECT_ROOT
+                        / "scripts"
+                        / "run_continuous_corrections_v12_job4.py"
+                    ),
+                    "--cycle-directory",
+                    str(self.cycle),
+                    "--source-database",
+                    str(source_database),
+                    "--runtime-root",
+                    str(runtime),
+                    "--expected-checkpoint-sha",
+                    project_head,
+                    "--expected-cycle-id",
+                    self.cycle_id,
+                    "--expected-task-id",
+                    self.job4_task_id,
+                    "--expected-authorization-sha256",
+                    manifest["job4"]["authorization_record_sha256"],
+                    "--provider-free-test-fixture-sha256",
+                    CORRECTIONS_V12_TEST_FIXTURE_SHA256,
+                    "--provider-free-test-failpoint",
+                    failpoint,
+                ]
+
+                first = subprocess.run(
+                    command,
+                    cwd=PROJECT_ROOT,
+                    text=True,
+                    capture_output=True,
+                    timeout=120,
+                    check=False,
+                )
+                self.assertEqual(first.returncode, 1, first.stdout + first.stderr)
+                if failpoint in publication_cuts:
+                    recovered_publication = subprocess.run(
+                        command,
+                        cwd=PROJECT_ROOT,
+                        text=True,
+                        capture_output=True,
+                        timeout=120,
+                        check=False,
+                    )
+                    self.assertEqual(
+                        recovered_publication.returncode,
+                        1,
+                        recovered_publication.stdout
+                        + recovered_publication.stderr,
+                    )
+
+                result_path = self.source / "JOB4_RESULT.json"
+                report_path = self.source / "JOB4_REPORT.md"
+                terminal_path = self.source / "JOB4_TERMINAL_EVIDENCE.json"
+                self.assertTrue(
+                    result_path.is_file(), first.stdout + first.stderr
+                )
+                result = json.loads(result_path.read_text(encoding="utf-8"))
+                terminal = json.loads(terminal_path.read_text(encoding="utf-8"))
+                self.assertEqual(result["status"], "failed")
+                self.assertEqual(result["effects"]["provider_calls"], 0)
+                self.assertEqual(
+                    result["effects"],
+                    terminal["effect_evidence"]["canonical_effects"],
+                )
+                immutable_hashes = tuple(
+                    self._hash(path)
+                    for path in (result_path, report_path, terminal_path)
+                )
+                self.assertTrue(
+                    (
+                        self.cycle
+                        / "transaction"
+                        / "job4"
+                        / "JOB4_PUBLICATION_COMMITTED.json"
+                    ).is_file()
+                )
+
+                refused = subprocess.run(
+                    command,
+                    cwd=PROJECT_ROOT,
+                    text=True,
+                    capture_output=True,
+                    timeout=120,
+                    check=False,
+                )
+                self.assertNotEqual(refused.returncode, 0)
+                self.assertEqual(
+                    immutable_hashes,
+                    tuple(
+                        self._hash(path)
+                        for path in (result_path, report_path, terminal_path)
+                    ),
+                )
+
+                state = review_cycle.complete_job4(
+                    self.cycle,
+                    stability_delay_milliseconds=0,
+                    repository_root_path=self.root,
+                )
+                self.assertEqual(
+                    state["state"], review_cycle.STATE_RESPONSE_PENDING
+                )
+                recovered = review_cycle.recover_cycle(
+                    self.cycle, repository_root_path=self.root
+                )
+                self.assertEqual(
+                    recovered["state"], review_cycle.STATE_RESPONSE_PENDING
+                )
+
+    def test_28k_v12_exact_runner_success_and_started_recovery(self) -> None:
+        project_head = subprocess.run(
+            ["git", "-C", str(PROJECT_ROOT), "rev-parse", "HEAD"],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+
+        for started_recovery in (False, True):
+            if started_recovery:
+                self.temporary.cleanup()
+                self.setUp()
+            with self.subTest(started_recovery=started_recovery):
+                self.publish()
+                self.record_trigger()
+                source_database = self.root / "runtime" / "source.sqlite3"
+                source_database.parent.mkdir()
+                connection = sqlite3.connect(source_database)
+                try:
+                    connection.execute("CREATE TABLE qualification(value TEXT)")
+                    connection.commit()
+                finally:
+                    connection.close()
+                runtime = self.root / "runtime" / "corrections-v12"
+                manifest = json.loads(
+                    (self.cycle / "CYCLE_MANIFEST.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                authorization = manifest["job4"]["authorization_record_sha256"]
+                if started_recovery:
+                    ContinuousJob4TerminalTransactionV1.begin(
+                        cycle_directory=self.cycle,
+                        cycle_id=self.cycle_id,
+                        task_id=self.job4_task_id,
+                        authorization_sha256=authorization,
+                        runtime_root=runtime,
+                    )
+                command = [
+                    sys.executable,
+                    str(
+                        PROJECT_ROOT
+                        / "scripts"
+                        / "run_continuous_corrections_v12_job4.py"
+                    ),
+                    "--cycle-directory",
+                    str(self.cycle),
+                    "--source-database",
+                    str(source_database),
+                    "--runtime-root",
+                    str(runtime),
+                    "--expected-checkpoint-sha",
+                    project_head,
+                    "--expected-cycle-id",
+                    self.cycle_id,
+                    "--expected-task-id",
+                    self.job4_task_id,
+                    "--expected-authorization-sha256",
+                    authorization,
+                    "--provider-free-test-fixture-sha256",
+                    CORRECTIONS_V12_TEST_FIXTURE_SHA256,
+                ]
+                completed = subprocess.run(
+                    command,
+                    cwd=PROJECT_ROOT,
+                    text=True,
+                    capture_output=True,
+                    timeout=120,
+                    check=False,
+                )
+                self.assertEqual(
+                    completed.returncode,
+                    1 if started_recovery else 0,
+                    completed.stdout + completed.stderr,
+                )
+                result = json.loads(
+                    (self.source / "JOB4_RESULT.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                detail = json.loads(
+                    (runtime / "JOB4_DETAIL.json").read_text(encoding="utf-8")
+                )
+                self.assertEqual(
+                    result["status"], "failed" if started_recovery else "completed"
+                )
+                self.assertEqual(result["effects"]["provider_calls"], 0)
+                self.assertEqual(detail["scripted_transport_invocations"], 0)
+                if started_recovery:
+                    self.assertEqual(detail["failure"]["stage"], "restart_recovery")
+                    self.assertEqual(detail["preflight_resolved_tests"], 0)
+                    self.assertTrue(
+                        detail["root_terminal_transaction"][
+                            "recovery_terminalization"
+                        ]
+                    )
+                state = review_cycle.complete_job4(
+                    self.cycle,
+                    stability_delay_milliseconds=0,
+                    repository_root_path=self.root,
+                )
+                self.assertEqual(
+                    state["state"], review_cycle.STATE_RESPONSE_PENDING
                 )
 
     def test_28e_complete_job4_rejects_legacy_canary_fields(self) -> None:
