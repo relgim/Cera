@@ -264,9 +264,9 @@ class ContinuousV3ExecutableReadinessTests(unittest.TestCase):
         self.assertTrue(HISTORICAL_V1_ROOT.is_dir())
         self.assertTrue(SOURCE_DATABASE.is_file())
         historical_before = _tree_hashes(HISTORICAL_V1_ROOT)
-        with TemporaryDirectory(prefix="cera-v3-ready-") as temporary:
+        with TemporaryDirectory(prefix="c3-ready-", dir="D:\\") as temporary:
             temporary_root = Path(temporary)
-            clone = temporary_root / ("repository-" + "r" * 24)
+            clone = temporary_root / "r"
             cloned = subprocess.run(
                 [
                     "git",
