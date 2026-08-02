@@ -53,6 +53,7 @@ from cera.serialization import (
     text_sha256,
 )
 from cera.sillytavern.campaign import (
+    CAMPAIGN_TOTAL_CALL_CEILING,
     CONTINUOUS_V3_CALL_SCHEDULE,
     CONTINUOUS_V3_RUN_IDENTITIES,
     CampaignRunRecord,
@@ -151,6 +152,295 @@ def _call_owner(label: str) -> str:
     raise ValueError(f"unsupported campaign call label: {label}")
 
 
+def _provider_invocation_prefix(
+    ledger_path: Path,
+) -> tuple[tuple[str, ...], tuple[dict[str, Any], ...]]:
+    """Recover the conservative consumed-call prefix from a child ledger."""
+
+    if not ledger_path.is_file():
+        return (), ()
+    events = read_jsonl(ledger_path)
+    events_by_call: dict[str, list[dict[str, Any]]] = {}
+    call_order: list[str] = []
+    for expected_index, event in enumerate(events, start=1):
+        call_id = event.get("call_id")
+        if (
+            not isinstance(call_id, str)
+            or not call_id
+            or event.get("event_index") != expected_index
+            or not isinstance(event.get("owner"), str)
+        ):
+            raise ValueError("provider ledger call identity is invalid")
+        if call_id not in events_by_call:
+            call_order.append(call_id)
+            events_by_call[call_id] = []
+        events_by_call[call_id].append(event)
+
+    unresolved_states = {
+        "prepared_not_invoked",
+        "worker_started_not_invoked",
+        "worker_preflight_not_invoked",
+    }
+    consumed: list[dict[str, Any]] = []
+    for call_id in call_order:
+        call_events = events_by_call[call_id]
+        invoked = [
+            event for event in call_events if event.get("state") == "transport_invoked"
+        ]
+        if len(invoked) > 1:
+            raise ValueError("provider ledger repeats a transport invocation")
+        if invoked:
+            consumed.append(invoked[0])
+        elif call_events[-1].get("state") in unresolved_states:
+            # The durable ledger intentionally treats an unresolved prepared or
+            # worker-side call as consumed: transport absence was not proven.
+            consumed.append(call_events[-1])
+
+    if len(consumed) > len(CONTINUOUS_V3_CALL_SCHEDULE):
+        raise ValueError("provider ledger exceeds the exact run schedule")
+    calls = CONTINUOUS_V3_CALL_SCHEDULE[: len(consumed)]
+    for label, event in zip(calls, consumed, strict=True):
+        if event.get("owner") != _call_owner(label):
+            raise ValueError("provider ledger owner disagrees with schedule")
+    return calls, tuple(consumed)
+
+
+def _artifact_sha256(path: Path) -> str | None:
+    return bytes_sha256(path.read_bytes()) if path.is_file() else None
+
+
+def _validate_child_call_records(
+    raw_calls: Any,
+    *,
+    consumed_calls: tuple[str, ...],
+) -> None:
+    """Validate attempted child stages against the consumed ledger prefix."""
+
+    if not isinstance(raw_calls, list):
+        raise ValueError("child result call records are malformed")
+    if any(not isinstance(record, dict) for record in raw_calls):
+        raise ValueError("child result call records are malformed")
+    attempted_calls = tuple(record.get("label") for record in raw_calls)
+    if attempted_calls != CONTINUOUS_V3_CALL_SCHEDULE[: len(attempted_calls)]:
+        raise ValueError("child result attempted-call order changed")
+    if (
+        len(consumed_calls) > len(attempted_calls)
+        or attempted_calls[: len(consumed_calls)] != consumed_calls
+    ):
+        raise ValueError("child result call records disagree with its ledger")
+
+
+def _validate_child_reconciliation(
+    value: dict[str, Any],
+    *,
+    run_root: Path,
+    expected_run_id: str,
+) -> None:
+    expected_fields = {
+        "schema_version",
+        "run_id",
+        "execution_identity_sha256",
+        "process_returncode",
+        "process_error_type",
+        "process_error_message_sha256",
+        "child_result_sha256",
+        "child_execution_manifest_sha256",
+        "provider_ledger_sha256",
+        "provider_calls",
+        "codex_family_calls",
+        "deepseek_calls",
+        "calls",
+        "call_source",
+        "passed",
+        "terminal_reason",
+        "failure_source",
+        "raw_provider_output_retained",
+        "reconciliation_sha256",
+    }
+    if set(value) != expected_fields:
+        raise ValueError("child reconciliation fields changed")
+    if value.get("schema_version") != "cera.sillytavern_child_run_reconciliation.v1":
+        raise ValueError("child reconciliation schema changed")
+    receipt_sha256 = value.get("reconciliation_sha256")
+    unsigned = dict(value)
+    unsigned.pop("reconciliation_sha256", None)
+    if not isinstance(receipt_sha256, str) or receipt_sha256 != canonical_sha256(unsigned):
+        raise ValueError("child reconciliation receipt changed")
+    if value.get("run_id") != expected_run_id:
+        raise ValueError("child reconciliation run identity changed")
+    if not re_is_sha256(value.get("execution_identity_sha256")):
+        raise ValueError("child reconciliation execution identity is invalid")
+    process_returncode = value.get("process_returncode")
+    process_error_type = value.get("process_error_type")
+    process_error_message_sha256 = value.get("process_error_message_sha256")
+    if process_error_type is None:
+        if type(process_returncode) is not int or process_error_message_sha256 is not None:
+            raise ValueError("child reconciliation process outcome is invalid")
+    elif (
+        process_returncode is not None
+        or not isinstance(process_error_type, str)
+        or not process_error_type.strip()
+        or not re_is_sha256(process_error_message_sha256)
+    ):
+        raise ValueError("child reconciliation process failure is invalid")
+    calls = value.get("calls")
+    if not isinstance(calls, list):
+        raise ValueError("child reconciliation call prefix is malformed")
+    expected_calls = list(CONTINUOUS_V3_CALL_SCHEDULE[: len(calls)])
+    if calls != expected_calls or value.get("provider_calls") != len(calls):
+        raise ValueError("child reconciliation call accounting changed")
+    codex_calls = sum(_call_owner(label) != "composer" for label in calls)
+    deepseek_calls = sum(_call_owner(label) == "composer" for label in calls)
+    if (
+        value.get("codex_family_calls") != codex_calls
+        or value.get("deepseek_calls") != deepseek_calls
+    ):
+        raise ValueError("child reconciliation provider-family accounting changed")
+    artifact_paths = {
+        "child_result_sha256": run_root / "RUN_RESULT.json",
+        "child_execution_manifest_sha256": run_root / "EXECUTION_MANIFEST.json",
+        "provider_ledger_sha256": run_root / "PROVIDER_CALL_LEDGER.jsonl",
+    }
+    for field, path in artifact_paths.items():
+        expected = value.get(field)
+        actual = _artifact_sha256(path)
+        if expected != actual:
+            raise ValueError("child reconciliation artifact binding changed")
+    if value.get("call_source") not in {
+        "child_result_and_provider_ledger",
+        "provider_ledger_prefix",
+        "no_transport_invocation",
+    }:
+        raise ValueError("child reconciliation call source changed")
+    if (
+        type(value.get("passed")) is not bool
+        or value.get("raw_provider_output_retained") is not False
+        or not isinstance(value.get("terminal_reason"), str)
+        or not value["terminal_reason"].strip()
+        or value.get("failure_source")
+        not in {None, "child_result", "parent_process_launch", "parent_process_exit"}
+    ):
+        raise ValueError("child reconciliation disposition is invalid")
+    child_result = (
+        read_json(run_root / "RUN_RESULT.json")
+        if (run_root / "RUN_RESULT.json").is_file()
+        else None
+    )
+    derived_passed = bool(
+        process_error_type is None
+        and process_returncode == 0
+        and child_result is not None
+        and child_result.get("status") == "passed"
+        and tuple(calls) == CONTINUOUS_V3_CALL_SCHEDULE
+    )
+    if value["passed"] is not derived_passed:
+        raise ValueError("child reconciliation pass status is not derived")
+    if derived_passed and (
+        value["terminal_reason"] != "qualified" or value["failure_source"] is not None
+    ):
+        raise ValueError("passing child reconciliation has a failure disposition")
+    if not derived_passed and value["failure_source"] is None:
+        raise ValueError("failed child reconciliation lacks a failure source")
+
+
+def reconcile_child_run(
+    *,
+    run_root: Path,
+    run_id: str,
+    execution_identity_sha256: str,
+    process_returncode: int | None,
+    process_error: BaseException | None = None,
+) -> dict[str, Any]:
+    """Freeze parent-owned truth even when a child never writes RUN_RESULT."""
+
+    if (process_returncode is None) is not (process_error is not None):
+        raise ValueError("child process outcome is ambiguous")
+    result_path = run_root / "RUN_RESULT.json"
+    manifest_path = run_root / "EXECUTION_MANIFEST.json"
+    ledger_path = run_root / "PROVIDER_CALL_LEDGER.jsonl"
+    result = read_json(result_path) if result_path.is_file() else None
+    calls, invoked = _provider_invocation_prefix(ledger_path)
+    if result is not None:
+        if result.get("run_id") != run_id or result.get("status") not in {
+            "passed",
+            "failed",
+        }:
+            raise ValueError("child result identity or terminal state changed")
+        if result.get("provider_calls") != len(invoked):
+            raise ValueError("child result provider count disagrees with its ledger")
+        raw_calls = result.get("calls")
+        if raw_calls is not None:
+            _validate_child_call_records(raw_calls, consumed_calls=calls)
+    passed = bool(
+        process_error is None
+        and process_returncode == 0
+        and result is not None
+        and result.get("status") == "passed"
+        and calls == CONTINUOUS_V3_CALL_SCHEDULE
+    )
+    if result is not None and isinstance(result.get("error_type"), str):
+        terminal_reason = result["error_type"]
+        failure_source = "child_result"
+    elif process_error is not None:
+        terminal_reason = type(process_error).__name__
+        failure_source = "parent_process_launch"
+    elif result is None:
+        terminal_reason = "ChildResultMissing"
+        failure_source = "parent_process_exit"
+    elif process_returncode != 0:
+        terminal_reason = "ChildProcessExit"
+        failure_source = "parent_process_exit"
+    elif result.get("status") != "passed":
+        terminal_reason = "ChildResultFailed"
+        failure_source = "child_result"
+    elif calls != CONTINUOUS_V3_CALL_SCHEDULE:
+        terminal_reason = "IncompleteProviderSchedule"
+        failure_source = "child_result"
+    else:
+        terminal_reason = "qualified"
+        failure_source = None
+    payload: dict[str, Any] = {
+        "schema_version": "cera.sillytavern_child_run_reconciliation.v1",
+        "run_id": run_id,
+        "execution_identity_sha256": execution_identity_sha256,
+        "process_returncode": process_returncode,
+        "process_error_type": (
+            None if process_error is None else type(process_error).__name__
+        ),
+        "process_error_message_sha256": (
+            None if process_error is None else text_sha256(str(process_error))
+        ),
+        "child_result_sha256": _artifact_sha256(result_path),
+        "child_execution_manifest_sha256": _artifact_sha256(manifest_path),
+        "provider_ledger_sha256": _artifact_sha256(ledger_path),
+        "provider_calls": len(calls),
+        "codex_family_calls": sum(
+            _call_owner(label) != "composer" for label in calls
+        ),
+        "deepseek_calls": sum(_call_owner(label) == "composer" for label in calls),
+        "calls": list(calls),
+        "call_source": (
+            "child_result_and_provider_ledger"
+            if result is not None and result.get("calls") is not None
+            else "provider_ledger_prefix"
+            if calls
+            else "no_transport_invocation"
+        ),
+        "passed": passed,
+        "terminal_reason": terminal_reason,
+        "failure_source": failure_source,
+        "raw_provider_output_retained": False,
+    }
+    payload["reconciliation_sha256"] = canonical_sha256(payload)
+    run_root.mkdir(parents=True, exist_ok=True)
+    reconciliation_path = run_root / "PARENT_RUN_RECONCILIATION.json"
+    if reconciliation_path.exists():
+        raise FileExistsError("refusing to overwrite immutable child reconciliation")
+    write_json(reconciliation_path, payload)
+    _validate_child_reconciliation(payload, run_root=run_root, expected_run_id=run_id)
+    return payload
+
+
 def recover_prior_campaign(
     prior_root: Path,
     *,
@@ -186,6 +476,47 @@ def recover_prior_campaign(
         raise ValueError("prior campaign has no recoverable runs")
     if len(raw_runs) >= len(CONTINUOUS_V3_RUN_IDENTITIES):
         raise ValueError("prior campaign exhausted all immutable run identities")
+    prior_schema = prior.get("schema_version")
+    if prior_schema not in {
+        None,
+        "cera.sillytavern_continuous_v3_campaign_result.v1",
+        "cera.sillytavern_continuous_v3_campaign_result.v2",
+    }:
+        raise ValueError("prior campaign result schema changed")
+    local_reconciliation_bindings: dict[str, dict[str, Any]] = {}
+    if prior_schema == "cera.sillytavern_continuous_v3_campaign_result.v2":
+        raw_bindings = prior.get("local_run_reconciliations")
+        if not isinstance(raw_bindings, list):
+            raise ValueError("prior campaign reconciliation index is missing")
+        if (
+            prior.get("local_run_reconciliations_sha256")
+            != canonical_sha256(raw_bindings)
+        ):
+            raise ValueError("prior campaign reconciliation index hash changed")
+        for binding in raw_bindings:
+            expected_binding_fields = {
+                "run_id",
+                "relative_path",
+                "file_sha256",
+                "receipt_sha256",
+            }
+            if (
+                not isinstance(binding, dict)
+                or set(binding) != expected_binding_fields
+                or binding.get("run_id") in local_reconciliation_bindings
+                or not re_is_sha256(binding.get("file_sha256"))
+                or not re_is_sha256(binding.get("receipt_sha256"))
+            ):
+                raise ValueError("prior campaign reconciliation index is malformed")
+            run_id = binding["run_id"]
+            if run_id not in CONTINUOUS_V3_RUN_IDENTITIES:
+                raise ValueError("prior campaign reconciliation run is unknown")
+            expected_relative = (
+                f"runs/{run_id}/PARENT_RUN_RECONCILIATION.json"
+            )
+            if binding.get("relative_path") != expected_relative:
+                raise ValueError("prior campaign reconciliation path changed")
+            local_reconciliation_bindings[run_id] = binding
     prior_recovery_path = root / "PRIOR_CAMPAIGN_RECOVERY.json"
     inherited_run_roots: dict[str, Path] = {}
     inherited_run_entries: dict[str, dict[str, Any]] = {}
@@ -226,54 +557,97 @@ def recover_prior_campaign(
         result_path = run_root / "RUN_RESULT.json"
         ledger_path = run_root / "PROVIDER_CALL_LEDGER.jsonl"
         run_manifest_path = run_root / "EXECUTION_MANIFEST.json"
-        result = read_json(result_path)
-        run_manifest = read_json(run_manifest_path)
+        reconciliation_path = run_root / "PARENT_RUN_RECONCILIATION.json"
         inherited_entry = inherited_run_entries.get(run_id)
+        reconciliation_sha256 = None
+        if reconciliation_path.is_file():
+            reconciliation = read_json(reconciliation_path)
+            _validate_child_reconciliation(
+                reconciliation,
+                run_root=run_root,
+                expected_run_id=run_id,
+            )
+            reconciliation_sha256 = bytes_sha256(reconciliation_path.read_bytes())
+            if local_run_root.is_dir() and prior_schema == (
+                "cera.sillytavern_continuous_v3_campaign_result.v2"
+            ):
+                binding = local_reconciliation_bindings.pop(run_id, None)
+                if (
+                    binding is None
+                    or binding["file_sha256"] != reconciliation_sha256
+                    or binding["receipt_sha256"]
+                    != reconciliation["reconciliation_sha256"]
+                ):
+                    raise ValueError(
+                        "parent child reconciliation changed after campaign publication"
+                    )
+            if (
+                reconciliation.get("execution_identity_sha256") is None
+                or not re_is_sha256(reconciliation["execution_identity_sha256"])
+            ):
+                raise ValueError("prior child reconciliation execution identity is invalid")
+            expected_passed = raw.get("state") == "passed"
+            if reconciliation.get("passed") is not expected_passed:
+                raise ValueError(
+                    "prior child reconciliation disagrees with campaign terminal state"
+                )
+            calls = tuple(reconciliation["calls"])
+            if tuple(raw.get("calls", ())) != calls:
+                raise ValueError(
+                    "prior campaign calls disagree with child reconciliation"
+                )
+            call_source = f"parent_child_reconciliation:{reconciliation['call_source']}"
+            old_identity = reconciliation["execution_identity_sha256"]
+            result_sha256 = reconciliation["child_result_sha256"]
+            ledger_sha256 = reconciliation["provider_ledger_sha256"]
+            run_manifest_sha256 = reconciliation[
+                "child_execution_manifest_sha256"
+            ]
+            immutable_ledger_call_count = reconciliation["provider_calls"]
+        else:
+            if local_run_root.is_dir() and prior_schema == (
+                "cera.sillytavern_continuous_v3_campaign_result.v2"
+            ):
+                raise ValueError("published local run lacks parent reconciliation")
+            result = read_json(result_path)
+            run_manifest = read_json(run_manifest_path)
+            if result.get("run_id") != run_id or result.get("status") != raw.get(
+                "state"
+            ):
+                raise ValueError(
+                    "prior run result disagrees with terminal campaign history"
+                )
+            calls, invoked = _provider_invocation_prefix(ledger_path)
+            if result.get("provider_calls") != len(invoked):
+                raise ValueError(
+                    "prior run provider count disagrees with its immutable ledger"
+                )
+            raw_result_calls = result.get("calls")
+            if raw_result_calls is None:
+                call_source = "recovered_from_transport_invoked_prefix"
+            else:
+                _validate_child_call_records(
+                    raw_result_calls,
+                    consumed_calls=calls,
+                )
+                call_source = "run_result_call_records"
+            old_identity = run_manifest.get("execution_identity_sha256")
+            if not isinstance(old_identity, str) or not re_is_sha256(old_identity):
+                raise ValueError("prior run execution identity is invalid")
+            result_sha256 = bytes_sha256(result_path.read_bytes())
+            ledger_sha256 = bytes_sha256(ledger_path.read_bytes())
+            run_manifest_sha256 = bytes_sha256(run_manifest_path.read_bytes())
+            immutable_ledger_call_count = len(invoked)
         if inherited_entry is not None:
             expected_hashes = {
-                "run_result_sha256": result_path,
-                "provider_ledger_sha256": ledger_path,
-                "execution_manifest_sha256": run_manifest_path,
+                "run_result_sha256": result_sha256,
+                "provider_ledger_sha256": ledger_sha256,
+                "execution_manifest_sha256": run_manifest_sha256,
+                "parent_run_reconciliation_sha256": reconciliation_sha256,
             }
-            if any(
-                inherited_entry.get(key) != bytes_sha256(path.read_bytes())
-                for key, path in expected_hashes.items()
-            ):
+            if any(inherited_entry.get(key) != value for key, value in expected_hashes.items()):
                 raise ValueError("inherited immutable run evidence hash changed")
-        if result.get("run_id") != run_id or result.get("status") != raw.get("state"):
-            raise ValueError("prior run result disagrees with terminal campaign history")
-        events = read_jsonl(ledger_path)
-        invoked: list[dict[str, Any]] = []
-        seen_call_ids: set[str] = set()
-        for event in events:
-            if event.get("state") != "transport_invoked":
-                continue
-            call_id = event.get("call_id")
-            if not isinstance(call_id, str) or call_id in seen_call_ids:
-                raise ValueError("prior provider ledger call identity is invalid")
-            seen_call_ids.add(call_id)
-            invoked.append(event)
-        provider_calls = result.get("provider_calls")
-        if provider_calls != len(invoked):
-            raise ValueError("prior run provider count disagrees with its immutable ledger")
-        raw_result_calls = result.get("calls")
-        if raw_result_calls is None:
-            calls = CONTINUOUS_V3_CALL_SCHEDULE[: len(invoked)]
-            call_source = "recovered_from_transport_invoked_prefix"
-        else:
-            if not isinstance(raw_result_calls, list):
-                raise ValueError("prior run call records are malformed")
-            calls = tuple(record.get("label") for record in raw_result_calls)
-            call_source = "run_result_call_records"
-        if calls != CONTINUOUS_V3_CALL_SCHEDULE[: len(calls)] or len(calls) != len(invoked):
-            raise ValueError("prior run calls are not an exact schedule prefix")
-        for label, event in zip(calls, invoked, strict=True):
-            if event.get("owner") != _call_owner(label):
-                raise ValueError("prior provider ledger owner disagrees with schedule")
         total_calls += len(calls)
-        old_identity = run_manifest.get("execution_identity_sha256")
-        if not isinstance(old_identity, str) or not re_is_sha256(old_identity):
-            raise ValueError("prior run execution identity is invalid")
         state = CampaignRunState(raw["state"])
         recovered.append(
             CampaignRunRecord(
@@ -292,20 +666,36 @@ def recover_prior_campaign(
                 "execution_identity_sha256": old_identity,
                 "calls": list(calls),
                 "call_source": call_source,
-                "run_result_sha256": bytes_sha256(result_path.read_bytes()),
-                "provider_ledger_sha256": bytes_sha256(ledger_path.read_bytes()),
-                "execution_manifest_sha256": bytes_sha256(run_manifest_path.read_bytes()),
+                "run_result_sha256": result_sha256,
+                "provider_ledger_sha256": ledger_sha256,
+                "execution_manifest_sha256": run_manifest_sha256,
+                "parent_run_reconciliation_sha256": reconciliation_sha256,
                 "recorded_parent_call_count": len(raw.get("calls", ())),
-                "immutable_ledger_call_count": len(invoked),
+                "immutable_ledger_call_count": immutable_ledger_call_count,
             }
         )
-    if total_calls > 40:
+    if local_reconciliation_bindings:
+        raise ValueError("prior campaign reconciliation index contains unused entries")
+    if total_calls > CAMPAIGN_TOTAL_CALL_CEILING:
         raise ValueError("recovered campaign exceeds the provider-call ceiling")
+    same_execution_identity = (
+        prior.get("execution_identity_sha256") == execution_identity_sha256
+    )
+    recovered_consecutive_passes = 0
+    if same_execution_identity:
+        for record in recovered:
+            if record.state is CampaignRunState.PASSED:
+                recovered_consecutive_passes += 1
+            else:
+                recovered_consecutive_passes = 0
+    if recovered_consecutive_passes > 2:
+        raise ValueError("prior campaign contains an impossible pass streak")
     campaign = ContinuousV3TwoRunCampaign(
         execution_identity_sha256,
         runs=recovered,
-        consecutive_passes=0,
+        consecutive_passes=recovered_consecutive_passes,
         total_provider_calls=total_calls,
+        restart_after_last_pass=recovered_consecutive_passes == 1,
     )
     recovery: dict[str, Any] = {
         "schema_version": "cera.sillytavern_continuous_v3_prior_recovery.v1",
@@ -314,8 +704,15 @@ def recover_prior_campaign(
         "prior_execution_manifest_sha256": bytes_sha256(manifest_path.read_bytes()),
         "prior_recovery_sha256": prior_recovery_sha256,
         "new_execution_identity_sha256": execution_identity_sha256,
-        "execution_change_resets_consecutive_passes": True,
+        "execution_identity_changed": not same_execution_identity,
+        "execution_change_resets_consecutive_passes": not same_execution_identity,
+        "recovered_consecutive_passes": recovered_consecutive_passes,
+        "restart_boundary_satisfied_by_new_process": (
+            recovered_consecutive_passes == 1
+        ),
         "recovered_total_provider_calls": total_calls,
+        "recovered_codex_family_calls": campaign.codex_family_calls,
+        "recovered_deepseek_calls": campaign.deepseek_calls,
         "runs": recovery_runs,
     }
     recovery["recovery_sha256"] = canonical_sha256(recovery)
@@ -580,6 +977,24 @@ def assert_exact_execution_manifest(
         raise ValueError("child recomputed execution or authority identity changed")
 
 
+def _record_primary_or_additive_failure(
+    result: dict[str, Any],
+    error: BaseException,
+    *,
+    stage: str,
+) -> None:
+    """Keep the first failure authoritative and make cleanup failures additive."""
+
+    result["status"] = "failed"
+    if "error_type" not in result:
+        result["error_type"] = type(error).__name__
+        result["error_message"] = str(error)
+        result["failure_stage"] = stage
+        return
+    result[f"{stage}_error_type"] = type(error).__name__
+    result[f"{stage}_error_message"] = str(error)
+
+
 def http_json(base: str, method: str, path: str, payload: dict[str, Any] | None = None) -> tuple[int, dict[str, Any]]:
     data = None if payload is None else json.dumps(payload).encode("utf-8")
     request = Request(
@@ -651,6 +1066,13 @@ def run_single(args: argparse.Namespace) -> int:
         "disposable_database_sha256_before": copy_before,
         "sqlite_before": checks_before,
         "http": [],
+        "transport_lifecycle": {
+            "provider_context_opened": False,
+            "thread_terminalization_attempted": False,
+            "thread_terminalization_completed_while_transport_alive": False,
+            "provider_context_close_started_after_terminalization_attempt": False,
+            "provider_context_closed": False,
+        },
     }
     write_json(run_root / "EXECUTION_MANIFEST.json", recomputed_manifest)
     planner_session = validator_session = None
@@ -668,6 +1090,7 @@ def run_single(args: argparse.Namespace) -> int:
             codex = stack.enter_context(
                 Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={}))
             )
+            result["transport_lifecycle"]["provider_context_opened"] = True
             account = codex.account()
             if account.account is None:
                 raise RuntimeError("ChatGPT Codex session is unavailable")
@@ -800,20 +1223,34 @@ def run_single(args: argparse.Namespace) -> int:
             }
             result["status"] = "passed"
     except BaseException as exc:
-        result.update(
-            {
-                "status": "failed",
-                "error_type": type(exc).__name__,
-                "error_message": str(exc),
-            }
-        )
+        _record_primary_or_additive_failure(result, exc, stage="execution")
     finally:
         if server is not None:
-            server.shutdown()
-            server.server_close()
+            try:
+                server.shutdown()
+            except BaseException as exc:
+                _record_primary_or_additive_failure(
+                    result, exc, stage="http_server_shutdown"
+                )
+            try:
+                server.server_close()
+            except BaseException as exc:
+                _record_primary_or_additive_failure(
+                    result, exc, stage="http_server_close"
+                )
         if server_thread is not None:
-            server_thread.join(timeout=5)
+            try:
+                server_thread.join(timeout=5)
+                if server_thread.is_alive():
+                    raise StateConflictError(
+                        "SillyTavern campaign HTTP thread did not stop"
+                    )
+            except BaseException as exc:
+                _record_primary_or_additive_failure(
+                    result, exc, stage="http_server_thread_join"
+                )
         if planner_session is not None or validator_session is not None:
+            result["transport_lifecycle"]["thread_terminalization_attempted"] = True
             try:
                 archived, evidence, lineage_receipt = _terminalize_known_thread_sessions(
                     thread_lineage=lineage,
@@ -824,21 +1261,33 @@ def run_single(args: argparse.Namespace) -> int:
                 result["thread_archival"] = archived
                 result["thread_archival_evidence"] = evidence
                 result["thread_lineage"] = lineage_receipt.to_dict()
-                if result["status"] == "passed" and not all(archived.values()):
-                    result["status"] = "failed"
-                    result["error_type"] = "StateConflictError"
-                    result["error_message"] = "physical thread archival failed"
+                terminalized = (
+                    all(archived.values()) and lineage_receipt.status == "verified"
+                )
+                result["transport_lifecycle"][
+                    "thread_terminalization_completed_while_transport_alive"
+                ] = terminalized
+                if not terminalized:
+                    _record_primary_or_additive_failure(
+                        result,
+                        StateConflictError("physical thread archival failed"),
+                        stage="thread_terminalization",
+                    )
             except BaseException as exc:
-                result["status"] = "failed"
-                result["cleanup_error_type"] = type(exc).__name__
-                result["cleanup_error_message"] = str(exc)
+                _record_primary_or_additive_failure(
+                    result, exc, stage="thread_terminalization_cleanup"
+                )
         if provider_stack is not None:
+            result["transport_lifecycle"][
+                "provider_context_close_started_after_terminalization_attempt"
+            ] = result["transport_lifecycle"]["thread_terminalization_attempted"]
             try:
                 provider_stack.close()
+                result["transport_lifecycle"]["provider_context_closed"] = True
             except BaseException as exc:
-                result["status"] = "failed"
-                result["provider_context_close_error_type"] = type(exc).__name__
-                result["provider_context_close_error_message"] = str(exc)
+                _record_primary_or_additive_failure(
+                    result, exc, stage="provider_context_close"
+                )
         if harness is not None:
             result["calls"] = harness.call_records
         result["provider_calls"] = call_ledger.dispatched_call_count
@@ -883,6 +1332,7 @@ def run_campaign(args: argparse.Namespace) -> int:
             execution_identity_sha256=execution_identity,
         )
         write_json(campaign_root / "PRIOR_CAMPAIGN_RECOVERY.json", prior_recovery)
+    local_run_reconciliations: list[dict[str, Any]] = []
     for run_id in CONTINUOUS_V3_RUN_IDENTITIES[len(campaign.runs) :]:
         if campaign.complete:
             break
@@ -920,25 +1370,51 @@ def run_campaign(args: argparse.Namespace) -> int:
             "--execution-manifest", str(manifest_path),
             "--execution-identity-sha256", execution_identity,
         ]
-        completed = subprocess.run(command, cwd=ROOT, check=False)
-        run_result = read_json(run_root / "RUN_RESULT.json")
-        for label in tuple(record["label"] for record in run_result.get("calls", ())):
+        completed = None
+        process_error: BaseException | None = None
+        try:
+            completed = subprocess.run(command, cwd=ROOT, check=False)
+        except BaseException as exc:
+            process_error = exc
+        reconciliation = reconcile_child_run(
+            run_root=run_root,
+            run_id=run_id,
+            execution_identity_sha256=execution_identity,
+            process_returncode=(None if completed is None else completed.returncode),
+            process_error=process_error,
+        )
+        reconciliation_path = run_root / "PARENT_RUN_RECONCILIATION.json"
+        local_run_reconciliations.append(
+            {
+                "run_id": run_id,
+                "relative_path": reconciliation_path.relative_to(
+                    campaign_root
+                ).as_posix(),
+                "file_sha256": bytes_sha256(reconciliation_path.read_bytes()),
+                "receipt_sha256": reconciliation["reconciliation_sha256"],
+            }
+        )
+        for label in reconciliation["calls"]:
             campaign.record_dispatch(label)
-        passed = completed.returncode == 0 and run_result.get("status") == "passed"
+        passed = reconciliation["passed"] is True
         campaign.terminalize(
             passed=passed,
-            reason="qualified" if passed else str(run_result.get("error_type", "run_failed")),
+            reason=str(reconciliation["terminal_reason"]),
         )
         write_json(campaign_root / "CAMPAIGN_STATE.json", campaign.to_dict())
         if not passed:
             break
     result = {
-        "schema_version": "cera.sillytavern_continuous_v3_campaign_result.v1",
+        "schema_version": "cera.sillytavern_continuous_v3_campaign_result.v2",
         "campaign_id": CAMPAIGN_ID,
         "status": "completed_two_consecutive_runs_passed" if campaign.complete else "stopped_without_two_consecutive_passes",
         "execution_manifest_sha256": bytes_sha256(manifest_path.read_bytes()),
         "execution_identity_sha256": execution_identity,
         "campaign": campaign.to_dict(),
+        "local_run_reconciliations": local_run_reconciliations,
+        "local_run_reconciliations_sha256": canonical_sha256(
+            local_run_reconciliations
+        ),
         "prior_campaign_recovery_sha256": (
             None if prior_recovery is None else prior_recovery["recovery_sha256"]
         ),

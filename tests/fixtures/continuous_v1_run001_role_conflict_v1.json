@@ -1,0 +1,299 @@
+{
+  "schema_version": "cera.continuous_role_conflict_regression_fixture.v1",
+  "fixture_id": "continuous-v1-run001-role-conflict-privacy-safe-v1",
+  "source_binding": {
+    "campaign_id": "2026-08-02-continuous-sillytavern-two-run-v1",
+    "run_id": "2026-08-02-continuous-sillytavern-two-run-v1-run-001",
+    "run_result_sha256": "f1617de44f31c9e0408eb3d75c422dc7a9ef33447cca2fe63fa26915e0950c22",
+    "provider_ledger_sha256": "dfd2572e208104614fa9e5f2ed0e42246a7d4d445b201e906bbcac6842fc54fd",
+    "safe_provider_receipt_sha256": "12ef7be094320c70f4aca07db1c925eefe3d32f28ca8f8aa00c0427db54b8f55",
+    "operation_telemetry_sha256": "3fc5a87fbc3d91efae1ec2fef893d64bb1303121a5d21d56281107f1cc468b80",
+    "stored_thread_sha256": "9a702cb107b0e3dd048d7b3e1a95dc492d1268347f420d06eb4dc38e1b018dac",
+    "tool_sequence_sha256": "e0e3d30a4d5754444250290456f8c4afead8b3eb3d75491c49e73267e32ed0b5",
+    "provider_output_schema_version": "cera.rich_planner_sequence.v4",
+    "validation_schema_path": "RichPlannerSequenceV1.beats[].roles",
+    "strict_constraint_path": "CharacterRoleLedgerV1.__post_init__.all_roles",
+    "failure_type": "ContractValidationError",
+    "failure_message": "one character cannot hold multiple roles in one scoped assertion",
+    "provider_call_count": 1,
+    "provider_state_sequence": [
+      "prepared_not_invoked",
+      "worker_started_not_invoked",
+      "worker_preflight_not_invoked",
+      "transport_invoked",
+      "provider_completed",
+      "provider_completed_post_validation_failed"
+    ]
+  },
+  "privacy": {
+    "raw_provider_output_retained": false,
+    "raw_private_provider_state_retained": false,
+    "synthetic_character_ids_only": true,
+    "secrets_retained": false
+  },
+  "expected_disposition": {
+    "accepted": false,
+    "accept_eligible": false,
+    "automatic_retry_count": 0,
+    "fallback_count": 0,
+    "coalesced_roles": false,
+    "deleted_assertions": false,
+    "guessed_ownership": false,
+    "changed_role_meaning": false,
+    "normalized_into_validity": false
+  },
+  "invalid_conflict_groups": [
+    {
+      "beat_index": 0,
+      "synthetic_character_id": "character:fixture_alpha",
+      "role_fields": ["state_owner_ids", "observing_ids"]
+    },
+    {
+      "beat_index": 0,
+      "synthetic_character_id": "character:fixture_beta",
+      "role_fields": ["speaker_ids", "referenced_ids"]
+    },
+    {
+      "beat_index": 1,
+      "synthetic_character_id": "character:fixture_gamma",
+      "role_fields": ["action_owner_ids", "state_owner_ids", "speaker_ids"]
+    },
+    {
+      "beat_index": 1,
+      "synthetic_character_id": "character:fixture_delta",
+      "role_fields": ["affected_ids", "addressed_ids"]
+    }
+  ],
+  "invalid_sequence": {
+    "schema_version": "cera.rich_planner_sequence.v4",
+    "sequence_id": "sequence:fixture_invalid_turn_001",
+    "world_id": "world:fixture_role_conflict",
+    "branch_id": "branch:fixture_main",
+    "accepted_turn_id": null,
+    "scene_id": "scene:fixture_arrival",
+    "selected_character_ids": [
+      "character:fixture_alpha",
+      "character:fixture_beta",
+      "character:fixture_gamma",
+      "character:fixture_delta"
+    ],
+    "omitted_character_ids": [],
+    "beats": [
+      {
+        "beat_key": "fixture_conflict_perception",
+        "roles": {
+          "schema_version": "cera.character_role_ledger.v1",
+          "action_owner_ids": [],
+          "state_owner_ids": ["character:fixture_alpha"],
+          "speaker_ids": ["character:fixture_beta"],
+          "affected_ids": [],
+          "addressed_ids": [],
+          "observing_ids": ["character:fixture_alpha"],
+          "referenced_ids": ["character:fixture_beta"]
+        },
+        "evidence_grounded_perception": "The first synthetic participant notices a bounded fixture event.",
+        "immediate_goal": "Preserve the exact structural conflict for deterministic validation.",
+        "relevant_character_pressures": ["Keep every synthetic assertion structurally represented."],
+        "competing_obligation_or_constraint": "The strict role contract forbids duplicate ownership in one beat.",
+        "selected_tactic": "Return the conflicting role arrays without local repair.",
+        "causal_explanation": "The untouched provider-shaped draft must reach strict Python validation.",
+        "observable_action_or_dialogue_direction": "No story prose is authorized by this regression fixture.",
+        "private_state_guidance": "All identities and state descriptions remain synthetic.",
+        "physical_material_continuity": "The fixture has no production world or material effect.",
+        "resulting_state": "Strict validation rejects this beat before candidate integration.",
+        "deepseek_realization_space": ["No Composer call is permitted for the invalid fixture."],
+        "protected_user_allowance": {
+          "mode": "none",
+          "source_binding_keys": [],
+          "explanation": "The protected user is absent from this synthetic fixture.",
+          "source_claim_keys": []
+        },
+        "source_evidence_bindings": ["fixture_source_binding"]
+      },
+      {
+        "beat_key": "fixture_conflict_action_state_speech",
+        "roles": {
+          "schema_version": "cera.character_role_ledger.v1",
+          "action_owner_ids": ["character:fixture_gamma"],
+          "state_owner_ids": ["character:fixture_gamma"],
+          "speaker_ids": ["character:fixture_gamma"],
+          "affected_ids": ["character:fixture_delta"],
+          "addressed_ids": ["character:fixture_delta"],
+          "observing_ids": [],
+          "referenced_ids": []
+        },
+        "evidence_grounded_perception": "The second synthetic assertion follows the first fixture conflict.",
+        "immediate_goal": "Reproduce action, state, speech, affected, and addressed overlap exactly.",
+        "relevant_character_pressures": ["Retain every conflict class without retaining private provider text."],
+        "competing_obligation_or_constraint": "No assertion may be deleted or reassigned to make the draft pass.",
+        "selected_tactic": "Expose all duplicate role memberships to the validator.",
+        "causal_explanation": "A post-provider contract failure is authoritative and terminal for this attempt.",
+        "observable_action_or_dialogue_direction": "The fixture describes structure rather than publishable prose.",
+        "private_state_guidance": "Do not infer any real character psychology from synthetic identities.",
+        "physical_material_continuity": "No database, branch, or scene state can change.",
+        "resulting_state": "The invalid sequence remains rejected and non-accept-eligible.",
+        "deepseek_realization_space": ["No downstream realization follows a failed Planner contract."],
+        "protected_user_allowance": {
+          "mode": "none",
+          "source_binding_keys": [],
+          "explanation": "The protected user is absent from this synthetic fixture.",
+          "source_claim_keys": []
+        },
+        "source_evidence_bindings": ["fixture_source_binding"]
+      }
+    ],
+    "final_stop_state": "Stop at strict post-provider role validation failure.",
+    "unresolved_threads": ["The failed provider attempt is terminal and cannot be retried in place."],
+    "provisional": true
+  },
+  "corrected_sequence": {
+    "schema_version": "cera.rich_planner_sequence.v4",
+    "sequence_id": "sequence:fixture_corrected_turn_001",
+    "world_id": "world:fixture_role_conflict",
+    "branch_id": "branch:fixture_main",
+    "accepted_turn_id": null,
+    "scene_id": "scene:fixture_arrival",
+    "selected_character_ids": [
+      "character:fixture_alpha",
+      "character:fixture_beta",
+      "character:fixture_gamma",
+      "character:fixture_delta"
+    ],
+    "omitted_character_ids": [],
+    "beats": [
+      {
+        "beat_key": "fixture_alpha_state",
+        "roles": {
+          "schema_version": "cera.character_role_ledger.v1",
+          "action_owner_ids": [],
+          "state_owner_ids": ["character:fixture_alpha"],
+          "speaker_ids": [],
+          "affected_ids": [],
+          "addressed_ids": [],
+          "observing_ids": [],
+          "referenced_ids": ["character:fixture_beta"]
+        },
+        "evidence_grounded_perception": "The first synthetic participant privately registers the fixture event.",
+        "immediate_goal": "Establish the state assertion before any later observation or speech.",
+        "relevant_character_pressures": ["Keep the state owner distinct from every non-owning role."],
+        "competing_obligation_or_constraint": "The referenced participant cannot also speak in this beat.",
+        "selected_tactic": "Represent only the first participant state at this causal point.",
+        "causal_explanation": "The state logically precedes the separate observation and utterance beats.",
+        "observable_action_or_dialogue_direction": "No utterance is realized during the state-only assertion.",
+        "private_state_guidance": "The state remains owned only by the first synthetic participant.",
+        "physical_material_continuity": "The synthetic scene remains otherwise unchanged.",
+        "resulting_state": "The first state is established without duplicate role membership.",
+        "deepseek_realization_space": ["Realize only non-authoritative synthetic pacing if requested."],
+        "protected_user_allowance": {"mode": "none", "source_binding_keys": [], "explanation": "The protected user is absent.", "source_claim_keys": []},
+        "source_evidence_bindings": ["fixture_source_binding"]
+      },
+      {
+        "beat_key": "fixture_beta_speech_alpha_observes",
+        "roles": {
+          "schema_version": "cera.character_role_ledger.v1",
+          "action_owner_ids": [],
+          "state_owner_ids": [],
+          "speaker_ids": ["character:fixture_beta"],
+          "affected_ids": [],
+          "addressed_ids": [],
+          "observing_ids": ["character:fixture_alpha"],
+          "referenced_ids": []
+        },
+        "evidence_grounded_perception": "The second participant speaks after the first state is established.",
+        "immediate_goal": "Separate the utterance owner from the observing participant.",
+        "relevant_character_pressures": ["Preserve causal order and exact role ownership."],
+        "competing_obligation_or_constraint": "The observer cannot also own a state in this beat.",
+        "selected_tactic": "Place speech and observation in one conflict-free assertion.",
+        "causal_explanation": "Different participants can hold distinct roles without ambiguity.",
+        "observable_action_or_dialogue_direction": "The second participant supplies one synthetic utterance direction.",
+        "private_state_guidance": "No observer thought or emotion is asserted here.",
+        "physical_material_continuity": "The synthetic scene remains otherwise unchanged.",
+        "resulting_state": "Speech and observation are represented without role overlap.",
+        "deepseek_realization_space": ["Keep any wording synthetic and bounded to the supplied direction."],
+        "protected_user_allowance": {"mode": "none", "source_binding_keys": [], "explanation": "The protected user is absent.", "source_claim_keys": []},
+        "source_evidence_bindings": ["fixture_source_binding"]
+      },
+      {
+        "beat_key": "fixture_gamma_action",
+        "roles": {
+          "schema_version": "cera.character_role_ledger.v1",
+          "action_owner_ids": ["character:fixture_gamma"],
+          "state_owner_ids": [],
+          "speaker_ids": [],
+          "affected_ids": ["character:fixture_delta"],
+          "addressed_ids": [],
+          "observing_ids": [],
+          "referenced_ids": []
+        },
+        "evidence_grounded_perception": "The third participant reaches the action point in causal order.",
+        "immediate_goal": "Represent the action before its resulting state or speech.",
+        "relevant_character_pressures": ["Keep action ownership distinct from affected status."],
+        "competing_obligation_or_constraint": "Later state and speech require their own beats.",
+        "selected_tactic": "Emit one action-owned structural assertion.",
+        "causal_explanation": "The action causes the later state transition without merging them.",
+        "observable_action_or_dialogue_direction": "Only the synthetic action direction belongs in this beat.",
+        "private_state_guidance": "No state or dialogue is assigned to the action owner yet.",
+        "physical_material_continuity": "The affected participant remains non-owning in this assertion.",
+        "resulting_state": "The action is established and the next state beat can follow.",
+        "deepseek_realization_space": ["Maintain the action-to-state order without adding assertions."],
+        "protected_user_allowance": {"mode": "none", "source_binding_keys": [], "explanation": "The protected user is absent.", "source_claim_keys": []},
+        "source_evidence_bindings": ["fixture_source_binding"]
+      },
+      {
+        "beat_key": "fixture_gamma_state",
+        "roles": {
+          "schema_version": "cera.character_role_ledger.v1",
+          "action_owner_ids": [],
+          "state_owner_ids": ["character:fixture_gamma"],
+          "speaker_ids": [],
+          "affected_ids": [],
+          "addressed_ids": ["character:fixture_delta"],
+          "observing_ids": [],
+          "referenced_ids": []
+        },
+        "evidence_grounded_perception": "The prior action now produces a separate synthetic state change.",
+        "immediate_goal": "Represent the resulting state without also assigning action or speech.",
+        "relevant_character_pressures": ["Keep the addressed participant non-owning and distinct."],
+        "competing_obligation_or_constraint": "The later utterance remains a separate causal assertion.",
+        "selected_tactic": "Record only the state transition at this point.",
+        "causal_explanation": "Splitting the state preserves both causality and role exclusivity.",
+        "observable_action_or_dialogue_direction": "No new action or utterance is authorized in this beat.",
+        "private_state_guidance": "The synthetic state belongs only to the third participant.",
+        "physical_material_continuity": "The prior action remains complete and is not repeated.",
+        "resulting_state": "The state transition is complete before the final speech beat.",
+        "deepseek_realization_space": ["Preserve the transition without duplicating the prior action."],
+        "protected_user_allowance": {"mode": "none", "source_binding_keys": [], "explanation": "The protected user is absent.", "source_claim_keys": []},
+        "source_evidence_bindings": ["fixture_source_binding"]
+      },
+      {
+        "beat_key": "fixture_gamma_speech",
+        "roles": {
+          "schema_version": "cera.character_role_ledger.v1",
+          "action_owner_ids": [],
+          "state_owner_ids": [],
+          "speaker_ids": ["character:fixture_gamma"],
+          "affected_ids": [],
+          "addressed_ids": [],
+          "observing_ids": [],
+          "referenced_ids": ["character:fixture_delta"]
+        },
+        "evidence_grounded_perception": "The third participant can speak after action and state are complete.",
+        "immediate_goal": "Close the synthetic sequence with one unambiguous speech owner.",
+        "relevant_character_pressures": ["Do not merge the earlier action or state into this beat."],
+        "competing_obligation_or_constraint": "The referenced participant remains non-owning.",
+        "selected_tactic": "Use one final speech-only assertion.",
+        "causal_explanation": "The utterance follows the action and state in explicit causal order.",
+        "observable_action_or_dialogue_direction": "The third participant supplies one bounded synthetic utterance.",
+        "private_state_guidance": "No additional private state is inferred from the utterance.",
+        "physical_material_continuity": "The sequence ends without repeating prior events.",
+        "resulting_state": "Every original assertion class is preserved across valid split beats.",
+        "deepseek_realization_space": ["Realize only the bounded utterance if a downstream test requests it."],
+        "protected_user_allowance": {"mode": "none", "source_binding_keys": [], "explanation": "The protected user is absent.", "source_claim_keys": []},
+        "source_evidence_bindings": ["fixture_source_binding"]
+      }
+    ],
+    "final_stop_state": "The corrected synthetic Turn 1 sequence is structurally valid and remains provisional.",
+    "unresolved_threads": ["Only explicit creator review could later make a realized candidate accept eligible."],
+    "provisional": true
+  }
+}
