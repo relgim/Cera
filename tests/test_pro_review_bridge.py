@@ -366,11 +366,16 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         self.jobs: list[Path] = []
         for index in range(1, 4):
             path = self.sources / f"job-{index}.md"
+            status_line = (
+                "status: `completed`\n\n"
+                if index == 1
+                else "status: completed\n\n"
+            )
             path.write_text(
                 f"# Job {index} result\n\n"
                 f"task_id: `progression-{index}`\n"
-                "status: completed\n\n"
-                f"Verified bounded result {index}.\n",
+                + status_line
+                + f"Verified bounded result {index}.\n",
                 encoding="utf-8",
             )
             self.jobs.append(path)

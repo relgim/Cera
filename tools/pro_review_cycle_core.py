@@ -675,7 +675,10 @@ def task_result(root: Path, value: Any, label: str) -> tuple[dict[str, str], byt
     task_matches = re.findall(
         r"(?m)^task_id:\s*`?([A-Za-z0-9][A-Za-z0-9._-]{0,127})`?\s*$", text
     )
-    status_matches = re.findall(r"(?m)^status:\s*(completed|blocked)\s*$", text)
+    status_matches = re.findall(
+        r"(?m)^status:\s*`?(completed|blocked)`?\s*$",
+        text,
+    )
     if task_matches != [task_id] or len(status_matches) != 1:
         raise CycleError(
             f"{label} document must declare the exact task_id and one final status"
