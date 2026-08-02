@@ -386,16 +386,24 @@ def source_character_summary(
     world: ContinuousWorldStore,
     world_file_revision: int,
     latest_changes: tuple[str, ...] = (),
+    world_id: str = WORLD_ID,
+    branch_id: str = BRANCH_ID,
 ) -> CharacterSummaryEnvelopeV1:
     del root, world_file_revision, latest_changes
     return build_character_summary_envelope(
-        branch_root=world.branch_root(WORLD_ID, BRANCH_ID),
+        branch_root=world.branch_root(world_id, branch_id),
         source_path=f"ACTIVE/Characters/{character.capitalize()}.json",
         character_id=f"character:{character}_hanezawa",
     )
 
 
-def seed_world(store: ContinuousWorldStore, root: Path) -> None:
+def seed_world(
+    store: ContinuousWorldStore,
+    root: Path,
+    *,
+    world_id: str = WORLD_ID,
+    branch_id: str = BRANCH_ID,
+) -> None:
     package = root / "genesis" / "packages" / "hanezawa_core_v1_2" / "modules"
     for name in ("hana", "sakura", "mia", "enne", "tomi", "aoi", "yuuni"):
         source = package / "characters" / f"{name}.json"
@@ -414,8 +422,8 @@ def seed_world(store: ContinuousWorldStore, root: Path) -> None:
         if len(sections) != len(desired):
             raise RuntimeError(f"{name} concise summary source sections are incomplete")
         store.seed_active_json(
-            WORLD_ID,
-            BRANCH_ID,
+            world_id,
+            branch_id,
             f"Characters/{name.capitalize()}.json",
             {
                 "schema_version": "cera.continuous_genesis_character.v1",
@@ -440,8 +448,8 @@ def seed_world(store: ContinuousWorldStore, root: Path) -> None:
     ):
         source = package / relative
         store.seed_active_json(
-            WORLD_ID,
-            BRANCH_ID,
+            world_id,
+            branch_id,
             target,
             {
                 "schema_version": "cera.continuous_genesis_module.v1",
@@ -455,11 +463,14 @@ def seed_world(store: ContinuousWorldStore, root: Path) -> None:
 def compatibility(
     world: ContinuousWorldStore,
     role: ContinuousSessionRole,
+    *,
+    world_id: str = WORLD_ID,
+    branch_id: str = BRANCH_ID,
 ) -> ContinuousSessionCompatibilityV1:
     return ContinuousSessionCompatibilityV1(
         schema_version=ContinuousSessionCompatibilityV1.SCHEMA_VERSION,
-        world_id=WORLD_ID,
-        branch_id=BRANCH_ID,
+        world_id=world_id,
+        branch_id=branch_id,
         role=role,
         provider="openai_codex",
         model="gpt-5.6-sol" if role is ContinuousSessionRole.PLANNER else "gpt-5.6-terra",
@@ -474,7 +485,9 @@ def compatibility(
             if role is ContinuousSessionRole.PLANNER
             else ContinuousValidatorDraftV1.SCHEMA_VERSION
         ),
-        world_directory_identity_sha256=world.world_identity_sha256(WORLD_ID, BRANCH_ID),
+        world_directory_identity_sha256=world.world_identity_sha256(
+            world_id, branch_id
+        ),
         authority_policy_version="cera.owner_architecture.v2+d186",
         privacy_policy_version="cera.privacy.v1",
         protected_user_policy_version="cera.continuous_protected_user_policy.v8",
@@ -486,8 +499,19 @@ def compatibility(
     )
 
 
-def read_world_revision(world: ContinuousWorldStore, character: str) -> int:
-    path = world.branch_root(WORLD_ID, BRANCH_ID) / "ACTIVE" / "Characters" / f"{character}.json"
+def read_world_revision(
+    world: ContinuousWorldStore,
+    character: str,
+    *,
+    world_id: str = WORLD_ID,
+    branch_id: str = BRANCH_ID,
+) -> int:
+    path = (
+        world.branch_root(world_id, branch_id)
+        / "ACTIVE"
+        / "Characters"
+        / f"{character}.json"
+    )
     return int(json.loads(path.read_text(encoding="utf-8"))["_cera_revision"])
 
 
@@ -671,6 +695,9 @@ class JobHarness:
         composer_transport_factory: Callable[[], Any] | None = None,
         scripted_provider_free: bool = False,
         thread_lifecycle_failpoint: Callable[[str], None] | None = None,
+        world_id: str = WORLD_ID,
+        branch_id: str = BRANCH_ID,
+        ingress_authority: ContinuousIngressAuthorityStore | None = None,
     ) -> None:
         self.source_root = source_root
         self.cycle = cycle
@@ -681,11 +708,14 @@ class JobHarness:
         self.validator_handle = validator_handle
         self.lifecycle_root = lifecycle_root
         self.call_ledger = call_ledger
+        self.call_index_offset = call_ledger.dispatched_call_count
         self.root_diagnostic = root_diagnostic
         self.planner_transport_factory = planner_transport_factory
         self.validator_transport_factory = validator_transport_factory
         self.composer_transport_factory = composer_transport_factory
         self.scripted_provider_free = scripted_provider_free
+        self.world_id = world_id
+        self.branch_id = branch_id
         self.accepted_pairs: list[AcceptedTurnPairV1] = []
         self.call_records: list[dict[str, Any]] = []
         self.poll_records: list[dict[str, Any]] = []
@@ -699,7 +729,7 @@ class JobHarness:
             int, tuple[Any, PreparedContinuousTestTurn]
         ] = {}
         self.http_turn_results: list[dict[str, Any]] = []
-        self.ingress_authority = ContinuousIngressAuthorityStore(
+        self.ingress_authority = ingress_authority or ContinuousIngressAuthorityStore(
             lifecycle_root / "ingress_authority",
             fixture_registry=canary_ingress_fixtures(),
         )
@@ -876,10 +906,12 @@ class JobHarness:
             raise
 
     def codex_planner(self, prompt: str, turn_id: str):
-        workspace = self.lifecycle_root / f"call_{len(self.call_records) + 1:02d}_planner"
+        workspace = self.lifecycle_root / (
+            f"call_{self.call_index_offset + len(self.call_records) + 1:02d}_planner"
+        )
         self._create_workspace(workspace, "create_planner_call_workspace")
         dispatcher = ContinuousWorldToolDispatcher(
-            self.world.branch_root(WORLD_ID, BRANCH_ID),
+            self.world.branch_root(self.world_id, self.branch_id),
             ContinuousSessionRole.PLANNER,
             current_turn_id=turn_id,
         )
@@ -907,10 +939,12 @@ class JobHarness:
         *,
         accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
     ):
-        workspace = self.lifecycle_root / f"call_{len(self.call_records) + 1:02d}_validator"
+        workspace = self.lifecycle_root / (
+            f"call_{self.call_index_offset + len(self.call_records) + 1:02d}_validator"
+        )
         self._create_workspace(workspace, "create_validator_call_workspace")
         dispatcher = ContinuousWorldToolDispatcher(
-            self.world.branch_root(WORLD_ID, BRANCH_ID),
+            self.world.branch_root(self.world_id, self.branch_id),
             ContinuousSessionRole.VALIDATOR,
             current_turn_id=turn_id,
         )
@@ -989,8 +1023,8 @@ class JobHarness:
         else:
             summaries = ()
         request = ContinuousTurnRequestV1(
-            world_id=WORLD_ID,
-            branch_id=BRANCH_ID,
+            world_id=self.world_id,
+            branch_id=self.branch_id,
             scene_id="scene-002" if turn_number == 3 else "scene-001",
             turn_id=self._active_turn_id,
             user_message=TURN_MESSAGES[turn_number - 1],
@@ -1095,7 +1129,7 @@ class JobHarness:
             f"turn-{turn_number:03d}", CreatorReviewAction.ACCEPT
         )
         pair = self.world.accepted_turn_pairs(
-            WORLD_ID, BRANCH_ID, (f"turn-{turn_number:03d}",)
+            self.world_id, self.branch_id, (f"turn-{turn_number:03d}",)
         )[0]
         self.accepted_pairs.append(pair)
         result = {
@@ -1134,8 +1168,8 @@ class JobHarness:
         self._active_turn_id = f"turn-{turn_number:03d}"
         self._active_validator_label = None
         request = ContinuousTurnRequestV1(
-            world_id=WORLD_ID,
-            branch_id=BRANCH_ID,
+            world_id=self.world_id,
+            branch_id=self.branch_id,
             scene_id=scene_id,
             turn_id=self._active_turn_id,
             user_message=TURN_MESSAGES[turn_number - 1],
@@ -1160,7 +1194,7 @@ class JobHarness:
             self._active_turn_id, CreatorReviewAction.ACCEPT
         )
         pair = self.world.accepted_turn_pairs(
-            WORLD_ID, BRANCH_ID, (self._active_turn_id,)
+            self.world_id, self.branch_id, (self._active_turn_id,)
         )[0]
         self.accepted_pairs.append(pair)
         usage = json.loads(
@@ -1309,8 +1343,8 @@ class JobHarness:
         self._active_turn_id = "turn-003"
         self._active_validator_label = "scene-1-validator-summary"
         request = ContinuousTurnRequestV1(
-            world_id=WORLD_ID,
-            branch_id=BRANCH_ID,
+            world_id=self.world_id,
+            branch_id=self.branch_id,
             scene_id="scene-002",
             turn_id="turn-003",
             user_message=TURN_MESSAGES[2],
@@ -1350,13 +1384,13 @@ class JobHarness:
             parent.compatibility,
             branch_id=child_branch,
             world_directory_identity_sha256=self.world.branch_directory_identity_sha256(
-                WORLD_ID, child_branch
+                self.world_id, child_branch
             ),
         )
         materialization_receipt = self.coordinator.materialize_planner_branch(
             target_compatibility=child_compatibility
         )
-        child_root = self.world.branch_root(WORLD_ID, child_branch)
+        child_root = self.world.branch_root(self.world_id, child_branch)
         branch_receipt = parent.build_branch_fork_receipt(
             child_compatibility,
             branch_materialization_receipt_sha256=(
@@ -1399,7 +1433,7 @@ class JobHarness:
             provider_thread_sha256=child_handle.provider_thread_id_sha256,
         )
         registry = RequestEvidenceBindingRegistry(
-            world_id=WORLD_ID,
+            world_id=self.world_id,
             branch_id=child_branch,
             turn_id="turn-fork-lean-preflight",
         )
@@ -1421,7 +1455,7 @@ class JobHarness:
                 ),
             )
         child_packet = build_continuous_planner_turn_packet(
-            world_id=WORLD_ID,
+            world_id=self.world_id,
             branch_id=child_branch,
             session_id="session-fork-child",
             request_id="request-fork-child-lean",
@@ -1450,7 +1484,7 @@ class JobHarness:
             scene_change_envelope_sha256=None,
         )
         parent_head, parent_references = StableAcceptedContextReferenceStore(
-            self.world.branch_root(WORLD_ID, BRANCH_ID)
+            self.world.branch_root(self.world_id, self.branch_id)
         ).load(
             accepted_turn_id,
             provider_thread_sha256=parent_handle.provider_thread_id_sha256,
@@ -1458,7 +1492,7 @@ class JobHarness:
         parent_key_rejected = False
         try:
             RequestEvidenceBindingRegistry(
-                world_id=WORLD_ID,
+                world_id=self.world_id,
                 branch_id=child_branch,
                 turn_id="turn-parent-key-rejection",
             ).allocate_stable_accepted_context_reference(
@@ -1475,7 +1509,7 @@ class JobHarness:
         sibling_key_rejected = False
         try:
             RequestEvidenceBindingRegistry(
-                world_id=WORLD_ID,
+                world_id=self.world_id,
                 branch_id="canary-fork-sibling",
                 turn_id="turn-sibling-key-rejection",
             ).allocate_stable_accepted_context_reference(
@@ -1535,18 +1569,18 @@ class JobHarness:
         prior = self.planner_session
         prior_handle = prior.ensure_session()
         store = StableAcceptedContextReferenceStore(
-            self.world.branch_root(WORLD_ID, BRANCH_ID)
+            self.world.branch_root(self.world_id, self.branch_id)
         )
         accepted_tail = []
         for pair in self.accepted_pairs[-2:]:
             envelope = self.world.accepted_final_envelope(
-                WORLD_ID,
-                BRANCH_ID,
+                self.world_id,
+                self.branch_id,
                 pair.accepted_turn_id,
             )
             journal = self.world.acceptance_synchronization_record(
-                WORLD_ID,
-                BRANCH_ID,
+                self.world_id,
+                self.branch_id,
                 pair.accepted_turn_id,
             )
             _receipt, references = store.load(
@@ -1568,8 +1602,8 @@ class JobHarness:
             )
         ancestry = canonical_sha256(
             {
-                "world_id": WORLD_ID,
-                "branch_id": BRANCH_ID,
+                "world_id": self.world_id,
+                "branch_id": self.branch_id,
                 "accepted_tail": tuple(
                     (
                         value.envelope.accepted_turn_id,
@@ -1584,8 +1618,8 @@ class JobHarness:
             schema_version=(
                 ContinuousSessionReconstructionBundleV1.SCHEMA_VERSION
             ),
-            world_id=WORLD_ID,
-            branch_id=BRANCH_ID,
+            world_id=self.world_id,
+            branch_id=self.branch_id,
             accepted_tail=tuple(accepted_tail),
             character_summaries=(),
             accepted_ancestry_sha256=ancestry,

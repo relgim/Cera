@@ -41,6 +41,10 @@ def build_server(
     adapter: CeraSillyTavernAdapter,
     config: CeraSillyTavernServerConfig = CeraSillyTavernServerConfig(),
 ) -> ThreadingHTTPServer:
+    adapter_model = getattr(adapter, "virtual_model", None)
+    if adapter_model is not None and adapter_model != config.model:
+        raise ValueError("CERA adapter and HTTP model identities do not match")
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "CERA-SillyTavern/1"
 

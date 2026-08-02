@@ -199,6 +199,10 @@ class ContinuousSillyTavernTestAdapter:
             **self._route_identity,
         }
 
+    @property
+    def virtual_model(self) -> str:
+        return CERA_CONTINUOUS_V3_TEST_MODEL
+
     def complete(self, request: SillyTavernChatRequest) -> SillyTavernTurnReply:
         with self._lock:
             if request.model != CERA_CONTINUOUS_V3_TEST_MODEL:

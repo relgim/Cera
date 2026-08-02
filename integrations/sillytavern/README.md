@@ -1,5 +1,11 @@
 # SillyTavern CERA shell
 
+The additive Continuous V3 ordinary manual-test profile and exact provider-free
+operations are documented in
+[`CONTINUOUS_V3_MANUAL_TEST_ROUTE.md`](../../docs/operations/CONTINUOUS_V3_MANUAL_TEST_ROUTE.md).
+It uses a separate Custom Endpoint preset on loopback port 5114 and does not
+replace or mutate the installed `cera-alpha`/D-180 preset.
+
 `Hanezawa Family - Cera v1.0.json` is the repository-owned character-card
 source. It is intentionally a thin presentation shell: typed Genesis, selected
 participants, memory retrieval, decisions, adult routing, and accepted prose

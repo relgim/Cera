@@ -13,6 +13,10 @@ CONTINUOUS_V3_RUN_IDENTITIES = tuple(
     f"2026-08-02-continuous-sillytavern-two-run-v1-run-{number:03d}"
     for number in range(1, 5)
 )
+CONTINUOUS_V3_V2_RUN_IDENTITIES = tuple(
+    f"2026-08-02-continuous-sillytavern-two-run-v2-run-{number:03d}"
+    for number in range(1, 5)
+)
 CONTINUOUS_V3_CALL_SCHEDULE = (
     "turn-1-planner",
     "turn-1-deepseek",
@@ -59,6 +63,10 @@ class ContinuousV3TwoRunCampaign:
     consecutive_passes: int = 0
     total_provider_calls: int = 0
     restart_after_last_pass: bool = False
+    run_identities: tuple[str, ...] = CONTINUOUS_V3_RUN_IDENTITIES
+    total_call_ceiling: int = CAMPAIGN_TOTAL_CALL_CEILING
+    codex_family_call_ceiling: int = CODEX_FAMILY_CALL_CEILING
+    deepseek_call_ceiling: int = DEEPSEEK_CALL_CEILING
 
     def __post_init__(self) -> None:
         if not re_is_sha256(self.execution_identity_sha256):
@@ -69,6 +77,25 @@ class ContinuousV3TwoRunCampaign:
             raise ContractValidationError("campaign consecutive-pass count is invalid")
         if type(self.restart_after_last_pass) is not bool:
             raise ContractValidationError("campaign restart state is invalid")
+        if (
+            len(self.run_identities) != 4
+            or len(set(self.run_identities)) != 4
+            or any(not isinstance(value, str) or not value.strip() for value in self.run_identities)
+        ):
+            raise ContractValidationError("campaign run identities are invalid")
+        if any(
+            type(value) is not int or value < 0
+            for value in (
+                self.total_call_ceiling,
+                self.codex_family_call_ceiling,
+                self.deepseek_call_ceiling,
+            )
+        ):
+            raise ContractValidationError("campaign call ceiling is invalid")
+        if tuple(run.run_id for run in self.runs) != self.run_identities[
+            : len(self.runs)
+        ]:
+            raise ContractValidationError("campaign run history is out of order")
         recorded_calls = tuple(call for run in self.runs for call in run.calls)
         for call in recorded_calls:
             _provider_family(call)
@@ -76,11 +103,11 @@ class ContinuousV3TwoRunCampaign:
             raise ContractValidationError(
                 "campaign cumulative provider-call count disagrees with run history"
             )
-        if self.total_provider_calls > CAMPAIGN_TOTAL_CALL_CEILING:
+        if self.total_provider_calls > self.total_call_ceiling:
             raise ContractValidationError("campaign provider-call ceiling is exceeded")
-        if self.codex_family_calls > CODEX_FAMILY_CALL_CEILING:
+        if self.codex_family_calls > self.codex_family_call_ceiling:
             raise ContractValidationError("campaign Codex-family ceiling is exceeded")
-        if self.deepseek_calls > DEEPSEEK_CALL_CEILING:
+        if self.deepseek_calls > self.deepseek_call_ceiling:
             raise ContractValidationError("campaign DeepSeek ceiling is exceeded")
         tail_passes = 0
         terminal_history = self.runs[:-1] if self.current is not None else self.runs
@@ -130,7 +157,7 @@ class ContinuousV3TwoRunCampaign:
     def begin_run(self, run_id: str, *, execution_identity_sha256: str) -> None:
         if self.complete or self.current is not None:
             raise StateConflictError("campaign cannot start another run")
-        expected = CONTINUOUS_V3_RUN_IDENTITIES[len(self.runs)] if len(self.runs) < 4 else None
+        expected = self.run_identities[len(self.runs)] if len(self.runs) < 4 else None
         if run_id != expected:
             raise StateConflictError("campaign run identity is out of order or exhausted")
         if execution_identity_sha256 != self.execution_identity_sha256:
@@ -158,14 +185,14 @@ class ContinuousV3TwoRunCampaign:
         if label != CONTINUOUS_V3_CALL_SCHEDULE[expected_index]:
             raise StateConflictError("run provider-call order changed")
         family = _provider_family(label)
-        if self.total_provider_calls >= CAMPAIGN_TOTAL_CALL_CEILING:
+        if self.total_provider_calls >= self.total_call_ceiling:
             raise StateConflictError("campaign provider-call ceiling is exhausted")
         if (
             family == "codex_family"
-            and self.codex_family_calls >= CODEX_FAMILY_CALL_CEILING
+            and self.codex_family_calls >= self.codex_family_call_ceiling
         ):
             raise StateConflictError("campaign Codex-family ceiling is exhausted")
-        if family == "deepseek" and self.deepseek_calls >= DEEPSEEK_CALL_CEILING:
+        if family == "deepseek" and self.deepseek_calls >= self.deepseek_call_ceiling:
             raise StateConflictError("campaign DeepSeek ceiling is exhausted")
         self.total_provider_calls += 1
         self.runs[-1] = CampaignRunRecord(
@@ -228,5 +255,13 @@ class ContinuousV3TwoRunCampaign:
                 for record in self.runs
             ],
         }
+        if self.run_identities != CONTINUOUS_V3_RUN_IDENTITIES:
+            payload["run_identities"] = list(self.run_identities)
+        if self.total_call_ceiling != CAMPAIGN_TOTAL_CALL_CEILING:
+            payload["total_call_ceiling"] = self.total_call_ceiling
+        if self.codex_family_call_ceiling != CODEX_FAMILY_CALL_CEILING:
+            payload["codex_family_call_ceiling"] = self.codex_family_call_ceiling
+        if self.deepseek_call_ceiling != DEEPSEEK_CALL_CEILING:
+            payload["deepseek_call_ceiling"] = self.deepseek_call_ceiling
         payload["campaign_state_sha256"] = canonical_sha256(payload)
         return payload

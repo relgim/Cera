@@ -24,6 +24,7 @@ from cera.serialization import canonical_bytes, canonical_sha256, text_sha256
 from cera.sillytavern.campaign import (
     CONTINUOUS_V3_CALL_SCHEDULE,
     CONTINUOUS_V3_RUN_IDENTITIES,
+    CONTINUOUS_V3_V2_RUN_IDENTITIES,
     ContinuousV3TwoRunCampaign,
 )
 from cera.sillytavern.continuous_test import (
@@ -354,6 +355,42 @@ class ContinuousV3CampaignStateTests(unittest.TestCase):
                 CONTINUOUS_V3_RUN_IDENTITIES[1],
                 execution_identity_sha256=text_sha256("changed"),
             )
+
+    def test_v2_uses_fresh_ids_and_debited_campaign_ceiling(self) -> None:
+        campaign = ContinuousV3TwoRunCampaign(
+            self.identity,
+            run_identities=CONTINUOUS_V3_V2_RUN_IDENTITIES,
+            total_call_ceiling=39,
+            codex_family_call_ceiling=799,
+            deepseek_call_ceiling=800,
+        )
+        with self.assertRaises(Exception):
+            campaign.begin_run(
+                CONTINUOUS_V3_RUN_IDENTITIES[0],
+                execution_identity_sha256=self.identity,
+            )
+        campaign.begin_run(
+            CONTINUOUS_V3_V2_RUN_IDENTITIES[0],
+            execution_identity_sha256=self.identity,
+        )
+        self.dispatch_all(campaign)
+        campaign.terminalize(passed=True, reason="qualified")
+        campaign.record_controlled_restart(
+            execution_identity_sha256=self.identity
+        )
+        campaign.begin_run(
+            CONTINUOUS_V3_V2_RUN_IDENTITIES[1],
+            execution_identity_sha256=self.identity,
+        )
+        self.dispatch_all(campaign)
+        campaign.terminalize(passed=True, reason="qualified")
+        self.assertTrue(campaign.complete)
+        self.assertEqual(campaign.total_provider_calls, 20)
+        serialized = campaign.to_dict()
+        self.assertEqual(
+            serialized["run_identities"], list(CONTINUOUS_V3_V2_RUN_IDENTITIES)
+        )
+        self.assertEqual(serialized["total_call_ceiling"], 39)
 
     def test_out_of_order_dispatch_and_fifth_run_fail_closed(self) -> None:
         campaign = ContinuousV3TwoRunCampaign(self.identity)

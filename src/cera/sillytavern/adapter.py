@@ -598,6 +598,10 @@ class CeraSillyTavernAdapter:
             {"mode": "unavailable", "active": False},
         )
 
+    @property
+    def virtual_model(self) -> str:
+        return CERA_VIRTUAL_MODEL
+
     def complete(self, request: SillyTavernChatRequest) -> SillyTavernTurnReply:
         if request.model != CERA_VIRTUAL_MODEL:
             raise ValueError(

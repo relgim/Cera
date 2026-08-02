@@ -70,8 +70,8 @@ class ContinuousSillyTavernShadowRequestBridge:
         )
         if (
             resolved.raw_source_sha256 != text_sha256(chat_request.latest_user_content)
-            or resolved.world_id != str(envelope.world_id)
-            or resolved.branch_id != str(envelope.branch_id)
+            or resolved.world_id != envelope.world_id.value
+            or resolved.branch_id != envelope.branch_id.value
             or resolved.session_id != str(envelope.session_id)
             or resolved.request_id != str(envelope.request_id)
             or resolved.turn_id != turn_id

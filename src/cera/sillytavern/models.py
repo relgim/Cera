@@ -12,8 +12,13 @@ from cera.serialization import text_sha256
 
 CERA_VIRTUAL_MODEL = "cera-alpha"
 CERA_CONTINUOUS_V3_TEST_MODEL = "cera-continuous-v3-test"
+CERA_CONTINUOUS_V3_MANUAL_MODEL = "cera-continuous-v3-manual"
 SUPPORTED_CERA_VIRTUAL_MODELS = frozenset(
-    {CERA_VIRTUAL_MODEL, CERA_CONTINUOUS_V3_TEST_MODEL}
+    {
+        CERA_VIRTUAL_MODEL,
+        CERA_CONTINUOUS_V3_TEST_MODEL,
+        CERA_CONTINUOUS_V3_MANUAL_MODEL,
+    }
 )
 
 
@@ -37,6 +42,7 @@ class SillyTavernChatRequest:
     messages: tuple[ChatMessage, ...]
     stream: bool
     cera_session_id: str | None = None
+    cera_profile_id: str | None = None
     cera_scene_depth: str | None = None
     cera_regeneration_key: str | None = None
     cera_character_autonomy: str | None = None
@@ -61,6 +67,10 @@ class SillyTavernChatRequest:
             r"[a-z0-9][a-z0-9_-]{0,95}", self.cera_session_id
         ):
             raise ContractValidationError("invalid CERA session identity")
+        if self.cera_profile_id is not None and not re.fullmatch(
+            r"[a-z0-9][a-z0-9_.-]{0,127}", self.cera_profile_id
+        ):
+            raise ContractValidationError("invalid CERA profile identity")
         if self.cera_scene_depth is not None and self.cera_scene_depth not in {
             "off",
             "short",
@@ -99,6 +109,26 @@ class SillyTavernChatRequest:
     def from_mapping(cls, value: Mapping[str, Any]) -> "SillyTavernChatRequest":
         if not isinstance(value, Mapping):
             raise ContractValidationError("chat completion body must be an object")
+        supported_controls = {
+            "cera_session_id",
+            "cera_profile_id",
+            "cera_scene_depth",
+            "cera_regeneration_key",
+            "cera_character_autonomy",
+            "cera_prompt_handling",
+            "cera_reasoning_effort",
+            "cera_scene_change",
+        }
+        unsupported_controls = sorted(
+            str(key)
+            for key in value
+            if str(key).startswith("cera_") and key not in supported_controls
+        )
+        if unsupported_controls:
+            raise ContractValidationError(
+                "unsupported CERA request controls: "
+                + ", ".join(unsupported_controls)
+            )
         raw_messages = value.get("messages")
         if not isinstance(raw_messages, list):
             raise ContractValidationError("chat completion messages must be an array")
@@ -126,6 +156,7 @@ class SillyTavernChatRequest:
             messages=tuple(messages),
             stream=bool(value.get("stream", False)),
             cera_session_id=_optional_control(value, "cera_session_id"),
+            cera_profile_id=_optional_control(value, "cera_profile_id"),
             cera_scene_depth=_optional_control(
                 value,
                 "cera_scene_depth",
@@ -185,10 +216,14 @@ class SillyTavernTurnReply:
     def __post_init__(self) -> None:
         if not self.prose.strip():
             raise ContractValidationError("accepted SillyTavern prose is empty")
-        if self.route_kind not in {"ordinary", "continuous_v3_test"}:
+        if self.route_kind not in {
+            "ordinary",
+            "continuous_v3_test",
+            "continuous_v3_manual",
+        }:
             raise ContractValidationError("unknown SillyTavern reply route")
         provisional = self.provisional_review_id is not None
-        if self.route_kind == "continuous_v3_test":
+        if self.route_kind in {"continuous_v3_test", "continuous_v3_manual"}:
             if (
                 not provisional
                 or self.artifact_id is not None
@@ -199,7 +234,7 @@ class SillyTavernTurnReply:
                 or self.exact_replay
             ):
                 raise ContractValidationError(
-                    "continuous V3 test reply has inconsistent bindings"
+                    "continuous V3 review reply has inconsistent bindings"
                 )
             return
         if provisional:

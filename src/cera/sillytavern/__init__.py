@@ -1,6 +1,7 @@
 """CERA's non-production SillyTavern transport boundary."""
 
 from .adapter import *
+from .continuous_manual import *
 from .models import *
 from .server import *
 

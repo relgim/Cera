@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 from tempfile import NamedTemporaryFile
+from typing import ClassVar
 
 from cera.evidence import (
     EvidenceAccessScope,
@@ -40,6 +41,13 @@ HUMAN_TEST_BRANCH_ID = TypedId(IdKind.BRANCH, "main")
 HUMAN_TEST_DATABASE_RELATIVE_PATH = Path(
     "runtime/development/hanezawa_human_test_v1_2.sqlite3"
 )
+CONTINUOUS_MANUAL_WORLD_ID = TypedId(
+    IdKind.WORLD, "hanezawa-continuous-manual-v1-2"
+)
+CONTINUOUS_MANUAL_BRANCH_ID = TypedId(IdKind.BRANCH, "manual-main")
+CONTINUOUS_MANUAL_DATABASE_RELATIVE_PATH = Path(
+    "runtime/manual/continuous_v3/hanezawa_continuous_manual_v1_2.sqlite3"
+)
 
 _SCENARIO_OWNER_CLAUSES = {
     "Mia has prepared tea": CHARACTER_IDS["Mia"],
@@ -57,6 +65,11 @@ _SCENARIO_OWNER_CLAUSES = {
 
 @dataclass(frozen=True, slots=True)
 class HanezawaHumanTestWorld:
+    WORLD_ID: ClassVar[TypedId] = HUMAN_TEST_WORLD_ID
+    BRANCH_ID: ClassVar[TypedId] = HUMAN_TEST_BRANCH_ID
+    DATABASE_RELATIVE_PATH: ClassVar[Path] = HUMAN_TEST_DATABASE_RELATIVE_PATH
+    TRANSACTION_NAMESPACE: ClassVar[str] = "human-test"
+
     project_root: Path
     database_path: Path
     store: SQLiteAuthorityStore
@@ -64,8 +77,14 @@ class HanezawaHumanTestWorld:
     compiled: CompiledGenesisRevision
     revision_id: TypedId
     authorization_id: TypedId
-    world_id: TypedId = HUMAN_TEST_WORLD_ID
-    branch_id: TypedId = HUMAN_TEST_BRANCH_ID
+
+    @property
+    def world_id(self) -> TypedId:
+        return type(self).WORLD_ID
+
+    @property
+    def branch_id(self) -> TypedId:
+        return type(self).BRANCH_ID
 
     @classmethod
     def open(
@@ -77,7 +96,7 @@ class HanezawaHumanTestWorld:
         target = (
             Path(database_path).resolve()
             if database_path is not None
-            else (root / HUMAN_TEST_DATABASE_RELATIVE_PATH).resolve()
+            else (root / cls.DATABASE_RELATIVE_PATH).resolve()
         )
         if not target.is_file():
             raise FileNotFoundError(
@@ -85,10 +104,10 @@ class HanezawaHumanTestWorld:
             )
         compiled, authorization = _compile_v1_2(root)
         store = SQLiteAuthorityStore(target)
-        branch = store.get_branch(HUMAN_TEST_BRANCH_ID)
-        if branch.world_id != HUMAN_TEST_WORLD_ID:
+        branch = store.get_branch(cls.BRANCH_ID)
+        if branch.world_id != cls.WORLD_ID:
             raise RuntimeError("human-test branch belongs to another world")
-        revision_id = store.get_world_genesis_revision(HUMAN_TEST_WORLD_ID)
+        revision_id = store.get_world_genesis_revision(cls.WORLD_ID)
         if revision_id != compiled.manifest.revision_id:
             raise RuntimeError("human-test world is not bound to Genesis V1.2")
         if store.integrity_check() != ("ok",) or store.foreign_key_check():
@@ -115,7 +134,7 @@ class HanezawaHumanTestWorld:
         target = (
             Path(database_path).resolve()
             if database_path is not None
-            else (root / HUMAN_TEST_DATABASE_RELATIVE_PATH).resolve()
+            else (root / cls.DATABASE_RELATIVE_PATH).resolve()
         )
         target.parent.mkdir(parents=True, exist_ok=True)
         if target.exists() and not replace:
@@ -130,7 +149,13 @@ class HanezawaHumanTestWorld:
             staging = Path(temporary.name).resolve()
         try:
             staging.unlink()
-            _build_v1_2_database(root, staging)
+            _build_v1_2_database(
+                root,
+                staging,
+                world_id=cls.WORLD_ID,
+                branch_id=cls.BRANCH_ID,
+                transaction_namespace=cls.TRANSACTION_NAMESPACE,
+            )
             built = cls.open(root, staging)
             branch = built.store.get_branch(built.branch_id)
             if (
@@ -298,7 +323,14 @@ def _compile_v1_2(
     )
 
 
-def _build_v1_2_database(project_root: Path, database_path: Path) -> None:
+def _build_v1_2_database(
+    project_root: Path,
+    database_path: Path,
+    *,
+    world_id: TypedId = HUMAN_TEST_WORLD_ID,
+    branch_id: TypedId = HUMAN_TEST_BRANCH_ID,
+    transaction_namespace: str = "human-test",
+) -> None:
     parent_paths = default_repository_paths(project_root)
     child_paths = default_v1_2_repository_paths(project_root)
     parent_authorization = from_mapping(
@@ -315,31 +347,40 @@ def _build_v1_2_database(project_root: Path, database_path: Path) -> None:
     )
     store = SQLiteAuthorityStore(database_path)
     repository = GenesisRepository(store)
-    store.create_world(HUMAN_TEST_WORLD_ID)
-    store.create_root_branch(HUMAN_TEST_WORLD_ID, HUMAN_TEST_BRANCH_ID)
+    store.create_world(world_id)
+    store.create_root_branch(world_id, branch_id)
     repository.compile_and_install(
         parent_paths["package_root"],
         parent_authorization,
         transaction_id=TypedId(
             IdKind.TRANSACTION,
-            "human-test-genesis-parent-install",
+            f"{transaction_namespace}-genesis-parent-install",
         ),
-        idempotency_key="human-test-genesis-parent-install",
+        idempotency_key=f"{transaction_namespace}-genesis-parent-install",
     )
     installed = repository.compile_and_install(
         child_paths["package_root"],
         child_authorization,
         transaction_id=TypedId(
             IdKind.TRANSACTION,
-            "human-test-genesis-v1-2-install",
+            f"{transaction_namespace}-genesis-v1-2-install",
         ),
-        idempotency_key="human-test-genesis-v1-2-install",
+        idempotency_key=f"{transaction_namespace}-genesis-v1-2-install",
     )
     store.bind_world_to_genesis(
-        HUMAN_TEST_WORLD_ID,
+        world_id,
         installed.receipt.revision_id,
         child_authorization.authorization_id,
     )
     store.rebuild_evidence_search_index()
     if store.integrity_check() != ("ok",) or store.foreign_key_check():
         raise RuntimeError("new human-test SQLite database failed integrity checks")
+
+
+class HanezawaContinuousManualWorld(HanezawaHumanTestWorld):
+    """Resettable V1.2 authority database owned only by the manual V3 route."""
+
+    WORLD_ID = CONTINUOUS_MANUAL_WORLD_ID
+    BRANCH_ID = CONTINUOUS_MANUAL_BRANCH_ID
+    DATABASE_RELATIVE_PATH = CONTINUOUS_MANUAL_DATABASE_RELATIVE_PATH
+    TRANSACTION_NAMESPACE = "continuous-manual"

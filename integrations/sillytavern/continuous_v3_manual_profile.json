@@ -1,0 +1,25 @@
+{
+  "profile_id": "cera.continuous_v3.manual.v1",
+  "production": false,
+  "endpoint": "http://127.0.0.1:5114/v1",
+  "model": "cera-continuous-v3-manual",
+  "stream": false,
+  "route": "continuous_v3_manual",
+  "provider_mode": "scripted_provider_free",
+  "external_provider_calls_authorized": 0,
+  "creator_review_required": true,
+  "automatic_accept": false,
+  "automatic_retry": false,
+  "fallback": false,
+  "automatic_false_positive": false,
+  "database_policy": "isolated_resettable_manual_root",
+  "lan_binding_allowed": false,
+  "sillytavern_custom_endpoint": {
+    "chat_completion_source": "custom",
+    "custom_include_body_yaml": "cera_session_id: cera-continuous-manual\ncera_profile_id: cera.continuous_v3.manual.v1\ncera_scene_change: false",
+    "scene_change_one_shot_yaml": "cera_session_id: cera-continuous-manual\ncera_profile_id: cera.continuous_v3.manual.v1\ncera_scene_change: true",
+    "review_workflow": "repository_cli_on_port_5114",
+    "installed_review_relay_changed": false
+  },
+  "notes": "Provider-free manual qualification profile. It is not an installed or active SillyTavern preset."
+}
