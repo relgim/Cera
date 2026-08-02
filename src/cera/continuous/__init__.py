@@ -55,6 +55,7 @@ from .ingress import (
 )
 from .sessions import (
     CharacterSummaryDeliveryReceiptV1,
+    ContinuousAcceptedSnapshotPathPlanV1,
     ContinuousBranchForkReceiptV1,
     ContinuousBranchForkReceiptV2,
     ContinuousBranchReferenceTransferReceiptV1,
@@ -65,7 +66,11 @@ from .sessions import (
     ContinuousSessionInitializationKind,
     ContinuousSessionReconstructionBundleV1,
     ContinuousSessionSnapshotReceiptV1,
+    ContinuousSessionSnapshotReceiptV2,
     ContinuousSessionSnapshotStore,
+    CONTINUOUS_ACCEPTED_SNAPSHOT_MAX_RESOLVED_CHARS,
+    CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256,
+    CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_VERSION,
     PlannerContextMode,
     continuous_branch_privacy_boundary_sha256,
 )
@@ -164,6 +169,7 @@ __all__ = [
     "RepositoryPreparedIngressClassifierV1",
     "build_default_prepared_classifier_registry",
     "ContinuousSessionSnapshotStore",
+    "ContinuousAcceptedSnapshotPathPlanV1",
     "PlannerContextMode",
     "ContinuousSessionInitializationPacketV1",
     "ContinuousSessionInitializationReceiptV1",
@@ -177,6 +183,10 @@ __all__ = [
     "CharacterSummaryDeliveryReceiptV1",
     "ContinuousContextInjectionReceiptV1",
     "ContinuousSessionSnapshotReceiptV1",
+    "ContinuousSessionSnapshotReceiptV2",
+    "CONTINUOUS_ACCEPTED_SNAPSHOT_MAX_RESOLVED_CHARS",
+    "CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256",
+    "CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_VERSION",
     "continuous_branch_privacy_boundary_sha256",
     "ContinuousSceneChangeCandidateV1",
     "ContinuousThreadLifecycleEventV1",

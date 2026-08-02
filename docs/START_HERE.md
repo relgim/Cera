@@ -118,6 +118,7 @@ the active D-180 route.
 | `SILLYTAVERN_CONTINUOUS_V3_TWO_RUN_READINESS_RESULT.md` | Test-only HTTP/review bridge, isolated two-run campaign, provider-free evidence, and live-dispatch boundary |
 | `operations/CONTINUOUS_V3_MANUAL_TEST_ROUTE.md` | Exact loopback-only ordinary typed-turn reset, start, Custom Endpoint, review, decision, Scene Change, restart, recovery, isolation, and provider-free readiness operations |
 | `PRO_REVIEW_CONSUMED_RESPONSE_AUTHORITY_REPAIR_RESULT.md` | D-201 receipt-bound accepted-response authority, post-consumption inbox diagnostics, historical recovery, active-source strictness, and non-mutation evidence |
+| `CONTINUOUS_WINDOWS_PATH_BUDGET_AND_SNAPSHOT_CUSTODY_V3_RESULT.md` | D-202 compact full-hash-bound accepted snapshots, 248-character legacy Windows path custody, historical V1 decoding, long-root fork/base-transaction proof, and zero-call completion/recovery chain |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |
 | `ROADMAP_AND_GATE.md` | Ordered implementation plan and authorization gates |
 | `CREATOR_REVIEW_PRESENTATION_V1_RESULT.md` | Active severity colors, Adjustment label, False Positive acceptance, and CERA-owned character-color presentation |

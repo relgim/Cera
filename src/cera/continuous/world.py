@@ -38,6 +38,7 @@ from .record_policy import (
     validate_post_edit_record,
 )
 from .packets import LeanSceneChangeContextV1
+from .path_policy import preflight_windows_legacy_paths
 
 
 _ACTIVE_DIRS = (
@@ -69,6 +70,21 @@ _EMBEDDED_SECRET_PATTERNS = (
     ),
     re.compile(r"(?i)([?&](?:api[_-]?key|access[_-]?token|token)=)[^&#\s]{6,}"),
 )
+
+
+def _preflight_branch_materialization_receipt_paths(root: Path) -> None:
+    """Prove the full-SHA receipt and its same-directory temp are writable."""
+
+    receipt = (
+        root.resolve()
+        / "BRANCH_MATERIALIZATION"
+        / (("0" * 64) + ".json")
+    )
+    preflight_windows_legacy_paths(
+        receipt,
+        receipt.with_name(receipt.name + ".tmp"),
+        label="continuous branch materialization receipt",
+    )
 
 
 def _utc_now() -> str:
@@ -559,6 +575,7 @@ class ContinuousWorldStore:
             or ordered_accepted_turn_ids[-1] != accepted_checkpoint_turn_id
         ):
             raise StateConflictError("branch materialization checkpoint order changed")
+        _preflight_branch_materialization_receipt_paths(child_root)
 
         staging_root: Path | None = None
         with self._lock:
@@ -614,8 +631,9 @@ class ContinuousWorldStore:
             try:
                 child_root.parent.mkdir(parents=True, exist_ok=True)
                 staging_root = Path(
-                    mkdtemp(prefix=f".{child_root.name}-materializing-", dir=child_root.parent)
-                )
+                    mkdtemp(prefix=".m-", dir=child_root.parent)
+                ).resolve()
+                _preflight_branch_materialization_receipt_paths(staging_root)
                 child_active = staging_root / "ACTIVE"
                 shutil.copytree(parent_active, child_active)
                 child_state_path = child_active / "WORLD_STATE.json"
@@ -1879,9 +1897,13 @@ class ContinuousWorldStore:
         from .sessions import (
             ContinuousContextInjectionReceiptV1,
             ContinuousSessionSnapshotReceiptV1,
+            ContinuousSessionSnapshotReceiptV2,
             ContinuousSessionSnapshotStore,
         )
-        if not isinstance(snapshot_receipt, ContinuousSessionSnapshotReceiptV1):
+        if not isinstance(
+            snapshot_receipt,
+            (ContinuousSessionSnapshotReceiptV1, ContinuousSessionSnapshotReceiptV2),
+        ):
             raise ContractValidationError("acceptance snapshot receipt type changed")
         if not isinstance(injection_receipt, ContinuousContextInjectionReceiptV1):
             raise ContractValidationError("acceptance injection receipt type changed")

@@ -2070,12 +2070,23 @@ class ContinuousShadowTurnCoordinator:
     ) -> WorldPromotionReceiptV1:
         candidate = self._candidates[turn_id]
         package = candidate.validator_package
+        acceptance_snapshot_store: ContinuousSessionSnapshotStore | None = None
         pair = None
         if package.complete_final_sequence is not None:
             pair = AcceptedTurnPairV1(
                 accepted_turn_id=turn_id,
                 user_message=candidate.request.user_message,
                 complete_final_sequence=package.complete_final_sequence,
+            )
+        if action in {CreatorReviewAction.ACCEPT, CreatorReviewAction.FALSE_POSITIVE}:
+            acceptance_snapshot_store = ContinuousSessionSnapshotStore(
+                self.world.branch_root(
+                    candidate.request.world_id, candidate.request.branch_id
+                ),
+                failpoint=self._acceptance_failpoint,
+            )
+            acceptance_snapshot_store.preflight_acceptance_capacity(
+                accepted_turn_id=turn_id
             )
         self.planner_session.ensure_session()
         promotion_started = time.perf_counter_ns()
@@ -2176,14 +2187,10 @@ class ContinuousShadowTurnCoordinator:
                 injection_operation_receipt_sha256=injection.operation_receipt_sha256,
             )
             self._acceptance_failpoint("after_world_injection_update")
-            snapshot_store = ContinuousSessionSnapshotStore(
-                self.world.branch_root(
-                    candidate.request.world_id, candidate.request.branch_id
-                ),
-                failpoint=self._acceptance_failpoint,
-            )
+            if acceptance_snapshot_store is None:
+                raise StateConflictError("accepted action lacked snapshot path preflight")
             snapshot = self.planner_session.snapshot()
-            snapshot_receipt = snapshot_store.save_for_acceptance(
+            snapshot_receipt = acceptance_snapshot_store.save_for_acceptance(
                 snapshot,
                 accepted_turn_id=turn_id,
                 accepted_envelope_sha256=envelope.envelope_sha256,

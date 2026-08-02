@@ -306,6 +306,7 @@ ACTIVE snapshot
 -> Validator closed package
 -> creator review pending
 -> Accept | False Positive
+   -> preflight mutable-current and compact immutable snapshot final/temp paths
    -> verify all file revisions and package invariants
    -> apply every edit to prepared files
    -> event + accepted exact pair + index + world revision
@@ -347,6 +348,16 @@ is impossible before both the atomic snapshot and stable-reference artifact
 exist. Ambiguous injection is never automatically replayed. The mutable
 current-session pointer is convenience state only; synchronization proof binds
 and revalidates the immutable per-turn artifacts before finalization.
+
+New accepted snapshots use the V2 compact locator under
+`PLANNER_SESSION/ACCEPTED/v2`. The locator contains abbreviated hashes only;
+the immutable envelope and receipt retain the complete accepted-turn identity,
+snapshot/thread/envelope hashes, nested injection receipt, encoded inner-file
+hash, physical outer-file hash, and hash-bound path plan. Python preflights the
+248-character resolved budget for final and same-directory temporary paths
+before creator promotion. Compact-locator collision, changed bytes, root drift,
+or path overflow is terminal. Historical V1 receipts and paths remain
+decodeable without rewriting prior evidence.
 
 Accepted-session context is not raw conversational memory. Under D-200,
 ordinary compatible Planner turns receive a payload-free compact accepted-head

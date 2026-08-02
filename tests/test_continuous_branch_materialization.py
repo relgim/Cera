@@ -227,6 +227,18 @@ class ContinuousBranchMaterializationTests(unittest.TestCase):
             len(forked.coordinator.snapshot().character_summary_deliveries), 1
         )
 
+    def test_over_budget_child_receipt_path_fails_before_materialization(self) -> None:
+        child_branch = "c" + ("x" * 95)
+        parent_root = self.world.branch_root("world-test", "main")
+        child_root = self.world.branch_root("world-test", child_branch)
+        parent_tree_before = self.world.tree_sha256(parent_root)
+        with self.assertRaisesRegex(StateConflictError, "legacy path budget"):
+            self.runtime.materialize_planner_branch(
+                target_compatibility=self._target(child_branch)
+            )
+        self.assertFalse(child_root.exists())
+        self.assertEqual(self.world.tree_sha256(parent_root), parent_tree_before)
+
     def test_empty_and_partial_children_are_not_materializable(self) -> None:
         self.world.initialize("world-test", "child-empty")
         with self.assertRaisesRegex(StateConflictError, "previously nonexistent"):

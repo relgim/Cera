@@ -13,11 +13,13 @@ from enum import StrEnum
 import json
 import os
 from pathlib import Path
+import re
 from typing import Any, Callable, ClassVar, Mapping, Protocol, runtime_checkable
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.schema import from_mapping
 from cera.serialization import (
+    bytes_sha256,
     canonical_bytes,
     canonical_sha256,
     domain_sha256,
@@ -27,6 +29,10 @@ from cera.serialization import (
 )
 
 from .contracts import AcceptedFinalSequenceEnvelopeV1, CharacterSummaryEnvelopeV1
+from .path_policy import (
+    CONTINUOUS_WINDOWS_LEGACY_PATH_MAX_CHARACTERS,
+    preflight_windows_legacy_paths,
+)
 from .thread_lineage import ContinuousThreadLineageLedger
 
 
@@ -1107,6 +1113,134 @@ class ContinuousContextInjectionReceiptV1:
             raise ContractValidationError("continuous injection receipt binding changed")
 
 
+CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_VERSION = (
+    "cera.continuous_accepted_snapshot_path_policy.v1"
+)
+CONTINUOUS_ACCEPTED_SNAPSHOT_MAX_RESOLVED_CHARS = (
+    CONTINUOUS_WINDOWS_LEGACY_PATH_MAX_CHARACTERS
+)
+CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256 = canonical_sha256(
+    {
+        "policy_version": CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_VERSION,
+        "maximum_resolved_path_characters": (
+            CONTINUOUS_ACCEPTED_SNAPSHOT_MAX_RESOLVED_CHARS
+        ),
+        "accepted_directory": "PLANNER_SESSION/ACCEPTED/v2",
+        "turn_locator_sha256_characters": 16,
+        "snapshot_locator_sha256_characters": 24,
+        "temporary_name_rule": "same_directory_append_dot_tmp",
+        "full_hashes_are_authority": True,
+    }
+)
+
+
+def _accepted_snapshot_relative_path(
+    accepted_turn_id: str, snapshot_sha256: str
+) -> str:
+    """Return a compact locator; full identities remain envelope authority."""
+
+    return (
+        "PLANNER_SESSION/ACCEPTED/v2/"
+        + text_sha256(accepted_turn_id)[:16]
+        + "-"
+        + snapshot_sha256[:24]
+        + ".json"
+    )
+
+
+def _same_directory_temporary_path(path: Path) -> Path:
+    return path.with_name(path.name + ".tmp")
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousAcceptedSnapshotPathPlanV1:
+    """Resolved Windows-legacy-safe acceptance paths validated before mutation."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_accepted_snapshot_path_plan.v1"
+
+    schema_version: str
+    path_policy_sha256: str
+    maximum_resolved_path_characters: int
+    current_relative_path: str
+    current_temporary_relative_path: str
+    immutable_relative_path: str
+    immutable_temporary_relative_path: str
+    current_resolved_path_characters: int
+    current_temporary_resolved_path_characters: int
+    immutable_resolved_path_characters: int
+    immutable_temporary_resolved_path_characters: int
+    plan_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("continuous snapshot path plan schema changed")
+        if self.path_policy_sha256 != CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256:
+            raise ContractValidationError("continuous snapshot path policy changed")
+        if (
+            self.maximum_resolved_path_characters
+            != CONTINUOUS_ACCEPTED_SNAPSHOT_MAX_RESOLVED_CHARS
+        ):
+            raise ContractValidationError("continuous snapshot path budget changed")
+        if self.current_relative_path != "PLANNER_SESSION/SESSION_SNAPSHOT.json":
+            raise ContractValidationError("continuous current snapshot path changed")
+        if (
+            self.current_temporary_relative_path
+            != "PLANNER_SESSION/SESSION_SNAPSHOT.json.tmp"
+        ):
+            raise ContractValidationError("continuous current snapshot temporary path changed")
+        if re.fullmatch(
+            r"PLANNER_SESSION/ACCEPTED/v2/[0-9a-f]{16}-[0-9a-f]{24}\.json",
+            self.immutable_relative_path,
+        ) is None:
+            raise ContractValidationError("continuous compact snapshot path changed")
+        if self.immutable_temporary_relative_path != self.immutable_relative_path + ".tmp":
+            raise ContractValidationError("continuous immutable temporary path changed")
+        path_lengths = (
+            self.current_resolved_path_characters,
+            self.current_temporary_resolved_path_characters,
+            self.immutable_resolved_path_characters,
+            self.immutable_temporary_resolved_path_characters,
+        )
+        if any(
+            type(value) is not int
+            or value < 1
+            or value > self.maximum_resolved_path_characters
+            for value in path_lengths
+        ):
+            raise ContractValidationError("continuous snapshot path exceeds legacy budget")
+        expected = canonical_sha256(
+            {
+                "schema_version": self.SCHEMA_VERSION,
+                "path_policy_sha256": self.path_policy_sha256,
+                "maximum_resolved_path_characters": (
+                    self.maximum_resolved_path_characters
+                ),
+                "current_relative_path": self.current_relative_path,
+                "current_temporary_relative_path": (
+                    self.current_temporary_relative_path
+                ),
+                "immutable_relative_path": self.immutable_relative_path,
+                "immutable_temporary_relative_path": (
+                    self.immutable_temporary_relative_path
+                ),
+                "current_resolved_path_characters": (
+                    self.current_resolved_path_characters
+                ),
+                "current_temporary_resolved_path_characters": (
+                    self.current_temporary_resolved_path_characters
+                ),
+                "immutable_resolved_path_characters": (
+                    self.immutable_resolved_path_characters
+                ),
+                "immutable_temporary_resolved_path_characters": (
+                    self.immutable_temporary_resolved_path_characters
+                ),
+            }
+        )
+        if self.plan_sha256 != expected:
+            raise ContractValidationError("continuous snapshot path plan binding changed")
+
+
 @dataclass(frozen=True, slots=True)
 class ContinuousSessionSnapshotReceiptV1:
     """Immutable acceptance-bound snapshot evidence, separate from current pointer."""
@@ -1171,6 +1305,98 @@ class ContinuousSessionSnapshotReceiptV1:
             raise ContractValidationError("continuous snapshot receipt binding changed")
 
 
+@dataclass(frozen=True, slots=True)
+class ContinuousSessionSnapshotReceiptV2:
+    """Compact-locator receipt retaining complete acceptance authority."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_session_snapshot_receipt.v2"
+
+    schema_version: str
+    world_id: str
+    branch_id: str
+    role: ContinuousSessionRole
+    accepted_turn_id: str
+    accepted_turn_id_sha256: str
+    accepted_envelope_sha256: str
+    provider_thread_sha256: str
+    snapshot_sha256: str
+    injection_receipt: ContinuousContextInjectionReceiptV1
+    injection_operation_receipt_sha256: str
+    encoded_snapshot_file_sha256: str
+    immutable_relative_path: str
+    immutable_file_sha256: str
+    current_relative_path: str
+    path_plan: ContinuousAcceptedSnapshotPathPlanV1
+    receipt_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("continuous snapshot receipt schema changed")
+        if self.role is not ContinuousSessionRole.PLANNER:
+            raise ContractValidationError("accepted snapshot receipt must be Planner-owned")
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (self.world_id, self.branch_id, self.accepted_turn_id)
+        ):
+            raise ContractValidationError("continuous snapshot receipt scope is incomplete")
+        for value in (
+            self.accepted_turn_id_sha256,
+            self.accepted_envelope_sha256,
+            self.provider_thread_sha256,
+            self.snapshot_sha256,
+            self.injection_operation_receipt_sha256,
+            self.encoded_snapshot_file_sha256,
+            self.immutable_file_sha256,
+            self.receipt_sha256,
+        ):
+            if not re_is_sha256(value):
+                raise ContractValidationError("continuous snapshot receipt hash is invalid")
+        if self.accepted_turn_id_sha256 != text_sha256(self.accepted_turn_id):
+            raise ContractValidationError("continuous snapshot accepted-turn identity changed")
+        if self.immutable_relative_path != _accepted_snapshot_relative_path(
+            self.accepted_turn_id, self.snapshot_sha256
+        ):
+            raise ContractValidationError("continuous compact snapshot locator changed")
+        if (
+            self.current_relative_path != "PLANNER_SESSION/SESSION_SNAPSHOT.json"
+            or self.path_plan.current_relative_path != self.current_relative_path
+            or self.path_plan.immutable_relative_path != self.immutable_relative_path
+        ):
+            raise ContractValidationError("continuous snapshot path-plan binding changed")
+        if (
+            self.injection_receipt.accepted_turn_id != self.accepted_turn_id
+            or self.injection_receipt.accepted_envelope_sha256
+            != self.accepted_envelope_sha256
+            or self.injection_receipt.provider_thread_sha256
+            != self.provider_thread_sha256
+            or self.injection_receipt.operation_receipt_sha256
+            != self.injection_operation_receipt_sha256
+        ):
+            raise ContractValidationError("continuous snapshot injection receipt changed")
+        payload = {
+            "schema_version": self.SCHEMA_VERSION,
+            "world_id": self.world_id,
+            "branch_id": self.branch_id,
+            "role": self.role.value,
+            "accepted_turn_id": self.accepted_turn_id,
+            "accepted_turn_id_sha256": self.accepted_turn_id_sha256,
+            "accepted_envelope_sha256": self.accepted_envelope_sha256,
+            "provider_thread_sha256": self.provider_thread_sha256,
+            "snapshot_sha256": self.snapshot_sha256,
+            "injection_receipt": to_primitive(self.injection_receipt),
+            "injection_operation_receipt_sha256": (
+                self.injection_operation_receipt_sha256
+            ),
+            "encoded_snapshot_file_sha256": self.encoded_snapshot_file_sha256,
+            "immutable_relative_path": self.immutable_relative_path,
+            "immutable_file_sha256": self.immutable_file_sha256,
+            "current_relative_path": self.current_relative_path,
+            "path_plan": to_primitive(self.path_plan),
+        }
+        if self.receipt_sha256 != canonical_sha256(payload):
+            raise ContractValidationError("continuous snapshot receipt binding changed")
+
+
 class ContinuousSessionSnapshotStore:
     """Durably checkpoint a role thread without granting it story authority."""
 
@@ -1191,17 +1417,103 @@ class ContinuousSessionSnapshotStore:
         )
         return self.branch_root / directory / "SESSION_SNAPSHOT.json"
 
-    def save(self, snapshot: ContinuousSessionSnapshotV1) -> Path:
-        path = self.path_for(snapshot.compatibility.role)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
+    def _resolve_owned_path(self, relative_path: str) -> Path:
+        path = (self.branch_root / relative_path).resolve()
+        if self.branch_root != path and self.branch_root not in path.parents:
+            raise StateConflictError("continuous snapshot path escaped branch custody")
+        return path
+
+    @staticmethod
+    def _snapshot_envelope(snapshot: ContinuousSessionSnapshotV1) -> dict[str, Any]:
+        return {
             "schema_version": "cera.continuous_session_snapshot_envelope.v1",
             "snapshot": to_primitive(snapshot),
             "snapshot_sha256": snapshot.snapshot_sha256,
         }
-        temporary = path.with_suffix(".tmp")
+
+    @staticmethod
+    def _validate_resolved_path_budget(*paths: Path) -> tuple[int, ...]:
+        return preflight_windows_legacy_paths(
+            *paths,
+            label="continuous snapshot",
+        )
+
+    def preflight_acceptance_paths(
+        self, *, accepted_turn_id: str, snapshot_sha256: str
+    ) -> ContinuousAcceptedSnapshotPathPlanV1:
+        """Validate all final/temp paths before acceptance mutates any file."""
+
+        if not isinstance(accepted_turn_id, str) or not accepted_turn_id.strip():
+            raise ContractValidationError("continuous accepted snapshot turn is empty")
+        if not re_is_sha256(snapshot_sha256):
+            raise ContractValidationError("continuous accepted snapshot hash is invalid")
+        current_relative = "PLANNER_SESSION/SESSION_SNAPSHOT.json"
+        immutable_relative = _accepted_snapshot_relative_path(
+            accepted_turn_id, snapshot_sha256
+        )
+        current_path = self._resolve_owned_path(current_relative)
+        current_temporary_path = _same_directory_temporary_path(current_path).resolve()
+        immutable_path = self._resolve_owned_path(immutable_relative)
+        immutable_temporary_path = _same_directory_temporary_path(
+            immutable_path
+        ).resolve()
+        lengths = self._validate_resolved_path_budget(
+            current_path,
+            current_temporary_path,
+            immutable_path,
+            immutable_temporary_path,
+        )
+        payload = {
+            "schema_version": ContinuousAcceptedSnapshotPathPlanV1.SCHEMA_VERSION,
+            "path_policy_sha256": CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256,
+            "maximum_resolved_path_characters": (
+                CONTINUOUS_ACCEPTED_SNAPSHOT_MAX_RESOLVED_CHARS
+            ),
+            "current_relative_path": current_relative,
+            "current_temporary_relative_path": (
+                _same_directory_temporary_path(Path(current_relative)).as_posix()
+            ),
+            "immutable_relative_path": immutable_relative,
+            "immutable_temporary_relative_path": (
+                _same_directory_temporary_path(Path(immutable_relative)).as_posix()
+            ),
+            "current_resolved_path_characters": lengths[0],
+            "current_temporary_resolved_path_characters": lengths[1],
+            "immutable_resolved_path_characters": lengths[2],
+            "immutable_temporary_resolved_path_characters": lengths[3],
+        }
+        return ContinuousAcceptedSnapshotPathPlanV1(
+            **payload,
+            plan_sha256=canonical_sha256(payload),
+        )
+
+    def preflight_acceptance_capacity(
+        self, *, accepted_turn_id: str
+    ) -> ContinuousAcceptedSnapshotPathPlanV1:
+        """Prove fixed-width acceptance paths before story or session mutation.
+
+        The snapshot digest is not available until the accepted envelope has
+        been journaled and injected.  Its locator contribution is fixed at 24
+        hexadecimal characters, so a full-width sentinel proves the exact path
+        lengths without pretending to identify the later immutable artifact.
+        """
+
+        return self.preflight_acceptance_paths(
+            accepted_turn_id=accepted_turn_id,
+            snapshot_sha256="0" * 64,
+        )
+
+    def _publish_current_snapshot(
+        self,
+        snapshot: ContinuousSessionSnapshotV1,
+        *,
+        path: Path,
+        temporary: Path,
+    ) -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        encoded = canonical_bytes(self._snapshot_envelope(snapshot)) + b"\n"
         with temporary.open("wb") as stream:
-            stream.write(canonical_bytes(payload) + b"\n")
+            stream.write(encoded)
             stream.flush()
             os.fsync(stream.fileno())
         if self._failpoint is not None:
@@ -1211,6 +1523,14 @@ class ContinuousSessionSnapshotStore:
             self._failpoint("after_snapshot_replace")
         return path
 
+    def save(self, snapshot: ContinuousSessionSnapshotV1) -> Path:
+        path = self.path_for(snapshot.compatibility.role).resolve()
+        temporary = _same_directory_temporary_path(path).resolve()
+        self._validate_resolved_path_budget(path, temporary)
+        return self._publish_current_snapshot(
+            snapshot, path=path, temporary=temporary
+        )
+
     def save_for_acceptance(
         self,
         snapshot: ContinuousSessionSnapshotV1,
@@ -1218,7 +1538,7 @@ class ContinuousSessionSnapshotStore:
         accepted_turn_id: str,
         accepted_envelope_sha256: str,
         injection_receipt: ContinuousContextInjectionReceiptV1,
-    ) -> ContinuousSessionSnapshotReceiptV1:
+    ) -> ContinuousSessionSnapshotReceiptV2:
         if snapshot.compatibility.role is not ContinuousSessionRole.PLANNER:
             raise StateConflictError("accepted checkpoint requires a Planner snapshot")
         if (
@@ -1240,72 +1560,187 @@ class ContinuousSessionSnapshotStore:
             "accepted_final_sequence_synchronized": accepted_envelope_sha256,
         }:
             raise StateConflictError("accepted snapshot lacks exact synchronized events")
-        current_path = self.save(snapshot)
-        envelope = {
-            "schema_version": "cera.continuous_session_snapshot_envelope.v1",
-            "snapshot": to_primitive(snapshot),
-            "snapshot_sha256": snapshot.snapshot_sha256,
-        }
-        immutable_relative = (
-            "PLANNER_SESSION/ACCEPTED/"
-            + text_sha256(accepted_turn_id)[:24]
-            + "/"
-            + snapshot.snapshot_sha256
-            + ".snapshot.json"
+        snapshot_envelope = self._snapshot_envelope(snapshot)
+        encoded_snapshot = canonical_bytes(snapshot_envelope) + b"\n"
+        encoded_snapshot_file_sha256 = bytes_sha256(encoded_snapshot)
+        path_plan = self.preflight_acceptance_paths(
+            accepted_turn_id=accepted_turn_id,
+            snapshot_sha256=snapshot.snapshot_sha256,
         )
-        immutable_path = self.branch_root / immutable_relative
-        immutable_path.parent.mkdir(parents=True, exist_ok=True)
+        immutable_relative = path_plan.immutable_relative_path
+        immutable_path = self._resolve_owned_path(immutable_relative)
+        immutable_temporary = self._resolve_owned_path(
+            path_plan.immutable_temporary_relative_path
+        )
+        current_path = self._resolve_owned_path(path_plan.current_relative_path)
+        current_temporary = self._resolve_owned_path(
+            path_plan.current_temporary_relative_path
+        )
+        envelope = {
+            "schema_version": "cera.continuous_session_snapshot_envelope.v2",
+            "path_policy_sha256": CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256,
+            "accepted_turn_id": accepted_turn_id,
+            "accepted_turn_id_sha256": text_sha256(accepted_turn_id),
+            "accepted_envelope_sha256": accepted_envelope_sha256,
+            "provider_thread_sha256": snapshot.handle.provider_thread_id_sha256,
+            "injection_receipt": to_primitive(injection_receipt),
+            "encoded_snapshot_file_sha256": encoded_snapshot_file_sha256,
+            "snapshot_envelope": snapshot_envelope,
+        }
         encoded = canonical_bytes(envelope) + b"\n"
+        if immutable_path.is_symlink():
+            raise StateConflictError("immutable accepted snapshot is a symlink")
+        if current_path.is_symlink() or current_temporary.is_symlink():
+            raise StateConflictError("continuous current snapshot path is a symlink")
+        if current_temporary.exists():
+            raise StateConflictError(
+                "continuous current snapshot temporary path is occupied"
+            )
         if immutable_path.exists():
-            if immutable_path.read_bytes() != encoded:
+            existing = immutable_path.read_bytes()
+            if existing != encoded:
+                try:
+                    existing_envelope = json.loads(existing.decode("utf-8"))
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    existing_envelope = {}
+                if (
+                    existing_envelope.get("accepted_turn_id_sha256")
+                    != text_sha256(accepted_turn_id)
+                    or existing_envelope.get("snapshot_envelope", {}).get(
+                        "snapshot_sha256"
+                    )
+                    != snapshot.snapshot_sha256
+                ):
+                    raise StateConflictError(
+                        "continuous compact snapshot locator collision"
+                    )
                 raise StateConflictError("immutable accepted snapshot changed")
         else:
-            temporary = immutable_path.with_suffix(".tmp")
-            with temporary.open("wb") as stream:
+            if immutable_temporary.exists() or immutable_temporary.is_symlink():
+                raise StateConflictError(
+                    "continuous immutable snapshot temporary path is occupied"
+                )
+            immutable_path.parent.mkdir(parents=True, exist_ok=True)
+            with immutable_temporary.open("wb") as stream:
                 stream.write(encoded)
                 stream.flush()
                 os.fsync(stream.fileno())
-            os.replace(temporary, immutable_path)
-        immutable_file_sha256 = text_sha256(encoded.decode("utf-8"))
+            os.replace(immutable_temporary, immutable_path)
+        current_path = self._publish_current_snapshot(
+            snapshot,
+            path=current_path,
+            temporary=current_temporary,
+        )
+        immutable_file_sha256 = bytes_sha256(encoded)
         payload = {
-            "schema_version": ContinuousSessionSnapshotReceiptV1.SCHEMA_VERSION,
+            "schema_version": ContinuousSessionSnapshotReceiptV2.SCHEMA_VERSION,
             "world_id": snapshot.compatibility.world_id,
             "branch_id": snapshot.compatibility.branch_id,
             "role": snapshot.compatibility.role,
             "accepted_turn_id": accepted_turn_id,
+            "accepted_turn_id_sha256": text_sha256(accepted_turn_id),
             "accepted_envelope_sha256": accepted_envelope_sha256,
             "provider_thread_sha256": snapshot.handle.provider_thread_id_sha256,
             "snapshot_sha256": snapshot.snapshot_sha256,
+            "injection_receipt": injection_receipt,
             "injection_operation_receipt_sha256": injection_receipt.operation_receipt_sha256,
+            "encoded_snapshot_file_sha256": encoded_snapshot_file_sha256,
             "immutable_relative_path": immutable_relative,
             "immutable_file_sha256": immutable_file_sha256,
             "current_relative_path": current_path.relative_to(self.branch_root).as_posix(),
+            "path_plan": path_plan,
         }
         primitive = {
             **payload,
             "role": snapshot.compatibility.role.value,
+            "injection_receipt": to_primitive(injection_receipt),
+            "path_plan": to_primitive(path_plan),
         }
-        return ContinuousSessionSnapshotReceiptV1(
+        return ContinuousSessionSnapshotReceiptV2(
             **payload,
             receipt_sha256=canonical_sha256(primitive),
         )
 
     def load_immutable(
-        self, receipt: ContinuousSessionSnapshotReceiptV1
+        self,
+        receipt: ContinuousSessionSnapshotReceiptV1
+        | ContinuousSessionSnapshotReceiptV2,
     ) -> ContinuousSessionSnapshotV1:
         path = (self.branch_root / receipt.immutable_relative_path).resolve()
-        if (
-            self.branch_root not in path.parents
-            or not path.is_file()
-            or path.is_symlink()
-            or text_sha256(path.read_text(encoding="utf-8"))
-            != receipt.immutable_file_sha256
-        ):
+        if self.branch_root not in path.parents or not path.is_file() or path.is_symlink():
             raise StateConflictError("immutable accepted snapshot bytes changed")
-        envelope = json.loads(path.read_text(encoding="utf-8"))
-        snapshot = from_mapping(ContinuousSessionSnapshotV1, envelope.get("snapshot"))
+        encoded = path.read_bytes()
+        if bytes_sha256(encoded) != receipt.immutable_file_sha256:
+            raise StateConflictError("immutable accepted snapshot bytes changed")
+        envelope = json.loads(encoded.decode("utf-8"))
+        if isinstance(receipt, ContinuousSessionSnapshotReceiptV1):
+            if (
+                envelope.get("schema_version")
+                != "cera.continuous_session_snapshot_envelope.v1"
+            ):
+                raise ContractValidationError("continuous snapshot envelope changed")
+            snapshot_envelope = envelope
+        else:
+            if (
+                envelope.get("schema_version")
+                != "cera.continuous_session_snapshot_envelope.v2"
+                or envelope.get("path_policy_sha256")
+                != CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256
+                or envelope.get("accepted_turn_id") != receipt.accepted_turn_id
+                or envelope.get("accepted_turn_id_sha256")
+                != receipt.accepted_turn_id_sha256
+                or envelope.get("accepted_envelope_sha256")
+                != receipt.accepted_envelope_sha256
+                or envelope.get("provider_thread_sha256")
+                != receipt.provider_thread_sha256
+                or envelope.get("encoded_snapshot_file_sha256")
+                != receipt.encoded_snapshot_file_sha256
+            ):
+                raise StateConflictError("immutable accepted snapshot authority changed")
+            stored_injection = from_mapping(
+                ContinuousContextInjectionReceiptV1,
+                envelope.get("injection_receipt"),
+            )
+            if stored_injection != receipt.injection_receipt:
+                raise StateConflictError("immutable accepted snapshot injection changed")
+            snapshot_envelope = envelope.get("snapshot_envelope")
+            if not isinstance(snapshot_envelope, Mapping):
+                raise ContractValidationError(
+                    "continuous encoded snapshot envelope is invalid"
+                )
+            encoded_snapshot = canonical_bytes(snapshot_envelope) + b"\n"
+            if (
+                bytes_sha256(encoded_snapshot)
+                != receipt.encoded_snapshot_file_sha256
+            ):
+                raise StateConflictError("immutable encoded snapshot bytes changed")
+            actual_paths = (
+                self._resolve_owned_path(receipt.path_plan.current_relative_path),
+                self._resolve_owned_path(
+                    receipt.path_plan.current_temporary_relative_path
+                ),
+                path,
+                self._resolve_owned_path(
+                    receipt.path_plan.immutable_temporary_relative_path
+                ),
+            )
+            if tuple(len(str(value)) for value in actual_paths) != (
+                receipt.path_plan.current_resolved_path_characters,
+                receipt.path_plan.current_temporary_resolved_path_characters,
+                receipt.path_plan.immutable_resolved_path_characters,
+                receipt.path_plan.immutable_temporary_resolved_path_characters,
+            ):
+                raise StateConflictError("immutable accepted snapshot root changed")
         if (
-            envelope.get("snapshot_sha256") != snapshot.snapshot_sha256
+            snapshot_envelope.get("schema_version")
+            != "cera.continuous_session_snapshot_envelope.v1"
+        ):
+            raise ContractValidationError("continuous encoded snapshot schema changed")
+        snapshot = from_mapping(
+            ContinuousSessionSnapshotV1, snapshot_envelope.get("snapshot")
+        )
+        if (
+            snapshot_envelope.get("snapshot_sha256") != snapshot.snapshot_sha256
             or snapshot.snapshot_sha256 != receipt.snapshot_sha256
             or snapshot.handle.provider_thread_id_sha256
             != receipt.provider_thread_sha256

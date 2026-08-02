@@ -947,7 +947,9 @@ provider identities:
 | `cera.continuous_session_reconstruction_bundle.v1` | Python | Bounded accepted tail, exact synchronization/reference descriptors, and only required character summaries for a new physical thread |
 | `cera.continuous_session_snapshot.v2` | Python | Role-separated stored-thread handle, compatibility, context-event hashes, accepted-turn index, initialization receipt, and summary-delivery ledger |
 | `cera.continuous_context_injection_receipt.v1` | Python | Exact accepted envelope, stored Planner thread, injected context bytes, and deterministic non-generating injection operation receipt |
-| `cera.continuous_session_snapshot_receipt.v1` | Python | Acceptance-bound immutable Planner snapshot bytes, exact synchronized event/envelope/thread/injection hashes, retained path, and current-pointer path |
+| `cera.continuous_session_snapshot_receipt.v1` | Python, historical decode | Historical acceptance-bound immutable Planner snapshot bytes, exact synchronized event/envelope/thread/injection hashes, retained full-hash path, and current-pointer path |
+| `cera.continuous_accepted_snapshot_path_plan.v1` | Python path custody | Hash-bound 248-character Windows legacy-path policy plus exact compact immutable/current final and same-directory temporary paths and their resolved lengths |
+| `cera.continuous_session_snapshot_receipt.v2` | Python | Compact-locator accepted Planner snapshot custody retaining the complete accepted-turn identity/hash, accepted envelope, provider thread, snapshot, nested injection receipt, canonical inner encoded-file hash, physical immutable-file hash, and exact path plan |
 | `cera.continuous_thread_archive_evidence.v1` | Python session custody | One role's hashed provider-thread and archive-reason identities plus request, resume, backend-selectability, local-ancestry, error, and derived-verification outcomes |
 | `cera.continuous_job4_terminal_evidence.v4` | Python terminal custody | Canonical effects/postconditions, sealed capability ledger, source/policy-bound entrypoint boundary, and complete Planner/Validator archive DTOs with v1-v3 decode compatibility |
 | `cera.continuous_thread_lineage_receipt.v1` | Python session custody | Closed immutable all-physical-thread map binding role, purpose, parent, world, branch, compatibility, creation operation, lifecycle, adoption/supersession, and exactly one authorized-active or verified-archived terminal disposition |
@@ -1004,6 +1006,8 @@ the prior value hash; Python derives all operation and created-field metadata.
 `cera.character_summary_delivery_receipt.v1`,
 `cera.continuous_context_injection_receipt.v1`,
 `cera.continuous_session_snapshot_receipt.v1`,
+`cera.continuous_accepted_snapshot_path_plan.v1`,
+`cera.continuous_session_snapshot_receipt.v2`,
 `cera.continuous_provider_call_ledger_event.v3`, and
 `cera.scene_summary_derived_view.v2` are registered durable dataclass records.
 The request-local registry, mutable acceptance journal, root diagnostic, and

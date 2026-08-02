@@ -40,6 +40,9 @@ from cera.continuous.sessions import (  # noqa: E402
     ContinuousSessionRole,
     ContinuousThreadArchiveEvidenceV1,
 )
+from cera.continuous.path_policy import (  # noqa: E402
+    CONTINUOUS_WINDOWS_LEGACY_PATH_MAX_CHARACTERS,
+)
 from cera.continuous.job4_transaction import (  # noqa: E402
     ContinuousJob4TerminalTransactionV1,
 )
@@ -1077,6 +1080,176 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         self.assertIn(
             "Scripted transport invocations:** 10",
             (self.cycle / "artifacts" / "JOB4_REPORT.md").read_text(),
+        )
+        recovered = review_cycle.recover_cycle(
+            self.cycle, repository_root_path=self.root
+        )
+        self.assertEqual(recovered["state"], review_cycle.STATE_RESPONSE_PENDING)
+
+    def test_28n_actual_scripted_v10_long_root_completes_chain_and_recovers(
+        self,
+    ) -> None:
+        self.cycle_id = "cycle-path-custody-v3-long-root"
+        self.job4_task_id = (
+            "continuous-windows-path-budget-snapshot-custody-v3-test"
+        )
+        self.cycle = (
+            self.root / ".chatgpt" / "pro-review" / "cycles" / self.cycle_id
+        )
+        self.source = self.cycle / "source"
+        self.source.mkdir(parents=True)
+        self.spec_path = self.cycle / "CYCLE_SPEC.json"
+        self._write_authorization()
+        self._write_spec(sequence=1)
+
+        self.publish()
+        self.record_trigger()
+        runtime_parent = self.root / "runtime"
+        source_database = runtime_parent / "path-custody-source.sqlite3"
+        runtime_parent.mkdir()
+        connection = sqlite3.connect(source_database)
+        try:
+            connection.execute("CREATE TABLE qualification(value TEXT)")
+            connection.execute("INSERT INTO qualification VALUES ('unchanged')")
+            connection.commit()
+        finally:
+            connection.close()
+
+        runtime = runtime_parent / "run"
+        expected_branch_root = (
+            runtime / "worlds" / "hanezawa-job4" / "canary-main"
+        )
+        while len(str(expected_branch_root)) < 133:
+            remaining = 133 - len(str(expected_branch_root))
+            runtime /= "r" * max(1, remaining - 1)
+            expected_branch_root = (
+                runtime / "worlds" / "hanezawa-job4" / "canary-main"
+            )
+        self.assertGreaterEqual(len(str(expected_branch_root)), 133)
+        self.assertLessEqual(len(str(expected_branch_root)), 134)
+
+        manifest = json.loads(
+            (self.cycle / "CYCLE_MANIFEST.json").read_text(encoding="utf-8")
+        )
+        project_head = subprocess.run(
+            ["git", "-C", str(PROJECT_ROOT), "rev-parse", "HEAD"],
+            text=True,
+            capture_output=True,
+            check=True,
+        ).stdout.strip()
+        completed = subprocess.run(
+            (
+                sys.executable,
+                str(
+                    PROJECT_ROOT
+                    / "scripts"
+                    / "run_continuous_planner_validator_job4.py"
+                ),
+                "--confirm-provider-free-scripted-v10",
+                "--expected-scripted-fixture-sha256",
+                SCRIPTED_JOB4_FIXTURE_SHA256,
+                "--cycle-directory",
+                str(self.cycle),
+                "--source-database",
+                str(source_database),
+                "--runtime-root",
+                str(runtime),
+                "--expected-checkpoint-sha",
+                project_head,
+                "--expected-cycle-id",
+                self.cycle_id,
+                "--expected-task-id",
+                self.job4_task_id,
+                "--expected-authorization-sha256",
+                manifest["job4"]["authorization_record_sha256"],
+                "--maximum-provider-calls",
+                "10",
+            ),
+            cwd=PROJECT_ROOT,
+            text=True,
+            capture_output=True,
+            timeout=120,
+            check=False,
+        )
+        detail_path = runtime / "JOB4_DETAIL.json"
+        diagnostic_path = runtime / "ROOT_DIAGNOSTIC.json"
+        self.assertEqual(
+            completed.returncode,
+            0,
+            (
+                completed.stdout
+                + completed.stderr
+                + (
+                    detail_path.read_text(encoding="utf-8")
+                    if detail_path.is_file()
+                    else ""
+                )
+                + (
+                    diagnostic_path.read_text(encoding="utf-8")
+                    if diagnostic_path.is_file()
+                    else ""
+                )
+            ),
+        )
+        detail = json.loads(detail_path.read_text(encoding="utf-8"))
+        self.assertEqual(detail["status"], "completed")
+        self.assertEqual(detail["provider_calls"], 0)
+        self.assertEqual(detail["scripted_transport_invocations"], 10)
+        self.assertEqual(
+            detail["terminal_evidence"]["schema_version"],
+            ContinuousJob4TerminalEvidenceV5.SCHEMA_VERSION,
+        )
+
+        journal = json.loads(
+            (
+                expected_branch_root
+                / ".acceptance-turn-001"
+                / "JOURNAL.json"
+            ).read_text(encoding="utf-8")
+        )
+        snapshot_receipt = journal["planner_session_snapshot_receipt"]
+        self.assertEqual(
+            snapshot_receipt["schema_version"],
+            "cera.continuous_session_snapshot_receipt.v2",
+        )
+        self.assertEqual(len(snapshot_receipt["accepted_turn_id_sha256"]), 64)
+        self.assertEqual(len(snapshot_receipt["snapshot_sha256"]), 64)
+        self.assertEqual(len(snapshot_receipt["encoded_snapshot_file_sha256"]), 64)
+        path_plan = snapshot_receipt["path_plan"]
+        self.assertLessEqual(
+            max(
+                path_plan["current_resolved_path_characters"],
+                path_plan["current_temporary_resolved_path_characters"],
+                path_plan["immutable_resolved_path_characters"],
+                path_plan["immutable_temporary_resolved_path_characters"],
+            ),
+            CONTINUOUS_WINDOWS_LEGACY_PATH_MAX_CHARACTERS,
+        )
+        self.assertTrue(
+            (expected_branch_root / snapshot_receipt["immutable_relative_path"])
+            .resolve()
+            .is_file()
+        )
+
+        state = review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        self.assertEqual(state["state"], review_cycle.STATE_RESPONSE_PENDING)
+        completion, completion_hash = review_cycle_core.completed_chain(
+            self.root,
+            self.cycle,
+            review_cycle_core.load_v2_manifest(self.root, self.cycle),
+        )
+        self.assertEqual(completion["event"], "job4_completed_v2")
+        self.assertEqual(completion["effects"]["provider_calls"], 0)
+        self.assertEqual(len(completion_hash), 64)
+        terminal_artifact = (
+            self.cycle / "artifacts" / "JOB4_TERMINAL_EVIDENCE.json"
+        )
+        self.assertEqual(
+            self._hash(terminal_artifact), completion["terminal_evidence_sha256"]
         )
         recovered = review_cycle.recover_cycle(
             self.cycle, repository_root_path=self.root

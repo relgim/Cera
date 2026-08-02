@@ -192,11 +192,13 @@ from .continuous import (
     StableAcceptedContextReferenceV1,
 )
 from .continuous.sessions import (
+    ContinuousAcceptedSnapshotPathPlanV1,
     ContinuousContextInjectionReceiptV1,
     ContinuousSessionCompatibilityV1,
     ContinuousSessionHandleV1,
     ContinuousSessionSnapshotV1,
     ContinuousSessionSnapshotReceiptV1,
+    ContinuousSessionSnapshotReceiptV2,
 )
 from .continuous.world import WorldPromotionReceiptV1
 from .continuous.provider import (
@@ -368,7 +370,9 @@ def build_schema_registry() -> SchemaRegistry:
         ContinuousContextInjectionReceiptV1,
         ContinuousSessionHandleV1,
         ContinuousSessionSnapshotV1,
+        ContinuousAcceptedSnapshotPathPlanV1,
         ContinuousSessionSnapshotReceiptV1,
+        ContinuousSessionSnapshotReceiptV2,
         WorldPromotionReceiptV1,
         ContinuousValidatorDraftV1,
         ContinuousDeepSeekDraftV1,

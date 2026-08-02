@@ -1054,6 +1054,20 @@ The revised measurement boundary is
 `CONTINUOUS_LEAN_CONTEXT_SHORT_CANARY_V2_SPEC.md`; it is non-dispatching and
 requires a separately identity-bound creator gate.
 
+D-202 is Queue 0028 Progression 1,
+`continuous-windows-path-budget-and-immutable-snapshot-custody-v3`. It replaces
+new accepted-snapshot V1 full-hash paths with a deterministic compact V2
+locator while retaining every complete identity/hash in a two-layer immutable
+envelope and typed receipt. A hash-bound 248-character path plan covers the
+current pointer, immutable artifact, and both same-directory temporary paths;
+capacity preflight precedes world promotion. Historical V1 bytes remain
+decodeable. Compact-locator collision, tamper, root drift, and path overflow
+fail closed. Accepted-checkpoint materialization also uses compact staging and
+preflights its full-SHA receipt paths. The equal-length actual scripted-v10
+transaction, publication, completion-chain, and recovery pass with ten local
+invocations and zero external calls. Progression 2 is next; no live dispatch
+authority is created.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

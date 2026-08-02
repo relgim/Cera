@@ -1,20 +1,34 @@
 # Current CERA Handoff
 
-**Updated:** 2026-08-01
+**Updated:** 2026-08-02
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-201 provider-free consumed-response authority and historical-recovery repair after completed D-200 integration; D-180 remains active
+**Phase:** Queue 0028 Progression 1 compact Windows-path and immutable snapshot custody complete provider-free; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** D-200 remains qualified at 197/197 focused and 797/797 complete; D-201 passes 62/62 repository-cycle, 83/83 final focused, and 806/806 complete, with one expected platform skip
+**Provider-free current verification:** D-202 Progression 1 focused gate passes 70/70, including actual ten-stage long-root CLI, completion-chain, and recovery; the complete suite is reserved for Queue 0028 Progression 3
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
 **D-186/D-200 shadow continuity work:** D-199 V12-1/V12-2 remain completed history; V12-3 is superseded-uncommitted and its useful safety draft is being requalified under D-200; active route unchanged
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
+
+- Queue 0028 Progression 1 is complete provider-free. Accepted Planner
+  snapshots use `cera.continuous_session_snapshot_receipt.v2` and a compact
+  `PLANNER_SESSION/ACCEPTED/v2` locator under a hash-bound 248-character
+  resolved-path policy. The envelope/receipt retain all complete authority;
+  path abbreviations are locators only. Both final and same-directory
+  temporary paths preflight before world promotion, replay is idempotent,
+  collision/tamper fail closed, and historical V1 custody remains readable.
+- A 133-134-character branch-root run crosses the actual scripted-v10 CLI,
+  all ten local stages, immutable snapshot custody, accepted-checkpoint fork,
+  reconstruction, terminal evidence V5, publication, Job 4 completion,
+  completed-chain validation, and recovery. Focused verification passes 70/70
+  with zero external calls or product effects. The next authorized item is
+  Queue 0028 Progression 2; live dispatch remains closed.
 
 - The active governed D-200 V2 tranche closes the Planner turn boundary with
   four exact Python-built packet kinds and three distinct physical-thread

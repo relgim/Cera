@@ -62,6 +62,7 @@ from cera.continuous.provider import (
     continuous_validator_route,
 )
 from cera.continuous.sessions import (
+    CONTINUOUS_ACCEPTED_SNAPSHOT_MAX_RESOLVED_CHARS,
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
     ContinuousThreadArchiveEvidenceV1,
@@ -589,6 +590,17 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             finally:
                 connection.close()
             runtime_root = root / "runtime"
+            expected_branch_root = (
+                runtime_root / "worlds" / WORLD_ID / BRANCH_ID
+            )
+            while len(str(expected_branch_root)) < 133:
+                remaining = 133 - len(str(expected_branch_root))
+                runtime_root /= "r" * max(1, remaining - 1)
+                expected_branch_root = (
+                    runtime_root / "worlds" / WORLD_ID / BRANCH_ID
+                )
+            self.assertGreaterEqual(len(str(expected_branch_root)), 133)
+            self.assertLessEqual(len(str(expected_branch_root)), 134)
             completed = subprocess.run(
                 (
                     sys.executable,
@@ -625,10 +637,21 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 if detail_path.is_file()
                 else ""
             )
+            diagnostic_path = runtime_root / "ROOT_DIAGNOSTIC.json"
+            failure_diagnostic = (
+                diagnostic_path.read_text(encoding="utf-8")
+                if diagnostic_path.is_file()
+                else ""
+            )
             self.assertEqual(
                 completed.returncode,
                 0,
-                completed.stderr + completed.stdout + failure_detail,
+                (
+                    completed.stderr
+                    + completed.stdout
+                    + failure_detail
+                    + failure_diagnostic
+                ),
             )
             detail = json.loads(detail_path.read_text())
             result = json.loads((cycle / "source" / "JOB4_RESULT.json").read_text())
@@ -637,6 +660,49 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertEqual(detail["provider_calls"], 0)
             self.assertEqual(detail["scripted_transport_invocations"], 10)
             self.assertEqual(len(detail["calls"]), 10)
+            self.assertEqual(
+                detail["terminal_evidence"]["schema_version"],
+                ContinuousJob4TerminalEvidenceV5.SCHEMA_VERSION,
+            )
+            journal = json.loads(
+                (
+                    expected_branch_root
+                    / ".acceptance-turn-001"
+                    / "JOURNAL.json"
+                ).read_text(encoding="utf-8")
+            )
+            snapshot_receipt = journal["planner_session_snapshot_receipt"]
+            self.assertEqual(
+                snapshot_receipt["schema_version"],
+                "cera.continuous_session_snapshot_receipt.v2",
+            )
+            path_plan = snapshot_receipt["path_plan"]
+            self.assertLessEqual(
+                max(
+                    path_plan["current_resolved_path_characters"],
+                    path_plan["current_temporary_resolved_path_characters"],
+                    path_plan["immutable_resolved_path_characters"],
+                    path_plan["immutable_temporary_resolved_path_characters"],
+                ),
+                CONTINUOUS_ACCEPTED_SNAPSHOT_MAX_RESOLVED_CHARS,
+            )
+            immutable_path = (
+                expected_branch_root
+                / snapshot_receipt["immutable_relative_path"]
+            )
+            self.assertTrue(immutable_path.is_file())
+            self.assertEqual(
+                len(snapshot_receipt["accepted_turn_id_sha256"]), 64
+            )
+            self.assertEqual(
+                len(snapshot_receipt["encoded_snapshot_file_sha256"]), 64
+            )
+            self.assertEqual(
+                snapshot_receipt["injection_receipt"][
+                    "operation_receipt_sha256"
+                ],
+                snapshot_receipt["injection_operation_receipt_sha256"],
+            )
             self.assertEqual(detail["provider_fork"]["status"], "passed")
             self.assertEqual(
                 detail["provider_fork"]["initialization_packet_kind"],
