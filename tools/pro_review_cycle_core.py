@@ -1992,12 +1992,11 @@ def validate_consumed_cycle(
     ):
         raise CycleError("response consumption receipt claims are invalid")
     accepted = cycle / ACCEPTED_RESPONSE_RELATIVE_PATH
-    inbox = cycle / EXPECTED_RESPONSE_RELATIVE_PATH
-    if not accepted.is_file() or not inbox.is_file():
-        raise CycleError("consumed cycle is missing response evidence")
+    if not accepted.is_file():
+        raise CycleError("consumed cycle is missing its accepted response")
     data = accepted.read_bytes()
-    if inbox.read_bytes() != data or sha256_bytes(data) != consumed["response_sha256"]:
-        raise CycleError("consumed response bytes do not match the receipt")
+    if sha256_bytes(data) != consumed["response_sha256"]:
+        raise CycleError("accepted response bytes do not match the consumption receipt")
     parsed = parse_response(
         data,
         sha256_bytes((cycle / "outbox" / "PRO_RESPONSE_TEMPLATE.md").read_bytes()),
@@ -2008,6 +2007,57 @@ def validate_consumed_cycle(
     if parsed["review_disposition"] != consumed["review_disposition"]:
         raise CycleError("consumed response disposition does not match the receipt")
     return completion, completion_hash, consumed_hash, data
+
+
+def post_consumption_inbox_diagnostic(
+    cycle: Path, accepted_data: bytes, *, accepted_authority_validated: bool
+) -> dict[str, Any]:
+    """Describe staging-inbox residue without granting it response authority."""
+
+    inbox = cycle / EXPECTED_RESPONSE_RELATIVE_PATH
+    accepted_hash = sha256_bytes(accepted_data)
+    if not inbox.is_file():
+        state = "absent"
+        inbox_hash: str | None = None
+    else:
+        inbox_data = inbox.read_bytes()
+        inbox_hash = sha256_bytes(inbox_data)
+        state = "identical" if inbox_data == accepted_data else "conflicting"
+    return {
+        "accepted_response_authority": (
+            "consumption_receipt_bound_accepted_copy"
+            if accepted_authority_validated
+            else "unvalidated_status_view"
+        ),
+        "accepted_response_sha256": accepted_hash,
+        "post_consumption_inbox_state": state,
+        "post_consumption_inbox_sha256": inbox_hash,
+        "post_consumption_inbox_conflict": state == "conflicting",
+        "post_consumption_inbox_authoritative": False,
+        "post_consumption_inbox_diagnostic_authoritative": False,
+    }
+
+
+def recover_state_view(
+    cycle: Path,
+    manifest: Mapping[str, Any],
+    state_name: str,
+    receipt_name: str,
+    receipt_hash: str,
+) -> dict[str, Any]:
+    """Return an already-valid state view unchanged or rebuild only that view."""
+
+    state_path = cycle / "state" / "CYCLE_STATE.json"
+    if state_path.is_file():
+        try:
+            return validate_state_view(
+                cycle, manifest, state_name, receipt_name, receipt_hash
+            )
+        except (CycleError, OSError):
+            pass
+    state = state_value(manifest, state_name, receipt_name, receipt_hash)
+    atomic_replace(state_path, canonical_json_bytes(state))
+    return state
 
 
 def consume_response(
@@ -2120,6 +2170,19 @@ def recover_cycle(
     root = repository_root(repository_root_path)
     cycle = cycle_path(root, cycle_directory)
     manifest = load_v2_manifest(root, cycle)
+    consumed_path = cycle / "receipts" / "RESPONSE_CONSUMED.json"
+    if consumed_path.exists():
+        _, _, consumed_hash, _ = validate_consumed_cycle(
+            root, cycle, manifest, require_current_source=False
+        )
+        return recover_state_view(
+            cycle,
+            manifest,
+            STATE_REVIEW_CONSUMED,
+            "RESPONSE_CONSUMED.json",
+            consumed_hash,
+        )
+
     _, started_hash = validate_publication(root, cycle, manifest)
     predecessor = started_hash
     last_name = "JOB4_STARTED.json"
@@ -2133,27 +2196,15 @@ def recover_cycle(
         _, predecessor = completed_chain(root, cycle, manifest)
         state_name = STATE_RESPONSE_PENDING
         last_name = "JOB4_COMPLETED.json"
-    consumed_path = cycle / "receipts" / "RESPONSE_CONSUMED.json"
-    if consumed_path.exists():
-        if state_name != STATE_RESPONSE_PENDING:
-            raise CycleError("response receipt exists before valid Job 4 completion")
-        _, _, predecessor, _ = validate_consumed_cycle(
-            root, cycle, manifest, require_current_source=True
-        )
-        state_name = STATE_REVIEW_CONSUMED
-        last_name = "RESPONSE_CONSUMED.json"
-    elif state_name == STATE_RESPONSE_PENDING:
+    if state_name == STATE_RESPONSE_PENDING:
         accepted = cycle / ACCEPTED_RESPONSE_RELATIVE_PATH
         inbox = cycle / EXPECTED_RESPONSE_RELATIVE_PATH
         if accepted.exists() and inbox.exists() and accepted.read_bytes() == inbox.read_bytes():
-            state = state_value(manifest, state_name, last_name, predecessor)
-            atomic_replace(cycle / "state" / "CYCLE_STATE.json", canonical_json_bytes(state))
+            recover_state_view(cycle, manifest, state_name, last_name, predecessor)
             return consume_response(
                 cycle, stability_delay_milliseconds=0, repository_root_path=root
             )
-    state = state_value(manifest, state_name, last_name, predecessor)
-    atomic_replace(cycle / "state" / "CYCLE_STATE.json", canonical_json_bytes(state))
-    return state
+    return recover_state_view(cycle, manifest, state_name, last_name, predecessor)
 
 
 def cycle_status(
@@ -2163,7 +2214,7 @@ def cycle_status(
     cycle = cycle_path(root, cycle_directory)
     manifest = load_manifest_file(cycle / "CYCLE_MANIFEST.json")
     state = read_json(cycle / "state" / "CYCLE_STATE.json")
-    return {
+    result = {
         "cycle_id": manifest["cycle_id"],
         "cycle_sequence": manifest["cycle_sequence"],
         "state": state["state"],
@@ -2177,6 +2228,16 @@ def cycle_status(
         "creator_authority_granted": False,
         "state_view_validation": "not_performed_status_only",
     }
+    accepted = cycle / ACCEPTED_RESPONSE_RELATIVE_PATH
+    if accepted.is_file():
+        result.update(
+            post_consumption_inbox_diagnostic(
+                cycle,
+                accepted.read_bytes(),
+                accepted_authority_validated=False,
+            )
+        )
+    return result
 
 
 def latest_consumed_cycle(*, repository_root_path: Path | None = None) -> dict[str, Any]:
@@ -2218,13 +2279,10 @@ def latest_consumed_cycle(*, repository_root_path: Path | None = None) -> dict[s
             else:
                 consumed = read_json(path / "receipts" / "RESPONSE_CONSUMED.json")
                 accepted = path / ACCEPTED_RESPONSE_RELATIVE_PATH
-                inbox = path / EXPECTED_RESPONSE_RELATIVE_PATH
                 if (
                     consumed.get("cycle_id") != manifest.get("cycle_id")
                     or consumed.get("event") != "response_consumed"
                     or not accepted.is_file()
-                    or not inbox.is_file()
-                    or accepted.read_bytes() != inbox.read_bytes()
                     or sha256_bytes(accepted.read_bytes())
                     != consumed.get("response_sha256")
                 ):
@@ -2234,9 +2292,11 @@ def latest_consumed_cycle(*, repository_root_path: Path | None = None) -> dict[s
                 "cycle_id": manifest["cycle_id"],
                 "cycle_sequence": manifest["cycle_sequence"],
                 "accepted_response_path": str(path / ACCEPTED_RESPONSE_RELATIVE_PATH),
-                "accepted_response_sha256": sha256_bytes(data),
                 "review_is_advisory": True,
                 "skipped_invalid_cycles": sorted(set(invalid)),
+                **post_consumption_inbox_diagnostic(
+                    path, data, accepted_authority_validated=True
+                ),
             }
         except (CycleError, KeyError, ValueError, TypeError, OSError):
             invalid.append(path.name)

@@ -428,6 +428,13 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
     def _hash(path: Path) -> str:
         return hashlib.sha256(path.read_bytes()).hexdigest()
 
+    @staticmethod
+    def _tree_snapshot(path: Path) -> dict[str, bytes]:
+        return {
+            item.relative_to(path).as_posix(): item.read_bytes()
+            for item in sorted(candidate for candidate in path.rglob("*") if candidate.is_file())
+        }
+
     def _write_authorization(self) -> None:
         scope = (
             "Run the named focused and broad provider-free verification without "
@@ -2185,6 +2192,160 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         latest = review_cycle.latest_consumed_cycle(repository_root_path=self.root)
         self.assertEqual(latest["cycle_id"], self.cycle_id)
         self.assertEqual(latest["accepted_response_sha256"], hashlib.sha256(supplied).hexdigest())
+
+    def test_41a_consumed_authority_ignores_conflicting_inbox_and_publishes_successor(self) -> None:
+        self.publish()
+        self.complete_job4()
+        supplied = self.write_response()
+        self.consume()
+        accepted = self.cycle / review_cycle.ACCEPTED_RESPONSE_RELATIVE_PATH
+        consumed = self.cycle / "receipts" / "RESPONSE_CONSUMED.json"
+        accepted_before = accepted.read_bytes()
+        consumed_before = consumed.read_bytes()
+        self.write_response(review_disposition="corrections_required")
+        prior = self.cycle
+        prior_snapshot = self._tree_snapshot(prior)
+
+        latest = review_cycle.latest_consumed_cycle(repository_root_path=self.root)
+        self.assertEqual(latest["cycle_id"], "cycle-001")
+        self.assertEqual(latest["accepted_response_sha256"], hashlib.sha256(supplied).hexdigest())
+        self.assertEqual(latest["post_consumption_inbox_state"], "conflicting")
+        self.assertTrue(latest["post_consumption_inbox_conflict"])
+        self.assertFalse(latest["post_consumption_inbox_authoritative"])
+        status = review_cycle.cycle_status(prior, repository_root_path=self.root)
+        self.assertEqual(status["post_consumption_inbox_state"], "conflicting")
+        self.assertFalse(status["post_consumption_inbox_diagnostic_authoritative"])
+        recovered = review_cycle.recover_cycle(prior, repository_root_path=self.root)
+        self.assertEqual(recovered["state"], review_cycle.STATE_REVIEW_CONSUMED)
+
+        self.cycle_id = "cycle-002"
+        self.cycle = self.root / ".chatgpt" / "pro-review" / "cycles" / self.cycle_id
+        self.source = self.cycle / "source"
+        self.source.mkdir(parents=True)
+        self.spec_path = self.cycle / "CYCLE_SPEC.json"
+        self.job4_task_id = "bounded-verification-2"
+        self._write_authorization()
+        self._write_spec(sequence=2, prior_cycle_id="cycle-001")
+        published = self.publish()
+        self.assertEqual(published["state"], review_cycle.STATE_JOB4_IN_PROGRESS)
+        self.assertEqual(accepted.read_bytes(), accepted_before)
+        self.assertEqual(consumed.read_bytes(), consumed_before)
+        self.assertEqual(self._tree_snapshot(prior), prior_snapshot)
+
+    def test_41b_consumed_authority_remains_valid_without_inbox(self) -> None:
+        self.publish()
+        self.complete_job4()
+        supplied = self.write_response()
+        self.consume()
+        (self.cycle / review_cycle.EXPECTED_RESPONSE_RELATIVE_PATH).unlink()
+        prior_snapshot = self._tree_snapshot(self.cycle)
+
+        latest = review_cycle.latest_consumed_cycle(repository_root_path=self.root)
+        self.assertEqual(latest["accepted_response_sha256"], hashlib.sha256(supplied).hexdigest())
+        self.assertEqual(latest["post_consumption_inbox_state"], "absent")
+        self.assertIsNone(latest["post_consumption_inbox_sha256"])
+        recovered = review_cycle.recover_cycle(
+            self.cycle, repository_root_path=self.root
+        )
+        self.assertEqual(recovered["state"], review_cycle.STATE_REVIEW_CONSUMED)
+        self.assertEqual(self._tree_snapshot(self.cycle), prior_snapshot)
+
+    def test_41c_identical_post_consumption_inbox_is_diagnostic_only(self) -> None:
+        self.publish()
+        self.complete_job4()
+        supplied = self.write_response()
+        self.consume()
+        latest = review_cycle.latest_consumed_cycle(repository_root_path=self.root)
+        self.assertEqual(latest["post_consumption_inbox_state"], "identical")
+        self.assertEqual(
+            latest["post_consumption_inbox_sha256"],
+            hashlib.sha256(supplied).hexdigest(),
+        )
+        self.assertFalse(latest["post_consumption_inbox_authoritative"])
+
+    def test_41d_missing_accepted_response_fails_closed(self) -> None:
+        self.publish()
+        self.complete_job4()
+        self.write_response()
+        self.consume()
+        (self.cycle / review_cycle.ACCEPTED_RESPONSE_RELATIVE_PATH).unlink()
+        with self.assertRaisesRegex(review_cycle.CycleError, "accepted response"):
+            review_cycle.recover_cycle(self.cycle, repository_root_path=self.root)
+
+    def test_41e_consumption_receipt_response_hash_mismatch_fails_closed(self) -> None:
+        self.publish()
+        self.complete_job4()
+        self.write_response()
+        self.consume()
+        path = self.cycle / "receipts" / "RESPONSE_CONSUMED.json"
+        receipt = json.loads(path.read_text(encoding="utf-8"))
+        receipt["response_sha256"] = "0" * 64
+        path.write_text(json.dumps(receipt), encoding="utf-8")
+        with self.assertRaisesRegex(review_cycle.CycleError, "consumption receipt"):
+            review_cycle.recover_cycle(self.cycle, repository_root_path=self.root)
+
+    def test_41f_accepted_response_identity_mismatch_fails_closed(self) -> None:
+        self.publish()
+        self.complete_job4()
+        self.write_response()
+        self.consume()
+        manifest = json.loads((self.cycle / "CYCLE_MANIFEST.json").read_text())
+        accepted = self.cycle / review_cycle.ACCEPTED_RESPONSE_RELATIVE_PATH
+        forged = self.response_bytes(reviewed_checkpoint_id="different-checkpoint")
+        accepted.write_bytes(forged)
+        receipt_path = self.cycle / "receipts" / "RESPONSE_CONSUMED.json"
+        receipt = json.loads(receipt_path.read_text())
+        receipt["response_sha256"] = hashlib.sha256(forged).hexdigest()
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+        with self.assertRaisesRegex(review_cycle.CycleError, "identity"):
+            review_cycle_core.validate_consumed_cycle(
+                self.root,
+                self.cycle,
+                manifest,
+                require_current_source=False,
+            )
+
+    def test_41g_accepted_response_disposition_mismatch_fails_closed(self) -> None:
+        self.publish()
+        self.complete_job4()
+        self.write_response()
+        self.consume()
+        manifest = json.loads((self.cycle / "CYCLE_MANIFEST.json").read_text())
+        accepted = self.cycle / review_cycle.ACCEPTED_RESPONSE_RELATIVE_PATH
+        forged = self.response_bytes(review_disposition="corrections_required")
+        accepted.write_bytes(forged)
+        receipt_path = self.cycle / "receipts" / "RESPONSE_CONSUMED.json"
+        receipt = json.loads(receipt_path.read_text())
+        receipt["response_sha256"] = hashlib.sha256(forged).hexdigest()
+        receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
+        with self.assertRaisesRegex(review_cycle.CycleError, "disposition"):
+            review_cycle_core.validate_consumed_cycle(
+                self.root,
+                self.cycle,
+                manifest,
+                require_current_source=False,
+            )
+
+    def test_41h_consumed_recovery_allows_later_source_drift_without_cycle_mutation(self) -> None:
+        self.publish()
+        self.complete_job4()
+        self.write_response()
+        self.consume()
+        prior_snapshot = self._tree_snapshot(self.cycle)
+        self.jobs[0].write_text("later repository development\n", encoding="utf-8")
+        recovered = review_cycle.recover_cycle(
+            self.cycle, repository_root_path=self.root
+        )
+        self.assertEqual(recovered["state"], review_cycle.STATE_REVIEW_CONSUMED)
+        self.assertEqual(self._tree_snapshot(self.cycle), prior_snapshot)
+
+    def test_41i_active_recovery_still_rejects_current_source_drift(self) -> None:
+        self.publish()
+        prior_snapshot = self._tree_snapshot(self.cycle)
+        self.jobs[0].write_text("active cycle drift\n", encoding="utf-8")
+        with self.assertRaisesRegex(review_cycle.CycleError, "drifted after publication"):
+            review_cycle.recover_cycle(self.cycle, repository_root_path=self.root)
+        self.assertEqual(self._tree_snapshot(self.cycle), prior_snapshot)
 
     def test_42_tracked_runtime_source_is_included_but_root_runtime_is_excluded(self) -> None:
         tracked_runtime = self.root / "src" / "cera" / "runtime" / "director.py"

@@ -2,13 +2,13 @@
 
 **Status:** controlling index
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-200 provider-free lean Planner-context integration; D-180 remains active
+**Phase:** D-201 provider-free consumed-response authority and historical-recovery repair after completed D-200 integration; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** D-200 final focused gate passes 197/197 and complete repository suite passes 797/797, with one expected platform skip in each; scripted-v9 passes with zero external provider calls
+**Provider-free current verification:** D-200 remains qualified at 197/197 focused and 797/797 complete; D-201 passes 62/62 repository-cycle, 83/83 final focused, and 806/806 complete, with one expected platform skip
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page
@@ -112,6 +112,7 @@ the active D-180 route.
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_012_RESULT.md` | D-199 Progressions 1-2 completed history and the superseded-uncommitted V12-3 draft adopted into D-200; Cycle 012 was never published |
 | `CONTINUOUS_LEAN_CONTEXT_V1_RESULT.md` | D-200 provider-free lean context, stable-reference, reconstruction, delivery-ledger, telemetry, and retained-safety integration result |
 | `CONTINUOUS_LEAN_CONTEXT_SHORT_CANARY_V1_SPEC.md` | Frozen contract for a later separately authorized live lean canary; not dispatch authority |
+| `PRO_REVIEW_CONSUMED_RESPONSE_AUTHORITY_REPAIR_RESULT.md` | D-201 receipt-bound accepted-response authority, post-consumption inbox diagnostics, historical recovery, active-source strictness, and non-mutation evidence |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |
 | `ROADMAP_AND_GATE.md` | Ordered implementation plan and authorization gates |
 | `CREATOR_REVIEW_PRESENTATION_V1_RESULT.md` | Active severity colors, Adjustment label, False Positive acceptance, and CERA-owned character-color presentation |

@@ -125,14 +125,30 @@ receipts. An identical consumed response is idempotent; conflicting immutable
 writes fail closed. Manifest and receipt root/predecessor hashes form the
 transition chain. Each chained receipt has an exact event-specific field set
 and value contract; a partial publication outbox map is invalid. Every later
-command revalidates the frozen outbox, status-aware source archive, and current
-source identity when the cycle is active. `recover` reconstructs the mutable
-state view only after revalidating exact receipts, the structured Job 4 result
-and preserved report, and accepted response bytes.
+command revalidates the frozen outbox and status-aware source archive. Current
+source identity remains mandatory while a cycle is active or unconsumed.
+
+After a valid `RESPONSE_CONSUMED.json` exists, response authority moves
+exclusively to `accepted/PRO_RESPONSE.md` as bound by that receipt. The staging
+`inbox/PRO_RESPONSE.md` may later be absent, identical, or conflicting without
+changing accepted authority, disposition, predecessor identity, or the receipt
+chain. A conflicting inbox still cannot be consumed over accepted bytes.
+Status and latest-consumed output may expose the inbox state and hash, but mark
+that information explicitly non-authoritative.
+
+`recover` reconstructs an active cycle only after validating current source.
+For a fully consumed historical cycle it instead validates the immutable
+published archive, manifest, Job 4 artifacts, completion chain, accepted
+response, and consumption receipt with `require_current_source=False`. An
+already-valid mutable state view is returned byte-for-byte; only a missing or
+invalid mutable view is rebuilt. Later repository development therefore cannot
+invalidate or silently mutate a completed historical cycle.
 
 `latest-consumed` does not trust a mutable state label. It fully reconstructs
-v2 candidates from immutable evidence, skips invalid higher-sequence candidates
-with an explicit diagnostic, and returns only the newest valid response.
+v2 candidates from immutable evidence and the receipt-bound accepted response,
+skips invalid higher-sequence candidates with an explicit diagnostic, and
+returns only the newest valid response. Post-consumption inbox state is
+diagnostic only.
 By contrast, `status` is deliberately labeled
 `state_view_validation: not_performed_status_only`; use `recover` for validated
 state reconstruction.

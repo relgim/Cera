@@ -2,19 +2,46 @@
 
 **Updated:** 2026-08-01
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-200 provider-free lean Planner-context integration; D-180 remains active
+**Phase:** D-201 provider-free consumed-response authority and historical-recovery repair after completed D-200 integration; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** D-200 final focused gate passes 197/197 and complete repository suite passes 797/797, with one expected platform skip in each; scripted-v9 passes with zero external provider calls
+**Provider-free current verification:** D-200 remains qualified at 197/197 focused and 797/797 complete; D-201 passes 62/62 repository-cycle, 83/83 final focused, and 806/806 complete, with one expected platform skip
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
 **D-186/D-200 shadow continuity work:** D-199 V12-1/V12-2 remain completed history; V12-3 is superseded-uncommitted and its useful safety draft is being requalified under D-200; active route unchanged
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
+
+- D-201 makes `accepted/PRO_RESPONSE.md` plus its exact consumption receipt the
+  sole response authority after consumption. A later missing, identical, or
+  conflicting inbox is diagnostic only and cannot replace or invalidate the
+  accepted response. Pre-consumption stable-read, identity, completeness,
+  conflict, and current-source rules remain strict.
+- Fully consumed historical recovery validates immutable publication/source
+  archive, Job 4 artifacts, completion and consumption receipts, and accepted
+  response with current-source equality disabled. Active and unconsumed cycles
+  still require current-source equality. An already-valid state view is
+  returned unchanged.
+- The focused 62-test repository-cycle gate passes with one expected platform
+  skip. Exact Cycle 011 `latest-consumed`, status, and recovery now select
+  accepted SHA-256
+  `bc654f65739f2dac58ce47d4e5f853cc2cd0ec5cbee883275597dda72aa91a7f`
+  while labeling inbox SHA-256
+  `b65d17070d68f38d2b947a1c3d987e2bf05bfe2ff8848836fb565a2effb51053`
+  conflicting and non-authoritative. Cycle 011's complete tree SHA-256 remains
+  `8abb554d14f95d6116c40bc86adced6afac799329e6d0893d83224039662fb30`
+  before and after validation/recovery; failed pre-manifest Cycle 001 remains
+  `0b429a5e46e74b33cf7991d8a416ddddfbf087f2de9c641af1db0595a1e62972`.
+- The final protocol/documentation/source-inventory gate passes 83/83 in
+  244.568 seconds, and the complete provider-free repository suite passes
+  806/806 in 555.216 seconds, with one expected platform skip. Compilation,
+  active-profile validation, and diff checks also pass. The repair is locally
+  committed for Checkpoint 002; governed Cycle 002 publication remains
+  pending.
 
 - D-200 makes `lean_continuous` the default only for the Planner's compatible
   physical stored thread. Stable instructions are base-installed once; later
