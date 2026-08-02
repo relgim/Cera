@@ -304,9 +304,9 @@ class ContinuousV3ExecutableReadinessTests(unittest.TestCase):
             source_database.parent.mkdir(parents=True)
             shutil.copy2(SOURCE_DATABASE, source_database)
             source_hash = _sha256(source_database)
-            evidence_parent = clone / "runtime" / ("e" * 36)
-            first_root = evidence_parent / "campaign-attempt-001"
-            second_root = evidence_parent / "campaign-attempt-002"
+            evidence_parent = clone / "runtime"
+            first_root = evidence_parent / "campaign-001"
+            second_root = evidence_parent / "campaign-002"
             expected_branch_root = (
                 second_root
                 / "runs"
