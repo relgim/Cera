@@ -124,6 +124,173 @@ class ContinuousJob4OperationalCountersV1:
         )
 
 
+_CAPABILITY_COUNTER_FIELDS = {
+    "live_story_write": "live_story_writes",
+    "production_database_write": "production_database_writes",
+    "deployment": "deployment_operations",
+    "remote_operation": "remote_operations",
+    "merge": "merge_operations",
+    "push": "push_operations",
+    "service_change": "service_changes",
+    "installed_sillytavern_change": "installed_sillytavern_changes",
+}
+_ACTIVE_ROUTE_CAPABILITY = "active_route_mutation"
+_ALL_EFFECT_CAPABILITIES = frozenset(
+    (*_CAPABILITY_COUNTER_FIELDS, _ACTIVE_ROUTE_CAPABILITY)
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousJob4CapabilityLedgerV1:
+    """Closed proof of custody for every non-provider effect capability."""
+
+    capabilities: Mapping[str, Mapping[str, Any]]
+
+    SCHEMA_VERSION = "cera.continuous_job4_capability_ledger.v1"
+    DENIAL_CODE = "structurally_unavailable_to_job4_process"
+
+    def __post_init__(self) -> None:
+        capability_map = _closed(
+            self.capabilities,
+            set(_ALL_EFFECT_CAPABILITIES),
+            "Job 4 capability ledger",
+        )
+        for name in sorted(_ALL_EFFECT_CAPABILITIES):
+            entry = _closed(
+                capability_map[name],
+                {"mode", "count", "port_id_sha256", "denial_code", "sealed"},
+                f"Job 4 capability {name}",
+            )
+            if entry["mode"] not in {"counted_port", "structurally_unavailable"}:
+                raise ValueError(f"Job 4 capability mode is invalid: {name}")
+            _count(entry["count"], f"Job 4 capability count {name}")
+            _flag(entry["sealed"], f"Job 4 capability sealed {name}")
+            if entry["sealed"] is not True:
+                raise ValueError(f"Job 4 capability is not sealed: {name}")
+            if entry["mode"] == "structurally_unavailable":
+                if (
+                    entry["count"] != 0
+                    or entry["port_id_sha256"] is not None
+                    or entry["denial_code"] != self.DENIAL_CODE
+                ):
+                    raise ValueError(
+                        f"Job 4 denied capability evidence is contradictory: {name}"
+                    )
+            else:
+                _optional_sha256(
+                    entry["port_id_sha256"],
+                    f"Job 4 capability port_id_sha256 {name}",
+                )
+                if entry["port_id_sha256"] is None or entry["denial_code"] is not None:
+                    raise ValueError(
+                        f"Job 4 counted capability evidence is incomplete: {name}"
+                    )
+
+    @classmethod
+    def structurally_unavailable(cls) -> "ContinuousJob4CapabilityLedgerV1":
+        return cls(
+            capabilities={
+                name: {
+                    "mode": "structurally_unavailable",
+                    "count": 0,
+                    "port_id_sha256": None,
+                    "denial_code": cls.DENIAL_CODE,
+                    "sealed": True,
+                }
+                for name in sorted(_ALL_EFFECT_CAPABILITIES)
+            }
+        )
+
+    @property
+    def operational_counters(self) -> ContinuousJob4OperationalCountersV1:
+        values = {
+            counter_field: self.capabilities[capability]["count"]
+            for capability, counter_field in _CAPABILITY_COUNTER_FIELDS.items()
+        }
+        return ContinuousJob4OperationalCountersV1(**values)
+
+    @property
+    def active_route_mutations(self) -> int:
+        return self.capabilities[_ACTIVE_ROUTE_CAPABILITY]["count"]
+
+    @property
+    def all_zero_effects_structurally_denied(self) -> bool:
+        return all(
+            value["mode"] == "structurally_unavailable" and value["count"] == 0
+            for value in self.capabilities.values()
+        )
+
+    @property
+    def sha256(self) -> str:
+        return canonical_sha256(self.to_dict())
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.SCHEMA_VERSION,
+            "capabilities": {
+                name: dict(self.capabilities[name])
+                for name in sorted(self.capabilities)
+            },
+            "operational_counters": self.operational_counters.to_dict(),
+            "active_route_mutations": self.active_route_mutations,
+            "all_zero_effects_structurally_denied": (
+                self.all_zero_effects_structurally_denied
+            ),
+        }
+
+    @classmethod
+    def from_dict(cls, raw: object) -> "ContinuousJob4CapabilityLedgerV1":
+        value = _closed(
+            raw,
+            {
+                "schema_version",
+                "capabilities",
+                "operational_counters",
+                "active_route_mutations",
+                "all_zero_effects_structurally_denied",
+            },
+            "Job 4 capability ledger",
+        )
+        if value["schema_version"] != cls.SCHEMA_VERSION:
+            raise ValueError("Job 4 capability ledger schema changed")
+        instance = cls(capabilities=value["capabilities"])
+        if (
+            ContinuousJob4OperationalCountersV1.from_dict(
+                value["operational_counters"]
+            )
+            != instance.operational_counters
+            or _count(
+                value["active_route_mutations"], "active_route_mutations"
+            )
+            != instance.active_route_mutations
+            or _flag(
+                value["all_zero_effects_structurally_denied"],
+                "all_zero_effects_structurally_denied",
+            )
+            != instance.all_zero_effects_structurally_denied
+        ):
+            raise ValueError("Job 4 capability summary contradicts capability custody")
+        return instance
+
+
+class ContinuousJob4CapabilityCustody:
+    """Process-owned sealed port registry for otherwise excluded effects."""
+
+    def __init__(self) -> None:
+        self._ledger = ContinuousJob4CapabilityLedgerV1.structurally_unavailable()
+
+    def record(self, capability: str) -> None:
+        if capability not in _ALL_EFFECT_CAPABILITIES:
+            raise ValueError("unknown Job 4 effect capability")
+        raise PermissionError(
+            f"Job 4 effect capability is structurally unavailable: {capability}"
+        )
+
+    @property
+    def evidence(self) -> ContinuousJob4CapabilityLedgerV1:
+        return self._ledger
+
+
 @dataclass(frozen=True, slots=True)
 class ContinuousJob4PostconditionsV1:
     execution_mode: str
@@ -492,3 +659,146 @@ class ContinuousJob4TerminalEvidenceV1:
         if tuple(value["failure_codes"]) != rebuilt.failure_codes:
             raise ValueError("terminal failure codes contradict mandatory evidence")
         return rebuilt
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousJob4TerminalEvidenceV2:
+    execution_status: str
+    effect_evidence: ContinuousJob4EffectEvidenceV1
+    postconditions: ContinuousJob4PostconditionsV1
+    capability_ledger: ContinuousJob4CapabilityLedgerV1
+    status: str
+    failure_codes: tuple[str, ...]
+
+    SCHEMA_VERSION = "cera.continuous_job4_terminal_evidence.v2"
+
+    @property
+    def sha256(self) -> str:
+        return canonical_sha256(self.to_dict())
+
+    @classmethod
+    def build(
+        cls,
+        *,
+        execution_status: str,
+        provider_calls: int,
+        capability_ledger: ContinuousJob4CapabilityLedgerV1,
+        postconditions: ContinuousJob4PostconditionsV1,
+    ) -> "ContinuousJob4TerminalEvidenceV2":
+        if execution_status not in {"completed", "failed"}:
+            raise ValueError("execution status must be completed or failed")
+        effects = ContinuousJob4EffectEvidenceV1(
+            provider_calls=provider_calls,
+            active_route_changes=max(
+                postconditions.active_route_changes,
+                capability_ledger.active_route_mutations,
+            ),
+            operational_counters=capability_ledger.operational_counters,
+        )
+        failures = list(postconditions.failure_codes(provider_calls))
+        if execution_status != "completed":
+            failures.insert(0, "execution_not_completed")
+        if effects.canonical_effects["story_database_writes"]:
+            failures.append("story_database_effect_detected")
+        if effects.active_route_changes:
+            failures.append("active_route_effect_detected")
+        if effects.canonical_effects["deployment_remote_or_push_effects"]:
+            failures.append("prohibited_operational_effect_detected")
+        unique_failures = tuple(dict.fromkeys(failures))
+        return cls(
+            execution_status=execution_status,
+            effect_evidence=effects,
+            postconditions=postconditions,
+            capability_ledger=capability_ledger,
+            status="completed" if not unique_failures else "failed",
+            failure_codes=unique_failures,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.SCHEMA_VERSION,
+            "execution_status": self.execution_status,
+            "effect_evidence": self.effect_evidence.to_dict(),
+            "postconditions": self.postconditions.to_dict(),
+            "capability_ledger": self.capability_ledger.to_dict(),
+            "status": self.status,
+            "failure_codes": list(self.failure_codes),
+        }
+
+    @classmethod
+    def from_dict(cls, raw: object) -> "ContinuousJob4TerminalEvidenceV2":
+        value = _closed(
+            raw,
+            {
+                "schema_version",
+                "execution_status",
+                "effect_evidence",
+                "postconditions",
+                "capability_ledger",
+                "status",
+                "failure_codes",
+            },
+            "terminal evidence v2",
+        )
+        if value["schema_version"] != cls.SCHEMA_VERSION:
+            raise ValueError("terminal evidence v2 schema version changed")
+        if not isinstance(value["failure_codes"], list) or not all(
+            isinstance(item, str) and item for item in value["failure_codes"]
+        ):
+            raise ValueError("terminal failure_codes must be a string array")
+        supplied_effects = ContinuousJob4EffectEvidenceV1.from_dict(
+            value["effect_evidence"]
+        )
+        rebuilt = cls.build(
+            execution_status=value["execution_status"],
+            provider_calls=supplied_effects.provider_calls,
+            capability_ledger=ContinuousJob4CapabilityLedgerV1.from_dict(
+                value["capability_ledger"]
+            ),
+            postconditions=ContinuousJob4PostconditionsV1.from_dict(
+                value["postconditions"]
+            ),
+        )
+        if supplied_effects != rebuilt.effect_evidence:
+            raise ValueError("effect evidence contradicts capability custody")
+        if value["status"] != rebuilt.status:
+            raise ValueError("terminal status contradicts mandatory evidence")
+        if tuple(value["failure_codes"]) != rebuilt.failure_codes:
+            raise ValueError("terminal failure codes contradict mandatory evidence")
+        return rebuilt
+
+
+ContinuousJob4TerminalEvidence = (
+    ContinuousJob4TerminalEvidenceV1 | ContinuousJob4TerminalEvidenceV2
+)
+
+
+def decode_continuous_job4_terminal_evidence(
+    raw: object,
+) -> ContinuousJob4TerminalEvidence:
+    if not isinstance(raw, Mapping):
+        raise ValueError("terminal evidence must be an object")
+    version = raw.get("schema_version")
+    if version == ContinuousJob4TerminalEvidenceV1.SCHEMA_VERSION:
+        return ContinuousJob4TerminalEvidenceV1.from_dict(raw)
+    if version == ContinuousJob4TerminalEvidenceV2.SCHEMA_VERSION:
+        return ContinuousJob4TerminalEvidenceV2.from_dict(raw)
+    raise ValueError("terminal evidence schema version is unsupported")
+
+
+def rebuild_failed_continuous_job4_terminal_evidence(
+    terminal: ContinuousJob4TerminalEvidence,
+) -> ContinuousJob4TerminalEvidence:
+    if isinstance(terminal, ContinuousJob4TerminalEvidenceV2):
+        return ContinuousJob4TerminalEvidenceV2.build(
+            execution_status="failed",
+            provider_calls=terminal.effect_evidence.provider_calls,
+            capability_ledger=terminal.capability_ledger,
+            postconditions=terminal.postconditions,
+        )
+    return ContinuousJob4TerminalEvidenceV1.build(
+        execution_status="failed",
+        provider_calls=terminal.effect_evidence.provider_calls,
+        operational_counters=terminal.effect_evidence.operational_counters,
+        postconditions=terminal.postconditions,
+    )

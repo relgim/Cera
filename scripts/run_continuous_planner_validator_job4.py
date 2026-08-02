@@ -32,9 +32,13 @@ from cera.continuous.ingress import (
     build_default_prepared_classifier_registry,
 )
 from cera.continuous.job4_terminal import (
-    ContinuousJob4OperationalCountersV1,
+    ContinuousJob4CapabilityCustody,
     ContinuousJob4PostconditionsV1,
+    ContinuousJob4TerminalEvidence,
     ContinuousJob4TerminalEvidenceV1,
+    ContinuousJob4TerminalEvidenceV2,
+    decode_continuous_job4_terminal_evidence,
+    rebuild_failed_continuous_job4_terminal_evidence,
 )
 from cera.continuous.job4_transaction import (
     ContinuousJob4TerminalTransactionV1,
@@ -941,7 +945,7 @@ class JobHarness:
         }
 
 def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
-    terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
+    terminal = decode_continuous_job4_terminal_evidence(
         result["terminal_evidence"]
     )
     if result.get("terminal_evidence_sha256") != terminal.sha256:
@@ -989,6 +993,8 @@ def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
             f"- Active route unchanged: `{result.get('active_route_unchanged')}`.",
             f"- Every accepted final sequence injected: `{all(value.get('accepted_final_injected') for value in result.get('turns', []))}`.",
             f"- Terminal evidence SHA-256: `{terminal.sha256}`.",
+            f"- Terminal evidence artifact: `source/JOB4_TERMINAL_EVIDENCE.json`.",
+            f"- Capability custody SHA-256: `{result.get('capability_ledger_sha256')}`.",
             f"- Canonical effects: `{canonical_json(effects)}`.",
             f"- Mandatory terminal failures: `{canonical_json(list(terminal.failure_codes))}`.",
             "- Complete raw prompts, outputs, tool traces, candidate snapshots, diffs, edit logs, receipts, usage, timings, errors, and replay inputs remain under the ignored disposable runtime root.",
@@ -1010,7 +1016,7 @@ def build_canonical_job4_result(
 ) -> dict[str, Any]:
     """Project detailed canary evidence into the closed repository-cycle DTO."""
 
-    terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
+    terminal = decode_continuous_job4_terminal_evidence(
         result.get("terminal_evidence")
     )
     if result.get("terminal_evidence_sha256") != terminal.sha256:
@@ -1032,6 +1038,13 @@ def build_canonical_job4_result(
     for field, expected in duplicate_claims.items():
         if result.get(field) != expected:
             raise ValueError(f"detailed result contradicts terminal evidence: {field}")
+    if isinstance(terminal, ContinuousJob4TerminalEvidenceV2):
+        if (
+            result.get("capability_ledger") != terminal.capability_ledger.to_dict()
+            or result.get("capability_ledger_sha256")
+            != terminal.capability_ledger.sha256
+        ):
+            raise ValueError("detailed capability custody contradicts terminal evidence")
     if result.get("source_database_unchanged") != (
         terminal.postconditions.source_database_sha256_before is not None
         and terminal.postconditions.source_database_sha256_before
@@ -1062,12 +1075,16 @@ def build_canonical_job4_result(
         f"terminal_status={status}; terminal_evidence_sha256={terminal.sha256}"
     )
     return {
-        "schema_version": "cera.pro_review_job4_result.v1",
+        "schema_version": "cera.pro_review_job4_result.v2",
         "cycle_id": result["cycle_id"],
         "task_id": task_id,
         "status": status,
         "report_relative_path": "source/JOB4_REPORT.md",
         "report_sha256": report_sha256,
+        "terminal_evidence_relative_path": (
+            "source/JOB4_TERMINAL_EVIDENCE.json"
+        ),
+        "terminal_evidence_sha256": terminal.sha256,
         "effects": effects,
         "verification": [
             {
@@ -1327,20 +1344,6 @@ def execute_scripted_job4(
     return harness
 
 
-def _operational_counters_zero() -> ContinuousJob4OperationalCountersV1:
-    # V11-2 replaces this compatibility value with capability-owned custody.
-    return ContinuousJob4OperationalCountersV1(
-        live_story_writes=0,
-        production_database_writes=0,
-        deployment_operations=0,
-        remote_operations=0,
-        merge_operations=0,
-        push_operations=0,
-        service_changes=0,
-        installed_sillytavern_changes=0,
-    )
-
-
 def _record_terminal_failure(
     result: dict[str, Any],
     error: BaseException,
@@ -1360,21 +1363,14 @@ def _record_terminal_failure(
 def _apply_terminal_evidence(
     result: dict[str, Any],
     *,
-    execution_status: str,
-    provider_calls: int,
-    operational_counters: ContinuousJob4OperationalCountersV1,
-    postconditions: ContinuousJob4PostconditionsV1,
-) -> ContinuousJob4TerminalEvidenceV1:
-    terminal = ContinuousJob4TerminalEvidenceV1.build(
-        execution_status=execution_status,
-        provider_calls=provider_calls,
-        operational_counters=operational_counters,
-        postconditions=postconditions,
-    )
+    terminal: ContinuousJob4TerminalEvidence,
+) -> ContinuousJob4TerminalEvidence:
     effects = terminal.effect_evidence.canonical_effects
-    result["execution_status"] = execution_status
+    result["execution_status"] = terminal.execution_status
     result["provider_calls"] = effects["provider_calls"]
-    result["operational_counters"] = operational_counters.to_dict()
+    result["operational_counters"] = (
+        terminal.effect_evidence.operational_counters.to_dict()
+    )
     result["terminal_evidence"] = terminal.to_dict()
     result["terminal_evidence_sha256"] = terminal.sha256
     result["status"] = terminal.status
@@ -1389,7 +1385,7 @@ def _apply_terminal_evidence(
 
 
 def _emergency_report(result: dict[str, Any], *, task_id: str) -> str:
-    terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
+    terminal = decode_continuous_job4_terminal_evidence(
         result["terminal_evidence"]
     )
     return "\n".join(
@@ -1414,16 +1410,20 @@ def _emergency_report(result: dict[str, Any], *, task_id: str) -> str:
 def _emergency_canonical_result(
     result: dict[str, Any], *, task_id: str, report_sha256: str
 ) -> dict[str, Any]:
-    terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
+    terminal = decode_continuous_job4_terminal_evidence(
         result["terminal_evidence"]
     )
     return {
-        "schema_version": "cera.pro_review_job4_result.v1",
+        "schema_version": "cera.pro_review_job4_result.v2",
         "cycle_id": result["cycle_id"],
         "task_id": task_id,
         "status": "failed",
         "report_relative_path": "source/JOB4_REPORT.md",
         "report_sha256": report_sha256,
+        "terminal_evidence_relative_path": (
+            "source/JOB4_TERMINAL_EVIDENCE.json"
+        ),
+        "terminal_evidence_sha256": terminal.sha256,
         "effects": terminal.effect_evidence.canonical_effects,
         "verification": [
             {
@@ -1443,8 +1443,6 @@ def _freeze_terminal_publication(
     result: dict[str, Any],
     *,
     task_id: str,
-    operational_counters: ContinuousJob4OperationalCountersV1,
-    postconditions: ContinuousJob4PostconditionsV1,
     recovery_terminalization: bool,
 ) -> dict[str, Any]:
     try:
@@ -1464,16 +1462,13 @@ def _freeze_terminal_publication(
             stage="terminal_publication_construction",
             message="Terminal publication construction failed and was terminalized.",
         )
-        terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
+        terminal = decode_continuous_job4_terminal_evidence(
             result["terminal_evidence"]
         )
-        _apply_terminal_evidence(
-            result,
-            execution_status="failed",
-            provider_calls=terminal.effect_evidence.provider_calls,
-            operational_counters=operational_counters,
-            postconditions=postconditions,
+        failed_terminal = rebuild_failed_continuous_job4_terminal_evidence(
+            terminal
         )
+        _apply_terminal_evidence(result, terminal=failed_terminal)
         result["terminal_publication_failure"] = {
             "error_type": type(exc).__name__,
             "semantic_work_repeated": False,
@@ -1487,8 +1482,15 @@ def _freeze_terminal_publication(
         )
         detail_bytes = canonical_bytes(result) + b"\n"
         result_bytes = canonical_bytes(canonical_result) + b"\n"
+    terminal = decode_continuous_job4_terminal_evidence(
+        result["terminal_evidence"]
+    )
+    terminal_evidence_bytes = canonical_bytes(terminal.to_dict())
+    if bytes_sha256(terminal_evidence_bytes) != terminal.sha256:
+        raise RuntimeError("terminal evidence byte identity changed before freeze")
     transaction.freeze(
         detail_bytes=detail_bytes,
+        terminal_evidence_bytes=terminal_evidence_bytes,
         report_bytes=report_bytes,
         result_bytes=result_bytes,
         recovery_terminalization=recovery_terminalization,
@@ -1618,7 +1620,8 @@ def main() -> int:
         return 0 if transaction.frozen_result().get("status") == "completed" else 1
 
     recovery_terminalization = not transaction.is_new
-    operational_counters = _operational_counters_zero()
+    capability_custody = ContinuousJob4CapabilityCustody()
+    capability_ledger = capability_custody.evidence
     provider_calls = 0
     scripted_transport_invocations = 0
     ledger_dispatches = 0
@@ -1632,7 +1635,7 @@ def main() -> int:
             scripted=scripted_provider_free,
         )
     result: dict[str, Any] = {
-        "schema_version": "cera.continuous_planner_validator_job4_detail.v3",
+        "schema_version": "cera.continuous_planner_validator_job4_detail.v4",
         "cycle_id": args.expected_cycle_id,
         "task_id": args.expected_task_id,
         "authorization_sha256": args.expected_authorization_sha256,
@@ -1650,7 +1653,9 @@ def main() -> int:
         "scripted_transport_invocations": scripted_transport_invocations,
         "retry_count": 0,
         "fallback_count": 0,
-        "operational_counters": operational_counters.to_dict(),
+        "operational_counters": capability_ledger.operational_counters.to_dict(),
+        "capability_ledger": capability_ledger.to_dict(),
+        "capability_ledger_sha256": capability_ledger.sha256,
         "active_runtime_before": None,
         "active_runtime_before_error_type": None,
         "turns": [],
@@ -2085,19 +2090,17 @@ def main() -> int:
     execution_status = result.get("execution_status")
     if execution_status not in {"completed", "failed"}:
         execution_status = "failed"
-    _apply_terminal_evidence(
-        result,
+    terminal = ContinuousJob4TerminalEvidenceV2.build(
         execution_status=execution_status,
         provider_calls=provider_calls,
-        operational_counters=operational_counters,
+        capability_ledger=capability_ledger,
         postconditions=postconditions,
     )
+    _apply_terminal_evidence(result, terminal=terminal)
     canonical_result = _freeze_terminal_publication(
         transaction,
         result,
         task_id=args.expected_task_id,
-        operational_counters=operational_counters,
-        postconditions=postconditions,
         recovery_terminalization=recovery_terminalization,
     )
     return 0 if canonical_result["status"] == "completed" else 1

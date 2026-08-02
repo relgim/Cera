@@ -34,9 +34,13 @@ from cera.continuous.call_ledger import (
     ProviderCallState,
 )
 from cera.continuous.job4_terminal import (
+    ContinuousJob4CapabilityCustody,
+    ContinuousJob4CapabilityLedgerV1,
     ContinuousJob4OperationalCountersV1,
     ContinuousJob4PostconditionsV1,
     ContinuousJob4TerminalEvidenceV1,
+    ContinuousJob4TerminalEvidenceV2,
+    decode_continuous_job4_terminal_evidence,
 )
 from cera.continuous.job4_transaction import (
     ContinuousJob4TerminalTransactionV1,
@@ -351,6 +355,22 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 "scripted_transport_invocations=10",
                 result["verification"][0]["summary"],
             )
+            self.assertEqual(
+                result["schema_version"], "cera.pro_review_job4_result.v2"
+            )
+            terminal_path = cycle / "source" / "JOB4_TERMINAL_EVIDENCE.json"
+            terminal = decode_continuous_job4_terminal_evidence(
+                json.loads(terminal_path.read_text(encoding="utf-8"))
+            )
+            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV2)
+            self.assertEqual(result["terminal_evidence_sha256"], terminal.sha256)
+            self.assertEqual(
+                result["terminal_evidence_sha256"],
+                text_sha256(terminal_path.read_text(encoding="utf-8")),
+            )
+            self.assertTrue(
+                terminal.capability_ledger.all_zero_effects_structurally_denied
+            )
 
     def test_actual_cli_completes_closed_provider_free_scripted_v8_mode(self) -> None:
         with TemporaryDirectory() as directory:
@@ -545,6 +565,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             )
             transaction.freeze(
                 detail_bytes=b'{"status":"failed"}\n',
+                terminal_evidence_bytes=b'{"status":"failed"}',
                 report_bytes=b"# Frozen terminal report\n",
                 result_bytes=b'{"status":"failed"}\n',
                 recovery_terminalization=False,
@@ -675,9 +696,6 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 provider_calls=0,
                 scripted_transport_invocations=10,
             )
-            terminal = ContinuousJob4TerminalEvidenceV1.from_dict(
-                detail["terminal_evidence"]
-            )
             with patch(
                 "scripts.run_continuous_planner_validator_job4.build_report",
                 side_effect=RuntimeError("bounded report failure"),
@@ -686,8 +704,6 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     transaction,
                     detail,
                     task_id="task:report-construction-failure",
-                    operational_counters=terminal.effect_evidence.operational_counters,
-                    postconditions=terminal.postconditions,
                     recovery_terminalization=False,
                 )
             self.assertEqual(canonical["status"], "failed")
@@ -718,6 +734,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             report_bytes = b"# Publication cut\n"
             transaction.freeze(
                 detail_bytes=b'{"status":"failed"}\n',
+                terminal_evidence_bytes=b'{"status":"failed"}',
                 report_bytes=report_bytes,
                 result_bytes=result_bytes,
                 recovery_terminalization=False,
@@ -902,6 +919,25 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 )
                 if field != "provider_calls":
                     self.assertEqual(value["status"], "failed")
+
+    def test_capability_custody_structurally_denies_every_effect_port(self) -> None:
+        custody = ContinuousJob4CapabilityCustody()
+        evidence = custody.evidence
+        self.assertTrue(evidence.all_zero_effects_structurally_denied)
+        self.assertEqual(
+            ContinuousJob4CapabilityLedgerV1.from_dict(evidence.to_dict()), evidence
+        )
+        self.assertEqual(evidence.operational_counters.story_database_writes, 0)
+        self.assertEqual(evidence.active_route_mutations, 0)
+        for capability in evidence.capabilities:
+            with self.subTest(capability=capability), self.assertRaisesRegex(
+                PermissionError, "structurally unavailable"
+            ):
+                custody.record(capability)
+        tampered = json.loads(json.dumps(evidence.to_dict()))
+        tampered["capabilities"]["live_story_write"]["count"] = 1
+        with self.assertRaisesRegex(ValueError, "contradictory"):
+            ContinuousJob4CapabilityLedgerV1.from_dict(tampered)
 
     def test_terminal_effect_evidence_rejects_missing_boolean_negative_and_contradictory_values(self) -> None:
         detail = terminalized_detail(

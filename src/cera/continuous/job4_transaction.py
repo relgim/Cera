@@ -90,6 +90,8 @@ def _atomic_immutable_write(path: Path, data: bytes) -> None:
 class ContinuousJob4FrozenPublicationV1:
     detail_relative_path: str
     detail_sha256: str
+    terminal_evidence_relative_path: str
+    terminal_evidence_sha256: str
     report_relative_path: str
     report_sha256: str
     result_relative_path: str
@@ -103,6 +105,8 @@ class ContinuousJob4FrozenPublicationV1:
             "schema_version": self.SCHEMA_VERSION,
             "detail_relative_path": self.detail_relative_path,
             "detail_sha256": self.detail_sha256,
+            "terminal_evidence_relative_path": self.terminal_evidence_relative_path,
+            "terminal_evidence_sha256": self.terminal_evidence_sha256,
             "report_relative_path": self.report_relative_path,
             "report_sha256": self.report_sha256,
             "result_relative_path": self.result_relative_path,
@@ -120,6 +124,8 @@ class ContinuousJob4FrozenPublicationV1:
                 "schema_version",
                 "detail_relative_path",
                 "detail_sha256",
+                "terminal_evidence_relative_path",
+                "terminal_evidence_sha256",
                 "report_relative_path",
                 "report_sha256",
                 "result_relative_path",
@@ -132,6 +138,7 @@ class ContinuousJob4FrozenPublicationV1:
             raise ContinuousJob4TransactionError("frozen publication schema changed")
         for name in (
             "detail_relative_path",
+            "terminal_evidence_relative_path",
             "report_relative_path",
             "result_relative_path",
         ):
@@ -148,6 +155,12 @@ class ContinuousJob4FrozenPublicationV1:
         return cls(
             detail_relative_path=raw["detail_relative_path"],
             detail_sha256=_sha256(raw["detail_sha256"], "detail_sha256"),
+            terminal_evidence_relative_path=raw[
+                "terminal_evidence_relative_path"
+            ],
+            terminal_evidence_sha256=_sha256(
+                raw["terminal_evidence_sha256"], "terminal_evidence_sha256"
+            ),
             report_relative_path=raw["report_relative_path"],
             report_sha256=_sha256(raw["report_sha256"], "report_sha256"),
             result_relative_path=raw["result_relative_path"],
@@ -244,6 +257,7 @@ class ContinuousJob4TerminalTransactionV1:
         self,
         *,
         detail_bytes: bytes,
+        terminal_evidence_bytes: bytes,
         report_bytes: bytes,
         result_bytes: bytes,
         recovery_terminalization: bool,
@@ -256,11 +270,13 @@ class ContinuousJob4TerminalTransactionV1:
             existing = self.load_frozen()
             expected_hashes = (
                 bytes_sha256(detail_bytes),
+                bytes_sha256(terminal_evidence_bytes),
                 bytes_sha256(report_bytes),
                 bytes_sha256(result_bytes),
             )
             if expected_hashes != (
                 existing.detail_sha256,
+                existing.terminal_evidence_sha256,
                 existing.report_sha256,
                 existing.result_sha256,
             ):
@@ -272,6 +288,10 @@ class ContinuousJob4TerminalTransactionV1:
         publication = ContinuousJob4FrozenPublicationV1(
             detail_relative_path=f"frozen/{generation}/JOB4_DETAIL.json",
             detail_sha256=bytes_sha256(detail_bytes),
+            terminal_evidence_relative_path=(
+                f"frozen/{generation}/JOB4_TERMINAL_EVIDENCE.json"
+            ),
+            terminal_evidence_sha256=bytes_sha256(terminal_evidence_bytes),
             report_relative_path=f"frozen/{generation}/JOB4_REPORT.md",
             report_sha256=bytes_sha256(report_bytes),
             result_relative_path=f"frozen/{generation}/JOB4_RESULT.json",
@@ -280,6 +300,10 @@ class ContinuousJob4TerminalTransactionV1:
         )
         _atomic_immutable_write(
             self.root / publication.detail_relative_path, detail_bytes
+        )
+        _atomic_immutable_write(
+            self.root / publication.terminal_evidence_relative_path,
+            terminal_evidence_bytes,
         )
         _atomic_immutable_write(
             self.root / publication.report_relative_path, report_bytes
@@ -303,6 +327,11 @@ class ContinuousJob4TerminalTransactionV1:
                 "frozen detail",
             ),
             (
+                publication.terminal_evidence_relative_path,
+                publication.terminal_evidence_sha256,
+                "frozen terminal evidence",
+            ),
+            (
                 publication.report_relative_path,
                 publication.report_sha256,
                 "frozen report",
@@ -323,10 +352,17 @@ class ContinuousJob4TerminalTransactionV1:
         report_bytes = (self.root / publication.report_relative_path).read_bytes()
         result_bytes = (self.root / publication.result_relative_path).read_bytes()
         detail_bytes = (self.root / publication.detail_relative_path).read_bytes()
+        terminal_evidence_bytes = (
+            self.root / publication.terminal_evidence_relative_path
+        ).read_bytes()
         report_path = self.cycle_directory / "source" / "JOB4_REPORT.md"
         result_path = self.cycle_directory / "source" / "JOB4_RESULT.json"
+        terminal_evidence_path = (
+            self.cycle_directory / "source" / "JOB4_TERMINAL_EVIDENCE.json"
+        )
         _atomic_immutable_write(report_path, report_bytes)
         _atomic_immutable_write(result_path, result_bytes)
+        _atomic_immutable_write(terminal_evidence_path, terminal_evidence_bytes)
         detail_published = False
         try:
             _atomic_immutable_write(self.runtime_root / "JOB4_DETAIL.json", detail_bytes)
@@ -344,6 +380,10 @@ class ContinuousJob4TerminalTransactionV1:
             "frozen_marker_sha256": bytes_sha256(self.frozen_path.read_bytes()),
             "result_relative_path": "source/JOB4_RESULT.json",
             "result_sha256": publication.result_sha256,
+            "terminal_evidence_relative_path": (
+                "source/JOB4_TERMINAL_EVIDENCE.json"
+            ),
+            "terminal_evidence_sha256": publication.terminal_evidence_sha256,
             "report_relative_path": "source/JOB4_REPORT.md",
             "report_sha256": publication.report_sha256,
             "detail_transaction_relative_path": publication.detail_relative_path,
@@ -368,6 +408,8 @@ class ContinuousJob4TerminalTransactionV1:
                 "frozen_marker_sha256",
                 "result_relative_path",
                 "result_sha256",
+                "terminal_evidence_relative_path",
+                "terminal_evidence_sha256",
                 "report_relative_path",
                 "report_sha256",
                 "detail_transaction_relative_path",
@@ -384,6 +426,8 @@ class ContinuousJob4TerminalTransactionV1:
             or value["task_id"] != self.task_id
             or value["authorization_sha256"] != self.authorization_sha256
             or value["result_relative_path"] != "source/JOB4_RESULT.json"
+            or value["terminal_evidence_relative_path"]
+            != "source/JOB4_TERMINAL_EVIDENCE.json"
             or value["report_relative_path"] != "source/JOB4_REPORT.md"
             or value["semantic_work_repeated"] is not False
             or not isinstance(value["runtime_detail_published"], bool)
@@ -395,6 +439,7 @@ class ContinuousJob4TerminalTransactionV1:
         expected = {
             "frozen_marker_sha256": bytes_sha256(self.frozen_path.read_bytes()),
             "result_sha256": publication.result_sha256,
+            "terminal_evidence_sha256": publication.terminal_evidence_sha256,
             "report_sha256": publication.report_sha256,
             "detail_transaction_relative_path": publication.detail_relative_path,
             "detail_sha256": publication.detail_sha256,
@@ -409,6 +454,11 @@ class ContinuousJob4TerminalTransactionV1:
                 self.cycle_directory / value["result_relative_path"],
                 publication.result_sha256,
                 "published result",
+            ),
+            (
+                self.cycle_directory / value["terminal_evidence_relative_path"],
+                publication.terminal_evidence_sha256,
+                "published terminal evidence",
             ),
             (
                 self.cycle_directory / value["report_relative_path"],

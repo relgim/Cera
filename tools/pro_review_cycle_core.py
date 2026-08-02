@@ -13,6 +13,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
+from cera.continuous.job4_terminal import (
+    decode_continuous_job4_terminal_evidence,
+)
+
 
 SPEC_SCHEMA = "cera.pro_review_cycle_spec.v2"
 MANIFEST_SCHEMA = "cera.pro_review_cycle_manifest.v2"
@@ -21,6 +25,7 @@ STATE_SCHEMA = "cera.pro_review_cycle_state.v2"
 RECEIPT_SCHEMA = "cera.pro_review_cycle_receipt.v2"
 JOB4_AUTHORIZATION_SCHEMA = "cera.pro_review_job4_authorization.v1"
 JOB4_RESULT_SCHEMA = "cera.pro_review_job4_result.v1"
+JOB4_RESULT_SCHEMA_V2 = "cera.pro_review_job4_result.v2"
 
 STATE_JOB4_IN_PROGRESS = "job4_in_progress"
 STATE_RESPONSE_PENDING = "job4_complete_response_pending"
@@ -106,6 +111,18 @@ RECEIPT_EVENT_FIELDS = {
         "job4_result_relative_path",
         "job4_report_sha256",
         "job4_report_relative_path",
+        "effect_claim_source",
+        "effects",
+    ),
+    "job4_completed_v2": (
+        "job4_task_id",
+        "job4_status",
+        "job4_result_sha256",
+        "job4_result_relative_path",
+        "job4_report_sha256",
+        "job4_report_relative_path",
+        "terminal_evidence_sha256",
+        "terminal_evidence_relative_path",
         "effect_claim_source",
         "effects",
     ),
@@ -1532,18 +1549,38 @@ def validate_job4_result_contract(
 ) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise CycleError("Job 4 result must be an object")
-    exact_keys(
-        value,
-        ("schema_version", "cycle_id", "task_id", "status", "report_relative_path", "report_sha256", "effects", "verification"),
-        "Job 4 result",
-    )
+    schema_version = value.get("schema_version")
+    fields = [
+        "schema_version",
+        "cycle_id",
+        "task_id",
+        "status",
+        "report_relative_path",
+        "report_sha256",
+        "effects",
+        "verification",
+    ]
+    if schema_version == JOB4_RESULT_SCHEMA_V2:
+        fields.extend(
+            ("terminal_evidence_relative_path", "terminal_evidence_sha256")
+        )
+    exact_keys(value, fields, "Job 4 result")
     if (
-        value["schema_version"] != JOB4_RESULT_SCHEMA
+        schema_version not in {JOB4_RESULT_SCHEMA, JOB4_RESULT_SCHEMA_V2}
         or value["cycle_id"] != manifest["cycle_id"]
         or value["task_id"] != manifest["job4"]["task_id"]
         or value["status"] not in {"completed", "failed"}
     ):
         raise CycleError("Job 4 result identity or status is invalid")
+    if schema_version == JOB4_RESULT_SCHEMA_V2:
+        if (
+            value["terminal_evidence_relative_path"]
+            != "source/JOB4_TERMINAL_EVIDENCE.json"
+        ):
+            raise CycleError("Job 4 terminal-evidence path is invalid")
+        require_hash(
+            value["terminal_evidence_sha256"], "terminal_evidence_sha256"
+        )
     effects = value["effects"]
     if not isinstance(effects, dict):
         raise CycleError("Job 4 effects must be an object")
@@ -1600,6 +1637,46 @@ def validate_job4_result(
     return data, value, report_data, digest
 
 
+def validate_job4_terminal_evidence(
+    root: Path,
+    cycle: Path,
+    result: Mapping[str, Any],
+    delay: int,
+) -> tuple[bytes, str] | None:
+    if result["schema_version"] == JOB4_RESULT_SCHEMA:
+        return None
+    relative = require_string(
+        result["terminal_evidence_relative_path"],
+        "terminal_evidence_relative_path",
+    )
+    path = resolve_inside(
+        root,
+        str(cycle / relative),
+        "Job 4 terminal evidence",
+        must_exist=True,
+        suffixes={".json"},
+    )
+    data, digest = stable_read(path, delay)
+    expected = require_hash(
+        result["terminal_evidence_sha256"], "terminal_evidence_sha256"
+    )
+    if digest != expected:
+        raise CycleError("Job 4 terminal-evidence hash mismatch")
+    try:
+        raw = json.loads(data.decode("utf-8-sig"))
+        terminal = decode_continuous_job4_terminal_evidence(raw)
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise CycleError("Job 4 terminal evidence is invalid") from exc
+    if terminal.sha256 != digest:
+        raise CycleError("Job 4 terminal evidence is not canonical exact bytes")
+    if (
+        terminal.status != result["status"]
+        or terminal.effect_evidence.canonical_effects != result["effects"]
+    ):
+        raise CycleError("Job 4 result contradicts typed terminal evidence")
+    return data, digest
+
+
 def complete_job4(
     cycle_directory: Path,
     *,
@@ -1626,22 +1703,43 @@ def complete_job4(
     data, result, report_data, result_hash = validate_job4_result(
         root, cycle, manifest, stability_delay_milliseconds
     )
+    terminal_evidence = validate_job4_terminal_evidence(
+        root, cycle, result, stability_delay_milliseconds
+    )
     immutable_write(cycle / "artifacts" / "JOB4_RESULT.json", data)
     immutable_write(cycle / "artifacts" / "JOB4_REPORT.md", report_data)
+    completion_event = "job4_completed"
+    completion_fields: dict[str, Any] = {
+        "job4_task_id": manifest["job4"]["task_id"],
+        "job4_status": result["status"],
+        "job4_result_sha256": result_hash,
+        "job4_result_relative_path": "artifacts/JOB4_RESULT.json",
+        "job4_report_sha256": result["report_sha256"],
+        "job4_report_relative_path": "artifacts/JOB4_REPORT.md",
+        "effect_claim_source": "structured_job4_result_declaration",
+        "effects": result["effects"],
+    }
+    if terminal_evidence is not None:
+        terminal_data, terminal_hash = terminal_evidence
+        immutable_write(
+            cycle / "artifacts" / "JOB4_TERMINAL_EVIDENCE.json",
+            terminal_data,
+        )
+        completion_event = "job4_completed_v2"
+        completion_fields.update(
+            {
+                "terminal_evidence_sha256": terminal_hash,
+                "terminal_evidence_relative_path": (
+                    "artifacts/JOB4_TERMINAL_EVIDENCE.json"
+                ),
+                "effect_claim_source": "typed_terminal_evidence_v2",
+            }
+        )
     receipt = make_receipt(
         manifest,
-        "job4_completed",
+        completion_event,
         predecessor,
-        {
-            "job4_task_id": manifest["job4"]["task_id"],
-            "job4_status": result["status"],
-            "job4_result_sha256": result_hash,
-            "job4_result_relative_path": "artifacts/JOB4_RESULT.json",
-            "job4_report_sha256": result["report_sha256"],
-            "job4_report_relative_path": "artifacts/JOB4_REPORT.md",
-            "effect_claim_source": "structured_job4_result_declaration",
-            "effects": result["effects"],
-        },
+        completion_fields,
     )
     path = cycle / "receipts" / "JOB4_COMPLETED.json"
     receipt_write(path, receipt)
@@ -1770,16 +1868,15 @@ def completed_chain(
     trigger = cycle / "receipts" / "TRIGGER_SENT.json"
     if trigger.exists():
         _, predecessor = validate_trigger_receipt(cycle, manifest, started_hash)
+    completion_path = cycle / "receipts" / "JOB4_COMPLETED.json"
+    completion_event = read_json(completion_path).get("event")
+    if completion_event not in {"job4_completed", "job4_completed_v2"}:
+        raise CycleError("Job 4 completion receipt event is invalid")
     completion, completion_hash = validate_receipt(
-        cycle / "receipts" / "JOB4_COMPLETED.json",
-        manifest,
-        "job4_completed",
-        predecessor,
+        completion_path, manifest, completion_event, predecessor
     )
     if (
         completion["job4_task_id"] != manifest["job4"]["task_id"]
-        or completion["effect_claim_source"]
-        != "structured_job4_result_declaration"
         or completion["job4_result_relative_path"] != "artifacts/JOB4_RESULT.json"
         or completion["job4_report_relative_path"] != "artifacts/JOB4_REPORT.md"
     ):
@@ -1800,6 +1897,44 @@ def completed_chain(
         )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise CycleError("completed Job 4 result is invalid JSON") from exc
+    if result["schema_version"] == JOB4_RESULT_SCHEMA_V2:
+        if (
+            completion_event != "job4_completed_v2"
+            or completion["effect_claim_source"] != "typed_terminal_evidence_v2"
+            or completion["terminal_evidence_relative_path"]
+            != "artifacts/JOB4_TERMINAL_EVIDENCE.json"
+            or completion["terminal_evidence_sha256"]
+            != result["terminal_evidence_sha256"]
+        ):
+            raise CycleError("Job 4 terminal-evidence receipt identity is invalid")
+        terminal_path = resolve_inside(
+            root,
+            str(cycle / completion["terminal_evidence_relative_path"]),
+            "completed Job 4 terminal evidence",
+            must_exist=True,
+            suffixes={".json"},
+        )
+        terminal_data = terminal_path.read_bytes()
+        if sha256_bytes(terminal_data) != completion["terminal_evidence_sha256"]:
+            raise CycleError("completed terminal evidence does not match its receipt")
+        try:
+            terminal = decode_continuous_job4_terminal_evidence(
+                json.loads(terminal_data.decode("utf-8-sig"))
+            )
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            raise CycleError("completed Job 4 terminal evidence is invalid") from exc
+        if (
+            terminal.sha256 != completion["terminal_evidence_sha256"]
+            or terminal.status != result["status"]
+            or terminal.effect_evidence.canonical_effects != result["effects"]
+        ):
+            raise CycleError("completed terminal evidence contradicts Job 4 result")
+    elif (
+        completion_event != "job4_completed"
+        or completion["effect_claim_source"]
+        != "structured_job4_result_declaration"
+    ):
+        raise CycleError("legacy Job 4 completion receipt identity is invalid")
     report_path = resolve_inside(
         root,
         str(cycle / completion["job4_report_relative_path"]),

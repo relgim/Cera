@@ -980,10 +980,16 @@ terminal result and report. Complete detail/report/result bytes freeze before
 publication, an explicit commit marker binds the final result/report, and
 restart may publish only frozen bytes or terminalize an interrupted identity
 without repeating semantic or provider work. The progression makes zero
-provider calls and leaves D-180 unchanged. Progressions 2 and 3 still must add
-durable cycle-local terminal-evidence custody, capability-owned effect
-accounting, verified live archival, and the actual complete failure matrix
-before Cycle 011 publication.
+provider calls and leaves D-180 unchanged. Progression 2,
+`continuous-durable-terminal-evidence-and-capability-ledger-v11`, publishes the
+canonical typed terminal record as exact immutable bytes, binds its path/hash
+through Job 4 result v2, copies and reparses it in `complete-job4`, and requires
+the completion receipt, completed-chain validator, and recovery path to prove
+the same status and effects. A sealed capability ledger gives every live-story,
+production-database, active-route, deployment, remote, merge, push, service,
+and installed-SillyTavern effect a typed structurally-unavailable denial rather
+than a caller-prefilled zero. Progression 3 still must verify live archival and
+run the actual complete failure matrix before Cycle 011 publication.
 
 ## Repair and pivot rule
 

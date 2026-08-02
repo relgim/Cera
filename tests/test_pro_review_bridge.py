@@ -30,6 +30,7 @@ from cera.continuous.job4_terminal import (  # noqa: E402
     ContinuousJob4PostconditionsV1,
     ContinuousJob4TerminalEvidenceV1,
 )
+from cera.serialization import canonical_bytes  # noqa: E402
 from scripts.run_continuous_planner_validator_job4 import (  # noqa: E402
     build_canonical_job4_result,
     build_report,
@@ -665,6 +666,9 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             task_id=self.job4_task_id,
             report_sha256=self._hash(report),
         )
+        (self.source / "JOB4_TERMINAL_EVIDENCE.json").write_bytes(
+            canonical_bytes(terminal.to_dict())
+        )
         (self.source / "JOB4_RESULT.json").write_text(
             json.dumps(value, indent=2) + "\n", encoding="utf-8"
         )
@@ -961,12 +965,31 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         receipt = json.loads(
             (self.cycle / "receipts" / "JOB4_COMPLETED.json").read_text()
         )
+        result = json.loads(
+            (self.cycle / "artifacts" / "JOB4_RESULT.json").read_text()
+        )
         self.assertEqual(receipt["effects"]["provider_calls"], 0)
+        self.assertEqual(receipt["event"], "job4_completed_v2")
+        self.assertEqual(
+            receipt["effect_claim_source"], "typed_terminal_evidence_v2"
+        )
+        self.assertEqual(
+            receipt["terminal_evidence_sha256"],
+            result["terminal_evidence_sha256"],
+        )
+        terminal_artifact = (
+            self.cycle / "artifacts" / "JOB4_TERMINAL_EVIDENCE.json"
+        )
+        self.assertEqual(self._hash(terminal_artifact), receipt["terminal_evidence_sha256"])
         self.assertNotIn("scripted_transport_invocations", receipt["effects"])
         self.assertIn(
             "Scripted transport invocations:** 10",
             (self.cycle / "artifacts" / "JOB4_REPORT.md").read_text(),
         )
+        recovered = review_cycle.recover_cycle(
+            self.cycle, repository_root_path=self.root
+        )
+        self.assertEqual(recovered["state"], review_cycle.STATE_RESPONSE_PENDING)
 
     def test_28e_complete_job4_rejects_legacy_canary_fields(self) -> None:
         self.publish()
@@ -1133,6 +1156,42 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             '"deployment_remote_or_push_effects":21',
             (self.cycle / "artifacts" / "JOB4_REPORT.md").read_text(),
         )
+
+    def test_28i_terminal_evidence_is_required_copied_and_revalidated(self) -> None:
+        self.publish()
+        self.record_trigger()
+        self.write_canary_job4_result(
+            status="completed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=10,
+        )
+        source_terminal = self.source / "JOB4_TERMINAL_EVIDENCE.json"
+        exact_terminal_bytes = source_terminal.read_bytes()
+        source_terminal.unlink()
+        with self.assertRaisesRegex(review_cycle.CycleError, "is missing"):
+            review_cycle.complete_job4(
+                self.cycle,
+                stability_delay_milliseconds=0,
+                repository_root_path=self.root,
+            )
+        source_terminal.write_bytes(exact_terminal_bytes)
+        review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        copied_terminal = (
+            self.cycle / "artifacts" / "JOB4_TERMINAL_EVIDENCE.json"
+        )
+        self.assertEqual(copied_terminal.read_bytes(), exact_terminal_bytes)
+        copied_terminal.write_text("{}", encoding="utf-8")
+        with self.assertRaisesRegex(
+            review_cycle.CycleError, "terminal evidence does not match"
+        ):
+            review_cycle.recover_cycle(
+                self.cycle, repository_root_path=self.root
+            )
 
     def test_29_placeholder_or_bodyless_response_is_rejected(self) -> None:
         self.publish()

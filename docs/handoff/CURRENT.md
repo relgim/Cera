@@ -2,7 +2,7 @@
 
 **Updated:** 2026-08-01
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-198 provider-free continuous Planner/Validator correction cycle 011 Progression 1; D-180 remains active
+**Phase:** D-198 provider-free continuous Planner/Validator correction cycle 011 Progressions 1-2; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
@@ -11,10 +11,32 @@
 **Provider-free current verification:** D-197 complete repository suite passes 773/773 in 315.785 seconds with one expected environment-dependent skip; zero external provider calls
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
-**D-186/D-198 shadow continuity work:** all earlier canary/audit evidence remains immutable; Cycle 011 Progression 1 adds total-lifecycle terminal ownership and restart-safe publication; active route unchanged
+**D-186/D-198 shadow continuity work:** all earlier canary/audit evidence remains immutable; Cycle 011 Progressions 1-2 add total-lifecycle terminal ownership, immutable terminal bytes, capability custody, and restart-safe publication; active route unchanged
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
+
+- D-198 Progression 2 is complete provider-free. Canonical Job 4 result v2
+  binds `source/JOB4_TERMINAL_EVIDENCE.json` and its SHA-256. The transaction
+  freezes and publishes those exact bytes; `complete-job4` decodes them,
+  reconstructs terminal status/effects, copies them into cycle artifacts, and
+  binds them through a typed v2 completion receipt. Completed-chain validation
+  and recovery reparse and reconcile the same bytes.
+- Job 4 no longer creates eight unowned zero counters. A sealed capability
+  ledger records all live-story, production-database, active-route, deployment,
+  remote, merge, push, service, and installed-SillyTavern mutation capabilities
+  as structurally unavailable to this process. Attempts to cross a denied port
+  fail explicitly. Terminal evidence v2 derives operational effects from this
+  custody record.
+- Focused verification passes 26/26 continuous Job 4 tests and 65/65 Pro-review
+  bridge/chain tests with one expected platform skip. External provider calls,
+  retries, fallbacks, and all canonical runtime effects remain zero.
+- The next authorized job is
+  `continuous-live-archive-and-canary-publication-readiness-v11`. It must unify
+  live/scripted archival as verified non-resumability and execute the actual
+  CLI setup/finalization failure matrix plus successful scripted canary through
+  real completion/recovery. Cycle 011 remains unpublished; provider dispatch is
+  closed.
 
 - D-198 Progression 1 is complete provider-free. One root terminal transaction
   now exists before every canary setup operation. Missing source data and other
@@ -29,11 +51,8 @@
   ten-stage path. The related repository completion chain passes 7/7. External
   provider calls, retries, fallbacks, and all canonical runtime effects are
   zero.
-- The next authorized job is
-  `continuous-durable-terminal-evidence-and-capability-ledger-v11`. It must
-  publish and bind immutable terminal-evidence bytes through `complete-job4`
-  and replace compatibility zero counters with capability-owned custody.
-  Cycle 011 is not published and no live provider dispatch is authorized.
+- Progression 1's next-job note is superseded by the completed Progression 2
+  status above.
 
 - D-197 is the current provider-free correction tranche. A closed typed terminal
   record now owns all canonical effects and mandatory postconditions. Exact
