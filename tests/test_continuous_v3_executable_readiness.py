@@ -393,7 +393,7 @@ class ContinuousV3ExecutableReadinessTests(unittest.TestCase):
             self.assertEqual(_tree_hashes(first_root), immutable_first)
             self.assertEqual(_sha256(source_database), source_hash)
             self.assertFalse(_port_open(5113))
-            snapshot_paths = tuple(second_root.rglob("ACCEPTED_SESSION_SNAPSHOT.json"))
+            snapshot_paths = tuple(second_root.rglob("SESSION_SNAPSHOT.json"))
             self.assertTrue(snapshot_paths)
             self.assertLessEqual(max(len(str(path.resolve())) for path in snapshot_paths), 248)
         self.assertEqual(_tree_hashes(HISTORICAL_V1_ROOT), historical_before)
