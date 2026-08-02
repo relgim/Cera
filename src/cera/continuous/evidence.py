@@ -251,6 +251,58 @@ class StableAcceptedContextReferenceV1:
 
 
 @dataclass(frozen=True, slots=True)
+class ValidatorCitedAcceptedEvidenceV1:
+    """Minimal exact-value closure for one Planner-cited stable reference."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.validator_cited_accepted_evidence.v1"
+
+    schema_version: str
+    request_turn_id: str
+    binding_key: str
+    binding_kind: str
+    authority_classification: str
+    cited_by_beat_keys: tuple[str, ...]
+    accepted_reference: StableAcceptedContextReferenceV1
+    closure_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "Validator cited accepted-evidence schema changed"
+            )
+        if not self.request_turn_id.strip():
+            raise ContractValidationError(
+                "Validator cited accepted-evidence request is incomplete"
+            )
+        if (
+            self.binding_key != self.accepted_reference.reference_key
+            or self.binding_kind != EvidenceBindingKind.ACCEPTED_SESSION_ENVELOPE.value
+            or self.authority_classification
+            != EvidenceAuthorityClass.ACCEPTED_SESSION_AUTHORITY.value
+            or not self.cited_by_beat_keys
+            or len(self.cited_by_beat_keys) != len(set(self.cited_by_beat_keys))
+        ):
+            raise ContractValidationError(
+                "Validator cited accepted-evidence authority changed"
+            )
+        expected = canonical_sha256(
+            {
+                "schema_version": self.SCHEMA_VERSION,
+                "request_turn_id": self.request_turn_id,
+                "binding_key": self.binding_key,
+                "binding_kind": self.binding_kind,
+                "authority_classification": self.authority_classification,
+                "cited_by_beat_keys": self.cited_by_beat_keys,
+                "accepted_reference": to_primitive(self.accepted_reference),
+            }
+        )
+        if self.closure_sha256 != expected:
+            raise ContractValidationError(
+                "Validator cited accepted-evidence closure changed"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class CompactAcceptedHeadReceiptV1:
     """Lean prompt receipt: exact custody and keys, never prior fact payloads."""
 
@@ -1448,6 +1500,110 @@ class RequestEvidenceBindingRegistry:
             }
             for value in self.bindings
         )
+
+    def validator_binding_manifest(
+        self,
+        sequence: RichPlannerSequenceV1,
+    ) -> tuple[dict[str, Any], ...]:
+        """Hide uncited stable-reference metadata from the Validator request."""
+
+        cited = {
+            key
+            for beat in sequence.beats
+            for key in beat.source_evidence_bindings
+        }
+        return tuple(
+            value
+            for value in self.prompt_manifest()
+            if not value["stable_reference_only"]
+            or value["binding_key"] in cited
+        )
+
+    def validator_cited_accepted_evidence_closure(
+        self,
+        sequence: RichPlannerSequenceV1,
+    ) -> tuple[ValidatorCitedAcceptedEvidenceV1, ...]:
+        """Resolve exact values only for stable keys the Planner actually cited."""
+
+        if (sequence.world_id, sequence.branch_id) != (
+            self.world_id,
+            self.branch_id,
+        ):
+            raise StateConflictError(
+                "Validator cited accepted-evidence changed request scope"
+            )
+        cited_by_key: dict[str, list[str]] = {}
+        citation_order: list[str] = []
+        for beat in sequence.beats:
+            for key in beat.source_evidence_bindings:
+                if key not in self._stable_accepted_context_references:
+                    continue
+                if key not in cited_by_key:
+                    cited_by_key[key] = []
+                    citation_order.append(key)
+                cited_by_key[key].append(beat.beat_key)
+        closure = []
+        beats_by_key = {value.beat_key: value for value in sequence.beats}
+        for key in citation_order:
+            reference = self._stable_accepted_context_references[key]
+            binding = self._bindings.get(key)
+            if (
+                binding is None
+                or binding.source_sha256 != reference.reference_sha256
+                or binding.world_id != reference.world_id
+                or binding.branch_id != reference.branch_id
+                or binding.provider_thread_sha256
+                != reference.provider_thread_sha256
+                or binding.accepted_envelope_sha256
+                != reference.accepted_envelope_sha256
+                or binding.acceptance_receipt_sha256
+                != reference.acceptance_receipt_sha256
+                or binding.session_snapshot_sha256
+                != reference.session_snapshot_sha256
+                or binding.synchronization_receipt_sha256
+                != reference.synchronization_receipt_sha256
+                or binding.visibility
+                is not (
+                    EvidenceVisibility.CHARACTER_PRIVATE
+                    if reference.knowledge_owner_id is not None
+                    else EvidenceVisibility.PUBLIC
+                )
+                or binding.knowledge_owner_id != reference.knowledge_owner_id
+            ):
+                raise StateConflictError(
+                    "Validator cited accepted-evidence binding changed"
+                )
+            beat_keys = tuple(cited_by_key[key])
+            if reference.knowledge_owner_id is not None and any(
+                reference.knowledge_owner_id
+                not in beats_by_key[beat_key].roles.assertion_owner_ids
+                for beat_key in beat_keys
+            ):
+                raise PermissionError(
+                    "Validator cited private accepted evidence left its owner"
+                )
+            payload = {
+                "schema_version": ValidatorCitedAcceptedEvidenceV1.SCHEMA_VERSION,
+                "request_turn_id": self.turn_id,
+                "binding_key": key,
+                "binding_kind": binding.kind.value,
+                "authority_classification": (
+                    binding.authority_classification.value
+                ),
+                "cited_by_beat_keys": beat_keys,
+                "accepted_reference": reference,
+            }
+            primitive = {
+                **payload,
+                "accepted_reference": to_primitive(reference),
+            }
+            closure.append(
+                ValidatorCitedAcceptedEvidenceV1(
+                    **payload,
+                    closure_sha256=canonical_sha256(primitive),
+                )
+            )
+        return tuple(closure)
 
     def protected_user_claim_manifest(self) -> tuple[dict[str, Any], ...]:
         return tuple(

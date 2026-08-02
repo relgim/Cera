@@ -9,8 +9,10 @@ import unittest
 from unittest import mock
 
 from cera.continuous.evidence import (
+    EvidenceVisibility,
     RequestEvidenceBindingRegistry,
     StableAcceptedContextReferenceStore,
+    ValidatorCitedAcceptedEvidenceV1,
     build_stable_accepted_context_references,
     project_final_sequence_facts,
     rebind_stable_accepted_context_references_for_reconstruction,
@@ -25,6 +27,7 @@ from cera.continuous.prompting import (
     PLANNER_STABLE_INSTRUCTIONS,
     build_continuous_composer_prompt,
     build_planner_turn_prompt,
+    build_validator_prompt,
     planner_base_instruction_usage,
 )
 from cera.continuous.sessions import (
@@ -37,7 +40,7 @@ from cera.continuous.sessions import (
     PlannerContextMode,
 )
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import canonical_sha256, text_sha256
+from cera.serialization import canonical_sha256, text_sha256, to_primitive
 from cera.creator_review.models import CreatorReviewAction
 
 from tests.test_continuous_planner_validator import (
@@ -57,7 +60,10 @@ from tests.test_continuous_world import (
     session_compatibility,
 )
 from cera.continuous.world import ContinuousWorldStore
-from cera.continuous.contracts import AcceptedFinalSequenceEnvelopeV1
+from cera.continuous.contracts import (
+    AcceptedFinalSequenceEnvelopeV1,
+    ValidatorTaskMode,
+)
 
 
 def accepted_envelope() -> AcceptedFinalSequenceEnvelopeV1:
@@ -313,6 +319,250 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 current_provider_thread_sha256=text_sha256("thread-one"),
                 current_accepted_ancestry_sha256=receipt.accepted_ancestry_sha256,
             )
+        for provider_thread_sha256, accepted_ancestry_sha256 in (
+            (text_sha256("wrong thread"), receipt.accepted_ancestry_sha256),
+            (text_sha256("thread-one"), text_sha256("wrong ancestry")),
+        ):
+            with self.assertRaisesRegex(StateConflictError, "stale, foreign"):
+                RequestEvidenceBindingRegistry(
+                    world_id="world:hanezawa_test",
+                    branch_id="branch:main",
+                    turn_id="turn:002",
+                ).allocate_stable_accepted_context_reference(
+                    references[0],
+                    current_provider_thread_sha256=provider_thread_sha256,
+                    current_accepted_ancestry_sha256=accepted_ancestry_sha256,
+                )
+
+    def test_validator_closure_resolves_only_cited_exact_accepted_values(self) -> None:
+        facts = tuple(
+            fact
+            for item in accepted_sequence().items
+            for fact in project_final_sequence_facts(item)
+        )
+        receipt, references = build_stable_accepted_context_references(
+            world_id="world:hanezawa_test",
+            branch_id="branch:main",
+            scene_id="scene:arrival",
+            planner_session_id="planner-session",
+            provider_thread_sha256=text_sha256("planner-thread"),
+            accepted_turn_ids=("turn:001",),
+            accepted_turn_id="turn:001",
+            accepted_envelope_sha256=accepted_envelope().envelope_sha256,
+            accepted_pair_sha256=text_sha256("pair"),
+            accepted_event_sha256=text_sha256("event"),
+            acceptance_receipt_sha256=text_sha256("acceptance"),
+            injection_receipt_sha256=text_sha256("injection"),
+            session_snapshot_sha256=text_sha256("snapshot"),
+            synchronization_receipt_sha256=text_sha256("synchronization"),
+            facts=facts,
+        )
+        registry = RequestEvidenceBindingRegistry(
+            world_id="world:hanezawa_test",
+            branch_id="branch:main",
+            turn_id="turn:002",
+        )
+        for reference in references:
+            registry.allocate_stable_accepted_context_reference(
+                reference,
+                current_provider_thread_sha256=text_sha256("planner-thread"),
+                current_accepted_ancestry_sha256=(
+                    receipt.accepted_ancestry_sha256
+                ),
+            )
+        cited = next(
+            value for value in references if value.field_name == "resulting_state"
+        )
+        uncited = next(
+            value
+            for value in references
+            if value.field_name == "valid_deepseek_additions"
+        )
+        private_other = next(
+            value for value in references if value.knowledge_owner_id is not None
+        )
+        compatible = replace(
+            sequence(),
+            accepted_turn_id="turn:002",
+            beats=(
+                replace(
+                    sequence().beats[0],
+                    evidence_grounded_perception=cited.field_value,
+                    resulting_state=cited.field_value,
+                    source_evidence_bindings=(cited.reference_key,),
+                ),
+            ),
+        )
+        closure = registry.validator_cited_accepted_evidence_closure(
+            compatible
+        )
+        self.assertEqual(len(closure), 1)
+        self.assertEqual(closure[0].binding_key, cited.reference_key)
+        self.assertEqual(
+            closure[0].accepted_reference.field_value,
+            cited.field_value,
+        )
+        self.assertEqual(
+            set(to_primitive(closure[0])),
+            {
+                "accepted_reference",
+                "authority_classification",
+                "binding_key",
+                "binding_kind",
+                "cited_by_beat_keys",
+                "closure_sha256",
+                "request_turn_id",
+                "schema_version",
+            },
+        )
+        with self.assertRaises(TypeError):
+            ValidatorCitedAcceptedEvidenceV1(
+                **{
+                    **{
+                        key: getattr(closure[0], key)
+                        for key in to_primitive(closure[0])
+                    },
+                    "untyped_caller_data": "forbidden",
+                }
+            )
+        serialized = json.dumps(
+            to_primitive(closure),
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        self.assertNotIn(uncited.field_value, serialized)
+        self.assertNotIn(private_other.field_value, serialized)
+        validator_manifest = registry.validator_binding_manifest(compatible)
+        stable_manifest_keys = tuple(
+            value["binding_key"]
+            for value in validator_manifest
+            if value["stable_reference_only"]
+        )
+        self.assertEqual(stable_manifest_keys, (cited.reference_key,))
+
+        incompatible = replace(
+            compatible,
+            beats=(
+                replace(
+                    compatible.beats[0],
+                    evidence_grounded_perception=(
+                        "The visitor is already inside and no threshold remains."
+                    ),
+                    resulting_state=(
+                        "The visitor is already inside and no threshold remains."
+                    ),
+                ),
+            ),
+        )
+        compatible_prompt, _ = build_validator_prompt(
+            task_mode=ValidatorTaskMode.FINALIZE_TURN,
+            current_user_source="Continue.",
+            planner_sequence=compatible,
+            deepseek_realization="Sakura waits at the threshold.",
+            accepted_turn_id="turn:002",
+            evidence_binding_manifest=validator_manifest,
+            cited_accepted_evidence=tuple(
+                to_primitive(value) for value in closure
+            ),
+        )
+        incompatible_prompt, _ = build_validator_prompt(
+            task_mode=ValidatorTaskMode.FINALIZE_TURN,
+            current_user_source="Continue.",
+            planner_sequence=incompatible,
+            deepseek_realization="Sakura waits at the threshold.",
+            accepted_turn_id="turn:002",
+            evidence_binding_manifest=validator_manifest,
+            cited_accepted_evidence=tuple(
+                to_primitive(value) for value in closure
+            ),
+        )
+
+        def provider_free_semantic_disposition(prompt: str) -> str:
+            request = json.loads(prompt.split("[VALIDATOR REQUEST]\n", 1)[1])
+            exact_values = tuple(
+                value["accepted_reference"]["field_value"]
+                for value in request["cited_accepted_evidence"]
+            )
+            resulting_state = request["planner_sequence"]["beats"][0][
+                "resulting_state"
+            ]
+            if "outside awaiting verification" in exact_values[0] and (
+                "already inside" in resulting_state
+            ):
+                return "concern"
+            return "accepted"
+
+        self.assertEqual(
+            provider_free_semantic_disposition(compatible_prompt),
+            "accepted",
+        )
+        self.assertEqual(
+            provider_free_semantic_disposition(incompatible_prompt),
+            "concern",
+        )
+        self.assertNotIn("accepted_session_projections", incompatible_prompt)
+
+        other_owner_sequence = replace(
+            compatible,
+            selected_character_ids=("character:mia_hanezawa",),
+            omitted_character_ids=("character:sakura_hanezawa",),
+            beats=(
+                replace(
+                    compatible.beats[0],
+                    roles=replace(
+                        compatible.beats[0].roles,
+                        action_owner_ids=("character:mia_hanezawa",),
+                    ),
+                    source_evidence_bindings=(private_other.reference_key,),
+                ),
+            ),
+        )
+        with self.assertRaisesRegex(PermissionError, "left its owner"):
+            registry.validator_cited_accepted_evidence_closure(
+                other_owner_sequence
+            )
+
+        binding = registry._bindings[cited.reference_key]
+        registry._bindings[cited.reference_key] = replace(
+            binding,
+            visibility=EvidenceVisibility.CHARACTER_PRIVATE,
+            knowledge_owner_id="character:sakura_hanezawa",
+        )
+        with self.assertRaisesRegex(StateConflictError, "binding changed"):
+            registry.validator_cited_accepted_evidence_closure(compatible)
+        registry._bindings[cited.reference_key] = binding
+
+        stale_references = (
+            replace(
+                cited,
+                field_value="stale accepted value",
+                field_value_sha256=text_sha256("stale accepted value"),
+            ),
+            replace(cited, accepted_turn_id="turn:stale"),
+            replace(cited, accepted_ancestry_sha256=text_sha256("stale ancestry")),
+            replace(cited, accepted_envelope_sha256=text_sha256("stale envelope")),
+            replace(cited, accepted_pair_sha256=text_sha256("stale pair")),
+            replace(cited, accepted_event_sha256=text_sha256("stale event")),
+            replace(cited, acceptance_receipt_sha256=text_sha256("stale acceptance")),
+            replace(cited, injection_receipt_sha256=text_sha256("stale injection")),
+            replace(cited, session_snapshot_sha256=text_sha256("stale snapshot")),
+            replace(
+                cited,
+                synchronization_receipt_sha256=text_sha256(
+                    "stale synchronization"
+                ),
+            ),
+        )
+        for stale_reference in stale_references:
+            with self.subTest(stale_field=stale_reference.reference_sha256):
+                registry._stable_accepted_context_references[
+                    cited.reference_key
+                ] = stale_reference
+                with self.assertRaisesRegex(StateConflictError, "binding changed"):
+                    registry.validator_cited_accepted_evidence_closure(
+                        compatible
+                    )
+        registry._stable_accepted_context_references[cited.reference_key] = cited
 
     def test_successful_provider_fork_persists_child_keys_and_summary_custody(self) -> None:
         with TemporaryDirectory() as directory:

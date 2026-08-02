@@ -84,6 +84,7 @@ from .evidence import (
     RequestEvidenceBindingRegistry,
     RequestEvidenceBindingV1,
     StableAcceptedContextReferenceV1,
+    ValidatorCitedAcceptedEvidenceV1,
 )
 from .call_ledger import (
     ContinuousProviderCallLedger,
@@ -167,6 +168,7 @@ __all__ = [
     "AcceptedSessionFactV1",
     "CompactAcceptedHeadReceiptV1",
     "StableAcceptedContextReferenceV1",
+    "ValidatorCitedAcceptedEvidenceV1",
     "EvidenceVisibility",
     "RequestEvidenceBindingRegistry",
     "RequestEvidenceBindingV1",

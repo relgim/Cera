@@ -1069,8 +1069,8 @@ class JobHarness:
                     in composer_prompt_text
                 ),
                 "validator_prior_projection_absent": (
-                    '"accepted_session_projections":[]'
-                    in validator_prompt_text
+                    '"accepted_session_projections"'
+                    not in validator_prompt_text
                 ),
             },
         }

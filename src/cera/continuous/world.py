@@ -1445,6 +1445,7 @@ class ContinuousDebugRecorder:
         "deepseek_request.json",
         "deepseek_output.json",
         "validator_request.json",
+        "validator_cited_accepted_evidence.json",
         "validator_output.json",
         "validator_tools.json",
         "candidate_before.json",

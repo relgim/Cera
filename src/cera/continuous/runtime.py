@@ -170,6 +170,7 @@ class ContinuousTurnCandidateV1:
     story_segment_ledger_sha256: str
     protected_semantic_adjudication_ledger_sha256: str
     accepted_session_projection_ledger_sha256: str
+    validator_cited_accepted_evidence_sha256: str
     context_mode: PlannerContextMode = PlannerContextMode.LEAN_CONTINUOUS
     compact_accepted_head_receipt_sha256: str | None = None
     character_summary_delivery_receipt_sha256s: tuple[str, ...] = ()
@@ -186,6 +187,9 @@ class ContinuousTurnCandidateV1:
                     self.protected_semantic_adjudication_ledger_sha256
                 ),
                 "accepted_session_projection_ledger_sha256": self.accepted_session_projection_ledger_sha256,
+                "validator_cited_accepted_evidence_sha256": (
+                    self.validator_cited_accepted_evidence_sha256
+                ),
                 "context_mode": self.context_mode.value,
                 "compact_accepted_head_receipt_sha256": self.compact_accepted_head_receipt_sha256,
                 "character_summary_delivery_receipt_sha256s": self.character_summary_delivery_receipt_sha256s,
@@ -932,6 +936,18 @@ class ContinuousShadowTurnCoordinator:
             planner_sequence,
             branch_root=branch_root,
         )
+        validator_binding_manifest = (
+            evidence_registry.validator_binding_manifest(planner_sequence)
+        )
+        validator_cited_accepted_evidence = (
+            evidence_registry.validator_cited_accepted_evidence_closure(
+                planner_sequence
+            )
+        )
+        validator_cited_accepted_evidence_payload = tuple(
+            to_primitive(value)
+            for value in validator_cited_accepted_evidence
+        )
         self.planner_session.record_planner_provisional(
             request.turn_id, planner_sequence.sequence_sha256
         )
@@ -995,7 +1011,7 @@ class ContinuousShadowTurnCoordinator:
             world_file_manifest=self.world.active_manifest(
                 request.world_id, request.branch_id
             ),
-            evidence_binding_manifest=evidence_registry.prompt_manifest(),
+            evidence_binding_manifest=validator_binding_manifest,
             protected_user_claim_manifest=evidence_registry.protected_user_claim_manifest(),
             deepseek_protected_user_realizations=tuple(
                 to_primitive(value)
@@ -1007,7 +1023,9 @@ class ContinuousShadowTurnCoordinator:
             ingress_source_units=tuple(
                 to_primitive(value) for value in source_units
             ),
-            accepted_session_projections=(),
+            cited_accepted_evidence=(
+                validator_cited_accepted_evidence_payload
+            ),
         )
         debug.write_json("validator_request.json", {"prompt": validator_prompt})
         started = time.perf_counter_ns()
@@ -1081,6 +1099,9 @@ class ContinuousShadowTurnCoordinator:
                     ),
                 }
             ),
+            validator_cited_accepted_evidence_sha256=canonical_sha256(
+                validator_cited_accepted_evidence_payload
+            ),
             context_mode=request.context_mode,
             compact_accepted_head_receipt_sha256=(
                 compact_accepted_head.receipt_sha256
@@ -1110,6 +1131,9 @@ class ContinuousShadowTurnCoordinator:
             "deepseek_request.json": {"prompt": composer_prompt},
             "deepseek_output.json": composer_payload,
             "validator_request.json": {"prompt": validator_prompt},
+            "validator_cited_accepted_evidence.json": (
+                validator_cited_accepted_evidence_payload
+            ),
             "validator_output.json": to_primitive(package),
             "validator_tools.json": _provider_debug(validator_result),
             "candidate_before.json": before_files,
@@ -1217,6 +1241,9 @@ class ContinuousShadowTurnCoordinator:
                 "authority_context_sha256": candidate.authority_context_sha256,
                 "candidate_sha256": candidate.candidate_sha256,
                 "validator_result": to_primitive(package),
+                "validator_cited_accepted_evidence": (
+                    validator_cited_accepted_evidence_payload
+                ),
             },
         }
         debug.write_text("planner_raw_prompt.txt", planner_prompt)

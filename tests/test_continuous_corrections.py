@@ -838,9 +838,46 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                 "[OWNER-SCOPED ACCEPTED-SESSION PROJECTIONS]\n[]",
                 composer.prompts[1],
             )
-            self.assertIn(
-                '"accepted_session_projections":[]', validator.prompts[1]
+            self.assertNotIn(
+                '"accepted_session_projections"', validator.prompts[1]
             )
+            self.assertIn(
+                '"cited_accepted_evidence":[', validator.prompts[1]
+            )
+            self.assertIn(
+                '"field_value":"The visitor remains outside awaiting verification."',
+                validator.prompts[1],
+            )
+            cited_debug = json.loads(
+                (
+                    candidate.debug_root
+                    / "validator_cited_accepted_evidence.json"
+                ).read_text(encoding="utf-8")
+            )
+            replay = json.loads(
+                (candidate.debug_root / "replay_input.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            validator_request = json.loads(
+                validator.prompts[1].split("[VALIDATOR REQUEST]\n", 1)[1]
+            )
+            self.assertEqual(
+                validator_request["cited_accepted_evidence"], cited_debug
+            )
+            self.assertEqual(
+                replay["validator_cited_accepted_evidence"], cited_debug
+            )
+            self.assertEqual(
+                canonical_sha256(cited_debug),
+                candidate.validator_cited_accepted_evidence_sha256,
+            )
+            self.assertTrue(cited_debug)
+            self.assertNotIn(
+                "cera.validator_cited_accepted_evidence.v1",
+                composer.prompts[1],
+            )
+            self.assertEqual(validator_request["accepted_pairs"], [])
 
             character_path = store.branch_root("world-test", "main") / "ACTIVE" / "Characters" / "Sakura.json"
             character_record = json.loads(character_path.read_text(encoding="utf-8"))
