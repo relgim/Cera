@@ -1,13 +1,16 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from threading import Thread
 import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 from cera.creator_review import CreatorReviewAction
-from cera.serialization import text_sha256
+from cera.continuous.prompting import PLANNER_STABLE_INSTRUCTIONS
+from cera.serialization import canonical_bytes, text_sha256
 from cera.sillytavern.campaign import (
     CONTINUOUS_V3_CALL_SCHEDULE,
     CONTINUOUS_V3_RUN_IDENTITIES,
@@ -21,6 +24,7 @@ from cera.sillytavern.continuous_test import (
 )
 from cera.sillytavern.models import CERA_CONTINUOUS_V3_TEST_MODEL
 from cera.sillytavern.server import CeraSillyTavernServerConfig, build_server
+from scripts.run_sillytavern_continuous_v3_campaign import recover_prior_campaign
 
 
 class ContinuousSillyTavernV3Tests(unittest.TestCase):
@@ -187,6 +191,172 @@ class ContinuousV3CampaignStateTests(unittest.TestCase):
         campaign.begin_run(CONTINUOUS_V3_RUN_IDENTITIES[0], execution_identity_sha256=self.identity)
         with self.assertRaises(Exception):
             campaign.record_dispatch(CONTINUOUS_V3_CALL_SCHEDULE[1])
+
+    def test_planner_instruction_declares_role_arrays_mutually_exclusive(self) -> None:
+        self.assertIn("closed and mutually exclusive within each beat", PLANNER_STABLE_INSTRUCTIONS)
+        self.assertIn("split those assertions into separate causally ordered beats", PLANNER_STABLE_INSTRUCTIONS)
+
+    def test_prior_failed_run_recovers_dispatched_call_without_mutation(self) -> None:
+        with TemporaryDirectory(prefix="cera-st-v3-recovery-") as temporary:
+            root = Path(temporary)
+            run_id = CONTINUOUS_V3_RUN_IDENTITIES[0]
+            run_root = root / "runs" / run_id
+            run_root.mkdir(parents=True)
+            old_identity = text_sha256("old execution")
+            new_identity = text_sha256("repaired execution")
+
+            def write(path: Path, payload) -> None:
+                path.write_bytes(canonical_bytes(payload) + b"\n")
+
+            write(root / "EXECUTION_MANIFEST.json", {"execution_identity_sha256": old_identity})
+            write(
+                root / "CAMPAIGN_RESULT.json",
+                {
+                    "campaign_id": "2026-08-02-continuous-sillytavern-two-run-v1",
+                    "execution_identity_sha256": old_identity,
+                    "campaign": {
+                        "runs": [
+                            {
+                                "run_id": run_id,
+                                "state": "failed",
+                                "calls": [],
+                                "terminal_reason": "RuntimeError",
+                            }
+                        ]
+                    },
+                },
+            )
+            write(
+                run_root / "RUN_RESULT.json",
+                {"run_id": run_id, "status": "failed", "provider_calls": 1},
+            )
+            write(
+                run_root / "EXECUTION_MANIFEST.json",
+                {"execution_identity_sha256": old_identity},
+            )
+            ledger_path = run_root / "PROVIDER_CALL_LEDGER.jsonl"
+            ledger_path.write_bytes(
+                canonical_bytes(
+                    {
+                        "event_index": 1,
+                        "call_id": "call-1",
+                        "state": "transport_invoked",
+                        "owner": "planner",
+                    }
+                )
+                + b"\n"
+            )
+            historical_bytes = {
+                path: path.read_bytes()
+                for path in (
+                    root / "CAMPAIGN_RESULT.json",
+                    root / "EXECUTION_MANIFEST.json",
+                    run_root / "RUN_RESULT.json",
+                    run_root / "EXECUTION_MANIFEST.json",
+                    ledger_path,
+                )
+            }
+            campaign, recovery = recover_prior_campaign(
+                root,
+                execution_identity_sha256=new_identity,
+            )
+            self.assertEqual(campaign.total_provider_calls, 1)
+            self.assertEqual(campaign.runs[0].calls, (CONTINUOUS_V3_CALL_SCHEDULE[0],))
+            self.assertEqual(campaign.consecutive_passes, 0)
+            self.assertEqual(recovery["recovered_total_provider_calls"], 1)
+            self.assertEqual(
+                recovery["runs"][0]["call_source"],
+                "recovered_from_transport_invoked_prefix",
+            )
+            campaign.begin_run(
+                CONTINUOUS_V3_RUN_IDENTITIES[1],
+                execution_identity_sha256=new_identity,
+            )
+            self.assertEqual(campaign.current.run_id, CONTINUOUS_V3_RUN_IDENTITIES[1])
+            self.assertTrue(all(path.read_bytes() == data for path, data in historical_bytes.items()))
+
+            campaign.record_dispatch(CONTINUOUS_V3_CALL_SCHEDULE[0])
+            campaign.terminalize(passed=False, reason="second failure")
+            next_root = root / "next-campaign"
+            next_run_id = CONTINUOUS_V3_RUN_IDENTITIES[1]
+            next_run_root = next_root / "runs" / next_run_id
+            next_run_root.mkdir(parents=True)
+            write(next_root / "EXECUTION_MANIFEST.json", {"execution_identity_sha256": new_identity})
+            write(
+                next_root / "CAMPAIGN_RESULT.json",
+                {
+                    "campaign_id": "2026-08-02-continuous-sillytavern-two-run-v1",
+                    "execution_identity_sha256": new_identity,
+                    "campaign": campaign.to_dict(),
+                },
+            )
+            write(next_root / "PRIOR_CAMPAIGN_RECOVERY.json", recovery)
+            write(
+                next_run_root / "RUN_RESULT.json",
+                {"run_id": next_run_id, "status": "failed", "provider_calls": 1},
+            )
+            write(
+                next_run_root / "EXECUTION_MANIFEST.json",
+                {"execution_identity_sha256": new_identity},
+            )
+            (next_run_root / "PROVIDER_CALL_LEDGER.jsonl").write_bytes(
+                canonical_bytes(
+                    {
+                        "event_index": 1,
+                        "call_id": "call-2",
+                        "state": "transport_invoked",
+                        "owner": "planner",
+                    }
+                )
+                + b"\n"
+            )
+            repaired_again = text_sha256("repaired execution twice")
+            second_campaign, second_recovery = recover_prior_campaign(
+                next_root,
+                execution_identity_sha256=repaired_again,
+            )
+            self.assertEqual(len(second_campaign.runs), 2)
+            self.assertEqual(second_campaign.total_provider_calls, 2)
+            self.assertEqual(
+                Path(second_recovery["runs"][0]["evidence_root"]),
+                run_root.resolve(),
+            )
+
+    def test_prior_recovery_rejects_provider_count_disagreement(self) -> None:
+        with TemporaryDirectory(prefix="cera-st-v3-recovery-invalid-") as temporary:
+            root = Path(temporary)
+            run_id = CONTINUOUS_V3_RUN_IDENTITIES[0]
+            run_root = root / "runs" / run_id
+            run_root.mkdir(parents=True)
+            identity = text_sha256("old execution")
+
+            def write(path: Path, payload) -> None:
+                path.write_bytes(canonical_bytes(payload) + b"\n")
+
+            write(root / "EXECUTION_MANIFEST.json", {"execution_identity_sha256": identity})
+            write(
+                root / "CAMPAIGN_RESULT.json",
+                {
+                    "campaign_id": "2026-08-02-continuous-sillytavern-two-run-v1",
+                    "execution_identity_sha256": identity,
+                    "campaign": {
+                        "runs": [
+                            {"run_id": run_id, "state": "failed", "terminal_reason": "failed"}
+                        ]
+                    },
+                },
+            )
+            write(
+                run_root / "RUN_RESULT.json",
+                {"run_id": run_id, "status": "failed", "provider_calls": 1},
+            )
+            write(run_root / "EXECUTION_MANIFEST.json", {"execution_identity_sha256": identity})
+            (run_root / "PROVIDER_CALL_LEDGER.jsonl").write_text("", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "provider count disagrees"):
+                recover_prior_campaign(
+                    root,
+                    execution_identity_sha256=text_sha256("repaired execution"),
+                )
 
 
 if __name__ == "__main__":

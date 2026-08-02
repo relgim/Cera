@@ -84,3 +84,20 @@ Success requires two consecutive passing runs with identical execution hashes
 and a controlled adapter-process restart between them. The campaign then
 leaves the persistent database unchanged, records a clean test handoff, and
 stops before the 20-turn/63-call qualification.
+
+## Live repair record
+
+Run 001 terminally failed after its first Sol-medium Planner transport call.
+Python rejected a Planner beat because one character occupied multiple role
+arrays in the same scoped assertion. No Composer, Validator, story acceptance,
+or persistent-database write occurred. The immutable ledger proves one call
+was submitted even though the original parent campaign result omitted it.
+
+The provider-free repair keeps that validator unchanged and makes its existing
+mutual-exclusion rule explicit in Planner prompt version v12: a character that
+acts, changes state, and/or speaks must use separate causally ordered beats.
+It also records failed call entries before parent accounting, terminalizes
+physical threads while their Codex context is still open, and can resume from
+hashed immutable prior evidence at the next unused run identity. Any resumed
+execution starts with a zero consecutive-pass streak and includes the earlier
+call in the 40-call campaign ceiling.

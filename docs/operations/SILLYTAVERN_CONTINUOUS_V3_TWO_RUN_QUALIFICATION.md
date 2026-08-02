@@ -66,6 +66,26 @@ The runtime root must not already exist. Every run and campaign result is
 immutable once written. Provider dispatch begins only after the repository
 cycle is published and the exact authorization hash is available.
 
+If a terminal run requires an execution-affecting repair, preserve its entire
+campaign root and resume in a new root with the next unused run identity:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\run_sillytavern_continuous_v3_campaign.py `
+  --confirm-live-two-run `
+  --cycle-directory <cycle-directory> `
+  --source-database runtime\development\hanezawa_human_test_v1_2.sqlite3 `
+  --runtime-root <new-repair-campaign-runtime-root> `
+  --prior-campaign-root <immutable-prior-campaign-root> `
+  --expected-checkpoint-sha <published-cycle-checkpoint-sha> `
+  --execution-checkpoint-sha <repair-commit-sha> `
+  --expected-authorization-sha256 <authorization-sha256>
+```
+
+Recovery verifies each prior run against its immutable provider ledger and
+per-run result. It counts transport invocation before later decoding or domain
+validation, binds inherited evidence by hash, resets the qualifying streak,
+and never edits an earlier run or campaign result.
+
 ## Manual-test handoff
 
 After qualification, the campaign evidence identifies the frozen source,
