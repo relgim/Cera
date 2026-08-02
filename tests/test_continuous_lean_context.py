@@ -23,6 +23,11 @@ from cera.continuous.runtime import (
     ContinuousShadowTurnCoordinator,
     ContinuousTurnRequestV1,
 )
+from cera.continuous.packets import (
+    ContinuousPlannerPacketKind,
+    ContinuousPlannerTurnPacketV1,
+    build_continuous_planner_turn_packet,
+)
 from cera.continuous.prompting import (
     PLANNER_STABLE_INSTRUCTIONS,
     build_continuous_composer_prompt,
@@ -34,6 +39,8 @@ from cera.continuous.sessions import (
     ContinuousBranchForkReceiptV1,
     ContinuousReconstructionAcceptedTurnV1,
     ContinuousSessionCoordinator,
+    ContinuousSessionInitializationKind,
+    ContinuousSessionInitializationPacketV1,
     ContinuousSessionReconstructionBundleV1,
     ContinuousSessionRole,
     InMemoryContinuousStoredSessionPort,
@@ -76,6 +83,54 @@ def accepted_envelope() -> AcceptedFinalSequenceEnvelopeV1:
     )
 
 
+def first_planner_packet(
+    *,
+    turn_id: str = "turn:001",
+    user_message: str = "Continue.",
+) -> ContinuousPlannerTurnPacketV1:
+    registry = RequestEvidenceBindingRegistry(
+        world_id="world:hanezawa_test",
+        branch_id="branch:main",
+        turn_id=turn_id,
+    )
+    source = registry.allocate_current_source(
+        source_identity=f"current_user_source:{turn_id}",
+        source_text=user_message,
+        protected_user_allowance_scope="exact supplied source",
+        source_units=(),
+    )
+    mechanical = registry.allocate_mechanical_connective_allowance()
+    return build_continuous_planner_turn_packet(
+        world_id="world:hanezawa_test",
+        branch_id="branch:main",
+        session_id="session:one",
+        request_id=f"request:{turn_id}",
+        scene_id="scene:arrival",
+        turn_id=turn_id,
+        context_mode="lean_continuous",
+        current_user_message=user_message,
+        request_local_evidence_bindings=registry.prompt_manifest(),
+        current_source_binding_key=source.binding_key,
+        mechanical_connective_binding_key=mechanical.binding_key,
+        protected_user_source_claims=(),
+        ingress_source_units=(),
+        ingress_custody={
+            "receipt_id": f"ingress_receipt:{turn_id}",
+            "receipt_sha256": text_sha256(f"receipt:{turn_id}"),
+            "raw_source_sha256": text_sha256(user_message),
+            "protected_user_id": "character:ted",
+            "source_unit_keys": (),
+        },
+        character_summary_bindings=(),
+        compact_accepted_head_receipt=None,
+        stable_accepted_reference_keys=(),
+        projection_assisted_trigger=None,
+        projection_reference_keys=(),
+        projection_facts=(),
+        scene_change_envelope_sha256=None,
+    )
+
+
 class ContinuousLeanContextTests(unittest.TestCase):
     def test_context_modes_are_closed_and_lean_prompt_has_no_stable_prefix(self) -> None:
         current = compatibility(ContinuousSessionRole.PLANNER)
@@ -91,10 +146,8 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 default_context_mode=PlannerContextMode.PROJECTION_ASSISTED,
             )
 
-        prompt, usage = build_planner_turn_prompt(
-            current_packet={"turn_id": "turn:001"},
-            context_mode=PlannerContextMode.LEAN_CONTINUOUS,
-        )
+        packet = first_planner_packet()
+        prompt, usage = build_planner_turn_prompt(current_packet=packet)
         self.assertNotIn(PLANNER_STABLE_INSTRUCTIONS, prompt)
         self.assertIn('"context_mode":"lean_continuous"', prompt)
         self.assertNotIn(
@@ -102,38 +155,328 @@ class ContinuousLeanContextTests(unittest.TestCase):
         )
         base = planner_base_instruction_usage()
         self.assertEqual(base.byte_count, len(PLANNER_STABLE_INSTRUCTIONS.encode("utf-8")))
-        with self.assertRaisesRegex(ValueError, "requires a demonstrated trigger"):
+        with self.assertRaisesRegex(TypeError, "validated continuous Planner packet"):
             build_planner_turn_prompt(
-                current_packet={"turn_id": "turn:002"},
-                context_mode=PlannerContextMode.PROJECTION_ASSISTED,
+                current_packet={"turn_id": "turn:002"},  # type: ignore[arg-type]
             )
-        key = "binding_accepted_ref_" + "2" * 20
-        assisted, _ = build_planner_turn_prompt(
-            current_packet={
-                "turn_id": "turn:002",
-                "projection_assisted": {
-                    "facts": ({"binding_key": key, "field_value": "exact"},),
-                },
-            },
-            context_mode=PlannerContextMode.PROJECTION_ASSISTED,
-            projection_assisted_trigger="demonstrated_continuity_defect:missing_state",
-            projection_reference_keys=(key,),
+        with self.assertRaises(TypeError):
+            build_planner_turn_prompt(
+                current_packet=packet,
+                context_mode=PlannerContextMode.LEAN_CONTINUOUS,  # type: ignore[call-arg]
+            )
+
+    def test_mode_specific_planner_packets_are_closed_and_replay_free(self) -> None:
+        facts = tuple(
+            fact
+            for item in accepted_sequence().items
+            for fact in project_final_sequence_facts(item)
         )
+        receipt, references = build_stable_accepted_context_references(
+            world_id="world:hanezawa_test",
+            branch_id="branch:main",
+            scene_id="scene:arrival",
+            planner_session_id="planner-session",
+            provider_thread_sha256=text_sha256("planner-thread"),
+            accepted_turn_ids=("turn:001",),
+            accepted_turn_id="turn:001",
+            accepted_envelope_sha256=accepted_envelope().envelope_sha256,
+            accepted_pair_sha256=text_sha256("pair"),
+            accepted_event_sha256=text_sha256("event"),
+            acceptance_receipt_sha256=text_sha256("acceptance"),
+            injection_receipt_sha256=text_sha256("injection"),
+            session_snapshot_sha256=text_sha256("snapshot"),
+            synchronization_receipt_sha256=text_sha256("synchronization"),
+            facts=facts,
+        )
+        registry = RequestEvidenceBindingRegistry(
+            world_id="world:hanezawa_test",
+            branch_id="branch:main",
+            turn_id="turn:002",
+        )
+        source = registry.allocate_current_source(
+            source_identity="current_user_source:turn:002",
+            source_text="Continue.",
+            protected_user_allowance_scope="exact supplied source",
+            source_units=(),
+        )
+        mechanical = registry.allocate_mechanical_connective_allowance()
+        common = {
+            "world_id": "world:hanezawa_test",
+            "branch_id": "branch:main",
+            "session_id": "session:one",
+            "request_id": "request:one",
+            "scene_id": "scene:arrival",
+            "turn_id": "turn:002",
+            "context_mode": "lean_continuous",
+            "current_user_message": "Continue.",
+            "request_local_evidence_bindings": registry.prompt_manifest(),
+            "current_source_binding_key": source.binding_key,
+            "mechanical_connective_binding_key": mechanical.binding_key,
+            "protected_user_source_claims": (),
+            "ingress_source_units": (),
+            "ingress_custody": {
+                "receipt_id": "ingress_receipt:one",
+                "receipt_sha256": text_sha256("receipt"),
+                "raw_source_sha256": text_sha256("Continue."),
+                "protected_user_id": "character:ted",
+                "source_unit_keys": (),
+            },
+            "character_summary_bindings": (),
+        }
+        first = build_continuous_planner_turn_packet(
+            **common,
+            compact_accepted_head_receipt=None,
+            stable_accepted_reference_keys=(),
+            projection_assisted_trigger=None,
+            projection_reference_keys=(),
+            projection_facts=(),
+            scene_change_envelope_sha256=None,
+        )
+        for reference in references:
+            registry.allocate_stable_accepted_context_reference(
+                reference,
+                current_provider_thread_sha256=receipt.provider_thread_sha256,
+                current_accepted_ancestry_sha256=receipt.accepted_ancestry_sha256,
+            )
+        continuation_common = {
+            **common,
+            "request_local_evidence_bindings": registry.prompt_manifest(),
+        }
+        lean = build_continuous_planner_turn_packet(
+            **continuation_common,
+            compact_accepted_head_receipt=receipt,
+            stable_accepted_reference_keys=receipt.stable_reference_keys,
+            projection_assisted_trigger=None,
+            projection_reference_keys=(),
+            projection_facts=(),
+            scene_change_envelope_sha256=None,
+        )
+        key = references[0].reference_key
+        projection = build_continuous_planner_turn_packet(
+            **{**continuation_common, "context_mode": "projection_assisted"},
+            compact_accepted_head_receipt=receipt,
+            stable_accepted_reference_keys=receipt.stable_reference_keys,
+            projection_assisted_trigger=(
+                "demonstrated_continuity_defect:missing_state"
+            ),
+            projection_reference_keys=(key,),
+            projection_facts=(
+                {
+                    "reference_key": key,
+                    "accepted_turn_id": references[0].accepted_turn_id,
+                    "source_item_key": references[0].source_item_key,
+                    "field_name": references[0].field_name,
+                    "field_value": references[0].field_value,
+                    "visibility": references[0].visibility.value,
+                    "knowledge_owner_id": references[0].knowledge_owner_id,
+                    "roles": to_primitive(references[0].roles),
+                },
+            ),
+            scene_change_envelope_sha256=None,
+        )
+        scene_change = build_continuous_planner_turn_packet(
+            **continuation_common,
+            compact_accepted_head_receipt=receipt,
+            stable_accepted_reference_keys=receipt.stable_reference_keys,
+            projection_assisted_trigger=None,
+            projection_reference_keys=(),
+            projection_facts=(),
+            scene_change_envelope_sha256=text_sha256("scene change"),
+        )
+        self.assertEqual(
+            tuple(value.packet_kind for value in (first, lean, projection, scene_change)),
+            (
+                ContinuousPlannerPacketKind.FIRST_TURN_INITIALIZATION,
+                ContinuousPlannerPacketKind.LEAN_CONTINUATION,
+                ContinuousPlannerPacketKind.PROJECTION_ASSISTED,
+                ContinuousPlannerPacketKind.SCENE_CHANGE,
+            ),
+        )
+        for packet in (first, lean, projection, scene_change):
+            payload = packet.to_payload()
+            self.assertEqual(
+                set(payload), packet.ALLOWED_FIELDS_BY_KIND[packet.packet_kind]
+            )
+            self.assertEqual(canonical_sha256(payload), packet.packet_sha256)
+            self.assertEqual(
+                len(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()),
+                packet.packet_bytes,
+            )
+        assisted, _ = build_planner_turn_prompt(current_packet=projection)
         mode = json.loads(
             assisted.split("[PLANNER CONTEXT MODE]\n", 1)[1].split(
-                "\n\n[ACCEPTED FINAL SEQUENCE ENVELOPES", 1
+                "\n\n[CHARACTER CARD SUMMARIES", 1
             )[0]
         )
         self.assertEqual(mode["context_mode"], "projection_assisted")
         self.assertEqual(mode["projection_reference_keys"], [key])
-        with self.assertRaisesRegex(
-            ValueError, "lean_continuous cannot carry projection"
+        with self.assertRaisesRegex(ValueError, "supplied together"):
+            build_planner_turn_prompt(current_packet=scene_change)
+        lean_text = json.dumps(lean.to_payload(), sort_keys=True)
+        for forbidden in (
+            "previous_accepted_pairs",
+            "prior_complete_sequences",
+            "accepted_session_projections",
+            "previous_prose",
+            "full_history",
+            "stable_instructions",
+            "untyped_caller_data",
         ):
-            build_planner_turn_prompt(
-                current_packet={"turn_id": "turn:002"},
-                context_mode=PlannerContextMode.LEAN_CONTINUOUS,
-                projection_assisted_trigger="silent-fallback",
+            self.assertNotIn(forbidden, lean_text)
+        forbidden_inputs = (
+            "previous_accepted_pairs",
+            "prior_complete_sequences",
+            "accepted_session_facts",
+            "accepted_session_projections",
+            "previous_prose",
+            "full_history",
+            "unchanged_character_summaries",
+            "stable_instructions",
+            "foreign_reference_payloads",
+            "untyped_caller_data",
+            "reconstruction_packet",
+            "fork_packet",
+            "scene_change_context",
+            "projection_assistance_payload",
+        )
+        for forbidden in forbidden_inputs:
+            with self.subTest(forbidden_top_level=forbidden):
+                with self.assertRaises(TypeError):
+                    build_continuous_planner_turn_packet(
+                        **continuation_common,
+                        compact_accepted_head_receipt=receipt,
+                        stable_accepted_reference_keys=(
+                            receipt.stable_reference_keys
+                        ),
+                        projection_assisted_trigger=None,
+                        projection_reference_keys=(),
+                        projection_facts=(),
+                        scene_change_envelope_sha256=None,
+                        **{forbidden: {"smuggled": True}},
+                    )
+        current_manifest = tuple(common["request_local_evidence_bindings"])
+        for forbidden in forbidden_inputs:
+            nested_manifest = (
+                {
+                    **current_manifest[0],
+                    "source_identity": {forbidden: {"smuggled": True}},
+                },
+                *current_manifest[1:],
+            )
+            with self.subTest(forbidden_nested=forbidden):
+                with self.assertRaisesRegex(
+                    ContractValidationError, "contains nested caller data"
+                ):
+                    build_continuous_planner_turn_packet(
+                        **{
+                            **common,
+                            "request_local_evidence_bindings": nested_manifest,
+                        },
+                        compact_accepted_head_receipt=None,
+                        stable_accepted_reference_keys=(),
+                        projection_assisted_trigger=None,
+                        projection_reference_keys=(),
+                        projection_facts=(),
+                        scene_change_envelope_sha256=None,
+                    )
+        with self.assertRaisesRegex(
+            ContractValidationError, "request evidence binding schema is open"
+        ):
+            build_continuous_planner_turn_packet(
+                **{
+                    **common,
+                    "request_local_evidence_bindings": (
+                        {
+                            "caller_label": "harmless",
+                            "nested": {
+                                "previous_prose": "smuggled history",
+                                "prior_complete_sequences": (),
+                            },
+                        },
+                    ),
+                },
+                compact_accepted_head_receipt=receipt,
+                stable_accepted_reference_keys=receipt.stable_reference_keys,
+                projection_assisted_trigger=None,
+                projection_reference_keys=(),
+                projection_facts=(),
+                scene_change_envelope_sha256=None,
+            )
+        with self.assertRaisesRegex(ContractValidationError, "lean packet contract"):
+            build_continuous_planner_turn_packet(
+                **{**continuation_common, "context_mode": "projection_assisted"},
+                compact_accepted_head_receipt=receipt,
+                stable_accepted_reference_keys=receipt.stable_reference_keys,
+                projection_assisted_trigger=None,
+                projection_reference_keys=(),
+                projection_facts=(),
+                scene_change_envelope_sha256=None,
+            )
+        with self.assertRaisesRegex(
+            ContractValidationError, "projection-assisted packet contract"
+        ):
+            build_continuous_planner_turn_packet(
+                **continuation_common,
+                compact_accepted_head_receipt=receipt,
+                stable_accepted_reference_keys=receipt.stable_reference_keys,
+                projection_assisted_trigger="demonstrated defect",
+                projection_reference_keys=("binding_accepted_ref_" + "f" * 20,),
+                projection_facts=(
+                    {
+                        "reference_key": "binding_accepted_ref_" + "f" * 20,
+                        "accepted_turn_id": "turn:001",
+                        "source_item_key": "foreign",
+                        "field_name": "resulting_state",
+                        "field_value": "foreign",
+                        "visibility": "public",
+                        "knowledge_owner_id": None,
+                        "roles": to_primitive(references[0].roles),
+                    },
+                ),
+                scene_change_envelope_sha256=None,
+            )
+        smuggled_roles = {
+            **to_primitive(references[0].roles),
+            "action_owner_ids": {
+                "full_history": "nested under an allowed roles label"
+            },
+        }
+        with self.assertRaisesRegex(
+            ContractValidationError, "projection roles contain caller data"
+        ):
+            build_continuous_planner_turn_packet(
+                **{**continuation_common, "context_mode": "projection_assisted"},
+                compact_accepted_head_receipt=receipt,
+                stable_accepted_reference_keys=receipt.stable_reference_keys,
+                projection_assisted_trigger="demonstrated defect",
                 projection_reference_keys=(key,),
+                projection_facts=(
+                    {
+                        "reference_key": key,
+                        "accepted_turn_id": references[0].accepted_turn_id,
+                        "source_item_key": references[0].source_item_key,
+                        "field_name": references[0].field_name,
+                        "field_value": references[0].field_value,
+                        "visibility": references[0].visibility.value,
+                        "knowledge_owner_id": references[0].knowledge_owner_id,
+                        "roles": smuggled_roles,
+                    },
+                ),
+                scene_change_envelope_sha256=None,
+            )
+        with self.assertRaises(TypeError):
+            ContinuousTurnRequestV1(
+                world_id="world:hanezawa_test",
+                branch_id="branch:main",
+                session_id="session:one",
+                request_id="request:one",
+                idempotency_key_sha256=text_sha256("idempotency"),
+                scene_id="scene:arrival",
+                turn_id="turn:002",
+                user_message="Continue.",
+                ingress_receipt_id="ingress_receipt:one",
+                ingress_receipt_sha256=text_sha256("receipt"),
+                current_authority_packet={"untyped_caller_data": True},
             )
 
     def test_character_delivery_is_thread_local_but_composer_context_is_not_suppressed(self) -> None:
@@ -173,6 +516,23 @@ class ContinuousLeanContextTests(unittest.TestCase):
         )
         old.install_base_instructions(PLANNER_STABLE_INSTRUCTIONS)
         old_handle = old.ensure_session()
+        self.assertIs(
+            old.initialization_receipt.packet_kind,
+            ContinuousSessionInitializationKind.FIRST_THREAD_INITIALIZATION,
+        )
+        first_initialization_packet = (
+            ContinuousSessionInitializationPacketV1.from_receipt(
+                old.initialization_receipt
+            )
+        )
+        self.assertEqual(
+            set(first_initialization_packet.to_payload()),
+            first_initialization_packet.ALLOWED_FIELDS,
+        )
+        self.assertEqual(
+            first_initialization_packet.to_payload()["packet_kind"],
+            "first_thread_initialization",
+        )
         old_snapshot = old.snapshot()
         port.archive(old_handle, "simulated-loss")
         with self.assertRaisesRegex(StateConflictError, "lost provider thread"):
@@ -239,6 +599,16 @@ class ContinuousLeanContextTests(unittest.TestCase):
         self.assertIs(
             rebuilt.initialization_receipt.context_mode,
             PlannerContextMode.RECONSTRUCTION,
+        )
+        self.assertIs(
+            rebuilt.initialization_receipt.packet_kind,
+            ContinuousSessionInitializationKind.RECONSTRUCTION_INITIALIZATION,
+        )
+        self.assertEqual(
+            ContinuousSessionInitializationPacketV1.from_receipt(
+                rebuilt.initialization_receipt
+            ).to_payload()["packet_kind"],
+            "reconstruction_initialization",
         )
         self.assertGreater(rebuilt.initialization_receipt.reconstruction_bytes, 0)
         self.assertEqual(rebuilt.snapshot().accepted_turn_ids, ("turn:001",))
@@ -611,9 +981,6 @@ class ContinuousLeanContextTests(unittest.TestCase):
                     scene_id="scene-001",
                     turn_id="turn-001",
                     user_message=message,
-                    current_authority_packet={
-                        "protected_user_id": "character:ted"
-                    },
                     **ingress_reference(ingress, message, "turn-001"),
                     character_summaries=(
                         character_summary(
@@ -661,6 +1028,16 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 branch_receipt=custody,
             )
             child = forked.coordinator
+            self.assertIs(
+                child.initialization_receipt.packet_kind,
+                ContinuousSessionInitializationKind.ACCEPTED_CHECKPOINT_FORK_INITIALIZATION,
+            )
+            self.assertEqual(
+                ContinuousSessionInitializationPacketV1.from_receipt(
+                    child.initialization_receipt
+                ).to_payload()["packet_kind"],
+                "accepted_checkpoint_fork_initialization",
+            )
             self.assertNotEqual(
                 child.ensure_session().provider_thread_id_sha256,
                 parent.ensure_session().provider_thread_id_sha256,
@@ -757,9 +1134,6 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 scene_id="scene-001",
                 turn_id="turn-002",
                 user_message="Continue.",
-                current_authority_packet={
-                    "protected_user_id": "character:ted"
-                },
                 ingress_receipt_id="receipt-not-used-by-private-binding-test",
                 ingress_receipt_sha256=text_sha256("receipt"),
             )
@@ -768,6 +1142,13 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 branch_id="child",
                 turn_id="turn-002",
             )
+            source = registry.allocate_current_source(
+                source_identity="current_user_source:turn-002",
+                source_text="Continue.",
+                protected_user_allowance_scope="exact supplied source",
+                source_units=(),
+            )
+            mechanical = registry.allocate_mechanical_connective_allowance()
             head, bindings, projections = (
                 child_runtime._bind_stable_accepted_context(
                     request=next_request,
@@ -780,6 +1161,41 @@ class ContinuousLeanContextTests(unittest.TestCase):
             self.assertEqual(
                 tuple(value["binding_key"] for value in bindings),
                 child_receipt.stable_reference_keys,
+            )
+            child_lean_packet = build_continuous_planner_turn_packet(
+                world_id="world-test",
+                branch_id="child",
+                session_id="session-test",
+                request_id="request-turn-002",
+                scene_id="scene-001",
+                turn_id="turn-002",
+                context_mode="lean_continuous",
+                current_user_message="Continue.",
+                request_local_evidence_bindings=registry.prompt_manifest(),
+                current_source_binding_key=source.binding_key,
+                mechanical_connective_binding_key=mechanical.binding_key,
+                protected_user_source_claims=(),
+                ingress_source_units=(),
+                ingress_custody={
+                    "receipt_id": "ingress_receipt:child",
+                    "receipt_sha256": text_sha256("child receipt"),
+                    "raw_source_sha256": text_sha256("Continue."),
+                    "protected_user_id": "character:ted",
+                    "source_unit_keys": (),
+                },
+                character_summary_bindings=(),
+                compact_accepted_head_receipt=head,
+                stable_accepted_reference_keys=tuple(
+                    value["binding_key"] for value in bindings
+                ),
+                projection_assisted_trigger=None,
+                projection_reference_keys=(),
+                projection_facts=(),
+                scene_change_envelope_sha256=None,
+            )
+            self.assertIs(
+                child_lean_packet.packet_kind,
+                ContinuousPlannerPacketKind.LEAN_CONTINUATION,
             )
             with self.assertRaisesRegex(StateConflictError, "stale, foreign"):
                 RequestEvidenceBindingRegistry(

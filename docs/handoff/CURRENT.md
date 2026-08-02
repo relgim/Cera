@@ -16,6 +16,17 @@
 
 ## Current status and next action
 
+- The active governed D-200 V2 tranche closes the Planner turn boundary with
+  four exact Python-built packet kinds and three distinct physical-thread
+  initialization kinds. It retains Progression 1 child-thread fork/rekey/privacy
+  custody and Progression 2 cited-only Validator exact-value closure. The
+  provider-free scripted-v10 path now includes the accepted-checkpoint child
+  fork and child first-lean packet as well as lost-thread reconstruction while
+  retaining exactly ten local invocations and zero external provider calls.
+  D-180 remains active. The V2 result and non-dispatching canary contract are
+  `implementation/CONTINUOUS_LEAN_CONTEXT_V2_RESULT.md` and
+  `implementation/CONTINUOUS_LEAN_CONTEXT_SHORT_CANARY_V2_SPEC.md`.
+
 - D-201 makes `accepted/PRO_RESPONSE.md` plus its exact consumption receipt the
   sole response authority after consumption. A later missing, identical, or
   conflicting inbox is diagnostic only and cannot replace or invalidate the

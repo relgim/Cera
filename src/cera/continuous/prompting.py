@@ -8,16 +8,19 @@ from typing import Any, Iterable
 from cera.serialization import canonical_bytes, to_primitive
 
 from .contracts import (
-    AcceptedFinalSequenceEnvelopeV1,
     CharacterSummaryEnvelopeV1,
     PromptComponentUsageV1,
     RichPlannerSequenceV1,
     ValidatorTaskMode,
 )
-from .sessions import PlannerContextMode
+from .packets import (
+    ContinuousPlannerPacketKind,
+    ContinuousPlannerTurnPacketV1,
+    LeanSceneChangeContextV1,
+)
 
 
-CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v10"
+CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v11"
 CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v10"
 
 
@@ -37,48 +40,67 @@ def _usage(name: str, payload: bytes) -> PromptComponentUsageV1:
 
 def build_planner_turn_prompt(
     *,
-    current_packet: dict[str, Any],
-    accepted_envelopes: Iterable[AcceptedFinalSequenceEnvelopeV1] = (),
+    current_packet: ContinuousPlannerTurnPacketV1,
     character_summaries: Iterable[CharacterSummaryEnvelopeV1] = (),
-    scene_change_envelope: dict[str, Any] | None = None,
-    context_mode: PlannerContextMode = PlannerContextMode.LEAN_CONTINUOUS,
-    projection_assisted_trigger: str | None = None,
-    projection_reference_keys: tuple[str, ...] = (),
+    scene_change_context: LeanSceneChangeContextV1 | None = None,
 ) -> tuple[str, tuple[PromptComponentUsageV1, ...]]:
+    if not isinstance(current_packet, ContinuousPlannerTurnPacketV1):
+        raise TypeError("current_packet must be a validated continuous Planner packet")
+    if scene_change_context is not None and not isinstance(
+        scene_change_context, LeanSceneChangeContextV1
+    ):
+        raise TypeError("scene_change_context must be a validated lean scene context")
     components: list[tuple[str, bytes]] = []
-    accepted = tuple(accepted_envelopes)
     summaries = tuple(character_summaries)
-    accepted_bytes = canonical_bytes(tuple(to_primitive(value) for value in accepted))
+    expected_summary_bindings = tuple(
+        (
+            value["character_id"],
+            value["source_path"],
+            value["source_revision"],
+            value["source_sha256"],
+        )
+        for value in current_packet.character_summary_bindings
+    )
+    actual_summary_bindings = tuple(
+        (
+            value.character_id,
+            value.source_path_or_record_id.replace("\\", "/"),
+            value.source_revision,
+            value.source_sha256,
+        )
+        for value in summaries
+    )
+    if actual_summary_bindings != expected_summary_bindings:
+        raise ValueError(
+            "Planner character summaries do not match the Python-bound packet"
+        )
     summary_bytes = canonical_bytes(tuple(to_primitive(value) for value in summaries))
-    packet_bytes = canonical_bytes(current_packet)
-    scene_bytes = canonical_bytes(scene_change_envelope or {})
+    packet_bytes = canonical_bytes(current_packet.to_payload())
+    scene_bytes = canonical_bytes(
+        scene_change_context.to_payload() if scene_change_context is not None else {}
+    )
     mode_bytes = canonical_bytes(
         {
-            "context_mode": context_mode.value,
-            "projection_assisted_trigger": projection_assisted_trigger,
-            "projection_reference_keys": projection_reference_keys,
+            "context_mode": current_packet.context_mode,
+            "projection_assisted_trigger": (
+                current_packet.projection_assisted_trigger
+            ),
+            "projection_reference_keys": current_packet.projection_reference_keys,
         }
     )
-    if context_mode is PlannerContextMode.LEAN_CONTINUOUS:
-        if accepted or projection_assisted_trigger is not None or projection_reference_keys:
-            raise ValueError("lean_continuous cannot carry projection or accepted-tail payload")
-    elif context_mode is PlannerContextMode.PROJECTION_ASSISTED:
-        if (
-            not isinstance(projection_assisted_trigger, str)
-            or not projection_assisted_trigger.strip()
-            or not projection_reference_keys
-        ):
-            raise ValueError(
-                "projection_assisted requires a demonstrated trigger and exact keys"
-            )
-    elif context_mode is PlannerContextMode.RECONSTRUCTION:
-        raise ValueError(
-            "reconstruction belongs to physical-thread initialization, not an ordinary turn prompt"
-        )
+    is_scene_change = (
+        current_packet.packet_kind is ContinuousPlannerPacketKind.SCENE_CHANGE
+    )
+    if is_scene_change != (scene_change_context is not None):
+        raise ValueError("scene-change packet and context must be supplied together")
+    if scene_change_context is not None and (
+        current_packet.scene_change_envelope_sha256
+        != scene_change_context.context_sha256
+    ):
+        raise ValueError("scene-change packet hash does not bind the supplied context")
     components.extend(
         (
             ("context_mode", mode_bytes),
-            ("accepted_final_sequences", accepted_bytes),
             ("character_summaries", summary_bytes),
             ("scene_change", scene_bytes),
             ("current_packet", packet_bytes),
@@ -87,8 +109,6 @@ def build_planner_turn_prompt(
     prompt = (
         "[PLANNER CONTEXT MODE]\n"
         + mode_bytes.decode("utf-8")
-        + "\n\n[ACCEPTED FINAL SEQUENCE ENVELOPES - RECONSTRUCTION ONLY]\n"
-        + accepted_bytes.decode("utf-8")
         + "\n\n[CHARACTER CARD SUMMARIES - EACH IS INCOMPLETE]\n"
         + summary_bytes.decode("utf-8")
         + "\n\n[SCENE CHANGE CONTEXT]\n"

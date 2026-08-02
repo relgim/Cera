@@ -131,3 +131,35 @@ Report Turn 1-to-Turn 2 prompt and latency changes without claiming hidden cache
 Python remains final authority for creator acceptance, persistence, branch state, source claims, reconstruction, and atomic publication. D-200 changes Planner context efficiency, not creator, identity, privacy, knowledge, consent/capacity, protected-user, evidence, branch, or transaction boundaries.
 
 This decision does not authorize any external provider call, live canary, production/default activation, live story or database mutation, installed SillyTavern or service change, deployment, merge, remote operation, push, retry, fallback, hidden repair, provider substitution, Fast mode, Detailer, extra verifier, or automatic False Positive.
+
+## 12. V2 closed submission packets
+
+The compatible thread is not authority to send an open dictionary. Python must
+classify and bind the request before constructing exactly one
+`cera.continuous_planner_turn_packet.v1` identity:
+
+```text
+first_turn_initialization
+lean_continuous_continuation
+projection_assisted_continuation
+scene_change
+```
+
+The prompt boundary accepts only the validated packet object. Context mode,
+projection trigger/keys, Scene Change hash, packet telemetry, debug evidence,
+candidate authority, and replay all derive from the same canonical bytes.
+Physical-thread initialization remains separately identified as first-thread,
+reconstruction, or accepted-checkpoint fork initialization.
+
+Ordinary lean packets have an exact allowed field set. Closed nested records,
+current-source/span/claim custody, summary-to-evidence binding, accepted-head
+scope, stable-key synchronization custody, and Scene Change context hashes are
+validated before provider submission. No caller label or nesting can introduce
+prior pairs, sequences, projections, prose/history, unchanged summaries,
+stable-instruction duplication, foreign payloads, initialization material, or
+untyped data.
+
+After a successful provider fork, the child receives a distinct physical
+thread and child-rekeyed stable references. The child first lean packet rejects
+parent and sibling keys. If the fork is not safe or available, reconstruction
+uses its distinct initialization contract and returns to lean mode.

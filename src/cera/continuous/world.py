@@ -36,6 +36,7 @@ from .record_policy import (
     validate_persistence_field_path,
     validate_post_edit_record,
 )
+from .packets import LeanSceneChangeContextV1
 
 
 _ACTIVE_DIRS = (
@@ -1438,6 +1439,7 @@ class ContinuousDebugRecorder:
     """Ignored local raw diagnostics with mandatory credential redaction."""
 
     REQUIRED_ARTIFACTS: ClassVar[tuple[str, ...]] = (
+        "planner_authority_packet.json",
         "planner_prompt_components.json",
         "planner_raw_prompt.txt",
         "planner_output.json",
@@ -1571,30 +1573,30 @@ class SceneChangeEnvelopeV1:
             + self.first_user_message_of_new_scene
         )
 
-    def lean_planner_context(self) -> dict[str, Any]:
+    def lean_planner_context(self) -> LeanSceneChangeContextV1:
         """Current-scene handoff without replaying prior accepted pairs."""
 
-        return {
-            "schema_version": "cera.lean_scene_change_context.v1",
-            "completed_scene_id": self.previous_scene_summary.completed_scene_id,
-            "accepted_turn_ids": self.previous_scene_summary.accepted_turn_ids,
-            "shortest_complete_summary": (
+        return LeanSceneChangeContextV1(
+            schema_version=LeanSceneChangeContextV1.SCHEMA_VERSION,
+            completed_scene_id=self.previous_scene_summary.completed_scene_id,
+            accepted_turn_ids=self.previous_scene_summary.accepted_turn_ids,
+            shortest_complete_summary=(
                 self.previous_scene_summary.shortest_complete_summary
             ),
-            "ending_state": self.previous_scene_summary.ending_state,
-            "transition_context": self.previous_scene_summary.transition_context,
-            "summary_authority_classification": (
+            ending_state=self.previous_scene_summary.ending_state,
+            transition_context=self.previous_scene_summary.transition_context,
+            summary_authority_classification=(
                 self.previous_scene_summary_view.authority_classification
             ),
-            "summary_revision": self.previous_scene_summary_view.summary_revision,
-            "regeneration_identity_sha256": (
+            summary_revision=self.previous_scene_summary_view.summary_revision,
+            regeneration_identity_sha256=(
                 self.previous_scene_summary_view.regeneration_identity_sha256
             ),
-            "first_user_message_of_new_scene": (
+            first_user_message_of_new_scene=(
                 self.first_user_message_of_new_scene
             ),
-            "exact_prior_pairs_included": False,
-        }
+            exact_prior_pairs_included=False,
+        )
 
 
 class SceneChangeCoordinator:

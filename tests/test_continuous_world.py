@@ -1242,7 +1242,6 @@ class ContinuousWorldTests(unittest.TestCase):
                 scene_id="scene-001",
                 turn_id="turn-001",
                 user_message=message,
-                current_authority_packet={"protected_user_id": "character:ted"},
                 **ingress_reference(ingress_authority, message, "turn-001"),
                 character_summaries=(character_summary(source_sha256=text_sha256(
                     (self.root / "ACTIVE" / "Characters" / "Sakura.json").read_text(encoding="utf-8")
@@ -1327,7 +1326,6 @@ class ContinuousWorldTests(unittest.TestCase):
                     scene_id="scene-001",
                     turn_id="turn-001",
                     user_message="Hello.",
-                    current_authority_packet={"protected_user_id": "character:ted"},
                     **ingress_reference(ingress_authority, "Hello.", "turn-001"),
                 )
             )
@@ -1394,7 +1392,6 @@ class ContinuousWorldTests(unittest.TestCase):
                 scene_id="scene-002",
                 turn_id="turn-002",
                 user_message=new_prompt,
-                current_authority_packet={"protected_user_id": "character:ted"},
                 **ingress_reference(ingress_authority, new_prompt, "turn-002"),
                 character_summaries=(character_summary(source_sha256=text_sha256(
                     (self.root / "ACTIVE" / "Characters" / "Sakura.json").read_text(encoding="utf-8")

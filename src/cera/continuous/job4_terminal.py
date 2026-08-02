@@ -893,6 +893,7 @@ class ContinuousJob4PostconditionsV1:
             "provider_free_scripted_v7",
             "provider_free_scripted_v8",
             "provider_free_scripted_v9",
+            "provider_free_scripted_v10",
         }:
             raise ValueError("terminal execution mode is unsupported")
         for name in (

@@ -59,7 +59,9 @@ from .sessions import (
     ContinuousBranchReferenceTransferReceiptV1,
     ContinuousContextInjectionReceiptV1,
     ContinuousReconstructionAcceptedTurnV1,
+    ContinuousSessionInitializationPacketV1,
     ContinuousSessionInitializationReceiptV1,
+    ContinuousSessionInitializationKind,
     ContinuousSessionReconstructionBundleV1,
     ContinuousSessionSnapshotReceiptV1,
     ContinuousSessionSnapshotStore,
@@ -67,6 +69,12 @@ from .sessions import (
     continuous_branch_privacy_boundary_sha256,
 )
 from .runtime import ContinuousSceneChangeCandidateV1
+from .packets import (
+    ContinuousPlannerPacketKind,
+    ContinuousPlannerTurnPacketV1,
+    LeanSceneChangeContextV1,
+    build_continuous_planner_turn_packet,
+)
 from .shadow_ingress import (
     ContinuousShadowIngressResultV1,
     ContinuousSillyTavernShadowRequestBridge,
@@ -149,7 +157,9 @@ __all__ = [
     "build_default_prepared_classifier_registry",
     "ContinuousSessionSnapshotStore",
     "PlannerContextMode",
+    "ContinuousSessionInitializationPacketV1",
     "ContinuousSessionInitializationReceiptV1",
+    "ContinuousSessionInitializationKind",
     "ContinuousReconstructionAcceptedTurnV1",
     "ContinuousSessionReconstructionBundleV1",
     "ContinuousBranchForkReceiptV1",
@@ -159,6 +169,10 @@ __all__ = [
     "ContinuousSessionSnapshotReceiptV1",
     "continuous_branch_privacy_boundary_sha256",
     "ContinuousSceneChangeCandidateV1",
+    "ContinuousPlannerPacketKind",
+    "ContinuousPlannerTurnPacketV1",
+    "LeanSceneChangeContextV1",
+    "build_continuous_planner_turn_packet",
     "ContinuousShadowIngressResultV1",
     "ContinuousSillyTavernShadowRequestBridge",
     "ContinuousWorldMcpBridge",

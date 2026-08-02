@@ -1044,6 +1044,16 @@ expected platform skip in each. D-180 remains active and live
 publication/dispatch stays closed until the new cycle is completed and
 accepted.
 
+The D-200 V2 governed progression replaces the remaining open Planner turn
+dictionary with `cera.continuous_planner_turn_packet.v1`, adds a closed lean
+Scene Change handoff, retains the cited-only Validator accepted-value closure,
+and jointly qualifies accepted-checkpoint child-thread fork/rekey/privacy,
+lost-thread reconstruction, exact ten-stage scripted v10 custody, D-201
+historical response authority, and terminal-v4 publication/recovery behavior.
+The revised measurement boundary is
+`CONTINUOUS_LEAN_CONTEXT_SHORT_CANARY_V2_SPEC.md`; it is non-dispatching and
+requires a separately identity-bound creator gate.
+
 ## Repair and pivot rule
 
 After approximately 20 focused minutes without tangible new evidence, or three equivalent failures, stop repeating the same approach. Record the first failure, owning abstraction, disproved assumption, simpler alternative, pivot, and remaining unproven claim. Product boundaries may not be weakened to make a test pass.

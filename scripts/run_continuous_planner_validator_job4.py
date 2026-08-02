@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import ExitStack
+from dataclasses import replace
 from datetime import UTC, datetime
 import json
 from pathlib import Path
@@ -24,6 +25,7 @@ from cera.continuous.codex_stored import CodexContinuousStoredSessionPort
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.diagnostics import ContinuousRootDiagnosticRecorder
 from cera.continuous.evidence import (
+    RequestEvidenceBindingRegistry,
     StableAcceptedContextReferenceStore,
     build_character_summary_envelope,
 )
@@ -65,6 +67,7 @@ from cera.continuous.prompting import (
     PLANNER_STABLE_INSTRUCTIONS,
     VALIDATOR_STABLE_INSTRUCTIONS,
 )
+from cera.continuous.packets import build_continuous_planner_turn_packet
 from cera.continuous.provider import (
     CodexContinuousPlannerPort,
     CodexContinuousValidatorPort,
@@ -78,13 +81,16 @@ from cera.continuous.sessions import (
     ContinuousReconstructionAcceptedTurnV1,
     ContinuousSessionCompatibilityV1,
     ContinuousSessionCoordinator,
+    ContinuousSessionInitializationKind,
     ContinuousSessionReconstructionBundleV1,
     ContinuousSessionRole,
     ContinuousThreadArchiveEvidenceV1,
     InMemoryContinuousStoredSessionPort,
     assert_separate_role_sessions,
+    continuous_branch_privacy_boundary_sha256,
     unavailable_thread_archive_evidence,
 )
+from cera.errors import StateConflictError
 from cera.continuous.scripted_job4 import (
     SCRIPTED_JOB4_FIXTURE_ID,
     SCRIPTED_JOB4_FIXTURE_SHA256,
@@ -933,22 +939,6 @@ class JobHarness:
             scene_id=scene_id,
             turn_id=self._active_turn_id,
             user_message=TURN_MESSAGES[turn_number - 1],
-            current_authority_packet={
-                "schema_version": "cera.continuous_job4_turn_packet.v2",
-                "protected_user_id": "character:ted",
-                "content_class": "ordinary",
-                "depth": "auto",
-                "story_posture": (
-                    "initial doorway turn; Sakura is the primary relevant household character"
-                    if turn_number == 1
-                    else "continue from exact accepted current-scene authority"
-                ),
-                "hard_boundaries": (
-                    "Do not invent Ted's unsupplied thought, dialogue, or consequential action.",
-                    "Preserve character knowledge ownership and branch isolation.",
-                    "Stop only after a materially developed unit reaches a real protected-user choice.",
-                ),
-            },
             **self.ingress_reference(turn_number),
             character_summaries=summaries,
             cera_scene_change=scene_change_context is not None,
@@ -996,6 +986,22 @@ class JobHarness:
                 encoding="utf-8"
             )
         )["prompt"]
+        planner_packet = json.loads(
+            (candidate.debug_root / "planner_authority_packet.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        replay = json.loads(
+            (candidate.debug_root / "replay_input.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        cited_validator_closure = json.loads(
+            (
+                candidate.debug_root
+                / "validator_cited_accepted_evidence.json"
+            ).read_text(encoding="utf-8")
+        )
         return {
             "turn_id": self._active_turn_id,
             "sequence_sha256": candidate.planner_sequence.sequence_sha256,
@@ -1032,6 +1038,28 @@ class JobHarness:
             "debug_complete": not candidate.debug_root.joinpath("errors.json").is_symlink(),
             "accepted_final_injected": True,
             "context_mode": candidate.context_mode.value,
+            "planner_packet_schema_version": (
+                candidate.planner_authority_packet_schema_version
+            ),
+            "planner_packet_kind": candidate.planner_authority_packet_kind,
+            "planner_packet_sha256": candidate.planner_authority_packet_sha256,
+            "planner_packet_bytes": candidate.planner_authority_packet_bytes,
+            "planner_packet_replay_matches": (
+                replay["planner_authority_packet"] == planner_packet
+                and replay["planner_authority_packet_sha256"]
+                == canonical_sha256(planner_packet)
+                and candidate.planner_authority_packet_sha256
+                == canonical_sha256(planner_packet)
+            ),
+            "validator_cited_accepted_evidence_sha256": (
+                candidate.validator_cited_accepted_evidence_sha256
+            ),
+            "validator_cited_closure_replay_matches": (
+                replay["validator_cited_accepted_evidence"]
+                == cited_validator_closure
+                and candidate.validator_cited_accepted_evidence_sha256
+                == canonical_sha256(cited_validator_closure)
+            ),
             "compact_accepted_head_receipt_sha256": (
                 candidate.compact_accepted_head_receipt_sha256
             ),
@@ -1062,7 +1090,8 @@ class JobHarness:
                     '"field_value"' not in planner_prompt_text
                 ),
                 "unchanged_character_summary_absent": (
-                    turn_number != 2 or not summaries
+                    turn_number != 2
+                    or not planner_packet["character_summary_bindings"]
                 ),
                 "composer_prior_projection_absent": (
                     "[OWNER-SCOPED ACCEPTED-SESSION PROJECTIONS]\n[]"
@@ -1085,7 +1114,6 @@ class JobHarness:
             scene_id="scene-002",
             turn_id="turn-003",
             user_message=TURN_MESSAGES[2],
-            current_authority_packet={"protected_user_id": "character:ted"},
             **self.ingress_reference(3),
             cera_scene_change=True,
         )
@@ -1110,6 +1138,196 @@ class JobHarness:
                 not in package.optional_scene_summary.shortest_complete_summary
             ),
             "same_validator_thread_sha256": text_sha256(self.validator_handle),
+        }
+
+    def audit_accepted_checkpoint_fork(self) -> dict[str, Any]:
+        """Exercise the preferred child-thread fork without a provider call."""
+
+        parent = self.planner_session
+        parent_handle = parent.ensure_session()
+        child_branch = "canary-fork-child"
+        child_root = self.world.initialize(WORLD_ID, child_branch)
+        for pair in self.accepted_pairs:
+            self.world.write_accepted_pair(WORLD_ID, child_branch, pair)
+            source_receipt = (
+                self.world.branch_root(WORLD_ID, BRANCH_ID)
+                / "CANDIDATES"
+                / pair.accepted_turn_id
+                / "PROMOTION_RECEIPT.json"
+            )
+            target_receipt = (
+                child_root
+                / "CANDIDATES"
+                / pair.accepted_turn_id
+                / "PROMOTION_RECEIPT.json"
+            )
+            target_receipt.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_receipt, target_receipt)
+        child_compatibility = replace(
+            parent.compatibility,
+            branch_id=child_branch,
+            world_directory_identity_sha256=self.world.world_identity_sha256(
+                WORLD_ID, child_branch
+            ),
+        )
+        branch_receipt = parent.build_branch_fork_receipt(child_compatibility)
+        expected_privacy = continuous_branch_privacy_boundary_sha256(
+            parent_compatibility=parent.compatibility,
+            child_compatibility=child_compatibility,
+            accepted_checkpoint_turn_id=(
+                branch_receipt.accepted_checkpoint_turn_id
+            ),
+            accepted_ancestry_sha256=branch_receipt.accepted_ancestry_sha256,
+            parent_provider_thread_sha256=(
+                parent_handle.provider_thread_id_sha256
+            ),
+        )
+        if branch_receipt.privacy_boundary_sha256 != expected_privacy:
+            raise RuntimeError("provider-fork privacy identity changed")
+        forked = self.coordinator.fork_planner_session_for_branch(
+            target_compatibility=child_compatibility,
+            branch_receipt=branch_receipt,
+        )
+        child = forked.coordinator
+        child_handle = child.ensure_session()
+        initialization = child.initialization_receipt
+        if (
+            initialization.packet_kind
+            is not ContinuousSessionInitializationKind.ACCEPTED_CHECKPOINT_FORK_INITIALIZATION
+            or child_handle.provider_thread_id_sha256
+            == parent_handle.provider_thread_id_sha256
+        ):
+            raise RuntimeError("provider fork did not create a distinct child thread")
+        accepted_turn_id = self.accepted_pairs[-1].accepted_turn_id
+        child_head, child_references = StableAcceptedContextReferenceStore(
+            child_root
+        ).load(
+            accepted_turn_id,
+            provider_thread_sha256=child_handle.provider_thread_id_sha256,
+        )
+        registry = RequestEvidenceBindingRegistry(
+            world_id=WORLD_ID,
+            branch_id=child_branch,
+            turn_id="turn-fork-lean-preflight",
+        )
+        source = registry.allocate_current_source(
+            source_identity="current_user_source:turn-fork-lean-preflight",
+            source_text="Continue.",
+            protected_user_allowance_scope="exact supplied source",
+            source_units=(),
+        )
+        mechanical = registry.allocate_mechanical_connective_allowance()
+        for reference in child_references:
+            registry.allocate_stable_accepted_context_reference(
+                reference,
+                current_provider_thread_sha256=(
+                    child_handle.provider_thread_id_sha256
+                ),
+                current_accepted_ancestry_sha256=(
+                    child_head.accepted_ancestry_sha256
+                ),
+            )
+        child_packet = build_continuous_planner_turn_packet(
+            world_id=WORLD_ID,
+            branch_id=child_branch,
+            session_id="session-fork-child",
+            request_id="request-fork-child-lean",
+            scene_id=child_head.scene_id,
+            turn_id="turn-fork-lean-preflight",
+            context_mode="lean_continuous",
+            current_user_message="Continue.",
+            request_local_evidence_bindings=registry.prompt_manifest(),
+            current_source_binding_key=source.binding_key,
+            mechanical_connective_binding_key=mechanical.binding_key,
+            protected_user_source_claims=(),
+            ingress_source_units=(),
+            ingress_custody={
+                "receipt_id": "ingress_receipt:fork-child-preflight",
+                "receipt_sha256": text_sha256("fork-child receipt"),
+                "raw_source_sha256": text_sha256("Continue."),
+                "protected_user_id": "character:ted",
+                "source_unit_keys": (),
+            },
+            character_summary_bindings=(),
+            compact_accepted_head_receipt=child_head,
+            stable_accepted_reference_keys=child_head.stable_reference_keys,
+            projection_assisted_trigger=None,
+            projection_reference_keys=(),
+            projection_facts=(),
+            scene_change_envelope_sha256=None,
+        )
+        parent_head, parent_references = StableAcceptedContextReferenceStore(
+            self.world.branch_root(WORLD_ID, BRANCH_ID)
+        ).load(
+            accepted_turn_id,
+            provider_thread_sha256=parent_handle.provider_thread_id_sha256,
+        )
+        parent_key_rejected = False
+        try:
+            RequestEvidenceBindingRegistry(
+                world_id=WORLD_ID,
+                branch_id=child_branch,
+                turn_id="turn-parent-key-rejection",
+            ).allocate_stable_accepted_context_reference(
+                parent_references[0],
+                current_provider_thread_sha256=(
+                    child_handle.provider_thread_id_sha256
+                ),
+                current_accepted_ancestry_sha256=(
+                    parent_head.accepted_ancestry_sha256
+                ),
+            )
+        except StateConflictError:
+            parent_key_rejected = True
+        sibling_key_rejected = False
+        try:
+            RequestEvidenceBindingRegistry(
+                world_id=WORLD_ID,
+                branch_id="canary-fork-sibling",
+                turn_id="turn-sibling-key-rejection",
+            ).allocate_stable_accepted_context_reference(
+                child_references[0],
+                current_provider_thread_sha256=(
+                    child_handle.provider_thread_id_sha256
+                ),
+                current_accepted_ancestry_sha256=(
+                    child_head.accepted_ancestry_sha256
+                ),
+            )
+        except StateConflictError:
+            sibling_key_rejected = True
+        if not parent_key_rejected or not sibling_key_rejected:
+            raise RuntimeError("provider-fork foreign reference rejection changed")
+        child_deliveries = child.snapshot().character_summary_deliveries
+        if any(
+            value.provider_thread_sha256 != child_handle.provider_thread_id_sha256
+            for value in child_deliveries
+        ):
+            raise RuntimeError("provider-fork summary custody changed")
+        return {
+            "status": "passed",
+            "branch_receipt_sha256": branch_receipt.receipt_sha256,
+            "privacy_boundary_sha256": branch_receipt.privacy_boundary_sha256,
+            "initialization_packet_kind": initialization.packet_kind.value,
+            "parent_planner_thread_sha256": (
+                parent_handle.provider_thread_id_sha256
+            ),
+            "child_planner_thread_sha256": (
+                child_handle.provider_thread_id_sha256
+            ),
+            "child_stable_reference_keys": child_head.stable_reference_keys,
+            "child_first_lean_packet_kind": child_packet.packet_kind.value,
+            "child_first_lean_packet_sha256": child_packet.packet_sha256,
+            "transfer_receipt_sha256": (
+                forked.transfer_receipt.operation_receipt_sha256
+            ),
+            "session_snapshot_sha256": child.snapshot().snapshot_sha256,
+            "summary_delivery_receipt_sha256s": tuple(
+                value.receipt_sha256 for value in child_deliveries
+            ),
+            "parent_key_rejected": parent_key_rejected,
+            "sibling_key_rejected": sibling_key_rejected,
+            "external_provider_calls": 0,
         }
 
     def reconstruct_lost_planner_thread(self) -> dict[str, Any]:
@@ -1507,14 +1725,20 @@ def execute_job4_schedule(
     result["turns"].append(turn_two)
     if (
         turn_one["context_mode"] != "lean_continuous"
+        or turn_one["planner_packet_kind"] != "first_turn_initialization"
         or turn_one["compact_accepted_head_receipt_sha256"] is not None
         or not turn_one["character_summary_delivery_receipt_sha256s"]
         or turn_two["context_mode"] != "lean_continuous"
+        or turn_two["planner_packet_kind"] != "lean_continuous_continuation"
         or turn_two["compact_accepted_head_receipt_sha256"] is None
         or turn_two["character_summary_delivery_receipt_sha256s"]
+        or not turn_one["planner_packet_replay_matches"]
+        or not turn_two["planner_packet_replay_matches"]
+        or not turn_two["validator_cited_closure_replay_matches"]
         or not all(turn_two["lean_absence_checks"].values())
     ):
         raise RuntimeError("D-200 Turn 1/Turn 2 lean-context contract changed")
+    result["provider_fork"] = harness.audit_accepted_checkpoint_fork()
     result["scene_summary"] = harness.summarize_scene()
     if scripted_provider_free:
         result["reconstruction"] = harness.reconstruct_lost_planner_thread()
@@ -1542,7 +1766,10 @@ def execute_job4_schedule(
         or result["reconstruction"]["next_context_mode"]
         != "lean_continuous"
         or turn_three["context_mode"] != "lean_continuous"
+        or turn_three["planner_packet_kind"] != "scene_change"
         or turn_three["compact_accepted_head_receipt_sha256"] is None
+        or not turn_three["planner_packet_replay_matches"]
+        or not turn_three["validator_cited_closure_replay_matches"]
         or not all(turn_three["lean_absence_checks"].values())
     ):
         raise RuntimeError("D-200 reconstruction-to-lean contract changed")
@@ -1568,7 +1795,25 @@ def execute_job4_schedule(
             turn["accepted_context_injection"] is not None
             for turn in result["turns"]
         ),
+        "closed_packet_identities": tuple(
+            turn["planner_packet_kind"] for turn in result["turns"]
+        )
+        == (
+            "first_turn_initialization",
+            "lean_continuous_continuation",
+            "scene_change",
+        ),
+        "packet_and_validator_closure_replay_bound": all(
+            turn["planner_packet_replay_matches"]
+            and turn["validator_cited_closure_replay_matches"]
+            for turn in result["turns"]
+        ),
         "reconstruction_exercised": scripted_provider_free,
+        "provider_fork_exercised": (
+            result["provider_fork"]["status"] == "passed"
+            and result["provider_fork"]["child_first_lean_packet_kind"]
+            == "lean_continuous_continuation"
+        ),
     }
     if len(harness.call_records) != 10:
         raise RuntimeError("successful Job 4 did not use the exact ten-call schedule")
@@ -1641,7 +1886,6 @@ def verify_prepared_shadow_ingress(lifecycle_root: Path) -> dict[str, Any]:
             envelope=envelope,
             scene_id="scene:shadow-ingress",
             turn_id="turn-shadow-ingress",
-            current_authority_packet={"route": "shadow_only"},
         )
         restarted = ContinuousIngressAuthorityStore(
             authority_root,
@@ -2019,6 +2263,9 @@ def main() -> int:
     confirmation.add_argument(
         "--confirm-provider-free-scripted-v9", action="store_true"
     )
+    confirmation.add_argument(
+        "--confirm-provider-free-scripted-v10", action="store_true"
+    )
     parser.add_argument("--expected-scripted-fixture-sha256")
     parser.add_argument("--cycle-directory", type=Path, required=True)
     parser.add_argument("--source-database", type=Path, required=True)
@@ -2037,9 +2284,12 @@ def main() -> int:
         args.confirm_provider_free_scripted_v7
         or args.confirm_provider_free_scripted_v8
         or args.confirm_provider_free_scripted_v9
+        or args.confirm_provider_free_scripted_v10
     )
     scripted_mode_version = (
-        "v9"
+        "v10"
+        if args.confirm_provider_free_scripted_v10
+        else "v9"
         if args.confirm_provider_free_scripted_v9
         else "v8"
         if args.confirm_provider_free_scripted_v8
@@ -2059,11 +2309,12 @@ def main() -> int:
             not (
                 args.confirm_provider_free_scripted_v8
                 or args.confirm_provider_free_scripted_v9
+                or args.confirm_provider_free_scripted_v10
             )
             or args.maximum_provider_calls != 10
         ):
             parser.error(
-                "provider-free test failpoints require scripted v8/v9 and the ten-stage ceiling"
+                "provider-free test failpoints require scripted v8/v9/v10 and the ten-stage ceiling"
             )
     elif args.expected_scripted_fixture_sha256 is not None:
         parser.error("scripted fixture identity is forbidden in live mode")

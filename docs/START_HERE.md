@@ -112,6 +112,8 @@ the active D-180 route.
 | `CONTINUOUS_PLANNER_VALIDATOR_CORRECTIONS_012_RESULT.md` | D-199 Progressions 1-2 completed history and the superseded-uncommitted V12-3 draft adopted into D-200; Cycle 012 was never published |
 | `CONTINUOUS_LEAN_CONTEXT_V1_RESULT.md` | D-200 provider-free lean context, stable-reference, reconstruction, delivery-ledger, telemetry, and retained-safety integration result |
 | `CONTINUOUS_LEAN_CONTEXT_SHORT_CANARY_V1_SPEC.md` | Frozen contract for a later separately authorized live lean canary; not dispatch authority |
+| `CONTINUOUS_LEAN_CONTEXT_V2_RESULT.md` | Closed mode-specific Planner packets, cited-only Validator closure, accepted-checkpoint fork/privacy custody, reconstruction fallback, and provider-free v10 integration |
+| `CONTINUOUS_LEAN_CONTEXT_SHORT_CANARY_V2_SPEC.md` | Revised non-dispatching ten-call lean canary measurement and stop contract; not provider authority |
 | `PRO_REVIEW_CONSUMED_RESPONSE_AUTHORITY_REPAIR_RESULT.md` | D-201 receipt-bound accepted-response authority, post-consumption inbox diagnostics, historical recovery, active-source strictness, and non-mutation evidence |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |
 | `ROADMAP_AND_GATE.md` | Ordered implementation plan and authorization gates |

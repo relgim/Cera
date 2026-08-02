@@ -556,14 +556,14 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 thread_archival_evidence=invalid,
             )
 
-    def test_actual_cli_completes_closed_provider_free_scripted_v9_d200_mode(self) -> None:
+    def test_actual_cli_completes_closed_provider_free_scripted_v10_lean_v2_mode(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory).resolve()
             cycle = root / "cycle"
             (cycle / "receipts").mkdir(parents=True)
             authorization = "b" * 64
-            cycle_id = "cycle:scripted-cli-v9-d200"
-            task_id = "task:scripted-cli-v9-d200"
+            cycle_id = "cycle:scripted-cli-v10-lean-v2"
+            task_id = "task:scripted-cli-v10-lean-v2"
             (cycle / "CYCLE_MANIFEST.json").write_text(
                 json.dumps(
                     {
@@ -592,7 +592,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 (
                     sys.executable,
                     str(ROOT / "scripts" / "run_continuous_planner_validator_job4.py"),
-                    "--confirm-provider-free-scripted-v9",
+                    "--confirm-provider-free-scripted-v10",
                     "--expected-scripted-fixture-sha256",
                     SCRIPTED_JOB4_FIXTURE_SHA256,
                     "--cycle-directory",
@@ -632,10 +632,25 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             detail = json.loads(detail_path.read_text())
             result = json.loads((cycle / "source" / "JOB4_RESULT.json").read_text())
             self.assertEqual(detail["status"], "completed")
-            self.assertEqual(detail["execution_mode"], "provider_free_scripted_v9")
+            self.assertEqual(detail["execution_mode"], "provider_free_scripted_v10")
             self.assertEqual(detail["provider_calls"], 0)
             self.assertEqual(detail["scripted_transport_invocations"], 10)
             self.assertEqual(len(detail["calls"]), 10)
+            self.assertEqual(detail["provider_fork"]["status"], "passed")
+            self.assertEqual(
+                detail["provider_fork"]["initialization_packet_kind"],
+                "accepted_checkpoint_fork_initialization",
+            )
+            self.assertEqual(
+                detail["provider_fork"]["child_first_lean_packet_kind"],
+                "lean_continuous_continuation",
+            )
+            self.assertNotEqual(
+                detail["provider_fork"]["parent_planner_thread_sha256"],
+                detail["provider_fork"]["child_planner_thread_sha256"],
+            )
+            self.assertTrue(detail["provider_fork"]["parent_key_rejected"])
+            self.assertTrue(detail["provider_fork"]["sibling_key_rejected"])
             self.assertEqual(detail["reconstruction"]["status"], "passed")
             self.assertTrue(
                 detail["lean_context_verification"][

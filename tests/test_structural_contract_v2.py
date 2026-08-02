@@ -671,7 +671,6 @@ class StructuralV2IngressTests(unittest.TestCase):
                 envelope=envelope,
                 scene_id="scene:arrival",
                 turn_id="turn-001",
-                current_authority_packet={"authority": "shadow_only"},
             )
             resolved = store.resolve(
                 receipt_id=result.ingress_receipt_id,
@@ -693,7 +692,6 @@ class StructuralV2IngressTests(unittest.TestCase):
                     envelope=envelope,
                     scene_id="scene:arrival",
                     turn_id="turn-002",
-                    current_authority_packet={},
                 )
 
     def test_prepared_classifier_registry_rejects_unknown_and_substituted_types(self) -> None:

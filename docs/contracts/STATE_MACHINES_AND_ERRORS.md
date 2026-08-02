@@ -347,6 +347,24 @@ and synchronization custody before a key becomes a request binding. A typed
 same-scene projection is created only for an explicit `projection_assisted`
 turn, contains only its named minimal key selection, and remains owner-local.
 
+V2 closes the ordinary submission boundary before any Planner call:
+
+```text
+trusted ingress + Python evidence/summary/reference binding
+-> classify first | lean | projection-assisted | Scene Change
+-> construct exact cera.continuous_planner_turn_packet.v1 field set
+-> validate source spans, claims, summary bindings, stable custody, and mode
+-> hash-bind prompt/debug/replay/candidate authority
+-> submit once
+```
+
+Unknown top-level fields, caller containers nested under allowed labels,
+unbound or foreign stable keys, mismatched source/receipt bytes, a changed
+summary binding, an unpaired Scene Change context, or an implicit context-mode
+change fails before provider submission. Reconstruction and accepted-checkpoint
+forks remain physical-thread initialization states and cannot be relabeled as
+ordinary turns.
+
 Protected-user realization follows a separate exact-proof path. Python projects
 only source spans whose attribution proves Ted owns the action or dialogue,
 each final sequence item names the exact claim keys it uses, and DeepSeek marks

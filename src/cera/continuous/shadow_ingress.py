@@ -9,8 +9,6 @@ and restart-safe receipt resolution.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
-
 from cera.errors import StateConflictError
 from cera.evidence import ExactEvidence
 from cera.ingress import RawTurnEnvelope, RawTurnIngressFacade
@@ -50,7 +48,6 @@ class ContinuousSillyTavernShadowRequestBridge:
         envelope: RawTurnEnvelope,
         scene_id: str,
         turn_id: str,
-        current_authority_packet: dict[str, Any],
         character_summaries: tuple[CharacterSummaryEnvelopeV1, ...] = (),
         preexpanded_exact_evidence: tuple[ExactEvidence, ...] = (),
     ) -> ContinuousShadowIngressResultV1:
@@ -91,7 +88,6 @@ class ContinuousSillyTavernShadowRequestBridge:
             scene_id=scene_id,
             turn_id=resolved.turn_id,
             user_message=chat_request.latest_user_content,
-            current_authority_packet=current_authority_packet,
             ingress_receipt_id=resolved.receipt_id,
             ingress_receipt_sha256=resolved.receipt_sha256,
             character_summaries=character_summaries,

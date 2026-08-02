@@ -939,6 +939,7 @@ provider identities:
 | `cera.validator_finalization_package.v8` | runtime Codex Validator draft compiled by Python | Closed final sequence, independent exact-span protected semantics, V8 writable-record policy, field-justified relationship authority, Python-derived add/replace operations and created-field log, Python-derived event participants/item roles, or an explicit scene summary |
 | `cera.continuous_session_compatibility.v3` | Python session custody | Role/provider/model/prompt/output/world compatibility, exact policy hashes, and closed default/allowed Planner context modes; pre-D-200 sessions fail compatibility |
 | `cera.continuous_session_initialization_receipt.v1` | Python | One physical thread's base-instruction identity/bytes and lean, fork, or reconstruction provenance, including parent/branch and bounded reconstruction custody |
+| `cera.continuous_session_initialization_packet.v1` | Python session custody | Closed first-thread, reconstruction, or accepted-checkpoint-fork initialization identity wrapping the exact receipt before any turn submission |
 | `cera.continuous_branch_fork_receipt.v1` | Python branch authority | Accepted-checkpoint parent/child branch, ancestry, parent-thread, and privacy-boundary proof required before a provider fork |
 | `cera.character_summary_delivery_receipt.v1` | Python Planner-thread custody | Character, revision, selected-content, source, thread, reason, and prompt identities for one Planner summary delivery |
 | `cera.continuous_session_reconstruction_bundle.v1` | Python | Bounded accepted tail, exact synchronization/reference descriptors, and only required character summaries for a new physical thread |
@@ -952,6 +953,8 @@ provider identities:
 | `cera.accepted_session_projection.v5` | Python | Same-scene independently adjudicated accepted public field-level facts or public plus one exact owner's private facts, retaining each field's closed roles, Composer segments, and claim provenance and bound to exact pair/event/envelope/snapshot/receipt bytes |
 | `cera.stable_accepted_context_reference.v1` | Python accepted authority | One exact accepted field value bound to world/branch/session/thread/ancestry, envelope/pair/event, all acceptance synchronization receipts, owner, roles, and visibility; prompt descriptors omit the value |
 | `cera.compact_accepted_head_receipt.v1` | Python | Payload-free current accepted-head custody and stable reference keys for lean Planner prompts |
+| `cera.continuous_planner_turn_packet.v1` | Python request authority | Closed discriminated first-turn, ordinary lean, projection-assisted, or Scene Change Planner submission built only after ingress, evidence, summary, and accepted-reference binding |
+| `cera.lean_scene_change_context.v1` | Python over Validator scene summary | Closed hash-bound derived handoff with no exact prior accepted pairs; usable only with a Scene Change turn packet |
 | `cera.event_item_role_ledger.v1` | Python over accepted final sequence | Per-final-item role custody used to derive event participants without model-authored participant bookkeeping |
 | `cera.request_evidence_binding.v4` | Python | Request-local current-source, mechanical-connective, ACTIVE, DERIVED-navigation, or synchronized accepted-session projection handle bound to exact scope, hashes, visibility, owner, receipt, stored thread, and immutable snapshot |
 | `cera.request_evidence_binding_registry.v9` | Python runtime ledger | Current request bindings, source-bound restart-safe ingress authority, protected-user claims, Composer segments, independent semantic adjudications, closed persistence targets, field-justified relationship subjects, and owner-scoped accepted facts included in candidate and acceptance validation |
@@ -997,6 +1000,7 @@ the prior value hash; Python derives all operation and created-field metadata.
 `cera.continuous_provider_call_ledger_event.v3`, and
 `cera.scene_summary_derived_view.v2` are registered durable dataclass records.
 The request-local registry, mutable acceptance journal, root diagnostic, and
-world promotion journal are Python runtime-operational records with dedicated
+world promotion journal, continuous Planner turn packet, session initialization
+packet, and lean Scene Change context are Python runtime-operational records with dedicated
 writers, invariant checks, and recovery readers; they are intentionally not
 decoded through the generic immutable schema registry.

@@ -30,6 +30,10 @@ from cera.continuous.runtime import (
     ContinuousShadowTurnCoordinator,
     ContinuousTurnRequestV1,
 )
+from cera.continuous.packets import (
+    ContinuousPlannerPacketKind,
+    ContinuousPlannerTurnPacketV1,
+)
 from cera.continuous.ingress import ContinuousIngressAuthorityStore
 from cera.continuous.record_policy import PERSISTENCE_POLICY_SHA256
 from cera.continuous.world import (
@@ -793,23 +797,27 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
             validator_thread = validator_session.ensure_session().provider_thread_id
             self.assertNotEqual(planner_thread, validator_thread)
 
+            prepared_candidates = []
             for turn_id, message in (
                 ("turn-001", "Hello, my name is Ted."),
                 ("turn-002", "I am the expected tenant."),
             ):
-                character_path = store.branch_root("world-test", "main") / "ACTIVE" / "Characters" / "Sakura.json"
-                character_record = json.loads(character_path.read_text(encoding="utf-8"))
+                character_path = (
+                    store.branch_root("world-test", "main")
+                    / "ACTIVE"
+                    / "Characters"
+                    / "Sakura.json"
+                )
+                character_record = json.loads(
+                    character_path.read_text(encoding="utf-8")
+                )
                 summaries = (
-                    (
-                        character_summary(
-                            source_sha256=text_sha256(
-                                character_path.read_text(encoding="utf-8")
-                            ),
-                            source_revision=character_record["_cera_revision"],
+                    character_summary(
+                        source_sha256=text_sha256(
+                            character_path.read_text(encoding="utf-8")
                         ),
-                    )
-                    if turn_id == "turn-001"
-                    else ()
+                        source_revision=character_record["_cera_revision"],
+                    ),
                 )
                 candidate = coordinator.prepare(
                     ContinuousTurnRequestV1(
@@ -818,13 +826,109 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                         scene_id="scene-001",
                         turn_id=turn_id,
                         user_message=message,
-                        current_authority_packet={"protected_user_id": "character:ted"},
                         **ingress_reference(ingress_authority, message, turn_id),
                         character_summaries=summaries,
                     )
                 )
                 self.assertEqual(candidate.provider_calls, 0)
+                prepared_candidates.append(candidate)
                 coordinator.apply_creator_action(turn_id, CreatorReviewAction.ACCEPT)
+
+            first_packet = json.loads(
+                (
+                    prepared_candidates[0].debug_root
+                    / "planner_authority_packet.json"
+                ).read_text(encoding="utf-8")
+            )
+            lean_packet = json.loads(
+                (
+                    prepared_candidates[1].debug_root
+                    / "planner_authority_packet.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                first_packet["packet_kind"],
+                ContinuousPlannerPacketKind.FIRST_TURN_INITIALIZATION.value,
+            )
+            self.assertEqual(
+                lean_packet["packet_kind"],
+                ContinuousPlannerPacketKind.LEAN_CONTINUATION.value,
+            )
+            self.assertEqual(
+                set(first_packet),
+                ContinuousPlannerTurnPacketV1.ALLOWED_FIELDS_BY_KIND[
+                    ContinuousPlannerPacketKind.FIRST_TURN_INITIALIZATION
+                ],
+            )
+            self.assertEqual(
+                set(lean_packet),
+                ContinuousPlannerTurnPacketV1.ALLOWED_FIELDS_BY_KIND[
+                    ContinuousPlannerPacketKind.LEAN_CONTINUATION
+                ],
+            )
+            for prepared, payload in zip(
+                prepared_candidates, (first_packet, lean_packet), strict=True
+            ):
+                replay_packet = json.loads(
+                    (prepared.debug_root / "replay_input.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                usage_document = json.loads(
+                    (prepared.debug_root / "usage.json").read_text(
+                        encoding="utf-8"
+                    )
+                )
+                usage = usage_document["planner_authority_packet"]
+                self.assertEqual(replay_packet["planner_authority_packet"], payload)
+                self.assertEqual(
+                    replay_packet["planner_authority_packet_sha256"],
+                    canonical_sha256(payload),
+                )
+                self.assertEqual(
+                    prepared.planner_authority_packet_sha256,
+                    canonical_sha256(payload),
+                )
+                self.assertEqual(usage["sha256"], canonical_sha256(payload))
+                self.assertEqual(
+                    usage["byte_count"],
+                    prepared.planner_authority_packet_bytes,
+                )
+                initialization_packet = replay_packet[
+                    "session_initialization_packet"
+                ]
+                self.assertEqual(
+                    set(initialization_packet),
+                    {
+                        "schema_version",
+                        "packet_kind",
+                        "initialization_receipt",
+                    },
+                )
+                self.assertEqual(
+                    replay_packet["session_initialization_packet_sha256"],
+                    canonical_sha256(initialization_packet),
+                )
+                self.assertEqual(
+                    prepared.session_initialization_packet_sha256,
+                    canonical_sha256(initialization_packet),
+                )
+                self.assertEqual(
+                    usage_document["session_initialization_packet"]["sha256"],
+                    canonical_sha256(initialization_packet),
+                )
+                self.assertNotIn("current_authority_packet", replay_packet["request"])
+            lean_serialized = json.dumps(lean_packet, sort_keys=True)
+            for forbidden in (
+                "previous_accepted_pairs",
+                "prior_complete_sequences",
+                "accepted_session_projections",
+                "previous_prose",
+                "full_history",
+                "stable_instructions",
+                "untyped_caller_data",
+            ):
+                self.assertNotIn(forbidden, lean_serialized)
 
             self.assertIn('"kind":"accepted_session_envelope"', planner.prompts[1])
             self.assertIn('"character_summary_bindings":[]', planner.prompts[1])
@@ -833,7 +937,8 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                 "Sakura keeps control of the threshold and requests identifying proof.",
                 planner.prompts[1],
             )
-            self.assertIn('"facts":[]', planner.prompts[1])
+            self.assertNotIn('"projection_assisted"', planner.prompts[1])
+            self.assertNotIn('"field_value"', planner.prompts[1])
             self.assertIn(
                 "[OWNER-SCOPED ACCEPTED-SESSION PROJECTIONS]\n[]",
                 composer.prompts[1],
@@ -888,7 +993,6 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                     scene_id="scene-002",
                     turn_id="turn-003",
                     user_message=new_prompt,
-                    current_authority_packet={"protected_user_id": "character:ted"},
                     **ingress_reference(ingress_authority, new_prompt, "turn-003"),
                     character_summaries=(character_summary(
                         source_sha256=text_sha256(character_path.read_text(encoding="utf-8")),
@@ -900,6 +1004,22 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                 accepted_turn_ids=("turn-001", "turn-002"),
             )
             self.assertEqual(changed.turn_candidate.provider_calls, 0)
+            scene_packet = json.loads(
+                (
+                    changed.turn_candidate.debug_root
+                    / "planner_authority_packet.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                scene_packet["packet_kind"],
+                ContinuousPlannerPacketKind.SCENE_CHANGE.value,
+            )
+            self.assertEqual(
+                set(scene_packet),
+                ContinuousPlannerTurnPacketV1.ALLOWED_FIELDS_BY_KIND[
+                    ContinuousPlannerPacketKind.SCENE_CHANGE
+                ],
+            )
             coordinator.apply_creator_action("turn-003", CreatorReviewAction.ACCEPT)
 
             # The provider-free fake route exercises the exact shared
@@ -1014,7 +1134,6 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                         scene_id="scene-001",
                         turn_id="turn-001",
                         user_message="Hello.",
-                        current_authority_packet={"protected_user_id": "character:ted"},
                         **ingress_reference(ingress_authority, "Hello.", "turn-001"),
                         character_summaries=(
                             character_summary(
@@ -1486,7 +1605,6 @@ class ContinuousWorldHardeningTests(unittest.TestCase):
                     scene_id="scene-001",
                     turn_id="turn-001",
                     user_message="Hello.",
-                    current_authority_packet={"protected_user_id": "character:ted"},
                     **ingress_reference(ingress_authority, "Hello.", "turn-001"),
                     character_summaries=(character_summary(
                         source_sha256=text_sha256(source.read_text(encoding="utf-8"))
@@ -2325,7 +2443,6 @@ class ContinuousAuthorityV6Tests(unittest.TestCase):
                 scene_id="scene-001",
                 turn_id="turn-001",
                 user_message=text,
-                current_authority_packet={"protected_user_id": "character:ted"},
                 ingress_receipt_id=receipt.receipt_id,
                 ingress_receipt_sha256=receipt.receipt_sha256,
                 character_summaries=(

@@ -44,12 +44,14 @@ from .prompting import (
     prompt_text_usage,
     PLANNER_STABLE_INSTRUCTIONS,
 )
+from .packets import LeanSceneChangeContextV1, build_continuous_planner_turn_packet
 from .record_policy import PERSISTENCE_POLICY_SHA256
 from .sessions import (
     ContinuousBranchForkReceiptV1,
     ContinuousBranchReferenceTransferReceiptV1,
     ContinuousSessionCoordinator,
     ContinuousSessionCompatibilityV1,
+    ContinuousSessionInitializationPacketV1,
     ContinuousSessionInitializationReceiptV1,
     ContinuousSessionReconstructionBundleV1,
     ContinuousSessionRole,
@@ -90,7 +92,6 @@ class ContinuousTurnRequestV1:
     scene_id: str
     turn_id: str
     user_message: str
-    current_authority_packet: dict[str, Any]
     ingress_receipt_id: str
     ingress_receipt_sha256: str
     character_summaries: tuple[CharacterSummaryEnvelopeV1, ...] = ()
@@ -171,6 +172,13 @@ class ContinuousTurnCandidateV1:
     protected_semantic_adjudication_ledger_sha256: str
     accepted_session_projection_ledger_sha256: str
     validator_cited_accepted_evidence_sha256: str
+    planner_authority_packet_schema_version: str
+    planner_authority_packet_kind: str
+    planner_authority_packet_sha256: str
+    planner_authority_packet_bytes: int
+    session_initialization_packet_kind: str
+    session_initialization_packet_sha256: str
+    session_initialization_packet_bytes: int
     context_mode: PlannerContextMode = PlannerContextMode.LEAN_CONTINUOUS
     compact_accepted_head_receipt_sha256: str | None = None
     character_summary_delivery_receipt_sha256s: tuple[str, ...] = ()
@@ -189,6 +197,23 @@ class ContinuousTurnCandidateV1:
                 "accepted_session_projection_ledger_sha256": self.accepted_session_projection_ledger_sha256,
                 "validator_cited_accepted_evidence_sha256": (
                     self.validator_cited_accepted_evidence_sha256
+                ),
+                "planner_authority_packet_schema_version": (
+                    self.planner_authority_packet_schema_version
+                ),
+                "planner_authority_packet_kind": self.planner_authority_packet_kind,
+                "planner_authority_packet_sha256": (
+                    self.planner_authority_packet_sha256
+                ),
+                "planner_authority_packet_bytes": self.planner_authority_packet_bytes,
+                "session_initialization_packet_kind": (
+                    self.session_initialization_packet_kind
+                ),
+                "session_initialization_packet_sha256": (
+                    self.session_initialization_packet_sha256
+                ),
+                "session_initialization_packet_bytes": (
+                    self.session_initialization_packet_bytes
                 ),
                 "context_mode": self.context_mode.value,
                 "compact_accepted_head_receipt_sha256": self.compact_accepted_head_receipt_sha256,
@@ -776,7 +801,7 @@ class ContinuousShadowTurnCoordinator:
         self,
         request: ContinuousTurnRequestV1,
         *,
-        scene_change_envelope: dict[str, Any] | None,
+        scene_change_envelope: LeanSceneChangeContextV1 | None,
         prior_provider_calls: int,
     ) -> ContinuousTurnCandidateV1:
         if (
@@ -872,43 +897,52 @@ class ContinuousShadowTurnCoordinator:
                 value.source_unit_key for value in ingress_receipt.source_units
             ),
         }
-        planner_prompt, planner_usage = build_planner_turn_prompt(
-            current_packet={
-                **request.current_authority_packet,
-                "world_id": request.world_id,
-                "branch_id": request.branch_id,
-                "scene_id": request.scene_id,
-                "turn_id": request.turn_id,
-                "current_user_message": request.user_message,
-                "request_local_evidence_bindings": evidence_registry.prompt_manifest(),
-                "current_source_binding_key": current_source_binding.binding_key,
-                "mechanical_connective_binding_key": mechanical_binding.binding_key,
-                "protected_user_source_claims": evidence_registry.protected_user_claim_manifest(),
-                "ingress_source_units": tuple(
-                    to_primitive(value) for value in source_units
-                ),
-                "ingress_custody": compact_ingress_custody,
-                "compact_accepted_head_receipt": (
-                    to_primitive(compact_accepted_head)
-                    if compact_accepted_head is not None
-                    else None
-                ),
-                "stable_accepted_reference_keys": tuple(
-                    value["binding_key"] for value in stable_reference_bindings
-                ),
-                "projection_assisted": {
-                    "trigger": request.projection_assisted_trigger,
-                    "reference_keys": request.projection_reference_keys,
-                    "facts": projection_assisted_payloads,
-                },
-                "character_summary_bindings": tuple(summary_bindings),
-            },
-            accepted_envelopes=(),
-            character_summaries=planner_summaries,
-            scene_change_envelope=scene_change_envelope,
-            context_mode=request.context_mode,
+        stable_reference_keys = tuple(
+            value["binding_key"] for value in stable_reference_bindings
+        )
+        planner_authority_packet = build_continuous_planner_turn_packet(
+            world_id=request.world_id,
+            branch_id=request.branch_id,
+            session_id=request.session_id,
+            request_id=request.request_id,
+            scene_id=request.scene_id,
+            turn_id=request.turn_id,
+            context_mode=request.context_mode.value,
+            current_user_message=request.user_message,
+            request_local_evidence_bindings=evidence_registry.prompt_manifest(),
+            current_source_binding_key=current_source_binding.binding_key,
+            mechanical_connective_binding_key=mechanical_binding.binding_key,
+            protected_user_source_claims=(
+                evidence_registry.protected_user_claim_manifest()
+            ),
+            ingress_source_units=tuple(
+                to_primitive(value) for value in source_units
+            ),
+            ingress_custody=compact_ingress_custody,
+            character_summary_bindings=tuple(summary_bindings),
+            compact_accepted_head_receipt=compact_accepted_head,
+            stable_accepted_reference_keys=stable_reference_keys,
             projection_assisted_trigger=request.projection_assisted_trigger,
             projection_reference_keys=request.projection_reference_keys,
+            projection_facts=projection_assisted_payloads,
+            scene_change_envelope_sha256=(
+                scene_change_envelope.context_sha256
+                if scene_change_envelope is not None
+                else None
+            ),
+        )
+        planner_authority_packet_payload = planner_authority_packet.to_payload()
+        debug.write_json(
+            "planner_authority_packet.json",
+            planner_authority_packet_payload,
+        )
+        initialization_packet = ContinuousSessionInitializationPacketV1.from_receipt(
+            self.planner_session.initialization_receipt
+        )
+        planner_prompt, planner_usage = build_planner_turn_prompt(
+            current_packet=planner_authority_packet,
+            character_summaries=planner_summaries,
+            scene_change_context=scene_change_envelope,
         )
         debug.write_text("planner_raw_prompt.txt", planner_prompt)
         debug.write_json(
@@ -1102,6 +1136,25 @@ class ContinuousShadowTurnCoordinator:
             validator_cited_accepted_evidence_sha256=canonical_sha256(
                 validator_cited_accepted_evidence_payload
             ),
+            planner_authority_packet_schema_version=(
+                planner_authority_packet.schema_version
+            ),
+            planner_authority_packet_kind=(
+                planner_authority_packet.packet_kind.value
+            ),
+            planner_authority_packet_sha256=(
+                planner_authority_packet.packet_sha256
+            ),
+            planner_authority_packet_bytes=planner_authority_packet.packet_bytes,
+            session_initialization_packet_kind=(
+                initialization_packet.packet_kind.value
+            ),
+            session_initialization_packet_sha256=(
+                initialization_packet.packet_sha256
+            ),
+            session_initialization_packet_bytes=(
+                initialization_packet.packet_bytes
+            ),
             context_mode=request.context_mode,
             compact_accepted_head_receipt_sha256=(
                 compact_accepted_head.receipt_sha256
@@ -1125,6 +1178,7 @@ class ContinuousShadowTurnCoordinator:
             debug.record_failure("candidate_package", exc)
             raise
         debug_payloads = {
+            "planner_authority_packet.json": planner_authority_packet_payload,
             "planner_prompt_components.json": [to_primitive(value) for value in planner_usage],
             "planner_output.json": to_primitive(planner_sequence),
             "planner_tools.json": _provider_debug(planner_result),
@@ -1150,6 +1204,12 @@ class ContinuousShadowTurnCoordinator:
             },
             "usage.json": {
                 "planner_context_mode": request.context_mode.value,
+                "planner_authority_packet": {
+                    "schema_version": planner_authority_packet.schema_version,
+                    "packet_kind": planner_authority_packet.packet_kind.value,
+                    "sha256": planner_authority_packet.packet_sha256,
+                    "byte_count": planner_authority_packet.packet_bytes,
+                },
                 "planner_base_stable_instructions": to_primitive(
                     planner_base_instruction_usage()
                 ),
@@ -1195,9 +1255,15 @@ class ContinuousShadowTurnCoordinator:
                         separators=(",", ":"),
                     ).encode("utf-8")
                 ),
-                "session_initialization_receipt": to_primitive(
-                    self.planner_session.initialization_receipt
-                ),
+                "session_initialization_packet": {
+                    "payload": initialization_packet.to_payload(),
+                    "sha256": initialization_packet.packet_sha256,
+                    "byte_count": initialization_packet.packet_bytes,
+                    "estimated_tokens": (
+                        initialization_packet.packet_bytes + 3
+                    )
+                    // 4,
+                },
                 "character_summary_delivery_receipts": tuple(
                     to_primitive(value) for value in summary_delivery_receipts
                 ),
@@ -1229,6 +1295,16 @@ class ContinuousShadowTurnCoordinator:
             "errors.json": [],
             "replay_input.json": {
                 "request": to_primitive(request),
+                "planner_authority_packet": planner_authority_packet_payload,
+                "planner_authority_packet_sha256": (
+                    planner_authority_packet.packet_sha256
+                ),
+                "session_initialization_packet": (
+                    initialization_packet.to_payload()
+                ),
+                "session_initialization_packet_sha256": (
+                    initialization_packet.packet_sha256
+                ),
                 "planner_result": to_primitive(planner_sequence),
                 "composer_result": composer_payload,
                 "evidence_registry_sha256": evidence_registry.registry_sha256,

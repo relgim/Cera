@@ -20,6 +20,8 @@ from cera.continuous import (
     validator_route_for,
 )
 from cera.continuous.prompting import build_planner_turn_prompt, character_summary_share
+from cera.continuous.packets import build_continuous_planner_turn_packet
+from cera.continuous.evidence import EvidenceVisibility, RequestEvidenceBindingRegistry
 from cera.continuous.provider import (
     ContinuousValidatorDraftV1,
     ProviderSceneSummaryDraftV1,
@@ -205,6 +207,72 @@ def branch_receipt(
     )
 
 
+def first_turn_prompt_packet(
+    summary: CharacterSummaryEnvelopeV1 | None = None,
+):
+    registry = RequestEvidenceBindingRegistry(
+        world_id="world:hanezawa_test",
+        branch_id="branch:main",
+        turn_id="turn:003",
+    )
+    source = registry.allocate_current_source(
+        source_identity="current_user_source:turn:003",
+        source_text="Continue.",
+        protected_user_allowance_scope="exact supplied source",
+        source_units=(),
+    )
+    mechanical = registry.allocate_mechanical_connective_allowance()
+    summary_bindings = ()
+    if summary is not None:
+        binding = registry.allocate_world_record(
+            relative_path=summary.source_path_or_record_id,
+            source_sha256=summary.source_sha256,
+            record_revision=summary.source_revision,
+            record_type="characters",
+            visibility=EvidenceVisibility.CHARACTER_PRIVATE,
+            knowledge_owner_id=summary.character_id,
+            exact_read_operation_sha256=text_sha256("summary read"),
+        )
+        summary_bindings = (
+            {
+                "character_id": summary.character_id,
+                "binding_key": binding.binding_key,
+                "source_path": binding.relative_path,
+                "source_revision": binding.record_revision,
+                "source_sha256": binding.source_sha256,
+            },
+        )
+    return build_continuous_planner_turn_packet(
+        world_id="world:hanezawa_test",
+        branch_id="branch:main",
+        session_id="session:one",
+        request_id="request:three",
+        scene_id="scene:arrival",
+        turn_id="turn:003",
+        context_mode="lean_continuous",
+        current_user_message="Continue.",
+        request_local_evidence_bindings=registry.prompt_manifest(),
+        current_source_binding_key=source.binding_key,
+        mechanical_connective_binding_key=mechanical.binding_key,
+        protected_user_source_claims=(),
+        ingress_source_units=(),
+        ingress_custody={
+            "receipt_id": "ingress_receipt:three",
+            "receipt_sha256": text_sha256("receipt:three"),
+            "raw_source_sha256": text_sha256("Continue."),
+            "protected_user_id": "character:ted",
+            "source_unit_keys": (),
+        },
+        character_summary_bindings=summary_bindings,
+        compact_accepted_head_receipt=None,
+        stable_accepted_reference_keys=(),
+        projection_assisted_trigger=None,
+        projection_reference_keys=(),
+        projection_facts=(),
+        scene_change_envelope_sha256=None,
+    )
+
+
 class RichPlannerContractTests(unittest.TestCase):
     def test_rich_sequence_is_valid_without_a_beat_quota(self) -> None:
         self.assertEqual(len(sequence().beats), 1)
@@ -259,7 +327,7 @@ class RichPlannerContractTests(unittest.TestCase):
             derivation_receipt_sha256=canonical_sha256(payload),
         )
         _, usage = build_planner_turn_prompt(
-            current_packet={"turn_id": "turn:003"},
+            current_packet=first_turn_prompt_packet(summary),
             character_summaries=(summary,),
         )
         self.assertGreater(character_summary_share(usage), 0)

@@ -47,6 +47,14 @@ class PlannerContextMode(StrEnum):
     RECONSTRUCTION = "reconstruction"
 
 
+class ContinuousSessionInitializationKind(StrEnum):
+    FIRST_THREAD_INITIALIZATION = "first_thread_initialization"
+    RECONSTRUCTION_INITIALIZATION = "reconstruction_initialization"
+    ACCEPTED_CHECKPOINT_FORK_INITIALIZATION = (
+        "accepted_checkpoint_fork_initialization"
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ContinuousThreadArchiveEvidenceV1:
     """Privacy-safe proof that one stored role thread is terminally isolated."""
@@ -342,6 +350,16 @@ class ContinuousSessionInitializationReceiptV1:
     character_summary_envelope_sha256s: tuple[str, ...]
     receipt_sha256: str
 
+    @property
+    def packet_kind(self) -> ContinuousSessionInitializationKind:
+        if self.context_mode is PlannerContextMode.RECONSTRUCTION:
+            return ContinuousSessionInitializationKind.RECONSTRUCTION_INITIALIZATION
+        if self.branch_receipt_sha256 is not None:
+            return (
+                ContinuousSessionInitializationKind.ACCEPTED_CHECKPOINT_FORK_INITIALIZATION
+            )
+        return ContinuousSessionInitializationKind.FIRST_THREAD_INITIALIZATION
+
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError(
@@ -474,6 +492,64 @@ class ContinuousSessionInitializationReceiptV1:
             raise ContractValidationError(
                 "continuous session initialization receipt binding changed"
             )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSessionInitializationPacketV1:
+    """Closed first-thread, reconstruction, or accepted-fork initialization."""
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.continuous_session_initialization_packet.v1"
+    )
+    ALLOWED_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"schema_version", "packet_kind", "initialization_receipt"}
+    )
+
+    schema_version: str
+    packet_kind: ContinuousSessionInitializationKind
+    initialization_receipt: ContinuousSessionInitializationReceiptV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous session initialization packet schema changed"
+            )
+        if self.packet_kind is not self.initialization_receipt.packet_kind:
+            raise ContractValidationError(
+                "continuous session initialization packet kind changed"
+            )
+        if set(self.to_payload()) != self.ALLOWED_FIELDS:
+            raise ContractValidationError(
+                "continuous session initialization packet fields changed"
+            )
+
+    @classmethod
+    def from_receipt(
+        cls,
+        receipt: ContinuousSessionInitializationReceiptV1,
+    ) -> "ContinuousSessionInitializationPacketV1":
+        return cls(
+            schema_version=cls.SCHEMA_VERSION,
+            packet_kind=receipt.packet_kind,
+            initialization_receipt=receipt,
+        )
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.SCHEMA_VERSION,
+            "packet_kind": self.packet_kind.value,
+            "initialization_receipt": to_primitive(
+                self.initialization_receipt
+            ),
+        }
+
+    @property
+    def packet_sha256(self) -> str:
+        return canonical_sha256(self.to_payload())
+
+    @property
+    def packet_bytes(self) -> int:
+        return len(canonical_bytes(self.to_payload()))
 
 
 @dataclass(frozen=True, slots=True)

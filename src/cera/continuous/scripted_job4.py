@@ -49,7 +49,7 @@ from .provider import (
 )
 
 
-SCRIPTED_JOB4_FIXTURE_ID = "cera.continuous_job4_scripted_fixture.v9_d200"
+SCRIPTED_JOB4_FIXTURE_ID = "cera.continuous_job4_scripted_fixture.v10_lean_v2"
 _STORIES = {
     "turn-001": "Sakura requests bounded proof.",
     "turn-002": "Sakura keeps the threshold controlled.",
