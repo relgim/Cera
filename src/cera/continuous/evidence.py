@@ -454,6 +454,24 @@ def reconstruction_reference_synchronization_sha256(
     )
 
 
+def provider_fork_reference_synchronization_sha256(
+    *,
+    transfer_receipt_sha256: str,
+    accepted_turn_id: str,
+    accepted_envelope_sha256: str,
+) -> str:
+    """Bind child accepted-reference custody to one value-free fork transfer."""
+
+    return canonical_sha256(
+        {
+            "schema_version": "cera.provider_fork_reference_synchronization.v1",
+            "transfer_receipt_sha256": transfer_receipt_sha256,
+            "accepted_turn_id": accepted_turn_id,
+            "accepted_envelope_sha256": accepted_envelope_sha256,
+        }
+    )
+
+
 def rebind_stable_accepted_context_references_for_reconstruction(
     *,
     source_receipt: CompactAcceptedHeadReceiptV1,
@@ -465,6 +483,7 @@ def rebind_stable_accepted_context_references_for_reconstruction(
     session_snapshot_sha256: str,
     target_world_id: str | None = None,
     target_branch_id: str | None = None,
+    synchronization_kind: str = "reconstruction",
 ) -> tuple[
     CompactAcceptedHeadReceiptV1,
     tuple[StableAcceptedContextReferenceV1, ...],
@@ -493,13 +512,26 @@ def rebind_stable_accepted_context_references_for_reconstruction(
             "accepted_head_envelope_sha256": source_receipt.accepted_envelope_sha256,
         }
     )
-    synchronization_receipt_sha256 = (
-        reconstruction_reference_synchronization_sha256(
-            initialization_receipt_sha256=initialization_receipt_sha256,
-            accepted_turn_id=source_receipt.accepted_turn_id,
-            accepted_envelope_sha256=source_receipt.accepted_envelope_sha256,
+    if synchronization_kind == "reconstruction":
+        synchronization_receipt_sha256 = (
+            reconstruction_reference_synchronization_sha256(
+                initialization_receipt_sha256=initialization_receipt_sha256,
+                accepted_turn_id=source_receipt.accepted_turn_id,
+                accepted_envelope_sha256=source_receipt.accepted_envelope_sha256,
+            )
         )
-    )
+    elif synchronization_kind == "accepted_checkpoint_fork":
+        synchronization_receipt_sha256 = (
+            provider_fork_reference_synchronization_sha256(
+                transfer_receipt_sha256=initialization_receipt_sha256,
+                accepted_turn_id=source_receipt.accepted_turn_id,
+                accepted_envelope_sha256=source_receipt.accepted_envelope_sha256,
+            )
+        )
+    else:
+        raise ContractValidationError(
+            "stable accepted-reference synchronization kind is invalid"
+        )
     rebound = tuple(
         replace(
             value,

@@ -28,6 +28,7 @@ from .evidence import (
     bind_character_summary_envelopes,
     build_stable_accepted_context_references,
     project_final_sequence_facts,
+    provider_fork_reference_synchronization_sha256,
     rebind_stable_accepted_context_references_for_reconstruction,
     reconstruction_reference_synchronization_sha256,
     stable_reference_descriptors_for_reconstruction_target,
@@ -46,6 +47,7 @@ from .prompting import (
 from .record_policy import PERSISTENCE_POLICY_SHA256
 from .sessions import (
     ContinuousBranchForkReceiptV1,
+    ContinuousBranchReferenceTransferReceiptV1,
     ContinuousSessionCoordinator,
     ContinuousSessionCompatibilityV1,
     ContinuousSessionInitializationReceiptV1,
@@ -54,6 +56,7 @@ from .sessions import (
     ContinuousSessionSnapshotStore,
     PlannerContextMode,
     assert_separate_role_sessions,
+    continuous_branch_privacy_boundary_sha256,
 )
 from .world import (
     CandidateWorldViewV1,
@@ -224,6 +227,16 @@ class ContinuousSceneSummaryCandidateV1:
     summary_provider_calls: int
 
 
+@dataclass(frozen=True, slots=True)
+class ContinuousForkedPlannerSessionV2:
+    """Completed child Planner custody returned by the integrated fork entrypoint."""
+
+    coordinator: ContinuousSessionCoordinator
+    transfer_receipt: ContinuousBranchReferenceTransferReceiptV1
+    stable_reference_paths: tuple[Path, ...]
+    session_snapshot_path: Path
+
+
 class ContinuousShadowTurnCoordinator:
     """Execute shadow candidates; creator action remains the only promotion gate."""
 
@@ -263,6 +276,147 @@ class ContinuousShadowTurnCoordinator:
             raise StateConflictError(
                 "continuous Planner base omits stable D-200 instructions"
             )
+
+    def fork_planner_session_for_branch(
+        self,
+        *,
+        target_compatibility: ContinuousSessionCompatibilityV1,
+        branch_receipt: ContinuousBranchForkReceiptV1,
+    ) -> ContinuousForkedPlannerSessionV2:
+        """Fork one accepted Planner checkpoint and close child reference custody."""
+
+        parent = self.planner_session
+        if (
+            target_compatibility.role is not ContinuousSessionRole.PLANNER
+            or target_compatibility.world_id != parent.compatibility.world_id
+            or target_compatibility.branch_id == parent.compatibility.branch_id
+        ):
+            raise StateConflictError("provider-fork target scope is invalid")
+        normalized_target = replace(
+            target_compatibility,
+            branch_id=parent.compatibility.branch_id,
+            world_directory_identity_sha256=(
+                parent.compatibility.world_directory_identity_sha256
+            ),
+        )
+        if normalized_target != parent.compatibility:
+            raise StateConflictError(
+                "provider fork changed Planner provider or policy compatibility"
+            )
+        parent_handle = parent.ensure_session()
+        parent_snapshot = parent.snapshot()
+        accepted_turn_ids = parent_snapshot.accepted_turn_ids
+        if not accepted_turn_ids:
+            raise StateConflictError("provider fork lacks an accepted checkpoint")
+        parent_root = self.world.branch_root(
+            parent.compatibility.world_id,
+            parent.compatibility.branch_id,
+        )
+        child_root = self.world.branch_root(
+            target_compatibility.world_id,
+            target_compatibility.branch_id,
+        )
+        if not child_root.is_dir():
+            raise StateConflictError(
+                "provider fork requires an existing child story branch"
+            )
+        source_store = StableAcceptedContextReferenceStore(parent_root)
+        source_sets = []
+        child_envelopes = []
+        for accepted_turn_id in accepted_turn_ids:
+            source_receipt, source_references = source_store.load(
+                accepted_turn_id,
+                provider_thread_sha256=parent_handle.provider_thread_id_sha256,
+            )
+            parent_envelope = self.world.accepted_final_envelope(
+                parent.compatibility.world_id,
+                parent.compatibility.branch_id,
+                accepted_turn_id,
+            )
+            child_envelope = self.world.accepted_final_envelope(
+                target_compatibility.world_id,
+                target_compatibility.branch_id,
+                accepted_turn_id,
+            )
+            if child_envelope != parent_envelope:
+                raise StateConflictError(
+                    "provider fork child changed accepted checkpoint bytes"
+                )
+            validate_stable_accepted_context_reference_facts(
+                envelope=parent_envelope,
+                references=source_references,
+            )
+            if (
+                source_receipt.world_id != parent.compatibility.world_id
+                or source_receipt.branch_id != parent.compatibility.branch_id
+                or source_receipt.accepted_envelope_sha256
+                != parent_envelope.envelope_sha256
+            ):
+                raise StateConflictError(
+                    "provider fork source reference custody changed"
+                )
+            source_sets.append((source_receipt, source_references))
+            child_envelopes.append(child_envelope)
+        child = parent.fork_for_branch(
+            target_compatibility,
+            branch_receipt=branch_receipt,
+        )
+        child_descriptors = tuple(
+            descriptor
+            for _source_receipt, source_references in source_sets
+            for descriptor in stable_reference_descriptors_for_reconstruction_target(
+                source_references=source_references,
+                target_world_id=target_compatibility.world_id,
+                target_branch_id=target_compatibility.branch_id,
+            )
+        )
+        parent_reference_keys = tuple(
+            reference.reference_key
+            for _source_receipt, source_references in source_sets
+            for reference in source_references
+        )
+        transfer = child.establish_branch_reference_rebinding(
+            child_envelopes[-1],
+            branch_receipt=branch_receipt,
+            parent_reference_keys=parent_reference_keys,
+            child_reference_descriptors=child_descriptors,
+        )
+        child_handle = child.ensure_session()
+        child_snapshot = child.snapshot()
+        stable_paths = []
+        child_store = StableAcceptedContextReferenceStore(child_root)
+        for source_receipt, source_references in source_sets:
+            rebound_receipt, rebound_references = (
+                rebind_stable_accepted_context_references_for_reconstruction(
+                    source_receipt=source_receipt,
+                    source_references=source_references,
+                    planner_session_id=child_handle.provider_session_id,
+                    provider_thread_sha256=child_handle.provider_thread_id_sha256,
+                    accepted_turn_ids=accepted_turn_ids,
+                    initialization_receipt_sha256=(
+                        transfer.operation_receipt_sha256
+                    ),
+                    session_snapshot_sha256=child_snapshot.snapshot_sha256,
+                    target_world_id=target_compatibility.world_id,
+                    target_branch_id=target_compatibility.branch_id,
+                    synchronization_kind="accepted_checkpoint_fork",
+                )
+            )
+            stable_paths.append(
+                child_store.save(
+                    receipt=rebound_receipt,
+                    references=rebound_references,
+                )
+            )
+        snapshot_path = ContinuousSessionSnapshotStore(child_root).save(
+            child_snapshot
+        )
+        return ContinuousForkedPlannerSessionV2(
+            coordinator=child,
+            transfer_receipt=transfer,
+            stable_reference_paths=tuple(stable_paths),
+            session_snapshot_path=snapshot_path,
+        )
 
     def reconstruct_planner_session(
         self,
@@ -325,6 +479,15 @@ class ContinuousShadowTurnCoordinator:
                     ),
                 }
             )
+            expected_privacy_boundary = continuous_branch_privacy_boundary_sha256(
+                parent_compatibility=prior.compatibility,
+                child_compatibility=target_compatibility,
+                accepted_checkpoint_turn_id=accepted_turn_ids[-1],
+                accepted_ancestry_sha256=expected_ancestry,
+                parent_provider_thread_sha256=(
+                    prior_handle.provider_thread_id_sha256
+                ),
+            )
             if (
                 not accepted_turn_ids
                 or branch_receipt.world_id != target_compatibility.world_id
@@ -338,6 +501,8 @@ class ContinuousShadowTurnCoordinator:
                 != expected_ancestry
                 or branch_receipt.parent_provider_thread_sha256
                 != prior_handle.provider_thread_id_sha256
+                or branch_receipt.privacy_boundary_sha256
+                != expected_privacy_boundary
             ):
                 raise StateConflictError(
                     "non-forkable branch reconstruction receipt changed ancestry"
@@ -1088,8 +1253,14 @@ class ContinuousShadowTurnCoordinator:
             and initialization.context_mode is PlannerContextMode.RECONSTRUCTION
             and accepted_turn_id in initialization.accepted_tail_turn_ids
         )
+        forked_head = (
+            initialization is not None
+            and initialization.context_mode is PlannerContextMode.LEAN_CONTINUOUS
+            and initialization.branch_receipt_sha256 is not None
+            and accepted_turn_id in initialization.accepted_tail_turn_ids
+        )
         journal: dict[str, Any] | None = None
-        if not reconstructed_head:
+        if not reconstructed_head and not forked_head:
             journal = self.world.acceptance_synchronization_record(
                 request.world_id, request.branch_id, accepted_turn_id
             )
@@ -1114,14 +1285,31 @@ class ContinuousShadowTurnCoordinator:
                 "accepted_head_envelope_sha256": receipt.accepted_envelope_sha256,
             }
         )
+        fork_transfer_sha256 = None
+        if forked_head:
+            transfer_events = tuple(
+                value.payload_sha256
+                for value in snapshot.context_events
+                if value.event_type == "branch_reference_rebinding"
+                and value.turn_or_scene_id == accepted_turn_id
+            )
+            if len(transfer_events) != 1:
+                raise StateConflictError(
+                    "forked accepted context lacks one reference transfer"
+                )
+            fork_transfer_sha256 = transfer_events[0]
         expected_injection_receipt = (
             initialization.receipt_sha256
             if reconstructed_head
-            else journal.get("injection_operation_receipt_sha256")  # type: ignore[union-attr]
+            else (
+                fork_transfer_sha256
+                if forked_head
+                else journal.get("injection_operation_receipt_sha256")  # type: ignore[union-attr]
+            )
         )
         expected_snapshot_sha256 = (
             snapshot.snapshot_sha256
-            if reconstructed_head
+            if reconstructed_head or forked_head
             else journal.get("planner_session_snapshot_sha256")  # type: ignore[union-attr]
         )
         expected_synchronization_receipt = (
@@ -1131,7 +1319,15 @@ class ContinuousShadowTurnCoordinator:
                 accepted_envelope_sha256=receipt.accepted_envelope_sha256,
             )
             if reconstructed_head and initialization is not None
-            else journal.get("synchronization_receipt_sha256")  # type: ignore[union-attr]
+            else (
+                provider_fork_reference_synchronization_sha256(
+                    transfer_receipt_sha256=str(expected_injection_receipt),
+                    accepted_turn_id=accepted_turn_id,
+                    accepted_envelope_sha256=receipt.accepted_envelope_sha256,
+                )
+                if forked_head
+                else journal.get("synchronization_receipt_sha256")  # type: ignore[union-attr]
+            )
         )
         checks = {
             "world": receipt.world_id == request.world_id,
@@ -1152,11 +1348,13 @@ class ContinuousShadowTurnCoordinator:
             ),
             "pair": (
                 reconstructed_head
+                or forked_head
                 or receipt.accepted_pair_sha256
                 == journal.get("accepted_pair_sha256")  # type: ignore[union-attr]
             ),
             "event": (
                 reconstructed_head
+                or forked_head
                 or receipt.accepted_event_sha256
                 == journal.get("accepted_event_sha256")  # type: ignore[union-attr]
             ),
@@ -1183,7 +1381,7 @@ class ContinuousShadowTurnCoordinator:
                 "stable accepted-context receipt is stale, foreign, or unsynchronized: "
                 + failed
             )
-        if not reconstructed_head:
+        if not reconstructed_head and not forked_head:
             reference_path = reference_store.path_for(
                 accepted_turn_id,
                 handle.provider_thread_id_sha256,

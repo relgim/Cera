@@ -194,37 +194,14 @@ def branch_receipt(
     child_branch: str,
 ) -> ContinuousBranchForkReceiptV1:
     snapshot = planner.snapshot()
-    accepted = snapshot.accepted_turn_ids
-    ancestry = canonical_sha256(
-        {
-            "accepted_turn_ids": accepted,
-            "accepted_envelopes": tuple(
-                (
-                    turn_id,
-                    next(
-                        event.payload_sha256
-                        for event in snapshot.context_events
-                        if event.event_type == "accepted_final_sequence"
-                        and event.turn_or_scene_id == turn_id
-                    ),
-                )
-                for turn_id in accepted
+    return planner.build_branch_fork_receipt(
+        replace(
+            snapshot.compatibility,
+            branch_id=child_branch,
+            world_directory_identity_sha256=text_sha256(
+                f"{snapshot.compatibility.world_id}/{child_branch}"
             ),
-        }
-    )
-    payload = {
-        "schema_version": ContinuousBranchForkReceiptV1.SCHEMA_VERSION,
-        "world_id": snapshot.compatibility.world_id,
-        "parent_branch_id": snapshot.compatibility.branch_id,
-        "child_branch_id": child_branch,
-        "accepted_checkpoint_turn_id": accepted[-1],
-        "accepted_ancestry_sha256": ancestry,
-        "parent_provider_thread_sha256": snapshot.handle.provider_thread_id_sha256,
-        "privacy_boundary_sha256": text_sha256("exact accepted ancestry only"),
-    }
-    return ContinuousBranchForkReceiptV1(
-        **payload,
-        receipt_sha256=canonical_sha256(payload),
+        )
     )
 
 

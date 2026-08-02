@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import replace
 import json
 from pathlib import Path
+import shutil
 from tempfile import TemporaryDirectory
 import unittest
+from unittest import mock
 
 from cera.continuous.evidence import (
     RequestEvidenceBindingRegistry,
@@ -15,6 +17,10 @@ from cera.continuous.evidence import (
     stable_reference_descriptors_for_reconstruction_target,
     validate_stable_accepted_context_reference_facts,
 )
+from cera.continuous.runtime import (
+    ContinuousShadowTurnCoordinator,
+    ContinuousTurnRequestV1,
+)
 from cera.continuous.prompting import (
     PLANNER_STABLE_INSTRUCTIONS,
     build_continuous_composer_prompt,
@@ -22,6 +28,7 @@ from cera.continuous.prompting import (
     planner_base_instruction_usage,
 )
 from cera.continuous.sessions import (
+    ContinuousBranchForkReceiptV1,
     ContinuousReconstructionAcceptedTurnV1,
     ContinuousSessionCoordinator,
     ContinuousSessionReconstructionBundleV1,
@@ -31,6 +38,7 @@ from cera.continuous.sessions import (
 )
 from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import canonical_sha256, text_sha256
+from cera.creator_review.models import CreatorReviewAction
 
 from tests.test_continuous_planner_validator import (
     accepted_sequence,
@@ -38,7 +46,17 @@ from tests.test_continuous_planner_validator import (
     compatibility,
     sequence,
 )
-from tests.test_continuous_world import character_summary
+from tests.test_continuous_corrections import _QueueStage, _seed_character
+from tests.test_continuous_world import (
+    character_summary,
+    composer_draft,
+    ingress_reference,
+    make_ingress_authority,
+    package,
+    rich_sequence,
+    session_compatibility,
+)
+from cera.continuous.world import ContinuousWorldStore
 from cera.continuous.contracts import AcceptedFinalSequenceEnvelopeV1
 
 
@@ -295,6 +313,411 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 current_provider_thread_sha256=text_sha256("thread-one"),
                 current_accepted_ancestry_sha256=receipt.accepted_ancestry_sha256,
             )
+
+    def test_successful_provider_fork_persists_child_keys_and_summary_custody(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            world = ContinuousWorldStore(root / "worlds")
+            _seed_character(world)
+            message = "Hello, my name is Ted."
+            ingress = make_ingress_authority(
+                root / "ingress",
+                (message, "turn-001"),
+            )
+            port = InMemoryContinuousStoredSessionPort()
+            parent = ContinuousSessionCoordinator(
+                session_compatibility(ContinuousSessionRole.PLANNER),
+                port,
+            )
+            validator_session = ContinuousSessionCoordinator(
+                session_compatibility(ContinuousSessionRole.VALIDATOR),
+                port,
+            )
+            parent_runtime = ContinuousShadowTurnCoordinator(
+                world=world,
+                planner_session=parent,
+                validator_session=validator_session,
+                planner=_QueueStage(rich_sequence()),
+                composer=_QueueStage(composer_draft("Sakura requests proof.")),
+                validator=_QueueStage(
+                    package(
+                        turn_id="turn-001",
+                        revision=1,
+                        story_text="Sakura requests proof.",
+                    )
+                ),
+                ingress_authority=ingress,
+            )
+            character_path = (
+                world.branch_root("world-test", "main")
+                / "ACTIVE"
+                / "Characters"
+                / "Sakura.json"
+            )
+            candidate = parent_runtime.prepare(
+                ContinuousTurnRequestV1(
+                    world_id="world-test",
+                    branch_id="main",
+                    scene_id="scene-001",
+                    turn_id="turn-001",
+                    user_message=message,
+                    current_authority_packet={
+                        "protected_user_id": "character:ted"
+                    },
+                    **ingress_reference(ingress, message, "turn-001"),
+                    character_summaries=(
+                        character_summary(
+                            source_sha256=text_sha256(
+                                character_path.read_text(encoding="utf-8")
+                            )
+                        ),
+                    ),
+                )
+            )
+            self.assertEqual(candidate.provider_calls, 0)
+            parent_runtime.apply_creator_action(
+                "turn-001", CreatorReviewAction.ACCEPT
+            )
+
+            parent_root = world.branch_root("world-test", "main")
+            child_root = world.initialize("world-test", "child")
+            pair = world.accepted_turn_pairs(
+                "world-test", "main", ("turn-001",)
+            )[0]
+            world.write_accepted_pair("world-test", "child", pair)
+            source_receipt_path = (
+                parent_root
+                / "CANDIDATES"
+                / "turn-001"
+                / "PROMOTION_RECEIPT.json"
+            )
+            target_receipt_path = (
+                child_root
+                / "CANDIDATES"
+                / "turn-001"
+                / "PROMOTION_RECEIPT.json"
+            )
+            target_receipt_path.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source_receipt_path, target_receipt_path)
+
+            target = replace(
+                session_compatibility(ContinuousSessionRole.PLANNER),
+                branch_id="child",
+                world_directory_identity_sha256=text_sha256("world-test/child"),
+            )
+            custody = branch_receipt(parent, "child")
+            forked = parent_runtime.fork_planner_session_for_branch(
+                target_compatibility=target,
+                branch_receipt=custody,
+            )
+            child = forked.coordinator
+            self.assertNotEqual(
+                child.ensure_session().provider_thread_id_sha256,
+                parent.ensure_session().provider_thread_id_sha256,
+            )
+            self.assertEqual(len(forked.stable_reference_paths), 1)
+            self.assertTrue(forked.session_snapshot_path.is_file())
+            transfer_events = tuple(
+                value
+                for value in child.snapshot().context_events
+                if value.event_type == "branch_reference_rebinding"
+            )
+            self.assertEqual(len(transfer_events), 1)
+            child_context = port.model_visible_context[
+                child.ensure_session().provider_thread_id
+            ]
+            self.assertEqual(
+                sum(
+                    value.startswith(
+                        "[BRANCH ACCEPTED REFERENCE REBINDING]"
+                    )
+                    for value in child_context
+                ),
+                1,
+            )
+            child_receipt, child_references = StableAcceptedContextReferenceStore(
+                child_root
+            ).load(
+                "turn-001",
+                provider_thread_sha256=(
+                    child.ensure_session().provider_thread_id_sha256
+                ),
+            )
+            parent_receipt, parent_references = StableAcceptedContextReferenceStore(
+                parent_root
+            ).load(
+                "turn-001",
+                provider_thread_sha256=(
+                    parent.ensure_session().provider_thread_id_sha256
+                ),
+            )
+            self.assertEqual(child_receipt.branch_id, "child")
+            self.assertNotEqual(
+                child_receipt.stable_reference_keys,
+                parent_receipt.stable_reference_keys,
+            )
+            with self.assertRaisesRegex(StateConflictError, "already established"):
+                child.establish_branch_reference_rebinding(
+                    world.accepted_final_envelope(
+                        "world-test", "child", "turn-001"
+                    ),
+                    branch_receipt=custody,
+                    parent_reference_keys=parent_receipt.stable_reference_keys,
+                    child_reference_descriptors=tuple(
+                        value.injection_descriptor()
+                        for value in child_references
+                    ),
+                )
+            deliveries = child.snapshot().character_summary_deliveries
+            self.assertEqual(len(deliveries), 1)
+            self.assertEqual(
+                deliveries[0].delivery_reason,
+                "accepted_checkpoint_fork",
+            )
+            self.assertEqual(
+                deliveries[0].provider_thread_sha256,
+                child.ensure_session().provider_thread_id_sha256,
+            )
+
+            child_validator = ContinuousSessionCoordinator(
+                replace(
+                    session_compatibility(ContinuousSessionRole.VALIDATOR),
+                    branch_id="child",
+                    world_directory_identity_sha256=text_sha256(
+                        "world-test/child"
+                    ),
+                ),
+                port,
+            )
+            child_runtime = ContinuousShadowTurnCoordinator(
+                world=world,
+                planner_session=child,
+                validator_session=child_validator,
+                planner=_QueueStage(),
+                composer=_QueueStage(),
+                validator=_QueueStage(),
+                ingress_authority=ingress,
+            )
+            next_request = ContinuousTurnRequestV1(
+                world_id="world-test",
+                branch_id="child",
+                session_id="session-test",
+                request_id="request-turn-002",
+                idempotency_key_sha256=text_sha256("turn-002-idempotency"),
+                scene_id="scene-001",
+                turn_id="turn-002",
+                user_message="Continue.",
+                current_authority_packet={
+                    "protected_user_id": "character:ted"
+                },
+                ingress_receipt_id="receipt-not-used-by-private-binding-test",
+                ingress_receipt_sha256=text_sha256("receipt"),
+            )
+            registry = RequestEvidenceBindingRegistry(
+                world_id="world-test",
+                branch_id="child",
+                turn_id="turn-002",
+            )
+            head, bindings, projections = (
+                child_runtime._bind_stable_accepted_context(
+                    request=next_request,
+                    registry=registry,
+                    branch_root=child_root,
+                )
+            )
+            self.assertEqual(head, child_receipt)
+            self.assertEqual(projections, ())
+            self.assertEqual(
+                tuple(value["binding_key"] for value in bindings),
+                child_receipt.stable_reference_keys,
+            )
+            with self.assertRaisesRegex(StateConflictError, "stale, foreign"):
+                RequestEvidenceBindingRegistry(
+                    world_id="world-test",
+                    branch_id="child",
+                    turn_id="turn-002",
+                ).allocate_stable_accepted_context_reference(
+                    parent_references[0],
+                    current_provider_thread_sha256=(
+                        child.ensure_session().provider_thread_id_sha256
+                    ),
+                    current_accepted_ancestry_sha256=(
+                        child_receipt.accepted_ancestry_sha256
+                    ),
+                )
+            with self.assertRaisesRegex(StateConflictError, "stale, foreign"):
+                RequestEvidenceBindingRegistry(
+                    world_id="world-test",
+                    branch_id="child-sibling",
+                    turn_id="turn-002",
+                ).allocate_stable_accepted_context_reference(
+                    child_references[0],
+                    current_provider_thread_sha256=(
+                        child.ensure_session().provider_thread_id_sha256
+                    ),
+                    current_accepted_ancestry_sha256=(
+                        child_receipt.accepted_ancestry_sha256
+                    ),
+                )
+            self.assertEqual(
+                child_references[0].injection_receipt_sha256,
+                forked.transfer_receipt.operation_receipt_sha256,
+            )
+
+            def seed_child_checkpoint(branch_id: str) -> Path:
+                seeded = world.initialize("world-test", branch_id)
+                world.write_accepted_pair("world-test", branch_id, pair)
+                target_receipt = (
+                    seeded
+                    / "CANDIDATES"
+                    / "turn-001"
+                    / "PROMOTION_RECEIPT.json"
+                )
+                target_receipt.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source_receipt_path, target_receipt)
+                return seeded
+
+            persistence_root = seed_child_checkpoint("child-persistence-failure")
+            persistence_target = replace(
+                target,
+                branch_id="child-persistence-failure",
+                world_directory_identity_sha256=text_sha256(
+                    "world-test/child-persistence-failure"
+                ),
+            )
+            with mock.patch.object(
+                StableAcceptedContextReferenceStore,
+                "save",
+                side_effect=StateConflictError("simulated child persistence failure"),
+            ):
+                with self.assertRaisesRegex(
+                    StateConflictError, "persistence failure"
+                ):
+                    parent_runtime.fork_planner_session_for_branch(
+                        target_compatibility=persistence_target,
+                        branch_receipt=branch_receipt(
+                            parent, "child-persistence-failure"
+                        ),
+                    )
+            self.assertFalse(
+                (
+                    persistence_root
+                    / "PLANNER_SESSION"
+                    / "SESSION_SNAPSHOT.json"
+                ).exists()
+            )
+            self.assertIs(parent_runtime.planner_session, parent)
+
+            injection_root = seed_child_checkpoint("child-injection-failure")
+            injection_target = replace(
+                target,
+                branch_id="child-injection-failure",
+                world_directory_identity_sha256=text_sha256(
+                    "world-test/child-injection-failure"
+                ),
+            )
+            original_append = port.append_context
+
+            def fail_transfer(handle, payload):
+                if payload.startswith(
+                    "[BRANCH ACCEPTED REFERENCE REBINDING]"
+                ):
+                    raise StateConflictError("simulated child injection failure")
+                return original_append(handle, payload)
+
+            with mock.patch.object(
+                port,
+                "append_context",
+                side_effect=fail_transfer,
+            ):
+                with self.assertRaisesRegex(
+                    StateConflictError, "injection failure"
+                ):
+                    parent_runtime.fork_planner_session_for_branch(
+                        target_compatibility=injection_target,
+                        branch_receipt=branch_receipt(
+                            parent, "child-injection-failure"
+                        ),
+                    )
+            self.assertFalse(
+                any(
+                    (injection_root / "PLANNER_SESSION" / "ACCEPTED_REFERENCES").glob(
+                        "*.json"
+                    )
+                )
+            )
+            self.assertFalse(
+                (
+                    injection_root
+                    / "PLANNER_SESSION"
+                    / "SESSION_SNAPSHOT.json"
+                ).exists()
+            )
+            self.assertIs(parent_runtime.planner_session, parent)
+
+    def test_provider_fork_rejects_foreign_stale_and_wrong_privacy_receipts(self) -> None:
+        port = InMemoryContinuousStoredSessionPort()
+        parent = ContinuousSessionCoordinator(
+            compatibility(ContinuousSessionRole.PLANNER), port
+        )
+        parent.install_base_instructions(PLANNER_STABLE_INSTRUCTIONS)
+        envelope = accepted_envelope()
+        parent.append_accepted_final_sequence(envelope)
+        parent.synchronize_accepted_final_sequence(envelope)
+        valid = branch_receipt(parent, "branch:child")
+        prior_forks = tuple(
+            value for value in port.operations if value[0] == "fork_branch"
+        )
+        cases = {
+            "privacy": {
+                "privacy_boundary_sha256": text_sha256(
+                    "caller supplied but structurally valid"
+                )
+            },
+            "foreign_parent": {"parent_branch_id": "branch:foreign"},
+            "sibling_target": {"child_branch_id": "branch:sibling"},
+            "changed_head": {"accepted_checkpoint_turn_id": "turn:stale"},
+            "sibling_ancestry": {
+                "accepted_ancestry_sha256": text_sha256("sibling ancestry")
+            },
+            "incompatible_thread": {
+                "parent_provider_thread_sha256": text_sha256("foreign thread")
+            },
+        }
+        for label, changes in cases.items():
+            with self.subTest(label=label):
+                payload = {
+                    "schema_version": valid.schema_version,
+                    "world_id": valid.world_id,
+                    "parent_branch_id": valid.parent_branch_id,
+                    "child_branch_id": valid.child_branch_id,
+                    "accepted_checkpoint_turn_id": (
+                        valid.accepted_checkpoint_turn_id
+                    ),
+                    "accepted_ancestry_sha256": valid.accepted_ancestry_sha256,
+                    "parent_provider_thread_sha256": (
+                        valid.parent_provider_thread_sha256
+                    ),
+                    "privacy_boundary_sha256": valid.privacy_boundary_sha256,
+                    **changes,
+                }
+                forged = ContinuousBranchForkReceiptV1(
+                    **payload,
+                    receipt_sha256=canonical_sha256(payload),
+                )
+                with self.assertRaisesRegex(
+                    StateConflictError, "accepted ancestry"
+                ):
+                    parent.fork_for_branch(
+                        compatibility(
+                            ContinuousSessionRole.PLANNER, "branch:child"
+                        ),
+                        branch_receipt=forged,
+                    )
+        self.assertEqual(
+            tuple(value for value in port.operations if value[0] == "fork_branch"),
+            prior_forks,
+        )
 
     def test_nonforkable_branch_reconstructs_and_rekeys_parent_references(self) -> None:
         class NonForkablePort(InMemoryContinuousStoredSessionPort):

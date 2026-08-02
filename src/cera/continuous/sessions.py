@@ -413,6 +413,10 @@ class ContinuousSessionInitializationReceiptV1:
             raise ContractValidationError(
                 "continuous reconstruction summary hash is invalid"
             )
+        branch_fork_initialization = (
+            self.branch_receipt_sha256 is not None
+            and self.context_mode is PlannerContextMode.LEAN_CONTINUOUS
+        )
         if self.context_mode is PlannerContextMode.RECONSTRUCTION:
             if (
                 self.reconstruction_payload_sha256 is None
@@ -420,6 +424,18 @@ class ContinuousSessionInitializationReceiptV1:
             ):
                 raise ContractValidationError(
                     "continuous reconstruction lacks its exact payload"
+                )
+        elif branch_fork_initialization:
+            if (
+                self.context_mode is not PlannerContextMode.LEAN_CONTINUOUS
+                or self.parent_provider_thread_sha256 is None
+                or self.reconstruction_payload_sha256 is not None
+                or self.reconstruction_bytes != 0
+                or self.reconstruction_estimated_tokens != 0
+                or not self.accepted_tail_turn_ids
+            ):
+                raise ContractValidationError(
+                    "accepted-checkpoint fork initialization custody changed"
                 )
         elif any(
             (
@@ -517,6 +533,133 @@ class ContinuousBranchForkReceiptV1:
             raise ContractValidationError("continuous branch-fork receipt changed")
 
 
+def continuous_branch_privacy_boundary_sha256(
+    *,
+    parent_compatibility: ContinuousSessionCompatibilityV1,
+    child_compatibility: ContinuousSessionCompatibilityV1,
+    accepted_checkpoint_turn_id: str,
+    accepted_ancestry_sha256: str,
+    parent_provider_thread_sha256: str,
+) -> str:
+    """Return the one active privacy identity for an accepted-checkpoint fork."""
+
+    if (
+        parent_compatibility.role is not ContinuousSessionRole.PLANNER
+        or child_compatibility.role is not ContinuousSessionRole.PLANNER
+        or parent_compatibility.world_id != child_compatibility.world_id
+        or parent_compatibility.branch_id == child_compatibility.branch_id
+    ):
+        raise StateConflictError("continuous branch privacy scope is invalid")
+    if not accepted_checkpoint_turn_id.strip() or any(
+        not re_is_sha256(value)
+        for value in (accepted_ancestry_sha256, parent_provider_thread_sha256)
+    ):
+        raise ContractValidationError("continuous branch privacy identity is incomplete")
+    return canonical_sha256(
+        {
+            "schema_version": "cera.continuous_branch_privacy_boundary.v2",
+            "policy_identity": "accepted_checkpoint_exact_ancestry_owner_isolation",
+            "world_id": parent_compatibility.world_id,
+            "parent_branch_id": parent_compatibility.branch_id,
+            "child_branch_id": child_compatibility.branch_id,
+            "accepted_checkpoint_turn_id": accepted_checkpoint_turn_id,
+            "accepted_ancestry_sha256": accepted_ancestry_sha256,
+            "parent_provider_thread_sha256": parent_provider_thread_sha256,
+            "authority_policy_version": parent_compatibility.authority_policy_version,
+            "privacy_policy_version": parent_compatibility.privacy_policy_version,
+            "protected_user_policy_version": (
+                parent_compatibility.protected_user_policy_version
+            ),
+            "session_policy_version": parent_compatibility.session_policy_version,
+            "child_authority_policy_version": child_compatibility.authority_policy_version,
+            "child_privacy_policy_version": child_compatibility.privacy_policy_version,
+            "child_protected_user_policy_version": (
+                child_compatibility.protected_user_policy_version
+            ),
+            "child_session_policy_version": child_compatibility.session_policy_version,
+        }
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousBranchReferenceTransferReceiptV1:
+    """Exact child-thread custody for value-free accepted-reference rebinding."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_branch_reference_transfer.v1"
+
+    schema_version: str
+    world_id: str
+    child_branch_id: str
+    accepted_turn_id: str
+    accepted_envelope_sha256: str
+    child_provider_thread_sha256: str
+    branch_receipt_sha256: str
+    parent_reference_keys: tuple[str, ...]
+    child_reference_keys: tuple[str, ...]
+    child_descriptor_set_sha256: str
+    injected_context_sha256: str
+    operation_receipt_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous branch-reference transfer schema changed"
+            )
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (self.world_id, self.child_branch_id, self.accepted_turn_id)
+        ):
+            raise ContractValidationError(
+                "continuous branch-reference transfer scope is incomplete"
+            )
+        for keys in (self.parent_reference_keys, self.child_reference_keys):
+            if not keys or len(keys) != len(set(keys)) or any(
+                not value.startswith("binding_accepted_ref_") for value in keys
+            ):
+                raise ContractValidationError(
+                    "continuous branch-reference transfer keys are invalid"
+                )
+        if len(self.parent_reference_keys) != len(self.child_reference_keys):
+            raise ContractValidationError(
+                "continuous branch-reference transfer mapping is incomplete"
+            )
+        if set(self.parent_reference_keys).intersection(self.child_reference_keys):
+            raise ContractValidationError(
+                "continuous branch-reference transfer reused a parent key"
+            )
+        for value in (
+            self.accepted_envelope_sha256,
+            self.child_provider_thread_sha256,
+            self.branch_receipt_sha256,
+            self.child_descriptor_set_sha256,
+            self.injected_context_sha256,
+            self.operation_receipt_sha256,
+        ):
+            if not re_is_sha256(value):
+                raise ContractValidationError(
+                    "continuous branch-reference transfer hash is invalid"
+                )
+        expected = canonical_sha256(
+            {
+                "schema_version": self.SCHEMA_VERSION,
+                "world_id": self.world_id,
+                "child_branch_id": self.child_branch_id,
+                "accepted_turn_id": self.accepted_turn_id,
+                "accepted_envelope_sha256": self.accepted_envelope_sha256,
+                "child_provider_thread_sha256": self.child_provider_thread_sha256,
+                "branch_receipt_sha256": self.branch_receipt_sha256,
+                "parent_reference_keys": self.parent_reference_keys,
+                "child_reference_keys": self.child_reference_keys,
+                "child_descriptor_set_sha256": self.child_descriptor_set_sha256,
+                "injected_context_sha256": self.injected_context_sha256,
+            }
+        )
+        if self.operation_receipt_sha256 != expected:
+            raise ContractValidationError(
+                "continuous branch-reference transfer receipt changed"
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class CharacterSummaryDeliveryReceiptV1:
     """Planner-thread delivery custody; never suppresses Composer context."""
@@ -548,6 +691,7 @@ class CharacterSummaryDeliveryReceiptV1:
             "material_revision_change",
             "scene_change",
             "reconstruction",
+            "accepted_checkpoint_fork",
             "planner_requested_exact_evidence",
         }:
             raise ContractValidationError("character-summary delivery reason is invalid")
@@ -717,6 +861,7 @@ class ContinuousContextEventV1:
             "scene_change",
             "scene_summary",
             "character_summary",
+            "branch_reference_rebinding",
         }:
             raise ContractValidationError("continuous context event type is invalid")
         if not self.turn_or_scene_id.strip():
@@ -1760,6 +1905,54 @@ class ContinuousSessionCoordinator:
             ] = delivery
         return coordinator
 
+    def build_branch_fork_receipt(
+        self,
+        compatibility: ContinuousSessionCompatibilityV1,
+    ) -> ContinuousBranchForkReceiptV1:
+        """Issue the sole valid Python-owned receipt for the current checkpoint."""
+
+        if (
+            compatibility.role is not self.compatibility.role
+            or compatibility.world_id != self.compatibility.world_id
+            or compatibility.branch_id == self.compatibility.branch_id
+        ):
+            raise StateConflictError("continuous branch-fork target scope is invalid")
+        parent = self.ensure_session()
+        accepted_turn_ids = tuple(self._accepted_envelopes)
+        if not accepted_turn_ids:
+            raise StateConflictError(
+                "continuous branch-fork receipt requires an accepted checkpoint"
+            )
+        accepted_ancestry_sha256 = canonical_sha256(
+            {
+                "accepted_turn_ids": accepted_turn_ids,
+                "accepted_envelopes": tuple(
+                    (turn_id, self._accepted_envelopes[turn_id])
+                    for turn_id in accepted_turn_ids
+                ),
+            }
+        )
+        payload = {
+            "schema_version": ContinuousBranchForkReceiptV1.SCHEMA_VERSION,
+            "world_id": self.compatibility.world_id,
+            "parent_branch_id": self.compatibility.branch_id,
+            "child_branch_id": compatibility.branch_id,
+            "accepted_checkpoint_turn_id": accepted_turn_ids[-1],
+            "accepted_ancestry_sha256": accepted_ancestry_sha256,
+            "parent_provider_thread_sha256": parent.provider_thread_id_sha256,
+            "privacy_boundary_sha256": continuous_branch_privacy_boundary_sha256(
+                parent_compatibility=self.compatibility,
+                child_compatibility=compatibility,
+                accepted_checkpoint_turn_id=accepted_turn_ids[-1],
+                accepted_ancestry_sha256=accepted_ancestry_sha256,
+                parent_provider_thread_sha256=parent.provider_thread_id_sha256,
+            ),
+        }
+        return ContinuousBranchForkReceiptV1(
+            **payload,
+            receipt_sha256=canonical_sha256(payload),
+        )
+
     def fork_for_branch(
         self,
         compatibility: ContinuousSessionCompatibilityV1,
@@ -1785,6 +1978,13 @@ class ContinuousSessionCoordinator:
                 ),
             }
         )
+        expected_privacy_boundary = continuous_branch_privacy_boundary_sha256(
+            parent_compatibility=self.compatibility,
+            child_compatibility=compatibility,
+            accepted_checkpoint_turn_id=accepted_turn_ids[-1],
+            accepted_ancestry_sha256=expected_ancestry,
+            parent_provider_thread_sha256=parent.provider_thread_id_sha256,
+        )
         if (
             branch_receipt.world_id != compatibility.world_id
             or branch_receipt.parent_branch_id != self.compatibility.branch_id
@@ -1793,6 +1993,8 @@ class ContinuousSessionCoordinator:
             or branch_receipt.accepted_ancestry_sha256 != expected_ancestry
             or branch_receipt.parent_provider_thread_sha256
             != parent.provider_thread_id_sha256
+            or branch_receipt.privacy_boundary_sha256
+            != expected_privacy_boundary
         ):
             raise StateConflictError(
                 "continuous branch-fork receipt changed accepted ancestry"
@@ -1811,15 +2013,123 @@ class ContinuousSessionCoordinator:
             in {"accepted_final_sequence", "accepted_final_sequence_synchronized"}
         )
         coordinator._accepted_envelopes.update(self._accepted_envelopes)
+        for key, prior in self._summary_deliveries.items():
+            payload = {
+                "schema_version": CharacterSummaryDeliveryReceiptV1.SCHEMA_VERSION,
+                "character_id": prior.character_id,
+                "source_path_or_record_id": prior.source_path_or_record_id,
+                "source_revision": prior.source_revision,
+                "source_sha256": prior.source_sha256,
+                "envelope_sha256": prior.envelope_sha256,
+                "selected_content_sha256": prior.selected_content_sha256,
+                "provider_thread_sha256": child.provider_thread_id_sha256,
+                "delivery_reason": "accepted_checkpoint_fork",
+                "planner_prompt_sha256": prior.planner_prompt_sha256,
+            }
+            coordinator._summary_deliveries[key] = CharacterSummaryDeliveryReceiptV1(
+                **payload,
+                receipt_sha256=canonical_sha256(payload),
+            )
         coordinator._initialization_receipt = coordinator._build_initialization_receipt(
             context_mode=PlannerContextMode.LEAN_CONTINUOUS,
             reconstruction_payload=None,
-            accepted_tail_turn_ids=(),
-            character_summary_envelope_sha256s=(),
+            accepted_tail_turn_ids=accepted_turn_ids,
+            character_summary_envelope_sha256s=tuple(
+                value.envelope_sha256
+                for value in coordinator._summary_deliveries.values()
+            ),
             parent_provider_thread_sha256=parent.provider_thread_id_sha256,
             branch_receipt_sha256=branch_receipt.receipt_sha256,
         )
         return coordinator
+
+    def establish_branch_reference_rebinding(
+        self,
+        envelope: AcceptedFinalSequenceEnvelopeV1,
+        *,
+        branch_receipt: ContinuousBranchForkReceiptV1,
+        parent_reference_keys: tuple[str, ...],
+        child_reference_descriptors: tuple[dict[str, Any], ...],
+    ) -> ContinuousBranchReferenceTransferReceiptV1:
+        """Append one value-free parent-to-child key transfer to a forked thread."""
+
+        if self.compatibility.role is not ContinuousSessionRole.PLANNER:
+            raise StateConflictError("branch-reference transfer belongs to Planner")
+        initialization = self.initialization_receipt
+        if (
+            initialization.branch_receipt_sha256 != branch_receipt.receipt_sha256
+            or initialization.parent_provider_thread_sha256
+            != branch_receipt.parent_provider_thread_sha256
+            or branch_receipt.child_branch_id != self.compatibility.branch_id
+            or self._accepted_envelopes.get(envelope.accepted_turn_id)
+            != envelope.envelope_sha256
+        ):
+            raise StateConflictError(
+                "branch-reference transfer changed fork or accepted checkpoint"
+            )
+        child_keys = tuple(
+            str(value.get("reference_key", ""))
+            for value in child_reference_descriptors
+        )
+        if (
+            len(parent_reference_keys) != len(child_reference_descriptors)
+            or len(parent_reference_keys) != len(set(parent_reference_keys))
+            or len(child_keys) != len(set(child_keys))
+            or any(
+                not value.startswith("binding_accepted_ref_")
+                for value in (*parent_reference_keys, *child_keys)
+            )
+            or set(parent_reference_keys).intersection(child_keys)
+        ):
+            raise StateConflictError("branch-reference transfer mapping is invalid")
+        if any(
+            value.event_type == "branch_reference_rebinding"
+            and value.turn_or_scene_id == envelope.accepted_turn_id
+            for value in self._events
+        ):
+            raise StateConflictError(
+                "branch-reference transfer was already established"
+            )
+        descriptor_set_sha256 = canonical_sha256(child_reference_descriptors)
+        rendered = "[BRANCH ACCEPTED REFERENCE REBINDING]\n" + canonical_bytes(
+            {
+                "schema_version": "cera.branch_reference_rebinding_context.v1",
+                "world_id": self.compatibility.world_id,
+                "child_branch_id": self.compatibility.branch_id,
+                "accepted_turn_id": envelope.accepted_turn_id,
+                "accepted_envelope_sha256": envelope.envelope_sha256,
+                "branch_receipt_sha256": branch_receipt.receipt_sha256,
+                "parent_reference_keys_revoked": parent_reference_keys,
+                "child_reference_descriptors": child_reference_descriptors,
+            }
+        ).decode("utf-8")
+        handle = self.ensure_session()
+        self.port.append_context(handle, rendered)
+        payload = {
+            "schema_version": ContinuousBranchReferenceTransferReceiptV1.SCHEMA_VERSION,
+            "world_id": self.compatibility.world_id,
+            "child_branch_id": self.compatibility.branch_id,
+            "accepted_turn_id": envelope.accepted_turn_id,
+            "accepted_envelope_sha256": envelope.envelope_sha256,
+            "child_provider_thread_sha256": handle.provider_thread_id_sha256,
+            "branch_receipt_sha256": branch_receipt.receipt_sha256,
+            "parent_reference_keys": parent_reference_keys,
+            "child_reference_keys": child_keys,
+            "child_descriptor_set_sha256": descriptor_set_sha256,
+            "injected_context_sha256": text_sha256(rendered),
+        }
+        receipt = ContinuousBranchReferenceTransferReceiptV1(
+            **payload,
+            operation_receipt_sha256=canonical_sha256(payload),
+        )
+        self._events.append(
+            ContinuousContextEventV1(
+                event_type="branch_reference_rebinding",
+                turn_or_scene_id=envelope.accepted_turn_id,
+                payload_sha256=receipt.operation_receipt_sha256,
+            )
+        )
+        return receipt
 
 
 def assert_separate_role_sessions(

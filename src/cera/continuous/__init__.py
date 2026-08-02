@@ -56,6 +56,7 @@ from .ingress import (
 from .sessions import (
     CharacterSummaryDeliveryReceiptV1,
     ContinuousBranchForkReceiptV1,
+    ContinuousBranchReferenceTransferReceiptV1,
     ContinuousContextInjectionReceiptV1,
     ContinuousReconstructionAcceptedTurnV1,
     ContinuousSessionInitializationReceiptV1,
@@ -63,6 +64,7 @@ from .sessions import (
     ContinuousSessionSnapshotReceiptV1,
     ContinuousSessionSnapshotStore,
     PlannerContextMode,
+    continuous_branch_privacy_boundary_sha256,
 )
 from .runtime import ContinuousSceneChangeCandidateV1
 from .shadow_ingress import (
@@ -150,9 +152,11 @@ __all__ = [
     "ContinuousReconstructionAcceptedTurnV1",
     "ContinuousSessionReconstructionBundleV1",
     "ContinuousBranchForkReceiptV1",
+    "ContinuousBranchReferenceTransferReceiptV1",
     "CharacterSummaryDeliveryReceiptV1",
     "ContinuousContextInjectionReceiptV1",
     "ContinuousSessionSnapshotReceiptV1",
+    "continuous_branch_privacy_boundary_sha256",
     "ContinuousSceneChangeCandidateV1",
     "ContinuousShadowIngressResultV1",
     "ContinuousSillyTavernShadowRequestBridge",
