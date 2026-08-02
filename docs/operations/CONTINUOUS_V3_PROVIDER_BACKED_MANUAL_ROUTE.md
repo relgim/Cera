@@ -34,6 +34,17 @@ $Launcher = '.\scripts\run_cera_sillytavern_continuous_provider_manual.py'
 & .\.venv\Scripts\python.exe $Launcher --transport-mode non_network_fake_ports stop --root $Root
 ```
 
+The launcher is directly executable as shown. Its background `serve` child
+inherits the provider-backed route selection, and local status and review HTTP
+calls resolve the selected port dynamically instead of retaining port 5114 as
+a Python default argument.
+
+The integrated provider-free readiness gate exercises typed submissions,
+exact Validator review hashes, strict Accept and Decline, durable current cast,
+explicit Scene Change, stop/restart, recovered unresolved-review handling,
+pending-decision fail-closed recovery, verified thread terminalization, and
+root isolation through this port-5115 route.
+
 Profile, model, port, root identity, manifest, and process records are bound.
 The provider-free profile or port cannot be substituted into this route, and
 this provider profile cannot be supplied to the provider-free launcher.

@@ -104,6 +104,29 @@ provider ledger, child manifest, child configuration, and result. Historical
 V1 Run 001 is read only for its exact one-call debit and can never be selected
 as a current run.
 
+## Provider-free executable recovery gate
+
+The Progression 3 recovery proof runs the actual parent CLI and its actual
+child-process entrypoint in a disposable local clone. The clone publishes a
+test-only repository cycle, uses `non_network_fake_ports`, and cannot affect
+the authoritative repository cycle namespace or dispatch an external model.
+
+The first fresh V2 identity may be terminalized at the closed fixture boundary
+after the exact first-turn three-stage schedule by supplying both:
+
+```text
+--provider-free-failure-run-id <fresh-v2-run-id>
+--confirm-provider-free-partial-failure-fixture-sha256 <exact-source-hash>
+```
+
+These options are rejected in external mode, are bound into the campaign
+configuration, and do not permit an arbitrary failure location. Recovery uses
+a new campaign root, preserves the failed root byte-for-byte, and continues
+with the next unused V2 identity. Passing evidence must show exactly two later
+ten-stage runs, one controlled restart between them, `14` Codex-family and `6`
+DeepSeek fake-stage invocations for those passing runs, plus the immutable V1
+one-call Codex debit.
+
 ## Manual-test handoff
 
 After qualification, the campaign evidence identifies the frozen source,

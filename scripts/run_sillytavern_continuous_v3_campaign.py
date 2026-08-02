@@ -71,6 +71,8 @@ from cera.sillytavern.campaign import (
     CONTINUOUS_V3_V2_CAMPAIGN_TOTAL_CALL_CEILING,
     CONTINUOUS_V3_V2_CODEX_FAMILY_CALL_CEILING,
     CONTINUOUS_V3_V2_DEEPSEEK_CALL_CEILING,
+    PROVIDER_FREE_PARTIAL_FAILURE_FIXTURE,
+    PROVIDER_FREE_PARTIAL_FAILURE_FIXTURE_SHA256,
     CampaignRunRecord,
     CampaignRunState,
     ContinuousV3TwoRunCampaign,
@@ -804,6 +806,7 @@ def recover_prior_campaign(
         consecutive_passes=recovered_consecutive_passes,
         total_provider_calls=total_calls,
         restart_after_last_pass=recovered_consecutive_passes == 1,
+        controlled_restart_count=0,
     )
     recovery: dict[str, Any] = {
         "schema_version": "cera.sillytavern_continuous_v3_prior_recovery.v1",
@@ -973,6 +976,8 @@ def execution_manifest(
     expected_cycle_id: str,
     expected_cycle_sequence: int,
     expected_task_id: str,
+    provider_free_failure_run_id: str | None = None,
+    provider_free_failure_fixture_sha256: str | None = None,
 ) -> dict[str, Any]:
     authority = validate_authority(
         cycle,
@@ -1030,6 +1035,17 @@ def execution_manifest(
             "provider_activation_receipt_sha256": None,
             "fake_fixture_id": SCRIPTED_JOB4_FIXTURE_ID,
             "fake_fixture_sha256": SCRIPTED_JOB4_FIXTURE_SHA256,
+            "provider_free_partial_failure": (
+                None
+                if provider_free_failure_run_id is None
+                else {
+                    **PROVIDER_FREE_PARTIAL_FAILURE_FIXTURE,
+                    "run_id": provider_free_failure_run_id,
+                    "fixture_sha256": (
+                        provider_free_failure_fixture_sha256
+                    ),
+                }
+            ),
         }
     elif transport_mode == "external_provider":
         if provider_activation_path is None or not provider_activation_path.is_file():
@@ -1067,6 +1083,7 @@ def execution_manifest(
             ],
             "fake_fixture_id": None,
             "fake_fixture_sha256": None,
+            "provider_free_partial_failure": None,
         }
     else:
         raise ValueError("unknown continuous campaign transport mode")
@@ -1303,6 +1320,7 @@ def _v2_campaign_from_dict(
         consecutive_passes=value.get("consecutive_passes"),
         total_provider_calls=value.get("total_provider_calls"),
         restart_after_last_pass=value.get("restart_after_last_pass"),
+        controlled_restart_count=value.get("controlled_restart_count"),
         run_identities=CONTINUOUS_V3_V2_RUN_IDENTITIES,
         total_call_ceiling=CONTINUOUS_V3_V2_CAMPAIGN_TOTAL_CALL_CEILING,
         codex_family_call_ceiling=CONTINUOUS_V3_V2_CODEX_FAMILY_CALL_CEILING,
@@ -1598,6 +1616,16 @@ def run_single(args: argparse.Namespace) -> int:
         expected_cycle_id=args.expected_cycle_id,
         expected_cycle_sequence=args.expected_cycle_sequence,
         expected_task_id=args.expected_job4_task_id,
+        provider_free_failure_run_id=getattr(
+            args, "provider_free_failure_run_id", None
+        ),
+        provider_free_failure_fixture_sha256=(
+            getattr(
+                args,
+                "confirm_provider_free_partial_failure_fixture_sha256",
+                None,
+            )
+        ),
     )
     assert_exact_execution_manifest(
         supplied_manifest,
@@ -1728,6 +1756,15 @@ def run_single(args: argparse.Namespace) -> int:
                 result["http"].append({"method": "POST", "path": f"/v1/cera/reviews/{review_id}/decision", "turn": turn_number, "status": status, "body": decision})
                 if status != 200 or decision.get("status") != "accepted":
                     raise RuntimeError(f"turn {turn_number} strict acceptance failed")
+                if (
+                    turn_number == 1
+                    and args.run_id
+                    == getattr(args, "provider_free_failure_run_id", None)
+                ):
+                    raise RuntimeError(
+                        "provider-free qualification injected failure after "
+                        "the exact first-turn three-stage dispatch"
+                    )
             labels = tuple(record["label"] for record in harness.call_records)
             expected_external_calls = (
                 0 if args.transport_mode == "non_network_fake_ports" else 10
@@ -1867,6 +1904,16 @@ def run_campaign(args: argparse.Namespace) -> int:
         expected_cycle_id=args.expected_cycle_id,
         expected_cycle_sequence=args.expected_cycle_sequence,
         expected_task_id=args.expected_job4_task_id,
+        provider_free_failure_run_id=getattr(
+            args, "provider_free_failure_run_id", None
+        ),
+        provider_free_failure_fixture_sha256=(
+            getattr(
+                args,
+                "confirm_provider_free_partial_failure_fixture_sha256",
+                None,
+            )
+        ),
     )
     campaign_root.mkdir(parents=True)
     manifest_path = campaign_root / "EXECUTION_MANIFEST.json"
@@ -1921,6 +1968,16 @@ def run_campaign(args: argparse.Namespace) -> int:
             expected_cycle_id=args.expected_cycle_id,
             expected_cycle_sequence=args.expected_cycle_sequence,
             expected_task_id=args.expected_job4_task_id,
+            provider_free_failure_run_id=getattr(
+                args, "provider_free_failure_run_id", None
+            ),
+            provider_free_failure_fixture_sha256=(
+                getattr(
+                    args,
+                    "confirm_provider_free_partial_failure_fixture_sha256",
+                    None,
+                )
+            ),
         )
         assert_exact_execution_manifest(
             manifest,
@@ -1954,6 +2011,15 @@ def run_campaign(args: argparse.Namespace) -> int:
         if args.provider_activation is not None:
             command.extend(
                 ["--provider-activation", str(args.provider_activation.resolve())]
+            )
+        if getattr(args, "provider_free_failure_run_id", None) is not None:
+            command.extend(
+                [
+                    "--provider-free-failure-run-id",
+                    args.provider_free_failure_run_id,
+                    "--confirm-provider-free-partial-failure-fixture-sha256",
+                    args.confirm_provider_free_partial_failure_fixture_sha256,
+                ]
             )
         completed = None
         process_error: BaseException | None = None
@@ -2066,9 +2132,31 @@ def main() -> int:
         required=True,
     )
     parser.add_argument("--provider-activation", type=Path)
+    parser.add_argument(
+        "--provider-free-failure-run-id",
+        choices=CONTINUOUS_V3_V2_RUN_IDENTITIES,
+    )
+    parser.add_argument(
+        "--confirm-provider-free-partial-failure-fixture-sha256"
+    )
     parser.add_argument("--execution-manifest", type=Path)
     parser.add_argument("--execution-identity-sha256")
     args = parser.parse_args()
+    if (args.provider_free_failure_run_id is None) != (
+        args.confirm_provider_free_partial_failure_fixture_sha256 is None
+    ):
+        parser.error(
+            "provider-free partial failure requires both the run identity and "
+            "the exact fixture hash"
+        )
+    if args.provider_free_failure_run_id is not None:
+        if args.transport_mode != "non_network_fake_ports":
+            parser.error("provider-free partial failure is forbidden in external mode")
+        if (
+            args.confirm_provider_free_partial_failure_fixture_sha256
+            != PROVIDER_FREE_PARTIAL_FAILURE_FIXTURE_SHA256
+        ):
+            parser.error("provider-free partial failure fixture identity changed")
     if (
         args.execution_checkpoint_sha is not None
         and args.execution_checkpoint_sha != args.expected_checkpoint_sha

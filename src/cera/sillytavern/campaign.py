@@ -36,6 +36,18 @@ CONTINUOUS_V3_CALL_SCHEDULE = (
     "turn-3-validator",
 )
 
+PROVIDER_FREE_PARTIAL_FAILURE_FIXTURE = {
+    "schema_version": "cera.sillytavern_continuous_v3_partial_failure_fixture.v1",
+    "transport_mode": "non_network_fake_ports",
+    "failure_boundary": "after_first_turn_three_stage_dispatch_before_turn_2",
+    "stage_invocations_before_failure": 3,
+    "external_provider_calls": 0,
+    "retry_permitted": False,
+}
+PROVIDER_FREE_PARTIAL_FAILURE_FIXTURE_SHA256 = canonical_sha256(
+    PROVIDER_FREE_PARTIAL_FAILURE_FIXTURE
+)
+
 CAMPAIGN_TOTAL_CALL_CEILING = 40
 CODEX_FAMILY_CALL_CEILING = 800
 DEEPSEEK_CALL_CEILING = 800
@@ -281,6 +293,17 @@ def validate_v2_campaign_configuration(
     ):
         raise ContractValidationError("V2 prompt or schema binding changed")
     transport = data["transport_mode"]
+    if set(transport) != {
+        "mode",
+        "external_provider_calls_authorized",
+        "provider_activation_relative_path",
+        "provider_activation_file_sha256",
+        "provider_activation_receipt_sha256",
+        "fake_fixture_id",
+        "fake_fixture_sha256",
+        "provider_free_partial_failure",
+    }:
+        raise ContractValidationError("V2 transport authority fields changed")
     if transport.get("mode") not in {
         "external_provider",
         "non_network_fake_ports",
@@ -289,6 +312,7 @@ def validate_v2_campaign_configuration(
     if type(transport.get("external_provider_calls_authorized")) is not int:
         raise ContractValidationError("V2 transport authority is invalid")
     if transport["mode"] == "non_network_fake_ports":
+        partial_failure = transport.get("provider_free_partial_failure")
         if (
             transport.get("external_provider_calls_authorized") != 0
             or transport.get("provider_activation_relative_path") is not None
@@ -298,6 +322,37 @@ def validate_v2_campaign_configuration(
             or not re_is_sha256(transport.get("fake_fixture_sha256"))
         ):
             raise ContractValidationError("V2 fake transport authority changed")
+        if partial_failure is not None:
+            expected_partial_fields = {
+                "schema_version",
+                "transport_mode",
+                "failure_boundary",
+                "stage_invocations_before_failure",
+                "external_provider_calls",
+                "retry_permitted",
+                "run_id",
+                "fixture_sha256",
+            }
+            if (
+                not isinstance(partial_failure, Mapping)
+                or set(partial_failure) != expected_partial_fields
+                or partial_failure.get("schema_version")
+                != "cera.sillytavern_continuous_v3_partial_failure_fixture.v1"
+                or partial_failure.get("transport_mode")
+                != "non_network_fake_ports"
+                or partial_failure.get("failure_boundary")
+                != "after_first_turn_three_stage_dispatch_before_turn_2"
+                or partial_failure.get("stage_invocations_before_failure") != 3
+                or partial_failure.get("external_provider_calls") != 0
+                or partial_failure.get("retry_permitted") is not False
+                or partial_failure.get("run_id")
+                not in CONTINUOUS_V3_V2_RUN_IDENTITIES
+                or partial_failure.get("fixture_sha256")
+                != PROVIDER_FREE_PARTIAL_FAILURE_FIXTURE_SHA256
+            ):
+                raise ContractValidationError(
+                    "V2 provider-free partial failure fixture changed"
+                )
     elif (
         transport.get("external_provider_calls_authorized") < 1
         or not isinstance(transport.get("provider_activation_relative_path"), str)
@@ -305,6 +360,7 @@ def validate_v2_campaign_configuration(
         or not re_is_sha256(transport.get("provider_activation_receipt_sha256"))
         or transport.get("fake_fixture_id") is not None
         or transport.get("fake_fixture_sha256") is not None
+        or transport.get("provider_free_partial_failure") is not None
     ):
         raise ContractValidationError("V2 external transport authority changed")
 
@@ -347,6 +403,7 @@ class ContinuousV3TwoRunCampaign:
     consecutive_passes: int = 0
     total_provider_calls: int = 0
     restart_after_last_pass: bool = False
+    controlled_restart_count: int = 0
     run_identities: tuple[str, ...] = CONTINUOUS_V3_RUN_IDENTITIES
     total_call_ceiling: int = CAMPAIGN_TOTAL_CALL_CEILING
     codex_family_call_ceiling: int = CODEX_FAMILY_CALL_CEILING
@@ -361,6 +418,11 @@ class ContinuousV3TwoRunCampaign:
             raise ContractValidationError("campaign consecutive-pass count is invalid")
         if type(self.restart_after_last_pass) is not bool:
             raise ContractValidationError("campaign restart state is invalid")
+        if (
+            type(self.controlled_restart_count) is not int
+            or not 0 <= self.controlled_restart_count <= 3
+        ):
+            raise ContractValidationError("campaign restart count is invalid")
         if (
             len(self.run_identities) != 4
             or len(set(self.run_identities)) != 4
@@ -518,6 +580,7 @@ class ContinuousV3TwoRunCampaign:
         ):
             raise StateConflictError("controlled restart is outside the pass boundary")
         self.restart_after_last_pass = True
+        self.controlled_restart_count += 1
 
     def to_dict(self) -> dict[str, object]:
         payload: dict[str, object] = {
@@ -528,6 +591,7 @@ class ContinuousV3TwoRunCampaign:
             "codex_family_calls": self.codex_family_calls,
             "deepseek_calls": self.deepseek_calls,
             "restart_after_last_pass": self.restart_after_last_pass,
+            "controlled_restart_count": self.controlled_restart_count,
             "runs": [
                 {
                     "run_id": record.run_id,

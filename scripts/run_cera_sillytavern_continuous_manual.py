@@ -1716,12 +1716,13 @@ def _http_json(
     path: str,
     payload: dict[str, Any] | None = None,
     *,
-    port: int = CONTINUOUS_V3_MANUAL_PORT,
+    port: int | None = None,
     timeout: float = 5.0,
 ) -> tuple[int, dict[str, Any]]:
     body = None if payload is None else json.dumps(payload).encode("utf-8")
+    active_port = CONTINUOUS_V3_MANUAL_PORT if port is None else port
     request = Request(
-        f"http://127.0.0.1:{port}{path}",
+        f"http://127.0.0.1:{active_port}{path}",
         data=body,
         method=method,
         headers={"Content-Type": "application/json"},

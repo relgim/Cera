@@ -156,6 +156,7 @@ def _configuration() -> dict[str, object]:
             "provider_activation_receipt_sha256": None,
             "fake_fixture_id": "scripted-fixture-v1",
             "fake_fixture_sha256": text_sha256("fixture-source"),
+            "provider_free_partial_failure": None,
         },
     }
     return {**value, "configuration_sha256": canonical_sha256(value)}
