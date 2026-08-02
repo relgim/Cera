@@ -66,6 +66,60 @@ def _port_open(port: int) -> bool:
         return connection.connect_ex(("127.0.0.1", port)) == 0
 
 
+def _export_readiness_evidence(
+    name: str,
+    *,
+    summary: dict,
+    roots: tuple[tuple[str, Path], ...],
+) -> None:
+    raw_directory = os.environ.get("CERA_V3_READINESS_EVIDENCE_DIRECTORY")
+    if raw_directory is None:
+        return
+    directory = Path(raw_directory).resolve()
+    expected = (
+        ROOT
+        / ".chatgpt"
+        / "pro-review"
+        / "checkpoints"
+        / "2026-08-02-continuous-sillytavern-overnight-v3-001"
+        / "PROGRESSION_3_READINESS"
+    ).resolve()
+    if directory != expected:
+        raise RuntimeError("readiness evidence directory is outside the checkpoint")
+    directory.mkdir(parents=True, exist_ok=True)
+    archive_path = directory / f"{name}.zip"
+    result_path = directory / f"{name}.json"
+    if archive_path.exists() or result_path.exists():
+        raise FileExistsError("refusing to overwrite frozen readiness evidence")
+    files: dict[str, str] = {}
+    with ZipFile(archive_path, "x", compression=ZIP_DEFLATED) as archive:
+        for prefix, root in roots:
+            for path in sorted(item for item in root.rglob("*") if item.is_file()):
+                if path.suffix.casefold() not in {
+                    ".json",
+                    ".jsonl",
+                    ".md",
+                    ".txt",
+                    ".log",
+                }:
+                    continue
+                relative = f"{prefix}/{path.relative_to(root).as_posix()}"
+                archive.write(path, arcname=relative)
+                files[relative] = _sha256(path)
+    result = {
+        "schema_version": "cera.continuous_v3_readiness_evidence.v1",
+        "name": name,
+        "provider_free": True,
+        "external_provider_calls": 0,
+        "summary": summary,
+        "files": files,
+        "files_sha256": canonical_sha256(files),
+        "archive_relative_path": archive_path.name,
+        "archive_sha256": _sha256(archive_path),
+    }
+    _write_json(result_path, result)
+
+
 class ContinuousV3ExecutableReadinessTests(unittest.TestCase):
     maxDiff = None
 
@@ -396,6 +450,43 @@ class ContinuousV3ExecutableReadinessTests(unittest.TestCase):
             snapshot_paths = tuple(second_root.rglob("SESSION_SNAPSHOT.json"))
             self.assertTrue(snapshot_paths)
             self.assertLessEqual(max(len(str(path.resolve())) for path in snapshot_paths), 248)
+            _export_readiness_evidence(
+                "V2_EXECUTABLE_RECOVERY",
+                summary={
+                    "checkpoint_git_sha": checkpoint_sha,
+                    "cycle_manifest_sha256": _sha256(
+                        cycle / "CYCLE_MANIFEST.json"
+                    ),
+                    "failed_run_id": campaign["runs"][0]["run_id"],
+                    "failed_stage_invocations": len(
+                        campaign["runs"][0]["calls"]
+                    ),
+                    "passing_run_ids": [
+                        run["run_id"]
+                        for run in campaign["runs"]
+                        if run["state"] == "passed"
+                    ],
+                    "passing_codex_family_stage_invocations": 14,
+                    "passing_deepseek_stage_invocations": 6,
+                    "controlled_restart_count": campaign[
+                        "controlled_restart_count"
+                    ],
+                    "historical_v1_codex_debit": 1,
+                    "long_branch_root_characters": len(
+                        str(expected_branch_root.resolve())
+                    ),
+                    "maximum_snapshot_path_characters": max(
+                        len(str(path.resolve())) for path in snapshot_paths
+                    ),
+                    "source_database_sha256": source_hash,
+                    "failed_root_immutable_after_recovery": True,
+                },
+                roots=(
+                    ("local_cycle", cycle),
+                    ("failed_campaign", first_root),
+                    ("recovered_campaign", second_root),
+                ),
+            )
         self.assertEqual(_tree_hashes(HISTORICAL_V1_ROOT), historical_before)
 
     def test_provider_backed_manual_actual_process_fake_ports(self) -> None:
@@ -518,6 +609,23 @@ class ContinuousV3ExecutableReadinessTests(unittest.TestCase):
                 isolation = invoke("verify-isolation")
                 self.assertTrue(isolation["passed"], isolation)
                 self.assertFalse(_port_open(PROVIDER_BACKED_MANUAL_ROUTE.port))
+                _export_readiness_evidence(
+                    "PROVIDER_BACKED_MANUAL_FAKE_ROUTE",
+                    summary={
+                        "profile_id": PROVIDER_BACKED_MANUAL_ROUTE.profile_id,
+                        "model": PROVIDER_BACKED_MANUAL_ROUTE.model,
+                        "port": PROVIDER_BACKED_MANUAL_ROUTE.port,
+                        "accepted_turns": 2,
+                        "declined_recovered_turns": 1,
+                        "scene_changes": 1,
+                        "process_restarts": 2,
+                        "exact_validator_hash_projection": True,
+                        "durable_active_cast": True,
+                        "thread_terminalization_verified": True,
+                        "isolation_passed": True,
+                    },
+                    roots=(("manual_root", manual_root),),
+                )
             finally:
                 if _port_open(PROVIDER_BACKED_MANUAL_ROUTE.port):
                     invoke("stop", check=False)

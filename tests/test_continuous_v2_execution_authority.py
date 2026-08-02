@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from argparse import Namespace
+from copy import deepcopy
 import json
 from pathlib import Path
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
 import unittest
+from unittest.mock import patch
 
 from cera.continuous.sessions import (
     CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256,
@@ -33,6 +36,7 @@ from cera.sillytavern.provider_authority import (
     validate_provider_activation,
 )
 from scripts import run_cera_sillytavern_continuous_manual as manual
+from scripts import run_sillytavern_continuous_v3_campaign as campaign_script
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -212,6 +216,90 @@ class ContinuousV2ExecutionAuthorityTests(unittest.TestCase):
         self.assertNotEqual(completed.returncode, 0)
         self.assertIn("fresh V2 campaign run identity", completed.stderr)
         self.assertFalse((ROOT / "runtime" / "absent-v1-run").exists())
+
+    def test_every_bound_drift_fails_before_run_root_or_transport(self) -> None:
+        bound_fields = (
+            "campaign",
+            "cycle",
+            "task",
+            "run",
+            "route",
+            "profile",
+            "provider",
+            "fixture",
+            "prompt",
+            "schema",
+            "policy",
+            "source",
+            "database",
+            "accepted_snapshot_path_policy",
+            "activation_receipt",
+            "authorization",
+        )
+        unsigned = {
+            "schema_version": "test.execution_manifest.v1",
+            "bindings": {field: f"bound-{field}" for field in bound_fields},
+        }
+        supplied = {
+            **unsigned,
+            "execution_identity_sha256": canonical_sha256(unsigned),
+        }
+        with TemporaryDirectory(prefix="cera-v2-drift-matrix-") as temporary:
+            root = Path(temporary)
+            source_database = root / "source.sqlite3"
+            source_database.write_bytes(b"source")
+            manifest_path = root / "EXECUTION_MANIFEST.json"
+            manifest_path.write_text(json.dumps(supplied), encoding="utf-8")
+            for field in bound_fields:
+                with self.subTest(field=field):
+                    changed_unsigned = deepcopy(unsigned)
+                    changed_unsigned["bindings"][field] = f"drifted-{field}"
+                    changed = {
+                        **changed_unsigned,
+                        "execution_identity_sha256": canonical_sha256(
+                            changed_unsigned
+                        ),
+                    }
+                    run_root = root / f"run-{field}"
+                    arguments = Namespace(
+                        cycle_directory=root / "cycle",
+                        source_database=source_database,
+                        runtime_root=run_root,
+                        run_id=CONTINUOUS_V3_V2_RUN_IDENTITIES[0],
+                        execution_manifest=manifest_path,
+                        expected_checkpoint_sha="a" * 40,
+                        expected_authorization_sha256=text_sha256(
+                            "authorization"
+                        ),
+                        expected_cycle_id="cycle-test",
+                        expected_cycle_sequence=23,
+                        expected_job4_task_id="job4-test",
+                        execution_identity_sha256=supplied[
+                            "execution_identity_sha256"
+                        ],
+                        historical_v1_campaign_root=root / "historical-v1",
+                        transport_mode="non_network_fake_ports",
+                        provider_activation=None,
+                        provider_free_failure_run_id=None,
+                        confirm_provider_free_partial_failure_fixture_sha256=None,
+                    )
+                    with (
+                        patch.object(
+                            campaign_script,
+                            "execution_manifest",
+                            return_value=changed,
+                        ),
+                        patch.object(
+                            campaign_script,
+                            "_build_campaign_harness",
+                        ) as provider_constructor,
+                        self.assertRaisesRegex(
+                            ValueError, "recomputed execution"
+                        ),
+                    ):
+                        campaign_script.run_single(arguments)
+                    provider_constructor.assert_not_called()
+                    self.assertFalse(run_root.exists())
 
     def test_provider_activation_is_exact_and_profile_bound(self) -> None:
         unsigned = {
