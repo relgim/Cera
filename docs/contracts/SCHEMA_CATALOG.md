@@ -937,21 +937,27 @@ provider identities:
 | `cera.persistence_directive.v2` | runtime Codex Validator selection, Python validated | Exact add/replace projection destination bound to the current closed writable-path policy, one final-field value, Character or Relationship record identity, typed and field-justified subject identities, approved semantic JSON path, current revision, and prior-value hash for replace; Python validates the complete post-edit record and derives bookkeeping |
 | `cera.complete_final_sequence.v6` | runtime Codex Validator, advisory until Python validation and creator action | Closed realized items retaining exact Planner beats and Composer segments plus field-level role, visibility, owner, protected-user claim, and typed persistence-destination provenance; the final stop is the exact last resulting state |
 | `cera.validator_finalization_package.v8` | runtime Codex Validator draft compiled by Python | Closed final sequence, independent exact-span protected semantics, V8 writable-record policy, field-justified relationship authority, Python-derived add/replace operations and created-field log, Python-derived event participants/item roles, or an explicit scene summary |
-| `cera.continuous_session_compatibility.v2` | Python session custody | Role/provider/model/prompt/output/world compatibility plus exact classifier-registry and persistence-policy hashes; pre-V8 sessions fail reconstruction |
-| `cera.continuous_session_snapshot.v1` | Python | Role-separated stored-thread handle, compatibility, context-event hashes, and accepted-turn index; persisted under `PLANNER_SESSION` or `VALIDATOR_SESSION` |
+| `cera.continuous_session_compatibility.v3` | Python session custody | Role/provider/model/prompt/output/world compatibility, exact policy hashes, and closed default/allowed Planner context modes; pre-D-200 sessions fail compatibility |
+| `cera.continuous_session_initialization_receipt.v1` | Python | One physical thread's base-instruction identity/bytes and lean, fork, or reconstruction provenance, including parent/branch and bounded reconstruction custody |
+| `cera.continuous_branch_fork_receipt.v1` | Python branch authority | Accepted-checkpoint parent/child branch, ancestry, parent-thread, and privacy-boundary proof required before a provider fork |
+| `cera.character_summary_delivery_receipt.v1` | Python Planner-thread custody | Character, revision, selected-content, source, thread, reason, and prompt identities for one Planner summary delivery |
+| `cera.continuous_session_reconstruction_bundle.v1` | Python | Bounded accepted tail, exact synchronization/reference descriptors, and only required character summaries for a new physical thread |
+| `cera.continuous_session_snapshot.v2` | Python | Role-separated stored-thread handle, compatibility, context-event hashes, accepted-turn index, initialization receipt, and summary-delivery ledger |
 | `cera.continuous_context_injection_receipt.v1` | Python | Exact accepted envelope, stored Planner thread, injected context bytes, and deterministic non-generating injection operation receipt |
 | `cera.continuous_session_snapshot_receipt.v1` | Python | Acceptance-bound immutable Planner snapshot bytes, exact synchronized event/envelope/thread/injection hashes, retained path, and current-pointer path |
 | `cera.continuous_thread_archive_evidence.v1` | Python session custody | One role's hashed provider-thread and archive-reason identities plus request, resume, backend-selectability, local-ancestry, error, and derived-verification outcomes |
-| `cera.continuous_job4_terminal_evidence.v3` | Python terminal custody | Canonical effects and postconditions, sealed capability ledger, and complete Planner/Validator archive DTOs; archival booleans must derive exactly from the two DTOs |
+| `cera.continuous_job4_terminal_evidence.v4` | Python terminal custody | Canonical effects/postconditions, sealed capability ledger, source/policy-bound entrypoint boundary, and complete Planner/Validator archive DTOs with v1-v3 decode compatibility |
 | `cera.continuous_world_promotion_receipt.v2` | Python | Revision-bound candidate-to-ACTIVE promotion or unchanged nonaccepting action, bound to the complete candidate and authority-context hashes |
 | `cera.accepted_session_fact.v2` | Python | One exact independently adjudicated accepted field value with visibility, owner, closed character roles, and protected-user claim provenance |
 | `cera.accepted_session_projection.v5` | Python | Same-scene independently adjudicated accepted public field-level facts or public plus one exact owner's private facts, retaining each field's closed roles, Composer segments, and claim provenance and bound to exact pair/event/envelope/snapshot/receipt bytes |
+| `cera.stable_accepted_context_reference.v1` | Python accepted authority | One exact accepted field value bound to world/branch/session/thread/ancestry, envelope/pair/event, all acceptance synchronization receipts, owner, roles, and visibility; prompt descriptors omit the value |
+| `cera.compact_accepted_head_receipt.v1` | Python | Payload-free current accepted-head custody and stable reference keys for lean Planner prompts |
 | `cera.event_item_role_ledger.v1` | Python over accepted final sequence | Per-final-item role custody used to derive event participants without model-authored participant bookkeeping |
 | `cera.request_evidence_binding.v4` | Python | Request-local current-source, mechanical-connective, ACTIVE, DERIVED-navigation, or synchronized accepted-session projection handle bound to exact scope, hashes, visibility, owner, receipt, stored thread, and immutable snapshot |
 | `cera.request_evidence_binding_registry.v9` | Python runtime ledger | Current request bindings, source-bound restart-safe ingress authority, protected-user claims, Composer segments, independent semantic adjudications, closed persistence targets, field-justified relationship subjects, and owner-scoped accepted facts included in candidate and acceptance validation |
 | `cera.continuous_provider_call_ledger_event.v3` | Python | Durable prepared/worker-started/worker-preflight/true-transport-invoked/completed/failed/post-validation/accepted accounting with privacy-safe receipts, telemetry, exact stored-thread hash, and tool bindings |
 | `cera.scene_summary_derived_view.v2` | Python over Validator draft | Explicitly non-authoritative scene view with complete per-turn exact-pair authority provenance, optional event cross-check hashes, revision, and regeneration identity |
-| `cera.continuous_acceptance_journal.v5` | Python operational journal | Complete creator-acceptance transaction binding the ingress-receipt-aware candidate and authority context, role-scoped package/event/facts/edits, action, exact pair/event, ACTIVE trees, receipt/diagnostic/timeline, Planner ledger, stored thread, injection receipt, immutable Planner snapshot receipt, and final synchronization receipt |
+| `cera.continuous_acceptance_journal.v6` | Python operational journal | Complete creator-acceptance transaction binding the ingress-receipt-aware candidate and authority context, role-scoped package/event/facts/edits, action, exact pair/event, ACTIVE trees, receipt/diagnostic/timeline, Planner ledger, stored thread, injection receipt, immutable Planner snapshot receipt, stable accepted-reference artifact custody, and final synchronization receipt |
 | `cera.continuous_root_diagnostic.v1` | Python | Secret-safe owning stage, operation, contract name, and stack evidence for failures before per-turn diagnostics exist |
 | `cera.sillytavern_chat_request.v4` | Python/browser ingress | Adds the one-shot boolean `cera_scene_change` flag; no automatic scene inference |
 
@@ -979,8 +985,13 @@ the prior value hash; Python derives all operation and created-field metadata.
 `cera.persistence_directive.v2`,
 `cera.accepted_session_fact.v2`,
 `cera.accepted_session_projection.v5`,
+`cera.stable_accepted_context_reference.v1`,
+`cera.compact_accepted_head_receipt.v1`,
 `cera.event_item_role_ledger.v1`,
 `cera.request_evidence_binding.v4`,
+`cera.continuous_session_initialization_receipt.v1`,
+`cera.continuous_branch_fork_receipt.v1`,
+`cera.character_summary_delivery_receipt.v1`,
 `cera.continuous_context_injection_receipt.v1`,
 `cera.continuous_session_snapshot_receipt.v1`,
 `cera.continuous_provider_call_ledger_event.v3`, and

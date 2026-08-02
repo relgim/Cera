@@ -2,7 +2,7 @@
 
 **Decision:** D-199
 
-**Status:** provider-free Progressions 1-2 complete; Progression 3 and Cycle 012 pending
+**Status:** Progressions 1-2 completed history; Progression 3 superseded-uncommitted; Cycle 012 must not be published
 **Active route:** unchanged `cera.active_runtime.d180.v1`
 
 ## Progression 1 - exact Stage 4 transaction ownership
@@ -62,9 +62,63 @@ Progression 2 verification:
   seconds.
 - External provider calls and all excluded effects: `0`.
 
-## Remaining Cycle 012 work
+## Superseded Progression 3 draft - enforced capability boundary
 
-Progression 3 must enforce the closed capability container at the actual
-process/entrypoint boundary and run the complete provider-free gate. Cycle 012
-publication and its Stage 4 audit remain pending; provider dispatch is not
-authorized.
+`continuous-enforced-capability-boundary-and-canary-readiness-v12` was never
+committed, completed, or published. The working-tree draft contained useful
+implementation, but D-200 changed the Planner context and exact canary
+entrypoints before V12-3 could acquire a valid final source identity. It is
+therefore `superseded_uncommitted_by_d200_integration`, not completed history.
+
+The following draft responsibilities are retained and must be requalified only
+under the D-200 checkpoint/cycle identity:
+
+- Both the continuous canary and exact V12 Stage 4 entrypoints now construct
+  exactly one `ContinuousJob4CapabilityContainerV1`. Every excluded product
+  mutation surface maps to one unique sealed port identity: live-story write,
+  production-database write, active-route mutation, deployment, repository
+  remote, merge, push, service change, and installed-SillyTavern change.
+- A restricted port records custody before invoking an authorized operation or
+  rejects before the callback can run. The active V12 entrypoints expose no
+  counted port, so all nine operations are structurally unavailable.
+- An AST-based entrypoint inventory rejects direct product-mutation imports,
+  unwrapped process-launch helpers, dynamic subprocess commands, mutating Git
+  command tokens, and unapproved alternate-entrypoint bindings. The exact V12
+  helper imports are closed and named in the immutable receipt rather than
+  treated as unrestricted module authority.
+- The inventory is explicitly scoped to CERA product mutation surfaces. It is
+  not represented as an operating-system sandbox. Source and policy hashes,
+  every port identity/mode, all inventory findings, approved helper bindings,
+  and the matching capability-ledger hash are retained in
+  `ContinuousJob4CapabilityBoundaryEvidenceV1`.
+- Terminal evidence v4 embeds that boundary receipt alongside the complete
+  Planner/Validator archival DTOs and capability ledger. A direct surface, an
+  available counted port, contradictory port evidence, or a nonzero observed
+  effect forces terminal failure. Historical terminal v1-v3 decoding remains
+  unchanged.
+- The canonical detail projection must exactly match both capability records.
+  The existing immutable terminal artifact, completion receipt,
+  completed-chain validator, and recovery path therefore preserve the exact
+  boundary evidence and every nonzero effect without adding a parallel claim.
+
+Nonfinal predecessor evidence:
+
+- An earlier mixed-source focused run reported `38/38`; an earlier mixed-source
+  complete run reported `792/792` with one optional live probe skipped.
+- Those runs are useful predecessor evidence only. They do not qualify D-200,
+  V12-3 completion, or Cycle 012 publication.
+- Adversarial cases prove rejection before callback, direct-import and
+  unwrapped-surface invalidation, one-to-one sealed capability identities,
+  nonzero bypass accounting, terminal failure, exact artifact copying,
+  completion-receipt preservation, completed-chain validation, and recovery.
+- External provider calls: **0**. Retry/fallback: **0/0**.
+- Story/database, active-route, service, installed-SillyTavern, deployment,
+  merge, remote, and push effects: **0**.
+
+## Supersession effect
+
+Do not freeze or publish Cycle 012 and do not create a V12-3 completion
+notification. D-199 Progressions 1 and 2 remain completed historical evidence.
+The retained terminal-v4/capability code is adopted into D-200 and must pass the
+new exact provider-free integration audit. Provider dispatch remains
+unauthorized.

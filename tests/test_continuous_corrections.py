@@ -90,6 +90,7 @@ from cera.continuous.provider import (
     CodexContinuousValidatorPort,
     DeepSeekContinuousComposerPort,
 )
+from cera.continuous.prompting import PLANNER_STABLE_INSTRUCTIONS
 
 
 def _seed_character(store: ContinuousWorldStore, world: str = "world-test", branch: str = "main") -> Path:
@@ -827,6 +828,19 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
 
             self.assertIn('"kind":"accepted_session_envelope"', planner.prompts[1])
             self.assertIn('"character_summary_bindings":[]', planner.prompts[1])
+            self.assertNotIn(PLANNER_STABLE_INSTRUCTIONS, planner.prompts[1])
+            self.assertNotIn(
+                "Sakura keeps control of the threshold and requests identifying proof.",
+                planner.prompts[1],
+            )
+            self.assertIn('"facts":[]', planner.prompts[1])
+            self.assertIn(
+                "[OWNER-SCOPED ACCEPTED-SESSION PROJECTIONS]\n[]",
+                composer.prompts[1],
+            )
+            self.assertIn(
+                '"accepted_session_projections":[]', validator.prompts[1]
+            )
 
             character_path = store.branch_root("world-test", "main") / "ACTIVE" / "Characters" / "Sakura.json"
             character_record = json.loads(character_path.read_text(encoding="utf-8"))
@@ -894,8 +908,16 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                 "injection_operation_receipt_sha256",
                 "planner_session_snapshot_sha256",
                 "synchronization_receipt_sha256",
+                "compact_accepted_head_receipt_sha256",
+                "stable_reference_set_sha256",
             ):
                 self.assertEqual(len(journal[key]), 64)
+            self.assertEqual(journal["stable_reference_state"], "persisted")
+            self.assertTrue(
+                journal["stable_reference_relative_path"].startswith(
+                    "PLANNER_SESSION/ACCEPTED_REFERENCES/"
+                )
+            )
             self.assertEqual(
                 journal["planner_session_snapshot_receipt"]["accepted_turn_id"],
                 "turn-003",
@@ -914,6 +936,7 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
             "before_snapshot_replace",
             "after_snapshot_replace",
             "after_snapshot_persisted",
+            "after_stable_references_persisted",
         )
         for stage in stages:
             with self.subTest(stage=stage), TemporaryDirectory() as directory:
@@ -980,6 +1003,8 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                     ).read_text(encoding="utf-8")
                 )
                 self.assertNotEqual(journal["model_injection_state"], "synchronized")
+                if stage == "after_stable_references_persisted":
+                    self.assertEqual(journal["stable_reference_state"], "persisted")
 
 
 class ContinuousCallAccountingTests(unittest.TestCase):

@@ -250,6 +250,28 @@ actors, subjects, claims, and public or owned-private visibility. Protected-user
 fields may preserve only one exact ingress claim; event summaries, final stop
 state, and protected edit values cannot introduce a second semantic account.
 
+## 7B. D-200 lean continuous context default
+
+The continuous Planner’s compatible physical stored thread is the default working context. CERA assumes that context is reliable for ordinary continuation unless live evidence shows a concrete failure. Python still owns accepted authority and recovery, but it does not resend accepted state every turn merely as a precaution.
+
+`lean_continuous` is the default mode:
+
+- stable Planner instructions are installed once in the stored-thread/base instructions rather than duplicated in every ordinary user prompt;
+- the first turn may carry the larger initialization packet and required incomplete character summaries;
+- each accepted user-message/final-sequence envelope is injected exactly once through the non-generating context operation;
+- later ordinary turns send the current authoritative packet and current user source without repeating prior accepted pairs, prior final sequences, the latest accepted-session projection, or unchanged character summaries;
+- the Planner uses its stored context first and performs bounded world retrieval only when exact additional evidence is needed.
+
+`projection_assisted` is an explicit diagnostic or controlled-comparison mode. It may add only the smallest exact named projection justified by a demonstrated continuity defect on a compatible live thread or a separately authorized comparison. It cannot activate silently during a live attempt.
+
+A lost, archived, incompatible, deliberately restarted, or non-forkable branch thread uses a separate `reconstruction` packet built from Python-owned accepted envelopes, exact accepted scene/event state, the required tail, and only the summaries needed at reconstruction time. Reconstruction creates a new physical thread and then returns to lean mode; it is disjoint from projection assistance.
+
+The lean packet carries a payload-free compact accepted-head receipt and stable reference keys. Exact fact values remain in Python custody and in the one accepted-envelope injection. Composer still receives current character realization context and Validator still receives the exact current closure; D-200 does not use the Planner delivery ledger to suppress those role-specific inputs.
+
+The first live canary governed by D-200 must use lean mode, record prompt-component bytes, cached/uncached usage when available, latency, tool activity, thread identity, and sequence quality, and report the Turn 1-to-Turn 2 reduction. A concrete lean-mode failure stops the attempt; it does not trigger an in-attempt projection fallback.
+
+The full controlling policy is `CONTINUOUS_LEAN_CONTEXT_AND_CACHE_POLICY.md`.
+
 ## 8. Inactive modular Composer compiler seam
 
 D-159 adds a provider-neutral compiler seam without changing the active

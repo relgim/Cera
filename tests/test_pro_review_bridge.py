@@ -26,11 +26,13 @@ import pro_review_cycle as review_cycle  # noqa: E402
 import pro_review_cycle_core as review_cycle_core  # noqa: E402
 from cera.continuous.scripted_job4 import SCRIPTED_JOB4_FIXTURE_SHA256  # noqa: E402
 from cera.continuous.job4_terminal import (  # noqa: E402
+    ContinuousJob4CapabilityContainerV1,
     ContinuousJob4CapabilityCustody,
     ContinuousJob4OperationalCountersV1,
     ContinuousJob4PostconditionsV1,
     ContinuousJob4TerminalEvidenceV1,
     ContinuousJob4TerminalEvidenceV3,
+    ContinuousJob4TerminalEvidenceV4,
     decode_continuous_job4_terminal_evidence,
 )
 from cera.continuous.sessions import (  # noqa: E402
@@ -603,6 +605,7 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             str, ContinuousThreadArchiveEvidenceV1
         ]
         | None = None,
+        capability_container: ContinuousJob4CapabilityContainerV1 | None = None,
     ) -> dict[str, object]:
         report = self.source / "JOB4_REPORT.md"
         counters = operational_counters or ContinuousJob4OperationalCountersV1(
@@ -650,11 +653,22 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                 operational_counters=counters,
                 postconditions=postconditions,
             )
-        else:
+        elif capability_container is None:
             terminal = ContinuousJob4TerminalEvidenceV3.build(
                 execution_status=status,
                 provider_calls=provider_calls,
                 capability_ledger=ContinuousJob4CapabilityCustody().evidence,
+                postconditions=postconditions,
+                thread_archival_evidence=thread_archival_evidence,
+            )
+        else:
+            terminal = ContinuousJob4TerminalEvidenceV4.build(
+                execution_status=status,
+                provider_calls=provider_calls,
+                capability_ledger=capability_container.evidence,
+                capability_boundary_evidence=(
+                    capability_container.boundary_evidence
+                ),
                 postconditions=postconditions,
                 thread_archival_evidence=thread_archival_evidence,
             )
@@ -700,6 +714,16 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                 None
                 if thread_archival_evidence is None
                 else terminal.capability_ledger.sha256
+            ),
+            "capability_boundary_evidence": (
+                terminal.capability_boundary_evidence.to_dict()
+                if isinstance(terminal, ContinuousJob4TerminalEvidenceV4)
+                else None
+            ),
+            "capability_boundary_evidence_sha256": (
+                terminal.capability_boundary_evidence.sha256
+                if isinstance(terminal, ContinuousJob4TerminalEvidenceV4)
+                else None
             ),
             "terminal_evidence": terminal.to_dict(),
             "terminal_evidence_sha256": terminal.sha256,
@@ -1495,7 +1519,16 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                         )
                     )
                 )
-                self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV3)
+                self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV4)
+                self.assertTrue(terminal.capability_boundary_evidence.enforced)
+                self.assertEqual(
+                    detail["capability_boundary_evidence"],
+                    terminal.capability_boundary_evidence.to_dict(),
+                )
+                self.assertEqual(
+                    detail["capability_boundary_evidence_sha256"],
+                    terminal.capability_boundary_evidence.sha256,
+                )
                 self.assertEqual(
                     result["status"], "failed" if started_recovery else "completed"
                 )
@@ -1852,6 +1885,88 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         )
         copied = self.cycle / "artifacts" / "JOB4_TERMINAL_EVIDENCE.json"
         self.assertEqual(copied.read_bytes(), exact_terminal)
+        recovered = review_cycle.recover_cycle(
+            self.cycle, repository_root_path=self.root
+        )
+        self.assertEqual(recovered["state"], review_cycle.STATE_RESPONSE_PENDING)
+
+    def test_28m_terminal_v4_nonzero_capability_effect_crosses_real_chain(self) -> None:
+        self.publish()
+        self.record_trigger()
+        archival = {
+            role.value: ContinuousThreadArchiveEvidenceV1(
+                role=role,
+                provider_thread_id_sha256=text_sha256(
+                    f"pro-review-terminal-v4-{role.value}"
+                ),
+                archive_reason_sha256=text_sha256(
+                    "pro-review-terminal-v4-complete"
+                ),
+                archive_request_completed=True,
+                resume_succeeded_after_archive=False,
+                backend_selectable_after_archive=False,
+                coordinator_selectable_as_accepted_ancestry=False,
+            )
+            for role in (
+                ContinuousSessionRole.PLANNER,
+                ContinuousSessionRole.VALIDATOR,
+            )
+        }
+        container = ContinuousJob4CapabilityContainerV1(
+            entrypoint_id="continuous_planner_validator_job4",
+            entrypoint_path=(
+                PROJECT_ROOT
+                / "scripts"
+                / "run_continuous_planner_validator_job4.py"
+            ),
+            counted_capabilities=("production_database_write",),
+            additional_unwrapped_surfaces=(
+                "production_database_write:test_completion_chain_bypass",
+            ),
+        )
+        observed: list[str] = []
+        container.observe_unwrapped_effect(
+            "production_database_write",
+            probe=lambda: tuple(observed),
+            operation=lambda: observed.append("effect"),
+        )
+        value = self.write_canary_job4_result(
+            status="completed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=10,
+            thread_archival_evidence=archival,
+            capability_container=container,
+        )
+        self.assertEqual(value["status"], "failed")
+        self.assertEqual(value["effects"]["story_database_writes"], 1)
+        source_terminal = self.source / "JOB4_TERMINAL_EVIDENCE.json"
+        exact_terminal = source_terminal.read_bytes()
+        terminal = decode_continuous_job4_terminal_evidence(
+            json.loads(exact_terminal)
+        )
+        self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV4)
+        self.assertFalse(terminal.capability_boundary_evidence.enforced)
+        self.assertEqual(
+            terminal.capability_ledger.capabilities[
+                "production_database_write"
+            ]["count"],
+            1,
+        )
+        review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        copied_terminal = (
+            self.cycle / "artifacts" / "JOB4_TERMINAL_EVIDENCE.json"
+        )
+        self.assertEqual(copied_terminal.read_bytes(), exact_terminal)
+        receipt = json.loads(
+            (self.cycle / "receipts" / "JOB4_COMPLETED.json").read_text()
+        )
+        self.assertEqual(receipt["effects"]["story_database_writes"], 1)
+        self.assertEqual(receipt["terminal_evidence_sha256"], terminal.sha256)
         recovered = review_cycle.recover_cycle(
             self.cycle, repository_root_path=self.root
         )

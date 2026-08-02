@@ -11,35 +11,48 @@ from typing import Any, Callable, Protocol
 from cera.creator_review.models import CreatorReviewAction
 from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import canonical_sha256, re_is_sha256, text_sha256, to_primitive
-from cera.schema import from_mapping
 
 from .contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     AcceptedTurnPairV1,
     CharacterSummaryEnvelopeV1,
-    EventRecordCandidateV1,
     RichPlannerSequenceV1,
     ValidatorFinalizationPackageV1,
     ValidatorTaskMode,
 )
 from .ingress import ContinuousIngressAuthorityPort
 from .evidence import (
-    AcceptedSessionProjectionV1,
+    CompactAcceptedHeadReceiptV1,
     RequestEvidenceBindingRegistry,
+    StableAcceptedContextReferenceStore,
     bind_character_summary_envelopes,
+    build_stable_accepted_context_references,
     project_final_sequence_facts,
+    rebind_stable_accepted_context_references_for_reconstruction,
+    reconstruction_reference_synchronization_sha256,
+    stable_reference_descriptors_for_reconstruction_target,
+    validate_stable_accepted_context_reference_facts,
+    stable_reference_descriptors_for_facts,
+    validate_character_summary_envelope,
 )
 from .prompting import (
     build_continuous_composer_prompt,
     build_planner_turn_prompt,
     build_validator_prompt,
+    planner_base_instruction_usage,
+    prompt_text_usage,
+    PLANNER_STABLE_INSTRUCTIONS,
 )
 from .record_policy import PERSISTENCE_POLICY_SHA256
 from .sessions import (
+    ContinuousBranchForkReceiptV1,
     ContinuousSessionCoordinator,
+    ContinuousSessionCompatibilityV1,
+    ContinuousSessionInitializationReceiptV1,
+    ContinuousSessionReconstructionBundleV1,
     ContinuousSessionRole,
-    ContinuousSessionSnapshotReceiptV1,
     ContinuousSessionSnapshotStore,
+    PlannerContextMode,
     assert_separate_role_sessions,
 )
 from .world import (
@@ -79,6 +92,10 @@ class ContinuousTurnRequestV1:
     ingress_receipt_sha256: str
     character_summaries: tuple[CharacterSummaryEnvelopeV1, ...] = ()
     cera_scene_change: bool = False
+    context_mode: PlannerContextMode = PlannerContextMode.LEAN_CONTINUOUS
+    projection_assisted_trigger: str | None = None
+    projection_reference_keys: tuple[str, ...] = ()
+    planner_requested_character_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for field in (
@@ -95,6 +112,31 @@ class ContinuousTurnRequestV1:
                 raise ContractValidationError(f"continuous turn {field} is required")
         if type(self.cera_scene_change) is not bool:
             raise ContractValidationError("continuous scene change flag must be boolean")
+        if self.context_mode is PlannerContextMode.RECONSTRUCTION:
+            raise ContractValidationError(
+                "reconstruction is a session initialization, not a turn request"
+            )
+        if self.context_mode is PlannerContextMode.PROJECTION_ASSISTED:
+            if (
+                not isinstance(self.projection_assisted_trigger, str)
+                or not self.projection_assisted_trigger.strip()
+                or not self.projection_reference_keys
+            ):
+                raise ContractValidationError(
+                    "projection-assisted turn lacks its demonstrated trigger and keys"
+                )
+        elif self.projection_assisted_trigger is not None or self.projection_reference_keys:
+            raise ContractValidationError(
+                "non-projection turn carries projection-assisted state"
+            )
+        if len(self.projection_reference_keys) != len(
+            set(self.projection_reference_keys)
+        ):
+            raise ContractValidationError("projection-assisted keys are duplicated")
+        if len(self.planner_requested_character_ids) != len(
+            set(self.planner_requested_character_ids)
+        ):
+            raise ContractValidationError("Planner-requested character IDs are duplicated")
         if not re_is_sha256(self.idempotency_key_sha256):
             raise ContractValidationError(
                 "continuous turn idempotency identity is invalid"
@@ -125,6 +167,9 @@ class ContinuousTurnCandidateV1:
     story_segment_ledger_sha256: str
     protected_semantic_adjudication_ledger_sha256: str
     accepted_session_projection_ledger_sha256: str
+    context_mode: PlannerContextMode = PlannerContextMode.LEAN_CONTINUOUS
+    compact_accepted_head_receipt_sha256: str | None = None
+    character_summary_delivery_receipt_sha256s: tuple[str, ...] = ()
 
     @property
     def authority_context_sha256(self) -> str:
@@ -138,6 +183,9 @@ class ContinuousTurnCandidateV1:
                     self.protected_semantic_adjudication_ledger_sha256
                 ),
                 "accepted_session_projection_ledger_sha256": self.accepted_session_projection_ledger_sha256,
+                "context_mode": self.context_mode.value,
+                "compact_accepted_head_receipt_sha256": self.compact_accepted_head_receipt_sha256,
+                "character_summary_delivery_receipt_sha256s": self.character_summary_delivery_receipt_sha256s,
                 "ingress_receipt_sha256": self.request.ingress_receipt_sha256,
                 "persistence_policy_sha256": PERSISTENCE_POLICY_SHA256,
                 "planner_prompt_sha256": self.planner_prompt_sha256,
@@ -205,6 +253,194 @@ class ContinuousShadowTurnCoordinator:
         self.ingress_authority = ingress_authority
         self._acceptance_sync_failpoint = acceptance_sync_failpoint
         self._candidates: dict[str, ContinuousTurnCandidateV1] = {}
+        if not self.planner_session.base_instructions:
+            self.planner_session.install_base_instructions(
+                PLANNER_STABLE_INSTRUCTIONS
+            )
+        elif PLANNER_STABLE_INSTRUCTIONS not in (
+            self.planner_session.base_instructions
+        ):
+            raise StateConflictError(
+                "continuous Planner base omits stable D-200 instructions"
+            )
+
+    def reconstruct_planner_session(
+        self,
+        *,
+        bundle: ContinuousSessionReconstructionBundleV1,
+        expected_compatibility: ContinuousSessionCompatibilityV1 | None = None,
+        branch_receipt: ContinuousBranchForkReceiptV1 | None = None,
+    ) -> ContinuousSessionInitializationReceiptV1:
+        """Replace a lost/non-forkable Planner thread with bounded authority."""
+
+        prior = self.planner_session
+        target_compatibility = expected_compatibility or prior.compatibility
+        if target_compatibility.role is not ContinuousSessionRole.PLANNER:
+            raise StateConflictError("reconstruction target is not a Planner session")
+        normalized_target = replace(
+            target_compatibility,
+            branch_id=prior.compatibility.branch_id,
+            world_directory_identity_sha256=(
+                prior.compatibility.world_directory_identity_sha256
+            ),
+        )
+        if normalized_target != prior.compatibility:
+            raise StateConflictError(
+                "reconstruction changed Planner provider or policy compatibility"
+            )
+        prior_handle = prior.handle
+        if prior_handle is None:
+            prior_handle = prior.ensure_session()
+        branch_changed = (
+            target_compatibility.branch_id != prior.compatibility.branch_id
+        )
+        if branch_changed and bundle.reconstruction_reason != "non_forkable_branch":
+            raise StateConflictError(
+                "cross-branch reconstruction is not classified as non-forkable"
+            )
+        if not branch_changed and bundle.reconstruction_reason == "non_forkable_branch":
+            raise StateConflictError(
+                "non-forkable reconstruction did not create a child branch"
+            )
+        if target_compatibility.world_id != prior.compatibility.world_id:
+            raise StateConflictError("reconstruction changed world identity")
+        if branch_changed:
+            if branch_receipt is None:
+                raise StateConflictError(
+                    "non-forkable branch reconstruction lacks its Python receipt"
+                )
+            prior_snapshot = prior.snapshot()
+            accepted_turn_ids = prior_snapshot.accepted_turn_ids
+            accepted_envelopes = {
+                event.turn_or_scene_id: event.payload_sha256
+                for event in prior_snapshot.context_events
+                if event.event_type == "accepted_final_sequence"
+            }
+            expected_ancestry = canonical_sha256(
+                {
+                    "accepted_turn_ids": accepted_turn_ids,
+                    "accepted_envelopes": tuple(
+                        (turn_id, accepted_envelopes[turn_id])
+                        for turn_id in accepted_turn_ids
+                    ),
+                }
+            )
+            if (
+                not accepted_turn_ids
+                or branch_receipt.world_id != target_compatibility.world_id
+                or branch_receipt.parent_branch_id
+                != prior.compatibility.branch_id
+                or branch_receipt.child_branch_id
+                != target_compatibility.branch_id
+                or branch_receipt.accepted_checkpoint_turn_id
+                != accepted_turn_ids[-1]
+                or branch_receipt.accepted_ancestry_sha256
+                != expected_ancestry
+                or branch_receipt.parent_provider_thread_sha256
+                != prior_handle.provider_thread_id_sha256
+            ):
+                raise StateConflictError(
+                    "non-forkable branch reconstruction receipt changed ancestry"
+                )
+        elif branch_receipt is not None:
+            raise StateConflictError(
+                "same-branch reconstruction cannot carry a branch receipt"
+            )
+        branch_root = self.world.branch_root(
+            prior.compatibility.world_id,
+            prior.compatibility.branch_id,
+        )
+        source_store = StableAcceptedContextReferenceStore(branch_root)
+        source_sets = []
+        for accepted in bundle.accepted_tail:
+            source_receipt, source_references = source_store.load(
+                accepted.envelope.accepted_turn_id,
+                provider_thread_sha256=prior_handle.provider_thread_id_sha256,
+            )
+            if (
+                source_receipt.accepted_envelope_sha256
+                != accepted.envelope.envelope_sha256
+                or tuple(
+                    value.reference_key
+                    for value in source_references
+                )
+                != tuple(
+                    str(value["reference_key"])
+                    for value in accepted.stable_reference_descriptors
+                )
+            ):
+                raise StateConflictError(
+                    "reconstruction bundle changed accepted-reference custody"
+                )
+            source_sets.append((source_receipt, source_references))
+        target_tail = tuple(
+            replace(
+                accepted,
+                stable_reference_descriptors=(
+                    stable_reference_descriptors_for_reconstruction_target(
+                        source_references=source_references,
+                        target_world_id=target_compatibility.world_id,
+                        target_branch_id=target_compatibility.branch_id,
+                    )
+                ),
+            )
+            for accepted, (_source_receipt, source_references) in zip(
+                bundle.accepted_tail,
+                source_sets,
+                strict=True,
+            )
+        )
+        target_bundle = replace(bundle, accepted_tail=target_tail)
+        rebuilt = ContinuousSessionCoordinator.reconstruct_new_thread(
+            port=prior.port,
+            expected_compatibility=target_compatibility,
+            base_instructions=prior.base_instructions,
+            bundle=target_bundle,
+            parent_provider_thread_sha256=(
+                prior_handle.provider_thread_id_sha256
+            ),
+            branch_receipt_sha256=(
+                branch_receipt.receipt_sha256
+                if branch_receipt is not None
+                else None
+            ),
+        )
+        initialization = rebuilt.initialization_receipt
+        if initialization is None:
+            raise StateConflictError("reconstruction omitted initialization custody")
+        rebuilt_snapshot = rebuilt.snapshot()
+        rebuilt_handle = rebuilt.ensure_session()
+        accepted_turn_ids = rebuilt_snapshot.accepted_turn_ids
+        for source_receipt, source_references in source_sets:
+            rebound_receipt, rebound_references = (
+                rebind_stable_accepted_context_references_for_reconstruction(
+                    source_receipt=source_receipt,
+                    source_references=source_references,
+                    planner_session_id=rebuilt_handle.provider_session_id,
+                    provider_thread_sha256=(
+                        rebuilt_handle.provider_thread_id_sha256
+                    ),
+                    accepted_turn_ids=accepted_turn_ids,
+                    initialization_receipt_sha256=(
+                        initialization.receipt_sha256
+                    ),
+                    session_snapshot_sha256=rebuilt_snapshot.snapshot_sha256,
+                    target_world_id=target_compatibility.world_id,
+                    target_branch_id=target_compatibility.branch_id,
+                )
+            )
+            StableAcceptedContextReferenceStore(
+                self.world.branch_root(
+                    target_compatibility.world_id,
+                    target_compatibility.branch_id,
+                )
+            ).save(
+                receipt=rebound_receipt,
+                references=rebound_references,
+            )
+        self.planner_session = rebuilt
+        assert_separate_role_sessions(rebuilt, self.validator_session)
+        return initialization
 
     def restore_pending_accepted_context(self) -> tuple[str, ...]:
         """Report incomplete physical-thread synchronization after restart.
@@ -268,7 +504,7 @@ class ContinuousShadowTurnCoordinator:
             raise StateConflictError("validated scene-change envelope scope changed")
         return self._prepare(
             replace(request, cera_scene_change=False),
-            scene_change_envelope=to_primitive(scene_change_envelope),
+            scene_change_envelope=scene_change_envelope.lean_planner_context(),
             prior_provider_calls=summary_provider_calls,
         )
 
@@ -381,6 +617,12 @@ class ContinuousShadowTurnCoordinator:
             or request.branch_id != self.validator_session.compatibility.branch_id
         ):
             raise StateConflictError("continuous turn changed session world or branch")
+        if request.context_mode not in self.planner_session.compatibility.allowed_context_modes:
+            raise StateConflictError("continuous Planner context mode is not allowed")
+        if request.context_mode is PlannerContextMode.RECONSTRUCTION:
+            raise StateConflictError(
+                "continuous reconstruction cannot occur inside an ordinary attempt"
+            )
         ingress_receipt = self.ingress_authority.resolve(
             receipt_id=request.ingress_receipt_id,
             receipt_sha256=request.ingress_receipt_sha256,
@@ -430,16 +672,37 @@ class ContinuousShadowTurnCoordinator:
             source_units=source_units,
         )
         mechanical_binding = evidence_registry.allocate_mechanical_connective_allowance()
-        accepted_session_bindings = self._bind_latest_accepted_session_evidence(
+        (
+            compact_accepted_head,
+            stable_reference_bindings,
+            projection_assisted_payloads,
+        ) = self._bind_stable_accepted_context(
             request=request,
             registry=evidence_registry,
             branch_root=branch_root,
         )
+        planner_summaries, summary_delivery_reasons = (
+            self.planner_session.select_character_summaries(
+                request.character_summaries,
+                context_mode=request.context_mode,
+                scene_change=scene_change_envelope is not None,
+                explicit_need_character_ids=request.planner_requested_character_ids,
+            )
+        )
         summary_bindings = bind_character_summary_envelopes(
             registry=evidence_registry,
             branch_root=branch_root,
-            summaries=request.character_summaries,
+            summaries=planner_summaries,
         )
+        compact_ingress_custody = {
+            "receipt_id": ingress_receipt.receipt_id,
+            "receipt_sha256": ingress_receipt.receipt_sha256,
+            "raw_source_sha256": ingress_receipt.raw_source_sha256,
+            "protected_user_id": ingress_receipt.protected_user_id,
+            "source_unit_keys": tuple(
+                value.source_unit_key for value in ingress_receipt.source_units
+            ),
+        }
         planner_prompt, planner_usage = build_planner_turn_prompt(
             current_packet={
                 **request.current_authority_packet,
@@ -455,20 +718,28 @@ class ContinuousShadowTurnCoordinator:
                 "ingress_source_units": tuple(
                     to_primitive(value) for value in source_units
                 ),
-                "ingress_receipt": to_primitive(ingress_receipt),
-                "accepted_session_bindings": tuple(
-                    {
-                        "binding_key": value["binding_key"],
-                        "projection_sha256": value["projection_sha256"],
-                    }
-                    for value in accepted_session_bindings
+                "ingress_custody": compact_ingress_custody,
+                "compact_accepted_head_receipt": (
+                    to_primitive(compact_accepted_head)
+                    if compact_accepted_head is not None
+                    else None
                 ),
-                "accepted_session_projections": accepted_session_bindings,
+                "stable_accepted_reference_keys": tuple(
+                    value["binding_key"] for value in stable_reference_bindings
+                ),
+                "projection_assisted": {
+                    "trigger": request.projection_assisted_trigger,
+                    "reference_keys": request.projection_reference_keys,
+                    "facts": projection_assisted_payloads,
+                },
                 "character_summary_bindings": tuple(summary_bindings),
             },
             accepted_envelopes=(),
-            character_summaries=request.character_summaries,
+            character_summaries=planner_summaries,
             scene_change_envelope=scene_change_envelope,
+            context_mode=request.context_mode,
+            projection_assisted_trigger=request.projection_assisted_trigger,
+            projection_reference_keys=request.projection_reference_keys,
         )
         debug.write_text("planner_raw_prompt.txt", planner_prompt)
         debug.write_json(
@@ -499,8 +770,20 @@ class ContinuousShadowTurnCoordinator:
         self.planner_session.record_planner_provisional(
             request.turn_id, planner_sequence.sequence_sha256
         )
+        summary_delivery_receipts = (
+            self.planner_session.record_character_summary_deliveries(
+                planner_summaries,
+                summary_delivery_reasons,
+                planner_prompt_sha256=text_sha256(planner_prompt),
+            )
+        )
         debug.write_json("planner_output.json", to_primitive(planner_sequence))
         debug.write_json("planner_tools.json", _provider_debug(planner_result))
+        for summary in request.character_summaries:
+            validate_character_summary_envelope(
+                branch_root=branch_root,
+                envelope=summary,
+            )
         composer_prompt, composer_usage = build_continuous_composer_prompt(
             current_user_source=request.user_message,
             ingress_source_units=tuple(
@@ -509,7 +792,7 @@ class ContinuousShadowTurnCoordinator:
             planner_sequence=planner_sequence,
             character_summaries=request.character_summaries,
             protected_user_claim_manifest=evidence_registry.protected_user_claim_manifest(),
-            accepted_session_projections=accepted_session_bindings,
+            accepted_session_projections=(),
         )
         debug.write_json("deepseek_request.json", {"prompt": composer_prompt})
         started = time.perf_counter_ns()
@@ -559,7 +842,7 @@ class ContinuousShadowTurnCoordinator:
             ingress_source_units=tuple(
                 to_primitive(value) for value in source_units
             ),
-            accepted_session_projections=accepted_session_bindings,
+            accepted_session_projections=(),
         )
         debug.write_json("validator_request.json", {"prompt": validator_prompt})
         started = time.perf_counter_ns()
@@ -619,7 +902,28 @@ class ContinuousShadowTurnCoordinator:
                 to_primitive(package.protected_semantic_adjudications)
             ),
             accepted_session_projection_ledger_sha256=canonical_sha256(
-                accepted_session_bindings
+                {
+                    "compact_accepted_head_receipt_sha256": (
+                        compact_accepted_head.receipt_sha256
+                        if compact_accepted_head is not None
+                        else None
+                    ),
+                    "stable_reference_binding_keys": tuple(
+                        value["binding_key"] for value in stable_reference_bindings
+                    ),
+                    "projection_assisted_reference_keys": (
+                        request.projection_reference_keys
+                    ),
+                }
+            ),
+            context_mode=request.context_mode,
+            compact_accepted_head_receipt_sha256=(
+                compact_accepted_head.receipt_sha256
+                if compact_accepted_head is not None
+                else None
+            ),
+            character_summary_delivery_receipt_sha256s=tuple(
+                value.receipt_sha256 for value in summary_delivery_receipts
             ),
         )
         try:
@@ -656,9 +960,77 @@ class ContinuousShadowTurnCoordinator:
                 "validator": _provider_debug(validator_result),
             },
             "usage.json": {
+                "planner_context_mode": request.context_mode.value,
+                "planner_base_stable_instructions": to_primitive(
+                    planner_base_instruction_usage()
+                ),
+                "actual_submitted_prompts": {
+                    "planner": to_primitive(
+                        prompt_text_usage(
+                            "actual_submitted_planner_prompt",
+                            planner_prompt,
+                        )
+                    ),
+                    "composer": to_primitive(
+                        prompt_text_usage(
+                            "actual_submitted_composer_prompt",
+                            composer_prompt,
+                        )
+                    ),
+                    "validator": to_primitive(
+                        prompt_text_usage(
+                            "actual_submitted_validator_prompt",
+                            validator_prompt,
+                        )
+                    ),
+                },
+                "validator_pre_adapter_prompt": to_primitive(
+                    prompt_text_usage(
+                        "validator_pre_adapter_prompt",
+                        validator_prompt,
+                    )
+                ),
                 "planner_prompt_components": [to_primitive(value) for value in planner_usage],
                 "composer_prompt_components": [to_primitive(value) for value in composer_usage],
                 "validator_prompt_components": [to_primitive(value) for value in validator_usage],
+                "compact_accepted_head_receipt_sha256": (
+                    compact_accepted_head.receipt_sha256
+                    if compact_accepted_head is not None
+                    else None
+                ),
+                "projection_assisted_bytes": len(
+                    json.dumps(
+                        projection_assisted_payloads,
+                        ensure_ascii=False,
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ).encode("utf-8")
+                ),
+                "session_initialization_receipt": to_primitive(
+                    self.planner_session.initialization_receipt
+                ),
+                "character_summary_delivery_receipts": tuple(
+                    to_primitive(value) for value in summary_delivery_receipts
+                ),
+                "provider_operation_telemetry": {
+                    "planner": to_primitive(
+                        getattr(planner_result, "operation_telemetry", None)
+                    ),
+                    "composer": to_primitive(
+                        getattr(composer_result, "operation_telemetry", None)
+                    ),
+                    "validator": to_primitive(
+                        getattr(validator_result, "operation_telemetry", None)
+                    ),
+                },
+                "world_tool_activity": {
+                    "planner": getattr(planner_result, "world_tool_debug", None),
+                    "validator": getattr(validator_result, "world_tool_debug", None),
+                },
+                "rich_sequence": {
+                    "beat_count": len(planner_sequence.beats),
+                    "validation_outcome": "passed",
+                },
             },
             "stage_timings.json": {
                 "planner_ns": planner_elapsed,
@@ -688,157 +1060,196 @@ class ContinuousShadowTurnCoordinator:
         self._candidates[request.turn_id] = candidate
         return candidate
 
-    def _bind_latest_accepted_session_evidence(
+    def _bind_stable_accepted_context(
         self,
         *,
         request: ContinuousTurnRequestV1,
         registry: RequestEvidenceBindingRegistry,
         branch_root: Path,
-    ) -> tuple[dict[str, Any], ...]:
-        accepted_ids = self.planner_session.snapshot().accepted_turn_ids
+    ) -> tuple[
+        CompactAcceptedHeadReceiptV1 | None,
+        tuple[dict[str, Any], ...],
+        tuple[dict[str, Any], ...],
+    ]:
+        """Resolve stable keys and a compact head receipt without fact replay."""
+
+        snapshot = self.planner_session.snapshot()
+        accepted_ids = snapshot.accepted_turn_ids
         if not accepted_ids:
-            return ()
+            if request.context_mode is PlannerContextMode.PROJECTION_ASSISTED:
+                raise StateConflictError(
+                    "projection-assisted mode has no accepted context"
+                )
+            return None, (), ()
         accepted_turn_id = accepted_ids[-1]
-        journal = self.world.acceptance_synchronization_record(
-            request.world_id, request.branch_id, accepted_turn_id
+        initialization = snapshot.initialization_receipt
+        reconstructed_head = (
+            initialization is not None
+            and initialization.context_mode is PlannerContextMode.RECONSTRUCTION
+            and accepted_turn_id in initialization.accepted_tail_turn_ids
         )
-        if journal.get("model_injection_state") != "synchronized":
-            raise StateConflictError("accepted session evidence is not synchronized")
-        envelope = self.world.accepted_final_envelope(
-            request.world_id, request.branch_id, accepted_turn_id
-        )
+        journal: dict[str, Any] | None = None
+        if not reconstructed_head:
+            journal = self.world.acceptance_synchronization_record(
+                request.world_id, request.branch_id, accepted_turn_id
+            )
+            if journal.get("model_injection_state") != "synchronized":
+                raise StateConflictError(
+                    "stable accepted context is not synchronized"
+                )
         handle = self.planner_session.ensure_session()
-        snapshot_store = ContinuousSessionSnapshotStore(branch_root)
-        snapshot_receipt = from_mapping(
-            ContinuousSessionSnapshotReceiptV1,
-            journal.get("planner_session_snapshot_receipt"),
+        reference_store = StableAcceptedContextReferenceStore(branch_root)
+        receipt, references = reference_store.load(
+            accepted_turn_id,
+            provider_thread_sha256=handle.provider_thread_id_sha256,
         )
-        snapshot = snapshot_store.load_immutable(snapshot_receipt)
-        if (
-            snapshot.handle.provider_thread_id_sha256 != handle.provider_thread_id_sha256
-            or accepted_turn_id not in snapshot.accepted_turn_ids
-            or journal.get("accepted_final_envelope_sha256") != envelope.envelope_sha256
-            or journal.get("planner_provider_thread_sha256")
-            != handle.provider_thread_id_sha256
-            or journal.get("planner_session_snapshot_sha256")
-            != snapshot.snapshot_sha256
-            or journal.get("planner_session_snapshot_relative_path")
-            != snapshot_receipt.immutable_relative_path
-            or journal.get("promotion_receipt_payload", {}).get("receipt_sha256")
-            not in {None, envelope.acceptance_receipt_sha256}
-        ):
-            raise StateConflictError("accepted session evidence bindings changed")
-        sync_receipt = journal.get("synchronization_receipt_sha256")
-        if not isinstance(sync_receipt, str):
-            raise StateConflictError("accepted session synchronization receipt is absent")
-        event_path = branch_root / "ACTIVE" / str(journal["accepted_event_relative_path"])
-        pair_path = branch_root / "ACTIVE" / str(journal["accepted_pair_relative_path"])
-        active_root = (branch_root / "ACTIVE").resolve()
-        for path, expected, label in (
-            (event_path, journal.get("accepted_event_sha256"), "event"),
-            (pair_path, journal.get("accepted_pair_sha256"), "pair"),
-        ):
-            resolved = path.resolve()
-            if (
-                active_root not in resolved.parents
-                or not path.is_file()
-                or path.is_symlink()
-                or not isinstance(expected, str)
-                or text_sha256(path.read_text(encoding="utf-8")) != expected
-            ):
-                raise StateConflictError(f"accepted session {label} bytes changed")
-        pair = from_mapping(
-            AcceptedTurnPairV1,
-            json.loads(pair_path.read_text(encoding="utf-8")),
+        accepted_envelope = self.world.accepted_final_envelope(
+            request.world_id, request.branch_id, accepted_turn_id
         )
-        raw_event = json.loads(event_path.read_text(encoding="utf-8"))
-        if not isinstance(raw_event, dict):
-            raise StateConflictError("accepted session event is malformed")
-        event = from_mapping(
-            EventRecordCandidateV1,
-            {key: value for key, value in raw_event.items() if key != "_cera_revision"},
+        expected_ancestry = canonical_sha256(
+            {
+                "world_id": request.world_id,
+                "branch_id": request.branch_id,
+                "accepted_turn_ids": accepted_ids,
+                "accepted_head_envelope_sha256": receipt.accepted_envelope_sha256,
+            }
         )
-        if (
-            pair.accepted_turn_id != accepted_turn_id
-            or event.accepted_turn_id != accepted_turn_id
-            or pair.complete_final_sequence.sequence_sha256
-            != envelope.complete_final_sequence.sequence_sha256
-            or set(event.final_sequence_item_keys)
-            != {value.item_key for value in pair.complete_final_sequence.items}
-        ):
-            raise StateConflictError("accepted session pair and event disagree")
-        if event.scene_id != request.scene_id:
-            return ()
-        facts = tuple(
-            fact
-            for item in pair.complete_final_sequence.items
-            for fact in project_final_sequence_facts(item)
+        expected_injection_receipt = (
+            initialization.receipt_sha256
+            if reconstructed_head
+            else journal.get("injection_operation_receipt_sha256")  # type: ignore[union-attr]
         )
-        public_facts = tuple(
-            fact
-            for fact in facts
-            if fact.knowledge_owner_id is None
+        expected_snapshot_sha256 = (
+            snapshot.snapshot_sha256
+            if reconstructed_head
+            else journal.get("planner_session_snapshot_sha256")  # type: ignore[union-attr]
         )
-        owners = tuple(
-            dict.fromkeys(
-                fact.knowledge_owner_id
-                for fact in facts
-                if fact.knowledge_owner_id is not None
-                and fact.knowledge_owner_id
-                in set(fact.roles.involved_ids)
-            )
-        )
-        projections = []
-        for owner in (None, *owners):
-            private_facts = tuple(
-                fact for fact in facts if fact.knowledge_owner_id == owner
-            )
-            if owner is None:
-                projection_facts = public_facts
-            else:
-                if not private_facts:
-                    continue
-                projection_facts = (*public_facts, *private_facts)
-            if not projection_facts:
-                continue
-            projection_key = "projection_session_" + canonical_sha256(
-                {
-                    "world_id": request.world_id,
-                    "branch_id": request.branch_id,
-                    "request_turn_id": request.turn_id,
-                    "accepted_turn_id": accepted_turn_id,
-                    "scene_id": event.scene_id,
-                    "knowledge_owner_id": owner,
-                    "fact_keys": tuple(fact.fact_key for fact in projection_facts),
-                }
-            )[:20]
-            projection = AcceptedSessionProjectionV1(
-                schema_version=AcceptedSessionProjectionV1.SCHEMA_VERSION,
-                projection_key=projection_key,
-                world_id=request.world_id,
-                branch_id=request.branch_id,
-                request_turn_id=request.turn_id,
+        expected_synchronization_receipt = (
+            reconstruction_reference_synchronization_sha256(
+                initialization_receipt_sha256=initialization.receipt_sha256,
                 accepted_turn_id=accepted_turn_id,
-                scene_id=event.scene_id,
-                knowledge_owner_id=owner,
-                facts=tuple(projection_facts),
-                accepted_pair_sha256=str(journal["accepted_pair_sha256"]),
-                accepted_event_sha256=str(journal["accepted_event_sha256"]),
-                accepted_envelope_sha256=envelope.envelope_sha256,
-                acceptance_receipt_sha256=envelope.acceptance_receipt_sha256,
-                provider_thread_sha256=handle.provider_thread_id_sha256,
-                session_snapshot_sha256=snapshot.snapshot_sha256,
-                synchronization_receipt_sha256=sync_receipt,
+                accepted_envelope_sha256=receipt.accepted_envelope_sha256,
             )
-            binding = registry.allocate_accepted_session_projection(projection)
-            projections.append(
+            if reconstructed_head and initialization is not None
+            else journal.get("synchronization_receipt_sha256")  # type: ignore[union-attr]
+        )
+        checks = {
+            "world": receipt.world_id == request.world_id,
+            "branch": receipt.branch_id == request.branch_id,
+            "accepted_turn": receipt.accepted_turn_id == accepted_turn_id,
+            "provider_thread": (
+                receipt.provider_thread_sha256
+                == handle.provider_thread_id_sha256
+            ),
+            "provider_session": (
+                receipt.planner_session_id_sha256
+                == text_sha256(handle.provider_session_id)
+            ),
+            "ancestry": receipt.accepted_ancestry_sha256 == expected_ancestry,
+            "envelope": (
+                receipt.accepted_envelope_sha256
+                == accepted_envelope.envelope_sha256
+            ),
+            "pair": (
+                reconstructed_head
+                or receipt.accepted_pair_sha256
+                == journal.get("accepted_pair_sha256")  # type: ignore[union-attr]
+            ),
+            "event": (
+                reconstructed_head
+                or receipt.accepted_event_sha256
+                == journal.get("accepted_event_sha256")  # type: ignore[union-attr]
+            ),
+            "acceptance": (
+                receipt.acceptance_receipt_sha256
+                == accepted_envelope.acceptance_receipt_sha256
+            ),
+            "injection": (
+                receipt.injection_receipt_sha256
+                == expected_injection_receipt
+            ),
+            "snapshot": (
+                receipt.session_snapshot_sha256
+                == expected_snapshot_sha256
+            ),
+            "synchronization": (
+                receipt.synchronization_receipt_sha256
+                == expected_synchronization_receipt
+            ),
+        }
+        if not all(checks.values()):
+            failed = ",".join(key for key, passed in checks.items() if not passed)
+            raise StateConflictError(
+                "stable accepted-context receipt is stale, foreign, or unsynchronized: "
+                + failed
+            )
+        if not reconstructed_head:
+            reference_path = reference_store.path_for(
+                accepted_turn_id,
+                handle.provider_thread_id_sha256,
+            )
+            if (
+                journal.get("stable_reference_state") != "persisted"  # type: ignore[union-attr]
+                or journal.get("compact_accepted_head_receipt_sha256")  # type: ignore[union-attr]
+                != receipt.receipt_sha256
+                or journal.get("stable_reference_set_sha256")  # type: ignore[union-attr]
+                != text_sha256(reference_path.read_text(encoding="utf-8"))
+            ):
+                raise StateConflictError(
+                    "stable accepted-reference artifact custody changed"
+                )
+        validate_stable_accepted_context_reference_facts(
+            envelope=accepted_envelope,
+            references=references,
+        )
+        reference_map = {value.reference_key: value for value in references}
+        selected = set(request.projection_reference_keys)
+        if selected - set(reference_map):
+            raise StateConflictError(
+                "projection-assisted mode requested an unknown stable key"
+            )
+        bindings: list[dict[str, Any]] = []
+        projection_payloads: list[dict[str, Any]] = []
+        for reference in references:
+            binding = registry.allocate_stable_accepted_context_reference(
+                reference,
+                current_provider_thread_sha256=handle.provider_thread_id_sha256,
+                current_accepted_ancestry_sha256=expected_ancestry,
+            )
+            bindings.append(
                 {
                     "binding_key": binding.binding_key,
-                    "projection_sha256": projection.projection_sha256,
-                    "projection": to_primitive(projection),
+                    "reference_sha256": reference.reference_sha256,
+                    "visibility": reference.visibility.value,
+                    "knowledge_owner_id": reference.knowledge_owner_id,
                 }
             )
-        return tuple(projections)
+            if reference.reference_key in selected:
+                projection_payloads.append(
+                    {
+                        "reference_key": reference.reference_key,
+                        "accepted_turn_id": reference.accepted_turn_id,
+                        "source_item_key": reference.source_item_key,
+                        "field_name": reference.field_name,
+                        "field_value": reference.field_value,
+                        "visibility": reference.visibility.value,
+                        "knowledge_owner_id": reference.knowledge_owner_id,
+                        "roles": to_primitive(reference.roles),
+                    }
+                )
+        if request.context_mode is PlannerContextMode.LEAN_CONTINUOUS and (
+            projection_payloads or selected
+        ):
+            raise StateConflictError(
+                "lean_continuous silently acquired projection payload"
+            )
+        if request.context_mode is PlannerContextMode.PROJECTION_ASSISTED and (
+            len(projection_payloads) != len(selected)
+        ):
+            raise StateConflictError(
+                "projection-assisted selection is incomplete"
+            )
+        return receipt, tuple(bindings), tuple(projection_payloads)
 
     def apply_creator_action(
         self,
@@ -916,6 +1327,17 @@ class ContinuousShadowTurnCoordinator:
                 complete_final_sequence=package.complete_final_sequence,
                 acceptance_receipt_sha256=receipt.receipt_sha256,
             )
+            accepted_facts = tuple(
+                fact
+                for item in package.complete_final_sequence.items
+                for fact in project_final_sequence_facts(item)
+            )
+            stable_reference_descriptors = stable_reference_descriptors_for_facts(
+                world_id=candidate.request.world_id,
+                branch_id=candidate.request.branch_id,
+                accepted_turn_id=turn_id,
+                facts=accepted_facts,
+            )
             handle = self.planner_session.ensure_session()
             self.planner_session.append_accepted_final_sequence(envelope)
             self.world.mark_acceptance_planner_ledger_appended(
@@ -927,7 +1349,8 @@ class ContinuousShadowTurnCoordinator:
             )
             self._acceptance_failpoint("after_in_memory_ledger_append")
             injection = self.planner_session.synchronize_accepted_final_sequence_with_receipt(
-                envelope
+                envelope,
+                stable_reference_descriptors=stable_reference_descriptors,
             )
             if injection is None:
                 raise StateConflictError("accepted final sequence was not injected")
@@ -962,12 +1385,96 @@ class ContinuousShadowTurnCoordinator:
                 injection_receipt=injection,
             )
             self._acceptance_failpoint("after_snapshot_persisted")
+            pending_synchronization = self.world.acceptance_synchronization_record(
+                candidate.request.world_id,
+                candidate.request.branch_id,
+                turn_id,
+            )
+            synchronization_receipt_sha256 = (
+                self.world.expected_acceptance_synchronization_receipt_sha256(
+                    candidate.request.world_id,
+                    candidate.request.branch_id,
+                    turn_id,
+                    envelope.envelope_sha256,
+                )
+            )
+            compact_receipt, stable_references = (
+                build_stable_accepted_context_references(
+                    world_id=candidate.request.world_id,
+                    branch_id=candidate.request.branch_id,
+                    scene_id=candidate.request.scene_id,
+                    planner_session_id=handle.provider_session_id,
+                    provider_thread_sha256=handle.provider_thread_id_sha256,
+                    accepted_turn_ids=self.planner_session.snapshot().accepted_turn_ids,
+                    accepted_turn_id=turn_id,
+                    accepted_envelope_sha256=envelope.envelope_sha256,
+                    accepted_pair_sha256=str(
+                        pending_synchronization["accepted_pair_sha256"]
+                    ),
+                    accepted_event_sha256=str(
+                        pending_synchronization["accepted_event_sha256"]
+                    ),
+                    acceptance_receipt_sha256=receipt.receipt_sha256,
+                    injection_receipt_sha256=injection.operation_receipt_sha256,
+                    session_snapshot_sha256=str(
+                        pending_synchronization[
+                            "planner_session_snapshot_sha256"
+                        ]
+                    ),
+                    synchronization_receipt_sha256=synchronization_receipt_sha256,
+                    facts=accepted_facts,
+                )
+            )
+            stable_reference_path = StableAcceptedContextReferenceStore(
+                self.world.branch_root(
+                    candidate.request.world_id, candidate.request.branch_id
+                )
+            ).save(receipt=compact_receipt, references=stable_references)
+            self.world.mark_acceptance_stable_references_persisted(
+                candidate.request.world_id,
+                candidate.request.branch_id,
+                turn_id,
+                reference_path=stable_reference_path,
+                compact_head_receipt_sha256=compact_receipt.receipt_sha256,
+            )
+            self._acceptance_failpoint("after_stable_references_persisted")
             self.world.mark_acceptance_model_synchronized(
                 candidate.request.world_id,
                 candidate.request.branch_id,
                 turn_id,
                 envelope.envelope_sha256,
             )
+            synchronized = self.world.acceptance_synchronization_record(
+                candidate.request.world_id,
+                candidate.request.branch_id,
+                turn_id,
+            )
+            if (
+                synchronized.get("synchronization_receipt_sha256")
+                != synchronization_receipt_sha256
+            ):
+                raise StateConflictError(
+                    "acceptance synchronization receipt changed after reference custody"
+                )
+            rendered_injection = envelope.render_for_planner(
+                stable_reference_descriptors=stable_reference_descriptors
+            )
+            usage_path = debug.root / "usage.json"
+            usage_payload = json.loads(usage_path.read_text(encoding="utf-8"))
+            usage_payload["accepted_context_injection"] = {
+                "context_mode": candidate.context_mode.value,
+                "accepted_turn_id": turn_id,
+                "injected_context_sha256": text_sha256(rendered_injection),
+                "injected_context_bytes": len(rendered_injection.encode("utf-8")),
+                "injected_context_estimated_tokens": (
+                    len(rendered_injection.encode("utf-8")) + 3
+                )
+                // 4,
+                "injection_receipt_sha256": injection.operation_receipt_sha256,
+                "compact_accepted_head_receipt_sha256": compact_receipt.receipt_sha256,
+                "stable_reference_keys": compact_receipt.stable_reference_keys,
+            }
+            debug.write_json("usage.json", usage_payload)
         else:
             self.validator_session.record_validator_candidate(
                 turn_id, package.package_sha256, rejected=True

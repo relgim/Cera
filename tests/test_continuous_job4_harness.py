@@ -34,6 +34,8 @@ from cera.continuous.call_ledger import (
     ProviderCallState,
 )
 from cera.continuous.job4_terminal import (
+    ContinuousJob4CapabilityBoundaryEvidenceV1,
+    ContinuousJob4CapabilityContainerV1,
     ContinuousJob4CapabilityCustody,
     ContinuousJob4CapabilityLedgerV1,
     ContinuousJob4OperationalCountersV1,
@@ -41,6 +43,7 @@ from cera.continuous.job4_terminal import (
     ContinuousJob4TerminalEvidenceV1,
     ContinuousJob4TerminalEvidenceV2,
     ContinuousJob4TerminalEvidenceV3,
+    ContinuousJob4TerminalEvidenceV4,
     decode_continuous_job4_terminal_evidence,
 )
 from cera.continuous.job4_transaction import (
@@ -381,7 +384,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             terminal = decode_continuous_job4_terminal_evidence(
                 json.loads(terminal_path.read_text(encoding="utf-8"))
             )
-            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV3)
+            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV4)
             self.assertEqual(result["terminal_evidence_sha256"], terminal.sha256)
             self.assertEqual(
                 result["terminal_evidence_sha256"],
@@ -390,6 +393,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             self.assertTrue(
                 terminal.capability_ledger.all_zero_effects_structurally_denied
             )
+            self.assertTrue(terminal.capability_boundary_evidence.enforced)
             self.assertEqual(
                 set(terminal.thread_archival_evidence),
                 {"planner", "validator"},
@@ -552,14 +556,14 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 thread_archival_evidence=invalid,
             )
 
-    def test_actual_cli_completes_closed_provider_free_scripted_v8_mode(self) -> None:
+    def test_actual_cli_completes_closed_provider_free_scripted_v9_d200_mode(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory).resolve()
             cycle = root / "cycle"
             (cycle / "receipts").mkdir(parents=True)
             authorization = "b" * 64
-            cycle_id = "cycle:scripted-cli-v8"
-            task_id = "task:scripted-cli-v8"
+            cycle_id = "cycle:scripted-cli-v9-d200"
+            task_id = "task:scripted-cli-v9-d200"
             (cycle / "CYCLE_MANIFEST.json").write_text(
                 json.dumps(
                     {
@@ -588,7 +592,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 (
                     sys.executable,
                     str(ROOT / "scripts" / "run_continuous_planner_validator_job4.py"),
-                    "--confirm-provider-free-scripted-v8",
+                    "--confirm-provider-free-scripted-v9",
                     "--expected-scripted-fixture-sha256",
                     SCRIPTED_JOB4_FIXTURE_SHA256,
                     "--cycle-directory",
@@ -628,10 +632,38 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             detail = json.loads(detail_path.read_text())
             result = json.loads((cycle / "source" / "JOB4_RESULT.json").read_text())
             self.assertEqual(detail["status"], "completed")
-            self.assertEqual(detail["execution_mode"], "provider_free_scripted_v8")
+            self.assertEqual(detail["execution_mode"], "provider_free_scripted_v9")
             self.assertEqual(detail["provider_calls"], 0)
             self.assertEqual(detail["scripted_transport_invocations"], 10)
             self.assertEqual(len(detail["calls"]), 10)
+            self.assertEqual(detail["reconstruction"]["status"], "passed")
+            self.assertTrue(
+                detail["lean_context_verification"][
+                    "turn_2_prohibited_components_absent"
+                ]
+            )
+            for turn in detail["turns"]:
+                for owner in ("planner", "composer", "validator"):
+                    submitted = turn["actual_submitted_prompts"][owner]
+                    self.assertGreater(submitted["byte_count"], 0)
+                    self.assertEqual(
+                        submitted["estimated_tokens"],
+                        (submitted["byte_count"] + 3) // 4,
+                    )
+                injected = turn["accepted_context_injection"]
+                self.assertGreater(injected["injected_context_bytes"], 0)
+                self.assertEqual(
+                    injected["injected_context_estimated_tokens"],
+                    (injected["injected_context_bytes"] + 3) // 4,
+                )
+            initialization = detail["turns"][0]["actual_submitted_prompts"]
+            self.assertEqual(set(initialization), {"planner", "composer", "validator"})
+            reconstruction = detail["reconstruction"]["initialization_receipt"]
+            self.assertGreater(reconstruction["reconstruction_bytes"], 0)
+            self.assertEqual(
+                reconstruction["reconstruction_estimated_tokens"],
+                (reconstruction["reconstruction_bytes"] + 3) // 4,
+            )
             self.assertEqual(
                 detail["prepared_shadow_ingress"]["status"], "passed"
             )
@@ -724,7 +756,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             terminal = decode_continuous_job4_terminal_evidence(
                 detail["terminal_evidence"]
             )
-            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV3)
+            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV4)
             self.assertEqual(
                 set(terminal.thread_archival_evidence),
                 {"planner", "validator"},
@@ -1132,6 +1164,159 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
         tampered["capabilities"]["live_story_write"]["count"] = 1
         with self.assertRaisesRegex(ValueError, "contradictory"):
             ContinuousJob4CapabilityLedgerV1.from_dict(tampered)
+
+    def test_closed_capability_container_rejects_every_bypass_before_effect(self) -> None:
+        container = ContinuousJob4CapabilityContainerV1.restricted(
+            entrypoint_id="continuous_planner_validator_job4",
+            entrypoint_path=ROOT / "scripts" / "run_continuous_planner_validator_job4.py",
+        )
+        boundary = container.boundary_evidence
+        self.assertTrue(boundary.enforced)
+        self.assertEqual(
+            ContinuousJob4CapabilityBoundaryEvidenceV1.from_dict(
+                boundary.to_dict()
+            ),
+            boundary,
+        )
+        self.assertEqual(set(boundary.capability_ports), set(container.evidence.capabilities))
+        self.assertEqual(
+            len(
+                {
+                    value["port_id_sha256"]
+                    for value in boundary.capability_ports.values()
+                }
+            ),
+            len(boundary.capability_ports),
+        )
+        effects: list[str] = []
+        for capability in boundary.capability_ports:
+            with self.subTest(capability=capability), self.assertRaisesRegex(
+                PermissionError, "structurally unavailable"
+            ):
+                container.port(capability).invoke(effects.append, capability)
+        self.assertEqual(effects, [])
+
+    def test_unwrapped_surface_invalidates_denial_before_semantic_work(self) -> None:
+        container = ContinuousJob4CapabilityContainerV1(
+            entrypoint_id="continuous_planner_validator_job4",
+            entrypoint_path=ROOT / "scripts" / "run_continuous_planner_validator_job4.py",
+            additional_unwrapped_surfaces=(
+                "live_story_write:test_unwrapped_adapter",
+            ),
+        )
+        boundary = container.boundary_evidence
+        self.assertEqual(boundary.status, "failed")
+        self.assertEqual(
+            boundary.capability_ports["live_story_write"][
+                "unwrapped_surface_count"
+            ],
+            1,
+        )
+        with self.assertRaisesRegex(PermissionError, "not enforced"):
+            container.require_enforced()
+
+    def test_entrypoint_inventory_rejects_direct_product_mutation_import(self) -> None:
+        with TemporaryDirectory() as directory:
+            entrypoint = (
+                Path(directory)
+                / "scripts"
+                / "run_continuous_planner_validator_job4.py"
+            )
+            entrypoint.parent.mkdir(parents=True)
+            entrypoint.write_text(
+                "from cera.runtime import commit as story_commit\n"
+                "from subprocess import Popen as launch\n"
+                "launch(['git', 'push'])\n",
+                encoding="utf-8",
+            )
+            container = ContinuousJob4CapabilityContainerV1.restricted(
+                entrypoint_id="continuous_planner_validator_job4",
+                entrypoint_path=entrypoint,
+            )
+            self.assertIn(
+                "live_story_write:direct_import:cera.runtime.commit:L1",
+                container.boundary_evidence.unwrapped_surfaces,
+            )
+            self.assertIn(
+                "remote_operation:unwrapped_call:subprocess.Popen:L3",
+                container.boundary_evidence.unwrapped_surfaces,
+            )
+            with self.assertRaisesRegex(PermissionError, "not enforced"):
+                container.require_enforced()
+
+    def test_observed_bypass_is_counted_and_forces_terminal_v4_failure(self) -> None:
+        container = ContinuousJob4CapabilityContainerV1(
+            entrypoint_id="continuous_planner_validator_job4",
+            entrypoint_path=ROOT / "scripts" / "run_continuous_planner_validator_job4.py",
+            counted_capabilities=("production_database_write",),
+            additional_unwrapped_surfaces=(
+                "production_database_write:test_direct_bypass",
+            ),
+        )
+        state: list[str] = []
+        container.observe_unwrapped_effect(
+            "production_database_write",
+            probe=lambda: tuple(state),
+            operation=lambda: state.append("effect-created"),
+        )
+        ledger = container.evidence
+        boundary = container.boundary_evidence
+        self.assertEqual(
+            ledger.capabilities["production_database_write"]["count"], 1
+        )
+        self.assertFalse(boundary.enforced)
+        archival = {
+            role.value: ContinuousThreadArchiveEvidenceV1(
+                role=role,
+                provider_thread_id_sha256=text_sha256(
+                    f"capability-boundary-{role.value}"
+                ),
+                archive_reason_sha256=text_sha256("capability-boundary-complete"),
+                archive_request_completed=True,
+                resume_succeeded_after_archive=False,
+                backend_selectable_after_archive=False,
+                coordinator_selectable_as_accepted_ancestry=False,
+            )
+            for role in (
+                ContinuousSessionRole.PLANNER,
+                ContinuousSessionRole.VALIDATOR,
+            )
+        }
+        postconditions = ContinuousJob4PostconditionsV1(
+            execution_mode="provider_free_scripted_v8",
+            source_database_sha256_before="1" * 64,
+            source_database_sha256_after="1" * 64,
+            disposable_database_sha256_before="2" * 64,
+            disposable_database_sha256_after="2" * 64,
+            database_integrity_check="ok",
+            database_foreign_key_findings=0,
+            active_profile_sha256_before="3" * 64,
+            active_profile_sha256_after="3" * 64,
+            active_profile_inspection_status="verified",
+            thread_archival={"planner": True, "validator": True},
+            accepted_session_synchronized=True,
+            accepted_final_sequences_injected=True,
+            call_ledger_dispatches=0,
+            scripted_transport_invocations=0,
+        )
+        terminal = ContinuousJob4TerminalEvidenceV4.build(
+            execution_status="completed",
+            provider_calls=0,
+            capability_ledger=ledger,
+            capability_boundary_evidence=boundary,
+            postconditions=postconditions,
+            thread_archival_evidence=archival,
+        )
+        self.assertEqual(terminal.status, "failed")
+        self.assertEqual(
+            terminal.effect_evidence.canonical_effects["story_database_writes"],
+            1,
+        )
+        self.assertIn("capability_boundary_not_enforced", terminal.failure_codes)
+        self.assertIn("story_database_effect_detected", terminal.failure_codes)
+        self.assertEqual(
+            decode_continuous_job4_terminal_evidence(terminal.to_dict()), terminal
+        )
 
     def test_counted_capability_ports_preserve_nonzero_terminal_effects(self) -> None:
         base = terminalized_detail(
@@ -1587,6 +1772,9 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             validator_session = ContinuousSessionCoordinator(
                 compatibility(world, ContinuousSessionRole.VALIDATOR), session_port
             )
+            planner_session.install_base_instructions(
+                PLANNER_STABLE_INSTRUCTIONS
+            )
             planner_handle = planner_session.ensure_session().provider_thread_id
             validator_handle = validator_session.ensure_session().provider_thread_id
             lifecycle = root / "lifecycle"
@@ -1649,9 +1837,20 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
 
             def codex_planner(self, prompt, turn_id):
                 self.planner_prompts.append(prompt)
+                packet = json.loads(
+                    prompt.rsplit("[CURRENT AUTHORITATIVE TURN PACKET]\n", 1)[1]
+                )
+                npc = (
+                    "character:mia_hanezawa"
+                    if turn_id == "turn-003"
+                    else "character:sakura_hanezawa"
+                )
                 bindings = tuple(
                     dict.fromkeys(
-                        re.findall(r'"binding_key":"(binding_[a-z0-9_]+)"', prompt)
+                        str(value["binding_key"])
+                        for value in packet["request_local_evidence_bindings"]
+                        if value.get("visibility") != "character_private"
+                        or value.get("knowledge_owner_id") == npc
                     )
                 )
                 value = rich_sequence()
@@ -1827,6 +2026,9 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             validator_session = ContinuousSessionCoordinator(
                 compatibility(world, ContinuousSessionRole.VALIDATOR), session_port
             )
+            planner_session.install_base_instructions(
+                PLANNER_STABLE_INSTRUCTIONS
+            )
             lifecycle = root / "lifecycle"
             lifecycle.mkdir()
             harness = ProviderFreeHarness(
@@ -1887,14 +2089,33 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             validator_session = ContinuousSessionCoordinator(
                 compatibility(world, ContinuousSessionRole.VALIDATOR), session_port
             )
+            planner_session.install_base_instructions(
+                PLANNER_STABLE_INSTRUCTIONS
+            )
             holder: dict[str, JobHarness] = {}
 
             def planner_value(prompt: str):
                 harness = holder["harness"]
                 turn_id = harness._active_turn_id
+                packet = json.loads(
+                    prompt.rsplit(
+                        "[CURRENT AUTHORITATIVE TURN PACKET]\n", 1
+                    )[1]
+                )
+                npc = (
+                    "character:mia_hanezawa"
+                    if turn_id == "turn-003"
+                    else "character:sakura_hanezawa"
+                )
                 bindings = tuple(
                     dict.fromkeys(
-                        re.findall(r'"binding_key":"(binding_[a-z0-9_]+)"', prompt)
+                        str(value["binding_key"])
+                        for value in packet[
+                            "request_local_evidence_bindings"
+                        ]
+                        if value.get("visibility")
+                        != "character_private"
+                        or value.get("knowledge_owner_id") == npc
                     )
                 )
                 value = rich_sequence()

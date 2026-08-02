@@ -1015,11 +1015,34 @@ adds terminal evidence v3 with complete closed Planner/Validator archive DTOs.
 Their derived verification states are the only source of archival booleans;
 the exact bytes cross stable read, artifact copy, completion receipt,
 completed-chain validation, and recovery. Missing, role-mismatched, resumable,
-selectable, unknown, or errored outcomes force failure. Progression 3 must still
-add an enforceable process capability boundary before Cycle 012 publication.
+selectable, unknown, or errored outcomes force failure. Progression 3,
+`continuous-enforced-capability-boundary-and-canary-readiness-v12`, was never
+committed, completed, or published. Its useful terminal-v4 and exact
+capability-boundary draft is retained, but the task is
+`superseded_uncommitted_by_d200_integration`; its earlier 38/38 and 792/792
+runs are nonfinal mixed-source evidence. Cycle 012 must not be published.
 D-180 remains active; no provider, live-story, production
 database, route, service, installed-client, deployment, merge, remote, or push
 effect is authorized.
+
+D-200 is the provider-free lean Planner-context integration. It makes
+`lean_continuous` the default compatible Planner mode, limits
+`projection_assisted` to one demonstrated compatible-thread defect or an
+authorized comparison, and uses true new-thread `reconstruction` for loss,
+archive, incompatibility, deliberate restart, or non-forkable branches.
+Accepted-checkpoint branch receipts take precedence over reconstruction when a
+safe provider fork exists. Python owns stable accepted-context references,
+payload-free compact head receipts, reconstruction rebinding, thread-local
+summary delivery, and exact base/submitted/injection/reconstruction telemetry.
+Composer remains stateless with current realization context; Validator remains
+separate with exact current closure. The retained terminal-v4, capability,
+transaction, archival, completion, and recovery implementation is requalified
+under the new source and cycle identity. The exact scripted-v9 ten-stage audit
+uses zero external calls. The final retained-safety focused gate passes 197/197
+and the complete provider-free repository suite passes 797/797, with one
+expected platform skip in each. D-180 remains active and live
+publication/dispatch stays closed until the new cycle is completed and
+accepted.
 
 ## Repair and pivot rule
 

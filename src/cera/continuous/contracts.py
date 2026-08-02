@@ -823,7 +823,11 @@ class AcceptedFinalSequenceEnvelopeV1:
     def envelope_sha256(self) -> str:
         return domain_sha256(self.SCHEMA_VERSION, self)
 
-    def render_for_planner(self) -> str:
+    def render_for_planner(
+        self,
+        *,
+        stable_reference_descriptors: tuple[dict[str, Any], ...] = (),
+    ) -> str:
         from cera.serialization import to_primitive
         import json
 
@@ -833,6 +837,15 @@ class AcceptedFinalSequenceEnvelopeV1:
             f"[COMPLETE FINAL SEQUENCE {self.accepted_turn_id}]\n"
             + json.dumps(
                 to_primitive(self.complete_final_sequence),
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            + f"\n[ACCEPTANCE IDENTITY {self.accepted_turn_id}]\n"
+            + self.acceptance_receipt_sha256
+            + f"\n[STABLE ACCEPTED REFERENCES {self.accepted_turn_id}]\n"
+            + json.dumps(
+                stable_reference_descriptors,
                 ensure_ascii=False,
                 sort_keys=True,
                 separators=(",", ":"),

@@ -329,21 +329,23 @@ An accepted-final history-injection failure also blocks the next Planner turn;
 an unsynchronized accepted ledger entry is never silently piggybacked or
 replayed.
 
-The acceptance journal v3 stays pending after any crash between in-memory
-ledger append, injection return, journal update, snapshot replacement, or final
-synchronization. It binds the exact Planner thread, envelope, injection
-operation, session snapshot, and final synchronization receipt. `synchronized`
-is impossible before the atomic snapshot exists. Ambiguous injection is never
-automatically replayed. The mutable current-session pointer is convenience
-state only; synchronization proof binds the immutable per-turn snapshot path
-and hash and revalidates both before finalization.
+The acceptance journal v6 stays pending after any crash between in-memory
+ledger append, injection return, journal update, snapshot replacement, stable
+accepted-reference persistence, or final synchronization. It binds the exact
+Planner thread, envelope, injection operation, immutable session snapshot,
+stable-reference artifact, and final synchronization receipt. `synchronized`
+is impossible before both the atomic snapshot and stable-reference artifact
+exist. Ambiguous injection is never automatically replayed. The mutable
+current-session pointer is convenience state only; synchronization proof binds
+and revalidates the immutable per-turn artifacts before finalization.
 
-Accepted-session context is not raw conversational memory. Python reconstructs
-typed, same-scene projections from exact accepted pair/event/envelope bytes.
-The public projection contains public items only. Each private projection adds
-only one knowledge owner's private items and is rejected if another owner's
-private material appears. Scene, revision, pair, event, envelope, item, and hash
-agreement must all hold before a projection can enter a request binding.
+Accepted-session context is not raw conversational memory. Under D-200,
+ordinary compatible Planner turns receive a payload-free compact accepted-head
+receipt and stable keys resolved from exact accepted pair/event/envelope bytes.
+Python rechecks branch, physical thread, accepted ancestry, owner, visibility,
+and synchronization custody before a key becomes a request binding. A typed
+same-scene projection is created only for an explicit `projection_assisted`
+turn, contains only its named minimal key selection, and remains owner-local.
 
 Protected-user realization follows a separate exact-proof path. Python projects
 only source spans whose attribution proves Ted owns the action or dialogue,

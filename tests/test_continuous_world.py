@@ -527,7 +527,7 @@ def session_compatibility(role: ContinuousSessionRole) -> ContinuousSessionCompa
         authority_policy_version="test-authority-v1",
         privacy_policy_version="test-privacy-v1",
         protected_user_policy_version="cera.continuous_protected_user_policy.v8",
-        session_policy_version="cera.continuous_session_policy.v8",
+        session_policy_version="cera.continuous_session_policy.v9_d200",
         ingress_classifier_registry_sha256=(
             build_default_prepared_classifier_registry().registry_sha256
         ),

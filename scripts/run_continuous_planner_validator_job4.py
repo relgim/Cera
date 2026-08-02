@@ -1,4 +1,4 @@
-"""Run the exact D-186 ten-call continuous Planner/Validator canary.
+"""Run the exact D-200 ten-stage continuous integration canary.
 
 This harness is intentionally one-shot and terminal. It never retries or
 substitutes a provider, never touches the active SillyTavern route, and writes
@@ -24,6 +24,7 @@ from cera.continuous.codex_stored import CodexContinuousStoredSessionPort
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.diagnostics import ContinuousRootDiagnosticRecorder
 from cera.continuous.evidence import (
+    StableAcceptedContextReferenceStore,
     build_character_summary_envelope,
 )
 from cera.continuous.ingress import (
@@ -32,12 +33,13 @@ from cera.continuous.ingress import (
     build_default_prepared_classifier_registry,
 )
 from cera.continuous.job4_terminal import (
-    ContinuousJob4CapabilityCustody,
+    ContinuousJob4CapabilityContainerV1,
     ContinuousJob4PostconditionsV1,
     ContinuousJob4TerminalEvidence,
     ContinuousJob4TerminalEvidenceV1,
     ContinuousJob4TerminalEvidenceV2,
     ContinuousJob4TerminalEvidenceV3,
+    ContinuousJob4TerminalEvidenceV4,
     decode_continuous_job4_terminal_evidence,
     rebuild_failed_continuous_job4_terminal_evidence,
 )
@@ -73,8 +75,10 @@ from cera.continuous.provider import (
     continuous_validator_route,
 )
 from cera.continuous.sessions import (
+    ContinuousReconstructionAcceptedTurnV1,
     ContinuousSessionCompatibilityV1,
     ContinuousSessionCoordinator,
+    ContinuousSessionReconstructionBundleV1,
     ContinuousSessionRole,
     ContinuousThreadArchiveEvidenceV1,
     InMemoryContinuousStoredSessionPort,
@@ -140,6 +144,14 @@ TURN_MESSAGES = (
         '"Is Sakura always that cautious with visitors?"'
     ),
 )
+
+
+def _accepted_story_marker(turn_number: int) -> str:
+    return {
+        1: "Sakura requests bounded proof.",
+        2: "Sakura keeps the threshold controlled.",
+        3: "Mia answers cautiously in the later scene.",
+    }[turn_number]
 
 
 def canary_source_units(turn_number: int) -> tuple[IngressSourceUnitV1, ...]:
@@ -309,7 +321,7 @@ def git_head(root: Path) -> str:
 
 
 class StablePrefixTransport:
-    """Keep stable role instructions in the stored thread, not every turn."""
+    """Prove stable role instructions stay in the stored thread, not turns."""
 
     def __init__(self, transport: CodexSDKTransport, stable: str) -> None:
         self.transport = transport
@@ -318,9 +330,13 @@ class StablePrefixTransport:
 
     def invoke(self, prompt: str, **kwargs):
         prefix = self.stable + "\n\n"
-        if not prompt.startswith(prefix):
-            raise RuntimeError("continuous stable prompt prefix changed")
-        return self.transport.invoke(prompt[len(prefix) :], **kwargs)
+        if prompt.startswith(prefix):
+            return self.transport.invoke(prompt[len(prefix) :], **kwargs)
+        if self.stable in prompt:
+            raise RuntimeError(
+                "continuous stable instructions were duplicated in a turn prompt"
+            )
+        return self.transport.invoke(prompt, **kwargs)
 
 
 def provider_debug(result: Any) -> dict[str, Any]:
@@ -447,7 +463,7 @@ def compatibility(
         authority_policy_version="cera.owner_architecture.v2+d186",
         privacy_policy_version="cera.privacy.v1",
         protected_user_policy_version="cera.continuous_protected_user_policy.v8",
-        session_policy_version="cera.continuous_session_policy.v8",
+        session_policy_version="cera.continuous_session_policy.v9_d200",
         ingress_classifier_registry_sha256=(
             build_default_prepared_classifier_registry().registry_sha256
         ),
@@ -759,6 +775,7 @@ class JobHarness:
                     or telemetry.fast_mode_enabled
                 ):
                     raise RuntimeError("Codex canary route identity changed")
+                record["expected_provider_thread_sha256"] = expected_thread_hash
             elif owner == "composer":
                 receipt = result.provider_receipt
                 expected_external_calls = 0 if self.scripted_provider_free else 1
@@ -966,6 +983,19 @@ class JobHarness:
             if value.get("component") == "character_summaries"
         )
         total_bytes = sum(int(value.get("byte_count", 0)) for value in planner_usage)
+        planner_prompt_text = (
+            candidate.debug_root / "planner_raw_prompt.txt"
+        ).read_text(encoding="utf-8")
+        composer_prompt_text = json.loads(
+            (candidate.debug_root / "deepseek_request.json").read_text(
+                encoding="utf-8"
+            )
+        )["prompt"]
+        validator_prompt_text = json.loads(
+            (candidate.debug_root / "validator_request.json").read_text(
+                encoding="utf-8"
+            )
+        )["prompt"]
         return {
             "turn_id": self._active_turn_id,
             "sequence_sha256": candidate.planner_sequence.sequence_sha256,
@@ -1001,6 +1031,48 @@ class JobHarness:
             "created_fields": list(receipt.created_fields),
             "debug_complete": not candidate.debug_root.joinpath("errors.json").is_symlink(),
             "accepted_final_injected": True,
+            "context_mode": candidate.context_mode.value,
+            "compact_accepted_head_receipt_sha256": (
+                candidate.compact_accepted_head_receipt_sha256
+            ),
+            "character_summary_delivery_receipt_sha256s": list(
+                candidate.character_summary_delivery_receipt_sha256s
+            ),
+            "actual_submitted_prompts": usage.get(
+                "actual_submitted_prompts", {}
+            ),
+            "accepted_context_injection": usage.get(
+                "accepted_context_injection"
+            ),
+            "lean_absence_checks": {
+                "stable_instructions_absent": (
+                    PLANNER_STABLE_INSTRUCTIONS not in planner_prompt_text
+                ),
+                "prior_user_message_absent": (
+                    turn_number == 1
+                    or TURN_MESSAGES[turn_number - 2]
+                    not in planner_prompt_text
+                ),
+                "prior_complete_sequence_absent": (
+                    turn_number == 1
+                    or _accepted_story_marker(turn_number - 1)
+                    not in planner_prompt_text
+                ),
+                "accepted_fact_payload_absent": (
+                    '"field_value"' not in planner_prompt_text
+                ),
+                "unchanged_character_summary_absent": (
+                    turn_number != 2 or not summaries
+                ),
+                "composer_prior_projection_absent": (
+                    "[OWNER-SCOPED ACCEPTED-SESSION PROJECTIONS]\n[]"
+                    in composer_prompt_text
+                ),
+                "validator_prior_projection_absent": (
+                    '"accepted_session_projections":[]'
+                    in validator_prompt_text
+                ),
+            },
         }
 
     def summarize_scene(self) -> dict[str, Any]:
@@ -1040,6 +1112,101 @@ class JobHarness:
             "same_validator_thread_sha256": text_sha256(self.validator_handle),
         }
 
+    def reconstruct_lost_planner_thread(self) -> dict[str, Any]:
+        """Exercise real new-thread reconstruction without another model call."""
+
+        prior = self.planner_session
+        prior_handle = prior.ensure_session()
+        store = StableAcceptedContextReferenceStore(
+            self.world.branch_root(WORLD_ID, BRANCH_ID)
+        )
+        accepted_tail = []
+        for pair in self.accepted_pairs[-2:]:
+            envelope = self.world.accepted_final_envelope(
+                WORLD_ID,
+                BRANCH_ID,
+                pair.accepted_turn_id,
+            )
+            journal = self.world.acceptance_synchronization_record(
+                WORLD_ID,
+                BRANCH_ID,
+                pair.accepted_turn_id,
+            )
+            _receipt, references = store.load(
+                pair.accepted_turn_id,
+                provider_thread_sha256=(
+                    prior_handle.provider_thread_id_sha256
+                ),
+            )
+            accepted_tail.append(
+                ContinuousReconstructionAcceptedTurnV1(
+                    envelope=envelope,
+                    synchronization_receipt_sha256=str(
+                        journal["synchronization_receipt_sha256"]
+                    ),
+                    stable_reference_descriptors=tuple(
+                        value.injection_descriptor() for value in references
+                    ),
+                )
+            )
+        ancestry = canonical_sha256(
+            {
+                "world_id": WORLD_ID,
+                "branch_id": BRANCH_ID,
+                "accepted_tail": tuple(
+                    (
+                        value.envelope.accepted_turn_id,
+                        value.envelope.envelope_sha256,
+                        value.synchronization_receipt_sha256,
+                    )
+                    for value in accepted_tail
+                ),
+            }
+        )
+        bundle = ContinuousSessionReconstructionBundleV1(
+            schema_version=(
+                ContinuousSessionReconstructionBundleV1.SCHEMA_VERSION
+            ),
+            world_id=WORLD_ID,
+            branch_id=BRANCH_ID,
+            accepted_tail=tuple(accepted_tail),
+            character_summaries=(),
+            accepted_ancestry_sha256=ancestry,
+            reconstruction_reason="lost_thread",
+        )
+        prior.port.archive(prior_handle, "scripted_lost_thread")
+        initialization = self.coordinator.reconstruct_planner_session(
+            bundle=bundle
+        )
+        parent_archive = prior.archive_and_verify_terminal(
+            "reconstruction_replaced_lost_thread"
+        )
+        if not parent_archive.verified:
+            raise RuntimeError(
+                "reconstruction parent thread archival could not be verified"
+            )
+        self.planner_session = self.coordinator.planner_session
+        self.planner_handle = (
+            self.planner_session.ensure_session().provider_thread_id
+        )
+        if self.planner_handle == prior_handle.provider_thread_id:
+            raise RuntimeError("reconstruction reused the lost physical thread")
+        return {
+            "status": "passed",
+            "reason": bundle.reconstruction_reason,
+            "bundle_sha256": bundle.bundle_sha256,
+            "initialization_receipt": to_primitive(initialization),
+            "old_planner_thread_sha256": (
+                prior_handle.provider_thread_id_sha256
+            ),
+            "new_planner_thread_sha256": text_sha256(self.planner_handle),
+            "parent_archive_evidence": parent_archive.to_dict(),
+            "accepted_tail_turn_ids": [
+                value.envelope.accepted_turn_id for value in accepted_tail
+            ],
+            "next_context_mode": "lean_continuous",
+        }
+
 def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
     terminal = decode_continuous_job4_terminal_evidence(
         result["terminal_evidence"]
@@ -1053,7 +1220,7 @@ def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
         "",
         f"**Task:** `{task_id or result.get('task_id', 'unspecified')}`  ",
         f"**Status:** `{result['status']}`  ",
-        f"**Provider calls observed:** {result['provider_calls']} / 10  ",
+        f"**Provider calls observed:** {result['provider_calls']} / 10 (external)  ",
         f"**Scripted transport invocations:** {result.get('scripted_transport_invocations', 0)}  ",
         "**Retry/fallback:** 0 / 0",
         "",
@@ -1063,6 +1230,7 @@ def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
         "- Composer: `deepseek-v4-flash`, thinking disabled.",
         "- Validator: `gpt-5.6-terra`, high, Fast disabled.",
         f"- Planner thread hash: `{result.get('planner_thread_sha256')}`.",
+        f"- Planner thread history: `{result.get('planner_thread_sha256s')}`.",
         f"- Validator thread hash: `{result.get('validator_thread_sha256')}`.",
         f"- Separate threads: `{result.get('separate_thread_ids')}`.",
         f"- Codex continuity hashes verified: `{result.get('continuous_thread_hashes_verified')}`.",
@@ -1089,9 +1257,13 @@ def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
             f"- Source SQLite unchanged: `{result.get('source_database_unchanged')}`.",
             f"- Active route unchanged: `{result.get('active_route_unchanged')}`.",
             f"- Every accepted final sequence injected: `{all(value.get('accepted_final_injected') for value in result.get('turns', []))}`.",
+            f"- D-200 lean-context verification: `{canonical_json(result.get('lean_context_verification'))}`.",
+            f"- Lost-thread reconstruction: `{canonical_json(result.get('reconstruction'))}`.",
             f"- Terminal evidence SHA-256: `{terminal.sha256}`.",
             f"- Terminal evidence artifact: `source/JOB4_TERMINAL_EVIDENCE.json`.",
             f"- Capability custody SHA-256: `{result.get('capability_ledger_sha256')}`.",
+            "- Capability boundary SHA-256: "
+            f"`{result.get('capability_boundary_evidence_sha256')}`.",
             f"- Canonical effects: `{canonical_json(effects)}`.",
             f"- Mandatory terminal failures: `{canonical_json(list(terminal.failure_codes))}`.",
             "- Complete raw prompts, outputs, tool traces, candidate snapshots, diffs, edit logs, receipts, usage, timings, errors, and replay inputs remain under the ignored disposable runtime root.",
@@ -1137,7 +1309,11 @@ def build_canonical_job4_result(
             raise ValueError(f"detailed result contradicts terminal evidence: {field}")
     if isinstance(
         terminal,
-        (ContinuousJob4TerminalEvidenceV2, ContinuousJob4TerminalEvidenceV3),
+        (
+            ContinuousJob4TerminalEvidenceV2,
+            ContinuousJob4TerminalEvidenceV3,
+            ContinuousJob4TerminalEvidenceV4,
+        ),
     ):
         if (
             result.get("capability_ledger") != terminal.capability_ledger.to_dict()
@@ -1145,6 +1321,16 @@ def build_canonical_job4_result(
             != terminal.capability_ledger.sha256
         ):
             raise ValueError("detailed capability custody contradicts terminal evidence")
+    if isinstance(terminal, ContinuousJob4TerminalEvidenceV4):
+        if (
+            result.get("capability_boundary_evidence")
+            != terminal.capability_boundary_evidence.to_dict()
+            or result.get("capability_boundary_evidence_sha256")
+            != terminal.capability_boundary_evidence.sha256
+        ):
+            raise ValueError(
+                "detailed capability boundary contradicts terminal evidence"
+            )
     if result.get("source_database_unchanged") != (
         terminal.postconditions.source_database_sha256_before is not None
         and terminal.postconditions.source_database_sha256_before
@@ -1170,11 +1356,17 @@ def build_canonical_job4_result(
             role: terminal.thread_archival_evidence[role].to_dict()
             for role in ("planner", "validator")
         }
-        if isinstance(terminal, ContinuousJob4TerminalEvidenceV3)
+        if isinstance(
+            terminal,
+            (ContinuousJob4TerminalEvidenceV3, ContinuousJob4TerminalEvidenceV4),
+        )
         else result.get("thread_archival_evidence")
     )
     if (
-        isinstance(terminal, ContinuousJob4TerminalEvidenceV3)
+        isinstance(
+            terminal,
+            (ContinuousJob4TerminalEvidenceV3, ContinuousJob4TerminalEvidenceV4),
+        )
         and result.get("thread_archival_evidence") != archival_evidence
     ):
         raise ValueError(
@@ -1217,7 +1409,7 @@ def build_canonical_job4_result(
         "effects": effects,
         "verification": [
             {
-                "command": "continuous-planner-validator-three-turn-scene-change-canary-v1",
+                "command": "continuous-lean-context-provider-free-integration-audit-v1",
                 "status": (
                     "passed"
                     if terminal.execution_status == "completed"
@@ -1289,6 +1481,8 @@ def execute_job4_schedule(
     result.update(
         {
             "planner_thread_sha256": text_sha256(planner_handle),
+            "planner_thread_sha256_initial": text_sha256(planner_handle),
+            "planner_thread_sha256s": [text_sha256(planner_handle)],
             "validator_thread_sha256": text_sha256(validator_handle),
             "separate_thread_ids": planner_handle != validator_handle,
         }
@@ -1299,31 +1493,83 @@ def execute_job4_schedule(
         world=world,
         world_file_revision=read_world_revision(world, "Sakura"),
     )
-    result["turns"].append(
-        harness.run_turn(
-            turn_number=1,
-            scene_id="scene-001",
-            summaries=(sakura_summary,),
-        )
+    turn_one = harness.run_turn(
+        turn_number=1,
+        scene_id="scene-001",
+        summaries=(sakura_summary,),
     )
-    result["turns"].append(
-        harness.run_turn(turn_number=2, scene_id="scene-001", summaries=())
+    result["turns"].append(turn_one)
+    turn_two = harness.run_turn(
+        turn_number=2,
+        scene_id="scene-001",
+        summaries=(),
     )
+    result["turns"].append(turn_two)
+    if (
+        turn_one["context_mode"] != "lean_continuous"
+        or turn_one["compact_accepted_head_receipt_sha256"] is not None
+        or not turn_one["character_summary_delivery_receipt_sha256s"]
+        or turn_two["context_mode"] != "lean_continuous"
+        or turn_two["compact_accepted_head_receipt_sha256"] is None
+        or turn_two["character_summary_delivery_receipt_sha256s"]
+        or not all(turn_two["lean_absence_checks"].values())
+    ):
+        raise RuntimeError("D-200 Turn 1/Turn 2 lean-context contract changed")
     result["scene_summary"] = harness.summarize_scene()
+    if scripted_provider_free:
+        result["reconstruction"] = harness.reconstruct_lost_planner_thread()
+        result["planner_thread_sha256"] = text_sha256(
+            harness.planner_handle
+        )
+        result["planner_thread_sha256s"].append(
+            result["planner_thread_sha256"]
+        )
     mia_summary = source_character_summary(
         ROOT,
         "mia",
         world=world,
         world_file_revision=read_world_revision(world, "Mia"),
     )
-    result["turns"].append(
-        harness.run_turn(
-            turn_number=3,
-            scene_id="scene-002",
-            summaries=(mia_summary,),
-            scene_change_context=to_primitive(harness.scene_change_envelope),
-        )
+    turn_three = harness.run_turn(
+        turn_number=3,
+        scene_id="scene-002",
+        summaries=(mia_summary,),
+        scene_change_context=to_primitive(harness.scene_change_envelope),
     )
+    result["turns"].append(turn_three)
+    if scripted_provider_free and (
+        result["reconstruction"]["status"] != "passed"
+        or result["reconstruction"]["next_context_mode"]
+        != "lean_continuous"
+        or turn_three["context_mode"] != "lean_continuous"
+        or turn_three["compact_accepted_head_receipt_sha256"] is None
+        or not all(turn_three["lean_absence_checks"].values())
+    ):
+        raise RuntimeError("D-200 reconstruction-to-lean contract changed")
+    result["lean_context_verification"] = {
+        "turn_1_initial_summary_delivered": bool(
+            turn_one["character_summary_delivery_receipt_sha256s"]
+        ),
+        "turn_2_prohibited_components_absent": all(
+            turn_two["lean_absence_checks"].values()
+        ),
+        "turn_2_compact_head_present": (
+            turn_two["compact_accepted_head_receipt_sha256"] is not None
+        ),
+        "downstream_prior_projections_absent": all(
+            turn["lean_absence_checks"][key]
+            for turn in result["turns"]
+            for key in (
+                "composer_prior_projection_absent",
+                "validator_prior_projection_absent",
+            )
+        ),
+        "accepted_injections_recorded": all(
+            turn["accepted_context_injection"] is not None
+            for turn in result["turns"]
+        ),
+        "reconstruction_exercised": scripted_provider_free,
+    }
     if len(harness.call_records) != 10:
         raise RuntimeError("successful Job 4 did not use the exact ten-call schedule")
     if scripted_provider_free:
@@ -1334,7 +1580,7 @@ def execute_job4_schedule(
     elif harness.provider_calls != 10:
         raise RuntimeError("successful Job 4 provider-call accounting changed")
     result["accepted_session_synchronized"] = not bool(
-        planner_session.unsynchronized_accepted_turn_ids
+        harness.planner_session.unsynchronized_accepted_turn_ids
     )
     if not result["accepted_session_synchronized"]:
         raise RuntimeError("accepted Planner context remained unsynchronized")
@@ -1450,6 +1696,7 @@ def execute_scripted_job4(
             compatibility(world, ContinuousSessionRole.VALIDATOR), session_port
         ),
     )
+    planner_session.install_base_instructions(PLANNER_STABLE_INSTRUCTIONS)
     planner_handle = root_diagnostic.run(
         "stored_thread_construction",
         "ensure_scripted_planner_thread",
@@ -1499,7 +1746,7 @@ def execute_scripted_job4(
         archived: dict[str, bool] = {}
         archival_evidence: dict[str, dict[str, object]] = {}
         for role, coordinator in (
-            ("planner", planner_session),
+            ("planner", harness.planner_session),
             ("validator", validator_session),
         ):
             evidence = coordinator.archive_and_verify_terminal(
@@ -1769,6 +2016,9 @@ def main() -> int:
     confirmation.add_argument(
         "--confirm-provider-free-scripted-v8", action="store_true"
     )
+    confirmation.add_argument(
+        "--confirm-provider-free-scripted-v9", action="store_true"
+    )
     parser.add_argument("--expected-scripted-fixture-sha256")
     parser.add_argument("--cycle-directory", type=Path, required=True)
     parser.add_argument("--source-database", type=Path, required=True)
@@ -1786,9 +2036,14 @@ def main() -> int:
     scripted_provider_free = (
         args.confirm_provider_free_scripted_v7
         or args.confirm_provider_free_scripted_v8
+        or args.confirm_provider_free_scripted_v9
     )
     scripted_mode_version = (
-        "v8" if args.confirm_provider_free_scripted_v8 else "v7"
+        "v9"
+        if args.confirm_provider_free_scripted_v9
+        else "v8"
+        if args.confirm_provider_free_scripted_v8
+        else "v7"
     )
     execution_mode = (
         f"provider_free_scripted_{scripted_mode_version}"
@@ -1798,14 +2053,17 @@ def main() -> int:
     if scripted_provider_free:
         if args.expected_scripted_fixture_sha256 != SCRIPTED_JOB4_FIXTURE_SHA256:
             parser.error(
-                "--expected-scripted-fixture-sha256 must match the frozen v7 fixture"
+                "--expected-scripted-fixture-sha256 must match the frozen scripted fixture"
             )
         if args.provider_free_test_failpoint is not None and (
-            not args.confirm_provider_free_scripted_v8
+            not (
+                args.confirm_provider_free_scripted_v8
+                or args.confirm_provider_free_scripted_v9
+            )
             or args.maximum_provider_calls != 10
         ):
             parser.error(
-                "provider-free test failpoints require scripted v8 and the ten-stage ceiling"
+                "provider-free test failpoints require scripted v8/v9 and the ten-stage ceiling"
             )
     elif args.expected_scripted_fixture_sha256 is not None:
         parser.error("scripted fixture identity is forbidden in live mode")
@@ -1853,8 +2111,12 @@ def main() -> int:
         return 0 if transaction.frozen_result().get("status") == "completed" else 1
 
     recovery_terminalization = not transaction.is_new
-    capability_custody = ContinuousJob4CapabilityCustody()
-    capability_ledger = capability_custody.evidence
+    capability_container = ContinuousJob4CapabilityContainerV1.restricted(
+        entrypoint_id="continuous_planner_validator_job4",
+        entrypoint_path=Path(__file__),
+    )
+    capability_ledger = capability_container.evidence
+    capability_boundary_evidence = capability_container.boundary_evidence
     provider_calls = 0
     scripted_transport_invocations = 0
     ledger_dispatches = 0
@@ -1889,6 +2151,10 @@ def main() -> int:
         "operational_counters": capability_ledger.operational_counters.to_dict(),
         "capability_ledger": capability_ledger.to_dict(),
         "capability_ledger_sha256": capability_ledger.sha256,
+        "capability_boundary_evidence": capability_boundary_evidence.to_dict(),
+        "capability_boundary_evidence_sha256": (
+            capability_boundary_evidence.sha256
+        ),
         "active_runtime_before": None,
         "active_runtime_before_error_type": None,
         "turns": [],
@@ -1934,6 +2200,7 @@ def main() -> int:
         )
     else:
         try:
+            capability_container.require_enforced()
             if (
                 (cycle / "source" / "JOB4_REPORT.md").exists()
                 or (cycle / "source" / "JOB4_RESULT.json").exists()
@@ -2132,6 +2399,7 @@ def main() -> int:
                     lambda: ContinuousSessionCoordinator(
                         compatibility(world, ContinuousSessionRole.PLANNER),
                         CodexContinuousStoredSessionPort(planner_backend),
+                        base_instructions=planner_backend.base_instructions,
                     ),
                 )
                 validator_session = root_diagnostic.run(
@@ -2140,6 +2408,7 @@ def main() -> int:
                     lambda: ContinuousSessionCoordinator(
                         compatibility(world, ContinuousSessionRole.VALIDATOR),
                         CodexContinuousStoredSessionPort(validator_backend),
+                        base_instructions=validator_backend.base_instructions,
                     ),
                 )
                 planner_handle = root_diagnostic.run(
@@ -2230,11 +2499,7 @@ def main() -> int:
             call.get("result", {})
             .get("operation_telemetry", {})
             .get("provider_thread_id_sha256")
-            == (
-                result.get("planner_thread_sha256")
-                if call.get("owner") == "planner"
-                else result.get("validator_thread_sha256")
-            )
+            == call.get("expected_provider_thread_sha256")
             for call in harness.call_records
             if call.get("owner") in {"planner", "validator"}
             and call.get("status") in {"passed", "scripted_provider_free_passed"}
@@ -2343,10 +2608,24 @@ def main() -> int:
     execution_status = result.get("execution_status")
     if execution_status not in {"completed", "failed"}:
         execution_status = "failed"
-    terminal = ContinuousJob4TerminalEvidenceV3.build(
+    capability_ledger = capability_container.evidence
+    capability_boundary_evidence = capability_container.boundary_evidence
+    result["operational_counters"] = (
+        capability_ledger.operational_counters.to_dict()
+    )
+    result["capability_ledger"] = capability_ledger.to_dict()
+    result["capability_ledger_sha256"] = capability_ledger.sha256
+    result["capability_boundary_evidence"] = (
+        capability_boundary_evidence.to_dict()
+    )
+    result["capability_boundary_evidence_sha256"] = (
+        capability_boundary_evidence.sha256
+    )
+    terminal = ContinuousJob4TerminalEvidenceV4.build(
         execution_status=execution_status,
         provider_calls=provider_calls,
         capability_ledger=capability_ledger,
+        capability_boundary_evidence=capability_boundary_evidence,
         postconditions=postconditions,
         thread_archival_evidence=thread_archival_evidence,
     )

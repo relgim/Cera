@@ -54,9 +54,15 @@ from .ingress import (
     build_default_prepared_classifier_registry,
 )
 from .sessions import (
+    CharacterSummaryDeliveryReceiptV1,
+    ContinuousBranchForkReceiptV1,
     ContinuousContextInjectionReceiptV1,
+    ContinuousReconstructionAcceptedTurnV1,
+    ContinuousSessionInitializationReceiptV1,
+    ContinuousSessionReconstructionBundleV1,
     ContinuousSessionSnapshotReceiptV1,
     ContinuousSessionSnapshotStore,
+    PlannerContextMode,
 )
 from .runtime import ContinuousSceneChangeCandidateV1
 from .shadow_ingress import (
@@ -70,10 +76,12 @@ from .world_mcp import (
 from .evidence import (
     AcceptedSessionFactV1,
     AcceptedSessionProjectionV1,
+    CompactAcceptedHeadReceiptV1,
     EvidenceBindingKind,
     EvidenceVisibility,
     RequestEvidenceBindingRegistry,
     RequestEvidenceBindingV1,
+    StableAcceptedContextReferenceV1,
 )
 from .call_ledger import (
     ContinuousProviderCallLedger,
@@ -137,6 +145,12 @@ __all__ = [
     "RepositoryPreparedIngressClassifierV1",
     "build_default_prepared_classifier_registry",
     "ContinuousSessionSnapshotStore",
+    "PlannerContextMode",
+    "ContinuousSessionInitializationReceiptV1",
+    "ContinuousReconstructionAcceptedTurnV1",
+    "ContinuousSessionReconstructionBundleV1",
+    "ContinuousBranchForkReceiptV1",
+    "CharacterSummaryDeliveryReceiptV1",
     "ContinuousContextInjectionReceiptV1",
     "ContinuousSessionSnapshotReceiptV1",
     "ContinuousSceneChangeCandidateV1",
@@ -147,6 +161,8 @@ __all__ = [
     "EvidenceBindingKind",
     "AcceptedSessionProjectionV1",
     "AcceptedSessionFactV1",
+    "CompactAcceptedHeadReceiptV1",
+    "StableAcceptedContextReferenceV1",
     "EvidenceVisibility",
     "RequestEvidenceBindingRegistry",
     "RequestEvidenceBindingV1",

@@ -446,7 +446,7 @@ class ContinuousWorldStore:
             raise StateConflictError("creator acceptance journal already exists")
         transaction_root.mkdir(parents=False)
         journal_base = {
-            "schema_version": "cera.continuous_acceptance_journal.v5",
+            "schema_version": "cera.continuous_acceptance_journal.v6",
             "world_id": world_id,
             "branch_id": branch_id,
             "turn_id": turn_id,
@@ -469,6 +469,7 @@ class ContinuousWorldStore:
             "planner_ledger_state": "pending",
             "model_injection_state": "pending",
             "planner_snapshot_state": "pending",
+            "stable_reference_state": "pending",
         }
         self._write_json(
             transaction_root / "JOURNAL.json",
@@ -996,6 +997,7 @@ class ContinuousWorldStore:
                     "cera.continuous_acceptance_journal.v3",
                     "cera.continuous_acceptance_journal.v4",
                     "cera.continuous_acceptance_journal.v5",
+                    "cera.continuous_acceptance_journal.v6",
                 }
             ):
                 self._finish_local_acceptance(root, transaction_root)
@@ -1062,6 +1064,7 @@ class ContinuousWorldStore:
             "cera.continuous_acceptance_journal.v3",
             "cera.continuous_acceptance_journal.v4",
             "cera.continuous_acceptance_journal.v5",
+            "cera.continuous_acceptance_journal.v6",
         }:
             return
         active = branch_root / "ACTIVE"
@@ -1245,11 +1248,41 @@ class ContinuousWorldStore:
         envelope_sha256: str,
     ) -> None:
         payload = self.acceptance_synchronization_record(world_id, branch_id, turn_id)
+        if payload.get("stable_reference_state") != "persisted":
+            raise StateConflictError("stable accepted references are not persisted")
+        synchronization_receipt_sha256 = (
+            self.expected_acceptance_synchronization_receipt_sha256(
+                world_id,
+                branch_id,
+                turn_id,
+                envelope_sha256,
+            )
+        )
+        self._update_acceptance_sync_state(
+            world_id,
+            branch_id,
+            turn_id,
+            planner_ledger_state="appended",
+            model_injection_state="synchronized",
+            accepted_final_envelope_sha256=envelope_sha256,
+            synchronization_receipt_sha256=synchronization_receipt_sha256,
+        )
+
+    def expected_acceptance_synchronization_receipt_sha256(
+        self,
+        world_id: str,
+        branch_id: str,
+        turn_id: str,
+        envelope_sha256: str,
+    ) -> str:
+        payload = self.acceptance_synchronization_record(world_id, branch_id, turn_id)
         if payload.get("model_injection_state") != "returned":
             raise StateConflictError("model injection has not returned")
         if payload.get("planner_snapshot_state") != "persisted":
             raise StateConflictError("Planner session snapshot is not persisted")
-        synchronization_receipt_sha256 = canonical_sha256(
+        if payload.get("accepted_final_envelope_sha256") != envelope_sha256:
+            raise StateConflictError("accepted-final synchronization hash changed")
+        return canonical_sha256(
             {
                 "turn_id": turn_id,
                 "accepted_final_envelope_sha256": envelope_sha256,
@@ -1264,14 +1297,63 @@ class ContinuousWorldStore:
                 ),
             }
         )
+
+    def mark_acceptance_stable_references_persisted(
+        self,
+        world_id: str,
+        branch_id: str,
+        turn_id: str,
+        *,
+        reference_path: Path,
+        compact_head_receipt_sha256: str,
+    ) -> None:
+        from .evidence import StableAcceptedContextReferenceStore
+
+        payload = self.acceptance_synchronization_record(world_id, branch_id, turn_id)
+        provider_thread_sha256 = str(payload.get("planner_provider_thread_sha256", ""))
+        if re.fullmatch(r"[0-9a-f]{64}", compact_head_receipt_sha256) is None:
+            raise ContractValidationError("compact accepted-head receipt hash is invalid")
+        store = StableAcceptedContextReferenceStore(
+            self.branch_root(world_id, branch_id)
+        )
+        expected_path = store.path_for(turn_id, provider_thread_sha256).resolve()
+        if reference_path.is_symlink():
+            raise StateConflictError(
+                "stable accepted-reference custody path is a symlink"
+            )
+        supplied_path = reference_path.resolve()
+        if supplied_path != expected_path or not supplied_path.is_file():
+            raise StateConflictError("stable accepted-reference custody path changed")
+        receipt, _references = store.load(
+            turn_id,
+            provider_thread_sha256=provider_thread_sha256,
+        )
+        if (
+            receipt.receipt_sha256 != compact_head_receipt_sha256
+            or receipt.world_id != world_id
+            or receipt.branch_id != branch_id
+            or receipt.accepted_envelope_sha256
+            != payload.get("accepted_final_envelope_sha256")
+            or receipt.accepted_pair_sha256 != payload.get("accepted_pair_sha256")
+            or receipt.accepted_event_sha256 != payload.get("accepted_event_sha256")
+            or receipt.injection_receipt_sha256
+            != payload.get("injection_operation_receipt_sha256")
+            or receipt.session_snapshot_sha256
+            != payload.get("planner_session_snapshot_sha256")
+        ):
+            raise StateConflictError("stable accepted-reference binding changed")
         self._update_acceptance_sync_state(
             world_id,
             branch_id,
             turn_id,
-            planner_ledger_state="appended",
-            model_injection_state="synchronized",
-            accepted_final_envelope_sha256=envelope_sha256,
-            synchronization_receipt_sha256=synchronization_receipt_sha256,
+            stable_reference_state="persisted",
+            compact_accepted_head_receipt_sha256=compact_head_receipt_sha256,
+            stable_reference_relative_path=supplied_path.relative_to(
+                self.branch_root(world_id, branch_id).resolve()
+            ).as_posix(),
+            stable_reference_set_sha256=text_sha256(
+                supplied_path.read_text(encoding="utf-8")
+            ),
         )
 
     def acceptance_synchronization_record(
@@ -1487,6 +1569,31 @@ class SceneChangeEnvelopeV1:
             + "\n[FIRST USER MESSAGE OF NEW SCENE]\n"
             + self.first_user_message_of_new_scene
         )
+
+    def lean_planner_context(self) -> dict[str, Any]:
+        """Current-scene handoff without replaying prior accepted pairs."""
+
+        return {
+            "schema_version": "cera.lean_scene_change_context.v1",
+            "completed_scene_id": self.previous_scene_summary.completed_scene_id,
+            "accepted_turn_ids": self.previous_scene_summary.accepted_turn_ids,
+            "shortest_complete_summary": (
+                self.previous_scene_summary.shortest_complete_summary
+            ),
+            "ending_state": self.previous_scene_summary.ending_state,
+            "transition_context": self.previous_scene_summary.transition_context,
+            "summary_authority_classification": (
+                self.previous_scene_summary_view.authority_classification
+            ),
+            "summary_revision": self.previous_scene_summary_view.summary_revision,
+            "regeneration_identity_sha256": (
+                self.previous_scene_summary_view.regeneration_identity_sha256
+            ),
+            "first_user_message_of_new_scene": (
+                self.first_user_message_of_new_scene
+            ),
+            "exact_prior_pairs_included": False,
+        }
 
 
 class SceneChangeCoordinator:

@@ -29,6 +29,7 @@ from cera.continuous.provider import (
 )
 from cera.continuous import AcceptedTurnPairV1, ValidatorSemanticStatus, ValidatorTaskMode
 from cera.continuous.sessions import (
+    ContinuousBranchForkReceiptV1,
     ContinuousSessionCompatibilityV1,
     ContinuousSessionCoordinator,
     ContinuousSessionRole,
@@ -180,11 +181,50 @@ def compatibility(role: ContinuousSessionRole, branch: str = "branch:main") -> C
         authority_policy_version="cera.owner_architecture.v2",
         privacy_policy_version="cera.privacy.v1",
         protected_user_policy_version="cera.continuous_protected_user_policy.v8",
-        session_policy_version="cera.continuous_session_policy.v8",
+        session_policy_version="cera.continuous_session_policy.v9_d200",
         ingress_classifier_registry_sha256=(
             build_default_prepared_classifier_registry().registry_sha256
         ),
         persistence_policy_sha256=PERSISTENCE_POLICY_SHA256,
+    )
+
+
+def branch_receipt(
+    planner: ContinuousSessionCoordinator,
+    child_branch: str,
+) -> ContinuousBranchForkReceiptV1:
+    snapshot = planner.snapshot()
+    accepted = snapshot.accepted_turn_ids
+    ancestry = canonical_sha256(
+        {
+            "accepted_turn_ids": accepted,
+            "accepted_envelopes": tuple(
+                (
+                    turn_id,
+                    next(
+                        event.payload_sha256
+                        for event in snapshot.context_events
+                        if event.event_type == "accepted_final_sequence"
+                        and event.turn_or_scene_id == turn_id
+                    ),
+                )
+                for turn_id in accepted
+            ),
+        }
+    )
+    payload = {
+        "schema_version": ContinuousBranchForkReceiptV1.SCHEMA_VERSION,
+        "world_id": snapshot.compatibility.world_id,
+        "parent_branch_id": snapshot.compatibility.branch_id,
+        "child_branch_id": child_branch,
+        "accepted_checkpoint_turn_id": accepted[-1],
+        "accepted_ancestry_sha256": ancestry,
+        "parent_provider_thread_sha256": snapshot.handle.provider_thread_id_sha256,
+        "privacy_boundary_sha256": text_sha256("exact accepted ancestry only"),
+    }
+    return ContinuousBranchForkReceiptV1(
+        **payload,
+        receipt_sha256=canonical_sha256(payload),
     )
 
 
@@ -362,8 +402,18 @@ class ContinuousSessionTests(unittest.TestCase):
         )
         handle = planner.ensure_session()
         self.assertTrue(port.resume(handle))
+        envelope = AcceptedFinalSequenceEnvelopeV1(
+            schema_version=AcceptedFinalSequenceEnvelopeV1.SCHEMA_VERSION,
+            accepted_turn_id="turn:001",
+            user_message="Hello.",
+            complete_final_sequence=accepted_sequence(),
+            acceptance_receipt_sha256=text_sha256("accepted-turn-001"),
+        )
+        planner.append_accepted_final_sequence(envelope)
+        planner.synchronize_accepted_final_sequence(envelope)
         child = planner.fork_for_branch(
-            compatibility(ContinuousSessionRole.PLANNER, "branch:child")
+            compatibility(ContinuousSessionRole.PLANNER, "branch:child"),
+            branch_receipt=branch_receipt(planner, "branch:child"),
         )
         self.assertNotEqual(
             handle.provider_thread_id,
@@ -428,11 +478,11 @@ class ContinuousSessionTests(unittest.TestCase):
             1,
         )
 
-    def test_restart_reconstructs_same_physical_thread(self) -> None:
+    def test_restart_resumes_same_compatible_physical_thread(self) -> None:
         port = InMemoryContinuousStoredSessionPort()
         planner = ContinuousSessionCoordinator(compatibility(ContinuousSessionRole.PLANNER), port)
         snapshot = planner.snapshot()
-        restored = ContinuousSessionCoordinator.reconstruct(
+        restored = ContinuousSessionCoordinator.resume_compatible(
             snapshot,
             port,
             expected_compatibility=compatibility(ContinuousSessionRole.PLANNER),
@@ -452,7 +502,7 @@ class ContinuousSessionTests(unittest.TestCase):
         )
         snapshot = ContinuousSessionCoordinator(old, port).snapshot()
         with self.assertRaisesRegex(StateConflictError, "incompatible"):
-            ContinuousSessionCoordinator.reconstruct(
+            ContinuousSessionCoordinator.resume_compatible(
                 snapshot,
                 port,
                 expected_compatibility=current,
@@ -468,7 +518,7 @@ class ContinuousSessionTests(unittest.TestCase):
         )
         snapshot = ContinuousSessionCoordinator(pre_v7, port).snapshot()
         with self.assertRaisesRegex(StateConflictError, "incompatible"):
-            ContinuousSessionCoordinator.reconstruct(
+            ContinuousSessionCoordinator.resume_compatible(
                 snapshot,
                 port,
                 expected_compatibility=current,
@@ -484,7 +534,7 @@ class ContinuousSessionTests(unittest.TestCase):
         )
         snapshot = ContinuousSessionCoordinator(stale, port).snapshot()
         with self.assertRaisesRegex(StateConflictError, "incompatible"):
-            ContinuousSessionCoordinator.reconstruct(
+            ContinuousSessionCoordinator.resume_compatible(
                 snapshot,
                 port,
                 expected_compatibility=current,
@@ -500,7 +550,7 @@ class ContinuousSessionTests(unittest.TestCase):
             store = ContinuousSessionSnapshotStore(Path(temporary))
             saved = planner.checkpoint(store)
             self.assertIn("PLANNER_SESSION", saved.parts)
-            restored = ContinuousSessionCoordinator.reconstruct(
+            restored = ContinuousSessionCoordinator.resume_compatible(
                 store.load(ContinuousSessionRole.PLANNER),
                 port,
                 expected_compatibility=compatibility(
@@ -512,9 +562,21 @@ class ContinuousSessionTests(unittest.TestCase):
     def test_sibling_branch_forks_a_distinct_thread(self) -> None:
         port = InMemoryContinuousStoredSessionPort()
         planner = ContinuousSessionCoordinator(compatibility(ContinuousSessionRole.PLANNER), port)
-        child = planner.fork_for_branch(compatibility(ContinuousSessionRole.PLANNER, "branch:sibling"))
+        envelope = AcceptedFinalSequenceEnvelopeV1(
+            schema_version=AcceptedFinalSequenceEnvelopeV1.SCHEMA_VERSION,
+            accepted_turn_id="turn:001",
+            user_message="Hello.",
+            complete_final_sequence=accepted_sequence(),
+            acceptance_receipt_sha256=text_sha256("accepted-turn-001"),
+        )
+        planner.append_accepted_final_sequence(envelope)
+        planner.synchronize_accepted_final_sequence(envelope)
+        child = planner.fork_for_branch(
+            compatibility(ContinuousSessionRole.PLANNER, "branch:sibling"),
+            branch_receipt=branch_receipt(planner, "branch:sibling"),
+        )
         self.assertNotEqual(child.ensure_session().provider_thread_id, planner.ensure_session().provider_thread_id)
-        self.assertEqual(child.snapshot().accepted_turn_ids, ())
+        self.assertEqual(child.snapshot().accepted_turn_ids, ("turn:001",))
 
     def test_role_path_policy_denies_cross_session_and_sibling_access(self) -> None:
         policy = WorldPathAccessPolicyV1("D:/runtime/world/main")

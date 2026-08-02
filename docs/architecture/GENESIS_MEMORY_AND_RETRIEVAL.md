@@ -189,6 +189,20 @@ rejected before Codex.
 
 Retrieval authorization is necessary but not sufficient for character use. Before a record may drive a character move, floor/participation decision, or beat, Python rechecks that the acting character is the private owner or an allowed `knowledge_owner_id`. A system-private record with no explicit knowledge owners may guide a subject character's behavior or system validation, but it cannot be transferred to an unrelated character or treated as character-known objective information without a typed knowledge route.
 
+## 7A. Continuous lean-context retrieval
+
+D-200 makes the compatible physical Planner thread the default working context for ordinary continuation. The large first-turn initialization may include the relevant seed dossier and selected incomplete character summaries. After acceptance, the exact user-message/final-sequence envelope is injected once into the stored Planner thread.
+
+Later ordinary turns do not automatically rebuild the seed dossier, resend unchanged character summaries, or attach the latest accepted-session projection. Python retains those exact records for validation, branching, and reconstruction, while the Planner uses stored context first.
+
+Retrieval is demand-driven. The Planner searches or expands evidence only when the current decision requires exact information not sufficiently available in working context, such as a named older event, a household rule, a returning character, a changed record, or an owner-private fact. Search remains navigation; consequential use still requires exact authorized expansion and binding.
+
+`projection_assisted` retrieval is a named diagnostic/control mode, not the default. It requires a demonstrated continuity defect on a compatible live thread or a separately authorized comparison and supplies only the smallest named projection. Thread loss and incompatibility use a new physical thread through `reconstruction`; they are never relabeled as projection assistance. Neither mode may silently broaden into full-history or full-card replay.
+
+At acceptance, Python stores exact stable references and a payload-free compact accepted-head receipt. The references bind world, branch, accepted ancestry, Planner session/physical thread, accepted envelope/pair/event, acceptance/injection/snapshot/synchronization custody, owner, roles, and visibility. Lean prompts carry keys and compact custody only. Same-branch reconstruction rebinds those references to the new physical thread without changing their accepted fact values. Non-forkable child-branch reconstruction also re-keys the inherited accepted facts to the validated child branch, so parent keys cannot be cited across the boundary.
+
+The complete policy is `CONTINUOUS_LEAN_CONTEXT_AND_CACHE_POLICY.md`.
+
 ## 8. Character-owned trauma memory
 
 A trauma-related memory uses:

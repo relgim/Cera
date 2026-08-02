@@ -25,9 +25,9 @@ for import_root in (SOURCE_ROOT, ROOT):
         sys.path.insert(0, str(import_root))
 
 from cera.continuous.job4_terminal import (
-    ContinuousJob4CapabilityCustody,
+    ContinuousJob4CapabilityContainerV1,
     ContinuousJob4PostconditionsV1,
-    ContinuousJob4TerminalEvidenceV3,
+    ContinuousJob4TerminalEvidenceV4,
 )
 from cera.continuous.job4_transaction import (
     ContinuousJob4TerminalTransactionV1,
@@ -132,6 +132,30 @@ CASES = (
         "tests.test_pro_review_bridge.ProReviewRepositoryCycleTests."
         "test_28l_terminal_v3_archival_custody_crosses_real_chain",
     ),
+    (
+        12,
+        "Closed capability container rejects every excluded effect before execution",
+        "tests.test_continuous_job4_harness.ContinuousJob4HarnessTests."
+        "test_closed_capability_container_rejects_every_bypass_before_effect",
+    ),
+    (
+        13,
+        "Direct mutation imports invalidate the exact entrypoint inventory",
+        "tests.test_continuous_job4_harness.ContinuousJob4HarnessTests."
+        "test_entrypoint_inventory_rejects_direct_product_mutation_import",
+    ),
+    (
+        14,
+        "Observed bypass effects become nonzero terminal-v4 failures",
+        "tests.test_continuous_job4_harness.ContinuousJob4HarnessTests."
+        "test_observed_bypass_is_counted_and_forces_terminal_v4_failure",
+    ),
+    (
+        15,
+        "Terminal-v4 capability evidence crosses completion and recovery",
+        "tests.test_pro_review_bridge.ProReviewRepositoryCycleTests."
+        "test_28m_terminal_v4_nonzero_capability_effect_crosses_real_chain",
+    ),
 )
 
 _TEST_FIXTURE_CASES = (
@@ -152,6 +176,7 @@ TEST_FIXTURE_SHA256 = canonical_sha256(
 FAILPOINTS = frozenset(
     {
         "unittest_preflight",
+        "capability_boundary_validation",
         "active_profile_before",
         "unittest_loading",
         "unittest_execution",
@@ -267,7 +292,7 @@ def _audit_compatibility(
         authority_policy_version="cera.owner_architecture.v2+d199",
         privacy_policy_version="cera.privacy.v1",
         protected_user_policy_version="cera.continuous_protected_user_policy.v8",
-        session_policy_version="cera.continuous_session_policy.v8",
+        session_policy_version="cera.continuous_session_policy.v9_d200",
         ingress_classifier_registry_sha256=canonical_sha256(
             "continuous-corrections-v12-audit-ingress"
         ),
@@ -380,7 +405,12 @@ def main() -> int:
 
     recovery_terminalization = not transaction.is_new
     fault = _AuditFaultInjector(args.provider_free_test_failpoint)
-    capability_ledger = ContinuousJob4CapabilityCustody().evidence
+    capability_container = ContinuousJob4CapabilityContainerV1.restricted(
+        entrypoint_id="continuous_corrections_v12_job4",
+        entrypoint_path=Path(__file__),
+    )
+    capability_ledger = capability_container.evidence
+    capability_boundary_evidence = capability_container.boundary_evidence
     database = _empty_database_evidence()
     thread_archival_evidence = _unavailable_archive_pair("NotExecuted")
     profile_before: str | None = None
@@ -400,6 +430,8 @@ def main() -> int:
         failure_stage = "restart_recovery"
     else:
         try:
+            fault.hit("capability_boundary_validation")
+            capability_container.require_enforced()
             _validate_cycle_authority(
                 cycle,
                 expected_cycle_id=args.expected_cycle_id,
@@ -505,10 +537,13 @@ def main() -> int:
     )
     try:
         fault.hit("terminal_evidence_construction")
-        terminal = ContinuousJob4TerminalEvidenceV3.build(
+        capability_ledger = capability_container.evidence
+        capability_boundary_evidence = capability_container.boundary_evidence
+        terminal = ContinuousJob4TerminalEvidenceV4.build(
             execution_status="completed" if execution_completed else "failed",
             provider_calls=0,
             capability_ledger=capability_ledger,
+            capability_boundary_evidence=capability_boundary_evidence,
             postconditions=postconditions,
             thread_archival_evidence=thread_archival_evidence,
         )
@@ -516,10 +551,13 @@ def main() -> int:
         if failure is None:
             failure = exc
             failure_stage = "terminal_evidence_construction"
-        terminal = ContinuousJob4TerminalEvidenceV3.build(
+        capability_ledger = capability_container.evidence
+        capability_boundary_evidence = capability_container.boundary_evidence
+        terminal = ContinuousJob4TerminalEvidenceV4.build(
             execution_status="failed",
             provider_calls=0,
             capability_ledger=capability_ledger,
+            capability_boundary_evidence=capability_boundary_evidence,
             postconditions=postconditions,
             thread_archival_evidence=thread_archival_evidence,
         )
@@ -548,6 +586,10 @@ def main() -> int:
         },
         "capability_ledger": capability_ledger.to_dict(),
         "capability_ledger_sha256": capability_ledger.sha256,
+        "capability_boundary_evidence": capability_boundary_evidence.to_dict(),
+        "capability_boundary_evidence_sha256": (
+            capability_boundary_evidence.sha256
+        ),
         "calls": [],
         "turns": [],
         "failure": None,

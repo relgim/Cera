@@ -2,17 +2,26 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 import json
+import os
 from pathlib import Path
 import re
 from typing import Any, ClassVar, Iterable
 
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import canonical_sha256, domain_sha256, re_is_sha256, text_sha256
+from cera.serialization import (
+    canonical_bytes,
+    canonical_sha256,
+    domain_sha256,
+    re_is_sha256,
+    text_sha256,
+    to_primitive,
+)
 
 from .contracts import (
+    AcceptedFinalSequenceEnvelopeV1,
     CharacterRoleLedgerV1,
     CharacterSummaryEnvelopeV1,
     FinalInformationVisibility,
@@ -144,6 +153,446 @@ class AcceptedSessionProjectionV1:
         return domain_sha256(self.SCHEMA_VERSION, self)
 
 
+@dataclass(frozen=True, slots=True)
+class StableAcceptedContextReferenceV1:
+    """Python-owned accepted fact address; prompt use never needs its payload."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.stable_accepted_context_reference.v1"
+
+    schema_version: str
+    reference_key: str
+    world_id: str
+    branch_id: str
+    planner_session_id_sha256: str
+    provider_thread_sha256: str
+    accepted_turn_id: str
+    scene_id: str
+    accepted_ancestry_sha256: str
+    accepted_envelope_sha256: str
+    accepted_pair_sha256: str
+    accepted_event_sha256: str
+    acceptance_receipt_sha256: str
+    injection_receipt_sha256: str
+    session_snapshot_sha256: str
+    synchronization_receipt_sha256: str
+    source_item_key: str
+    field_name: str
+    field_value: str
+    field_value_sha256: str
+    visibility: FinalInformationVisibility
+    knowledge_owner_id: str | None
+    roles: CharacterRoleLedgerV1
+    protected_user_source_claim_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("stable accepted-reference schema changed")
+        if not self.reference_key.startswith("binding_accepted_ref_"):
+            raise ContractValidationError("stable accepted-reference key is invalid")
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (
+                self.world_id,
+                self.branch_id,
+                self.accepted_turn_id,
+                self.scene_id,
+                self.source_item_key,
+                self.field_name,
+                self.field_value,
+            )
+        ):
+            raise ContractValidationError("stable accepted-reference is incomplete")
+        for value in (
+            self.planner_session_id_sha256,
+            self.provider_thread_sha256,
+            self.accepted_ancestry_sha256,
+            self.accepted_envelope_sha256,
+            self.accepted_pair_sha256,
+            self.accepted_event_sha256,
+            self.acceptance_receipt_sha256,
+            self.injection_receipt_sha256,
+            self.session_snapshot_sha256,
+            self.synchronization_receipt_sha256,
+            self.field_value_sha256,
+        ):
+            if not re_is_sha256(value):
+                raise ContractValidationError("stable accepted-reference hash is invalid")
+        if self.field_value_sha256 != text_sha256(self.field_value):
+            raise ContractValidationError("stable accepted-reference value changed")
+        if self.visibility is FinalInformationVisibility.PUBLIC:
+            if self.knowledge_owner_id is not None:
+                raise ContractValidationError(
+                    "public stable accepted-reference has a private owner"
+                )
+        elif (
+            self.knowledge_owner_id is None
+            or self.knowledge_owner_id not in set(self.roles.involved_ids)
+        ):
+            raise ContractValidationError(
+                "private stable accepted-reference owner is invalid"
+            )
+
+    @property
+    def reference_sha256(self) -> str:
+        return domain_sha256(self.SCHEMA_VERSION, self)
+
+    def injection_descriptor(self) -> dict[str, Any]:
+        """Map the accepted sequence field to a key without duplicating its value."""
+
+        return {
+            "reference_key": self.reference_key,
+            "accepted_turn_id": self.accepted_turn_id,
+            "source_item_key": self.source_item_key,
+            "field_name": self.field_name,
+            "visibility": self.visibility.value,
+            "knowledge_owner_id": self.knowledge_owner_id,
+            "roles": to_primitive(self.roles),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class CompactAcceptedHeadReceiptV1:
+    """Lean prompt receipt: exact custody and keys, never prior fact payloads."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.compact_accepted_head_receipt.v1"
+
+    schema_version: str
+    world_id: str
+    branch_id: str
+    scene_id: str
+    accepted_turn_id: str
+    planner_session_id_sha256: str
+    provider_thread_sha256: str
+    accepted_ancestry_sha256: str
+    accepted_envelope_sha256: str
+    accepted_pair_sha256: str
+    accepted_event_sha256: str
+    acceptance_receipt_sha256: str
+    injection_receipt_sha256: str
+    session_snapshot_sha256: str
+    synchronization_receipt_sha256: str
+    stable_reference_keys: tuple[str, ...]
+    receipt_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("compact accepted-head receipt schema changed")
+        if not all(
+            isinstance(value, str) and value.strip()
+            for value in (
+                self.world_id,
+                self.branch_id,
+                self.scene_id,
+                self.accepted_turn_id,
+            )
+        ):
+            raise ContractValidationError("compact accepted-head scope is incomplete")
+        if not self.stable_reference_keys or len(self.stable_reference_keys) != len(
+            set(self.stable_reference_keys)
+        ):
+            raise ContractValidationError("compact accepted-head keys are invalid")
+        if any(
+            not value.startswith("binding_accepted_ref_")
+            for value in self.stable_reference_keys
+        ):
+            raise ContractValidationError("compact accepted-head key changed")
+        for value in (
+            self.planner_session_id_sha256,
+            self.provider_thread_sha256,
+            self.accepted_ancestry_sha256,
+            self.accepted_envelope_sha256,
+            self.accepted_pair_sha256,
+            self.accepted_event_sha256,
+            self.acceptance_receipt_sha256,
+            self.injection_receipt_sha256,
+            self.session_snapshot_sha256,
+            self.synchronization_receipt_sha256,
+            self.receipt_sha256,
+        ):
+            if not re_is_sha256(value):
+                raise ContractValidationError("compact accepted-head hash is invalid")
+        expected = canonical_sha256(
+            {
+                "schema_version": self.SCHEMA_VERSION,
+                "world_id": self.world_id,
+                "branch_id": self.branch_id,
+                "scene_id": self.scene_id,
+                "accepted_turn_id": self.accepted_turn_id,
+                "planner_session_id_sha256": self.planner_session_id_sha256,
+                "provider_thread_sha256": self.provider_thread_sha256,
+                "accepted_ancestry_sha256": self.accepted_ancestry_sha256,
+                "accepted_envelope_sha256": self.accepted_envelope_sha256,
+                "accepted_pair_sha256": self.accepted_pair_sha256,
+                "accepted_event_sha256": self.accepted_event_sha256,
+                "acceptance_receipt_sha256": self.acceptance_receipt_sha256,
+                "injection_receipt_sha256": self.injection_receipt_sha256,
+                "session_snapshot_sha256": self.session_snapshot_sha256,
+                "synchronization_receipt_sha256": self.synchronization_receipt_sha256,
+                "stable_reference_keys": self.stable_reference_keys,
+            }
+        )
+        if self.receipt_sha256 != expected:
+            raise ContractValidationError("compact accepted-head receipt changed")
+
+
+class StableAcceptedContextReferenceStore:
+    """Atomic branch-local custody for stable accepted references."""
+
+    def __init__(self, branch_root: Path) -> None:
+        self.branch_root = branch_root.resolve()
+        self.root = self.branch_root / "PLANNER_SESSION" / "ACCEPTED_REFERENCES"
+
+    def path_for(
+        self,
+        accepted_turn_id: str,
+        provider_thread_sha256: str,
+    ) -> Path:
+        if not re_is_sha256(provider_thread_sha256):
+            raise ContractValidationError(
+                "stable accepted-reference thread hash is invalid"
+            )
+        return self.root / (
+            f"{text_sha256(accepted_turn_id)[:24]}."
+            f"{provider_thread_sha256[:24]}.json"
+        )
+
+    def save(
+        self,
+        *,
+        receipt: CompactAcceptedHeadReceiptV1,
+        references: tuple[StableAcceptedContextReferenceV1, ...],
+    ) -> Path:
+        if tuple(value.reference_key for value in references) != receipt.stable_reference_keys:
+            raise StateConflictError("stable accepted-reference set changed")
+        payload = {
+            "schema_version": "cera.stable_accepted_context_reference_set.v1",
+            "receipt": to_primitive(receipt),
+            "references": tuple(to_primitive(value) for value in references),
+        }
+        encoded = canonical_bytes(payload) + b"\n"
+        path = self.path_for(
+            receipt.accepted_turn_id,
+            receipt.provider_thread_sha256,
+        )
+        if self.root.exists() and self.root.is_symlink():
+            raise StateConflictError("stable accepted-reference root is a symlink")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if path.exists():
+            if path.is_symlink():
+                raise StateConflictError(
+                    "stable accepted-reference artifact is a symlink"
+                )
+            if path.read_bytes() != encoded:
+                raise StateConflictError("stable accepted-reference bytes changed")
+            return path
+        temporary = path.with_suffix(".tmp")
+        if temporary.exists():
+            if temporary.is_symlink() or temporary.read_bytes() != encoded:
+                raise StateConflictError(
+                    "stable accepted-reference temporary custody changed"
+                )
+            os.replace(temporary, path)
+            return path
+        with temporary.open("wb") as stream:
+            stream.write(encoded)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+        return path
+
+    def load(
+        self,
+        accepted_turn_id: str,
+        *,
+        provider_thread_sha256: str,
+    ) -> tuple[
+        CompactAcceptedHeadReceiptV1,
+        tuple[StableAcceptedContextReferenceV1, ...],
+    ]:
+        path = self.path_for(accepted_turn_id, provider_thread_sha256)
+        if not path.is_file() or path.is_symlink():
+            raise StateConflictError("stable accepted-reference set is unavailable")
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        if (
+            not isinstance(raw, dict)
+            or raw.get("schema_version")
+            != "cera.stable_accepted_context_reference_set.v1"
+        ):
+            raise ContractValidationError("stable accepted-reference set schema changed")
+        from cera.schema import from_mapping
+
+        receipt = from_mapping(CompactAcceptedHeadReceiptV1, raw.get("receipt"))
+        references = tuple(
+            from_mapping(StableAcceptedContextReferenceV1, value)
+            for value in raw.get("references", ())
+        )
+        if (
+            receipt.accepted_turn_id != accepted_turn_id
+            or receipt.provider_thread_sha256 != provider_thread_sha256
+            or tuple(value.reference_key for value in references)
+            != receipt.stable_reference_keys
+        ):
+            raise StateConflictError("stable accepted-reference index changed")
+        return receipt, references
+
+
+def reconstruction_reference_synchronization_sha256(
+    *,
+    initialization_receipt_sha256: str,
+    accepted_turn_id: str,
+    accepted_envelope_sha256: str,
+) -> str:
+    """Bind reconstructed accepted authority to one new physical thread."""
+
+    return canonical_sha256(
+        {
+            "schema_version": "cera.reconstruction_reference_synchronization.v1",
+            "initialization_receipt_sha256": initialization_receipt_sha256,
+            "accepted_turn_id": accepted_turn_id,
+            "accepted_envelope_sha256": accepted_envelope_sha256,
+        }
+    )
+
+
+def rebind_stable_accepted_context_references_for_reconstruction(
+    *,
+    source_receipt: CompactAcceptedHeadReceiptV1,
+    source_references: tuple[StableAcceptedContextReferenceV1, ...],
+    planner_session_id: str,
+    provider_thread_sha256: str,
+    accepted_turn_ids: tuple[str, ...],
+    initialization_receipt_sha256: str,
+    session_snapshot_sha256: str,
+    target_world_id: str | None = None,
+    target_branch_id: str | None = None,
+) -> tuple[
+    CompactAcceptedHeadReceiptV1,
+    tuple[StableAcceptedContextReferenceV1, ...],
+]:
+    """Rebind immutable facts to a new thread and, when needed, branch keys."""
+
+    if not accepted_turn_ids or source_receipt.accepted_turn_id not in accepted_turn_ids:
+        raise StateConflictError(
+            "reconstruction reference is outside the accepted tail"
+        )
+    if tuple(value.reference_key for value in source_references) != (
+        source_receipt.stable_reference_keys
+    ):
+        raise StateConflictError("reconstruction reference set changed")
+    world_id = target_world_id or source_receipt.world_id
+    branch_id = target_branch_id or source_receipt.branch_id
+    if not world_id.strip() or not branch_id.strip():
+        raise ContractValidationError(
+            "reconstruction reference target scope is incomplete"
+        )
+    accepted_ancestry_sha256 = canonical_sha256(
+        {
+            "world_id": world_id,
+            "branch_id": branch_id,
+            "accepted_turn_ids": accepted_turn_ids,
+            "accepted_head_envelope_sha256": source_receipt.accepted_envelope_sha256,
+        }
+    )
+    synchronization_receipt_sha256 = (
+        reconstruction_reference_synchronization_sha256(
+            initialization_receipt_sha256=initialization_receipt_sha256,
+            accepted_turn_id=source_receipt.accepted_turn_id,
+            accepted_envelope_sha256=source_receipt.accepted_envelope_sha256,
+        )
+    )
+    rebound = tuple(
+        replace(
+            value,
+            reference_key=_reconstruction_target_reference_key(
+                value,
+                target_world_id=world_id,
+                target_branch_id=branch_id,
+            ),
+            world_id=world_id,
+            branch_id=branch_id,
+            planner_session_id_sha256=text_sha256(planner_session_id),
+            provider_thread_sha256=provider_thread_sha256,
+            accepted_ancestry_sha256=accepted_ancestry_sha256,
+            injection_receipt_sha256=initialization_receipt_sha256,
+            session_snapshot_sha256=session_snapshot_sha256,
+            synchronization_receipt_sha256=synchronization_receipt_sha256,
+        )
+        for value in source_references
+    )
+    receipt_payload = {
+        "schema_version": CompactAcceptedHeadReceiptV1.SCHEMA_VERSION,
+        "world_id": world_id,
+        "branch_id": branch_id,
+        "scene_id": source_receipt.scene_id,
+        "accepted_turn_id": source_receipt.accepted_turn_id,
+        "planner_session_id_sha256": text_sha256(planner_session_id),
+        "provider_thread_sha256": provider_thread_sha256,
+        "accepted_ancestry_sha256": accepted_ancestry_sha256,
+        "accepted_envelope_sha256": source_receipt.accepted_envelope_sha256,
+        "accepted_pair_sha256": source_receipt.accepted_pair_sha256,
+        "accepted_event_sha256": source_receipt.accepted_event_sha256,
+        "acceptance_receipt_sha256": source_receipt.acceptance_receipt_sha256,
+        "injection_receipt_sha256": initialization_receipt_sha256,
+        "session_snapshot_sha256": session_snapshot_sha256,
+        "synchronization_receipt_sha256": synchronization_receipt_sha256,
+        "stable_reference_keys": tuple(value.reference_key for value in rebound),
+    }
+    return (
+        CompactAcceptedHeadReceiptV1(
+            **receipt_payload,
+            receipt_sha256=canonical_sha256(receipt_payload),
+        ),
+        rebound,
+    )
+
+
+def stable_reference_descriptors_for_reconstruction_target(
+    *,
+    source_references: tuple[StableAcceptedContextReferenceV1, ...],
+    target_world_id: str,
+    target_branch_id: str,
+) -> tuple[dict[str, Any], ...]:
+    """Return value-free descriptors re-keyed for one reconstruction target."""
+
+    return tuple(
+        {
+            **value.injection_descriptor(),
+            "reference_key": _reconstruction_target_reference_key(
+                value,
+                target_world_id=target_world_id,
+                target_branch_id=target_branch_id,
+            ),
+        }
+        for value in source_references
+    )
+
+
+def _reconstruction_target_reference_key(
+    value: StableAcceptedContextReferenceV1,
+    *,
+    target_world_id: str,
+    target_branch_id: str,
+) -> str:
+    if (
+        value.world_id == target_world_id
+        and value.branch_id == target_branch_id
+    ):
+        return value.reference_key
+    return "binding_accepted_ref_" + canonical_sha256(
+        {
+            "schema_version": "cera.reconstruction_branch_reference.v1",
+            "source_reference_key": value.reference_key,
+            "target_world_id": target_world_id,
+            "target_branch_id": target_branch_id,
+            "accepted_turn_id": value.accepted_turn_id,
+            "source_item_key": value.source_item_key,
+            "field_name": value.field_name,
+            "visibility": value.visibility.value,
+            "knowledge_owner_id": value.knowledge_owner_id,
+        }
+    )[:20]
+
+
 def project_final_sequence_facts(
     item: FinalSequenceItemV1,
 ) -> tuple[AcceptedSessionFactV1, ...]:
@@ -186,6 +635,170 @@ def project_final_sequence_facts(
                 )
             )
     return tuple(facts)
+
+
+def validate_stable_accepted_context_reference_facts(
+    *,
+    envelope: AcceptedFinalSequenceEnvelopeV1,
+    references: tuple[StableAcceptedContextReferenceV1, ...],
+) -> None:
+    """Prove every stored value and owner is an exact accepted field fact."""
+
+    accepted_facts = tuple(
+        fact
+        for item in envelope.complete_final_sequence.items
+        for fact in project_final_sequence_facts(item)
+    )
+    if len(accepted_facts) != len(references) or any(
+        (
+            reference.accepted_turn_id != envelope.accepted_turn_id
+            or reference.accepted_envelope_sha256 != envelope.envelope_sha256
+            or reference.source_item_key != fact.source_item_key
+            or reference.field_name != fact.field_name
+            or reference.field_value != fact.value
+            or reference.visibility is not fact.visibility
+            or reference.knowledge_owner_id != fact.knowledge_owner_id
+            or reference.roles != fact.roles
+            or reference.protected_user_source_claim_keys
+            != fact.protected_user_source_claim_keys
+        )
+        for reference, fact in zip(references, accepted_facts, strict=True)
+    ):
+        raise StateConflictError(
+            "stable accepted-reference facts changed from the accepted sequence"
+        )
+
+
+def build_stable_accepted_context_references(
+    *,
+    world_id: str,
+    branch_id: str,
+    scene_id: str,
+    planner_session_id: str,
+    provider_thread_sha256: str,
+    accepted_turn_ids: tuple[str, ...],
+    accepted_turn_id: str,
+    accepted_envelope_sha256: str,
+    accepted_pair_sha256: str,
+    accepted_event_sha256: str,
+    acceptance_receipt_sha256: str,
+    injection_receipt_sha256: str,
+    session_snapshot_sha256: str,
+    synchronization_receipt_sha256: str,
+    facts: tuple[AcceptedSessionFactV1, ...],
+) -> tuple[CompactAcceptedHeadReceiptV1, tuple[StableAcceptedContextReferenceV1, ...]]:
+    """Allocate deterministic stable keys after the acceptance chain closes."""
+
+    if not facts:
+        raise ContractValidationError("accepted turn produced no stable reference facts")
+    if not accepted_turn_ids or accepted_turn_ids[-1] != accepted_turn_id:
+        raise StateConflictError("accepted-reference ancestry head changed")
+    ancestry_sha256 = canonical_sha256(
+        {
+            "world_id": world_id,
+            "branch_id": branch_id,
+            "accepted_turn_ids": accepted_turn_ids,
+            "accepted_head_envelope_sha256": accepted_envelope_sha256,
+        }
+    )
+    references: list[StableAcceptedContextReferenceV1] = []
+    descriptors = stable_reference_descriptors_for_facts(
+        world_id=world_id,
+        branch_id=branch_id,
+        accepted_turn_id=accepted_turn_id,
+        facts=facts,
+    )
+    for fact, descriptor in zip(facts, descriptors, strict=True):
+        reference_key = str(descriptor["reference_key"])
+        references.append(
+            StableAcceptedContextReferenceV1(
+                schema_version=StableAcceptedContextReferenceV1.SCHEMA_VERSION,
+                reference_key=reference_key,
+                world_id=world_id,
+                branch_id=branch_id,
+                planner_session_id_sha256=text_sha256(planner_session_id),
+                provider_thread_sha256=provider_thread_sha256,
+                accepted_turn_id=accepted_turn_id,
+                scene_id=scene_id,
+                accepted_ancestry_sha256=ancestry_sha256,
+                accepted_envelope_sha256=accepted_envelope_sha256,
+                accepted_pair_sha256=accepted_pair_sha256,
+                accepted_event_sha256=accepted_event_sha256,
+                acceptance_receipt_sha256=acceptance_receipt_sha256,
+                injection_receipt_sha256=injection_receipt_sha256,
+                session_snapshot_sha256=session_snapshot_sha256,
+                synchronization_receipt_sha256=synchronization_receipt_sha256,
+                source_item_key=fact.source_item_key,
+                field_name=fact.field_name,
+                field_value=fact.value,
+                field_value_sha256=text_sha256(fact.value),
+                visibility=fact.visibility,
+                knowledge_owner_id=fact.knowledge_owner_id,
+                roles=fact.roles,
+                protected_user_source_claim_keys=(
+                    fact.protected_user_source_claim_keys
+                ),
+            )
+        )
+    keys = tuple(value.reference_key for value in references)
+    receipt_payload = {
+        "schema_version": CompactAcceptedHeadReceiptV1.SCHEMA_VERSION,
+        "world_id": world_id,
+        "branch_id": branch_id,
+        "scene_id": scene_id,
+        "accepted_turn_id": accepted_turn_id,
+        "planner_session_id_sha256": text_sha256(planner_session_id),
+        "provider_thread_sha256": provider_thread_sha256,
+        "accepted_ancestry_sha256": ancestry_sha256,
+        "accepted_envelope_sha256": accepted_envelope_sha256,
+        "accepted_pair_sha256": accepted_pair_sha256,
+        "accepted_event_sha256": accepted_event_sha256,
+        "acceptance_receipt_sha256": acceptance_receipt_sha256,
+        "injection_receipt_sha256": injection_receipt_sha256,
+        "session_snapshot_sha256": session_snapshot_sha256,
+        "synchronization_receipt_sha256": synchronization_receipt_sha256,
+        "stable_reference_keys": keys,
+    }
+    receipt = CompactAcceptedHeadReceiptV1(
+        **receipt_payload,
+        receipt_sha256=canonical_sha256(receipt_payload),
+    )
+    return receipt, tuple(references)
+
+
+def stable_reference_descriptors_for_facts(
+    *,
+    world_id: str,
+    branch_id: str,
+    accepted_turn_id: str,
+    facts: tuple[AcceptedSessionFactV1, ...],
+) -> tuple[dict[str, Any], ...]:
+    """Descriptors are injected beside the one accepted sequence, without values."""
+
+    return tuple(
+        {
+            "reference_key": "binding_accepted_ref_"
+            + canonical_sha256(
+                {
+                    "world_id": world_id,
+                    "branch_id": branch_id,
+                    "accepted_turn_id": accepted_turn_id,
+                    "source_item_key": fact.source_item_key,
+                    "field_name": fact.field_name,
+                    "fact_key": fact.fact_key,
+                    "visibility": fact.visibility.value,
+                    "knowledge_owner_id": fact.knowledge_owner_id,
+                }
+            )[:20],
+            "accepted_turn_id": accepted_turn_id,
+            "source_item_key": fact.source_item_key,
+            "field_name": fact.field_name,
+            "visibility": fact.visibility.value,
+            "knowledge_owner_id": fact.knowledge_owner_id,
+            "roles": to_primitive(fact.roles),
+        }
+        for fact in facts
+    )
 
 
 class EvidenceBindingKind(StrEnum):
@@ -363,6 +976,9 @@ class RequestEvidenceBindingRegistry:
         self._protected_user_claims: dict[str, ProtectedUserSourceClaimV1] = {}
         self._story_segments: dict[str, StoryRealizationSegmentV1] = {}
         self._accepted_session_projections: dict[str, AcceptedSessionProjectionV1] = {}
+        self._stable_accepted_context_references: dict[
+            str, StableAcceptedContextReferenceV1
+        ] = {}
 
     @staticmethod
     def current_source_key(*, world_id: str, branch_id: str, turn_id: str, source_sha256: str) -> str:
@@ -623,6 +1239,62 @@ class RequestEvidenceBindingRegistry:
         self._accepted_session_projections[binding.binding_key] = projection
         return binding
 
+    def allocate_stable_accepted_context_reference(
+        self,
+        reference: StableAcceptedContextReferenceV1,
+        *,
+        current_provider_thread_sha256: str,
+        current_accepted_ancestry_sha256: str,
+    ) -> RequestEvidenceBindingV1:
+        """Resolve a stored stable key without placing its fact payload in prompt."""
+
+        if (
+            reference.world_id != self.world_id
+            or reference.branch_id != self.branch_id
+            or reference.provider_thread_sha256
+            != current_provider_thread_sha256
+            or reference.accepted_ancestry_sha256
+            != current_accepted_ancestry_sha256
+        ):
+            raise StateConflictError(
+                "stable accepted-reference is stale, foreign, or outside ancestry"
+            )
+        binding = RequestEvidenceBindingV1(
+            schema_version=RequestEvidenceBindingV1.SCHEMA_VERSION,
+            binding_key=reference.reference_key,
+            kind=EvidenceBindingKind.ACCEPTED_SESSION_ENVELOPE,
+            world_id=self.world_id,
+            branch_id=self.branch_id,
+            turn_id=self.turn_id,
+            source_identity=None,
+            source_sha256=reference.reference_sha256,
+            protected_user_allowance_scope=None,
+            authority_classification=EvidenceAuthorityClass.ACCEPTED_SESSION_AUTHORITY,
+            relative_path=None,
+            record_revision=None,
+            record_type=None,
+            visibility=(
+                EvidenceVisibility.CHARACTER_PRIVATE
+                if reference.knowledge_owner_id is not None
+                else EvidenceVisibility.PUBLIC
+            ),
+            knowledge_owner_id=reference.knowledge_owner_id,
+            exact_read_operation_sha256=None,
+            accepted_turn_id=reference.accepted_turn_id,
+            acceptance_receipt_sha256=reference.acceptance_receipt_sha256,
+            accepted_envelope_sha256=reference.accepted_envelope_sha256,
+            provider_thread_sha256=reference.provider_thread_sha256,
+            session_snapshot_sha256=reference.session_snapshot_sha256,
+            synchronization_receipt_sha256=(
+                reference.synchronization_receipt_sha256
+            ),
+        )
+        prior = self._stable_accepted_context_references.get(reference.reference_key)
+        if prior is not None and prior != reference:
+            raise StateConflictError("stable accepted-reference key collision")
+        self._stable_accepted_context_references[reference.reference_key] = reference
+        return self._add(binding)
+
     def allocate_initial_projection(
         self,
         *,
@@ -738,6 +1410,9 @@ class RequestEvidenceBindingRegistry:
                 "provider_thread_sha256": value.provider_thread_sha256,
                 "session_snapshot_sha256": value.session_snapshot_sha256,
                 "synchronization_receipt_sha256": value.synchronization_receipt_sha256,
+                "stable_reference_only": (
+                    value.binding_key in self._stable_accepted_context_references
+                ),
             }
             for value in self.bindings
         )
@@ -793,14 +1468,26 @@ class RequestEvidenceBindingRegistry:
                         raise PermissionError("private evidence transferred to a non-owner actor")
                 elif binding.kind is EvidenceBindingKind.ACCEPTED_SESSION_ENVELOPE:
                     projection = self._accepted_session_projections.get(key)
-                    if (
-                        projection is None
-                        or projection.projection_sha256 != binding.source_sha256
-                        or projection.accepted_turn_id != binding.accepted_turn_id
-                        or projection.knowledge_owner_id != binding.knowledge_owner_id
-                    ):
+                    reference = self._stable_accepted_context_references.get(key)
+                    projection_valid = (
+                        projection is not None
+                        and projection.projection_sha256 == binding.source_sha256
+                        and projection.accepted_turn_id == binding.accepted_turn_id
+                        and projection.knowledge_owner_id == binding.knowledge_owner_id
+                    )
+                    reference_valid = (
+                        reference is not None
+                        and reference.reference_sha256 == binding.source_sha256
+                        and reference.accepted_turn_id == binding.accepted_turn_id
+                        and reference.knowledge_owner_id == binding.knowledge_owner_id
+                        and reference.provider_thread_sha256
+                        == binding.provider_thread_sha256
+                        and reference.synchronization_receipt_sha256
+                        == binding.synchronization_receipt_sha256
+                    )
+                    if not (projection_valid or reference_valid):
                         raise StateConflictError(
-                            "accepted-session binding lacks its exact scoped projection"
+                            "accepted-session binding lacks exact projection or stable-reference custody"
                         )
                 resolved.append(binding)
             if not resolved:
@@ -823,9 +1510,12 @@ class RequestEvidenceBindingRegistry:
                 if value.kind is EvidenceBindingKind.ACCEPTED_SESSION_ENVELOPE
             ]
             if npc_actors and not active_bindings:
-                if len(npc_actors) != 1 or not any(
+                if not accepted_session_bindings or any(
                     value.visibility is EvidenceVisibility.CHARACTER_PRIVATE
-                    and value.knowledge_owner_id == next(iter(npc_actors))
+                    and (
+                        len(npc_actors) != 1
+                        or value.knowledge_owner_id != next(iter(npc_actors))
+                    )
                     for value in accepted_session_bindings
                 ):
                     raise StateConflictError(

@@ -27,8 +27,16 @@ class CodexContinuousStoredSessionPort:
         self.operations: list[tuple[str, str]] = []
 
     def create(
-        self, compatibility: ContinuousSessionCompatibilityV1
+        self,
+        compatibility: ContinuousSessionCompatibilityV1,
+        *,
+        base_instructions: str = "",
     ) -> ContinuousSessionHandleV1:
+        backend_base = getattr(self.backend, "base_instructions", base_instructions)
+        if backend_base != base_instructions:
+            raise StateConflictError(
+                "continuous stored backend base instructions changed"
+            )
         thread_id = self.backend.start_stored_thread()
         self.operations.append(("thread/start:continuous", text_sha256(thread_id)))
         return self._handle(thread_id)

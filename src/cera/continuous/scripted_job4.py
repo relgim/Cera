@@ -1,6 +1,6 @@
 """Closed provider-free fixtures for executable Continuous Job 4 qualification.
 
-This module is imported only behind the exact scripted-v8 command-line
+This module is imported only behind an exact scripted command-line
 confirmation.  Its transports cross the real adapter and call-ledger seams but
 cannot dispatch an external request.
 """
@@ -8,8 +8,8 @@ cannot dispatch an external request.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from pathlib import Path
-import re
 from types import SimpleNamespace
 from typing import Any
 
@@ -49,7 +49,7 @@ from .provider import (
 )
 
 
-SCRIPTED_JOB4_FIXTURE_ID = "cera.continuous_job4_scripted_fixture.v8"
+SCRIPTED_JOB4_FIXTURE_ID = "cera.continuous_job4_scripted_fixture.v9_d200"
 _STORIES = {
     "turn-001": "Sakura requests bounded proof.",
     "turn-002": "Sakura keeps the threshold controlled.",
@@ -189,9 +189,15 @@ class ScriptedJob4FixtureRuntime:
         harness = self._current()
         turn_id = harness._active_turn_id
         beat_key = f"beat_{turn_id.replace('-', '_')}"
+        marker = "[CURRENT AUTHORITATIVE TURN PACKET]\n"
+        packet = json.loads(prompt.rsplit(marker, 1)[1])
+        npc = self._npc_for(turn_id)
         bindings = tuple(
             dict.fromkeys(
-                re.findall(r'"binding_key":"(binding_[a-z0-9_]+)"', prompt)
+                str(value["binding_key"])
+                for value in packet["request_local_evidence_bindings"]
+                if value.get("visibility") != "character_private"
+                or value.get("knowledge_owner_id") == npc
             )
         )
         return RichPlannerSequenceV1(
