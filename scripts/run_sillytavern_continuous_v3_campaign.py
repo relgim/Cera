@@ -1287,7 +1287,9 @@ def _v2_campaign_from_dict(
         != CONTINUOUS_V3_V2_CAMPAIGN_TOTAL_CALL_CEILING
         or value.get("codex_family_call_ceiling")
         != CONTINUOUS_V3_V2_CODEX_FAMILY_CALL_CEILING
-        or value.get("deepseek_call_ceiling")
+        or value.get(
+            "deepseek_call_ceiling", CONTINUOUS_V3_V2_DEEPSEEK_CALL_CEILING
+        )
         != CONTINUOUS_V3_V2_DEEPSEEK_CALL_CEILING
     ):
         raise ValueError("V2 campaign state call ceiling changed")
