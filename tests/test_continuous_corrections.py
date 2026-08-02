@@ -1974,6 +1974,7 @@ class ContinuousEvidenceAuthorityV2Tests(unittest.TestCase):
         self.assertIn("cera.continuous_session_snapshot_receipt.v1", versions)
         self.assertIn("cera.continuous_provider_call_ledger_event.v3", versions)
         self.assertIn("cera.scene_summary_derived_view.v2", versions)
+        self.assertIn("cera.continuous_thread_lineage_receipt.v1", versions)
 
     def test_embedded_secret_redaction_and_root_attribute_diagnostic(self) -> None:
         raw = {

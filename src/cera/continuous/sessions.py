@@ -27,6 +27,7 @@ from cera.serialization import (
 )
 
 from .contracts import AcceptedFinalSequenceEnvelopeV1, CharacterSummaryEnvelopeV1
+from .thread_lineage import ContinuousThreadLineageLedger
 
 
 class ContinuousSessionRole(StrEnum):
@@ -1449,6 +1450,57 @@ class ContinuousSessionCoordinator:
         tuple[str, str, int, str], CharacterSummaryDeliveryReceiptV1
     ] = field(default_factory=dict)
     _terminally_archived: bool = False
+    _thread_lineage: ContinuousThreadLineageLedger | None = None
+    _lineage_purpose: str | None = None
+    _lineage_parent_provider_thread_sha256: str | None = None
+    _lineage_creation_operation: str = "create"
+    _lineage_registered: bool = False
+
+    def attach_thread_lineage(
+        self,
+        ledger: ContinuousThreadLineageLedger,
+        *,
+        purpose: str,
+        creation_operation: str | None = None,
+        parent_provider_thread_sha256: str | None = None,
+    ) -> None:
+        if self._thread_lineage is not None and self._thread_lineage is not ledger:
+            raise StateConflictError("continuous session changed thread-lineage owner")
+        self._thread_lineage = ledger
+        self._lineage_purpose = purpose
+        self._lineage_creation_operation = (
+            creation_operation
+            if creation_operation is not None
+            else "resume"
+            if self.handle is not None
+            else "create"
+        )
+        self._lineage_parent_provider_thread_sha256 = (
+            parent_provider_thread_sha256
+        )
+        if self.handle is not None:
+            self._register_thread_lineage()
+
+    def _register_thread_lineage(self) -> None:
+        if self._lineage_registered:
+            return
+        if self._thread_lineage is None:
+            return
+        if self.handle is None or self._lineage_purpose is None:
+            raise StateConflictError("continuous thread lineage registration is incomplete")
+        self._thread_lineage.register_thread(
+            role=self.compatibility.role.value,
+            purpose=self._lineage_purpose,
+            world_id=self.compatibility.world_id,
+            branch_id=self.compatibility.branch_id,
+            session_compatibility_sha256=self.compatibility.compatibility_sha256,
+            provider_thread_sha256=self.handle.provider_thread_id_sha256,
+            parent_provider_thread_sha256=(
+                self._lineage_parent_provider_thread_sha256
+            ),
+            creation_operation=self._lineage_creation_operation,
+        )
+        self._lineage_registered = True
 
     def install_base_instructions(self, value: str) -> None:
         if self.handle is not None or self._initialization_receipt is not None:
@@ -1471,6 +1523,7 @@ class ContinuousSessionCoordinator:
                 self.compatibility,
                 base_instructions=self.base_instructions,
             )
+            self._register_thread_lineage()
             self._initialization_receipt = self._build_initialization_receipt(
                 context_mode=self.compatibility.default_context_mode,
                 reconstruction_payload=None,
@@ -1479,8 +1532,14 @@ class ContinuousSessionCoordinator:
                 parent_provider_thread_sha256=None,
                 branch_receipt_sha256=None,
             )
-        elif not self.port.resume(self.handle):
-            raise StateConflictError("continuous provider session cannot be resumed")
+        else:
+            if not self.port.resume(self.handle):
+                raise StateConflictError("continuous provider session cannot be resumed")
+            self._register_thread_lineage()
+            if self._thread_lineage is not None:
+                self._thread_lineage.record_resume(
+                    self.handle.provider_thread_id_sha256
+                )
         return self.handle
 
     def _build_initialization_receipt(
@@ -1687,7 +1746,7 @@ class ContinuousSessionCoordinator:
             except BaseException as exc:
                 selection_error = type(exc).__name__
 
-        return ContinuousThreadArchiveEvidenceV1(
+        evidence = ContinuousThreadArchiveEvidenceV1(
             role=self.compatibility.role,
             provider_thread_id_sha256=handle.provider_thread_id_sha256,
             archive_reason_sha256=text_sha256(reason),
@@ -1699,6 +1758,9 @@ class ContinuousSessionCoordinator:
             resume_error_type=resume_error,
             selection_error_type=selection_error,
         )
+        if self._thread_lineage is not None:
+            self._thread_lineage.record_archive(evidence)
+        return evidence
 
     def record_planner_provisional(self, turn_id: str, sequence_sha256: str) -> None:
         if self.compatibility.role is not ContinuousSessionRole.PLANNER:
@@ -1948,6 +2010,8 @@ class ContinuousSessionCoordinator:
         bundle: ContinuousSessionReconstructionBundleV1,
         parent_provider_thread_sha256: str | None = None,
         branch_receipt_sha256: str | None = None,
+        thread_lineage: ContinuousThreadLineageLedger | None = None,
+        lifecycle_failpoint: Callable[[str], None] | None = None,
     ) -> "ContinuousSessionCoordinator":
         """Create a new physical thread from bounded Python-owned authority."""
 
@@ -1974,12 +2038,58 @@ class ContinuousSessionCoordinator:
             expected_compatibility,
             base_instructions=base_instructions,
         )
-        port.append_context(coordinator.handle, reconstruction_payload)
+        try:
+            if thread_lineage is not None:
+                coordinator.attach_thread_lineage(
+                    thread_lineage,
+                    purpose="planner_reconstruction",
+                    creation_operation="reconstruct",
+                    parent_provider_thread_sha256=parent_provider_thread_sha256,
+                )
+            if lifecycle_failpoint is not None:
+                lifecycle_failpoint("after_physical_reconstruction_creation")
+            coordinator._populate_reconstructed_thread(
+                bundle=bundle,
+                reconstruction_payload=reconstruction_payload,
+                accepted_tail_turn_ids=accepted_tail_turn_ids,
+                parent_provider_thread_sha256=parent_provider_thread_sha256,
+                branch_receipt_sha256=branch_receipt_sha256,
+            )
+            if lifecycle_failpoint is not None:
+                lifecycle_failpoint("after_reconstruction_summary_delivery")
+        except BaseException as exc:
+            if thread_lineage is not None:
+                thread_lineage.record_abandoned(
+                    coordinator.handle.provider_thread_id_sha256,
+                    reason_sha256=text_sha256("reconstruction_setup_failed"),
+                )
+            evidence = coordinator.archive_and_verify_terminal(
+                "reconstruction_setup_failed"
+            )
+            if not evidence.verified:
+                raise StateConflictError(
+                    "reconstruction failed and new-thread archival was not verified"
+                ) from exc
+            raise
+        return coordinator
+
+    def _populate_reconstructed_thread(
+        self,
+        *,
+        bundle: ContinuousSessionReconstructionBundleV1,
+        reconstruction_payload: str,
+        accepted_tail_turn_ids: tuple[str, ...],
+        parent_provider_thread_sha256: str | None,
+        branch_receipt_sha256: str | None,
+    ) -> None:
+        if self.handle is None:
+            raise StateConflictError("reconstruction thread is unavailable")
+        self.port.append_context(self.handle, reconstruction_payload)
         for accepted in bundle.accepted_tail:
             turn_id = accepted.envelope.accepted_turn_id
             envelope_hash = accepted.envelope.envelope_sha256
-            coordinator._accepted_envelopes[turn_id] = envelope_hash
-            coordinator._events.extend(
+            self._accepted_envelopes[turn_id] = envelope_hash
+            self._events.extend(
                 (
                     ContinuousContextEventV1(
                         event_type="accepted_final_sequence",
@@ -1993,8 +2103,8 @@ class ContinuousSessionCoordinator:
                     ),
                 )
             )
-        coordinator._initialization_receipt = (
-            coordinator._build_initialization_receipt(
+        self._initialization_receipt = (
+            self._build_initialization_receipt(
                 context_mode=PlannerContextMode.RECONSTRUCTION,
                 reconstruction_payload=reconstruction_payload,
                 accepted_tail_turn_ids=accepted_tail_turn_ids,
@@ -2025,7 +2135,7 @@ class ContinuousSessionCoordinator:
                         "latest_accepted_changes": summary.latest_accepted_changes,
                     }
                 ),
-                "provider_thread_sha256": coordinator.handle.provider_thread_id_sha256,
+                "provider_thread_sha256": self.handle.provider_thread_id_sha256,
                 "delivery_reason": "reconstruction",
                 "planner_prompt_sha256": reconstruction_prompt_sha256,
             }
@@ -2033,7 +2143,7 @@ class ContinuousSessionCoordinator:
                 **payload,
                 receipt_sha256=canonical_sha256(payload),
             )
-            coordinator._summary_deliveries[
+            self._summary_deliveries[
                 (
                     summary.character_id,
                     summary.source_path_or_record_id,
@@ -2041,7 +2151,6 @@ class ContinuousSessionCoordinator:
                     summary.source_sha256,
                 )
             ] = delivery
-        return coordinator
 
     def build_branch_fork_receipt(
         self,
@@ -2106,6 +2215,7 @@ class ContinuousSessionCoordinator:
         *,
         branch_receipt: ContinuousBranchForkReceiptV2,
         inherited_summary_envelope_sha256s: tuple[str, ...] = (),
+        lifecycle_failpoint: Callable[[str], None] | None = None,
     ) -> "ContinuousSessionCoordinator":
         if compatibility.role is not self.compatibility.role:
             raise StateConflictError("continuous branch fork changed session role")
@@ -2173,6 +2283,54 @@ class ContinuousSessionCoordinator:
             handle=child,
             base_instructions=self.base_instructions,
         )
+        try:
+            if self._thread_lineage is not None:
+                coordinator.attach_thread_lineage(
+                    self._thread_lineage,
+                    purpose="accepted_checkpoint_fork_child",
+                    creation_operation="fork",
+                    parent_provider_thread_sha256=parent.provider_thread_id_sha256,
+                )
+            if lifecycle_failpoint is not None:
+                lifecycle_failpoint("after_physical_fork_creation")
+            self._populate_forked_coordinator(
+                coordinator=coordinator,
+                child=child,
+                parent=parent,
+                accepted_turn_ids=accepted_turn_ids,
+                inherited_summary_envelope_sha256s=(
+                    inherited_summary_envelope_sha256s
+                ),
+                branch_receipt=branch_receipt,
+            )
+            if lifecycle_failpoint is not None:
+                lifecycle_failpoint("after_summary_delivery_reconstruction")
+        except BaseException as exc:
+            if self._thread_lineage is not None:
+                self._thread_lineage.record_abandoned(
+                    child.provider_thread_id_sha256,
+                    reason_sha256=text_sha256("fork_setup_failed"),
+                )
+            evidence = coordinator.archive_and_verify_terminal(
+                "fork_setup_failed"
+            )
+            if not evidence.verified:
+                raise StateConflictError(
+                    "fork setup failed and child archival was not verified"
+                ) from exc
+            raise
+        return coordinator
+
+    def _populate_forked_coordinator(
+        self,
+        *,
+        coordinator: "ContinuousSessionCoordinator",
+        child: ContinuousSessionHandleV1,
+        parent: ContinuousSessionHandleV1,
+        accepted_turn_ids: tuple[str, ...],
+        inherited_summary_envelope_sha256s: tuple[str, ...],
+        branch_receipt: ContinuousBranchForkReceiptV2,
+    ) -> None:
         coordinator._events.extend(
             event
             for event in self._events
@@ -2210,7 +2368,6 @@ class ContinuousSessionCoordinator:
             parent_provider_thread_sha256=parent.provider_thread_id_sha256,
             branch_receipt_sha256=branch_receipt.receipt_sha256,
         )
-        return coordinator
 
     def establish_branch_reference_rebinding(
         self,

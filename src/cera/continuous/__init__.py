@@ -70,6 +70,12 @@ from .sessions import (
     continuous_branch_privacy_boundary_sha256,
 )
 from .runtime import ContinuousSceneChangeCandidateV1
+from .thread_lineage import (
+    ContinuousThreadLineageEntryV1,
+    ContinuousThreadLineageLedger,
+    ContinuousThreadLineageReceiptV1,
+    ContinuousThreadLifecycleEventV1,
+)
 from .world import ContinuousBranchMaterializationReceiptV1
 from .packets import (
     ContinuousPlannerPacketKind,
@@ -173,6 +179,10 @@ __all__ = [
     "ContinuousSessionSnapshotReceiptV1",
     "continuous_branch_privacy_boundary_sha256",
     "ContinuousSceneChangeCandidateV1",
+    "ContinuousThreadLifecycleEventV1",
+    "ContinuousThreadLineageEntryV1",
+    "ContinuousThreadLineageReceiptV1",
+    "ContinuousThreadLineageLedger",
     "ContinuousPlannerPacketKind",
     "ContinuousPlannerTurnPacketV1",
     "LeanSceneChangeContextV1",

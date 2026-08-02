@@ -44,6 +44,7 @@ from cera.continuous.job4_terminal import (
     ContinuousJob4TerminalEvidenceV2,
     ContinuousJob4TerminalEvidenceV3,
     ContinuousJob4TerminalEvidenceV4,
+    ContinuousJob4TerminalEvidenceV5,
     decode_continuous_job4_terminal_evidence,
 )
 from cera.continuous.job4_transaction import (
@@ -384,7 +385,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             terminal = decode_continuous_job4_terminal_evidence(
                 json.loads(terminal_path.read_text(encoding="utf-8"))
             )
-            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV4)
+            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV5)
             self.assertEqual(result["terminal_evidence_sha256"], terminal.sha256)
             self.assertEqual(
                 result["terminal_evidence_sha256"],
@@ -771,7 +772,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             terminal = decode_continuous_job4_terminal_evidence(
                 detail["terminal_evidence"]
             )
-            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV4)
+            self.assertIsInstance(terminal, ContinuousJob4TerminalEvidenceV5)
             self.assertEqual(
                 set(terminal.thread_archival_evidence),
                 {"planner", "validator"},

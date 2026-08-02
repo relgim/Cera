@@ -950,6 +950,8 @@ provider identities:
 | `cera.continuous_session_snapshot_receipt.v1` | Python | Acceptance-bound immutable Planner snapshot bytes, exact synchronized event/envelope/thread/injection hashes, retained path, and current-pointer path |
 | `cera.continuous_thread_archive_evidence.v1` | Python session custody | One role's hashed provider-thread and archive-reason identities plus request, resume, backend-selectability, local-ancestry, error, and derived-verification outcomes |
 | `cera.continuous_job4_terminal_evidence.v4` | Python terminal custody | Canonical effects/postconditions, sealed capability ledger, source/policy-bound entrypoint boundary, and complete Planner/Validator archive DTOs with v1-v3 decode compatibility |
+| `cera.continuous_thread_lineage_receipt.v1` | Python session custody | Closed immutable all-physical-thread map binding role, purpose, parent, world, branch, compatibility, creation operation, lifecycle, adoption/supersession, and exactly one authorized-active or verified-archived terminal disposition |
+| `cera.continuous_job4_terminal_evidence.v5` | Python terminal custody | Additive V4 custody plus the exact closed thread-lineage receipt; missing, duplicate, unknown, contradictory, orphaned, unresolved, resumable, or selectable thread evidence forces terminal failure while V1-V4 remain decodeable |
 | `cera.continuous_world_promotion_receipt.v2` | Python | Revision-bound candidate-to-ACTIVE promotion or unchanged nonaccepting action, bound to the complete candidate and authority-context hashes |
 | `cera.accepted_session_fact.v2` | Python | One exact independently adjudicated accepted field value with visibility, owner, closed character roles, and protected-user claim provenance |
 | `cera.accepted_session_projection.v5` | Python | Same-scene independently adjudicated accepted public field-level facts or public plus one exact owner's private facts, retaining each field's closed roles, Composer segments, and claim provenance and bound to exact pair/event/envelope/snapshot/receipt bytes |
@@ -997,13 +999,15 @@ the prior value hash; Python derives all operation and created-field metadata.
 `cera.continuous_session_initialization_receipt.v1`,
 `cera.continuous_branch_fork_receipt.v1`,
 `cera.continuous_branch_fork_receipt.v2`,
+`cera.continuous_branch_materialization_receipt.v1`,
+`cera.continuous_thread_lineage_receipt.v1`,
 `cera.character_summary_delivery_receipt.v1`,
 `cera.continuous_context_injection_receipt.v1`,
 `cera.continuous_session_snapshot_receipt.v1`,
 `cera.continuous_provider_call_ledger_event.v3`, and
 `cera.scene_summary_derived_view.v2` are registered durable dataclass records.
 The request-local registry, mutable acceptance journal, root diagnostic, and
-world promotion journal, branch materialization receipt, continuous Planner turn packet, session initialization
+world promotion journal, continuous Planner turn packet, session initialization
 packet, and lean Scene Change context are Python runtime-operational records with dedicated
 writers, invariant checks, and recovery readers; they are intentionally not
 decoded through the generic immutable schema registry.

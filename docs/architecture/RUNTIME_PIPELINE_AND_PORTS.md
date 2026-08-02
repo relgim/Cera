@@ -120,6 +120,26 @@ and acceptance journal must agree on the candidate and authority-context hashes.
 Session reconstruction requires the active compatibility hash; older protected-
 user or session-policy versions cannot resume the physical thread.
 
+Every physical Planner and Validator thread touched by this route enters one
+Python-owned lineage ledger at creation, fork, reconstruction, or adoption. A
+fork child is either explicitly adopted after its parent is terminally archived,
+or is treated as auxiliary/abandoned and archived before control returns. Any
+failure after a physical child exists—including descriptor transfer, any
+accepted-reference save, summary reconstruction, snapshot persistence, or later
+adoption—first requests archival and verifies resume failure plus backend and
+coordinator non-selectability. Reconstruction similarly archives the superseded
+Planner and any failed replacement.
+
+The ledger freezes as `cera.continuous_thread_lineage_receipt.v1`. Its closed
+map binds each thread's role, purpose, parent, world, branch, session
+compatibility, creation operation, lifecycle events, and terminal disposition.
+Only the explicitly authorized active Planner/Validator handles may remain
+unarchived; terminal Job 4 leaves none. Unknown, duplicate, orphaned,
+contradictory, unresolved, resumable, or selectable evidence fails closed. The
+additive terminal-evidence V5 binds this receipt while retaining V1-V4 decoding
+and all V4 capability, root-transaction, immutable-publication, and recovery
+semantics.
+
 Planner can inspect only ACTIVE, labeled non-authoritative DERIVED views, and
 its own session; Validator can additionally inspect only its current candidate
 ACTIVE_VIEW. The transport's highest supported 32-call

@@ -52,14 +52,20 @@ from .sessions import (
     ContinuousBranchReferenceTransferReceiptV1,
     ContinuousSessionCoordinator,
     ContinuousSessionCompatibilityV1,
+    ContinuousSessionInitializationKind,
     ContinuousSessionInitializationPacketV1,
     ContinuousSessionInitializationReceiptV1,
     ContinuousSessionReconstructionBundleV1,
     ContinuousSessionRole,
     ContinuousSessionSnapshotStore,
+    ContinuousThreadArchiveEvidenceV1,
     PlannerContextMode,
     assert_separate_role_sessions,
     continuous_branch_privacy_boundary_sha256,
+)
+from .thread_lineage import (
+    ContinuousThreadLineageLedger,
+    ContinuousThreadLineageReceiptV1,
 )
 from .world import (
     CandidateWorldViewV1,
@@ -283,6 +289,8 @@ class ContinuousShadowTurnCoordinator:
         validator: ValidatorPort,
         ingress_authority: ContinuousIngressAuthorityPort,
         acceptance_sync_failpoint: Callable[[str], None] | None = None,
+        thread_lifecycle_failpoint: Callable[[str], None] | None = None,
+        thread_lineage_ledger: ContinuousThreadLineageLedger | None = None,
     ) -> None:
         assert_separate_role_sessions(planner_session, validator_session)
         if planner_session.compatibility.role is not ContinuousSessionRole.PLANNER:
@@ -297,6 +305,36 @@ class ContinuousShadowTurnCoordinator:
         self.validator = validator
         self.ingress_authority = ingress_authority
         self._acceptance_sync_failpoint = acceptance_sync_failpoint
+        self._thread_lifecycle_failpoint = thread_lifecycle_failpoint
+        inherited_lineages = tuple(
+            value
+            for value in (
+                self.planner_session._thread_lineage,
+                self.validator_session._thread_lineage,
+            )
+            if value is not None
+        )
+        if (
+            inherited_lineages
+            and any(value is not inherited_lineages[0] for value in inherited_lineages)
+        ):
+            raise StateConflictError("continuous role sessions changed lineage owner")
+        self.thread_lineage = (
+            thread_lineage_ledger
+            or (inherited_lineages[0] if inherited_lineages else None)
+            or ContinuousThreadLineageLedger()
+        )
+        self.last_reconstruction_prior_archive: (
+            ContinuousThreadArchiveEvidenceV1 | None
+        ) = None
+        self.planner_session.attach_thread_lineage(
+            self.thread_lineage,
+            purpose="primary_planner",
+        )
+        self.validator_session.attach_thread_lineage(
+            self.thread_lineage,
+            purpose="primary_validator",
+        )
         self._candidates: dict[str, ContinuousTurnCandidateV1] = {}
         if not self.planner_session.base_instructions:
             self.planner_session.install_base_instructions(
@@ -479,6 +517,55 @@ class ContinuousShadowTurnCoordinator:
             inherited_summary_envelope_sha256s=tuple(
                 value.envelope_sha256 for value in expected_summaries
             ),
+            lifecycle_failpoint=self._thread_lifecycle_failpoint,
+        )
+        try:
+            return self._complete_forked_planner_setup(
+                child=child,
+                parent=parent,
+                parent_handle=parent_handle,
+                parent_root=parent_root,
+                child_root=child_root,
+                accepted_turn_ids=accepted_turn_ids,
+                child_envelopes=tuple(child_envelopes),
+                source_sets=tuple(source_sets),
+                target_compatibility=target_compatibility,
+                branch_receipt=branch_receipt,
+                materialization_receipt=materialization_receipt,
+            )
+        except BaseException as exc:
+            if not child._terminally_archived:
+                self.thread_lineage.record_abandoned(
+                    child.ensure_session().provider_thread_id_sha256,
+                    reason_sha256=text_sha256("fork_post_creation_setup_failed"),
+                )
+                evidence = child.archive_and_verify_terminal(
+                    "fork_post_creation_setup_failed"
+                )
+                if not evidence.verified:
+                    raise StateConflictError(
+                        "fork setup failed and child archival was not verified"
+                    ) from exc
+            raise
+
+    def _complete_forked_planner_setup(
+        self,
+        *,
+        child: ContinuousSessionCoordinator,
+        parent: ContinuousSessionCoordinator,
+        parent_handle,
+        parent_root: Path,
+        child_root: Path,
+        accepted_turn_ids: tuple[str, ...],
+        child_envelopes: tuple[AcceptedFinalSequenceEnvelopeV1, ...],
+        source_sets: tuple[tuple[Any, Any], ...],
+        target_compatibility: ContinuousSessionCompatibilityV1,
+        branch_receipt: ContinuousBranchForkReceiptV2,
+        materialization_receipt: ContinuousBranchMaterializationReceiptV1,
+    ) -> ContinuousForkedPlannerSessionV2:
+        self.world.validate_branch_materialization(materialization_receipt)
+        self._thread_failpoint(
+            "after_child_branch_validation_before_descriptor_append"
         )
         child_descriptors = tuple(
             descriptor
@@ -500,11 +587,14 @@ class ContinuousShadowTurnCoordinator:
             parent_reference_keys=parent_reference_keys,
             child_reference_descriptors=child_descriptors,
         )
+        self._thread_failpoint("after_child_descriptor_append")
         child_handle = child.ensure_session()
         child_snapshot = child.snapshot()
         stable_paths = []
         child_store = StableAcceptedContextReferenceStore(child_root)
-        for source_receipt, source_references in source_sets:
+        for reference_index, (source_receipt, source_references) in enumerate(
+            source_sets, 1
+        ):
             rebound_receipt, rebound_references = (
                 rebind_stable_accepted_context_references_for_reconstruction(
                     source_receipt=source_receipt,
@@ -527,15 +617,114 @@ class ContinuousShadowTurnCoordinator:
                     references=rebound_references,
                 )
             )
+            self._thread_failpoint(
+                f"after_child_accepted_reference_save:{reference_index}"
+            )
+            self._thread_failpoint("after_child_accepted_reference_save")
+        self._thread_failpoint("before_child_snapshot_persistence")
         snapshot_path = ContinuousSessionSnapshotStore(child_root).save(
             child_snapshot
         )
+        self._thread_failpoint("after_child_snapshot_persistence")
         return ContinuousForkedPlannerSessionV2(
             coordinator=child,
             transfer_receipt=transfer,
             stable_reference_paths=tuple(stable_paths),
             session_snapshot_path=snapshot_path,
         )
+
+    def archive_auxiliary_planner_session(
+        self,
+        forked: ContinuousForkedPlannerSessionV2,
+        *,
+        reason: str,
+    ) -> ContinuousThreadArchiveEvidenceV1:
+        child = forked.coordinator
+        if child is self.planner_session:
+            raise StateConflictError("authorized active Planner is not auxiliary")
+        self.thread_lineage.record_abandoned(
+            child.ensure_session().provider_thread_id_sha256,
+            reason_sha256=text_sha256(reason),
+        )
+        evidence = child.archive_and_verify_terminal(reason)
+        if not evidence.verified:
+            raise StateConflictError("auxiliary Planner archival was not verified")
+        return evidence
+
+    def adopt_forked_planner_session(
+        self,
+        forked: ContinuousForkedPlannerSessionV2,
+        *,
+        reason: str,
+    ) -> ContinuousThreadArchiveEvidenceV1:
+        """Transfer route ownership to one verified child and retire its parent."""
+
+        prior = self.planner_session
+        child = forked.coordinator
+        if child is prior:
+            raise StateConflictError("fork adoption did not change Planner thread")
+        if child._thread_lineage is not self.thread_lineage:
+            raise StateConflictError("fork adoption changed thread-lineage custody")
+        if not isinstance(reason, str) or not reason.strip():
+            raise ContractValidationError("fork adoption reason is required")
+        prior_handle = prior.ensure_session()
+        child_handle = child.ensure_session()
+        initialization = child.initialization_receipt
+        if (
+            initialization.packet_kind
+            is not ContinuousSessionInitializationKind.ACCEPTED_CHECKPOINT_FORK_INITIALIZATION
+            or initialization.parent_provider_thread_sha256
+            != prior_handle.provider_thread_id_sha256
+            or child_handle.provider_thread_id_sha256
+            == prior_handle.provider_thread_id_sha256
+        ):
+            raise StateConflictError("fork adoption changed parent-child custody")
+        try:
+            prior_archive = prior.archive_and_verify_terminal(
+                "planner_fork_superseded_prior"
+            )
+            if not prior_archive.verified:
+                raise StateConflictError(
+                    "fork adoption prior Planner archival was not verified"
+                )
+            self.thread_lineage.record_adoption(
+                child_handle.provider_thread_id_sha256,
+                reason_sha256=text_sha256(reason),
+                superseded_thread_sha256=prior_handle.provider_thread_id_sha256,
+            )
+            self._thread_failpoint("after_child_adoption_before_return")
+            self.planner_session = child
+            assert_separate_role_sessions(child, self.validator_session)
+            return prior_archive
+        except BaseException as exc:
+            if not child._terminally_archived:
+                self.thread_lineage.record_abandoned(
+                    child_handle.provider_thread_id_sha256,
+                    reason_sha256=text_sha256("fork_adoption_failed"),
+                )
+                child_archive = child.archive_and_verify_terminal(
+                    "fork_adoption_failed"
+                )
+                if not child_archive.verified:
+                    raise StateConflictError(
+                        "fork adoption failed and child archival was not verified"
+                    ) from exc
+            raise
+
+    def finalize_thread_lineage(
+        self, *, authorized_active: bool
+    ) -> ContinuousThreadLineageReceiptV1:
+        active = {}
+        if authorized_active:
+            active = {
+                "planner": self.planner_session.ensure_session().provider_thread_id_sha256,
+                "validator": self.validator_session.ensure_session().provider_thread_id_sha256,
+            }
+        return self.thread_lineage.freeze(authorized_active_threads=active)
+
+    def _thread_failpoint(self, stage: str) -> None:
+        if self._thread_lifecycle_failpoint is not None:
+            self._thread_lifecycle_failpoint(stage)
 
     def reconstruct_planner_session(
         self,
@@ -735,43 +924,85 @@ class ContinuousShadowTurnCoordinator:
                 if branch_receipt is not None
                 else None
             ),
+            thread_lineage=self.thread_lineage,
+            lifecycle_failpoint=self._thread_lifecycle_failpoint,
         )
-        initialization = rebuilt.initialization_receipt
-        if initialization is None:
-            raise StateConflictError("reconstruction omitted initialization custody")
-        rebuilt_snapshot = rebuilt.snapshot()
-        rebuilt_handle = rebuilt.ensure_session()
-        accepted_turn_ids = rebuilt_snapshot.accepted_turn_ids
-        for source_receipt, source_references in source_sets:
-            rebound_receipt, rebound_references = (
-                rebind_stable_accepted_context_references_for_reconstruction(
-                    source_receipt=source_receipt,
-                    source_references=source_references,
-                    planner_session_id=rebuilt_handle.provider_session_id,
-                    provider_thread_sha256=(
-                        rebuilt_handle.provider_thread_id_sha256
-                    ),
-                    accepted_turn_ids=accepted_turn_ids,
-                    initialization_receipt_sha256=(
-                        initialization.receipt_sha256
-                    ),
-                    session_snapshot_sha256=rebuilt_snapshot.snapshot_sha256,
-                    target_world_id=target_compatibility.world_id,
-                    target_branch_id=target_compatibility.branch_id,
+        try:
+            initialization = rebuilt.initialization_receipt
+            if initialization is None:
+                raise StateConflictError("reconstruction omitted initialization custody")
+            rebuilt_snapshot = rebuilt.snapshot()
+            rebuilt_handle = rebuilt.ensure_session()
+            accepted_turn_ids = rebuilt_snapshot.accepted_turn_ids
+            for reference_index, (source_receipt, source_references) in enumerate(
+                source_sets, 1
+            ):
+                rebound_receipt, rebound_references = (
+                    rebind_stable_accepted_context_references_for_reconstruction(
+                        source_receipt=source_receipt,
+                        source_references=source_references,
+                        planner_session_id=rebuilt_handle.provider_session_id,
+                        provider_thread_sha256=(
+                            rebuilt_handle.provider_thread_id_sha256
+                        ),
+                        accepted_turn_ids=accepted_turn_ids,
+                        initialization_receipt_sha256=(
+                            initialization.receipt_sha256
+                        ),
+                        session_snapshot_sha256=rebuilt_snapshot.snapshot_sha256,
+                        target_world_id=target_compatibility.world_id,
+                        target_branch_id=target_compatibility.branch_id,
+                    )
                 )
-            )
-            StableAcceptedContextReferenceStore(
-                self.world.branch_root(
-                    target_compatibility.world_id,
-                    target_compatibility.branch_id,
+                StableAcceptedContextReferenceStore(
+                    self.world.branch_root(
+                        target_compatibility.world_id,
+                        target_compatibility.branch_id,
+                    )
+                ).save(
+                    receipt=rebound_receipt,
+                    references=rebound_references,
                 )
-            ).save(
-                receipt=rebound_receipt,
-                references=rebound_references,
+                self._thread_failpoint(
+                    "after_reconstruction_accepted_reference_save:"
+                    f"{reference_index}"
+                )
+                self._thread_failpoint(
+                    "after_reconstruction_accepted_reference_save"
+                )
+            prior_archive = prior.archive_and_verify_terminal(
+                "planner_reconstruction_superseded_prior"
             )
-        self.planner_session = rebuilt
-        assert_separate_role_sessions(rebuilt, self.validator_session)
-        return initialization
+            self.last_reconstruction_prior_archive = prior_archive
+            if not prior_archive.verified:
+                raise StateConflictError(
+                    "reconstruction prior Planner archival was not verified"
+                )
+            self.thread_lineage.record_adoption(
+                rebuilt_handle.provider_thread_id_sha256,
+                reason_sha256=text_sha256("planner_reconstruction_adopted"),
+                superseded_thread_sha256=prior_handle.provider_thread_id_sha256,
+            )
+            self._thread_failpoint(
+                "after_reconstruction_adoption_before_return"
+            )
+            self.planner_session = rebuilt
+            assert_separate_role_sessions(rebuilt, self.validator_session)
+            return initialization
+        except BaseException as exc:
+            if not rebuilt._terminally_archived:
+                self.thread_lineage.record_abandoned(
+                    rebuilt.ensure_session().provider_thread_id_sha256,
+                    reason_sha256=text_sha256("reconstruction_post_create_failed"),
+                )
+                evidence = rebuilt.archive_and_verify_terminal(
+                    "reconstruction_post_create_failed"
+                )
+                if not evidence.verified:
+                    raise StateConflictError(
+                        "reconstruction failed and new Planner archival was not verified"
+                    ) from exc
+            raise
 
     def _assert_branch_compatibility(
         self, target: ContinuousSessionCompatibilityV1

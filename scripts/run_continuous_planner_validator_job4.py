@@ -42,8 +42,13 @@ from cera.continuous.job4_terminal import (
     ContinuousJob4TerminalEvidenceV2,
     ContinuousJob4TerminalEvidenceV3,
     ContinuousJob4TerminalEvidenceV4,
+    ContinuousJob4TerminalEvidenceV5,
     decode_continuous_job4_terminal_evidence,
     rebuild_failed_continuous_job4_terminal_evidence,
+)
+from cera.continuous.thread_lineage import (
+    ContinuousThreadLineageLedger,
+    ContinuousThreadLineageReceiptV1,
 )
 from cera.continuous.job4_transaction import (
     ContinuousJob4TerminalTransactionV1,
@@ -507,9 +512,24 @@ _PROVIDER_FREE_TEST_FAILPOINTS = frozenset(
         "backend_construction_pre_submission",
         "session_construction_pre_submission",
         "stored_thread_construction_pre_submission",
+        "after_primary_planner_creation",
         "archive_request",
         "archive_non_resumability",
         "archive_active_selection",
+        "after_physical_fork_creation",
+        "after_summary_delivery_reconstruction",
+        "after_child_branch_validation_before_descriptor_append",
+        "after_child_descriptor_append",
+        "after_child_accepted_reference_save:1",
+        "after_child_accepted_reference_save:2",
+        "before_child_snapshot_persistence",
+        "after_child_snapshot_persistence",
+        "after_physical_reconstruction_creation",
+        "after_reconstruction_summary_delivery",
+        "after_reconstruction_accepted_reference_save:1",
+        "after_reconstruction_accepted_reference_save:2",
+        "after_reconstruction_adoption_before_return",
+        "after_child_adoption_before_return",
         "accepted_session_synchronization",
         "accepted_final_sequence_injection",
         "detail_serialization",
@@ -646,6 +666,7 @@ class JobHarness:
         validator_transport_factory: Callable[[Path, str], Any] | None = None,
         composer_transport_factory: Callable[[], Any] | None = None,
         scripted_provider_free: bool = False,
+        thread_lifecycle_failpoint: Callable[[str], None] | None = None,
     ) -> None:
         self.source_root = source_root
         self.cycle = cycle
@@ -682,6 +703,7 @@ class JobHarness:
             composer=_HarnessComposerPort(self),
             validator=_HarnessValidatorPort(self),
             ingress_authority=self.ingress_authority,
+            thread_lifecycle_failpoint=thread_lifecycle_failpoint,
         )
 
     def ingress_reference(self, turn_number: int) -> dict[str, str]:
@@ -1297,6 +1319,11 @@ class JobHarness:
             for value in child_deliveries
         ):
             raise RuntimeError("provider-fork summary custody changed")
+        child_snapshot_sha256 = child.snapshot().snapshot_sha256
+        auxiliary_archive = self.coordinator.archive_auxiliary_planner_session(
+            forked,
+            reason="provider_free_auxiliary_fork_complete",
+        )
         return {
             "status": "passed",
             "branch_receipt_sha256": branch_receipt.receipt_sha256,
@@ -1314,13 +1341,14 @@ class JobHarness:
             "transfer_receipt_sha256": (
                 forked.transfer_receipt.operation_receipt_sha256
             ),
-            "session_snapshot_sha256": child.snapshot().snapshot_sha256,
+            "session_snapshot_sha256": child_snapshot_sha256,
             "summary_delivery_receipt_sha256s": tuple(
                 value.receipt_sha256 for value in child_deliveries
             ),
             "parent_key_rejected": parent_key_rejected,
             "sibling_key_rejected": sibling_key_rejected,
             "external_provider_calls": 0,
+            "auxiliary_archive_evidence": auxiliary_archive.to_dict(),
         }
 
     def reconstruct_lost_planner_thread(self) -> dict[str, Any]:
@@ -1389,9 +1417,9 @@ class JobHarness:
         initialization = self.coordinator.reconstruct_planner_session(
             bundle=bundle
         )
-        parent_archive = prior.archive_and_verify_terminal(
-            "reconstruction_replaced_lost_thread"
-        )
+        parent_archive = self.coordinator.last_reconstruction_prior_archive
+        if parent_archive is None:
+            raise RuntimeError("reconstruction omitted prior-thread archival custody")
         if not parent_archive.verified:
             raise RuntimeError(
                 "reconstruction parent thread archival could not be verified"
@@ -1524,6 +1552,7 @@ def build_canonical_job4_result(
             ContinuousJob4TerminalEvidenceV2,
             ContinuousJob4TerminalEvidenceV3,
             ContinuousJob4TerminalEvidenceV4,
+            ContinuousJob4TerminalEvidenceV5,
         ),
     ):
         if (
@@ -1532,7 +1561,10 @@ def build_canonical_job4_result(
             != terminal.capability_ledger.sha256
         ):
             raise ValueError("detailed capability custody contradicts terminal evidence")
-    if isinstance(terminal, ContinuousJob4TerminalEvidenceV4):
+    if isinstance(
+        terminal,
+        (ContinuousJob4TerminalEvidenceV4, ContinuousJob4TerminalEvidenceV5),
+    ):
         if (
             result.get("capability_boundary_evidence")
             != terminal.capability_boundary_evidence.to_dict()
@@ -1541,6 +1573,15 @@ def build_canonical_job4_result(
         ):
             raise ValueError(
                 "detailed capability boundary contradicts terminal evidence"
+            )
+    if isinstance(terminal, ContinuousJob4TerminalEvidenceV5):
+        if (
+            result.get("thread_lineage") != terminal.thread_lineage.to_dict()
+            or result.get("thread_lineage_sha256")
+            != terminal.thread_lineage.receipt_sha256
+        ):
+            raise ValueError(
+                "detailed thread lineage contradicts terminal evidence"
             )
     if result.get("source_database_unchanged") != (
         terminal.postconditions.source_database_sha256_before is not None
@@ -1569,14 +1610,22 @@ def build_canonical_job4_result(
         }
         if isinstance(
             terminal,
-            (ContinuousJob4TerminalEvidenceV3, ContinuousJob4TerminalEvidenceV4),
+            (
+                ContinuousJob4TerminalEvidenceV3,
+                ContinuousJob4TerminalEvidenceV4,
+                ContinuousJob4TerminalEvidenceV5,
+            ),
         )
         else result.get("thread_archival_evidence")
     )
     if (
         isinstance(
             terminal,
-            (ContinuousJob4TerminalEvidenceV3, ContinuousJob4TerminalEvidenceV4),
+            (
+                ContinuousJob4TerminalEvidenceV3,
+                ContinuousJob4TerminalEvidenceV4,
+                ContinuousJob4TerminalEvidenceV5,
+            ),
         )
         and result.get("thread_archival_evidence") != archival_evidence
     ):
@@ -1675,6 +1724,76 @@ def _complete_thread_archival_evidence(
         role: evidence[role].verified for role in ("planner", "validator")
     }
     return evidence
+
+
+def _complete_thread_lineage_evidence(
+    result: dict[str, Any],
+    *,
+    world: ContinuousWorldStore | None,
+) -> ContinuousThreadLineageReceiptV1:
+    """Decode the frozen total map or derive a terminally failed missing map."""
+
+    raw = result.get("thread_lineage")
+    try:
+        receipt = ContinuousThreadLineageReceiptV1.from_dict(raw)
+    except Exception:
+        ledger = ContinuousThreadLineageLedger()
+        planner_hashes = tuple(
+            dict.fromkeys(
+                value
+                for value in result.get("planner_thread_sha256s", ())
+                if isinstance(value, str)
+                and len(value) == 64
+                and all(character in "0123456789abcdef" for character in value)
+            )
+        )
+        parent = None
+        for index, thread_sha256 in enumerate(planner_hashes):
+            ledger.register_thread(
+                role="planner",
+                purpose=(
+                    "primary_planner" if index == 0 else "planner_reconstruction"
+                ),
+                world_id=WORLD_ID,
+                branch_id=BRANCH_ID,
+                session_compatibility_sha256=(
+                    compatibility(
+                        world, ContinuousSessionRole.PLANNER
+                    ).compatibility_sha256
+                    if world is not None
+                    else text_sha256("unavailable planner compatibility")
+                ),
+                provider_thread_sha256=thread_sha256,
+                parent_provider_thread_sha256=parent,
+                creation_operation="create" if index == 0 else "reconstruct",
+            )
+            parent = thread_sha256
+        validator_hash = result.get("validator_thread_sha256")
+        if (
+            isinstance(validator_hash, str)
+            and len(validator_hash) == 64
+            and all(character in "0123456789abcdef" for character in validator_hash)
+        ):
+            ledger.register_thread(
+                role="validator",
+                purpose="primary_validator",
+                world_id=WORLD_ID,
+                branch_id=BRANCH_ID,
+                session_compatibility_sha256=(
+                    compatibility(
+                        world, ContinuousSessionRole.VALIDATOR
+                    ).compatibility_sha256
+                    if world is not None
+                    else text_sha256("unavailable validator compatibility")
+                ),
+                provider_thread_sha256=validator_hash,
+                parent_provider_thread_sha256=None,
+                creation_operation="create",
+            )
+        receipt = ledger.freeze(authorized_active_threads={})
+    result["thread_lineage"] = receipt.to_dict()
+    result["thread_lineage_sha256"] = receipt.receipt_sha256
+    return receipt
 
 
 def execute_job4_schedule(
@@ -1900,6 +2019,52 @@ def verify_prepared_shadow_ingress(lifecycle_root: Path) -> dict[str, Any]:
         }
 
 
+def _terminalize_known_thread_sessions(
+    *,
+    thread_lineage: ContinuousThreadLineageLedger,
+    planner_session: ContinuousSessionCoordinator | None,
+    validator_session: ContinuousSessionCoordinator | None,
+    reason: str,
+) -> tuple[
+    dict[str, bool],
+    dict[str, dict[str, object]],
+    ContinuousThreadLineageReceiptV1,
+]:
+    """Archive every physically created primary handle, then freeze the ledger."""
+
+    archived: dict[str, bool] = {}
+    archival_evidence: dict[str, dict[str, object]] = {}
+    for role, coordinator in (
+        ("planner", planner_session),
+        ("validator", validator_session),
+    ):
+        role_value = ContinuousSessionRole(role)
+        if coordinator is None or coordinator.handle is None:
+            evidence = unavailable_thread_archive_evidence(
+                role_value,
+                error_type="ThreadNotCreated",
+            )
+        elif coordinator._terminally_archived:
+            archived_copy = thread_lineage.archive_evidence_for(
+                coordinator.handle.provider_thread_id_sha256
+            )
+            if archived_copy is None:
+                evidence = unavailable_thread_archive_evidence(
+                    role_value,
+                    error_type="ArchiveEvidenceUnavailable",
+                )
+            else:
+                evidence = ContinuousThreadArchiveEvidenceV1.from_dict(
+                    archived_copy.to_dict()
+                )
+        else:
+            evidence = coordinator.archive_and_verify_terminal(reason)
+        archival_evidence[role] = evidence.to_dict()
+        archived[role] = evidence.verified
+    lineage_receipt = thread_lineage.freeze(authorized_active_threads={})
+    return archived, archival_evidence, lineage_receipt
+
+
 def execute_scripted_job4(
     *,
     cycle: Path,
@@ -1933,43 +2098,55 @@ def execute_scripted_job4(
             compatibility(world, ContinuousSessionRole.VALIDATOR), session_port
         ),
     )
+    thread_lineage = ContinuousThreadLineageLedger()
+    planner_session.attach_thread_lineage(
+        thread_lineage,
+        purpose="primary_planner",
+    )
+    validator_session.attach_thread_lineage(
+        thread_lineage,
+        purpose="primary_validator",
+    )
     planner_session.install_base_instructions(PLANNER_STABLE_INSTRUCTIONS)
-    planner_handle = root_diagnostic.run(
-        "stored_thread_construction",
-        "ensure_scripted_planner_thread",
-        lambda: planner_session.ensure_session().provider_thread_id,
-    )
-    validator_handle = root_diagnostic.run(
-        "stored_thread_construction",
-        "ensure_scripted_validator_thread",
-        lambda: validator_session.ensure_session().provider_thread_id,
-    )
-    root_diagnostic.run(
-        "role_separation",
-        "assert_scripted_role_separation",
-        lambda: assert_separate_role_sessions(planner_session, validator_session),
-    )
-    fixture = ScriptedJob4FixtureRuntime(world_id=WORLD_ID, branch_id=BRANCH_ID)
-    harness = JobHarness(
-        source_root=ROOT,
-        cycle=cycle,
-        world=world,
-        planner_session=planner_session,
-        validator_session=validator_session,
-        planner_handle=planner_handle,
-        validator_handle=validator_handle,
-        lifecycle_root=lifecycle_root,
-        call_ledger=call_ledger,
-        root_diagnostic=root_diagnostic,
-        planner_transport_factory=fixture.planner_transport,
-        validator_transport_factory=fixture.validator_transport,
-        composer_transport_factory=fixture.composer_transport,
-        scripted_provider_free=True,
-    )
-    if harness_holder is not None:
-        harness_holder["harness"] = harness
-    fixture.bind(harness)
+    harness: JobHarness | None = None
     try:
+        planner_handle = root_diagnostic.run(
+            "stored_thread_construction",
+            "ensure_scripted_planner_thread",
+            lambda: planner_session.ensure_session().provider_thread_id,
+        )
+        fault_injector.hit("after_primary_planner_creation")
+        validator_handle = root_diagnostic.run(
+            "stored_thread_construction",
+            "ensure_scripted_validator_thread",
+            lambda: validator_session.ensure_session().provider_thread_id,
+        )
+        root_diagnostic.run(
+            "role_separation",
+            "assert_scripted_role_separation",
+            lambda: assert_separate_role_sessions(planner_session, validator_session),
+        )
+        fixture = ScriptedJob4FixtureRuntime(world_id=WORLD_ID, branch_id=BRANCH_ID)
+        harness = JobHarness(
+            source_root=ROOT,
+            cycle=cycle,
+            world=world,
+            planner_session=planner_session,
+            validator_session=validator_session,
+            planner_handle=planner_handle,
+            validator_handle=validator_handle,
+            lifecycle_root=lifecycle_root,
+            call_ledger=call_ledger,
+            root_diagnostic=root_diagnostic,
+            planner_transport_factory=fixture.planner_transport,
+            validator_transport_factory=fixture.validator_transport,
+            composer_transport_factory=fixture.composer_transport,
+            scripted_provider_free=True,
+            thread_lifecycle_failpoint=fault_injector.hit,
+        )
+        if harness_holder is not None:
+            harness_holder["harness"] = harness
+        fixture.bind(harness)
         execute_job4_schedule(
             harness=harness,
             world=world,
@@ -1980,21 +2157,24 @@ def execute_scripted_job4(
             scripted_provider_free=True,
         )
     finally:
-        archived: dict[str, bool] = {}
-        archival_evidence: dict[str, dict[str, object]] = {}
-        for role, coordinator in (
-            ("planner", harness.planner_session),
-            ("validator", validator_session),
-        ):
-            evidence = coordinator.archive_and_verify_terminal(
-                "provider_free_job4_complete"
+        archived, archival_evidence, lineage_receipt = (
+            _terminalize_known_thread_sessions(
+                thread_lineage=thread_lineage,
+                planner_session=(
+                    planner_session if harness is None else harness.planner_session
+                ),
+                validator_session=validator_session,
+                reason="provider_free_job4_complete",
             )
-            archival_evidence[role] = evidence.to_dict()
-            archived[role] = evidence.verified
+        )
         result["thread_archival"] = archived
         result["thread_archival_evidence"] = archival_evidence
-        if not all(archived.values()):
-            raise RuntimeError("scripted canary thread archival failed")
+        result["thread_lineage"] = lineage_receipt.to_dict()
+        result["thread_lineage_sha256"] = lineage_receipt.receipt_sha256
+        if not all(archived.values()) or lineage_receipt.status != "verified":
+            raise RuntimeError("scripted canary thread lifecycle closure failed")
+    if harness is None:
+        raise RuntimeError("scripted Job 4 harness was not constructed")
     return harness
 
 
@@ -2427,6 +2607,9 @@ def main() -> int:
     lifecycle_root = runtime_root / "provider_workspaces"
     active_runtime_before: dict[str, Any] | None = None
     active_runtime_before_error_type: str | None = None
+    planner_session: ContinuousSessionCoordinator | None = None
+    validator_session: ContinuousSessionCoordinator | None = None
+    job_thread_lineage: ContinuousThreadLineageLedger | None = None
     planner_handle = None
     validator_handle = None
     harness = None
@@ -2655,6 +2838,15 @@ def main() -> int:
                         base_instructions=validator_backend.base_instructions,
                     ),
                 )
+                job_thread_lineage = ContinuousThreadLineageLedger()
+                planner_session.attach_thread_lineage(
+                    job_thread_lineage,
+                    purpose="primary_planner",
+                )
+                validator_session.attach_thread_lineage(
+                    job_thread_lineage,
+                    purpose="primary_validator",
+                )
                 planner_handle = root_diagnostic.run(
                     "stored_thread_construction",
                     "ensure_planner_stored_thread",
@@ -2695,19 +2887,24 @@ def main() -> int:
                         scripted_provider_free=False,
                     )
                 finally:
-                    archived: dict[str, bool] = {}
-                    archival_evidence: dict[str, dict[str, object]] = {}
-                    for role, coordinator in (
-                        ("planner", planner_session),
-                        ("validator", validator_session),
-                    ):
-                        evidence = coordinator.archive_and_verify_terminal(
-                            "live_job4_complete"
+                    archived, archival_evidence, lineage_receipt = (
+                        _terminalize_known_thread_sessions(
+                            thread_lineage=job_thread_lineage,
+                            planner_session=(
+                                planner_session
+                                if harness is None
+                                else harness.planner_session
+                            ),
+                            validator_session=validator_session,
+                            reason="live_job4_complete",
                         )
-                        archival_evidence[role] = evidence.to_dict()
-                        archived[role] = evidence.verified
+                    )
                     result["thread_archival"] = archived
                     result["thread_archival_evidence"] = archival_evidence
+                    result["thread_lineage"] = lineage_receipt.to_dict()
+                    result["thread_lineage_sha256"] = (
+                        lineage_receipt.receipt_sha256
+                    )
                     if not all(archived.values()):
                         raise RuntimeError("stored canary thread archival failed")
         except _ScriptedExecutionComplete:
@@ -2715,6 +2912,35 @@ def main() -> int:
         except BaseException as exc:
             if harness is None:
                 harness = scripted_harness_holder.get("harness")
+            if (
+                not scripted_provider_free
+                and job_thread_lineage is not None
+                and "thread_lineage" not in result
+            ):
+                try:
+                    archived, archival_evidence, lineage_receipt = (
+                        _terminalize_known_thread_sessions(
+                            thread_lineage=job_thread_lineage,
+                            planner_session=(
+                                planner_session
+                                if harness is None
+                                else harness.planner_session
+                            ),
+                            validator_session=validator_session,
+                            reason="live_job4_setup_or_execution_failed",
+                        )
+                    )
+                    result["thread_archival"] = archived
+                    result["thread_archival_evidence"] = archival_evidence
+                    result["thread_lineage"] = lineage_receipt.to_dict()
+                    result["thread_lineage_sha256"] = (
+                        lineage_receipt.receipt_sha256
+                    )
+                except BaseException as cleanup_error:
+                    exc = StateConflictError(
+                        "live Job 4 failed and physical thread closure failed"
+                    )
+                    exc.__cause__ = cleanup_error
             if root_diagnostic is not None:
                 try:
                     root_diagnostic.record_failure(
@@ -2800,6 +3026,7 @@ def main() -> int:
         active_runtime_before_sha256 = None
         active_profile_inspection_status = "failed"
     thread_archival_evidence = _complete_thread_archival_evidence(result)
+    thread_lineage = _complete_thread_lineage_evidence(result, world=world)
     thread_archival = {
         role: thread_archival_evidence[role].verified
         for role in ("planner", "validator")
@@ -2865,13 +3092,14 @@ def main() -> int:
     result["capability_boundary_evidence_sha256"] = (
         capability_boundary_evidence.sha256
     )
-    terminal = ContinuousJob4TerminalEvidenceV4.build(
+    terminal = ContinuousJob4TerminalEvidenceV5.build(
         execution_status=execution_status,
         provider_calls=provider_calls,
         capability_ledger=capability_ledger,
         capability_boundary_evidence=capability_boundary_evidence,
         postconditions=postconditions,
         thread_archival_evidence=thread_archival_evidence,
+        thread_lineage=thread_lineage,
     )
     _apply_terminal_evidence(result, terminal=terminal)
     canonical_result = freeze_terminal_publication(

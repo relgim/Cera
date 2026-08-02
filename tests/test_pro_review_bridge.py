@@ -33,6 +33,7 @@ from cera.continuous.job4_terminal import (  # noqa: E402
     ContinuousJob4TerminalEvidenceV1,
     ContinuousJob4TerminalEvidenceV3,
     ContinuousJob4TerminalEvidenceV4,
+    ContinuousJob4TerminalEvidenceV5,
     decode_continuous_job4_terminal_evidence,
 )
 from cera.continuous.sessions import (  # noqa: E402
@@ -724,12 +725,18 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             ),
             "capability_boundary_evidence": (
                 terminal.capability_boundary_evidence.to_dict()
-                if isinstance(terminal, ContinuousJob4TerminalEvidenceV4)
+                if isinstance(
+                    terminal,
+                    (ContinuousJob4TerminalEvidenceV4, ContinuousJob4TerminalEvidenceV5),
+                )
                 else None
             ),
             "capability_boundary_evidence_sha256": (
                 terminal.capability_boundary_evidence.sha256
-                if isinstance(terminal, ContinuousJob4TerminalEvidenceV4)
+                if isinstance(
+                    terminal,
+                    (ContinuousJob4TerminalEvidenceV4, ContinuousJob4TerminalEvidenceV5),
+                )
                 else None
             ),
             "terminal_evidence": terminal.to_dict(),
