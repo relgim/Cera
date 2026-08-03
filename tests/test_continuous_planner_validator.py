@@ -23,12 +23,14 @@ from cera.continuous.prompting import build_planner_turn_prompt, character_summa
 from cera.continuous.packets import build_continuous_planner_turn_packet
 from cera.continuous.evidence import EvidenceVisibility, RequestEvidenceBindingRegistry
 from cera.continuous.provider import (
+    ContinuousDeepSeekWireDraftV1,
     ContinuousValidatorDraftV1,
     ProviderSceneSummaryDraftV1,
     continuous_validator_draft_json_schema,
     continuous_deepseek_draft_json_schema,
     rich_planner_sequence_json_schema,
 )
+from cera.schema import from_mapping
 from cera.continuous import AcceptedTurnPairV1, ValidatorSemanticStatus, ValidatorTaskMode
 from cera.continuous.sessions import (
     ContinuousBranchForkReceiptV2,
@@ -376,6 +378,110 @@ class RichPlannerContractTests(unittest.TestCase):
             "protected_user_source_claim_keys",
         ):
             self.assertIn(field, composer_text)
+        self.assertNotIn("output_start", composer_text)
+        self.assertNotIn("output_end", composer_text)
+        self.assertNotIn("story_text", composer_text)
+
+    def test_deepseek_wire_draft_derives_story_and_offsets_in_python(self) -> None:
+        wire = from_mapping(
+            ContinuousDeepSeekWireDraftV1,
+            {
+                "schema_version": ContinuousDeepSeekWireDraftV1.SCHEMA_VERSION,
+                "story_segments": [
+                    {
+                        "schema_version": "cera.continuous_deepseek_story_segment_draft.v1",
+                        "segment_key": "sakura_action",
+                        "kind": "action",
+                        "text": "Sakura studies the visitor without yielding the threshold.",
+                        "roles": {
+                            "schema_version": "cera.character_role_ledger.v1",
+                            "action_owner_ids": ["character:sakura_hanezawa"],
+                            "state_owner_ids": [],
+                            "speaker_ids": [],
+                            "affected_ids": [],
+                            "addressed_ids": [],
+                            "observing_ids": [],
+                            "referenced_ids": ["character:ted"],
+                        },
+                        "protected_user_source_claim_keys": [],
+                    },
+                    {
+                        "schema_version": "cera.continuous_deepseek_story_segment_draft.v1",
+                        "segment_key": "ted_source",
+                        "kind": "dialogue",
+                        "text": "Hello, my name is Ted.",
+                        "roles": {
+                            "schema_version": "cera.character_role_ledger.v1",
+                            "action_owner_ids": [],
+                            "state_owner_ids": [],
+                            "speaker_ids": ["character:ted"],
+                            "affected_ids": [],
+                            "addressed_ids": [],
+                            "observing_ids": [],
+                            "referenced_ids": [],
+                        },
+                        "protected_user_source_claim_keys": ["claim_source_ted"],
+                    },
+                ],
+                "protected_user_realizations": [
+                    {
+                        "schema_version": "cera.continuous_deepseek_protected_realization_draft.v1",
+                        "claim_key": "claim_source_ted",
+                        "kind": "dialogue",
+                        "exact_text": "Hello, my name is Ted.",
+                        "segment_key": "ted_source",
+                    }
+                ],
+            },
+        )
+        compiled = wire.compile()
+        self.assertEqual(
+            compiled.story_text,
+            "Sakura studies the visitor without yielding the threshold.\n\n"
+            "Hello, my name is Ted.",
+        )
+        self.assertEqual(compiled.story_segments[1].output_start, 60)
+        self.assertEqual(compiled.story_segments[1].output_end, 82)
+        self.assertEqual(compiled.protected_user_realizations[0].output_start, 60)
+        self.assertEqual(compiled.protected_user_realizations[0].output_end, 82)
+
+    def test_deepseek_wire_draft_rejects_ambiguous_protected_text(self) -> None:
+        wire = from_mapping(
+            ContinuousDeepSeekWireDraftV1,
+            {
+                "schema_version": ContinuousDeepSeekWireDraftV1.SCHEMA_VERSION,
+                "story_segments": [
+                    {
+                        "schema_version": "cera.continuous_deepseek_story_segment_draft.v1",
+                        "segment_key": "repeated_source",
+                        "kind": "dialogue",
+                        "text": "Hello. Hello.",
+                        "roles": {
+                            "schema_version": "cera.character_role_ledger.v1",
+                            "action_owner_ids": [],
+                            "state_owner_ids": [],
+                            "speaker_ids": ["character:ted"],
+                            "affected_ids": [],
+                            "addressed_ids": [],
+                            "observing_ids": [],
+                            "referenced_ids": [],
+                        },
+                        "protected_user_source_claim_keys": ["claim_source_ted"],
+                    }
+                ],
+                "protected_user_realizations": [
+                    {
+                        "schema_version": "cera.continuous_deepseek_protected_realization_draft.v1",
+                        "claim_key": "claim_source_ted",
+                        "kind": "dialogue",
+                        "exact_text": "Hello.",
+                        "segment_key": "repeated_source",
+                    }
+                ],
+            },
+        )
+        with self.assertRaisesRegex(ContractValidationError, "absent or ambiguous"):
+            wire.compile()
 
     def test_scene_summary_exact_tail_is_python_derived_not_model_echoed(self) -> None:
         pair = AcceptedTurnPairV1(

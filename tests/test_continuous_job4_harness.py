@@ -52,7 +52,8 @@ from cera.continuous.job4_transaction import (
 )
 from cera.continuous.contracts import CharacterRoleLedgerV1
 from cera.continuous.provider import (
-    ContinuousDeepSeekDraftV1,
+    ContinuousDeepSeekStorySegmentDraftV1,
+    ContinuousDeepSeekWireDraftV1,
     ContinuousValidatorDraftV1,
     ProviderEventRecordDraftV1,
     ProviderSceneSummaryDraftV1,
@@ -2240,23 +2241,32 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     else "Sakura requests bounded proof."
                 )
                 draft = composer_draft(story)
-                if turn_id == "turn-003":
-                    segments = (
-                        replace(
-                            draft.story_segments[0],
-                            roles=CharacterRoleLedgerV1(
-                                action_owner_ids=("character:mia_hanezawa",),
-                                addressed_ids=("character:ted",),
+                original = draft.story_segments[0]
+                roles = (
+                    CharacterRoleLedgerV1(
+                        action_owner_ids=("character:mia_hanezawa",),
+                        addressed_ids=("character:ted",),
+                    )
+                    if turn_id == "turn-003"
+                    else original.roles
+                )
+                return ContinuousDeepSeekWireDraftV1(
+                    schema_version=ContinuousDeepSeekWireDraftV1.SCHEMA_VERSION,
+                    story_segments=(
+                        ContinuousDeepSeekStorySegmentDraftV1(
+                            schema_version=(
+                                ContinuousDeepSeekStorySegmentDraftV1.SCHEMA_VERSION
+                            ),
+                            segment_key=original.segment_key,
+                            kind=original.kind,
+                            text=story,
+                            roles=roles,
+                            protected_user_source_claim_keys=(
+                                original.protected_user_source_claim_keys
                             ),
                         ),
-                    )
-                else:
-                    segments = draft.story_segments
-                return ContinuousDeepSeekDraftV1(
-                    schema_version=ContinuousDeepSeekDraftV1.SCHEMA_VERSION,
-                    story_text=story,
+                    ),
                     protected_user_realizations=(),
-                    story_segments=segments,
                 )
 
             def validator_value(_prompt: str):

@@ -29,6 +29,7 @@ from cera.serialization import re_is_sha256, text_sha256
 
 from .contracts import (
     AcceptedTurnPairV1,
+    CharacterRoleLedgerV1,
     CreatedFieldLogEntryV1,
     EventRecordCandidateV1,
     EventItemRoleLedgerV1,
@@ -36,8 +37,10 @@ from .contracts import (
     FinalSequenceV1,
     ProtectedSemanticAdjudicationV1,
     ProtectedUserRealizationSpanV1,
+    ProtectedUserSourceClaimKind,
     RichPlannerSequenceV1,
     SceneSummaryV1,
+    StoryRealizationKind,
     StoryRealizationSegmentV1,
     ValidatorFinalizationPackageV1,
     ValidatorSemanticStatus,
@@ -55,8 +58,8 @@ from .prompting import (
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v7"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v8"
-CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v5"
-CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v5"
+CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v6"
+CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v6"
 
 
 @dataclass(frozen=True, slots=True)
@@ -271,8 +274,169 @@ def _derive_persistence_operations(
 
 
 @dataclass(frozen=True, slots=True)
+class ContinuousDeepSeekStorySegmentDraftV1:
+    """Provider-owned prose and advisory ownership without provider-made offsets."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_story_segment_draft.v1"
+
+    schema_version: str
+    segment_key: str
+    kind: StoryRealizationKind
+    text: str
+    roles: CharacterRoleLedgerV1
+    protected_user_source_claim_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("continuous DeepSeek segment schema changed")
+        if not self.segment_key.strip() or len(self.segment_key) > 256:
+            raise ContractValidationError("continuous DeepSeek segment key is invalid")
+        if not self.text.strip() or self.text != self.text.strip() or len(self.text) > 64_000:
+            raise ContractValidationError("continuous DeepSeek segment text is invalid")
+        StoryRealizationSegmentV1(
+            schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+            segment_key=self.segment_key,
+            kind=self.kind,
+            output_start=0,
+            output_end=len(self.text),
+            exact_text=self.text,
+            roles=self.roles,
+            protected_user_source_claim_keys=self.protected_user_source_claim_keys,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousDeepSeekProtectedRealizationDraftV1:
+    """Exact protected claim bound to one named prose segment."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_protected_realization_draft.v1"
+
+    schema_version: str
+    claim_key: str
+    kind: ProtectedUserSourceClaimKind
+    exact_text: str
+    segment_key: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous DeepSeek protected realization schema changed"
+            )
+        if not self.segment_key.strip() or len(self.segment_key) > 256:
+            raise ContractValidationError(
+                "continuous DeepSeek protected realization segment key is invalid"
+            )
+        ProtectedUserRealizationSpanV1(
+            schema_version=ProtectedUserRealizationSpanV1.SCHEMA_VERSION,
+            claim_key=self.claim_key,
+            kind=self.kind,
+            output_start=0,
+            output_end=len(self.exact_text),
+            exact_text=self.exact_text,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousDeepSeekWireDraftV1:
+    """Strict provider DTO compiled into Python-owned story offsets."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_wire_draft.v6"
+
+    schema_version: str
+    story_segments: tuple[ContinuousDeepSeekStorySegmentDraftV1, ...]
+    protected_user_realizations: tuple[ContinuousDeepSeekProtectedRealizationDraftV1, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("continuous DeepSeek wire draft schema changed")
+        if not self.story_segments:
+            raise ContractValidationError("continuous DeepSeek story segments are absent")
+        segment_keys = tuple(value.segment_key for value in self.story_segments)
+        if len(segment_keys) != len(set(segment_keys)):
+            raise ContractValidationError("continuous DeepSeek story segments are duplicated")
+        realization_keys = tuple(
+            (value.claim_key, value.segment_key)
+            for value in self.protected_user_realizations
+        )
+        if len(realization_keys) != len(set(realization_keys)):
+            raise ContractValidationError(
+                "continuous DeepSeek protected realizations are duplicated"
+            )
+        segment_map = {value.segment_key: value for value in self.story_segments}
+        for realization in self.protected_user_realizations:
+            segment = segment_map.get(realization.segment_key)
+            if segment is None:
+                raise ContractValidationError(
+                    "continuous DeepSeek protected realization names an unknown segment"
+                )
+            if realization.claim_key not in segment.protected_user_source_claim_keys:
+                raise ContractValidationError(
+                    "continuous DeepSeek protected realization lacks segment claim binding"
+                )
+
+    def compile(self) -> "ContinuousDeepSeekDraftV1":
+        story_parts: list[str] = []
+        compiled_segments: list[StoryRealizationSegmentV1] = []
+        segment_offsets: dict[str, int] = {}
+        segment_map: dict[str, ContinuousDeepSeekStorySegmentDraftV1] = {}
+        cursor = 0
+        for segment in self.story_segments:
+            if story_parts:
+                story_parts.append("\n\n")
+                cursor += 2
+            segment_offsets[segment.segment_key] = cursor
+            segment_map[segment.segment_key] = segment
+            story_parts.append(segment.text)
+            end = cursor + len(segment.text)
+            compiled_segments.append(
+                StoryRealizationSegmentV1(
+                    schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+                    segment_key=segment.segment_key,
+                    kind=segment.kind,
+                    output_start=cursor,
+                    output_end=end,
+                    exact_text=segment.text,
+                    roles=segment.roles,
+                    protected_user_source_claim_keys=(
+                        segment.protected_user_source_claim_keys
+                    ),
+                )
+            )
+            cursor = end
+
+        compiled_realizations: list[ProtectedUserRealizationSpanV1] = []
+        for realization in self.protected_user_realizations:
+            segment = segment_map[realization.segment_key]
+            if segment.text.count(realization.exact_text) != 1:
+                raise ContractValidationError(
+                    "continuous DeepSeek protected realization text is absent or ambiguous"
+                )
+            start = segment_offsets[realization.segment_key] + segment.text.index(
+                realization.exact_text
+            )
+            compiled_realizations.append(
+                ProtectedUserRealizationSpanV1(
+                    schema_version=ProtectedUserRealizationSpanV1.SCHEMA_VERSION,
+                    claim_key=realization.claim_key,
+                    kind=realization.kind,
+                    output_start=start,
+                    output_end=start + len(realization.exact_text),
+                    exact_text=realization.exact_text,
+                )
+            )
+        return ContinuousDeepSeekDraftV1(
+            schema_version=ContinuousDeepSeekDraftV1.SCHEMA_VERSION,
+            story_text="".join(story_parts),
+            protected_user_realizations=tuple(compiled_realizations),
+            story_segments=tuple(compiled_segments),
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ContinuousDeepSeekDraftV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v5"
+    """Python-compiled internal Composer result with authoritative exact offsets."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v6"
 
     schema_version: str
     story_text: str
@@ -359,7 +523,7 @@ def continuous_validator_draft_json_schema() -> dict[str, Any]:
 
 
 def continuous_deepseek_draft_json_schema() -> dict[str, Any]:
-    return _schema_for(ContinuousDeepSeekDraftV1)
+    return _schema_for(ContinuousDeepSeekWireDraftV1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -524,7 +688,7 @@ class DeepSeekContinuousComposerPort:
         messages = (
             DeepSeekMessage(
                 "system",
-                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Return an exhaustive, ordered, gap-free story_segments ledger covering every story_text character. Every segment declares one closed roles ledger: action_owner_ids own actions; state_owner_ids own thoughts, emotions, bodily states, consent, and decisions; speaker_ids own dialogue; affected_ids, addressed_ids, observing_ids, and referenced_ids are non-owning. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. Any assertion owned by Ted must exactly equal one supplied ingress claim and cite that claim. An NPC action may affect or address Ted without inventing Ted's response. Also declare the matching exact protected_user_realizations occurrence. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
+                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Return the final prose once, as exhaustive ordered story_segments. Python joins segment text with exactly two newline characters and derives all character offsets; never calculate or return offsets or duplicate the full story in another field. Every segment declares one closed roles ledger: action_owner_ids own actions; state_owner_ids own thoughts, emotions, bodily states, consent, and decisions; speaker_ids own dialogue; affected_ids, addressed_ids, observing_ids, and referenced_ids are non-owning. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. Any assertion owned by Ted must exactly equal one supplied ingress claim and cite that claim. An NPC action may affect or address Ted without inventing Ted's response. For each copied protected-user claim, bind its exact text and claim key to the one story segment containing it; Python rejects absent or ambiguous occurrences. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
             ),
             DeepSeekMessage(
                 "user",
@@ -545,7 +709,8 @@ class DeepSeekContinuousComposerPort:
             )
 
         def finalize(result):
-            value = from_mapping(ContinuousDeepSeekDraftV1, result.parsed_json or {})
+            wire = from_mapping(ContinuousDeepSeekWireDraftV1, result.parsed_json or {})
+            value = wire.compile()
             return ContinuousProviderResultV1(
                 value=value,
                 provider_receipt=result.receipt,

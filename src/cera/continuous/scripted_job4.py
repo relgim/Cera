@@ -34,12 +34,12 @@ from .contracts import (
     RichPlannerSequenceV1,
     RichSequenceBeatV1,
     StoryRealizationKind,
-    StoryRealizationSegmentV1,
     ValidatorSemanticStatus,
     ValidatorTaskMode,
 )
 from .provider import (
-    ContinuousDeepSeekDraftV1,
+    ContinuousDeepSeekStorySegmentDraftV1,
+    ContinuousDeepSeekWireDraftV1,
     ContinuousValidatorDraftV1,
     ProviderEventRecordDraftV1,
     ProviderSceneSummaryDraftV1,
@@ -247,24 +247,24 @@ class ScriptedJob4FixtureRuntime:
             provisional=True,
         )
 
-    def _composer_value(self, _prompt: str) -> ContinuousDeepSeekDraftV1:
+    def _composer_value(self, _prompt: str) -> ContinuousDeepSeekWireDraftV1:
         turn_id = self._current()._active_turn_id
         story = _STORIES[turn_id]
-        return ContinuousDeepSeekDraftV1(
-            schema_version=ContinuousDeepSeekDraftV1.SCHEMA_VERSION,
-            story_text=story,
-            protected_user_realizations=(),
+        return ContinuousDeepSeekWireDraftV1(
+            schema_version=ContinuousDeepSeekWireDraftV1.SCHEMA_VERSION,
             story_segments=(
-                StoryRealizationSegmentV1(
-                    schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+                ContinuousDeepSeekStorySegmentDraftV1(
+                    schema_version=(
+                        ContinuousDeepSeekStorySegmentDraftV1.SCHEMA_VERSION
+                    ),
                     segment_key="segment_entire_story",
                     kind=StoryRealizationKind.ACTION,
-                    output_start=0,
-                    output_end=len(story),
-                    exact_text=story,
+                    text=story,
                     roles=self._roles(turn_id),
+                    protected_user_source_claim_keys=(),
                 ),
             ),
+            protected_user_realizations=(),
         )
 
     @staticmethod
