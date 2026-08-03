@@ -1,0 +1,124 @@
+{
+  "schema_version": "cera.runtime_model_v3_validator_nested_identity_result.v1",
+  "checkpoint_id": "2026-08-03-cera-runtime-model-v3-validator-nested-identity-v1-001",
+  "queue_revision": "0048",
+  "completed_at_utc": "2026-08-03T22:59:50.3779744Z",
+  "status": "passed_provider_free_checkpoint",
+  "provider_calls": {
+    "codex_family": 0,
+    "deepseek_family": 0,
+    "total": 0
+  },
+  "source_custody": {
+    "starting_git_sha": "80ffd5591f80bbce468ff55b5d88fa4ec87b4864",
+    "starting_tree_sha": "6d640fbaf5ea4bccbc1a0766fa8911ed221c114d",
+    "source_candidate_tree_sha": "7ea1c1d3203766d7215564ed0d65443072b5ea8a",
+    "implementation_diff_sha256": "7820c855b0bb4a955ce3af1766786e85fa15ae856502542192e62bc425fa314f",
+    "implementation_diff_bytes": 34017,
+    "implementation_diff_paths": [
+      ".chatgpt/pro-review/checkpoints/2026-08-03-cera-runtime-model-v3-validator-nested-identity-v1-001/CORRECTION_DESIGN.md",
+      "docs/contracts/SCHEMA_CATALOG.md",
+      "scripts/run_continuous_planner_validator_job4.py",
+      "src/cera/continuous/provider.py",
+      "src/cera/continuous/qualification_evidence.py",
+      "src/cera/continuous/scripted_job4.py",
+      "tests/test_continuous_job4_harness.py",
+      "tests/test_continuous_validator_schema_surface.py"
+    ],
+    "queue_0047_terminal_result_sha256": "97f2fcb89a634413fd56eebe4a7818e80b48610779a91290874ff928b9b4d5fc",
+    "queue_0047_terminal_report_sha256": "b45bc0d5a45e36780d7c981724ea785571d56a7ffac2b032ddafddb9e002015b",
+    "queue_0047_failed_attempt_sha256": "d13c67767fcf1c70f92d3758f4818d1e4c2d06baf3d34aa8f9fba849272da652",
+    "queue_0047_call_ledger_sha256": "b048b810c27dd251a1b4b7c0280a8f58355a7d8d478df8127f0a63a8f6635a6b"
+  },
+  "nested_identity_contract": {
+    "active_provider_final_sequence_wire": "ProviderFinalSequenceDraftV2",
+    "provider_owned_nested_schema_version": false,
+    "python_injected_nested_schema_version": "cera.complete_final_sequence.v6",
+    "python_derived_final_stop_state": true,
+    "provider_rejects_nested_schema_version_extra_field": true,
+    "historical_provider_final_sequence_v1_preserved": true,
+    "historical_semantic_validator_v1_v2_v3_readers_preserved": true,
+    "python_final_field_vocabulary_remains_closed": true
+  },
+  "schema_audit": {
+    "provider_neutral_schema_sha256": "5d5e902d815a65feeeaf4db39c440462ff9704e7ac777ca87d90250aaa4f7a93",
+    "openai_projected_schema_sha256": "5d5e902d815a65feeeaf4db39c440462ff9704e7ac777ca87d90250aaa4f7a93",
+    "provider_neutral_schema_version_paths": 8,
+    "openai_projected_schema_version_paths": 8,
+    "unrestricted_schema_version_paths": 0,
+    "openai_projection_strict": true,
+    "final_field_enum_values": [
+      "realized_event",
+      "valid_deepseek_additions",
+      "knowledge_changes",
+      "material_changes",
+      "resulting_state"
+    ]
+  },
+  "compatibility": {
+    "active_schema_version": "cera.continuous_semantic_validator_draft.v4",
+    "historical_schema_versions": [
+      "cera.continuous_semantic_validator_draft.v1",
+      "cera.continuous_semantic_validator_draft.v2",
+      "cera.continuous_semantic_validator_draft.v3"
+    ],
+    "active_adapter_version": "cera.continuous_validator_adapter.v12",
+    "active_prompt_version": "cera.continuous_validator_prompt.v13",
+    "canonical_final_sequence_version": "cera.complete_final_sequence.v6"
+  },
+  "raw_result_custody": {
+    "qualification_capture_type": "QualificationRawProviderJsonCapture",
+    "capture_boundary": "before_dto_decode",
+    "artifact_name": "RAW_PROVIDER_RESULT.json",
+    "exclusive_non_overwriting_write": true,
+    "exact_artifact_sha256_recorded": true,
+    "post_validation_failure_ledger_terminalized": true,
+    "production_retention_enabled": false
+  },
+  "writer_binding": {
+    "writer_schema_sha256": "dec9386e5a4b0fd3c9c9f48cd4826a14daf17009970c2be0d5bfa336ba8a717d",
+    "original_stage4b_result_sha256": "1a18a47eb4a9a6ad523f8d651d6450aa637adf39f9a9a5d207dfd70e1ad52abd",
+    "original_first_attempt_passes": 5,
+    "writer_dto_prompt_adapter_route_transport_unchanged": true,
+    "fresh_writer_calls_required": false
+  },
+  "tests": {
+    "imported_cera_path": "D:/CP25/source/src/cera/__init__.py",
+    "py_compile_and_compileall": "passed",
+    "typed_openai_schema_preflight": "passed",
+    "focused_tests_run": 14,
+    "focused_tests_passed": 14,
+    "focused_tests_failed": 0,
+    "exact_prerequisite_tests_run": 4,
+    "exact_prerequisite_tests_passed": 4,
+    "exact_prerequisite_test_seconds": 62.527,
+    "complete_suite_command": "python -m unittest discover -v -s tests",
+    "complete_suite_tests_run": 982,
+    "complete_suite_tests_passed": 979,
+    "complete_suite_tests_skipped": 3,
+    "complete_suite_tests_failed": 0,
+    "complete_suite_seconds": 1309.307,
+    "git_diff_check": "passed"
+  },
+  "temporary_prerequisites": {
+    "manager_venv_junction_removed": true,
+    "historical_evaluation_junction_removed": true,
+    "historical_cycle_junction_removed": true,
+    "read_only_database_copy_removed": true,
+    "authoritative_sources_unchanged": true
+  },
+  "protected_effects": {
+    "active_runtime_profile_sha256": "f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801",
+    "active_runtime_valid": true,
+    "production_database_bytes_sha256": "bfbf23eb2fa7199fad38e8fb3f1ae0d6b547467f17ed68e84b7115275a2fc555",
+    "production_database_integrity": "ok",
+    "production_database_foreign_key_findings": 0,
+    "active_route_changes": 0,
+    "production_story_or_database_writes": 0,
+    "installed_sillytavern_changes": 0,
+    "service_or_deployment_changes": 0,
+    "remote_operations_or_pushes": 0,
+    "unchanged": true
+  },
+  "next_authorized_program": "2026-08-03-cera-runtime-model-v3-live-qualification-v3"
+}

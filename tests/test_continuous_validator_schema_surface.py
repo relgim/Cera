@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from copy import deepcopy
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 import unittest
 
 from jsonschema import Draft202012Validator
@@ -22,17 +26,23 @@ from cera.continuous.contracts import (
 )
 from cera.continuous.provider import (
     CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
+    CodexContinuousValidatorPort,
     ContinuousSceneWriterDraftV1,
     ContinuousSemanticValidatorDraftV1,
     ContinuousSemanticValidatorDraftV2,
     ContinuousSemanticValidatorDraftV3,
+    ContinuousSemanticValidatorDraftV4,
     ProviderEventRecordDraftV1,
-    ProviderFinalSequenceDraftV1,
+    ProviderFinalSequenceDraftV2,
     _schema_for,
     continuous_scene_writer_draft_json_schema,
     continuous_semantic_validator_draft_json_schema,
     continuous_validator_draft_json_schema,
     continuous_validator_route,
+)
+from cera.continuous.call_ledger import ContinuousProviderCallLedger
+from cera.continuous.qualification_evidence import (
+    QualificationRawProviderJsonCapture,
 )
 from cera.creator_review.models import (
     CreatorReviewAssessment,
@@ -47,7 +57,7 @@ from cera.providers import (
     validate_provider_output_schema,
 )
 from cera.schema import from_mapping
-from cera.serialization import canonical_sha256, text_sha256, to_primitive
+from cera.serialization import bytes_sha256, canonical_sha256, text_sha256, to_primitive
 
 
 EXPECTED_FINAL_FIELD_NAMES = (
@@ -73,7 +83,23 @@ def _field_name_schemas(value: object, path: str = "$") -> list[tuple[str, dict]
     return found
 
 
-def _active_draft() -> ContinuousSemanticValidatorDraftV3:
+def _schema_version_schemas(
+    value: object, path: str = "$"
+) -> list[tuple[str, dict]]:
+    found: list[tuple[str, dict]] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            child_path = f"{path}.{key}"
+            if key == "schema_version":
+                found.append((child_path, child))
+            found.extend(_schema_version_schemas(child, child_path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            found.extend(_schema_version_schemas(child, f"{path}[{index}]"))
+    return found
+
+
+def _active_draft() -> ContinuousSemanticValidatorDraftV4:
     story = "Hana set down the teacup."
     roles = CharacterRoleLedgerV1(
         action_owner_ids=("character:hana_hanezawa",),
@@ -119,8 +145,8 @@ def _active_draft() -> ContinuousSemanticValidatorDraftV3:
         exact_text=story,
         roles=roles,
     )
-    return ContinuousSemanticValidatorDraftV3(
-        schema_version=ContinuousSemanticValidatorDraftV3.SCHEMA_VERSION,
+    return ContinuousSemanticValidatorDraftV4(
+        schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
         package_id="package:validator_schema_surface",
         world_id="world:validator_schema_surface",
         branch_id="branch:main",
@@ -128,7 +154,7 @@ def _active_draft() -> ContinuousSemanticValidatorDraftV3:
         semantic_status=ValidatorSemanticStatus.ACCEPTED,
         reason_codes=(),
         story_segments=(segment,),
-        complete_final_sequence=ProviderFinalSequenceDraftV1.from_final_sequence(
+        complete_final_sequence=ProviderFinalSequenceDraftV2.from_final_sequence(
             sequence
         ),
         creator_review=CreatorReviewAssessment(
@@ -193,7 +219,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
 
     def test_all_five_values_decode_and_compile(self) -> None:
         payload = to_primitive(_active_draft())
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV3, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV4, payload)
         scopes = decoded.complete_final_sequence.items[0].field_scopes
         self.assertEqual(tuple(value.field_name.value for value in scopes), EXPECTED_FINAL_FIELD_NAMES)
         self.assertTrue(all(isinstance(value.field_name, FinalFieldName) for value in scopes))
@@ -212,7 +238,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     Draft202012Validator(schema).validate(payload)
                 with self.assertRaises(ContractValidationError):
-                    from_mapping(ContinuousSemanticValidatorDraftV3, payload)
+                    from_mapping(ContinuousSemanticValidatorDraftV4, payload)
                 with self.assertRaises(ContractValidationError):
                     FinalFieldScopeV1(
                         field_name=arbitrary,
@@ -234,12 +260,12 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
             ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
         )
         self.assertEqual(
-            ContinuousSemanticValidatorDraftV3.SCHEMA_VERSION,
-            "cera.continuous_semantic_validator_draft.v3",
+            ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
+            "cera.continuous_semantic_validator_draft.v4",
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v11",
+            "cera.continuous_validator_adapter.v12",
         )
         self.assertEqual(
             continuous_validator_route(model="gpt-5.6-sol", effort="medium").adapter_id,
@@ -251,12 +277,18 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         for historical_type in (
             ContinuousSemanticValidatorDraftV1,
             ContinuousSemanticValidatorDraftV2,
+            ContinuousSemanticValidatorDraftV3,
         ):
             with self.subTest(schema_version=historical_type.SCHEMA_VERSION):
                 historical_payload = deepcopy(active_payload)
                 historical_payload["schema_version"] = historical_type.SCHEMA_VERSION
                 final = historical_payload["complete_final_sequence"]
-                final["final_stop_state"] = final["items"][-1]["resulting_state"]
+                final["schema_version"] = FinalSequenceV1.SCHEMA_VERSION
+                if historical_type in {
+                    ContinuousSemanticValidatorDraftV1,
+                    ContinuousSemanticValidatorDraftV2,
+                }:
+                    final["final_stop_state"] = final["items"][-1]["resulting_state"]
                 historical = from_mapping(historical_type, historical_payload)
                 self.assertEqual(
                     historical.schema_version,
@@ -269,27 +301,37 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         payload = to_primitive(_active_draft())
         provider_sequence = payload["complete_final_sequence"]
         self.assertNotIn("final_stop_state", provider_sequence)
+        self.assertNotIn("schema_version", provider_sequence)
         Draft202012Validator(continuous_semantic_validator_draft_json_schema()).validate(
             payload
         )
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV3, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV4, payload)
         final_sequence = decoded.compile().finalization_package.complete_final_sequence
+        self.assertEqual(
+            final_sequence.schema_version,
+            FinalSequenceV1.SCHEMA_VERSION,
+        )
         self.assertEqual(
             final_sequence.final_stop_state,
             final_sequence.items[-1].resulting_state,
         )
         injected = deepcopy(payload)
-        injected["complete_final_sequence"]["final_stop_state"] = "independent duplicate"
+        injected["complete_final_sequence"]["schema_version"] = (
+            FinalSequenceV1.SCHEMA_VERSION
+        )
         with self.assertRaises(ValidationError):
             Draft202012Validator(
                 continuous_semantic_validator_draft_json_schema()
             ).validate(injected)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV3, injected)
+            from_mapping(ContinuousSemanticValidatorDraftV4, injected)
 
     def test_failed_v2_cross_field_shape_is_reproduced_provider_free(self) -> None:
         payload = to_primitive(_active_draft())
         payload["schema_version"] = ContinuousSemanticValidatorDraftV2.SCHEMA_VERSION
+        payload["complete_final_sequence"]["schema_version"] = (
+            FinalSequenceV1.SCHEMA_VERSION
+        )
         payload["complete_final_sequence"]["final_stop_state"] = (
             "A schema-valid but unequal duplicate stop state."
         )
@@ -301,6 +343,93 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
             "final stop state must be the exact last resulting state",
         ):
             from_mapping(ContinuousSemanticValidatorDraftV2, payload)
+
+    def test_all_active_schema_versions_are_python_owned_or_absent(self) -> None:
+        schema = continuous_semantic_validator_draft_json_schema()
+        versions = _schema_version_schemas(schema)
+        self.assertTrue(versions)
+        for path, version_schema in versions:
+            with self.subTest(path=path):
+                self.assertEqual(set(version_schema), {"type", "const"})
+                self.assertEqual(version_schema["type"], "string")
+                self.assertIsInstance(version_schema["const"], str)
+                self.assertTrue(version_schema["const"].startswith("cera."))
+        self.assertEqual(
+            dict(versions)["$.properties.schema_version"]["const"],
+            ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
+        )
+        sequence_branches = schema["properties"]["complete_final_sequence"]["anyOf"]
+        sequence_schema = next(
+            value for value in sequence_branches if value.get("type") == "object"
+        )
+        self.assertNotIn("schema_version", sequence_schema["properties"])
+
+    def test_openai_projection_preserves_every_schema_version_const(self) -> None:
+        neutral = _schema_version_schemas(
+            continuous_semantic_validator_draft_json_schema()
+        )
+        projected = _schema_version_schemas(
+            project_provider_output_schema(
+                continuous_semantic_validator_draft_json_schema(),
+                ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+            ).provider_schema
+        )
+        self.assertEqual(projected, neutral)
+
+    def test_raw_provider_json_is_observed_before_closed_dto_decode(self) -> None:
+        payload = to_primitive(_active_draft())
+        payload["complete_final_sequence"]["schema_version"] = "provider-authored"
+
+        class Transport:
+            route = continuous_validator_route(model="gpt-5.6-sol", effort="medium")
+            runner = SimpleNamespace(provider_thread_id="thread:raw-capture-test")
+
+            def invoke(self, _prompt: str, **kwargs):
+                for name in (
+                    "on_worker_started",
+                    "on_worker_preflight",
+                    "on_transport_invoke",
+                ):
+                    callback = kwargs.get(name)
+                    if callback is not None:
+                        callback()
+                return SimpleNamespace(
+                    parsed_json=deepcopy(payload),
+                    receipt={"status": "completed"},
+                    operation_telemetry={"status": "completed"},
+                    tool_call_count=0,
+                    failed_tool_call_count=0,
+                    tool_names=(),
+                    tool_server_names=(),
+                )
+
+        with TemporaryDirectory() as directory:
+            evidence_root = Path(directory).resolve()
+            artifact = evidence_root / "validator" / "RAW_PROVIDER_RESULT.json"
+            capture = QualificationRawProviderJsonCapture(artifact)
+            ledger = ContinuousProviderCallLedger(
+                evidence_root / "CALL_LEDGER.jsonl"
+            )
+            port = CodexContinuousValidatorPort(
+                Transport(),
+                call_ledger=ledger,
+                raw_result_observer=capture,
+            )
+            with self.assertRaises(ContractValidationError):
+                port.validate("Validate the benign fixture.")
+            self.assertEqual(
+                ledger.events[-1]["state"],
+                "provider_completed_post_validation_failed",
+            )
+            self.assertEqual(json.loads(artifact.read_text(encoding="utf-8")), payload)
+            self.assertEqual(capture.artifact_sha256, bytes_sha256(artifact.read_bytes()))
+            self.assertEqual(
+                capture.evidence(evidence_root=evidence_root),
+                {
+                    "raw_provider_result_path": "validator/RAW_PROVIDER_RESULT.json",
+                    "raw_provider_result_sha256": capture.artifact_sha256,
+                },
+            )
 
     def test_writer_schema_and_boundary_are_unchanged(self) -> None:
         schema = continuous_scene_writer_draft_json_schema()

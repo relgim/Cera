@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass, fields, is_dataclass, replace
 from enum import Enum
 import json
@@ -58,7 +59,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v7"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v11"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v12"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v8"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v1"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v1"
@@ -386,6 +387,39 @@ class ProviderFinalSequenceDraftV1:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderFinalSequenceDraftV2:
+    """Provider-owned final items with Python-owned schema identity and stop state."""
+
+    sequence_id: str
+    accepted_turn_id: str
+    items: tuple[FinalSequenceItemV1, ...]
+
+    def __post_init__(self) -> None:
+        self.compile()
+
+    @classmethod
+    def from_final_sequence(
+        cls, value: FinalSequenceV1
+    ) -> "ProviderFinalSequenceDraftV2":
+        return cls(
+            sequence_id=value.sequence_id,
+            accepted_turn_id=value.accepted_turn_id,
+            items=value.items,
+        )
+
+    def compile(self) -> FinalSequenceV1:
+        if not self.items:
+            raise ContractValidationError("final sequence requires at least one item")
+        return FinalSequenceV1(
+            schema_version=FinalSequenceV1.SCHEMA_VERSION,
+            sequence_id=self.sequence_id,
+            accepted_turn_id=self.accepted_turn_id,
+            items=self.items,
+            final_stop_state=self.items[-1].resulting_state,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ContinuousSemanticValidatorDraftV1:
     """Active V3 Validator wire; the Writer never supplies these semantics."""
 
@@ -517,11 +551,32 @@ class ContinuousSemanticValidatorDraftV2(ContinuousSemanticValidatorDraftV1):
 
 @dataclass(frozen=True, slots=True)
 class ContinuousSemanticValidatorDraftV3(ContinuousSemanticValidatorDraftV2):
-    """Active wire with Python-derived final stop state and closed field names."""
+    """Historical wire with Python-derived stop state and provider-owned version."""
 
     SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v3"
 
     complete_final_sequence: ProviderFinalSequenceDraftV1 | None
+
+    def compile(
+        self, *, accepted_pairs: tuple[AcceptedTurnPairV1, ...] = ()
+    ) -> ContinuousSemanticValidatorResultV1:
+        return self._compile_with_sequence(
+            (
+                self.complete_final_sequence.compile()
+                if self.complete_final_sequence is not None
+                else None
+            ),
+            accepted_pairs=accepted_pairs,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV4(ContinuousSemanticValidatorDraftV3):
+    """Active wire with Python-owned nested identity and final stop state."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v4"
+
+    complete_final_sequence: ProviderFinalSequenceDraftV2 | None
 
     def compile(
         self, *, accepted_pairs: tuple[AcceptedTurnPairV1, ...] = ()
@@ -931,7 +986,7 @@ def continuous_deepseek_draft_json_schema() -> dict[str, Any]:
 
 
 def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
-    return _schema_for(ContinuousSemanticValidatorDraftV3)
+    return _schema_for(ContinuousSemanticValidatorDraftV4)
 
 
 def continuous_scene_writer_draft_json_schema() -> dict[str, Any]:
@@ -1025,6 +1080,7 @@ class CodexContinuousValidatorPort:
         *,
         world_bridge: Any = None,
         call_ledger: ContinuousProviderCallLedger,
+        raw_result_observer: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         route = transport.route
         allowed = {
@@ -1036,6 +1092,7 @@ class CodexContinuousValidatorPort:
         self.transport = transport
         self.world_bridge = world_bridge
         self.call_ledger = call_ledger
+        self.raw_result_observer = raw_result_observer
         self._operation_index = 0
 
     def validate(
@@ -1063,12 +1120,15 @@ class CodexContinuousValidatorPort:
             )
 
         def finalize(result):
+            raw_provider_json = result.parsed_json or {}
+            if self.raw_result_observer is not None:
+                self.raw_result_observer(deepcopy(raw_provider_json))
             world_tool_debug = (
                 self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )
             draft = from_mapping(
-                ContinuousSemanticValidatorDraftV3,
-                result.parsed_json or {},
+                ContinuousSemanticValidatorDraftV4,
+                raw_provider_json,
             )
             return ContinuousProviderResultV1(
                 value=draft.compile(accepted_pairs=accepted_pairs),

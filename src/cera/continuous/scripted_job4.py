@@ -40,9 +40,9 @@ from .contracts import (
 )
 from .provider import (
     ContinuousSceneWriterDraftV1,
-    ContinuousSemanticValidatorDraftV3,
+    ContinuousSemanticValidatorDraftV4,
     ProviderEventRecordDraftV1,
-    ProviderFinalSequenceDraftV1,
+    ProviderFinalSequenceDraftV2,
     ProviderSceneSummaryDraftV1,
     continuous_deepseek_route,
     continuous_planner_route,
@@ -268,14 +268,14 @@ class ScriptedJob4FixtureRuntime:
             verifier_status="accepted",
         )
 
-    def _validator_value(self, _prompt: str) -> ContinuousSemanticValidatorDraftV3:
+    def _validator_value(self, _prompt: str) -> ContinuousSemanticValidatorDraftV4:
         harness = self._current()
         if harness._active_validator_label == "scene-1-validator-summary":
             accepted_ids = tuple(
                 value.accepted_turn_id for value in harness.accepted_pairs
             )
-            return ContinuousSemanticValidatorDraftV3(
-                schema_version=ContinuousSemanticValidatorDraftV3.SCHEMA_VERSION,
+            return ContinuousSemanticValidatorDraftV4(
+                schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
                 package_id="package:scene_summary",
                 world_id=self.world_id,
                 branch_id=self.branch_id,
@@ -348,8 +348,8 @@ class ScriptedJob4FixtureRuntime:
             ),
             final_stop_state="The exchange awaits Ted's next choice.",
         )
-        return ContinuousSemanticValidatorDraftV3(
-            schema_version=ContinuousSemanticValidatorDraftV3.SCHEMA_VERSION,
+        return ContinuousSemanticValidatorDraftV4(
+            schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
             package_id=f"package:{turn_id}",
             world_id=self.world_id,
             branch_id=self.branch_id,
@@ -368,7 +368,7 @@ class ScriptedJob4FixtureRuntime:
                     protected_user_source_claim_keys=(),
                 ),
             ),
-            complete_final_sequence=ProviderFinalSequenceDraftV1.from_final_sequence(
+            complete_final_sequence=ProviderFinalSequenceDraftV2.from_final_sequence(
                 sequence
             ),
             creator_review=self._good_assessment(),

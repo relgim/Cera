@@ -62,11 +62,11 @@ from cera.continuous.provider import (
     ContinuousDeepSeekStorySegmentDraftV1,
     ContinuousDeepSeekWireDraftV1,
     ContinuousSceneWriterDraftV1,
-    ContinuousSemanticValidatorDraftV3,
+    ContinuousSemanticValidatorDraftV4,
     ContinuousSemanticValidatorResultV1,
     ContinuousValidatorDraftV1,
     ProviderEventRecordDraftV1,
-    ProviderFinalSequenceDraftV1,
+    ProviderFinalSequenceDraftV2,
     ProviderSceneSummaryDraftV1,
     _transport_stored_thread_sha256,
     continuous_deepseek_route,
@@ -2296,9 +2296,9 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         ),
                         last_five_exact_pairs=tuple(harness.accepted_pairs),
                     )
-                    return ContinuousSemanticValidatorDraftV3(
+                    return ContinuousSemanticValidatorDraftV4(
                         schema_version=(
-                            ContinuousSemanticValidatorDraftV3.SCHEMA_VERSION
+                            ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION
                         ),
                         package_id="package:scene_summary",
                         world_id=WORLD_ID,
@@ -2417,9 +2417,9 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     ),
                 )
                 event = result.event_record
-                return ContinuousSemanticValidatorDraftV3(
+                return ContinuousSemanticValidatorDraftV4(
                     schema_version=(
-                        ContinuousSemanticValidatorDraftV3.SCHEMA_VERSION
+                        ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION
                     ),
                     package_id=result.package_id,
                     world_id=result.world_id,
@@ -2440,7 +2440,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         ),
                     ),
                     complete_final_sequence=(
-                        ProviderFinalSequenceDraftV1.from_final_sequence(
+                        ProviderFinalSequenceDraftV2.from_final_sequence(
                             result.complete_final_sequence
                         )
                     ),
