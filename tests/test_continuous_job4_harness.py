@@ -50,13 +50,20 @@ from cera.continuous.job4_terminal import (
 from cera.continuous.job4_transaction import (
     ContinuousJob4TerminalTransactionV1,
 )
-from cera.continuous.contracts import CharacterRoleLedgerV1
+from cera.continuous.contracts import (
+    CharacterRoleLedgerV1,
+    StoryRealizationKind,
+    StoryRealizationSegmentV1,
+)
 from cera.continuous.provider import (
     ContinuousDeepSeekAssertionKind,
     ContinuousDeepSeekNonOwningRelationKind,
     ContinuousDeepSeekNonOwningRoleDraftV1,
     ContinuousDeepSeekStorySegmentDraftV1,
     ContinuousDeepSeekWireDraftV1,
+    ContinuousSceneWriterDraftV1,
+    ContinuousSemanticValidatorDraftV1,
+    ContinuousSemanticValidatorResultV1,
     ContinuousValidatorDraftV1,
     ProviderEventRecordDraftV1,
     ProviderSceneSummaryDraftV1,
@@ -732,7 +739,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 ]
             )
             for turn in detail["turns"]:
-                for owner in ("planner", "composer", "validator"):
+                for owner in ("planner", "composer", "validator", "reader"):
                     submitted = turn["actual_submitted_prompts"][owner]
                     self.assertGreater(submitted["byte_count"], 0)
                     self.assertEqual(
@@ -746,7 +753,10 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     (injected["injected_context_bytes"] + 3) // 4,
                 )
             initialization = detail["turns"][0]["actual_submitted_prompts"]
-            self.assertEqual(set(initialization), {"planner", "composer", "validator"})
+            self.assertEqual(
+                set(initialization),
+                {"planner", "composer", "validator", "reader"},
+            )
             reconstruction = detail["reconstruction"]["initialization_receipt"]
             self.assertGreater(reconstruction["reconstruction_bytes"], 0)
             self.assertEqual(
@@ -2009,7 +2019,12 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                             last_five_exact_pairs=tuple(accepted_pairs),
                         ),
                     )
-                    return self._result(result)
+                    return self._result(
+                        ContinuousSemanticValidatorResultV1.from_finalization_package(
+                            finalization_package=result,
+                            story_segments=(),
+                        )
+                    )
                 revision = int(turn_id.rsplit("-", 1)[1])
                 story_text = (
                     "Mia answers cautiously."
@@ -2102,7 +2117,25 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         ),
                     ),
                 )
-                return self._result(result)
+                return self._result(
+                    ContinuousSemanticValidatorResultV1.from_finalization_package(
+                        finalization_package=result,
+                        story_segments=(
+                            StoryRealizationSegmentV1(
+                                schema_version=(
+                                    StoryRealizationSegmentV1.SCHEMA_VERSION
+                                ),
+                                segment_key="segment_entire_story",
+                                kind=StoryRealizationKind.ACTION,
+                                output_start=0,
+                                output_end=len(story_text),
+                                exact_text=story_text,
+                                roles=result.complete_final_sequence.items[0].roles,
+                                protected_user_source_claim_keys=(),
+                            ),
+                        ),
+                    )
+                )
 
         with TemporaryDirectory() as directory:
             root = Path(directory).resolve()
@@ -2243,64 +2276,9 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     if turn_id == "turn-003"
                     else "Sakura requests bounded proof."
                 )
-                draft = composer_draft(story)
-                original = draft.story_segments[0]
-                roles = (
-                    CharacterRoleLedgerV1(
-                        action_owner_ids=("character:mia_hanezawa",),
-                        addressed_ids=("character:ted",),
-                    )
-                    if turn_id == "turn-003"
-                    else original.roles
-                )
-                owners = roles.assertion_owner_ids
-                return ContinuousDeepSeekWireDraftV1(
-                    schema_version=ContinuousDeepSeekWireDraftV1.SCHEMA_VERSION,
-                    story_segments=(
-                        ContinuousDeepSeekStorySegmentDraftV1(
-                            schema_version=(
-                                ContinuousDeepSeekStorySegmentDraftV1.SCHEMA_VERSION
-                            ),
-                            segment_key=original.segment_key,
-                            assertion_kind=(
-                                ContinuousDeepSeekAssertionKind.ACTION_OWNED
-                            ),
-                            text=story,
-                            owner_ids=owners,
-                            non_owning_roles=tuple(
-                                ContinuousDeepSeekNonOwningRoleDraftV1(
-                                    schema_version=(
-                                        ContinuousDeepSeekNonOwningRoleDraftV1.SCHEMA_VERSION
-                                    ),
-                                    character_id=value,
-                                    relation=relation,
-                                )
-                                for relation, values in (
-                                    (
-                                        ContinuousDeepSeekNonOwningRelationKind.AFFECTED,
-                                        roles.affected_ids,
-                                    ),
-                                    (
-                                        ContinuousDeepSeekNonOwningRelationKind.ADDRESSED,
-                                        roles.addressed_ids,
-                                    ),
-                                    (
-                                        ContinuousDeepSeekNonOwningRelationKind.OBSERVING,
-                                        roles.observing_ids,
-                                    ),
-                                    (
-                                        ContinuousDeepSeekNonOwningRelationKind.REFERENCED,
-                                        roles.referenced_ids,
-                                    ),
-                                )
-                                for value in values
-                            ),
-                            protected_user_source_claim_keys=(
-                                original.protected_user_source_claim_keys
-                            ),
-                        ),
-                    ),
-                    protected_user_realizations=(),
+                return ContinuousSceneWriterDraftV1(
+                    schema_version=ContinuousSceneWriterDraftV1.SCHEMA_VERSION,
+                    story_text=story,
                 )
 
             def validator_value(_prompt: str):
@@ -2317,8 +2295,10 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         ),
                         last_five_exact_pairs=tuple(harness.accepted_pairs),
                     )
-                    return ContinuousValidatorDraftV1(
-                        schema_version=ContinuousValidatorDraftV1.SCHEMA_VERSION,
+                    return ContinuousSemanticValidatorDraftV1(
+                        schema_version=(
+                            ContinuousSemanticValidatorDraftV1.SCHEMA_VERSION
+                        ),
                         package_id="package:scene_summary",
                         world_id=WORLD_ID,
                         branch_id=BRANCH_ID,
@@ -2328,6 +2308,8 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         semantic_status=scene_summary_package(
                             harness.accepted_pairs[0], new_prompt="unused"
                         ).semantic_status,
+                        reason_codes=(),
+                        story_segments=(),
                         complete_final_sequence=None,
                         creator_review=None,
                         protected_semantic_adjudications=(),
@@ -2434,13 +2416,28 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     ),
                 )
                 event = result.event_record
-                return ContinuousValidatorDraftV1(
-                    schema_version=ContinuousValidatorDraftV1.SCHEMA_VERSION,
+                return ContinuousSemanticValidatorDraftV1(
+                    schema_version=(
+                        ContinuousSemanticValidatorDraftV1.SCHEMA_VERSION
+                    ),
                     package_id=result.package_id,
                     world_id=result.world_id,
                     branch_id=result.branch_id,
                     task_mode=result.task_mode,
                     semantic_status=result.semantic_status,
+                    reason_codes=(),
+                    story_segments=(
+                        StoryRealizationSegmentV1(
+                            schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+                            segment_key="segment_entire_story",
+                            kind=StoryRealizationKind.ACTION,
+                            output_start=0,
+                            output_end=len(story_text),
+                            exact_text=story_text,
+                            roles=result.complete_final_sequence.items[0].roles,
+                            protected_user_source_claim_keys=(),
+                        ),
+                    ),
                     complete_final_sequence=result.complete_final_sequence,
                     creator_review=result.creator_review,
                     protected_semantic_adjudications=(

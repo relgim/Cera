@@ -3,6 +3,17 @@
 **Status:** controlling decision register
 **Rule:** older material remains provenance; it does not regain authority through reuse
 
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
+## Runtime Model V3 decision authority (active)
+
+D-204 and [`CERA_RUNTIME_MODEL_V3.md`](CERA_RUNTIME_MODEL_V3.md) control the
+shadow successor role allocation. The sole active ownership matrix is
+[`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](../architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
+D-186 through D-194 remain evidence of completed historical work but no longer
+assign semantic certification to Writer. D-180 remains the active product route
+until separately qualified and explicitly superseded.
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
+
 ## 1. Active decisions
 
 | ID | Decision | Consequence |
@@ -205,6 +216,7 @@
 | D-201 | The failed D-200 Cycle 001 publication exposed that the review protocol treated a later post-consumption inbox as co-authoritative and required a completed historical cycle to match the current working tree. | After `RESPONSE_CONSUMED.json`, only its exact `accepted/PRO_RESPONSE.md` hash and parsed identity/disposition are response authority; a later absent, identical, or conflicting inbox is non-authoritative diagnostic residue and cannot be consumed over accepted bytes. Fully consumed recovery validates immutable publication, archive, Job 4, receipt, and accepted-response evidence with current-source validation disabled, while active and unconsumed cycles retain strict current-source validation. Valid historical state views are returned without byte mutation. Cycle 011 and the failed pre-manifest D-200 Cycle 001 remain unchanged; the repair is provider-free and leaves D-180 active. |
 | D-202 | Cycle 22 proved that full-hash accepted-snapshot and verbose fork-staging paths can exceed the Windows legacy path boundary even when all logical authority is valid. | New accepted snapshots use a deterministic compact V2 locator under a hash-bound 248-character policy, while complete accepted-turn, snapshot, encoded-file, thread, envelope, and injection authority remains in the immutable envelope/receipt. Final and same-directory temporary paths preflight before acceptance mutation; exact replay is idempotent and collision/tamper fail closed. Historical V1 custody remains decodeable. Accepted-checkpoint materialization uses compact staging and receipt-path preflight. The equal-length ten-stage base transaction and repository completion/recovery chain pass provider-free; D-180 remains active. |
 | D-203 | Queue 0033 showed that D-202 still established filesystem custody through `resolve()` plus leaf checks, which could follow a parent junction or reparse alias before testing containment and could not bind preflight-to-replace identity. | Continuous accepted snapshots and accepted-checkpoint materialization now use lexical component-by-component no-follow custody. Windows opens components with `FILE_FLAG_OPEN_REPARSE_POINT`, proves handle identity and reparse tag, pins parent chains without delete sharing, creates same-directory temps exclusively, revalidates before write/replace, and requires promoted object identity to match the temp/staging identity. Typed snapshot plan V2/receipt V3 and materialization path plan V1/receipt V2 are additive; compact V2 locators, the 248-character budget, full hashes, restart/reconstruction/fork behavior, and historical receipt decoding remain. The tranche is provider-free and leaves D-180 active. |
+| D-204 | Repeated D-186 through D-194 corrections assigned semantic self-certification, protected-user claim bookkeeping, and exhaustive role ledgers to the stateless DeepSeek Composer, producing only `4/20` structural passes in the frozen V7 campaign. | Runtime Model V3 makes DeepSeek a stateless exact-prose-only Writer; Python derives a mechanical envelope; an independent Codex Semantic Validator owns gap-free exact-span semantics and a non-rewriting verdict; Python enforces hard authority; and an independent non-rewriting Reader checks the complete response before Python creates a review-ready candidate. Python alone creates events, memory, persistence, acceptance, and commits. This supersedes D-186 through D-194 only as to active role allocation, preserves every historical schema and evidence byte, leaves D-180 active, and authorizes no provider call or route promotion. |
 
 ## 2. Explicit supersessions
 

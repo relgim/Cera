@@ -59,6 +59,12 @@ from cera.continuous.sessions import (
     InMemoryContinuousStoredSessionPort,
 )
 from cera.continuous.ingress import build_default_prepared_classifier_registry
+from cera.continuous.contracts import (
+    ReaderIssueReferenceV1,
+    ReaderVerdictStatus,
+    ReaderVerdictV1,
+)
+from cera.continuous.provider import ContinuousSemanticValidatorResultV1
 from cera.continuous.world_mcp import (
     ContinuousWorldMcpBridge,
     ContinuousWorldToolDispatcher,
@@ -551,6 +557,18 @@ class _FakeStage:
                     for beat in value.beats
                 ),
             )
+        if self.method == "validate" and isinstance(
+            value, ValidatorFinalizationPackageV1
+        ):
+            if value.task_mode is ValidatorTaskMode.FINALIZE_TURN:
+                request = json.loads(prompt.rsplit("[VALIDATOR REQUEST]\n", 1)[1])
+                segments = composer_draft(request["writer_story_text"]).story_segments
+            else:
+                segments = ()
+            value = ContinuousSemanticValidatorResultV1.from_finalization_package(
+                finalization_package=value,
+                story_segments=segments,
+            )
         return SimpleNamespace(
             value=value,
             provider_receipt=None,
@@ -568,13 +586,135 @@ class _FakeQueueStage:
     def __init__(self, *values) -> None:
         self.values = list(values)
 
-    def validate(self, _prompt, **_kwargs):
+    def validate(self, prompt, **_kwargs):
+        value = self.values.pop(0)
+        if value.task_mode is ValidatorTaskMode.FINALIZE_TURN:
+            request = json.loads(prompt.rsplit("[VALIDATOR REQUEST]\n", 1)[1])
+            segments = composer_draft(request["writer_story_text"]).story_segments
+        else:
+            segments = ()
         return SimpleNamespace(
-            value=self.values.pop(0),
+            value=ContinuousSemanticValidatorResultV1.from_finalization_package(
+                finalization_package=value,
+                story_segments=segments,
+            ),
             provider_receipt=None,
             operation_telemetry=None,
             tool_call_count=0,
             failed_tool_call_count=0,
+        )
+
+
+class _AcceptingReaderStage:
+    def __init__(self) -> None:
+        self._counter = 0
+
+    def review(self, prompt):
+        self._counter += 1
+        request = json.loads(prompt.rsplit("[READER REQUEST]\n", 1)[1])
+        verdict = ReaderVerdictV1(
+            schema_version=ReaderVerdictV1.SCHEMA_VERSION,
+            verdict_id=f"reader:verdict_{self._counter}",
+            world_id=request["world_id"],
+            branch_id=request["branch_id"],
+            turn_id=request["turn_id"],
+            candidate_id=request["candidate_id"],
+            story_text_sha256=request["writer_mechanical_envelope"][
+                "story_text_sha256"
+            ],
+            verdict=ReaderVerdictStatus.ACCEPTED,
+            reason_codes=(),
+            issues=(),
+            scene_completeness_score=90,
+            character_voice_score=90,
+            dialogue_pacing_score=90,
+            readability_score=90,
+        )
+        return SimpleNamespace(
+            value=verdict,
+            provider_receipt=None,
+            operation_telemetry=None,
+            tool_call_count=0,
+            failed_tool_call_count=0,
+            world_tool_debug=None,
+            physical_session_sha256=text_sha256(
+                f"reader:{self._counter}:{request['candidate_id']}"
+            ),
+        )
+
+
+class _CountingReaderStage:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def review(self, _prompt):
+        self.calls += 1
+        raise AssertionError("Reader must not run after Validator rejection")
+
+
+class _RejectingValidatorStage:
+    def validate(self, prompt, **_kwargs):
+        request = json.loads(prompt.rsplit("[VALIDATOR REQUEST]\n", 1)[1])
+        story_text = request["writer_story_text"]
+        return SimpleNamespace(
+            value=ContinuousSemanticValidatorResultV1(
+                semantic_status=ValidatorSemanticStatus.REJECTED,
+                reason_codes=("mixed_protected_user_action",),
+                story_segments=composer_draft(story_text).story_segments,
+                protected_semantic_adjudications=(),
+                finalization_package=None,
+            ),
+            provider_receipt=None,
+            operation_telemetry=None,
+            tool_call_count=0,
+            failed_tool_call_count=0,
+            world_tool_debug=None,
+        )
+
+
+class _RejectingReaderStage:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def review(self, prompt):
+        self.calls += 1
+        request = json.loads(prompt.rsplit("[READER REQUEST]\n", 1)[1])
+        story_text = request["writer_story_text"]
+        verdict = ReaderVerdictV1(
+            schema_version=ReaderVerdictV1.SCHEMA_VERSION,
+            verdict_id=f"reader:rejected_{self.calls}",
+            world_id=request["world_id"],
+            branch_id=request["branch_id"],
+            turn_id=request["turn_id"],
+            candidate_id=request["candidate_id"],
+            story_text_sha256=text_sha256(story_text),
+            verdict=ReaderVerdictStatus.REJECTED,
+            reason_codes=("premature_closure",),
+            issues=(
+                ReaderIssueReferenceV1(
+                    schema_version=ReaderIssueReferenceV1.SCHEMA_VERSION,
+                    issue_code="premature_closure",
+                    output_start=0,
+                    output_end=len(story_text),
+                    exact_text_sha256=text_sha256(story_text),
+                    explanation="The response stops before the planned beat resolves.",
+                ),
+            ),
+            scene_completeness_score=20,
+            character_voice_score=80,
+            dialogue_pacing_score=40,
+            readability_score=80,
+        )
+        return SimpleNamespace(
+            value=verdict,
+            provider_receipt=None,
+            operation_telemetry=None,
+            tool_call_count=0,
+            failed_tool_call_count=0,
+            world_tool_debug=None,
+            physical_session_sha256=text_sha256(
+                f"reader:rejected:{self.calls}:{request['candidate_id']}"
+            ),
         )
 
 
@@ -660,6 +800,20 @@ class ContinuousWorldTests(unittest.TestCase):
         diagnostic = tuple((self.root / "VALIDATOR_DIAGNOSTICS").glob("*.json"))
         self.assertEqual(len(diagnostic), 1)
         self.assertFalse(json.loads(diagnostic[0].read_text())["creates_story_constraint"])
+
+    def test_v3_semantic_concern_remains_reviewable_without_becoming_acceptance(self) -> None:
+        candidate = replace(
+            package(),
+            semantic_status=ValidatorSemanticStatus.CONCERN,
+            creator_review=concern_assessment(),
+        )
+        result = ContinuousSemanticValidatorResultV1.from_finalization_package(
+            finalization_package=candidate,
+            story_segments=composer_draft("Sakura requests proof.").story_segments,
+        )
+        self.assertEqual(result.semantic_status, ValidatorSemanticStatus.CONCERN)
+        self.assertEqual(result.reason_codes, ("possible_invention",))
+        self.assertIs(result.finalization_package, candidate)
 
     def test_false_positive_rejects_good_assessment(self) -> None:
         stage_candidate(self.store, package())
@@ -1233,6 +1387,7 @@ class ContinuousWorldTests(unittest.TestCase):
                 ),
                 "validate",
             ),
+            reader=_AcceptingReaderStage(),
             ingress_authority=ingress_authority,
         )
         candidate = coordinator.prepare(
@@ -1249,6 +1404,15 @@ class ContinuousWorldTests(unittest.TestCase):
             )
         )
         self.assertEqual(candidate.provider_calls, 0)
+        candidate.writer_mechanical_envelope.validate_story_text(
+            candidate.deepseek_story_text
+        )
+        role_session_hashes = {
+            planner_session.ensure_session().provider_thread_id_sha256,
+            validator_session.ensure_session().provider_thread_id_sha256,
+            candidate.reader_session_sha256,
+        }
+        self.assertEqual(len(role_session_hashes), 3)
         original_candidate_sha256 = candidate.candidate_sha256
         changed_ingress = replace(
             candidate,
@@ -1299,6 +1463,118 @@ class ContinuousWorldTests(unittest.TestCase):
             json.loads((debug.root / "exact_diff.json").read_text(encoding="utf-8"))
         )
 
+    def test_validator_rejection_stops_before_reader_candidate_and_story_mutation(self) -> None:
+        port = InMemoryContinuousStoredSessionPort()
+        message = "Hello."
+        ingress_authority = make_ingress_authority(
+            self.root.parent / "ingress_authority_validator_reject",
+            (message, "turn-001"),
+        )
+        reader = _CountingReaderStage()
+        coordinator = ContinuousShadowTurnCoordinator(
+            world=self.store,
+            planner_session=ContinuousSessionCoordinator(
+                session_compatibility(ContinuousSessionRole.PLANNER), port
+            ),
+            validator_session=ContinuousSessionCoordinator(
+                session_compatibility(ContinuousSessionRole.VALIDATOR), port
+            ),
+            planner=_FakeStage(rich_sequence(), "plan"),
+            composer=_FakeStage(
+                composer_draft("Sakura keeps the threshold."), "compose"
+            ),
+            validator=_RejectingValidatorStage(),
+            reader=reader,
+            ingress_authority=ingress_authority,
+        )
+        before = self.store.tree_sha256(self.root / "ACTIVE")
+        with self.assertRaisesRegex(PermissionError, "mixed_protected_user_action"):
+            coordinator.prepare(
+                ContinuousTurnRequestV1(
+                    world_id="world-test",
+                    branch_id="main",
+                    scene_id="scene-001",
+                    turn_id="turn-001",
+                    user_message=message,
+                    **ingress_reference(
+                        ingress_authority, message, "turn-001"
+                    ),
+                    character_summaries=(
+                        character_summary(
+                            source_sha256=text_sha256(
+                                (
+                                    self.root
+                                    / "ACTIVE"
+                                    / "Characters"
+                                    / "Sakura.json"
+                                ).read_text(encoding="utf-8")
+                            )
+                        ),
+                    ),
+                )
+            )
+        self.assertEqual(reader.calls, 0)
+        self.assertEqual(coordinator._candidates, {})
+        self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
+        self.assertEqual(coordinator.planner_session.snapshot().accepted_turn_ids, ())
+
+    def test_reader_rejection_never_becomes_review_ready_or_story_authority(self) -> None:
+        port = InMemoryContinuousStoredSessionPort()
+        message = "Hello."
+        ingress_authority = make_ingress_authority(
+            self.root.parent / "ingress_authority_reader_reject",
+            (message, "turn-001"),
+        )
+        reader = _RejectingReaderStage()
+        coordinator = ContinuousShadowTurnCoordinator(
+            world=self.store,
+            planner_session=ContinuousSessionCoordinator(
+                session_compatibility(ContinuousSessionRole.PLANNER), port
+            ),
+            validator_session=ContinuousSessionCoordinator(
+                session_compatibility(ContinuousSessionRole.VALIDATOR), port
+            ),
+            planner=_FakeStage(rich_sequence(), "plan"),
+            composer=_FakeStage(
+                composer_draft("Sakura keeps the threshold."), "compose"
+            ),
+            validator=_FakeStage(
+                package(story_text="Sakura keeps the threshold."), "validate"
+            ),
+            reader=reader,
+            ingress_authority=ingress_authority,
+        )
+        before = self.store.tree_sha256(self.root / "ACTIVE")
+        with self.assertRaisesRegex(PermissionError, "Reader rejected"):
+            coordinator.prepare(
+                ContinuousTurnRequestV1(
+                    world_id="world-test",
+                    branch_id="main",
+                    scene_id="scene-001",
+                    turn_id="turn-001",
+                    user_message=message,
+                    **ingress_reference(
+                        ingress_authority, message, "turn-001"
+                    ),
+                    character_summaries=(
+                        character_summary(
+                            source_sha256=text_sha256(
+                                (
+                                    self.root
+                                    / "ACTIVE"
+                                    / "Characters"
+                                    / "Sakura.json"
+                                ).read_text(encoding="utf-8")
+                            )
+                        ),
+                    ),
+                )
+            )
+        self.assertEqual(reader.calls, 1)
+        self.assertEqual(coordinator._candidates, {})
+        self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
+        self.assertEqual(coordinator.planner_session.snapshot().accepted_turn_ids, ())
+
     def test_provider_failure_leaves_complete_secret_free_debug_skeleton(self) -> None:
         port = InMemoryContinuousStoredSessionPort()
         ingress_authority = make_ingress_authority(
@@ -1316,6 +1592,7 @@ class ContinuousWorldTests(unittest.TestCase):
             planner=_FailStage(),
             composer=_FakeStage(composer_draft("unused"), "compose"),
             validator=_FakeStage(package(), "validate"),
+            reader=_AcceptingReaderStage(),
             ingress_authority=ingress_authority,
         )
         with self.assertRaises(RuntimeError):
@@ -1381,6 +1658,7 @@ class ContinuousWorldTests(unittest.TestCase):
                     ),
                 ),
             ),
+            reader=_AcceptingReaderStage(),
             ingress_authority=ingress_authority,
         )
         planner_thread = planner_session.ensure_session().provider_thread_id

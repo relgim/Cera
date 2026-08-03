@@ -1,6 +1,19 @@
 # CERA Start-Reading Index
 
 **Status:** controlling index
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
+## Runtime Model V3 current authority
+
+For shadow continuous-runtime work, read
+[`authority/CERA_RUNTIME_MODEL_V3.md`](authority/CERA_RUNTIME_MODEL_V3.md),
+[`authority/CERA_CONSENSUAL_ADULT_CAPABILITY_FALLBACK_V1.md`](authority/CERA_CONSENSUAL_ADULT_CAPABILITY_FALLBACK_V1.md),
+and the sole active role matrix in
+[`architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md)
+before older continuous-route documents. D-204 supersedes D-186 through D-194
+only as to stage ownership. Their evidence stays immutable. D-180 remains the
+active product route; Runtime Model V3 is provider-free and shadow-only until a
+later qualification and explicit promotion.
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
 **Phase:** D-201 provider-free consumed-response authority and historical-recovery repair after completed D-200 integration; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`

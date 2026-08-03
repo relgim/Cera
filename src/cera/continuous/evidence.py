@@ -1982,6 +1982,92 @@ class RequestEvidenceBindingRegistry:
             raise PermissionError("Composer story-segment ledger changed after validation")
         self._story_segments = pending_segments
 
+    def validate_validator_semantics(
+        self,
+        *,
+        story_text: str,
+        story_segments: tuple[StoryRealizationSegmentV1, ...],
+        allowed_character_ids: tuple[str, ...],
+    ) -> tuple[ProtectedUserRealizationSpanV1, ...]:
+        """Mechanically verify Validator semantics against immutable Writer text.
+
+        This method deliberately does not parse names, grammar, pronouns, or prose
+        meaning. Semantic classification belongs solely to the Validator.
+        """
+
+        if not story_segments:
+            raise PermissionError(
+                "Semantic Validator omitted the exhaustive story-span ledger"
+            )
+        allowed = set(allowed_character_ids)
+        allowed.add("character:ted")
+        cursor = 0
+        pending_segments: dict[str, StoryRealizationSegmentV1] = {}
+        realizations: list[ProtectedUserRealizationSpanV1] = []
+        for segment in story_segments:
+            if segment.segment_key in pending_segments:
+                raise PermissionError(
+                    "Semantic Validator story span key is duplicated"
+                )
+            if segment.output_start != cursor or segment.output_end > len(story_text):
+                raise PermissionError(
+                    "Semantic Validator story spans are not gap-free"
+                )
+            if story_text[segment.output_start : segment.output_end] != segment.exact_text:
+                raise PermissionError(
+                    "Semantic Validator story span changed exact Writer text"
+                )
+            unknown_roles = set(segment.roles.involved_ids) - allowed
+            if unknown_roles:
+                raise PermissionError(
+                    "Semantic Validator introduced an inactive character role"
+                )
+            cursor = segment.output_end
+            pending_segments[segment.segment_key] = segment
+            protected = "character:ted" in segment.roles.assertion_owner_ids
+            if protected:
+                if len(segment.protected_user_source_claim_keys) != 1:
+                    raise PermissionError(
+                        "protected-user Validator span requires one supplied claim"
+                    )
+                claim = self._protected_user_claims.get(
+                    segment.protected_user_source_claim_keys[0]
+                )
+                if claim is None or segment.exact_text != claim.exact_text:
+                    raise PermissionError(
+                        "protected-user Validator span invented or paraphrased source"
+                    )
+                if (
+                    segment.kind is StoryRealizationKind.DIALOGUE
+                ) != (claim.kind is ProtectedUserSourceClaimKind.DIALOGUE):
+                    raise PermissionError(
+                        "protected-user Validator span changed claim semantics"
+                    )
+                realizations.append(
+                    ProtectedUserRealizationSpanV1(
+                        schema_version=ProtectedUserRealizationSpanV1.SCHEMA_VERSION,
+                        claim_key=claim.claim_key,
+                        kind=claim.kind,
+                        output_start=segment.output_start,
+                        output_end=segment.output_end,
+                        exact_text=segment.exact_text,
+                    )
+                )
+            elif segment.protected_user_source_claim_keys:
+                raise PermissionError(
+                    "non-protected Validator span carried protected-user claims"
+                )
+        if cursor != len(story_text):
+            raise PermissionError(
+                "Semantic Validator story spans do not cover complete Writer text"
+            )
+        if self._story_segments and self._story_segments != pending_segments:
+            raise PermissionError(
+                "Semantic Validator story-span ledger changed after validation"
+            )
+        self._story_segments = pending_segments
+        return tuple(realizations)
+
     def validate_traceability(
         self,
         sequence: RichPlannerSequenceV1,
@@ -2016,7 +2102,7 @@ class RequestEvidenceBindingRegistry:
                 segment = self._story_segments.get(segment_key)
                 if segment is None:
                     raise StateConflictError(
-                        "final sequence cites an unknown Composer story segment"
+                        "final sequence cites an unknown Validator story segment"
                     )
                 segments.append(segment)
                 cited_story_segments.add(segment_key)
@@ -2060,7 +2146,7 @@ class RequestEvidenceBindingRegistry:
                     or set(scope.protected_user_source_claim_keys) != scoped_claims
                 ):
                     raise StateConflictError(
-                        "final field changed Composer role or claim ownership"
+                        "final field changed Validator role or claim ownership"
                     )
                 raw_values = getattr(item, scope.field_name)
                 field_values = raw_values if isinstance(raw_values, tuple) else (raw_values,)
@@ -2076,13 +2162,6 @@ class RequestEvidenceBindingRegistry:
                         raise StateConflictError(
                             "protected-user final field invented or paraphrased supplied content"
                         )
-                if any(
-                    re.search(r"\bTed\b", value, re.IGNORECASE)
-                    for value in field_values
-                ) and "character:ted" not in set(scope.roles.involved_ids):
-                    raise StateConflictError(
-                        "final field omitted explicit protected-user involvement"
-                    )
             expected_roles = {
                 field: {
                     identity
@@ -2105,11 +2184,11 @@ class RequestEvidenceBindingRegistry:
                 != expected_segment_claims
             ):
                 raise StateConflictError(
-                    "final sequence changed Composer role or claim ownership"
+                    "final sequence changed Validator role or claim ownership"
                 )
         if cited_story_segments != set(self._story_segments):
             raise StateConflictError(
-                "complete final sequence does not cover every Composer story segment"
+                "complete final sequence does not cover every Validator story segment"
             )
         for operation in package.world_edit_operations:
             item = items.get(operation.source_final_sequence_item)
@@ -2213,7 +2292,7 @@ class RequestEvidenceBindingRegistry:
         }
         if set(adjudications) != set(self._story_segments):
             raise StateConflictError(
-                "Validator did not independently adjudicate every Composer segment"
+                "Validator did not adjudicate every exact Writer span"
             )
         relation_fields = {
             ProtectedSemanticRelationKind.AFFECTED_BY_NPC: "affected_ids",
@@ -2230,7 +2309,7 @@ class RequestEvidenceBindingRegistry:
                 or adjudication.exact_text_sha256 != text_sha256(segment.exact_text)
             ):
                 raise StateConflictError(
-                    "protected semantic adjudication changed the exact Composer span"
+                    "protected semantic adjudication changed the exact Writer span"
                 )
             npc_owners = tuple(
                 value
@@ -2246,7 +2325,7 @@ class RequestEvidenceBindingRegistry:
                     != segment.protected_user_source_claim_keys
                 ):
                     raise StateConflictError(
-                        "protected-user assertion was laundered through Composer roles"
+                        "protected-user assertion disagrees with Validator roles"
                     )
                 claim = self._protected_user_claims.get(
                     adjudication.protected_user_source_claim_keys[0]
@@ -2259,12 +2338,9 @@ class RequestEvidenceBindingRegistry:
             if adjudication.relation is ProtectedSemanticRelationKind.NONE:
                 if (
                     adjudication.protected_user_id in segment.roles.involved_ids
-                    or re.search(
-                        r"\bTed\b", segment.exact_text, re.IGNORECASE
-                    )
                 ):
                     raise StateConflictError(
-                        "protected-user involvement was mislabeled as absent"
+                        "protected-user role was mislabeled as absent"
                     )
                 continue
             role_field = relation_fields[adjudication.relation]

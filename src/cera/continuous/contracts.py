@@ -868,6 +868,7 @@ class ValidatorSemanticStatus(StrEnum):
     ACCEPTED = "accepted"
     CONCERN = "concern"
     REJECTED = "rejected"
+    INCONCLUSIVE = "inconclusive"
     ERROR = "error"
 
 
@@ -1352,7 +1353,7 @@ class EventRecordCandidateV1:
 
 @dataclass(frozen=True, slots=True)
 class ProtectedUserRealizationSpanV1:
-    """Provider-declared exact occurrence of one supplied protected-user claim."""
+    """Historical/provider-neutral exact occurrence of one protected-user claim."""
 
     SCHEMA_VERSION: ClassVar[str] = "cera.protected_user_realization_span.v1"
 
@@ -1381,6 +1382,128 @@ class ProtectedUserRealizationSpanV1:
             )
 
 
+@dataclass(frozen=True, slots=True)
+class WriterParagraphRangeV1:
+    """Python-derived paragraph custody; it carries no prose semantics."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.writer_paragraph_range.v1"
+
+    schema_version: str
+    paragraph_index: int
+    output_start: int
+    output_end: int
+    exact_text_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("Writer paragraph range schema changed")
+        if (
+            type(self.paragraph_index) is not int
+            or self.paragraph_index < 0
+            or type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError("Writer paragraph range is invalid")
+        if not re_is_sha256(self.exact_text_sha256):
+            raise ContractValidationError("Writer paragraph hash is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class WriterMechanicalEnvelopeV1:
+    """Exact Python custody for Writer bytes without semantic interpretation."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.writer_mechanical_envelope.v1"
+
+    schema_version: str
+    candidate_id: str
+    story_text_sha256: str
+    utf8_byte_count: int
+    codepoint_count: int
+    paragraph_ranges: tuple[WriterParagraphRangeV1, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("Writer mechanical envelope schema changed")
+        _identity(self.candidate_id, "writer_mechanical_envelope.candidate_id")
+        if not re_is_sha256(self.story_text_sha256):
+            raise ContractValidationError("Writer text hash is invalid")
+        if (
+            type(self.utf8_byte_count) is not int
+            or self.utf8_byte_count < 1
+            or type(self.codepoint_count) is not int
+            or self.codepoint_count < 1
+        ):
+            raise ContractValidationError("Writer text counts are invalid")
+        if not self.paragraph_ranges:
+            raise ContractValidationError("Writer envelope has no paragraph ranges")
+        expected_index = 0
+        prior_end = -1
+        for value in self.paragraph_ranges:
+            if value.paragraph_index != expected_index or value.output_start <= prior_end:
+                raise ContractValidationError(
+                    "Writer paragraph ranges are reordered or overlapping"
+                )
+            expected_index += 1
+            prior_end = value.output_end
+
+    @classmethod
+    def from_story_text(
+        cls,
+        *,
+        candidate_id: str,
+        story_text: str,
+    ) -> "WriterMechanicalEnvelopeV1":
+        if (
+            not isinstance(story_text, str)
+            or not story_text.strip()
+            or len(story_text) > 256_000
+            or "\x00" in story_text
+        ):
+            raise ContractValidationError("Writer story text is mechanically invalid")
+        try:
+            encoded = story_text.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            raise ContractValidationError(
+                "Writer story text is not valid UTF-8"
+            ) from exc
+        ranges: list[WriterParagraphRangeV1] = []
+        cursor = 0
+        for part in story_text.split("\n\n"):
+            start = cursor
+            end = start + len(part)
+            if part:
+                ranges.append(
+                    WriterParagraphRangeV1(
+                        schema_version=WriterParagraphRangeV1.SCHEMA_VERSION,
+                        paragraph_index=len(ranges),
+                        output_start=start,
+                        output_end=end,
+                        exact_text_sha256=text_sha256(part),
+                    )
+                )
+            cursor = end + 2
+        return cls(
+            schema_version=cls.SCHEMA_VERSION,
+            candidate_id=candidate_id,
+            story_text_sha256=text_sha256(story_text),
+            utf8_byte_count=len(encoded),
+            codepoint_count=len(story_text),
+            paragraph_ranges=tuple(ranges),
+        )
+
+    def validate_story_text(self, story_text: str) -> None:
+        rebuilt = self.from_story_text(
+            candidate_id=self.candidate_id,
+            story_text=story_text,
+        )
+        if rebuilt != self:
+            raise ContractValidationError(
+                "Writer mechanical envelope does not match exact story bytes"
+            )
+
+
 class StoryRealizationKind(StrEnum):
     ACTION = "action"
     DIALOGUE = "dialogue"
@@ -1391,7 +1514,7 @@ class StoryRealizationKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class StoryRealizationSegmentV1:
-    """Exhaustive typed ownership for one exact Composer output segment."""
+    """Exhaustive Validator-owned semantics for one exact Writer span."""
 
     SCHEMA_VERSION: ClassVar[str] = "cera.story_realization_segment.v3"
 
@@ -1463,7 +1586,7 @@ class ProtectedSemanticRelationKind(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class ProtectedSemanticAdjudicationV1:
-    """Independent Validator judgment over one exact Composer segment."""
+    """Independent Validator judgment over one exact Writer span."""
 
     SCHEMA_VERSION: ClassVar[str] = "cera.protected_semantic_adjudication.v1"
 
@@ -1534,6 +1657,116 @@ class ProtectedSemanticAdjudicationV1:
             raise ContractValidationError(
                 "non-owning protected relation requires an exact NPC predicate owner"
             )
+
+
+class ReaderVerdictStatus(StrEnum):
+    ACCEPTED = "accepted"
+    REJECTED = "rejected"
+    INCONCLUSIVE = "inconclusive"
+
+
+@dataclass(frozen=True, slots=True)
+class ReaderIssueReferenceV1:
+    """One non-rewriting Reader issue bound to exact immutable Writer text."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.reader_issue_reference.v1"
+
+    schema_version: str
+    issue_code: str
+    output_start: int
+    output_end: int
+    exact_text_sha256: str
+    explanation: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("Reader issue reference schema changed")
+        _key(self.issue_code, "reader_issue.issue_code")
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError("Reader issue span is invalid")
+        if not re_is_sha256(self.exact_text_sha256):
+            raise ContractValidationError("Reader issue text hash is invalid")
+        _text(self.explanation, "reader_issue.explanation", maximum=2_000)
+
+
+@dataclass(frozen=True, slots=True)
+class ReaderVerdictV1:
+    """Whole-response quality judgment with no replacement-prose channel."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.reader_verdict.v1"
+
+    schema_version: str
+    verdict_id: str
+    world_id: str
+    branch_id: str
+    turn_id: str
+    candidate_id: str
+    story_text_sha256: str
+    verdict: ReaderVerdictStatus
+    reason_codes: tuple[str, ...]
+    issues: tuple[ReaderIssueReferenceV1, ...]
+    scene_completeness_score: int
+    character_voice_score: int
+    dialogue_pacing_score: int
+    readability_score: int
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("Reader verdict schema changed")
+        for field in (
+            "verdict_id",
+            "world_id",
+            "branch_id",
+            "turn_id",
+            "candidate_id",
+        ):
+            _identity(getattr(self, field), f"reader_verdict.{field}")
+        if not re_is_sha256(self.story_text_sha256):
+            raise ContractValidationError("Reader verdict text hash is invalid")
+        for value in self.reason_codes:
+            _key(value, "reader_verdict.reason_codes")
+        _unique(self.reason_codes, "reader_verdict.reason_codes")
+        _unique(
+            tuple(
+                (value.issue_code, value.output_start, value.output_end)
+                for value in self.issues
+            ),
+            "reader_verdict.issues",
+        )
+        for field in (
+            "scene_completeness_score",
+            "character_voice_score",
+            "dialogue_pacing_score",
+            "readability_score",
+        ):
+            value = getattr(self, field)
+            if type(value) is not int or not 0 <= value <= 100:
+                raise ContractValidationError(f"Reader {field} is out of range")
+        if self.verdict is ReaderVerdictStatus.ACCEPTED:
+            if self.reason_codes or self.issues:
+                raise ContractValidationError(
+                    "accepted Reader verdict cannot carry rejection issues"
+                )
+        elif not self.reason_codes or not self.issues:
+            raise ContractValidationError(
+                "non-accepted Reader verdict requires reasons and exact issues"
+            )
+
+    def validate_story_text(self, story_text: str) -> None:
+        if text_sha256(story_text) != self.story_text_sha256:
+            raise ContractValidationError("Reader verdict changed Writer bytes")
+        for issue in self.issues:
+            if issue.output_end > len(story_text) or text_sha256(
+                story_text[issue.output_start : issue.output_end]
+            ) != issue.exact_text_sha256:
+                raise ContractValidationError(
+                    "Reader issue reference changed exact Writer bytes"
+                )
 
 
 @dataclass(frozen=True, slots=True)

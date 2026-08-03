@@ -2,6 +2,25 @@
 
 **Status:** controlling component and stage contract
 
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
+## Runtime Model V3 authority (active)
+
+[`CERA_RUNTIME_MODEL_V3.md`](../authority/CERA_RUNTIME_MODEL_V3.md) controls
+the shadow successor architecture. The one active ownership matrix is
+[`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
+The provider-neutral ports are Planner, Writer, Semantic Validator, and Reader.
+Writer output is exact prose only; Python adds a mechanical text envelope;
+Validator supplies exact gap-free semantic spans and no replacement prose;
+Python applies hard enforcement; Reader supplies a candidate-bound verdict and
+no replacement prose. Python alone creates candidates, events, memory,
+persistence operations, acceptance receipts, and commits.
+
+Section 1A and later D-186 through D-194 descriptions are immutable historical
+route evidence where they assign semantic ledgers to the Composer. D-204
+removes those assignments from active use. D-180 remains the active product
+route; V3 is provider-free shadow work in this tranche.
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
+
 ## 1. Component boundary
 
 Core business logic depends on interfaces, never provider SDKs:
@@ -30,7 +49,7 @@ Initial adapters:
 
 Provider identifiers, model tiers, credentials, endpoint details, and account entitlements belong in deployment configuration.
 
-## 1A. D-186 shadow continuous Planner and Validator route
+## 1A. D-186 shadow continuous Planner and Validator route (historical role allocation)
 
 The additive D-186 route is test-only and leaves the active D-180 path
 unchanged:

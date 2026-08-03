@@ -65,6 +65,8 @@ from cera.continuous.contracts import (
     FrozenContinuousIngressFixtureV1,
     IngressSourceUnitKind,
     IngressSourceUnitV1,
+    ReaderVerdictStatus,
+    ReaderVerdictV1,
     RichPlannerSequenceV1,
 )
 from cera.continuous.prompting import (
@@ -81,7 +83,7 @@ from cera.continuous.provider import (
     CodexContinuousPlannerPort,
     CodexContinuousValidatorPort,
     DeepSeekContinuousComposerPort,
-    ContinuousValidatorDraftV1,
+    ContinuousSemanticValidatorDraftV1,
     continuous_deepseek_route,
     continuous_planner_route,
     continuous_validator_route,
@@ -487,12 +489,12 @@ def compatibility(
         output_schema_version=(
             RichPlannerSequenceV1.SCHEMA_VERSION
             if role is ContinuousSessionRole.PLANNER
-            else ContinuousValidatorDraftV1.SCHEMA_VERSION
+            else ContinuousSemanticValidatorDraftV1.SCHEMA_VERSION
         ),
         world_directory_identity_sha256=world.world_identity_sha256(
             world_id, branch_id
         ),
-        authority_policy_version="cera.owner_architecture.v2+d186",
+        authority_policy_version="cera.owner_architecture.v2+d204",
         privacy_policy_version="cera.privacy.v1",
         protected_user_policy_version="cera.continuous_protected_user_policy.v8",
         session_policy_version="cera.continuous_session_policy.v9_d200",
@@ -680,6 +682,51 @@ class _HarnessValidatorPort:
         )
 
 
+class _HarnessReaderPort:
+    """Provider-free Reader used only by the historical scripted harness."""
+
+    def __init__(self, harness: "JobHarness") -> None:
+        self.harness = harness
+        self._counter = 0
+
+    def review(self, prompt: str):
+        self._counter += 1
+        request = json.loads(prompt.rsplit("[READER REQUEST]\n", 1)[1])
+        verdict = ReaderVerdictV1(
+            schema_version=ReaderVerdictV1.SCHEMA_VERSION,
+            verdict_id=f"reader:job4_{self._counter}",
+            world_id=request["world_id"],
+            branch_id=request["branch_id"],
+            turn_id=request["turn_id"],
+            candidate_id=request["candidate_id"],
+            story_text_sha256=request["writer_mechanical_envelope"][
+                "story_text_sha256"
+            ],
+            verdict=ReaderVerdictStatus.ACCEPTED,
+            reason_codes=(),
+            issues=(),
+            scene_completeness_score=90,
+            character_voice_score=90,
+            dialogue_pacing_score=90,
+            readability_score=90,
+        )
+        return type(
+            "ProviderFreeReaderResult",
+            (),
+            {
+                "value": verdict,
+                "provider_receipt": None,
+                "operation_telemetry": None,
+                "tool_call_count": 0,
+                "failed_tool_call_count": 0,
+                "world_tool_debug": None,
+                "physical_session_sha256": text_sha256(
+                    f"reader:{self._counter}:{request['candidate_id']}"
+                ),
+            },
+        )()
+
+
 class JobHarness:
     def __init__(
         self,
@@ -744,6 +791,7 @@ class JobHarness:
             planner=_HarnessPlannerPort(self),
             composer=_HarnessComposerPort(self),
             validator=_HarnessValidatorPort(self),
+            reader=_HarnessReaderPort(self),
             ingress_authority=self.ingress_authority,
             thread_lifecycle_failpoint=thread_lifecycle_failpoint,
         )

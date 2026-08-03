@@ -3,6 +3,24 @@
 **Status:** controlling schemas-as-documentation
 **Implementation note:** Python dataclass schemas are implemented through provider-free Phase 9 plus the separately authorized Hanezawa Genesis V1.1 and V1.2 compilations. Future JSON Schema or Pydantic projections must preserve these semantics and version every contract.
 
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
+## Runtime Model V3 active schema family
+
+The one active role matrix is
+[`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](../architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
+Runtime Model V3 uses `cera.scene_writer_draft.v1` for exact prose only,
+`cera.writer_mechanical_envelope.v1` for Python-derived byte/hash/paragraph
+boundaries, `cera.continuous_semantic_validator_draft.v1` for Validator-owned
+exact spans and verdict, and `cera.reader_verdict.v1` for the independent
+non-rewriting whole-response check. Python validates all bindings and is the
+only owner of candidate identity, events, memory, persistence, acceptance, and
+commit.
+
+The D-186 through D-194 Composer ledgers and V7 schemas later in this catalog
+remain decodeable historical-reader contracts. They are not accepted as active
+V3 Writer output and cannot be reinterpreted as V3 authority.
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
+
 The `cera.genesis_record.v1` record-type registry now includes identity, family, world, character state/profile, voice profile, formative event, memory seed, household rule, visual canon, supersession ledger, directional relationship, adult eligibility, story-start placement, unresolved question, and creator preference. Epistemic layer, truth status, owner/knowledge scope, visibility, content class, and route flags remain orthogonal typed fields rather than being inferred from record type alone.
 
 ## 1. Common conventions

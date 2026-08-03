@@ -40,7 +40,11 @@ from cera.serialization import (
     to_primitive,
 )
 from tests.test_continuous_planner_validator import branch_receipt
-from tests.test_continuous_corrections import _QueueStage, _seed_character
+from tests.test_continuous_corrections import (
+    _AcceptingReaderStage,
+    _QueueStage,
+    _seed_character,
+)
 from tests.test_continuous_world import (
     character_summary,
     composer_draft,
@@ -347,6 +351,7 @@ class ContinuousSnapshotPathCustodyTests(unittest.TestCase):
                         story_text="Sakura requests proof.",
                     )
                 ),
+                reader=_AcceptingReaderStage(),
                 ingress_authority=ingress,
             )
             character_path = (

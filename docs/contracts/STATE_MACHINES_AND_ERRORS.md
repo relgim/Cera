@@ -2,6 +2,27 @@
 
 **Status:** controlling lifecycle specification
 
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
+## Runtime Model V3 state path (active)
+
+The controlling authority is
+[`CERA_RUNTIME_MODEL_V3.md`](../authority/CERA_RUNTIME_MODEL_V3.md); the one
+active role matrix is
+[`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](../architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
+A turn advances through Python ingress, Planner, Python plan compilation,
+Writer prose, Python mechanical envelope, Semantic Validator, Python hard
+enforcement, Reader, and `review_ready`. Writer mechanical failure stops before
+Validator. Validator rejection or inconclusive status stops before Reader.
+Python hard-authority failure cannot be overridden. Reader rejection or
+inconclusive status stops before candidate publication. No rejected path enters
+accepted provider ancestry or mutates story state. Only creator acceptance
+opens Python's atomic commit transition.
+
+The D-186 state machine below is historical where it gives Composer output
+semantic self-certification duties. D-204 controls the V3 successor while D-180
+remains the active product route.
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
+
 ## 1. Normal turn
 
 ```text
@@ -296,7 +317,7 @@ Deployment readiness is a second independent gate. Missing role qualification, h
 
 Default remains zero automatic repairs. The separately authorized provider-free Adult ON/EX gate implements one production-prohibited, validation-directed beat replacement when exactly one beat fails deterministic or semantic specificity. It cannot change provider, source, authority packet, route, decision, branch, or locked non-target text. Python splices the replacement, runs a new no-retry semantic verification, and then reruns all deterministic and structural checks. Semantic failure after the splice ends the turn without a second repair. Live use still requires qualification, promotion evidence, and creator authorization.
 
-## 11. D-186 shadow continuous candidate and Scene Change states
+## 11. D-186 shadow continuous candidate and Scene Change states (historical role allocation)
 
 ```text
 ACTIVE snapshot

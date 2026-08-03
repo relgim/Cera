@@ -57,7 +57,11 @@ from tests.test_continuous_planner_validator import (
     compatibility,
     sequence,
 )
-from tests.test_continuous_corrections import _QueueStage, _seed_character
+from tests.test_continuous_corrections import (
+    _AcceptingReaderStage,
+    _QueueStage,
+    _seed_character,
+)
 from tests.test_continuous_world import (
     character_summary,
     composer_draft,
@@ -872,7 +876,12 @@ class ContinuousLeanContextTests(unittest.TestCase):
             task_mode=ValidatorTaskMode.FINALIZE_TURN,
             current_user_source="Continue.",
             planner_sequence=compatible,
-            deepseek_realization="Sakura waits at the threshold.",
+            writer_story_text="Sakura waits at the threshold.",
+            writer_mechanical_envelope={
+                "story_text_sha256": text_sha256(
+                    "Sakura waits at the threshold."
+                )
+            },
             accepted_turn_id="turn:002",
             evidence_binding_manifest=validator_manifest,
             cited_accepted_evidence=tuple(
@@ -883,7 +892,12 @@ class ContinuousLeanContextTests(unittest.TestCase):
             task_mode=ValidatorTaskMode.FINALIZE_TURN,
             current_user_source="Continue.",
             planner_sequence=incompatible,
-            deepseek_realization="Sakura waits at the threshold.",
+            writer_story_text="Sakura waits at the threshold.",
+            writer_mechanical_envelope={
+                "story_text_sha256": text_sha256(
+                    "Sakura waits at the threshold."
+                )
+            },
             accepted_turn_id="turn:002",
             evidence_binding_manifest=validator_manifest,
             cited_accepted_evidence=tuple(
@@ -1021,6 +1035,7 @@ class ContinuousLeanContextTests(unittest.TestCase):
                         story_text="Sakura requests proof.",
                     )
                 ),
+                reader=_AcceptingReaderStage(),
                 ingress_authority=ingress,
             )
             character_path = (
@@ -1185,6 +1200,7 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 planner=_QueueStage(),
                 composer=_QueueStage(),
                 validator=_QueueStage(),
+                reader=_AcceptingReaderStage(),
                 ingress_authority=ingress,
             )
             next_request = ContinuousTurnRequestV1(

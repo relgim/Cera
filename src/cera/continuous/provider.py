@@ -6,7 +6,7 @@ from dataclasses import dataclass, fields, is_dataclass, replace
 from enum import Enum
 import json
 from types import UnionType
-from typing import Any, ClassVar, Union, get_args, get_origin, get_type_hints
+from typing import Any, Callable, ClassVar, Union, get_args, get_origin, get_type_hints
 
 from cera.creator_review.models import (
     CreatorReviewAssessment,
@@ -38,6 +38,7 @@ from .contracts import (
     ProtectedSemanticAdjudicationV1,
     ProtectedUserRealizationSpanV1,
     ProtectedUserSourceClaimKind,
+    ReaderVerdictV1,
     RichPlannerSequenceV1,
     SceneSummaryV1,
     StoryRealizationKind,
@@ -57,9 +58,11 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v7"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v8"
-CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v7"
-CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v7"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v9"
+CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v8"
+CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v1"
+CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v1"
+CONTINUOUS_READER_PROMPT_VERSION = "cera.continuous_reader_prompt.v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,8 +277,219 @@ def _derive_persistence_operations(
 
 
 @dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorResultV1:
+    """Validator-owned semantics plus the existing Python-compiled package."""
+
+    semantic_status: ValidatorSemanticStatus
+    reason_codes: tuple[str, ...]
+    story_segments: tuple[StoryRealizationSegmentV1, ...]
+    protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ]
+    finalization_package: ValidatorFinalizationPackageV1 | None
+
+    def __post_init__(self) -> None:
+        if (
+            self.finalization_package is not None
+            and self.finalization_package.task_mode is ValidatorTaskMode.FINALIZE_TURN
+            and not self.story_segments
+        ):
+            raise ContractValidationError(
+                "continuous Semantic Validator omitted exact story spans"
+            )
+        keys = tuple(value.segment_key for value in self.story_segments)
+        if len(keys) != len(set(keys)):
+            raise ContractValidationError(
+                "continuous Semantic Validator duplicated story span keys"
+            )
+        if self.semantic_status is ValidatorSemanticStatus.ACCEPTED:
+            if self.reason_codes or self.finalization_package is None:
+                raise ContractValidationError(
+                    "accepted Semantic Validator result is incomplete"
+                )
+        elif self.semantic_status is ValidatorSemanticStatus.CONCERN:
+            if not self.reason_codes or self.finalization_package is None:
+                raise ContractValidationError(
+                    "concerning Semantic Validator result is incomplete"
+                )
+        elif not self.reason_codes or self.finalization_package is not None:
+            raise ContractValidationError(
+                "non-accepted Semantic Validator result must stop before finalization"
+            )
+        if (
+            self.finalization_package is not None
+            and self.finalization_package.semantic_status is not self.semantic_status
+        ):
+            raise ContractValidationError(
+                "Semantic Validator result changed finalization status"
+            )
+
+    @classmethod
+    def from_finalization_package(
+        cls,
+        *,
+        finalization_package: ValidatorFinalizationPackageV1,
+        story_segments: tuple[StoryRealizationSegmentV1, ...],
+    ) -> "ContinuousSemanticValidatorResultV1":
+        return cls(
+            semantic_status=finalization_package.semantic_status,
+            reason_codes=(
+                finalization_package.creator_review.reason_codes
+                if finalization_package.semantic_status
+                is ValidatorSemanticStatus.CONCERN
+                and finalization_package.creator_review is not None
+                else ()
+            ),
+            story_segments=story_segments,
+            protected_semantic_adjudications=(
+                finalization_package.protected_semantic_adjudications
+            ),
+            finalization_package=finalization_package,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV1:
+    """Active V3 Validator wire; the Writer never supplies these semantics."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v1"
+
+    schema_version: str
+    package_id: str
+    world_id: str
+    branch_id: str
+    task_mode: ValidatorTaskMode
+    semantic_status: ValidatorSemanticStatus
+    reason_codes: tuple[str, ...]
+    story_segments: tuple[StoryRealizationSegmentV1, ...]
+    complete_final_sequence: FinalSequenceV1 | None
+    creator_review: CreatorReviewAssessment | None
+    protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ]
+    event_record: ProviderEventRecordDraftV1 | None
+    optional_scene_summary: ProviderSceneSummaryDraftV1 | None
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous Semantic Validator provider schema changed"
+            )
+        if self.task_mode is ValidatorTaskMode.FINALIZE_TURN and not self.story_segments:
+            raise ContractValidationError(
+                "turn Semantic Validator requires exact story spans"
+            )
+        if self.task_mode is ValidatorTaskMode.SCENE_SUMMARY and self.story_segments:
+            raise ContractValidationError(
+                "scene-summary Validator cannot classify Writer prose"
+            )
+        if self.task_mode is ValidatorTaskMode.SCENE_SUMMARY:
+            if self.semantic_status is not ValidatorSemanticStatus.ACCEPTED:
+                raise ContractValidationError(
+                    "scene-summary Validator must use the accepted summary contract"
+                )
+        elif self.semantic_status is ValidatorSemanticStatus.ACCEPTED:
+            if self.reason_codes:
+                raise ContractValidationError(
+                    "accepted Semantic Validator cannot carry rejection reasons"
+                )
+        elif self.semantic_status is ValidatorSemanticStatus.CONCERN:
+            if not self.reason_codes:
+                raise ContractValidationError(
+                    "concerning Semantic Validator requires reason codes"
+                )
+            if (
+                self.creator_review is None
+                or self.creator_review.reason_codes != self.reason_codes
+            ):
+                raise ContractValidationError(
+                    "concerning Semantic Validator reasons changed creator review"
+                )
+        else:
+            if not self.reason_codes:
+                raise ContractValidationError(
+                    "non-accepted Semantic Validator requires reason codes"
+                )
+            if any(
+                value is not None
+                for value in (
+                    self.complete_final_sequence,
+                    self.creator_review,
+                    self.event_record,
+                    self.optional_scene_summary,
+                )
+            ):
+                raise ContractValidationError(
+                    "non-accepted Semantic Validator cannot propose finalization"
+                )
+
+    def compile(
+        self, *, accepted_pairs: tuple[AcceptedTurnPairV1, ...] = ()
+    ) -> ContinuousSemanticValidatorResultV1:
+        if self.semantic_status not in {
+            ValidatorSemanticStatus.ACCEPTED,
+            ValidatorSemanticStatus.CONCERN,
+        }:
+            return ContinuousSemanticValidatorResultV1(
+                semantic_status=self.semantic_status,
+                reason_codes=self.reason_codes,
+                story_segments=self.story_segments,
+                protected_semantic_adjudications=(
+                    self.protected_semantic_adjudications
+                ),
+                finalization_package=None,
+            )
+        legacy = ContinuousValidatorDraftV1(
+            schema_version=ContinuousValidatorDraftV1.SCHEMA_VERSION,
+            package_id=self.package_id,
+            world_id=self.world_id,
+            branch_id=self.branch_id,
+            task_mode=self.task_mode,
+            semantic_status=self.semantic_status,
+            complete_final_sequence=self.complete_final_sequence,
+            creator_review=self.creator_review,
+            protected_semantic_adjudications=(
+                self.protected_semantic_adjudications
+            ),
+            event_record=self.event_record,
+            optional_scene_summary=self.optional_scene_summary,
+        )
+        return ContinuousSemanticValidatorResultV1.from_finalization_package(
+            finalization_package=legacy.compile(accepted_pairs=accepted_pairs),
+            story_segments=self.story_segments,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSceneWriterDraftV1:
+    """Active Writer wire: exact candidate prose and nothing semantic."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.scene_writer_draft.v1"
+
+    schema_version: str
+    story_text: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("continuous Writer schema changed")
+        if (
+            not isinstance(self.story_text, str)
+            or not self.story_text.strip()
+            or len(self.story_text) > 256_000
+            or "\x00" in self.story_text
+        ):
+            raise ContractValidationError("continuous Writer story text is invalid")
+        try:
+            self.story_text.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            raise ContractValidationError(
+                "continuous Writer story text is not valid UTF-8"
+            ) from exc
+
+
+@dataclass(frozen=True, slots=True)
 class ContinuousDeepSeekNonOwningRoleDraftV1:
-    """One mutually exclusive non-owning relation in Composer wire output."""
+    """Historical V7 non-owning relation retained for immutable evidence."""
 
     SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_non_owning_role.v1"
 
@@ -629,11 +843,27 @@ def rich_planner_sequence_json_schema() -> dict[str, Any]:
 
 
 def continuous_validator_draft_json_schema() -> dict[str, Any]:
+    """Historical V8 Validator schema retained for frozen evidence."""
+
     return _schema_for(ContinuousValidatorDraftV1)
 
 
 def continuous_deepseek_draft_json_schema() -> dict[str, Any]:
+    """Historical V7 Composer schema retained for frozen evidence."""
+
     return _schema_for(ContinuousDeepSeekWireDraftV1)
+
+
+def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
+    return _schema_for(ContinuousSemanticValidatorDraftV1)
+
+
+def continuous_scene_writer_draft_json_schema() -> dict[str, Any]:
+    return _schema_for(ContinuousSceneWriterDraftV1)
+
+
+def continuous_reader_verdict_json_schema() -> dict[str, Any]:
+    return _schema_for(ReaderVerdictV1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -644,6 +874,7 @@ class ContinuousProviderResultV1:
     tool_call_count: int
     failed_tool_call_count: int
     world_tool_debug: Any = None
+    physical_session_sha256: str | None = None
 
 
 class CodexContinuousPlannerPort:
@@ -696,6 +927,7 @@ class CodexContinuousPlannerPort:
                 tool_call_count=result.tool_call_count,
                 failed_tool_call_count=result.failed_tool_call_count,
                 world_tool_debug=world_tool_debug,
+                physical_session_sha256=stored_thread_sha256,
             )
 
         return self.call_ledger.execute(
@@ -738,7 +970,7 @@ class CodexContinuousValidatorPort:
     ) -> ContinuousProviderResultV1:
         self._operation_index += 1
         route = self.transport.route
-        output_schema = continuous_validator_draft_json_schema()
+        output_schema = continuous_semantic_validator_draft_json_schema()
         mcp_binding = (
             self.world_bridge.runtime_binding if self.world_bridge is not None else None
         )
@@ -758,7 +990,10 @@ class CodexContinuousValidatorPort:
             world_tool_debug = (
                 self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )
-            draft = from_mapping(ContinuousValidatorDraftV1, result.parsed_json or {})
+            draft = from_mapping(
+                ContinuousSemanticValidatorDraftV1,
+                result.parsed_json or {},
+            )
             return ContinuousProviderResultV1(
                 value=draft.compile(accepted_pairs=accepted_pairs),
                 provider_receipt=result.receipt,
@@ -766,11 +1001,72 @@ class CodexContinuousValidatorPort:
                 tool_call_count=result.tool_call_count,
                 failed_tool_call_count=result.failed_tool_call_count,
                 world_tool_debug=world_tool_debug,
+                physical_session_sha256=stored_thread_sha256,
             )
 
         return self.call_ledger.execute(
             owner="validator",
             operation=f"validate_{self._operation_index:04d}",
+            route=route.route_id,
+            model=route.model_name,
+            effort=route.reasoning_effort,
+            dispatch_with_stage_markers=dispatch,
+            finalize=finalize,
+            stored_thread_sha256=stored_thread_sha256,
+        )
+
+
+class CodexContinuousReaderPort:
+    """Candidate-specific Codex Reader with no rewrite or persistence channel."""
+
+    def __init__(
+        self,
+        transport_factory: Callable[[], CodexSDKTransport],
+        *,
+        call_ledger: ContinuousProviderCallLedger,
+    ) -> None:
+        self.transport_factory = transport_factory
+        self.call_ledger = call_ledger
+        self._operation_index = 0
+
+    def review(self, prompt: str) -> ContinuousProviderResultV1:
+        self._operation_index += 1
+        transport = self.transport_factory()
+        route = transport.route
+        allowed = {
+            ("gpt-5.6-sol", "medium"),
+            ("gpt-5.6-terra", "high"),
+        }
+        if (route.model_name, route.reasoning_effort) not in allowed:
+            raise ContractValidationError("continuous Reader route is unsupported")
+        output_schema = continuous_reader_verdict_json_schema()
+        stored_thread_sha256 = _transport_stored_thread_sha256(transport)
+
+        def dispatch(markers):
+            return transport.invoke(
+                prompt,
+                output_schema=output_schema,
+                mcp_binding=None,
+                on_worker_started=markers.mark_worker_started,
+                on_worker_preflight=markers.mark_worker_preflight,
+                on_transport_invoke=markers.mark_transport_invoked,
+            )
+
+        def finalize(result):
+            value = from_mapping(ReaderVerdictV1, result.parsed_json or {})
+            return ContinuousProviderResultV1(
+                value=value,
+                provider_receipt=result.receipt,
+                operation_telemetry=result.operation_telemetry,
+                tool_call_count=result.tool_call_count,
+                failed_tool_call_count=result.failed_tool_call_count,
+                world_tool_debug=None,
+                physical_session_sha256=stored_thread_sha256,
+            )
+
+        return self.call_ledger.execute(
+            owner="reader",
+            operation=f"review_{self._operation_index:04d}",
             route=route.route_id,
             model=route.model_name,
             effort=route.reasoning_effort,
@@ -794,11 +1090,11 @@ class DeepSeekContinuousComposerPort:
         self._operation_index = 0
 
     def compose(self, prompt: str) -> ContinuousProviderResultV1:
-        schema = continuous_deepseek_draft_json_schema()
+        schema = continuous_scene_writer_draft_json_schema()
         messages = (
             DeepSeekMessage(
                 "system",
-                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Return the final prose once, as exhaustive ordered story_segments. Python joins segment text with exactly two newline characters and derives all character offsets; never calculate or return offsets or duplicate the full story in another field. Keep every segment semantically local. assertion_kind describes authority, not writing style: use action_owned for narratively written text that describes a character's action; dialogue_owned for an utterance; private_state_owned for thought, emotion, or bodily state; consent_or_decision_owned for consent or a decision; and unowned_narration only when no character owns any action, dialogue, state, consent, or decision in that exact text. Declare owner_ids for the owning characters. For every other involved character, return exactly one non_owning_roles entry choosing affected, addressed, observing, or referenced. Never assign one character more than one role in a segment. Python maps these values into the closed role ledger; the separate Validator independently adjudicates the exact relation. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. Any assertion owned by Ted must exactly equal one supplied ingress claim and cite that claim. An NPC action may affect or address Ted without inventing Ted's response. For each copied protected-user claim, bind its exact text and claim key to the one story segment containing it; Python rejects absent or ambiguous occurrences. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
+                "You are CERA's Scene Writer. Realize the validated Planner sequence as one complete presentation-neutral story response. Preserve the required causal beats, character boundaries, exact creator-source constraints, and stopping point. Write natural prose with dialogue, gesture, staging, pacing, atmosphere, imagery, rhythm, and only the allowed character interiority. Return exactly one JSON object containing schema_version and story_text. Do not return analysis, semantic labels, roles, owners, claim keys, consent judgments, offsets, hashes, coverage, events, memory, persistence, or acceptance decisions. Do not certify or explain your own prose. Thinking is disabled.",
             ),
             DeepSeekMessage(
                 "user",
@@ -819,8 +1115,10 @@ class DeepSeekContinuousComposerPort:
             )
 
         def finalize(result):
-            wire = from_mapping(ContinuousDeepSeekWireDraftV1, result.parsed_json or {})
-            value = wire.compile()
+            value = from_mapping(
+                ContinuousSceneWriterDraftV1,
+                result.parsed_json or {},
+            )
             return ContinuousProviderResultV1(
                 value=value,
                 provider_receipt=result.receipt,
@@ -828,6 +1126,7 @@ class DeepSeekContinuousComposerPort:
                 tool_call_count=0,
                 failed_tool_call_count=0,
                 world_tool_debug=None,
+                physical_session_sha256=None,
             )
 
         return self.call_ledger.execute(
@@ -865,6 +1164,15 @@ def continuous_deepseek_route():
         adapter_id=CONTINUOUS_DEEPSEEK_ADAPTER_VERSION,
         prompt_version=CONTINUOUS_DEEPSEEK_PROMPT_VERSION,
         maximum_output_tokens=32_768,
+    )
+
+
+def continuous_reader_route(*, model: str, effort: str):
+    return replace(
+        codex_realization_verifier_candidate(model=model, effort=effort),
+        adapter_id=CONTINUOUS_READER_ADAPTER_VERSION,
+        prompt_version=CONTINUOUS_READER_PROMPT_VERSION,
+        maximum_output_tokens=16_384,
     )
 
 

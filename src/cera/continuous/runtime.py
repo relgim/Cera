@@ -16,9 +16,14 @@ from .contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     AcceptedTurnPairV1,
     CharacterSummaryEnvelopeV1,
+    ReaderVerdictStatus,
+    ReaderVerdictV1,
     RichPlannerSequenceV1,
+    StoryRealizationSegmentV1,
     ValidatorFinalizationPackageV1,
+    ValidatorSemanticStatus,
     ValidatorTaskMode,
+    WriterMechanicalEnvelopeV1,
 )
 from .ingress import ContinuousIngressAuthorityPort
 from .evidence import (
@@ -40,6 +45,7 @@ from .evidence import (
 from .prompting import (
     build_continuous_composer_prompt,
     build_planner_turn_prompt,
+    build_reader_prompt,
     build_validator_prompt,
     planner_base_instruction_usage,
     prompt_text_usage,
@@ -95,6 +101,10 @@ class ComposerPort(Protocol):
 
 class ValidatorPort(Protocol):
     def validate(self, prompt: str, **kwargs): ...
+
+
+class ReaderPort(Protocol):
+    def review(self, prompt: str): ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,10 +184,14 @@ class ContinuousTurnCandidateV1:
     candidate_view: CandidateWorldViewV1
     planner_sequence: RichPlannerSequenceV1
     deepseek_story_text: str
+    writer_mechanical_envelope: WriterMechanicalEnvelopeV1
+    validator_story_segments: tuple[StoryRealizationSegmentV1, ...]
     validator_package: ValidatorFinalizationPackageV1
+    reader_verdict: ReaderVerdictV1
     planner_prompt_sha256: str
     composer_prompt_sha256: str
     validator_prompt_sha256: str
+    reader_prompt_sha256: str
     debug_root: Path
     provider_calls: int
     evidence_registry_sha256: str
@@ -187,6 +201,7 @@ class ContinuousTurnCandidateV1:
     protected_semantic_adjudication_ledger_sha256: str
     accepted_session_projection_ledger_sha256: str
     validator_cited_accepted_evidence_sha256: str
+    reader_session_sha256: str
     planner_authority_packet_schema_version: str
     planner_authority_packet_kind: str
     planner_authority_packet_sha256: str
@@ -213,6 +228,9 @@ class ContinuousTurnCandidateV1:
                 "validator_cited_accepted_evidence_sha256": (
                     self.validator_cited_accepted_evidence_sha256
                 ),
+                "writer_mechanical_envelope": self.writer_mechanical_envelope,
+                "reader_verdict": self.reader_verdict,
+                "reader_session_sha256": self.reader_session_sha256,
                 "planner_authority_packet_schema_version": (
                     self.planner_authority_packet_schema_version
                 ),
@@ -238,8 +256,10 @@ class ContinuousTurnCandidateV1:
                 "planner_prompt_sha256": self.planner_prompt_sha256,
                 "composer_prompt_sha256": self.composer_prompt_sha256,
                 "validator_prompt_sha256": self.validator_prompt_sha256,
+                "reader_prompt_sha256": self.reader_prompt_sha256,
                 "planner_schema_version": self.planner_sequence.schema_version,
                 "validator_schema_version": self.validator_package.schema_version,
+                "reader_schema_version": self.reader_verdict.schema_version,
             }
         )
 
@@ -251,6 +271,7 @@ class ContinuousTurnCandidateV1:
                 "planner": self.planner_sequence.sequence_sha256,
                 "story": text_sha256(self.deepseek_story_text),
                 "validator": self.validator_package.package_sha256,
+                "reader": canonical_sha256(self.reader_verdict),
                 "authority_context_sha256": self.authority_context_sha256,
             }
         )
@@ -293,6 +314,7 @@ class ContinuousShadowTurnCoordinator:
         planner: PlannerPort,
         composer: ComposerPort,
         validator: ValidatorPort,
+        reader: ReaderPort,
         ingress_authority: ContinuousIngressAuthorityPort,
         acceptance_sync_failpoint: Callable[[str], None] | None = None,
         thread_lifecycle_failpoint: Callable[[str], None] | None = None,
@@ -309,6 +331,7 @@ class ContinuousShadowTurnCoordinator:
         self.planner = planner
         self.composer = composer
         self.validator = validator
+        self.reader = reader
         self.ingress_authority = ingress_authority
         self._acceptance_sync_failpoint = acceptance_sync_failpoint
         self._thread_lifecycle_failpoint = thread_lifecycle_failpoint
@@ -342,6 +365,7 @@ class ContinuousShadowTurnCoordinator:
             purpose="primary_validator",
         )
         self._candidates: dict[str, ContinuousTurnCandidateV1] = {}
+        self._reader_session_sha256s: set[str] = set()
         if not self.planner_session.base_instructions:
             self.planner_session.install_base_instructions(
                 PLANNER_STABLE_INSTRUCTIONS
@@ -1268,7 +1292,8 @@ class ContinuousShadowTurnCoordinator:
             task_mode=ValidatorTaskMode.SCENE_SUMMARY,
             current_user_source=None,
             planner_sequence=None,
-            deepseek_realization=None,
+            writer_story_text=None,
+            writer_mechanical_envelope=None,
             accepted_turn_id=None,
             accepted_scene_turn_ids=accepted_turn_ids,
             accepted_pairs=tuple(to_primitive(value) for value in pairs),
@@ -1284,7 +1309,19 @@ class ContinuousShadowTurnCoordinator:
             scene_debug.record_failure("scene_summary_validator", exc)
             raise
         elapsed = time.perf_counter_ns() - started
-        package = result.value
+        semantic_result = result.value
+        package = getattr(semantic_result, "finalization_package", None)
+        if (
+            getattr(semantic_result, "semantic_status", None)
+            is not ValidatorSemanticStatus.ACCEPTED
+            or package is None
+            or tuple(
+                getattr(semantic_result, "story_segments", ())
+            )
+        ):
+            raise StateConflictError(
+                "scene-summary Validator returned the wrong V3 result contract"
+            )
         scene_debug.write_json("scene_change_output.json", to_primitive(package))
         scene_debug.write_json("scene_change_tools.json", _provider_debug(result))
         scene_debug.write_json("scene_change_timing.json", {"validator_ns": elapsed})
@@ -1541,42 +1578,44 @@ class ContinuousShadowTurnCoordinator:
             raise
         composer_elapsed = time.perf_counter_ns() - started
         story_text = composer_result.value.story_text
-        protected_realizations = tuple(
-            getattr(composer_result.value, "protected_user_realizations", ())
+        candidate_id = "candidate:" + canonical_sha256(
+            {
+                "world_id": request.world_id,
+                "branch_id": request.branch_id,
+                "turn_id": request.turn_id,
+                "request_id": request.request_id,
+                "idempotency_key_sha256": request.idempotency_key_sha256,
+                "ingress_receipt_sha256": request.ingress_receipt_sha256,
+                "planner_sequence_sha256": planner_sequence.sequence_sha256,
+                "writer_story_text_sha256": text_sha256(story_text),
+            }
         )
-        story_segments = tuple(
-            getattr(composer_result.value, "story_segments", ())
-        )
-        evidence_registry.validate_composer_realization(
+        writer_envelope = WriterMechanicalEnvelopeV1.from_story_text(
+            candidate_id=candidate_id,
             story_text=story_text,
-            realizations=protected_realizations,
-            story_segments=story_segments,
         )
+        writer_envelope.validate_story_text(story_text)
         composer_payload = {
             "schema_version": getattr(composer_result.value, "schema_version", None),
             "story_text": story_text,
-            "protected_user_realizations": to_primitive(protected_realizations),
-            "story_segments": to_primitive(story_segments),
         }
         debug.write_json("deepseek_output.json", composer_payload)
+        debug.write_json(
+            "writer_mechanical_envelope.json",
+            to_primitive(writer_envelope),
+        )
         validator_prompt, validator_usage = build_validator_prompt(
             task_mode=ValidatorTaskMode.FINALIZE_TURN,
             current_user_source=request.user_message,
             planner_sequence=planner_sequence,
-            deepseek_realization=story_text,
+            writer_story_text=story_text,
+            writer_mechanical_envelope=to_primitive(writer_envelope),
             accepted_turn_id=request.turn_id,
             world_file_manifest=self.world.active_manifest(
                 request.world_id, request.branch_id
             ),
             evidence_binding_manifest=validator_binding_manifest,
             protected_user_claim_manifest=evidence_registry.protected_user_claim_manifest(),
-            deepseek_protected_user_realizations=tuple(
-                to_primitive(value)
-                for value in protected_realizations
-            ),
-            deepseek_story_segments=tuple(
-                to_primitive(value) for value in story_segments
-            ),
             ingress_source_units=tuple(
                 to_primitive(value) for value in source_units
             ),
@@ -1592,9 +1631,32 @@ class ContinuousShadowTurnCoordinator:
             debug.record_failure("validator", exc)
             raise
         validator_elapsed = time.perf_counter_ns() - started
-        package = validator_result.value
-        debug.write_json("validator_output.json", to_primitive(package))
+        semantic_result = validator_result.value
+        package = getattr(semantic_result, "finalization_package", None)
+        story_segments = tuple(
+            getattr(semantic_result, "story_segments", ())
+        )
+        debug.write_json("validator_output.json", to_primitive(semantic_result))
         debug.write_json("validator_tools.json", _provider_debug(validator_result))
+        protected_realizations = evidence_registry.validate_validator_semantics(
+            story_text=story_text,
+            story_segments=story_segments,
+            allowed_character_ids=planner_sequence.selected_character_ids,
+        )
+        semantic_status = getattr(semantic_result, "semantic_status", None)
+        if semantic_status not in {
+            ValidatorSemanticStatus.ACCEPTED,
+            ValidatorSemanticStatus.CONCERN,
+        } or package is None:
+            reason_codes = tuple(
+                getattr(semantic_result, "reason_codes", ())
+            )
+            error = PermissionError(
+                "Semantic Validator rejected or could not resolve the immutable "
+                f"Writer candidate: {','.join(reason_codes) or 'missing_typed_reason'}"
+            )
+            debug.record_failure("validator_semantic_verdict", error)
+            raise error
         if (
             package.world_id != request.world_id
             or package.branch_id != request.branch_id
@@ -1609,23 +1671,99 @@ class ContinuousShadowTurnCoordinator:
             package,
             branch_root=branch_root,
         )
+        reader_prompt, reader_usage = build_reader_prompt(
+            world_id=request.world_id,
+            branch_id=request.branch_id,
+            turn_id=request.turn_id,
+            candidate_id=candidate_id,
+            writer_story_text=story_text,
+            writer_mechanical_envelope=to_primitive(writer_envelope),
+            planner_sequence=planner_sequence,
+            bounded_accepted_context=validator_cited_accepted_evidence_payload,
+            hard_constraints=(
+                "Do not invent protected-user action, dialogue, state, or choice.",
+                "Do not introduce inactive characters as scene participants.",
+                "Preserve the Planner stopping boundary.",
+            ),
+        )
+        debug.write_json("reader_request.json", {"prompt": reader_prompt})
+        started = time.perf_counter_ns()
+        try:
+            reader_result = self.reader.review(reader_prompt)
+        except BaseException as exc:
+            debug.record_failure("reader", exc)
+            raise
+        reader_elapsed = time.perf_counter_ns() - started
+        reader_verdict = reader_result.value
+        if not isinstance(reader_verdict, ReaderVerdictV1):
+            raise StateConflictError("Reader returned the wrong result contract")
+        reader_verdict.validate_story_text(story_text)
+        if (
+            reader_verdict.world_id != request.world_id
+            or reader_verdict.branch_id != request.branch_id
+            or reader_verdict.turn_id != request.turn_id
+            or reader_verdict.candidate_id != candidate_id
+        ):
+            raise StateConflictError("Reader changed candidate scope")
+        reader_session_sha256 = getattr(
+            reader_result,
+            "physical_session_sha256",
+            None,
+        )
+        planner_session_sha256 = (
+            self.planner_session.ensure_session().provider_thread_id_sha256
+        )
+        validator_session_sha256 = (
+            self.validator_session.ensure_session().provider_thread_id_sha256
+        )
+        if (
+            not isinstance(reader_session_sha256, str)
+            or not re_is_sha256(reader_session_sha256)
+            or reader_session_sha256
+            in {
+                planner_session_sha256,
+                validator_session_sha256,
+                *self._reader_session_sha256s,
+            }
+        ):
+            raise StateConflictError(
+                "Planner, Validator, and candidate Reader require distinct physical sessions"
+            )
+        self._reader_session_sha256s.add(reader_session_sha256)
+        debug.write_json("reader_output.json", to_primitive(reader_verdict))
+        debug.write_json("reader_tools.json", _provider_debug(reader_result))
+        if reader_verdict.verdict is not ReaderVerdictStatus.ACCEPTED:
+            error = PermissionError(
+                "Reader rejected or could not resolve the immutable candidate"
+            )
+            debug.record_failure("reader_verdict", error)
+            raise error
         self.validator_session.record_validator_candidate(
             request.turn_id, package.package_sha256
         )
         before_files = _snapshot_files(candidate_view.root / "ACTIVE_VIEW")
         provider_calls = prior_provider_calls + sum(
             int(getattr(value.provider_receipt, "external_provider_calls", 0))
-            for value in (planner_result, composer_result, validator_result)
+            for value in (
+                planner_result,
+                composer_result,
+                validator_result,
+                reader_result,
+            )
         )
         candidate = ContinuousTurnCandidateV1(
             request=request,
             candidate_view=candidate_view,
             planner_sequence=planner_sequence,
             deepseek_story_text=story_text,
+            writer_mechanical_envelope=writer_envelope,
+            validator_story_segments=story_segments,
             validator_package=package,
+            reader_verdict=reader_verdict,
             planner_prompt_sha256=text_sha256(planner_prompt),
             composer_prompt_sha256=text_sha256(composer_prompt),
             validator_prompt_sha256=text_sha256(validator_prompt),
+            reader_prompt_sha256=text_sha256(reader_prompt),
             debug_root=debug.root,
             provider_calls=provider_calls,
             evidence_registry_sha256=evidence_registry.registry_sha256,
@@ -1659,6 +1797,7 @@ class ContinuousShadowTurnCoordinator:
             validator_cited_accepted_evidence_sha256=canonical_sha256(
                 validator_cited_accepted_evidence_payload
             ),
+            reader_session_sha256=reader_session_sha256,
             planner_authority_packet_schema_version=(
                 planner_authority_packet.schema_version
             ),
@@ -1707,12 +1846,16 @@ class ContinuousShadowTurnCoordinator:
             "planner_tools.json": _provider_debug(planner_result),
             "deepseek_request.json": {"prompt": composer_prompt},
             "deepseek_output.json": composer_payload,
+            "writer_mechanical_envelope.json": to_primitive(writer_envelope),
             "validator_request.json": {"prompt": validator_prompt},
             "validator_cited_accepted_evidence.json": (
                 validator_cited_accepted_evidence_payload
             ),
-            "validator_output.json": to_primitive(package),
+            "validator_output.json": to_primitive(semantic_result),
             "validator_tools.json": _provider_debug(validator_result),
+            "reader_request.json": {"prompt": reader_prompt},
+            "reader_output.json": to_primitive(reader_verdict),
+            "reader_tools.json": _provider_debug(reader_result),
             "candidate_before.json": before_files,
             "candidate_after.json": before_files,
             "exact_diff.json": [],
@@ -1724,6 +1867,7 @@ class ContinuousShadowTurnCoordinator:
                 "planner": _provider_debug(planner_result),
                 "composer": _provider_debug(composer_result),
                 "validator": _provider_debug(validator_result),
+                "reader": _provider_debug(reader_result),
             },
             "usage.json": {
                 "planner_context_mode": request.context_mode.value,
@@ -1755,6 +1899,12 @@ class ContinuousShadowTurnCoordinator:
                             validator_prompt,
                         )
                     ),
+                    "reader": to_primitive(
+                        prompt_text_usage(
+                            "actual_submitted_reader_prompt",
+                            reader_prompt,
+                        )
+                    ),
                 },
                 "validator_pre_adapter_prompt": to_primitive(
                     prompt_text_usage(
@@ -1765,6 +1915,7 @@ class ContinuousShadowTurnCoordinator:
                 "planner_prompt_components": [to_primitive(value) for value in planner_usage],
                 "composer_prompt_components": [to_primitive(value) for value in composer_usage],
                 "validator_prompt_components": [to_primitive(value) for value in validator_usage],
+                "reader_prompt_components": [to_primitive(value) for value in reader_usage],
                 "compact_accepted_head_receipt_sha256": (
                     compact_accepted_head.receipt_sha256
                     if compact_accepted_head is not None
@@ -1800,6 +1951,9 @@ class ContinuousShadowTurnCoordinator:
                     "validator": to_primitive(
                         getattr(validator_result, "operation_telemetry", None)
                     ),
+                    "reader": to_primitive(
+                        getattr(reader_result, "operation_telemetry", None)
+                    ),
                 },
                 "world_tool_activity": {
                     "planner": getattr(planner_result, "world_tool_debug", None),
@@ -1814,6 +1968,7 @@ class ContinuousShadowTurnCoordinator:
                 "planner_ns": planner_elapsed,
                 "composer_ns": composer_elapsed,
                 "validator_ns": validator_elapsed,
+                "reader_ns": reader_elapsed,
             },
             "errors.json": [],
             "replay_input.json": {
@@ -1830,6 +1985,7 @@ class ContinuousShadowTurnCoordinator:
                 ),
                 "planner_result": to_primitive(planner_sequence),
                 "composer_result": composer_payload,
+                "writer_mechanical_envelope": to_primitive(writer_envelope),
                 "evidence_registry_sha256": evidence_registry.registry_sha256,
                 "protected_user_claim_manifest": evidence_registry.protected_user_claim_manifest(),
                 "ingress_source_units": tuple(
@@ -1837,6 +1993,7 @@ class ContinuousShadowTurnCoordinator:
                 ),
                 "ingress_receipt": to_primitive(ingress_receipt),
                 "story_segments": to_primitive(story_segments),
+                "reader_result": to_primitive(reader_verdict),
                 "authority_context_sha256": candidate.authority_context_sha256,
                 "candidate_sha256": candidate.candidate_sha256,
                 "validator_result": to_primitive(package),

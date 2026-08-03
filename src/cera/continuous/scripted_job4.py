@@ -33,16 +33,14 @@ from .contracts import (
     ProtectedUserAllowanceV1,
     RichPlannerSequenceV1,
     RichSequenceBeatV1,
+    StoryRealizationKind,
+    StoryRealizationSegmentV1,
     ValidatorSemanticStatus,
     ValidatorTaskMode,
 )
 from .provider import (
-    ContinuousDeepSeekAssertionKind,
-    ContinuousDeepSeekNonOwningRelationKind,
-    ContinuousDeepSeekNonOwningRoleDraftV1,
-    ContinuousDeepSeekStorySegmentDraftV1,
-    ContinuousDeepSeekWireDraftV1,
-    ContinuousValidatorDraftV1,
+    ContinuousSceneWriterDraftV1,
+    ContinuousSemanticValidatorDraftV1,
     ProviderEventRecordDraftV1,
     ProviderSceneSummaryDraftV1,
     continuous_deepseek_route,
@@ -249,54 +247,12 @@ class ScriptedJob4FixtureRuntime:
             provisional=True,
         )
 
-    def _composer_value(self, _prompt: str) -> ContinuousDeepSeekWireDraftV1:
+    def _composer_value(self, _prompt: str) -> ContinuousSceneWriterDraftV1:
         turn_id = self._current()._active_turn_id
         story = _STORIES[turn_id]
-        roles = self._roles(turn_id)
-        owners = roles.assertion_owner_ids
-        return ContinuousDeepSeekWireDraftV1(
-            schema_version=ContinuousDeepSeekWireDraftV1.SCHEMA_VERSION,
-            story_segments=(
-                ContinuousDeepSeekStorySegmentDraftV1(
-                    schema_version=(
-                        ContinuousDeepSeekStorySegmentDraftV1.SCHEMA_VERSION
-                    ),
-                    segment_key="segment_entire_story",
-                    assertion_kind=ContinuousDeepSeekAssertionKind.ACTION_OWNED,
-                    text=story,
-                    owner_ids=owners,
-                    non_owning_roles=tuple(
-                        ContinuousDeepSeekNonOwningRoleDraftV1(
-                            schema_version=(
-                                ContinuousDeepSeekNonOwningRoleDraftV1.SCHEMA_VERSION
-                            ),
-                            character_id=value,
-                            relation=relation,
-                        )
-                        for relation, values in (
-                            (
-                                ContinuousDeepSeekNonOwningRelationKind.AFFECTED,
-                                roles.affected_ids,
-                            ),
-                            (
-                                ContinuousDeepSeekNonOwningRelationKind.ADDRESSED,
-                                roles.addressed_ids,
-                            ),
-                            (
-                                ContinuousDeepSeekNonOwningRelationKind.OBSERVING,
-                                roles.observing_ids,
-                            ),
-                            (
-                                ContinuousDeepSeekNonOwningRelationKind.REFERENCED,
-                                roles.referenced_ids,
-                            ),
-                        )
-                        for value in values
-                    ),
-                    protected_user_source_claim_keys=(),
-                ),
-            ),
-            protected_user_realizations=(),
+        return ContinuousSceneWriterDraftV1(
+            schema_version=ContinuousSceneWriterDraftV1.SCHEMA_VERSION,
+            story_text=story,
         )
 
     @staticmethod
@@ -311,19 +267,21 @@ class ScriptedJob4FixtureRuntime:
             verifier_status="accepted",
         )
 
-    def _validator_value(self, _prompt: str) -> ContinuousValidatorDraftV1:
+    def _validator_value(self, _prompt: str) -> ContinuousSemanticValidatorDraftV1:
         harness = self._current()
         if harness._active_validator_label == "scene-1-validator-summary":
             accepted_ids = tuple(
                 value.accepted_turn_id for value in harness.accepted_pairs
             )
-            return ContinuousValidatorDraftV1(
-                schema_version=ContinuousValidatorDraftV1.SCHEMA_VERSION,
+            return ContinuousSemanticValidatorDraftV1(
+                schema_version=ContinuousSemanticValidatorDraftV1.SCHEMA_VERSION,
                 package_id="package:scene_summary",
                 world_id=self.world_id,
                 branch_id=self.branch_id,
                 task_mode=ValidatorTaskMode.SCENE_SUMMARY,
                 semantic_status=ValidatorSemanticStatus.ACCEPTED,
+                reason_codes=(),
+                story_segments=(),
                 complete_final_sequence=None,
                 creator_review=None,
                 protected_semantic_adjudications=(),
@@ -389,13 +347,26 @@ class ScriptedJob4FixtureRuntime:
             ),
             final_stop_state="The exchange awaits Ted's next choice.",
         )
-        return ContinuousValidatorDraftV1(
-            schema_version=ContinuousValidatorDraftV1.SCHEMA_VERSION,
+        return ContinuousSemanticValidatorDraftV1(
+            schema_version=ContinuousSemanticValidatorDraftV1.SCHEMA_VERSION,
             package_id=f"package:{turn_id}",
             world_id=self.world_id,
             branch_id=self.branch_id,
             task_mode=ValidatorTaskMode.FINALIZE_TURN,
             semantic_status=ValidatorSemanticStatus.ACCEPTED,
+            reason_codes=(),
+            story_segments=(
+                StoryRealizationSegmentV1(
+                    schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+                    segment_key="segment_entire_story",
+                    kind=StoryRealizationKind.ACTION,
+                    output_start=0,
+                    output_end=len(story),
+                    exact_text=story,
+                    roles=roles,
+                    protected_user_source_claim_keys=(),
+                ),
+            ),
             complete_final_sequence=sequence,
             creator_review=self._good_assessment(),
             protected_semantic_adjudications=(

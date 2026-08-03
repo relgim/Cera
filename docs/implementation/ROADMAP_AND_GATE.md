@@ -1,6 +1,23 @@
 # Implementation Roadmap and Authorization Gate
 
 **Status:** controlling ordered roadmap
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
+## Runtime Model V3 alignment gate (active)
+
+Queue 0044 installs
+[`CERA_RUNTIME_MODEL_V3.md`](../authority/CERA_RUNTIME_MODEL_V3.md) and uses the
+sole active ownership matrix in
+[`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](../architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
+The provider-free gate is: reconcile documents; reduce Writer to exact prose;
+move exact-span semantics to Validator; add an independent non-rewriting
+Reader; prove rejection, lineage, branch, restart, recovery, and creator-gated
+commit; run the complete local suite; then stop for manager review.
+
+No provider call, live route, SillyTavern run, deployment, promotion, or story
+mutation is part of this gate. D-180 remains the active product route. The V7
+`4/20` report and all D-186 through D-194 evidence remain immutable historical
+results rather than targets for another local schema patch.
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
 **Current local state (D-180):** canonical active runtime identity installed.
 **Active runtime profile:** `cera.active_runtime.d180.v1`

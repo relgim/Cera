@@ -2,6 +2,25 @@
 
 **Status:** controlling packet-construction contract
 
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
+## Runtime Model V3 prompt ownership (active)
+
+The sole active ownership matrix is
+[`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md)
+under [`CERA_RUNTIME_MODEL_V3.md`](../authority/CERA_RUNTIME_MODEL_V3.md).
+Planner receives source authority and bounded evidence. Writer receives the
+validated compiled plan plus bounded realization context and returns exact
+story prose only. Semantic Validator receives those exact Writer bytes, their
+Python mechanical envelope, the plan, and bounded authority evidence, and
+returns exact-span semantics plus a non-rewriting verdict. Reader receives the
+same immutable story bytes, completion constraints, and bounded continuity and
+returns only a non-rewriting verdict. No prompt asks Writer to certify claims,
+roles, consent, events, memory, acceptance, offsets, or hashes.
+
+The D-186/D-200 packet descriptions below remain historical evidence or D-180
+compatibility documentation. They do not assign V3 semantic work to Writer.
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
+
 ## 1. Packet layers
 
 Every model packet is assembled in this order:
@@ -217,7 +236,7 @@ When a packet exceeds budget, retain in this order:
 
 Dropping required authority is a route error, not a license to guess.
 
-## 7A. D-186 continuous prompt split
+## 7A. D-186 continuous prompt split (historical role allocation)
 
 The shadow continuous Planner keeps stable instructions in its stored thread.
 Each accepted-final envelope is appended once to model-visible history by a

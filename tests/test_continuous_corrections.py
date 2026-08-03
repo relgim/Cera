@@ -83,6 +83,8 @@ from cera.continuous.contracts import (
     PersistenceRecordClass,
     StoryRealizationKind,
     StoryRealizationSegmentV1,
+    ReaderVerdictStatus,
+    ReaderVerdictV1,
     SceneSummaryV1,
     ValidatorSemanticStatus,
     WorldEditOperationKind,
@@ -92,6 +94,7 @@ from cera.registry import build_schema_registry
 from cera.continuous.provider import (
     CodexContinuousPlannerPort,
     CodexContinuousValidatorPort,
+    ContinuousSemanticValidatorResultV1,
     DeepSeekContinuousComposerPort,
 )
 from cera.continuous.prompting import PLANNER_STABLE_INSTRUCTIONS
@@ -186,6 +189,17 @@ class _QueueStage:
                     for beat in value.beats
                 ),
             )
+        if hasattr(value, "task_mode") and hasattr(value, "package_sha256"):
+            if value.task_mode.value == "finalize_turn":
+                request = json.loads(prompt.rsplit("[VALIDATOR REQUEST]\n", 1)[1])
+                story_text = request["writer_story_text"]
+                segments = composer_draft(story_text).story_segments
+            else:
+                segments = ()
+            value = ContinuousSemanticValidatorResultV1.from_finalization_package(
+                finalization_package=value,
+                story_segments=segments,
+            )
         return SimpleNamespace(
             value=value,
             provider_receipt=None,
@@ -203,6 +217,46 @@ class _QueueStage:
 
     def validate(self, prompt: str, **_kwargs):
         return self._next(prompt)
+
+
+class _AcceptingReaderStage:
+    def __init__(self) -> None:
+        self.prompts: list[str] = []
+        self._counter = 0
+
+    def review(self, prompt: str):
+        self.prompts.append(prompt)
+        self._counter += 1
+        request = json.loads(prompt.rsplit("[READER REQUEST]\n", 1)[1])
+        verdict = ReaderVerdictV1(
+            schema_version=ReaderVerdictV1.SCHEMA_VERSION,
+            verdict_id=f"reader:verdict_{self._counter}",
+            world_id=request["world_id"],
+            branch_id=request["branch_id"],
+            turn_id=request["turn_id"],
+            candidate_id=request["candidate_id"],
+            story_text_sha256=request["writer_mechanical_envelope"][
+                "story_text_sha256"
+            ],
+            verdict=ReaderVerdictStatus.ACCEPTED,
+            reason_codes=(),
+            issues=(),
+            scene_completeness_score=90,
+            character_voice_score=90,
+            dialogue_pacing_score=90,
+            readability_score=90,
+        )
+        return SimpleNamespace(
+            value=verdict,
+            provider_receipt=None,
+            operation_telemetry=None,
+            tool_call_count=0,
+            failed_tool_call_count=0,
+            world_tool_debug=None,
+            physical_session_sha256=text_sha256(
+                f"reader:{self._counter}:{request['candidate_id']}"
+            ),
+        )
 
 
 class ContinuousEvidenceCorrectionTests(unittest.TestCase):
@@ -490,7 +544,7 @@ class ContinuousEvidenceCorrectionTests(unittest.TestCase):
                     protected_user_source_claim_keys=("claim_unsupplied",),
                 )
                 with self.assertRaisesRegex(
-                    StateConflictError, "laundered through Composer roles"
+                StateConflictError, "disagrees with Validator roles"
                 ):
                     registry.validate_traceability(
                         sequence,
@@ -586,7 +640,7 @@ class ContinuousEvidenceCorrectionTests(unittest.TestCase):
                     ),
                 ),
             )
-        with self.assertRaisesRegex(StateConflictError, "exact Composer span"):
+        with self.assertRaisesRegex(StateConflictError, "exact Writer span"):
             registry.validate_traceability(
                 sequence,
                 replace(
@@ -791,6 +845,7 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                 planner=planner,
                 composer=composer,
                 validator=validator,
+                reader=_AcceptingReaderStage(),
                 ingress_authority=ingress_authority,
             )
             planner_thread = planner_session.ensure_session().provider_thread_id
@@ -1122,6 +1177,7 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                     planner=_QueueStage(rich_sequence()),
                     composer=_QueueStage(composer_draft("Sakura requests proof.")),
                     validator=_QueueStage(package()),
+                    reader=_AcceptingReaderStage(),
                     ingress_authority=ingress_authority,
                     acceptance_sync_failpoint=failpoint,
                 )
@@ -1595,6 +1651,7 @@ class ContinuousWorldHardeningTests(unittest.TestCase):
                 planner=_QueueStage(rich_sequence()),
                 composer=_QueueStage(composer_draft("Sakura requests proof.")),
                 validator=_QueueStage(package()),
+                reader=_AcceptingReaderStage(),
                 ingress_authority=ingress_authority,
             )
             source = root / "ACTIVE" / "Characters" / "Sakura.json"
@@ -2433,6 +2490,7 @@ class ContinuousAuthorityV6Tests(unittest.TestCase):
                 planner=_QueueStage(rich_sequence()),
                 composer=_QueueStage(composer_draft("Sakura requests proof.")),
                 validator=_QueueStage(package()),
+                reader=_AcceptingReaderStage(),
                 ingress_authority=authority,
             )
             request = ContinuousTurnRequestV1(

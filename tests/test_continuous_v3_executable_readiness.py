@@ -248,6 +248,10 @@ class ContinuousV3ExecutableReadinessTests(unittest.TestCase):
                         "reason_code": "connector_metadata_outside_task",
                     },
                     {
+                        "path_prefix": ".chatgpt/pro-review/sequence-authority/",
+                        "reason_code": "sequence_authority_transport_state",
+                    },
+                    {
                         "path_prefix": (
                             f".chatgpt/pro-review/cycles/{QUALIFICATION_CYCLE_ID}/"
                         ),

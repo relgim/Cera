@@ -1,0 +1,374 @@
+from __future__ import annotations
+
+import hashlib
+import inspect
+from pathlib import Path
+import re
+import unittest
+
+from cera.continuous.contracts import (
+    CharacterRoleLedgerV1,
+    IngressSourceUnitKind,
+    IngressSourceUnitV1,
+    ReaderIssueReferenceV1,
+    ReaderVerdictStatus,
+    ReaderVerdictV1,
+    StoryRealizationKind,
+    StoryRealizationSegmentV1,
+    ValidatorSemanticStatus,
+    WriterMechanicalEnvelopeV1,
+)
+from cera.continuous.evidence import RequestEvidenceBindingRegistry
+from cera.continuous.provider import (
+    ContinuousSceneWriterDraftV1,
+    ContinuousSemanticValidatorResultV1,
+    continuous_deepseek_draft_json_schema,
+    continuous_reader_verdict_json_schema,
+    continuous_scene_writer_draft_json_schema,
+)
+from cera.errors import ContractValidationError
+from cera.schema import from_mapping
+from cera.serialization import text_sha256
+
+
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+
+
+def segment(
+    text: str,
+    *,
+    key: str = "segment_1",
+    start: int = 0,
+    kind: StoryRealizationKind = StoryRealizationKind.ACTION,
+    roles: CharacterRoleLedgerV1 | None = None,
+    claim_keys: tuple[str, ...] = (),
+) -> StoryRealizationSegmentV1:
+    return StoryRealizationSegmentV1(
+        schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+        segment_key=key,
+        kind=kind,
+        output_start=start,
+        output_end=start + len(text),
+        exact_text=text,
+        roles=roles
+        or CharacterRoleLedgerV1(action_owner_ids=("character:hana_hanezawa",)),
+        protected_user_source_claim_keys=claim_keys,
+    )
+
+
+class RuntimeModelV3WriterBoundaryTests(unittest.TestCase):
+    def test_active_writer_schema_is_exact_prose_only(self) -> None:
+        schema = continuous_scene_writer_draft_json_schema()
+        self.assertFalse(schema["additionalProperties"])
+        self.assertEqual(
+            tuple(schema["properties"]),
+            ("schema_version", "story_text"),
+        )
+        expected = {
+            "schema_version": ContinuousSceneWriterDraftV1.SCHEMA_VERSION,
+            "story_text": "Hana opened the door.",
+        }
+        self.assertEqual(
+            from_mapping(ContinuousSceneWriterDraftV1, expected).story_text,
+            expected["story_text"],
+        )
+        forbidden = (
+            "story_segments",
+            "roles",
+            "source_claims",
+            "consent_state",
+            "offsets",
+            "hashes",
+            "events",
+            "memory",
+            "persistence",
+            "acceptance",
+        )
+        for field in forbidden:
+            with self.subTest(field=field), self.assertRaises(
+                ContractValidationError
+            ):
+                from_mapping(
+                    ContinuousSceneWriterDraftV1,
+                    {**expected, field: []},
+                )
+
+    def test_historical_v7_schema_remains_separate_and_readable(self) -> None:
+        historical = continuous_deepseek_draft_json_schema()
+        self.assertIn("story_segments", historical["properties"])
+        self.assertNotEqual(
+            set(historical["properties"]),
+            set(continuous_scene_writer_draft_json_schema()["properties"]),
+        )
+
+    def test_python_mechanical_envelope_is_utf8_exact_and_nonsemantic(self) -> None:
+        story = "Hana opened the door.\n\nMia waited—quietly."
+        envelope = WriterMechanicalEnvelopeV1.from_story_text(
+            candidate_id="candidate:writer_exactness",
+            story_text=story,
+        )
+        self.assertEqual(envelope.story_text_sha256, text_sha256(story))
+        self.assertEqual(envelope.utf8_byte_count, len(story.encode("utf-8")))
+        self.assertEqual(envelope.codepoint_count, len(story))
+        self.assertEqual(len(envelope.paragraph_ranges), 2)
+        envelope.validate_story_text(story)
+        with self.assertRaisesRegex(
+            ContractValidationError, "does not match exact story bytes"
+        ):
+            envelope.validate_story_text(story + " ")
+
+
+class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
+    def registry(self) -> RequestEvidenceBindingRegistry:
+        return RequestEvidenceBindingRegistry(
+            world_id="world:test",
+            branch_id="branch:main",
+            turn_id="turn:001",
+        )
+
+    def test_ordinary_action_and_dialogue_are_validator_owned_exact_spans(self) -> None:
+        action = "Hana opened the door."
+        self.registry().validate_validator_semantics(
+            story_text=action,
+            story_segments=(segment(action),),
+            allowed_character_ids=("character:hana_hanezawa",),
+        )
+        dialogue = '"Come in," Hana said.'
+        self.registry().validate_validator_semantics(
+            story_text=dialogue,
+            story_segments=(
+                segment(
+                    dialogue,
+                    kind=StoryRealizationKind.DIALOGUE,
+                    roles=CharacterRoleLedgerV1(
+                        speaker_ids=("character:hana_hanezawa",)
+                    ),
+                ),
+            ),
+            allowed_character_ids=("character:hana_hanezawa",),
+        )
+
+    def test_mixed_protected_action_can_be_a_clean_typed_rejection(self) -> None:
+        story = "Hana smiled as Ted stepped inside."
+        result = ContinuousSemanticValidatorResultV1(
+            semantic_status=ValidatorSemanticStatus.REJECTED,
+            reason_codes=("mixed_protected_user_action",),
+            story_segments=(
+                segment(
+                    story,
+                    roles=CharacterRoleLedgerV1(
+                        action_owner_ids=("character:hana_hanezawa",),
+                        referenced_ids=("character:ted",),
+                    ),
+                ),
+            ),
+            protected_semantic_adjudications=(),
+            finalization_package=None,
+        )
+        self.assertIsNone(result.finalization_package)
+        self.assertEqual(result.semantic_status, ValidatorSemanticStatus.REJECTED)
+
+    def test_one_span_cannot_mix_visible_action_and_private_state(self) -> None:
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "kind disagrees with exact ownership roles",
+        ):
+            segment(
+                "Hana smiled while Mia worried.",
+                roles=CharacterRoleLedgerV1(
+                    action_owner_ids=("character:hana_hanezawa",),
+                    state_owner_ids=("character:mia_hanezawa",),
+                ),
+            )
+
+    def test_exact_ted_dialogue_and_npc_reaction_keep_separate_ownership(self) -> None:
+        registry = self.registry()
+        ted_text = '"Come in," Ted said.'
+        registry.allocate_current_source(
+            source_identity="source:test",
+            source_text=ted_text,
+            protected_user_allowance_scope="exact_source_only",
+            source_units=(
+                IngressSourceUnitV1(
+                    schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
+                    source_unit_key="source_unit_ted_dialogue",
+                    kind=IngressSourceUnitKind.DIALOGUE,
+                    source_start=0,
+                    source_end=len(ted_text),
+                    exact_text=ted_text,
+                    actor_id=None,
+                    speaker_id="character:ted",
+                    classification_basis="explicit_ingress_speaker",
+                ),
+            ),
+        )
+        claim_key = registry.protected_user_claim_manifest()[0]["claim_key"]
+        reaction = " Hana nodded."
+        story = ted_text + reaction
+        realizations = registry.validate_validator_semantics(
+            story_text=story,
+            story_segments=(
+                segment(
+                    ted_text,
+                    key="segment_ted_dialogue",
+                    kind=StoryRealizationKind.DIALOGUE,
+                    roles=CharacterRoleLedgerV1(speaker_ids=("character:ted",)),
+                    claim_keys=(claim_key,),
+                ),
+                segment(
+                    reaction,
+                    key="segment_hana_reaction",
+                    start=len(ted_text),
+                    roles=CharacterRoleLedgerV1(
+                        action_owner_ids=("character:hana_hanezawa",),
+                        observing_ids=("character:ted",),
+                    ),
+                ),
+            ),
+            allowed_character_ids=("character:hana_hanezawa",),
+        )
+        self.assertEqual(tuple(value.claim_key for value in realizations), (claim_key,))
+
+    def test_inactive_character_role_is_rejected_without_name_parsing(self) -> None:
+        story = "Enne crossed the room."
+        with self.assertRaisesRegex(PermissionError, "inactive character role"):
+            self.registry().validate_validator_semantics(
+                story_text=story,
+                story_segments=(
+                    segment(
+                        story,
+                        roles=CharacterRoleLedgerV1(
+                            action_owner_ids=("character:enne_hanezawa",)
+                        ),
+                    ),
+                ),
+                allowed_character_ids=("character:hana_hanezawa",),
+            )
+
+    def test_active_python_path_has_no_prose_semantic_heuristic_fallback(self) -> None:
+        validator_source = inspect.getsource(
+            RequestEvidenceBindingRegistry.validate_validator_semantics
+        )
+        self.assertNotIn("re.search", validator_source)
+        self.assertNotIn("casefold", validator_source)
+        runtime_source = (
+            REPOSITORY_ROOT / "src/cera/continuous/runtime.py"
+        ).read_text(encoding="utf-8")
+        self.assertNotIn("validate_composer_realization(", runtime_source)
+
+
+class RuntimeModelV3ReaderAndDocumentationTests(unittest.TestCase):
+    def test_reader_schema_has_no_prose_or_rewrite_channel(self) -> None:
+        properties = continuous_reader_verdict_json_schema()["properties"]
+        forbidden = {
+            "story_text",
+            "prose",
+            "replacement_prose",
+            "rewritten_story_text",
+            "events",
+            "memory",
+            "persistence",
+        }
+        self.assertFalse(forbidden & set(properties))
+
+    def test_reader_verdict_is_bound_to_exact_writer_bytes_and_issue_span(self) -> None:
+        story = "Hana opened the door."
+        issue = ReaderIssueReferenceV1(
+            schema_version=ReaderIssueReferenceV1.SCHEMA_VERSION,
+            issue_code="premature_closure",
+            output_start=0,
+            output_end=len(story),
+            exact_text_sha256=text_sha256(story),
+            explanation="The response closes before the planned conversational beat.",
+        )
+        verdict = ReaderVerdictV1(
+            schema_version=ReaderVerdictV1.SCHEMA_VERSION,
+            verdict_id="reader:verdict_001",
+            world_id="world:test",
+            branch_id="branch:main",
+            turn_id="turn:001",
+            candidate_id="candidate:001",
+            story_text_sha256=text_sha256(story),
+            verdict=ReaderVerdictStatus.REJECTED,
+            reason_codes=("premature_closure",),
+            issues=(issue,),
+            scene_completeness_score=20,
+            character_voice_score=80,
+            dialogue_pacing_score=40,
+            readability_score=80,
+        )
+        verdict.validate_story_text(story)
+        with self.assertRaisesRegex(
+            ContractValidationError, "changed Writer bytes"
+        ):
+            verdict.validate_story_text(story + " ")
+
+    def test_active_document_blocks_point_to_one_role_matrix_and_forbid_writer_semantics(self) -> None:
+        active_docs = (
+            "docs/authority/CERA_OWNER_ARCHITECTURE.md",
+            "docs/authority/DECISIONS_AND_SUPERSESSIONS.md",
+            "docs/architecture/RUNTIME_PIPELINE_AND_PORTS.md",
+            "docs/architecture/PROMPT_CONTEXT_AND_EXAMPLES.md",
+            "docs/contracts/SCHEMA_CATALOG.md",
+            "docs/contracts/STATE_MACHINES_AND_ERRORS.md",
+            "docs/implementation/ROADMAP_AND_GATE.md",
+            "docs/START_HERE.md",
+            "docs/handoff/CURRENT.md",
+        )
+        forbidden = re.compile(
+            r"(?:writer|composer)\s+(?:owns|supplies|returns|certifies|creates)\s+"
+            r"(?:semantic|claim|consent|role ledger|event|memory|persistence|acceptance)",
+            re.IGNORECASE,
+        )
+        matrix_target = "CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md"
+        for relative in active_docs:
+            text = (REPOSITORY_ROOT / relative).read_text(encoding="utf-8")
+            match = re.search(
+                r"<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->(.*?)"
+                r"<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->",
+                text,
+                re.DOTALL,
+            )
+            self.assertIsNotNone(match, relative)
+            block = match.group(1)
+            self.assertIn(matrix_target, block, relative)
+            self.assertIsNone(forbidden.search(block), relative)
+        controlling = tuple(
+            path
+            for path in (REPOSITORY_ROOT / "docs").rglob("*.md")
+            if "## Controlling role matrix" in path.read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            controlling,
+            (
+                REPOSITORY_ROOT
+                / "docs/architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md",
+            ),
+        )
+
+    def test_frozen_v7_evidence_and_deferred_fallback_invariants(self) -> None:
+        report = (
+            REPOSITORY_ROOT
+            / ".chatgpt/operations/provider-campaigns/2026-08-03-deepseek-v7-flash-nonthinking-repeatability-v1/REPORT.md"
+        )
+        self.assertEqual(
+            hashlib.sha256(report.read_bytes()).hexdigest(),
+            "37d472cc5d24dbd3b29e145ade6312fd95405b2d2be346e430550ee7815c98ae",
+        )
+        fallback = (
+            REPOSITORY_ROOT
+            / "docs/authority/CERA_CONSENSUAL_ADULT_CAPABILITY_FALLBACK_V1.md"
+        ).read_text(encoding="utf-8")
+        for required in (
+            "maximum of **three total provider attempts**",
+            "Outputs from different attempts are never merged",
+            "A Python exception",
+            "raw restricted-interval prose is never sent to Codex Validator",
+            "must not be used as retrieval evidence, memory authority",
+            "Only the Safe-Continuity Formatter package may cross back",
+        ):
+            self.assertIn(required, fallback)
+
+
+if __name__ == "__main__":
+    unittest.main()

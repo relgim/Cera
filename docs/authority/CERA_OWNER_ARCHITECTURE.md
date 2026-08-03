@@ -4,6 +4,27 @@
 **Version:** `cera.owner_architecture.v2`  
 **Date:** 2026-07-29
 
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
+## Runtime Model V3 authority (active)
+
+The controlling role allocation is
+[`CERA_RUNTIME_MODEL_V3.md`](CERA_RUNTIME_MODEL_V3.md), with the sole active
+role matrix in
+[`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](../architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
+DeepSeek is a stateless Writer that returns immutable story prose only. Python
+creates its mechanical envelope. An independent Codex Semantic Validator owns
+exact-span semantic classification and returns a verdict without rewriting.
+Python enforces hard authority, then an independent non-rewriting Reader checks
+the complete response before Python creates a review-ready candidate. Only
+creator acceptance lets Python commit story truth.
+
+D-204 supersedes the role allocation in D-186 through D-194 without rewriting
+their evidence. D-180 remains the active product route until Runtime Model V3
+passes later live qualification and explicit promotion. The older Composer and
+Realization Manifest descriptions below are historical or apply only to the
+D-180 route; they do not define the V3 Writer contract.
+<!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
+
 ## 1. Product goal
 
 CERA turns a creator message into a branch-safe, character-specific, causally coherent story response. The user may supply the first domino; the reasoner determines how supported character and world consequences unfold across one or more scene beats; the composer gives those beats voice, pacing, physical continuity, and prose.
