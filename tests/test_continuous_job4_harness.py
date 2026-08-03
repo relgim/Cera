@@ -63,7 +63,7 @@ from cera.continuous.provider import (
     ContinuousDeepSeekWireDraftV1,
     ContinuousSceneWriterDraftV1,
     ContinuousSemanticValidatorDraftV4,
-    ContinuousSemanticValidatorDraftV5,
+    ContinuousSemanticValidatorDraftV6,
     ContinuousSemanticValidatorResultV1,
     ContinuousValidatorDraftV1,
     ProviderEventRecordDraftV1,
@@ -2297,7 +2297,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         ),
                         last_five_exact_pairs=tuple(harness.accepted_pairs),
                     )
-                    return ContinuousSemanticValidatorDraftV5.from_v4(ContinuousSemanticValidatorDraftV4(
+                    return ContinuousSemanticValidatorDraftV6.from_v4(ContinuousSemanticValidatorDraftV4(
                         schema_version=(
                             ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION
                         ),
@@ -2418,7 +2418,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     ),
                 )
                 event = result.event_record
-                return ContinuousSemanticValidatorDraftV5.from_v4(ContinuousSemanticValidatorDraftV4(
+                return ContinuousSemanticValidatorDraftV6.from_v4(ContinuousSemanticValidatorDraftV4(
                     schema_version=(
                         ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION
                     ),

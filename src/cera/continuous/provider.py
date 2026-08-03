@@ -59,7 +59,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v7"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v13"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v14"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v8"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v1"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v1"
@@ -957,6 +957,13 @@ class ContinuousSemanticValidatorDraftV5:
 
 
 @dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV6(ContinuousSemanticValidatorDraftV5):
+    """Active wire with structurally required turn evidence collections."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v6"
+
+
+@dataclass(frozen=True, slots=True)
 class ContinuousSceneWriterDraftV1:
     """Active Writer wire: exact candidate prose and nothing semantic."""
 
@@ -1351,7 +1358,28 @@ def continuous_deepseek_draft_json_schema() -> dict[str, Any]:
 
 
 def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
-    return _schema_for(ContinuousSemanticValidatorDraftV5)
+    schema = _schema_for(ContinuousSemanticValidatorDraftV6)
+    for branch in schema["properties"]["decision"]["anyOf"]:
+        properties = branch.get("properties", {})
+        for collection in (
+            "story_segments",
+            "protected_semantic_adjudications",
+        ):
+            if collection in properties:
+                properties[collection]["minItems"] = 1
+        sequence = properties.get("complete_final_sequence")
+        if sequence is not None:
+            sequence["properties"]["items"]["minItems"] = 1
+        review = properties.get("creator_review")
+        if review is not None:
+            review_properties = review["properties"]
+            for field_name in ("creator_reason", "verifier_status"):
+                review_properties[field_name]["minLength"] = 1
+            if "primary_reason_code" in review_properties:
+                review_properties["primary_reason_code"]["minLength"] = 1
+        if "primary_reason_code" in properties:
+            properties["primary_reason_code"]["minLength"] = 1
+    return schema
 
 
 def continuous_scene_writer_draft_json_schema() -> dict[str, Any]:
@@ -1492,7 +1520,7 @@ class CodexContinuousValidatorPort:
                 self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )
             draft = from_mapping(
-                ContinuousSemanticValidatorDraftV5,
+                ContinuousSemanticValidatorDraftV6,
                 raw_provider_json,
             )
             return ContinuousProviderResultV1(
