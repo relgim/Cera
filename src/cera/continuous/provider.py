@@ -59,7 +59,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v7"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v12"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v13"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v8"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v1"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v1"
@@ -591,6 +591,371 @@ class ContinuousSemanticValidatorDraftV4(ContinuousSemanticValidatorDraftV3):
         )
 
 
+class ProviderGoodReviewKind(str, Enum):
+    GOOD = "good"
+
+
+class ProviderAcceptedDecisionKind(str, Enum):
+    ACCEPTED = "accepted"
+
+
+class ProviderConcernDecisionKind(str, Enum):
+    CONCERN = "concern"
+
+
+class ProviderSceneSummaryDecisionKind(str, Enum):
+    SCENE_SUMMARY = "scene_summary"
+
+
+class ProviderRejectedSemanticStatus(str, Enum):
+    REJECTED = "rejected"
+    INCONCLUSIVE = "inconclusive"
+    ERROR = "error"
+
+
+class ProviderConcernReviewDisposition(str, Enum):
+    CONCERN_ACCEPT_ALLOWED = "concern_accept_allowed"
+    CONCERN_ACCEPT_BLOCKED = "concern_accept_blocked"
+    CRITICAL_ACCEPT_ALLOWED = "critical_accept_allowed"
+    CRITICAL_ACCEPT_BLOCKED = "critical_accept_blocked"
+
+
+class ProviderDiagnosticIssueOwner(str, Enum):
+    USER_REQUEST = "user_request"
+    RETRIEVAL = "retrieval"
+    PYTHON = "python"
+    REASONER = "reasoner"
+    COMPOSER = "composer"
+    VERIFIER = "verifier"
+    PROMPT_MATERIAL = "prompt_material"
+    ADULT_EXAMPLES = "adult_examples"
+    MIXED = "mixed"
+    HARD_BOUNDARY = "hard_boundary"
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderGoodCreatorReviewDraftV1:
+    """Good review wire; Python owns the absent diagnostic fields."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_good_creator_review.v1"
+
+    schema_version: str
+    review_kind: ProviderGoodReviewKind
+    publication_eligibility: PublicationEligibility
+    creator_reason: str
+    verifier_status: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("provider good-review schema changed")
+        self.compile()
+
+    @property
+    def reason_codes(self) -> tuple[str, ...]:
+        return ()
+
+    def compile(self) -> CreatorReviewAssessment:
+        return CreatorReviewAssessment(
+            schema_version=CreatorReviewAssessment.SCHEMA_VERSION,
+            severity=CreatorReviewSeverity.GOOD,
+            publication_eligibility=self.publication_eligibility,
+            issue_owner=ReviewIssueOwner.NONE,
+            reason_codes=(),
+            creator_reason=self.creator_reason,
+            verifier_status=self.verifier_status,
+        )
+
+    @classmethod
+    def from_assessment(
+        cls, value: CreatorReviewAssessment
+    ) -> "ProviderGoodCreatorReviewDraftV1":
+        if value.severity is not CreatorReviewSeverity.GOOD:
+            raise ContractValidationError("provider good-review source is not good")
+        return cls(
+            schema_version=cls.SCHEMA_VERSION,
+            review_kind=ProviderGoodReviewKind.GOOD,
+            publication_eligibility=value.publication_eligibility,
+            creator_reason=value.creator_reason,
+            verifier_status=value.verifier_status,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderConcernCreatorReviewDraftV1:
+    """Concern or critical review with only structurally valid combinations."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_concern_creator_review.v1"
+
+    schema_version: str
+    disposition: ProviderConcernReviewDisposition
+    issue_owner: ProviderDiagnosticIssueOwner
+    primary_reason_code: str
+    additional_reason_codes: tuple[str, ...]
+    creator_reason: str
+    verifier_status: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("provider concern-review schema changed")
+        self.compile()
+
+    @property
+    def reason_codes(self) -> tuple[str, ...]:
+        return (self.primary_reason_code, *self.additional_reason_codes)
+
+    def compile(self) -> CreatorReviewAssessment:
+        severity, eligibility = {
+            ProviderConcernReviewDisposition.CONCERN_ACCEPT_ALLOWED: (
+                CreatorReviewSeverity.CONCERN,
+                PublicationEligibility.ACCEPT_ALLOWED,
+            ),
+            ProviderConcernReviewDisposition.CONCERN_ACCEPT_BLOCKED: (
+                CreatorReviewSeverity.CONCERN,
+                PublicationEligibility.ACCEPT_BLOCKED,
+            ),
+            ProviderConcernReviewDisposition.CRITICAL_ACCEPT_ALLOWED: (
+                CreatorReviewSeverity.CRITICAL,
+                PublicationEligibility.ACCEPT_ALLOWED,
+            ),
+            ProviderConcernReviewDisposition.CRITICAL_ACCEPT_BLOCKED: (
+                CreatorReviewSeverity.CRITICAL,
+                PublicationEligibility.ACCEPT_BLOCKED,
+            ),
+        }[self.disposition]
+        return CreatorReviewAssessment(
+            schema_version=CreatorReviewAssessment.SCHEMA_VERSION,
+            severity=severity,
+            publication_eligibility=eligibility,
+            issue_owner=ReviewIssueOwner(self.issue_owner.value),
+            reason_codes=self.reason_codes,
+            creator_reason=self.creator_reason,
+            verifier_status=self.verifier_status,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderAcceptedTurnDecisionDraftV1:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_accepted_turn_decision.v1"
+
+    schema_version: str
+    decision_kind: ProviderAcceptedDecisionKind
+    story_segments: tuple[StoryRealizationSegmentV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV2
+    creator_review: ProviderGoodCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ]
+    event_record: ProviderEventRecordDraftV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("provider accepted-decision schema changed")
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderConcernTurnDecisionDraftV1:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_concern_turn_decision.v1"
+
+    schema_version: str
+    decision_kind: ProviderConcernDecisionKind
+    story_segments: tuple[StoryRealizationSegmentV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV2
+    creator_review: ProviderConcernCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ]
+    event_record: ProviderEventRecordDraftV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("provider concern-decision schema changed")
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRejectedTurnDecisionDraftV1:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_rejected_turn_decision.v1"
+
+    schema_version: str
+    semantic_status: ProviderRejectedSemanticStatus
+    primary_reason_code: str
+    additional_reason_codes: tuple[str, ...]
+    story_segments: tuple[StoryRealizationSegmentV1, ...]
+    protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("provider rejected-decision schema changed")
+
+    @property
+    def reason_codes(self) -> tuple[str, ...]:
+        return (self.primary_reason_code, *self.additional_reason_codes)
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderSceneSummaryDecisionDraftV1:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_scene_summary_decision.v1"
+
+    schema_version: str
+    decision_kind: ProviderSceneSummaryDecisionKind
+    scene_summary: ProviderSceneSummaryDraftV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("provider scene-summary decision schema changed")
+
+
+ProviderSemanticDecisionDraftV1 = Union[
+    ProviderAcceptedTurnDecisionDraftV1,
+    ProviderConcernTurnDecisionDraftV1,
+    ProviderRejectedTurnDecisionDraftV1,
+    ProviderSceneSummaryDecisionDraftV1,
+]
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV5:
+    """Active wire with mutually exclusive, schema-valid semantic branches."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v5"
+
+    schema_version: str
+    package_id: str
+    world_id: str
+    branch_id: str
+    decision: ProviderSemanticDecisionDraftV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous Semantic Validator provider schema changed"
+            )
+
+    @classmethod
+    def from_v4(
+        cls, value: ContinuousSemanticValidatorDraftV4
+    ) -> "ContinuousSemanticValidatorDraftV5":
+        common = {
+            "schema_version": cls.SCHEMA_VERSION,
+            "package_id": value.package_id,
+            "world_id": value.world_id,
+            "branch_id": value.branch_id,
+        }
+        if value.task_mode is ValidatorTaskMode.SCENE_SUMMARY:
+            if value.optional_scene_summary is None:
+                raise ContractValidationError("scene-summary source omitted its summary")
+            decision: ProviderSemanticDecisionDraftV1 = (
+                ProviderSceneSummaryDecisionDraftV1(
+                    schema_version=ProviderSceneSummaryDecisionDraftV1.SCHEMA_VERSION,
+                    decision_kind=ProviderSceneSummaryDecisionKind.SCENE_SUMMARY,
+                    scene_summary=value.optional_scene_summary,
+                )
+            )
+        elif value.semantic_status is ValidatorSemanticStatus.ACCEPTED:
+            if (
+                value.complete_final_sequence is None
+                or value.creator_review is None
+                or value.event_record is None
+            ):
+                raise ContractValidationError("accepted source is incomplete")
+            decision = ProviderAcceptedTurnDecisionDraftV1(
+                schema_version=ProviderAcceptedTurnDecisionDraftV1.SCHEMA_VERSION,
+                decision_kind=ProviderAcceptedDecisionKind.ACCEPTED,
+                story_segments=value.story_segments,
+                complete_final_sequence=value.complete_final_sequence,
+                creator_review=ProviderGoodCreatorReviewDraftV1.from_assessment(
+                    value.creator_review
+                ),
+                protected_semantic_adjudications=(
+                    value.protected_semantic_adjudications
+                ),
+                event_record=value.event_record,
+            )
+        else:
+            raise ContractValidationError(
+                "V4 conversion is implemented only for accepted and scene-summary fixtures"
+            )
+        return cls(**common, decision=decision)
+
+    def compile(
+        self, *, accepted_pairs: tuple[AcceptedTurnPairV1, ...] = ()
+    ) -> ContinuousSemanticValidatorResultV1:
+        decision = self.decision
+        if isinstance(decision, ProviderAcceptedTurnDecisionDraftV1):
+            draft = ContinuousSemanticValidatorDraftV4(
+                schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
+                package_id=self.package_id,
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                task_mode=ValidatorTaskMode.FINALIZE_TURN,
+                semantic_status=ValidatorSemanticStatus.ACCEPTED,
+                reason_codes=(),
+                story_segments=decision.story_segments,
+                complete_final_sequence=decision.complete_final_sequence,
+                creator_review=decision.creator_review.compile(),
+                protected_semantic_adjudications=(
+                    decision.protected_semantic_adjudications
+                ),
+                event_record=decision.event_record,
+                optional_scene_summary=None,
+            )
+        elif isinstance(decision, ProviderConcernTurnDecisionDraftV1):
+            review = decision.creator_review.compile()
+            draft = ContinuousSemanticValidatorDraftV4(
+                schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
+                package_id=self.package_id,
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                task_mode=ValidatorTaskMode.FINALIZE_TURN,
+                semantic_status=ValidatorSemanticStatus.CONCERN,
+                reason_codes=review.reason_codes,
+                story_segments=decision.story_segments,
+                complete_final_sequence=decision.complete_final_sequence,
+                creator_review=review,
+                protected_semantic_adjudications=(
+                    decision.protected_semantic_adjudications
+                ),
+                event_record=decision.event_record,
+                optional_scene_summary=None,
+            )
+        elif isinstance(decision, ProviderRejectedTurnDecisionDraftV1):
+            draft = ContinuousSemanticValidatorDraftV4(
+                schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
+                package_id=self.package_id,
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                task_mode=ValidatorTaskMode.FINALIZE_TURN,
+                semantic_status=ValidatorSemanticStatus(decision.semantic_status.value),
+                reason_codes=decision.reason_codes,
+                story_segments=decision.story_segments,
+                complete_final_sequence=None,
+                creator_review=None,
+                protected_semantic_adjudications=(
+                    decision.protected_semantic_adjudications
+                ),
+                event_record=None,
+                optional_scene_summary=None,
+            )
+        else:
+            draft = ContinuousSemanticValidatorDraftV4(
+                schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
+                package_id=self.package_id,
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                task_mode=ValidatorTaskMode.SCENE_SUMMARY,
+                semantic_status=ValidatorSemanticStatus.ACCEPTED,
+                reason_codes=(),
+                story_segments=(),
+                complete_final_sequence=None,
+                creator_review=None,
+                protected_semantic_adjudications=(),
+                event_record=None,
+                optional_scene_summary=decision.scene_summary,
+            )
+        return draft.compile(accepted_pairs=accepted_pairs)
+
+
 @dataclass(frozen=True, slots=True)
 class ContinuousSceneWriterDraftV1:
     """Active Writer wire: exact candidate prose and nothing semantic."""
@@ -986,7 +1351,7 @@ def continuous_deepseek_draft_json_schema() -> dict[str, Any]:
 
 
 def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
-    return _schema_for(ContinuousSemanticValidatorDraftV4)
+    return _schema_for(ContinuousSemanticValidatorDraftV5)
 
 
 def continuous_scene_writer_draft_json_schema() -> dict[str, Any]:
@@ -1127,7 +1492,7 @@ class CodexContinuousValidatorPort:
                 self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )
             draft = from_mapping(
-                ContinuousSemanticValidatorDraftV4,
+                ContinuousSemanticValidatorDraftV5,
                 raw_provider_json,
             )
             return ContinuousProviderResultV1(

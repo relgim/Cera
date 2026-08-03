@@ -41,6 +41,7 @@ from .contracts import (
 from .provider import (
     ContinuousSceneWriterDraftV1,
     ContinuousSemanticValidatorDraftV4,
+    ContinuousSemanticValidatorDraftV5,
     ProviderEventRecordDraftV1,
     ProviderFinalSequenceDraftV2,
     ProviderSceneSummaryDraftV1,
@@ -268,13 +269,13 @@ class ScriptedJob4FixtureRuntime:
             verifier_status="accepted",
         )
 
-    def _validator_value(self, _prompt: str) -> ContinuousSemanticValidatorDraftV4:
+    def _validator_value(self, _prompt: str) -> ContinuousSemanticValidatorDraftV5:
         harness = self._current()
         if harness._active_validator_label == "scene-1-validator-summary":
             accepted_ids = tuple(
                 value.accepted_turn_id for value in harness.accepted_pairs
             )
-            return ContinuousSemanticValidatorDraftV4(
+            return ContinuousSemanticValidatorDraftV5.from_v4(ContinuousSemanticValidatorDraftV4(
                 schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
                 package_id="package:scene_summary",
                 world_id=self.world_id,
@@ -297,7 +298,7 @@ class ScriptedJob4FixtureRuntime:
                     ending_state="The arrival scene ended with Ted's next choice open.",
                     transition_context="The next accepted prompt begins a later kitchen scene.",
                 ),
-            )
+            ))
 
         turn_id = harness._active_turn_id
         story = _STORIES[turn_id]
@@ -348,7 +349,7 @@ class ScriptedJob4FixtureRuntime:
             ),
             final_stop_state="The exchange awaits Ted's next choice.",
         )
-        return ContinuousSemanticValidatorDraftV4(
+        return ContinuousSemanticValidatorDraftV5.from_v4(ContinuousSemanticValidatorDraftV4(
             schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
             package_id=f"package:{turn_id}",
             world_id=self.world_id,
@@ -395,4 +396,4 @@ class ScriptedJob4FixtureRuntime:
                 protected_user_source_claim_keys=(),
             ),
             optional_scene_summary=None,
-        )
+        ))

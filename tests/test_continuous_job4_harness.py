@@ -63,6 +63,7 @@ from cera.continuous.provider import (
     ContinuousDeepSeekWireDraftV1,
     ContinuousSceneWriterDraftV1,
     ContinuousSemanticValidatorDraftV4,
+    ContinuousSemanticValidatorDraftV5,
     ContinuousSemanticValidatorResultV1,
     ContinuousValidatorDraftV1,
     ProviderEventRecordDraftV1,
@@ -2296,7 +2297,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         ),
                         last_five_exact_pairs=tuple(harness.accepted_pairs),
                     )
-                    return ContinuousSemanticValidatorDraftV4(
+                    return ContinuousSemanticValidatorDraftV5.from_v4(ContinuousSemanticValidatorDraftV4(
                         schema_version=(
                             ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION
                         ),
@@ -2323,7 +2324,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                             ending_state=summary.ending_state,
                             transition_context=summary.transition_context,
                         ),
-                    )
+                    ))
 
                 turn_id = harness._active_turn_id
                 story_text = (
@@ -2417,7 +2418,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     ),
                 )
                 event = result.event_record
-                return ContinuousSemanticValidatorDraftV4(
+                return ContinuousSemanticValidatorDraftV5.from_v4(ContinuousSemanticValidatorDraftV4(
                     schema_version=(
                         ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION
                     ),
@@ -2459,7 +2460,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         ),
                     ),
                     optional_scene_summary=None,
-                )
+                ))
 
             planner_handle = planner_session.ensure_session().provider_thread_id
             validator_handle = validator_session.ensure_session().provider_thread_id
