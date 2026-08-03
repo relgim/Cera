@@ -38,6 +38,8 @@ from .contracts import (
     ValidatorTaskMode,
 )
 from .provider import (
+    ContinuousDeepSeekNonOwningRelationKind,
+    ContinuousDeepSeekNonOwningRoleDraftV1,
     ContinuousDeepSeekStorySegmentDraftV1,
     ContinuousDeepSeekWireDraftV1,
     ContinuousValidatorDraftV1,
@@ -250,6 +252,8 @@ class ScriptedJob4FixtureRuntime:
     def _composer_value(self, _prompt: str) -> ContinuousDeepSeekWireDraftV1:
         turn_id = self._current()._active_turn_id
         story = _STORIES[turn_id]
+        roles = self._roles(turn_id)
+        owners = roles.assertion_owner_ids
         return ContinuousDeepSeekWireDraftV1(
             schema_version=ContinuousDeepSeekWireDraftV1.SCHEMA_VERSION,
             story_segments=(
@@ -260,7 +264,35 @@ class ScriptedJob4FixtureRuntime:
                     segment_key="segment_entire_story",
                     kind=StoryRealizationKind.ACTION,
                     text=story,
-                    roles=self._roles(turn_id),
+                    owner_ids=owners,
+                    non_owning_roles=tuple(
+                        ContinuousDeepSeekNonOwningRoleDraftV1(
+                            schema_version=(
+                                ContinuousDeepSeekNonOwningRoleDraftV1.SCHEMA_VERSION
+                            ),
+                            character_id=value,
+                            relation=relation,
+                        )
+                        for relation, values in (
+                            (
+                                ContinuousDeepSeekNonOwningRelationKind.AFFECTED,
+                                roles.affected_ids,
+                            ),
+                            (
+                                ContinuousDeepSeekNonOwningRelationKind.ADDRESSED,
+                                roles.addressed_ids,
+                            ),
+                            (
+                                ContinuousDeepSeekNonOwningRelationKind.OBSERVING,
+                                roles.observing_ids,
+                            ),
+                            (
+                                ContinuousDeepSeekNonOwningRelationKind.REFERENCED,
+                                roles.referenced_ids,
+                            ),
+                        )
+                        for value in values
+                    ),
                     protected_user_source_claim_keys=(),
                 ),
             ),

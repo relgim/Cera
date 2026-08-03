@@ -52,6 +52,8 @@ from cera.continuous.job4_transaction import (
 )
 from cera.continuous.contracts import CharacterRoleLedgerV1
 from cera.continuous.provider import (
+    ContinuousDeepSeekNonOwningRelationKind,
+    ContinuousDeepSeekNonOwningRoleDraftV1,
     ContinuousDeepSeekStorySegmentDraftV1,
     ContinuousDeepSeekWireDraftV1,
     ContinuousValidatorDraftV1,
@@ -2250,6 +2252,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     if turn_id == "turn-003"
                     else original.roles
                 )
+                owners = roles.assertion_owner_ids
                 return ContinuousDeepSeekWireDraftV1(
                     schema_version=ContinuousDeepSeekWireDraftV1.SCHEMA_VERSION,
                     story_segments=(
@@ -2260,7 +2263,35 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                             segment_key=original.segment_key,
                             kind=original.kind,
                             text=story,
-                            roles=roles,
+                            owner_ids=owners,
+                            non_owning_roles=tuple(
+                                ContinuousDeepSeekNonOwningRoleDraftV1(
+                                    schema_version=(
+                                        ContinuousDeepSeekNonOwningRoleDraftV1.SCHEMA_VERSION
+                                    ),
+                                    character_id=value,
+                                    relation=relation,
+                                )
+                                for relation, values in (
+                                    (
+                                        ContinuousDeepSeekNonOwningRelationKind.AFFECTED,
+                                        roles.affected_ids,
+                                    ),
+                                    (
+                                        ContinuousDeepSeekNonOwningRelationKind.ADDRESSED,
+                                        roles.addressed_ids,
+                                    ),
+                                    (
+                                        ContinuousDeepSeekNonOwningRelationKind.OBSERVING,
+                                        roles.observing_ids,
+                                    ),
+                                    (
+                                        ContinuousDeepSeekNonOwningRelationKind.REFERENCED,
+                                        roles.referenced_ids,
+                                    ),
+                                )
+                                for value in values
+                            ),
                             protected_user_source_claim_keys=(
                                 original.protected_user_source_claim_keys
                             ),

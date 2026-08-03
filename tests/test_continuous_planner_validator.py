@@ -372,9 +372,9 @@ class RichPlannerContractTests(unittest.TestCase):
             self.assertIn(field, validator_text)
         for field in (
             "story_segments",
-            "action_owner_ids",
-            "state_owner_ids",
-            "speaker_ids",
+            "owner_ids",
+            "non_owning_roles",
+            "relation",
             "protected_user_source_claim_keys",
         ):
             self.assertIn(field, composer_text)
@@ -389,37 +389,27 @@ class RichPlannerContractTests(unittest.TestCase):
                 "schema_version": ContinuousDeepSeekWireDraftV1.SCHEMA_VERSION,
                 "story_segments": [
                     {
-                        "schema_version": "cera.continuous_deepseek_story_segment_draft.v1",
+                        "schema_version": "cera.continuous_deepseek_story_segment_draft.v2",
                         "segment_key": "sakura_action",
                         "kind": "action",
                         "text": "Sakura studies the visitor without yielding the threshold.",
-                        "roles": {
-                            "schema_version": "cera.character_role_ledger.v1",
-                            "action_owner_ids": ["character:sakura_hanezawa"],
-                            "state_owner_ids": [],
-                            "speaker_ids": [],
-                            "affected_ids": [],
-                            "addressed_ids": [],
-                            "observing_ids": [],
-                            "referenced_ids": ["character:ted"],
-                        },
+                        "owner_ids": ["character:sakura_hanezawa"],
+                        "non_owning_roles": [
+                            {
+                                "schema_version": "cera.continuous_deepseek_non_owning_role.v1",
+                                "character_id": "character:ted",
+                                "relation": "referenced",
+                            }
+                        ],
                         "protected_user_source_claim_keys": [],
                     },
                     {
-                        "schema_version": "cera.continuous_deepseek_story_segment_draft.v1",
+                        "schema_version": "cera.continuous_deepseek_story_segment_draft.v2",
                         "segment_key": "ted_source",
                         "kind": "dialogue",
                         "text": "Hello, my name is Ted.",
-                        "roles": {
-                            "schema_version": "cera.character_role_ledger.v1",
-                            "action_owner_ids": [],
-                            "state_owner_ids": [],
-                            "speaker_ids": ["character:ted"],
-                            "affected_ids": [],
-                            "addressed_ids": [],
-                            "observing_ids": [],
-                            "referenced_ids": [],
-                        },
+                        "owner_ids": ["character:ted"],
+                        "non_owning_roles": [],
                         "protected_user_source_claim_keys": ["claim_source_ted"],
                     },
                 ],
@@ -452,20 +442,12 @@ class RichPlannerContractTests(unittest.TestCase):
                 "schema_version": ContinuousDeepSeekWireDraftV1.SCHEMA_VERSION,
                 "story_segments": [
                     {
-                        "schema_version": "cera.continuous_deepseek_story_segment_draft.v1",
+                        "schema_version": "cera.continuous_deepseek_story_segment_draft.v2",
                         "segment_key": "repeated_source",
                         "kind": "dialogue",
                         "text": "Hello. Hello.",
-                        "roles": {
-                            "schema_version": "cera.character_role_ledger.v1",
-                            "action_owner_ids": [],
-                            "state_owner_ids": [],
-                            "speaker_ids": ["character:ted"],
-                            "affected_ids": [],
-                            "addressed_ids": [],
-                            "observing_ids": [],
-                            "referenced_ids": [],
-                        },
+                        "owner_ids": ["character:ted"],
+                        "non_owning_roles": [],
                         "protected_user_source_claim_keys": ["claim_source_ted"],
                     }
                 ],

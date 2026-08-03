@@ -284,6 +284,21 @@ class CodexStoredThreadSessionTests(unittest.TestCase):
             "[TURN ACCEPTED]\nturn:001",
         )
 
+    def test_openai_backend_treats_archived_resume_rejection_as_not_resumable(self) -> None:
+        codex = _FakeCodex()
+
+        def archived_resume(_thread_id, **_kwargs):
+            raise RuntimeError("Invalid request: thread is archived")
+
+        codex.thread_resume = archived_resume
+        backend = OpenAICodexStoredThreadBackend(
+            codex=codex,
+            model="gpt-5.6-sol",
+            cwd=r"D:\AIChatBot\Cera\.tmp\stored-test",
+            base_instructions="stable CERA instructions",
+        )
+        self.assertFalse(backend.resume_stored_thread("native-child"))
+
     def test_openai_backend_rejects_unqualified_sdk_version(self) -> None:
         with self.assertRaisesRegex(StateConflictError, "compatibility"):
             OpenAICodexStoredThreadBackend(

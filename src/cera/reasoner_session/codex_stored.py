@@ -189,6 +189,7 @@ class OpenAICodexStoredThreadBackend:
                     "thread not found",
                     "does not exist",
                     "unknown thread",
+                    "archived",
                 )
             ):
                 return False

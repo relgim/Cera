@@ -58,8 +58,8 @@ from .prompting import (
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v7"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v8"
-CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v6"
-CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v6"
+CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v7"
+CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.continuous_deepseek_prompt.v7"
 
 
 @dataclass(frozen=True, slots=True)
@@ -274,16 +274,48 @@ def _derive_persistence_operations(
 
 
 @dataclass(frozen=True, slots=True)
-class ContinuousDeepSeekStorySegmentDraftV1:
-    """Provider-owned prose and advisory ownership without provider-made offsets."""
+class ContinuousDeepSeekNonOwningRoleDraftV1:
+    """One mutually exclusive non-owning relation in Composer wire output."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_story_segment_draft.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_non_owning_role.v1"
+
+    schema_version: str
+    character_id: str
+    relation: "ContinuousDeepSeekNonOwningRelationKind"
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous DeepSeek non-owning role schema changed"
+            )
+        fields = {
+            ContinuousDeepSeekNonOwningRelationKind.AFFECTED: "affected_ids",
+            ContinuousDeepSeekNonOwningRelationKind.ADDRESSED: "addressed_ids",
+            ContinuousDeepSeekNonOwningRelationKind.OBSERVING: "observing_ids",
+            ContinuousDeepSeekNonOwningRelationKind.REFERENCED: "referenced_ids",
+        }
+        CharacterRoleLedgerV1(**{fields[self.relation]: (self.character_id,)})
+
+
+class ContinuousDeepSeekNonOwningRelationKind(str, Enum):
+    AFFECTED = "affected"
+    ADDRESSED = "addressed"
+    OBSERVING = "observing"
+    REFERENCED = "referenced"
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousDeepSeekStorySegmentDraftV1:
+    """Provider-owned prose with minimal advisory assertion ownership."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_story_segment_draft.v2"
 
     schema_version: str
     segment_key: str
     kind: StoryRealizationKind
     text: str
-    roles: CharacterRoleLedgerV1
+    owner_ids: tuple[str, ...]
+    non_owning_roles: tuple[ContinuousDeepSeekNonOwningRoleDraftV1, ...]
     protected_user_source_claim_keys: tuple[str, ...]
 
     def __post_init__(self) -> None:
@@ -293,16 +325,71 @@ class ContinuousDeepSeekStorySegmentDraftV1:
             raise ContractValidationError("continuous DeepSeek segment key is invalid")
         if not self.text.strip() or self.text != self.text.strip() or len(self.text) > 64_000:
             raise ContractValidationError("continuous DeepSeek segment text is invalid")
-        StoryRealizationSegmentV1(
-            schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
-            segment_key=self.segment_key,
-            kind=self.kind,
-            output_start=0,
-            output_end=len(self.text),
-            exact_text=self.text,
-            roles=self.roles,
-            protected_user_source_claim_keys=self.protected_user_source_claim_keys,
-        )
+        non_owner_ids = tuple(value.character_id for value in self.non_owning_roles)
+        if len(self.owner_ids) != len(set(self.owner_ids)) or len(
+            non_owner_ids
+        ) != len(set(non_owner_ids)):
+            raise ContractValidationError("continuous DeepSeek segment identities are duplicated")
+        if set(self.owner_ids) & set(non_owner_ids):
+            raise ContractValidationError(
+                "continuous DeepSeek owner and non-owner identities overlap"
+            )
+        self.compiled_roles()
+
+    def compiled_roles(self) -> CharacterRoleLedgerV1:
+        non_owners: dict[str, tuple[str, ...]] = {
+            "affected_ids": tuple(
+                value.character_id
+                for value in self.non_owning_roles
+                if value.relation is ContinuousDeepSeekNonOwningRelationKind.AFFECTED
+            ),
+            "addressed_ids": tuple(
+                value.character_id
+                for value in self.non_owning_roles
+                if value.relation is ContinuousDeepSeekNonOwningRelationKind.ADDRESSED
+            ),
+            "observing_ids": tuple(
+                value.character_id
+                for value in self.non_owning_roles
+                if value.relation is ContinuousDeepSeekNonOwningRelationKind.OBSERVING
+            ),
+            "referenced_ids": tuple(
+                value.character_id
+                for value in self.non_owning_roles
+                if value.relation is ContinuousDeepSeekNonOwningRelationKind.REFERENCED
+            ),
+        }
+        if self.kind is StoryRealizationKind.ACTION:
+            if not self.owner_ids:
+                raise ContractValidationError("continuous DeepSeek action lacks an owner")
+            return CharacterRoleLedgerV1(
+                action_owner_ids=self.owner_ids,
+                **non_owners,
+            )
+        if self.kind is StoryRealizationKind.DIALOGUE:
+            if len(self.owner_ids) != 1:
+                raise ContractValidationError(
+                    "continuous DeepSeek dialogue requires one speaker"
+                )
+            return CharacterRoleLedgerV1(
+                speaker_ids=self.owner_ids,
+                **non_owners,
+            )
+        if self.kind in {
+            StoryRealizationKind.PRIVATE_STATE,
+            StoryRealizationKind.CONSENT_OR_DECISION,
+        }:
+            if not self.owner_ids:
+                raise ContractValidationError("continuous DeepSeek state lacks an owner")
+            return CharacterRoleLedgerV1(
+                state_owner_ids=self.owner_ids,
+                **non_owners,
+            )
+        if self.owner_ids or not self.non_owning_roles:
+            raise ContractValidationError(
+                "continuous DeepSeek narration requires only non-owning characters"
+            )
+        return CharacterRoleLedgerV1(**non_owners)
 
 
 @dataclass(frozen=True, slots=True)
@@ -340,7 +427,7 @@ class ContinuousDeepSeekProtectedRealizationDraftV1:
 class ContinuousDeepSeekWireDraftV1:
     """Strict provider DTO compiled into Python-owned story offsets."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_wire_draft.v6"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_wire_draft.v7"
 
     schema_version: str
     story_segments: tuple[ContinuousDeepSeekStorySegmentDraftV1, ...]
@@ -396,7 +483,7 @@ class ContinuousDeepSeekWireDraftV1:
                     output_start=cursor,
                     output_end=end,
                     exact_text=segment.text,
-                    roles=segment.roles,
+                    roles=segment.compiled_roles(),
                     protected_user_source_claim_keys=(
                         segment.protected_user_source_claim_keys
                     ),
@@ -436,7 +523,7 @@ class ContinuousDeepSeekWireDraftV1:
 class ContinuousDeepSeekDraftV1:
     """Python-compiled internal Composer result with authoritative exact offsets."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v6"
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_deepseek_draft.v7"
 
     schema_version: str
     story_text: str
@@ -688,7 +775,7 @@ class DeepSeekContinuousComposerPort:
         messages = (
             DeepSeekMessage(
                 "system",
-                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Return the final prose once, as exhaustive ordered story_segments. Python joins segment text with exactly two newline characters and derives all character offsets; never calculate or return offsets or duplicate the full story in another field. Every segment declares one closed roles ledger: action_owner_ids own actions; state_owner_ids own thoughts, emotions, bodily states, consent, and decisions; speaker_ids own dialogue; affected_ids, addressed_ids, observing_ids, and referenced_ids are non-owning. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. Any assertion owned by Ted must exactly equal one supplied ingress claim and cite that claim. An NPC action may affect or address Ted without inventing Ted's response. For each copied protected-user claim, bind its exact text and claim key to the one story segment containing it; Python rejects absent or ambiguous occurrences. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
+                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Return the final prose once, as exhaustive ordered story_segments. Python joins segment text with exactly two newline characters and derives all character offsets; never calculate or return offsets or duplicate the full story in another field. Keep every segment semantically local. Declare only owner_ids for the characters who own that segment's action, dialogue, private state, or decision. For every other involved character, return exactly one non_owning_roles entry choosing affected, addressed, observing, or referenced. Never assign one character more than one role in a segment. Python maps these values into the closed role ledger; the separate Validator independently adjudicates the exact relation. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. Any assertion owned by Ted must exactly equal one supplied ingress claim and cite that claim. An NPC action may affect or address Ted without inventing Ted's response. For each copied protected-user claim, bind its exact text and claim key to the one story segment containing it; Python rejects absent or ambiguous occurrences. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
             ),
             DeepSeekMessage(
                 "user",
