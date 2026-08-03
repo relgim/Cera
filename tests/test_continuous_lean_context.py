@@ -310,6 +310,20 @@ class ContinuousLeanContextTests(unittest.TestCase):
         )
         self.assertEqual(mode["context_mode"], "projection_assisted")
         self.assertEqual(mode["projection_reference_keys"], [key])
+        lean_prompt, _ = build_planner_turn_prompt(current_packet=lean)
+        prior_identity = json.loads(
+            lean_prompt.split(
+                "[PRIOR ACCEPTED CONTEXT IDENTITY SEMANTICS]\n", 1
+            )[1].split("\n\n[CURRENT AUTHORITATIVE TURN PACKET]", 1)[0]
+        )
+        self.assertEqual(
+            prior_identity["prior_reference_accepted_turn_id"],
+            receipt.accepted_turn_id,
+        )
+        self.assertEqual(
+            prior_identity["current_output_contract"],
+            {"accepted_turn_id": None, "provisional": True},
+        )
         with self.assertRaisesRegex(ValueError, "supplied together"):
             build_planner_turn_prompt(current_packet=scene_change)
         lean_text = json.dumps(lean.to_payload(), sort_keys=True)
@@ -753,7 +767,6 @@ class ContinuousLeanContextTests(unittest.TestCase):
         )
         compatible = replace(
             sequence(),
-            accepted_turn_id="turn:002",
             beats=(
                 replace(
                     sequence().beats[0],

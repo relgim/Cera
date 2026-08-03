@@ -691,7 +691,13 @@ class RichPlannerSequenceV1:
         for field in ("sequence_id", "world_id", "branch_id", "scene_id"):
             _identity(getattr(self, field), field)
         if self.accepted_turn_id is not None:
-            _identity(self.accepted_turn_id, "accepted_turn_id")
+            raise ContractValidationError(
+                "current Planner output accepted_turn_id must be null"
+            )
+        if self.provisional is not True:
+            raise ContractValidationError(
+                "current Planner output provisional must be true"
+            )
         if not self.selected_character_ids or not self.beats:
             raise ContractValidationError("rich Planner sequence requires cast and beats")
         for field in ("selected_character_ids", "omitted_character_ids"):

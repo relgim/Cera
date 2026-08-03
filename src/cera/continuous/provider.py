@@ -348,7 +348,10 @@ def _schema_for(annotation: Any, *, field_name: str | None = None, owner: type |
 
 
 def rich_planner_sequence_json_schema() -> dict[str, Any]:
-    return _schema_for(RichPlannerSequenceV1)
+    schema = _schema_for(RichPlannerSequenceV1)
+    schema["properties"]["provisional"] = {"type": "boolean", "const": True}
+    schema["properties"]["accepted_turn_id"] = {"type": "null", "const": None}
+    return schema
 
 
 def continuous_validator_draft_json_schema() -> dict[str, Any]:

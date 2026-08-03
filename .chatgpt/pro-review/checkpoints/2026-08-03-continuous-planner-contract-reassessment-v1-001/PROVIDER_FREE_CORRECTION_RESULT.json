@@ -1,0 +1,51 @@
+{
+  "schema_version": "cera.continuous_planner_current_output_correction_result.v1",
+  "task_id": "continuous-planner-current-output-null-contract-and-observed-evidence-v3",
+  "checkpoint_id": "2026-08-03-continuous-planner-contract-reassessment-v1-001",
+  "completed_at_utc": "2026-08-03T06:50:25.991462Z",
+  "status": "passed",
+  "provider_calls": {
+    "codex_family": 0,
+    "deepseek": 0,
+    "terra": 0
+  },
+  "current_output_contract": {
+    "provisional": true,
+    "accepted_turn_id": null,
+    "provider_schema_enforced": true,
+    "domain_decoder_enforced": true,
+    "finalize_defense_preserved": true,
+    "provider_output_normalization": false
+  },
+  "prior_identity_contract": {
+    "prior_reference_identity_remains_available": true,
+    "provider_prompt_has_explicit_prior_reference_label": true,
+    "provider_prompt_forbids_copy_to_current_output": true
+  },
+  "exact_cycle25_regression": {
+    "fixture_sha256": "82a5ce05cbd0cc3f21203f85e2df954e94560868ec8347a8aa731e7581567309",
+    "copied_prior_id_rejected": true,
+    "only_accepted_turn_id_changed_to_null": true,
+    "null_variant_domain_valid": true,
+    "null_variant_evidence_valid": true
+  },
+  "focused_gates": {
+    "modules": [
+      "tests.test_continuous_planner_current_output_contract",
+      "tests.test_continuous_planner_validator",
+      "tests.test_continuous_lean_context",
+      "tests.test_continuous_protected_ingress_regression"
+    ],
+    "tests_run": 36,
+    "tests_passed": 36,
+    "complete_repository_suite_runs": 0
+  },
+  "preserved_contracts": {
+    "prior_context_custody": true,
+    "role_validation": true,
+    "protected_user_validation": true,
+    "retries_added": false,
+    "fallbacks_added": false,
+    "hidden_repairs_added": false
+  }
+}

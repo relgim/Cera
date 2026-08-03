@@ -1,0 +1,102 @@
+{
+  "schema_version": "cera.stored_thread_performance_reassessment.v1",
+  "task_id": "continuous-stored-thread-input-cache-latency-reassessment-v1",
+  "source_run_id": "2026-08-02-continuous-lean-two-call-concept-v2-run-001",
+  "completed_at_utc": "2026-08-03T06:50:25.991462Z",
+  "status": "complete_provider_free",
+  "provider_calls": 0,
+  "observed_comparison": {
+    "variable_prompt_ratio": 0.17716636667523786,
+    "variable_prompt_reduction_fraction": 0.8228336333247621,
+    "input_token_ratio": 1.6193995645697261,
+    "input_token_increase_fraction": 0.6193995645697261,
+    "duration_ratio": 1.0379485526638252,
+    "duration_increase_fraction": 0.0379485526638252,
+    "thread_total_input_after_call_2": 45719,
+    "thread_total_input_equals_sum_of_operation_inputs": true,
+    "reported_cached_input_tokens_both_calls": 0
+  },
+  "input_component_accounting": [
+    {
+      "component": "variable_turn_submission",
+      "call_1_bytes": 31112,
+      "call_2_bytes": 5512,
+      "provider_token_allocation": "not separately reported"
+    },
+    {
+      "component": "stored_thread_base_instructions",
+      "call_1_bytes": 4903,
+      "call_2_bytes": 0,
+      "provider_token_allocation": "configured at thread creation; later model-context contribution not separately reported"
+    },
+    {
+      "component": "structured_output_schema",
+      "call_1_bytes": 3080,
+      "call_2_bytes": 3080,
+      "provider_token_allocation": "passed on each turn; not separately reported"
+    },
+    {
+      "component": "MCP tool declarations and app-server framing",
+      "call_1_bytes": null,
+      "call_2_bytes": null,
+      "provider_token_allocation": "unavailable; zero tool calls does not mean zero tool-definition context"
+    },
+    {
+      "component": "accepted-context injection between calls",
+      "call_1_bytes": 0,
+      "call_2_bytes": 438,
+      "provider_token_allocation": "stored-thread history; not separately reported"
+    },
+    {
+      "component": "prior stored conversation and provider-owned framing",
+      "call_1_bytes": 0,
+      "call_2_bytes": null,
+      "provider_token_allocation": "unavailable; Call 1 prompt and output are known source artifacts but provider serialization is not exposed"
+    },
+    {
+      "component": "observed model input",
+      "call_1_bytes": null,
+      "call_2_bytes": null,
+      "provider_token_allocation": "17454 tokens then 28265 tokens"
+    }
+  ],
+  "known": [
+    "Call 2 used the same physical stored thread as Call 1.",
+    "The Call 2 variable submission was 82.283 percent smaller than Call 1.",
+    "The worker passed the structured output schema on every turn and configured base instructions at stored-thread creation/resume.",
+    "SDK token notifications expose operation-local last usage and thread-cumulative total usage.",
+    "Call 2 operation-local input was 28265 tokens and its thread total was 45719, exactly 17454 plus 28265.",
+    "Both operations reported zero cached input tokens in both operation-local and thread-total telemetry.",
+    "Call 2 completed at the provider and failed only during local current-output validation."
+  ],
+  "inferred": [
+    "The 5512-byte variable submission was not the dominant determinant of Call 2 model input because stored conversation, base/schema/tool framing, or other provider-owned context also contributed.",
+    "Stored-thread continuation did not produce a measured latency improvement in this two-call observation.",
+    "The accumulated stored-thread context is the principal experimentally distinguishable difference that a fresh-thread compact control can remove."
+  ],
+  "unavailable": [
+    "Exact token attribution among base instructions, output schema, MCP declarations, provider system framing, prior user items, prior assistant items, and injected context.",
+    "Whether reasoning items from Call 1 were included in Call 2 model context.",
+    "Provider-side cache eligibility, cache-key construction, rejection reason, or route-level cache policy.",
+    "Server queue time, model compute time, and structured-decoding time as separate latency components.",
+    "Any causal relationship between caching and the observed latency."
+  ],
+  "cache_statement": "Zero cached tokens is authoritative as the SDK/app-server report for these two observed operations. It does not reveal why no cache was reported and does not prove that the route was ineligible, eligible-but-missed, or incapable of exposing another cache layer.",
+  "minimum_next_experiment": "Run one fresh physical thread with the exact compact validated continuation context, corrected current-output schema, unchanged Sol-medium route, and no prior provider conversation. This removes accumulated stored history while changing the fewest other material variables.",
+  "source_hashes": {
+    "call_1_receipt_sha256": "afa6fb9542ecd42ce2136a7331db9683e5c1742cdcc413f6d30a07a58351372f",
+    "call_2_receipt_sha256": "d54ddb148a7ccb12b34b956fcea7b9db4eb51c970ff00811ec844dcea7d79c7c",
+    "call_2_predispatch_sha256": "3485969cab138f0afbb19f3b5d693da171b8dfa4d26a9f3dd165f9f08d55825c",
+    "experiment_manifest_sha256": "af9855c201579985b84f55349583cbf23d8147d53940ea1543538129303d8a0c",
+    "two_call_result_sha256": "0038bdfe548d339c9972ac0e92d2847eed09d228cb66a3ad1e304d83835cf2da",
+    "failed_parsed_output_sha256": "82a5ce05cbd0cc3f21203f85e2df954e94560868ec8347a8aa731e7581567309",
+    "run_wrapper_sha256": "9d71f84ab299d11237d807ea64027c6013f0644b5b1c1683a02e4f604251a1aa",
+    "stored_turn_worker_sha256": "13f9845c09efcc7073b29afd2483d0cea460b6632d33333311a6bed3928aa7be",
+    "codex_observability_sha256": "79fe527bbc7326f0c0171daff9d40e9e28f01e709073f855ea18190706976227",
+    "stored_thread_backend_sha256": "439923220db5bfa0a8ffeaf7f182e4b7d0521e1b51bdfc6dcf56d221fb538ee9",
+    "installed_sdk_api_sha256": "d4218d1504aec251c98e0268ebd755d968f19afba034366e87c51ec1e1873483",
+    "installed_sdk_client_sha256": "76bdb1e63c62987c3530ea763e9655a06b308cbc4e18cb51958e85b6c23aec3b",
+    "base_instructions_sha256": "e207e1f547a6c345348f0de97519adba56fc45303298c9c164f3e05633ed3a5c",
+    "output_schema_sha256": "6932640a979f0de8fa0fb715b8449aeaa7870901a9169f8acbb5effa6bbbff35"
+  }
+}

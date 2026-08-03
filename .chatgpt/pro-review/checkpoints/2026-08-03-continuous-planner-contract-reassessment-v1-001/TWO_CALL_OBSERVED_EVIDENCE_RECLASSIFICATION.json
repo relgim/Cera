@@ -1,0 +1,64 @@
+{
+  "schema_version": "cera.two_call_observed_evidence_reclassification.v1",
+  "source_run_id": "2026-08-02-continuous-lean-two-call-concept-v2-run-001",
+  "source_result_sha256": "0038bdfe548d339c9972ac0e92d2847eed09d228cb66a3ad1e304d83835cf2da",
+  "observations": {
+    "same_physical_thread": {
+      "observed": true,
+      "provider_thread_sha256": "50287cd1fbfc637c7fdbf190fda8628fe419881a700eb7118f4a22413fea2847"
+    },
+    "omission_proof": {
+      "observed": true,
+      "character_summaries_empty": true,
+      "complete_call_1_output_absent": true,
+      "composer_material_absent": true,
+      "full_call_1_prompt_absent": true,
+      "one_time_base_instructions_absent": true,
+      "planner_stable_instructions_absent": true,
+      "validator_material_absent": true
+    },
+    "variable_prompt": {
+      "call_1_bytes": 31112,
+      "call_2_bytes": 5512,
+      "call_2_to_call_1_ratio": 0.17716636667523786,
+      "reduction_fraction": 0.8228336333247621
+    },
+    "provider_completion": {
+      "call_1_completed": true,
+      "call_2_completed": true,
+      "call_2_completed_output_retained_before_validation_failure": true
+    },
+    "call_1_telemetry": {
+      "provider_duration_ms": 90777.217,
+      "input_tokens": 17454,
+      "cached_input_tokens": 0,
+      "uncached_input_tokens": 17454,
+      "output_tokens": 2805,
+      "reasoning_tokens": 1389,
+      "thread_total_input_tokens": 17454,
+      "provider_attempt_count": 1,
+      "tool_call_count": 0,
+      "finish_status": "completed"
+    },
+    "call_2_telemetry": {
+      "provider_duration_ms": 94222.081,
+      "input_tokens": 28265,
+      "cached_input_tokens": 0,
+      "uncached_input_tokens": 28265,
+      "output_tokens": 2668,
+      "reasoning_tokens": 1825,
+      "thread_total_input_tokens": 45719,
+      "provider_attempt_count": 1,
+      "tool_call_count": 0,
+      "finish_status": "completed"
+    }
+  },
+  "strict_success_predicates": {
+    "call_1_strict_valid": true,
+    "call_2_strict_valid": false,
+    "call_2_failure_type": "ContractValidationError",
+    "call_2_failure_reason": "current output copied a prior accepted-context ID instead of returning null",
+    "two_call_concept_pass": false
+  },
+  "legacy_composite_result_note": "The legacy top-level false same-thread, omission, and reduction flags were short-circuited concept-pass fields after Call 2 validation failed. They are not evidence that the corresponding transport observations were false."
+}
