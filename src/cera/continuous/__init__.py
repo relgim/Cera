@@ -91,7 +91,10 @@ from .world import (
 from .packets import (
     ContinuousPlannerPacketKind,
     ContinuousPlannerTurnPacketV1,
+    LeanContinuationAuthorityV1,
+    LeanContinuationSourceClassification,
     LeanSceneChangeContextV1,
+    build_accepted_lean_continuation_authority,
     build_continuous_planner_turn_packet,
 )
 from .shadow_ingress import (
@@ -205,7 +208,10 @@ __all__ = [
     "ContinuousThreadLineageLedger",
     "ContinuousPlannerPacketKind",
     "ContinuousPlannerTurnPacketV1",
+    "LeanContinuationAuthorityV1",
+    "LeanContinuationSourceClassification",
     "LeanSceneChangeContextV1",
+    "build_accepted_lean_continuation_authority",
     "build_continuous_planner_turn_packet",
     "ContinuousShadowIngressResultV1",
     "ContinuousSillyTavernShadowRequestBridge",

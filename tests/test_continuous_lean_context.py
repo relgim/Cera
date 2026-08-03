@@ -26,6 +26,7 @@ from cera.continuous.runtime import (
 from cera.continuous.packets import (
     ContinuousPlannerPacketKind,
     ContinuousPlannerTurnPacketV1,
+    build_accepted_lean_continuation_authority,
     build_continuous_planner_turn_packet,
 )
 from cera.continuous.prompting import (
@@ -238,9 +239,15 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 current_provider_thread_sha256=receipt.provider_thread_sha256,
                 current_accepted_ancestry_sha256=receipt.accepted_ancestry_sha256,
             )
+        lean_authority = build_accepted_lean_continuation_authority(
+            receipt=receipt,
+            references=references,
+            final_sequence=accepted_sequence(),
+        )
         continuation_common = {
             **common,
             "request_local_evidence_bindings": registry.prompt_manifest(),
+            "lean_continuation_authority": lean_authority,
         }
         lean = build_continuous_planner_turn_packet(
             **continuation_common,
@@ -251,6 +258,30 @@ class ContinuousLeanContextTests(unittest.TestCase):
             projection_facts=(),
             scene_change_envelope_sha256=None,
         )
+        self.assertEqual(
+            lean.to_payload()["lean_continuation_authority"]["active_cast_ids"],
+            ("character:sakura_hanezawa",),
+        )
+        self.assertEqual(
+            lean.to_payload()["lean_continuation_authority"][
+                "public_continuation_anchor"
+            ],
+            accepted_sequence().final_stop_state,
+        )
+        self.assertNotIn(
+            "character:ted",
+            lean.to_payload()["lean_continuation_authority"]["active_cast_ids"],
+        )
+        with self.assertRaisesRegex(
+            ContractValidationError, "lean continuation authority hash changed"
+        ):
+            replace(
+                lean_authority,
+                active_cast_ids=(
+                    *lean_authority.active_cast_ids,
+                    "character:hana_hanezawa",
+                ),
+            )
         key = references[0].reference_key
         projection = build_continuous_planner_turn_packet(
             **{**continuation_common, "context_mode": "projection_assisted"},
@@ -1180,7 +1211,7 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 source_units=(),
             )
             mechanical = registry.allocate_mechanical_connective_allowance()
-            head, bindings, projections = (
+            head, bindings, projections, lean_authority = (
                 child_runtime._bind_stable_accepted_context(
                     request=next_request,
                     registry=registry,
@@ -1219,6 +1250,7 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 stable_accepted_reference_keys=tuple(
                     value["binding_key"] for value in bindings
                 ),
+                lean_continuation_authority=lean_authority,
                 projection_assisted_trigger=None,
                 projection_reference_keys=(),
                 projection_facts=(),

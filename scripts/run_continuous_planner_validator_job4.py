@@ -73,7 +73,10 @@ from cera.continuous.prompting import (
     PLANNER_STABLE_INSTRUCTIONS,
     VALIDATOR_STABLE_INSTRUCTIONS,
 )
-from cera.continuous.packets import build_continuous_planner_turn_packet
+from cera.continuous.packets import (
+    build_accepted_lean_continuation_authority,
+    build_continuous_planner_turn_packet,
+)
 from cera.continuous.provider import (
     CodexContinuousPlannerPort,
     CodexContinuousValidatorPort,
@@ -1455,6 +1458,11 @@ class JobHarness:
                     child_head.accepted_ancestry_sha256
                 ),
             )
+        lean_authority = build_accepted_lean_continuation_authority(
+            receipt=child_head,
+            references=child_references,
+            final_sequence=self.accepted_pairs[-1].complete_final_sequence,
+        )
         child_packet = build_continuous_planner_turn_packet(
             world_id=self.world_id,
             branch_id=child_branch,
@@ -1479,6 +1487,7 @@ class JobHarness:
             character_summary_bindings=(),
             compact_accepted_head_receipt=child_head,
             stable_accepted_reference_keys=child_head.stable_reference_keys,
+            lean_continuation_authority=lean_authority,
             projection_assisted_trigger=None,
             projection_reference_keys=(),
             projection_facts=(),

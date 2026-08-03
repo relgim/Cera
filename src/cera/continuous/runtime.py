@@ -45,7 +45,12 @@ from .prompting import (
     prompt_text_usage,
     PLANNER_STABLE_INSTRUCTIONS,
 )
-from .packets import LeanSceneChangeContextV1, build_continuous_planner_turn_packet
+from .packets import (
+    LeanContinuationAuthorityV1,
+    LeanSceneChangeContextV1,
+    build_accepted_lean_continuation_authority,
+    build_continuous_planner_turn_packet,
+)
 from .record_policy import PERSISTENCE_POLICY_SHA256
 from .sessions import (
     ContinuousBranchForkReceiptV2,
@@ -1386,6 +1391,7 @@ class ContinuousShadowTurnCoordinator:
             compact_accepted_head,
             stable_reference_bindings,
             projection_assisted_payloads,
+            lean_continuation_authority,
         ) = self._bind_stable_accepted_context(
             request=request,
             registry=evidence_registry,
@@ -1438,6 +1444,7 @@ class ContinuousShadowTurnCoordinator:
             character_summary_bindings=tuple(summary_bindings),
             compact_accepted_head_receipt=compact_accepted_head,
             stable_accepted_reference_keys=stable_reference_keys,
+            lean_continuation_authority=lean_continuation_authority,
             projection_assisted_trigger=request.projection_assisted_trigger,
             projection_reference_keys=request.projection_reference_keys,
             projection_facts=projection_assisted_payloads,
@@ -1854,8 +1861,9 @@ class ContinuousShadowTurnCoordinator:
         CompactAcceptedHeadReceiptV1 | None,
         tuple[dict[str, Any], ...],
         tuple[dict[str, Any], ...],
+        LeanContinuationAuthorityV1 | None,
     ]:
-        """Resolve stable keys and a compact head receipt without fact replay."""
+        """Resolve stable keys and compact, value-bounded continuation authority."""
 
         snapshot = self.planner_session.snapshot()
         accepted_ids = snapshot.accepted_turn_ids
@@ -1864,7 +1872,7 @@ class ContinuousShadowTurnCoordinator:
                 raise StateConflictError(
                     "projection-assisted mode has no accepted context"
                 )
-            return None, (), ()
+            return None, (), (), None
         accepted_turn_id = accepted_ids[-1]
         initialization = snapshot.initialization_receipt
         reconstructed_head = (
@@ -2066,7 +2074,17 @@ class ContinuousShadowTurnCoordinator:
             raise StateConflictError(
                 "projection-assisted selection is incomplete"
             )
-        return receipt, tuple(bindings), tuple(projection_payloads)
+        lean_authority = build_accepted_lean_continuation_authority(
+            receipt=receipt,
+            references=references,
+            final_sequence=accepted_envelope.complete_final_sequence,
+        )
+        return (
+            receipt,
+            tuple(bindings),
+            tuple(projection_payloads),
+            lean_authority,
+        )
 
     def apply_creator_action(
         self,

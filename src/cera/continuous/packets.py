@@ -15,7 +15,11 @@ from cera.serialization import (
     to_primitive,
 )
 
-from .evidence import CompactAcceptedHeadReceiptV1
+from .contracts import FinalInformationVisibility, FinalSequenceV1
+from .evidence import (
+    CompactAcceptedHeadReceiptV1,
+    StableAcceptedContextReferenceV1,
+)
 
 
 class ContinuousPlannerPacketKind(StrEnum):
@@ -23,6 +27,177 @@ class ContinuousPlannerPacketKind(StrEnum):
     LEAN_CONTINUATION = "lean_continuous_continuation"
     PROJECTION_ASSISTED = "projection_assisted_continuation"
     SCENE_CHANGE = "scene_change"
+
+
+class LeanContinuationSourceClassification(StrEnum):
+    ACCEPTED_FINAL_SEQUENCE = "accepted_final_sequence_authority"
+    STRICT_VALIDATED_PROVISIONAL_PLAN = (
+        "strict_validated_provisional_plan_context"
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class LeanContinuationAuthorityV1:
+    """Small prior-turn authority; never a replay of the prior plan or prose."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.lean_continuation_authority.v1"
+
+    schema_version: str
+    source_classification: LeanContinuationSourceClassification
+    source_turn_id: str
+    source_sequence_sha256: str
+    active_cast_ids: tuple[str, ...]
+    public_continuation_anchor: str | None
+    active_cast_reference_keys: tuple[str, ...]
+    continuation_anchor_reference_key: str | None
+    authority_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("lean continuation authority schema changed")
+        if not isinstance(self.source_classification, LeanContinuationSourceClassification):
+            raise ContractValidationError(
+                "lean continuation source classification is invalid"
+            )
+        if not isinstance(self.source_turn_id, str) or not self.source_turn_id.strip():
+            raise ContractValidationError("lean continuation source turn is invalid")
+        if not re_is_sha256(self.source_sequence_sha256):
+            raise ContractValidationError("lean continuation source hash is invalid")
+        if (
+            not self.active_cast_ids
+            or len(self.active_cast_ids) != len(set(self.active_cast_ids))
+            or "character:ted" in self.active_cast_ids
+            or any(
+                not isinstance(value, str)
+                or not value.startswith("character:")
+                or not value.strip()
+                for value in self.active_cast_ids
+            )
+        ):
+            raise ContractValidationError("lean continuation active cast is invalid")
+        if (
+            not self.active_cast_reference_keys
+            or len(self.active_cast_reference_keys)
+            != len(set(self.active_cast_reference_keys))
+            or any(
+                not value.startswith("binding_accepted_ref_")
+                for value in self.active_cast_reference_keys
+            )
+        ):
+            raise ContractValidationError(
+                "lean continuation active-cast references are invalid"
+            )
+        if self.public_continuation_anchor is None:
+            if self.continuation_anchor_reference_key is not None:
+                raise ContractValidationError(
+                    "lean continuation anchor key lacks a public anchor"
+                )
+        elif (
+            not isinstance(self.public_continuation_anchor, str)
+            or not self.public_continuation_anchor.strip()
+            or len(self.public_continuation_anchor) > 4_000
+            or self.continuation_anchor_reference_key is None
+            or not self.continuation_anchor_reference_key.startswith(
+                "binding_accepted_ref_"
+            )
+        ):
+            raise ContractValidationError("lean continuation public anchor is invalid")
+        expected = canonical_sha256(self._unsigned_payload())
+        if self.authority_sha256 != expected:
+            raise ContractValidationError("lean continuation authority hash changed")
+
+    def _unsigned_payload(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.SCHEMA_VERSION,
+            "source_classification": self.source_classification.value,
+            "source_turn_id": self.source_turn_id,
+            "source_sequence_sha256": self.source_sequence_sha256,
+            "active_cast_ids": self.active_cast_ids,
+            "public_continuation_anchor": self.public_continuation_anchor,
+            "active_cast_reference_keys": self.active_cast_reference_keys,
+            "continuation_anchor_reference_key": (
+                self.continuation_anchor_reference_key
+            ),
+        }
+
+    def to_payload(self) -> dict[str, Any]:
+        return {**self._unsigned_payload(), "authority_sha256": self.authority_sha256}
+
+
+def build_accepted_lean_continuation_authority(
+    *,
+    receipt: CompactAcceptedHeadReceiptV1,
+    references: tuple[StableAcceptedContextReferenceV1, ...],
+    final_sequence: FinalSequenceV1,
+) -> LeanContinuationAuthorityV1:
+    """Derive active cast and an optional public stop from accepted exact facts."""
+
+    if (
+        receipt.accepted_turn_id != final_sequence.accepted_turn_id
+        or tuple(value.reference_key for value in references)
+        != receipt.stable_reference_keys
+    ):
+        raise ContractValidationError(
+            "lean continuation accepted source custody changed"
+        )
+    active_cast_ids = tuple(
+        sorted(
+            {
+                identity
+                for reference in references
+                for identity in reference.roles.involved_ids
+                if identity != "character:ted"
+            }
+        )
+    )
+    active_cast_reference_keys = tuple(
+        reference.reference_key
+        for reference in references
+        if set(reference.roles.involved_ids).intersection(active_cast_ids)
+    )
+    last_item = final_sequence.items[-1]
+    anchor_reference = next(
+        (
+            reference
+            for reference in references
+            if reference.source_item_key == last_item.item_key
+            and reference.field_name == "resulting_state"
+            and reference.field_value == final_sequence.final_stop_state
+            and reference.visibility is FinalInformationVisibility.PUBLIC
+        ),
+        None,
+    )
+    unsigned = {
+        "schema_version": LeanContinuationAuthorityV1.SCHEMA_VERSION,
+        "source_classification": (
+            LeanContinuationSourceClassification.ACCEPTED_FINAL_SEQUENCE.value
+        ),
+        "source_turn_id": final_sequence.accepted_turn_id,
+        "source_sequence_sha256": final_sequence.sequence_sha256,
+        "active_cast_ids": active_cast_ids,
+        "public_continuation_anchor": (
+            anchor_reference.field_value if anchor_reference is not None else None
+        ),
+        "active_cast_reference_keys": active_cast_reference_keys,
+        "continuation_anchor_reference_key": (
+            anchor_reference.reference_key if anchor_reference is not None else None
+        ),
+    }
+    return LeanContinuationAuthorityV1(
+        schema_version=LeanContinuationAuthorityV1.SCHEMA_VERSION,
+        source_classification=(
+            LeanContinuationSourceClassification.ACCEPTED_FINAL_SEQUENCE
+        ),
+        source_turn_id=final_sequence.accepted_turn_id,
+        source_sequence_sha256=final_sequence.sequence_sha256,
+        active_cast_ids=active_cast_ids,
+        public_continuation_anchor=unsigned["public_continuation_anchor"],
+        active_cast_reference_keys=active_cast_reference_keys,
+        continuation_anchor_reference_key=unsigned[
+            "continuation_anchor_reference_key"
+        ],
+        authority_sha256=canonical_sha256(unsigned),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,17 +287,23 @@ class ContinuousPlannerTurnPacketV1:
     ] = {
         ContinuousPlannerPacketKind.FIRST_TURN_INITIALIZATION: COMMON_FIELDS,
         ContinuousPlannerPacketKind.LEAN_CONTINUATION: COMMON_FIELDS
-        | {"compact_accepted_head_receipt", "stable_accepted_reference_keys"},
+        | {
+            "compact_accepted_head_receipt",
+            "stable_accepted_reference_keys",
+            "lean_continuation_authority",
+        },
         ContinuousPlannerPacketKind.PROJECTION_ASSISTED: COMMON_FIELDS
         | {
             "compact_accepted_head_receipt",
             "stable_accepted_reference_keys",
+            "lean_continuation_authority",
             "projection_assisted",
         },
         ContinuousPlannerPacketKind.SCENE_CHANGE: COMMON_FIELDS
         | {
             "compact_accepted_head_receipt",
             "stable_accepted_reference_keys",
+            "lean_continuation_authority",
             "scene_change_envelope_sha256",
         },
     }
@@ -228,6 +409,7 @@ class ContinuousPlannerTurnPacketV1:
     character_summary_bindings: tuple[Mapping[str, Any], ...]
     compact_accepted_head_receipt: CompactAcceptedHeadReceiptV1 | None = None
     stable_accepted_reference_keys: tuple[str, ...] = ()
+    lean_continuation_authority: LeanContinuationAuthorityV1 | None = None
     projection_assisted_trigger: str | None = None
     projection_reference_keys: tuple[str, ...] = ()
     projection_facts: tuple[Mapping[str, Any], ...] = ()
@@ -462,6 +644,7 @@ class ContinuousPlannerTurnPacketV1:
 
     def _validate_kind(self) -> None:
         has_head = self.compact_accepted_head_receipt is not None
+        has_lean_authority = self.lean_continuation_authority is not None
         has_projection = bool(
             self.projection_assisted_trigger
             or self.projection_reference_keys
@@ -481,6 +664,25 @@ class ContinuousPlannerTurnPacketV1:
             )
         ):
             raise ContractValidationError("continuous Planner compact head scope changed")
+        if has_lean_authority:
+            authority = self.lean_continuation_authority
+            if (
+                not has_head
+                or authority is None
+                or authority.source_turn_id
+                != self.compact_accepted_head_receipt.accepted_turn_id
+                or not set(authority.active_cast_reference_keys).issubset(
+                    self.stable_accepted_reference_keys
+                )
+                or (
+                    authority.continuation_anchor_reference_key is not None
+                    and authority.continuation_anchor_reference_key
+                    not in self.stable_accepted_reference_keys
+                )
+            ):
+                raise ContractValidationError(
+                    "continuous Planner lean authority custody changed"
+                )
         stable_manifest_keys = {
             value.get("binding_key")
             for value in self.request_local_evidence_bindings
@@ -521,6 +723,7 @@ class ContinuousPlannerTurnPacketV1:
             if (
                 self.context_mode != "lean_continuous"
                 or has_head
+                or has_lean_authority
                 or self.stable_accepted_reference_keys
                 or has_projection
                 or has_scene_change
@@ -530,6 +733,7 @@ class ContinuousPlannerTurnPacketV1:
             if (
                 self.context_mode != "lean_continuous"
                 or not has_head
+                or not has_lean_authority
                 or not self.stable_accepted_reference_keys
                 or has_projection
                 or has_scene_change
@@ -539,6 +743,7 @@ class ContinuousPlannerTurnPacketV1:
             fact_keys = tuple(value.get("reference_key") for value in self.projection_facts)
             if (
                 not has_head
+                or not has_lean_authority
                 or self.context_mode != "projection_assisted"
                 or not isinstance(self.projection_assisted_trigger, str)
                 or not self.projection_assisted_trigger.strip()
@@ -559,6 +764,8 @@ class ContinuousPlannerTurnPacketV1:
                 raise ContractValidationError("Scene Change packet contract changed")
             if has_head != bool(self.stable_accepted_reference_keys):
                 raise ContractValidationError("Scene Change accepted head is incomplete")
+            if has_head != has_lean_authority:
+                raise ContractValidationError("Scene Change lean authority is incomplete")
         else:
             raise ContractValidationError("continuous Planner packet kind is invalid")
 
@@ -605,6 +812,11 @@ class ContinuousPlannerTurnPacketV1:
             payload["stable_accepted_reference_keys"] = (
                 self.stable_accepted_reference_keys
             )
+            payload["lean_continuation_authority"] = (
+                self.lean_continuation_authority.to_payload()
+                if self.lean_continuation_authority is not None
+                else None
+            )
         if self.packet_kind is ContinuousPlannerPacketKind.PROJECTION_ASSISTED:
             payload["projection_assisted"] = {
                 "trigger": self.projection_assisted_trigger,
@@ -649,6 +861,7 @@ def build_continuous_planner_turn_packet(
     projection_reference_keys: tuple[str, ...],
     projection_facts: tuple[Mapping[str, Any], ...],
     scene_change_envelope_sha256: str | None,
+    lean_continuation_authority: LeanContinuationAuthorityV1 | None = None,
 ) -> ContinuousPlannerTurnPacketV1:
     if scene_change_envelope_sha256 is not None:
         kind = ContinuousPlannerPacketKind.SCENE_CHANGE
@@ -678,6 +891,7 @@ def build_continuous_planner_turn_packet(
         character_summary_bindings=character_summary_bindings,
         compact_accepted_head_receipt=compact_accepted_head_receipt,
         stable_accepted_reference_keys=stable_accepted_reference_keys,
+        lean_continuation_authority=lean_continuation_authority,
         projection_assisted_trigger=projection_assisted_trigger,
         projection_reference_keys=projection_reference_keys,
         projection_facts=projection_facts,
