@@ -1,0 +1,48 @@
+{
+  "schema_version": "cera.runtime_model_v3_validator_schema_stage0.v1",
+  "checkpoint_id": "2026-08-03-cera-runtime-model-v3-validator-schema-surface-v1-001",
+  "queue_revision": "0047",
+  "provider_calls": {
+    "codex_family": 0,
+    "deepseek_family": 0,
+    "total": 0
+  },
+  "source": {
+    "git_sha": "3b9b07c935ee8c8b5c08629cd570bb520135a1d5",
+    "tree_sha": "20a1fcf75c8216366d42c88d9d4cb12c4b12b71f",
+    "tracked_status": ""
+  },
+  "accepted_stage4a_source": {
+    "git_sha": "4a691edd4748130963171d4f8cc089b17ca130e5",
+    "tree_sha": "67fecb2b510d0dade84237eb0527432453d2dfe0"
+  },
+  "unaccepted_intermediate_commits": [
+    "4d72e2e4d59ca4f930332fd667eb79d3b2dcd19a",
+    "3b9b07c935ee8c8b5c08629cd570bb520135a1d5"
+  ],
+  "terminal_evidence": {
+    "result_sha256": "4aecff39f19585636885b58e3155141cd3f665f428fb73bafede69449795a9dd",
+    "report_sha256": "6abf8c3242475fbee9db949a1c0df4f9d3afad91e16477236b31b526d891ebf8",
+    "failed_attempt_sha256": "96377fc80079d6d6dc590060524c4c22013058e605d056a51b7705c1fd85bfdb",
+    "raw_provider_result_sha256": "53d08fffb523da172a5e4e097a50c4b866f1ed64e711c483baaa8849a827a96e"
+  },
+  "writer_binding": {
+    "stage4b_result_sha256": "1a18a47eb4a9a6ad523f8d651d6450aa637adf39f9a9a5d207dfd70e1ad52abd",
+    "first_attempt_passes": 5,
+    "eventual_passes": 5,
+    "provider_py_blob_at_stage4a_and_current": "c71de8516f64e668abbff6d4cfe8a07640d551df",
+    "deepseek_py_blob_at_stage4a_and_current": "37df1e53829e45ced40fc49afe1c2a741930e623",
+    "eligible_for_reuse": true
+  },
+  "protected_effects": {
+    "active_runtime_profile_sha256": "f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801",
+    "active_runtime_valid": true,
+    "production_database_bytes_sha256": "bfbf23eb2fa7199fad38e8fb3f1ae0d6b547467f17ed68e84b7115275a2fc555",
+    "production_database_integrity": "ok",
+    "production_database_foreign_key_findings": 0,
+    "paused_v4_receipt_sha256": "167dbe41308d5cd576f4c4dc6e6e3cfd4ffb59f1f93127bc51a1c917f81589fd",
+    "installed_sillytavern_capability": "structurally_unreferenced_no_write",
+    "active_route_capability": "read_only_status_only"
+  },
+  "status": "design_frozen_before_source_edit"
+}

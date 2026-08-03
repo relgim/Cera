@@ -84,7 +84,7 @@ from cera.continuous.provider import (
     CodexContinuousReaderPort,
     CodexContinuousValidatorPort,
     DeepSeekContinuousComposerPort,
-    ContinuousSemanticValidatorDraftV1,
+    ContinuousSemanticValidatorDraftV2,
     continuous_deepseek_route,
     continuous_planner_route,
     continuous_validator_route,
@@ -490,7 +490,7 @@ def compatibility(
         output_schema_version=(
             RichPlannerSequenceV1.SCHEMA_VERSION
             if role is ContinuousSessionRole.PLANNER
-            else ContinuousSemanticValidatorDraftV1.SCHEMA_VERSION
+            else ContinuousSemanticValidatorDraftV2.SCHEMA_VERSION
         ),
         world_directory_identity_sha256=world.world_identity_sha256(
             world_id, branch_id

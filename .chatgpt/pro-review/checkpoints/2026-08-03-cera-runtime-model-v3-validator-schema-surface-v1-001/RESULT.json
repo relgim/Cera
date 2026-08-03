@@ -1,0 +1,112 @@
+{
+  "schema_version": "cera.runtime_model_v3_validator_schema_surface_result.v1",
+  "checkpoint_id": "2026-08-03-cera-runtime-model-v3-validator-schema-surface-v1-001",
+  "queue_revision": "0047",
+  "completed_at_utc": "2026-08-03T21:35:43.5110488Z",
+  "status": "passed_provider_free_checkpoint",
+  "provider_calls": {
+    "codex_family": 0,
+    "deepseek_family": 0,
+    "total": 0
+  },
+  "source_custody": {
+    "starting_git_sha": "3b9b07c935ee8c8b5c08629cd570bb520135a1d5",
+    "starting_tree_sha": "20a1fcf75c8216366d42c88d9d4cb12c4b12b71f",
+    "accepted_stage4a_git_sha": "4a691edd4748130963171d4f8cc089b17ca130e5",
+    "accepted_stage4a_tree_sha": "67fecb2b510d0dade84237eb0527432453d2dfe0",
+    "source_candidate_tree_sha": "a96578564e8564281e87fad2b612e3a2706438c9",
+    "implementation_diff_sha256": "74d18a3fb63971e16ec86fe021720372b70a7ddfea3fec59c81ed3624b8f5ab9",
+    "implementation_diff_bytes": 38685,
+    "implementation_diff_paths": [
+      "docs/contracts/SCHEMA_CATALOG.md",
+      "scripts/run_continuous_planner_validator_job4.py",
+      "src/cera/continuous/__init__.py",
+      "src/cera/continuous/contracts.py",
+      "src/cera/continuous/prompting.py",
+      "src/cera/continuous/provider.py",
+      "src/cera/continuous/scripted_job4.py",
+      "tests/test_cera_runtime_model_v3.py",
+      "tests/test_continuous_job4_harness.py",
+      "tests/test_continuous_validator_schema_surface.py"
+    ],
+    "unaccepted_intermediate_commits": [
+      "4d72e2e4d59ca4f930332fd667eb79d3b2dcd19a",
+      "3b9b07c935ee8c8b5c08629cd570bb520135a1d5"
+    ],
+    "intermediate_disposition": "preserved_in_history_superseded_not_accepted_independently"
+  },
+  "closed_contract": {
+    "authoritative_python_type": "FinalFieldName",
+    "accepted_values": [
+      "realized_event",
+      "valid_deepseek_additions",
+      "knowledge_changes",
+      "material_changes",
+      "resulting_state"
+    ],
+    "arbitrary_values_rejected": [
+      "teacup_position",
+      "tea_question",
+      "future_state"
+    ],
+    "python_validation_remains_closed": true,
+    "provider_neutral_schema_exact_enum": true,
+    "openai_projected_schema_exact_enum": true,
+    "adjacent_active_surface_audit": "no_other_finite_string_vocabulary_exposed_open"
+  },
+  "compatibility": {
+    "active_schema_version": "cera.continuous_semantic_validator_draft.v2",
+    "historical_schema_reader": "cera.continuous_semantic_validator_draft.v1",
+    "active_adapter_version": "cera.continuous_validator_adapter.v10",
+    "active_prompt_version": "cera.continuous_validator_prompt.v13",
+    "active_schema_sha256": "38b0ec997c22e1a7c829f948ceb546f86516d8acafe1bdba0b945cbb997939c6",
+    "openai_projected_schema_sha256": "38b0ec997c22e1a7c829f948ceb546f86516d8acafe1bdba0b945cbb997939c6",
+    "openai_projection_strict": true,
+    "historical_reader_compatible": true
+  },
+  "writer_binding": {
+    "writer_schema_sha256": "dec9386e5a4b0fd3c9c9f48cd4826a14daf17009970c2be0d5bfa336ba8a717d",
+    "stage4b_result_sha256": "1a18a47eb4a9a6ad523f8d651d6450aa637adf39f9a9a5d207dfd70e1ad52abd",
+    "original_first_attempt_passes": 5,
+    "writer_dto_prompt_adapter_route_transport_unchanged": true,
+    "eligible_for_stage4v2_reuse": true
+  },
+  "tests": {
+    "py_compile": "passed",
+    "focused_command": "python -m unittest -v tests.test_continuous_validator_schema_surface tests.test_cera_runtime_model_v3 tests.test_continuous_planner_validator tests.test_provider_schema_compatibility tests.test_continuous_world tests.test_continuous_corrections tests.test_continuous_job4_harness",
+    "focused_tests_run": 157,
+    "focused_tests_passed": 157,
+    "focused_tests_failed": 0,
+    "git_diff_check": "passed",
+    "complete_suite_diagnostic": {
+      "command": "python -m unittest discover -s tests -v",
+      "tests_run": 977,
+      "tests_passed": 970,
+      "tests_skipped": 3,
+      "failures": 1,
+      "errors": 3,
+      "classification": "execution_checkout_prerequisites_absent_not_schema_correction_regression",
+      "unchanged_baseline_test_files": true,
+      "missing_prerequisites": [
+        "D:/CP25/source/.venv/Scripts/python.exe",
+        "D:/CP25/source/runtime/evaluation/2026-08-02-continuous-sillytavern-two-run-v1",
+        "D:/CP25/source/.chatgpt/pro-review/cycles/2026-08-02-continuous-sillytavern-two-run-v1-cycle-001/accepted/PRO_RESPONSE.md"
+      ]
+    }
+  },
+  "protected_effects": {
+    "active_runtime_profile_sha256": "f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801",
+    "active_runtime_valid": true,
+    "production_database_bytes_sha256": "bfbf23eb2fa7199fad38e8fb3f1ae0d6b547467f17ed68e84b7115275a2fc555",
+    "production_database_integrity": "ok",
+    "production_database_foreign_key_findings": 0,
+    "paused_v4_receipt_sha256": "167dbe41308d5cd576f4c4dc6e6e3cfd4ffb59f1f93127bc51a1c917f81589fd",
+    "active_route_changes": 0,
+    "production_story_or_database_writes": 0,
+    "installed_sillytavern_changes": 0,
+    "service_or_deployment_changes": 0,
+    "remote_operations_or_pushes": 0,
+    "unchanged": true
+  },
+  "next_authorized_program": "2026-08-03-cera-runtime-model-v3-live-qualification-v2"
+}

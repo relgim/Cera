@@ -881,6 +881,23 @@ class WorldEditOperationKind(StrEnum):
     CREATE_FILE = "create_file"
 
 
+class FinalFieldName(StrEnum):
+    """Closed vocabulary for fields that can become accepted final truth."""
+
+    REALIZED_EVENT = "realized_event"
+    VALID_DEEPSEEK_ADDITIONS = "valid_deepseek_additions"
+    KNOWLEDGE_CHANGES = "knowledge_changes"
+    MATERIAL_CHANGES = "material_changes"
+    RESULTING_STATE = "resulting_state"
+
+
+def _final_field_name(value: FinalFieldName | str, field: str) -> FinalFieldName:
+    try:
+        return FinalFieldName(value)
+    except (TypeError, ValueError) as exc:
+        raise ContractValidationError(f"{field} is invalid") from exc
+
+
 class PersistenceRecordClass(StrEnum):
     """Closed record-class vocabulary; V1 enables only typed subject schemas."""
 
@@ -983,7 +1000,7 @@ class WorldEditOperationV1:
     value: Any
     reason: str
     source_final_sequence_item: str
-    source_final_field_name: str = "realized_event"
+    source_final_field_name: FinalFieldName = FinalFieldName.REALIZED_EVENT
     protected_user_source_claim_keys: tuple[str, ...] = ()
     persistence_directive_key: str | None = None
 
@@ -1020,14 +1037,14 @@ class WorldEditOperationV1:
                 raise ContractValidationError("Validator cannot edit Python-owned file metadata")
         _text(self.reason, "operation.reason", maximum=2_000)
         _key(self.source_final_sequence_item, "source_final_sequence_item")
-        if self.source_final_field_name not in {
-            "realized_event",
-            "valid_deepseek_additions",
-            "knowledge_changes",
-            "material_changes",
-            "resulting_state",
-        }:
-            raise ContractValidationError("world edit source final field is invalid")
+        object.__setattr__(
+            self,
+            "source_final_field_name",
+            _final_field_name(
+                self.source_final_field_name,
+                "world edit source final field",
+            ),
+        )
         for value in self.protected_user_source_claim_keys:
             _key(value, "operation.protected_user_source_claim_keys")
         _unique(
@@ -1049,7 +1066,7 @@ class CreatedFieldLogEntryV1:
     value: Any
     reason: str
     source_final_sequence_item: str
-    source_final_field_name: str = "realized_event"
+    source_final_field_name: FinalFieldName = FinalFieldName.REALIZED_EVENT
     protected_user_source_claim_keys: tuple[str, ...] = ()
     persistence_directive_key: str | None = None
 
@@ -1061,14 +1078,14 @@ class CreatedFieldLogEntryV1:
             raise ContractValidationError("created field value_type is invalid")
         _text(self.reason, "created_field.reason", maximum=2_000)
         _key(self.source_final_sequence_item, "created_field.source_final_sequence_item")
-        if self.source_final_field_name not in {
-            "realized_event",
-            "valid_deepseek_additions",
-            "knowledge_changes",
-            "material_changes",
-            "resulting_state",
-        }:
-            raise ContractValidationError("created field source final field is invalid")
+        object.__setattr__(
+            self,
+            "source_final_field_name",
+            _final_field_name(
+                self.source_final_field_name,
+                "created field source final field",
+            ),
+        )
         for value in self.protected_user_source_claim_keys:
             _key(value, "created_field.protected_user_source_claim_keys")
         _unique(
@@ -1089,7 +1106,7 @@ class FinalInformationVisibility(StrEnum):
 
 @dataclass(frozen=True, slots=True)
 class FinalFieldScopeV1:
-    field_name: str
+    field_name: FinalFieldName
     visibility: FinalInformationVisibility
     knowledge_owner_id: str | None
     story_segment_keys: tuple[str, ...]
@@ -1098,14 +1115,14 @@ class FinalFieldScopeV1:
     persistence_directives: tuple[PersistenceDirectiveV1, ...] = ()
 
     def __post_init__(self) -> None:
-        if self.field_name not in {
-            "realized_event",
-            "valid_deepseek_additions",
-            "knowledge_changes",
-            "material_changes",
-            "resulting_state",
-        }:
-            raise ContractValidationError("final field scope names an unsupported field")
+        object.__setattr__(
+            self,
+            "field_name",
+            _final_field_name(
+                self.field_name,
+                "final field scope name",
+            ),
+        )
         if self.visibility is FinalInformationVisibility.PUBLIC:
             if self.knowledge_owner_id is not None:
                 raise ContractValidationError("public final field cannot have a private owner")
@@ -1191,11 +1208,14 @@ class FinalSequenceItemV1:
         )
         scope_names = tuple(value.field_name for value in self.field_scopes)
         _unique(scope_names, "final_sequence.field_scopes")
-        required_scopes = {"realized_event", "resulting_state"}
+        required_scopes = {
+            FinalFieldName.REALIZED_EVENT,
+            FinalFieldName.RESULTING_STATE,
+        }
         for field in (
-            "valid_deepseek_additions",
-            "knowledge_changes",
-            "material_changes",
+            FinalFieldName.VALID_DEEPSEEK_ADDITIONS,
+            FinalFieldName.KNOWLEDGE_CHANGES,
+            FinalFieldName.MATERIAL_CHANGES,
         ):
             if getattr(self, field):
                 required_scopes.add(field)

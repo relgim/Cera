@@ -58,7 +58,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v7"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v9"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v10"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v8"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v1"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v1"
@@ -461,6 +461,13 @@ class ContinuousSemanticValidatorDraftV1:
 
 
 @dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV2(ContinuousSemanticValidatorDraftV1):
+    """Active schema-closed Validator wire; V1 remains readable historically."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v2"
+
+
+@dataclass(frozen=True, slots=True)
 class ContinuousSceneWriterDraftV1:
     """Active Writer wire: exact candidate prose and nothing semantic."""
 
@@ -855,7 +862,7 @@ def continuous_deepseek_draft_json_schema() -> dict[str, Any]:
 
 
 def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
-    return _schema_for(ContinuousSemanticValidatorDraftV1)
+    return _schema_for(ContinuousSemanticValidatorDraftV2)
 
 
 def continuous_scene_writer_draft_json_schema() -> dict[str, Any]:
@@ -991,7 +998,7 @@ class CodexContinuousValidatorPort:
                 self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )
             draft = from_mapping(
-                ContinuousSemanticValidatorDraftV1,
+                ContinuousSemanticValidatorDraftV2,
                 result.parsed_json or {},
             )
             return ContinuousProviderResultV1(
