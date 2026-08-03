@@ -58,7 +58,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v7"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v10"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v11"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v8"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v1"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v1"
@@ -349,6 +349,43 @@ class ContinuousSemanticValidatorResultV1:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderFinalSequenceDraftV1:
+    """Provider-owned final items; Python derives the redundant stop-state copy."""
+
+    schema_version: str
+    sequence_id: str
+    accepted_turn_id: str
+    items: tuple[FinalSequenceItemV1, ...]
+
+    def __post_init__(self) -> None:
+        self.compile()
+
+    @classmethod
+    def from_final_sequence(
+        cls, value: FinalSequenceV1
+    ) -> "ProviderFinalSequenceDraftV1":
+        return cls(
+            schema_version=value.schema_version,
+            sequence_id=value.sequence_id,
+            accepted_turn_id=value.accepted_turn_id,
+            items=value.items,
+        )
+
+    def compile(self) -> FinalSequenceV1:
+        if self.schema_version != FinalSequenceV1.SCHEMA_VERSION:
+            raise ContractValidationError("provider final sequence schema changed")
+        if not self.items:
+            raise ContractValidationError("final sequence requires at least one item")
+        return FinalSequenceV1(
+            schema_version=self.schema_version,
+            sequence_id=self.sequence_id,
+            accepted_turn_id=self.accepted_turn_id,
+            items=self.items,
+            final_stop_state=self.items[-1].resulting_state,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ContinuousSemanticValidatorDraftV1:
     """Active V3 Validator wire; the Writer never supplies these semantics."""
 
@@ -426,6 +463,17 @@ class ContinuousSemanticValidatorDraftV1:
     def compile(
         self, *, accepted_pairs: tuple[AcceptedTurnPairV1, ...] = ()
     ) -> ContinuousSemanticValidatorResultV1:
+        return self._compile_with_sequence(
+            self.complete_final_sequence,
+            accepted_pairs=accepted_pairs,
+        )
+
+    def _compile_with_sequence(
+        self,
+        complete_final_sequence: FinalSequenceV1 | None,
+        *,
+        accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
+    ) -> ContinuousSemanticValidatorResultV1:
         if self.semantic_status not in {
             ValidatorSemanticStatus.ACCEPTED,
             ValidatorSemanticStatus.CONCERN,
@@ -446,7 +494,7 @@ class ContinuousSemanticValidatorDraftV1:
             branch_id=self.branch_id,
             task_mode=self.task_mode,
             semantic_status=self.semantic_status,
-            complete_final_sequence=self.complete_final_sequence,
+            complete_final_sequence=complete_final_sequence,
             creator_review=self.creator_review,
             protected_semantic_adjudications=(
                 self.protected_semantic_adjudications
@@ -462,9 +510,30 @@ class ContinuousSemanticValidatorDraftV1:
 
 @dataclass(frozen=True, slots=True)
 class ContinuousSemanticValidatorDraftV2(ContinuousSemanticValidatorDraftV1):
-    """Active schema-closed Validator wire; V1 remains readable historically."""
+    """Historical schema-closed Validator wire retained for failed V2 evidence."""
 
     SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v2"
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV3(ContinuousSemanticValidatorDraftV2):
+    """Active wire with Python-derived final stop state and closed field names."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v3"
+
+    complete_final_sequence: ProviderFinalSequenceDraftV1 | None
+
+    def compile(
+        self, *, accepted_pairs: tuple[AcceptedTurnPairV1, ...] = ()
+    ) -> ContinuousSemanticValidatorResultV1:
+        return self._compile_with_sequence(
+            (
+                self.complete_final_sequence.compile()
+                if self.complete_final_sequence is not None
+                else None
+            ),
+            accepted_pairs=accepted_pairs,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -862,7 +931,7 @@ def continuous_deepseek_draft_json_schema() -> dict[str, Any]:
 
 
 def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
-    return _schema_for(ContinuousSemanticValidatorDraftV2)
+    return _schema_for(ContinuousSemanticValidatorDraftV3)
 
 
 def continuous_scene_writer_draft_json_schema() -> dict[str, Any]:
@@ -998,7 +1067,7 @@ class CodexContinuousValidatorPort:
                 self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )
             draft = from_mapping(
-                ContinuousSemanticValidatorDraftV2,
+                ContinuousSemanticValidatorDraftV3,
                 result.parsed_json or {},
             )
             return ContinuousProviderResultV1(

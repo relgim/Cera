@@ -10,8 +10,9 @@ The one active role matrix is
 [`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](../architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
 Runtime Model V3 uses `cera.scene_writer_draft.v1` for exact prose only,
 `cera.writer_mechanical_envelope.v1` for Python-derived byte/hash/paragraph
-boundaries, `cera.continuous_semantic_validator_draft.v2` for schema-closed
-Validator-owned exact spans and verdict, and `cera.reader_verdict.v1` for the independent
+boundaries, `cera.continuous_semantic_validator_draft.v3` for schema-closed
+Validator-owned exact spans with Python-derived final stop state, and
+`cera.reader_verdict.v1` for the independent
 non-rewriting whole-response check. Python validates all bindings and is the
 only owner of candidate identity, events, memory, persistence, acceptance, and
 commit.

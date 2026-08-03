@@ -1,0 +1,105 @@
+{
+  "schema_version": "cera.runtime_model_v3_validator_final_stop_result.v1",
+  "checkpoint_id": "2026-08-03-cera-runtime-model-v3-validator-final-stop-derivation-v1-001",
+  "queue_revision": "0047",
+  "completed_at_utc": "2026-08-03T22:01:26.8639792Z",
+  "status": "passed_provider_free_checkpoint",
+  "provider_calls": {
+    "before_correction": {
+      "codex_family": 1,
+      "deepseek_family": 0,
+      "total": 1
+    },
+    "during_correction": {
+      "codex_family": 0,
+      "deepseek_family": 0,
+      "total": 0
+    }
+  },
+  "source_custody": {
+    "starting_git_sha": "08b0a4491a70419319d12793470cd03240b7cafe",
+    "starting_tree_sha": "bb4d2b5b9baf8e2ae33717edb801812eb6ac83e8",
+    "accepted_stage4a_git_sha": "4a691edd4748130963171d4f8cc089b17ca130e5",
+    "accepted_stage4a_tree_sha": "67fecb2b510d0dade84237eb0527432453d2dfe0",
+    "implementation_source_tree_sha": "04498f4ed0da46278abc70f16f0966652a72eddc",
+    "delta_from_first_queue0047_checkpoint_sha256": "2b20a5211c304469c609ae2a97249f6ea33126567a98f45607574ac1c2e4e528",
+    "delta_from_first_queue0047_checkpoint_bytes": 20876,
+    "complete_diff_from_accepted_stage4a_sha256": "a567681066bd27483525762981bc229b44dff979ce520c6699fe37ee25712af1",
+    "complete_diff_from_accepted_stage4a_bytes": 63505,
+    "implementation_paths": [
+      "docs/contracts/SCHEMA_CATALOG.md",
+      "scripts/run_continuous_planner_validator_job4.py",
+      "src/cera/continuous/provider.py",
+      "src/cera/continuous/scripted_job4.py",
+      "tests/test_continuous_job4_harness.py",
+      "tests/test_continuous_validator_schema_surface.py"
+    ]
+  },
+  "failed_stage4_v2_custody": {
+    "program_id": "2026-08-03-cera-runtime-model-v3-live-qualification-v2",
+    "stage_4c_failed_attempt_sha256": "8d2a44ac709c673441f9f4cbe5a2d431fca4cccf6f3f35086f8ecb95454069eb",
+    "result_sha256": "5b7bf547d15068d0984f9ea775edd8424673f1868b540b9098e1c82984f94b9a",
+    "report_sha256": "82198b62a96fa133c948e89467d32a019bc9c194184dc56ec684c12bc463d8fb",
+    "provider_call_ledger_sha256": "77c884d07e2edf9d527a5511f028186b033c62a8deba9707f586fa3f78a5a316",
+    "terminal_and_non_reusable": true
+  },
+  "corrected_contract": {
+    "active_schema_version": "cera.continuous_semantic_validator_draft.v3",
+    "historical_schema_readers": [
+      "cera.continuous_semantic_validator_draft.v1",
+      "cera.continuous_semantic_validator_draft.v2"
+    ],
+    "active_adapter_version": "cera.continuous_validator_adapter.v11",
+    "active_schema_sha256": "623978e4742f9c609d8b73f67ada21c8d49c55e44304a80cb5f6bde8078b1c30",
+    "openai_projected_schema_sha256": "623978e4742f9c609d8b73f67ada21c8d49c55e44304a80cb5f6bde8078b1c30",
+    "openai_projection_strict": true,
+    "provider_wire_final_stop_state_present": false,
+    "python_derives_final_stop_state": true,
+    "injected_duplicate_rejected": true,
+    "five_value_final_field_enum_preserved": true,
+    "python_domain_validation_remains_closed": true
+  },
+  "writer_binding": {
+    "writer_schema_sha256": "dec9386e5a4b0fd3c9c9f48cd4826a14daf17009970c2be0d5bfa336ba8a717d",
+    "stage4b_result_sha256": "1a18a47eb4a9a6ad523f8d651d6450aa637adf39f9a9a5d207dfd70e1ad52abd",
+    "original_first_attempt_passes": 5,
+    "writer_dto_prompt_adapter_route_transport_unchanged": true,
+    "eligible_for_fresh_stage4_binding": true
+  },
+  "tests": {
+    "py_compile": "passed",
+    "focused_tests_run": 159,
+    "focused_tests_passed": 159,
+    "focused_tests_failed": 0,
+    "git_diff_check": "passed",
+    "complete_suite_diagnostic": {
+      "command": "python -m unittest discover -s tests",
+      "tests_run": 979,
+      "tests_passed": 972,
+      "tests_skipped": 3,
+      "failures": 1,
+      "errors": 3,
+      "classification": "same_execution_checkout_prerequisites_absent_not_validator_correction_regression",
+      "missing_prerequisites": [
+        "D:/CP25/source/.venv/Scripts/python.exe",
+        "D:/CP25/source/runtime/evaluation/2026-08-02-continuous-sillytavern-two-run-v1",
+        "D:/CP25/source/.chatgpt/pro-review/cycles/2026-08-02-continuous-sillytavern-two-run-v1-cycle-001/accepted/PRO_RESPONSE.md"
+      ],
+      "affected_source_and_test_files_changed_by_correction": false
+    }
+  },
+  "protected_effects": {
+    "active_runtime_profile_sha256": "f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801",
+    "production_database_bytes_sha256": "bfbf23eb2fa7199fad38e8fb3f1ae0d6b547467f17ed68e84b7115275a2fc555",
+    "production_database_integrity": "ok",
+    "production_database_foreign_key_findings": 0,
+    "paused_v4_receipt_sha256": "167dbe41308d5cd576f4c4dc6e6e3cfd4ffb59f1f93127bc51a1c917f81589fd",
+    "active_route_changes": 0,
+    "production_story_or_database_writes": 0,
+    "installed_sillytavern_changes": 0,
+    "service_or_deployment_changes": 0,
+    "remote_operations_or_pushes": 0,
+    "unchanged": true
+  },
+  "next_authorized_program": "2026-08-03-cera-runtime-model-v3-live-qualification-v2-correction-001"
+}

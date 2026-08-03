@@ -1,0 +1,34 @@
+{
+  "schema_version": "cera.runtime_model_v3_validator_final_stop_stage0.v1",
+  "checkpoint_id": "2026-08-03-cera-runtime-model-v3-validator-final-stop-derivation-v1-001",
+  "queue_revision": "0047",
+  "provider_calls_before_correction": {
+    "codex_family": 1,
+    "deepseek_family": 0,
+    "total": 1
+  },
+  "source": {
+    "git_sha": "08b0a4491a70419319d12793470cd03240b7cafe",
+    "tree_sha": "bb4d2b5b9baf8e2ae33717edb801812eb6ac83e8",
+    "status": "first_queue_0047_provider_free_checkpoint_committed"
+  },
+  "failed_stage4_v2": {
+    "program_id": "2026-08-03-cera-runtime-model-v3-live-qualification-v2",
+    "failed_fixture": "valid_owned_response",
+    "submitted_calls": 1,
+    "failure": "ContinuousSemanticValidatorDraftV2.complete_final_sequence does not match its union: ['final stop state must be the exact last resulting state']",
+    "stage_4c_failed_attempt_sha256": "8d2a44ac709c673441f9f4cbe5a2d431fca4cccf6f3f35086f8ecb95454069eb",
+    "result_sha256": "5b7bf547d15068d0984f9ea775edd8424673f1868b540b9098e1c82984f94b9a",
+    "report_sha256": "82198b62a96fa133c948e89467d32a019bc9c194184dc56ec684c12bc463d8fb",
+    "terminal_and_non_reusable": true
+  },
+  "classification": {
+    "distinct_from_field_name_enum_blocker": true,
+    "category": "provider_wire_redundant_cross_field_equality_not_json_schema_enforceable",
+    "provider_fault": false,
+    "transport_fault": false,
+    "retry_authorized": false,
+    "provider_free_correction_generation_authorized": true
+  },
+  "status": "design_frozen_before_second_queue_0047_source_commit"
+}

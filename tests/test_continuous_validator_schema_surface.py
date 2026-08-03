@@ -25,7 +25,10 @@ from cera.continuous.provider import (
     ContinuousSceneWriterDraftV1,
     ContinuousSemanticValidatorDraftV1,
     ContinuousSemanticValidatorDraftV2,
+    ContinuousSemanticValidatorDraftV3,
     ProviderEventRecordDraftV1,
+    ProviderFinalSequenceDraftV1,
+    _schema_for,
     continuous_scene_writer_draft_json_schema,
     continuous_semantic_validator_draft_json_schema,
     continuous_validator_draft_json_schema,
@@ -70,7 +73,7 @@ def _field_name_schemas(value: object, path: str = "$") -> list[tuple[str, dict]
     return found
 
 
-def _active_draft() -> ContinuousSemanticValidatorDraftV2:
+def _active_draft() -> ContinuousSemanticValidatorDraftV3:
     story = "Hana set down the teacup."
     roles = CharacterRoleLedgerV1(
         action_owner_ids=("character:hana_hanezawa",),
@@ -116,8 +119,8 @@ def _active_draft() -> ContinuousSemanticValidatorDraftV2:
         exact_text=story,
         roles=roles,
     )
-    return ContinuousSemanticValidatorDraftV2(
-        schema_version=ContinuousSemanticValidatorDraftV2.SCHEMA_VERSION,
+    return ContinuousSemanticValidatorDraftV3(
+        schema_version=ContinuousSemanticValidatorDraftV3.SCHEMA_VERSION,
         package_id="package:validator_schema_surface",
         world_id="world:validator_schema_surface",
         branch_id="branch:main",
@@ -125,7 +128,9 @@ def _active_draft() -> ContinuousSemanticValidatorDraftV2:
         semantic_status=ValidatorSemanticStatus.ACCEPTED,
         reason_codes=(),
         story_segments=(segment,),
-        complete_final_sequence=sequence,
+        complete_final_sequence=ProviderFinalSequenceDraftV1.from_final_sequence(
+            sequence
+        ),
         creator_review=CreatorReviewAssessment(
             schema_version=CreatorReviewAssessment.SCHEMA_VERSION,
             severity=CreatorReviewSeverity.GOOD,
@@ -188,7 +193,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
 
     def test_all_five_values_decode_and_compile(self) -> None:
         payload = to_primitive(_active_draft())
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV2, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV3, payload)
         scopes = decoded.complete_final_sequence.items[0].field_scopes
         self.assertEqual(tuple(value.field_name.value for value in scopes), EXPECTED_FINAL_FIELD_NAMES)
         self.assertTrue(all(isinstance(value.field_name, FinalFieldName) for value in scopes))
@@ -207,7 +212,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     Draft202012Validator(schema).validate(payload)
                 with self.assertRaises(ContractValidationError):
-                    from_mapping(ContinuousSemanticValidatorDraftV2, payload)
+                    from_mapping(ContinuousSemanticValidatorDraftV3, payload)
                 with self.assertRaises(ContractValidationError):
                     FinalFieldScopeV1(
                         field_name=arbitrary,
@@ -229,12 +234,12 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
             ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
         )
         self.assertEqual(
-            ContinuousSemanticValidatorDraftV2.SCHEMA_VERSION,
-            "cera.continuous_semantic_validator_draft.v2",
+            ContinuousSemanticValidatorDraftV3.SCHEMA_VERSION,
+            "cera.continuous_semantic_validator_draft.v3",
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v10",
+            "cera.continuous_validator_adapter.v11",
         )
         self.assertEqual(
             continuous_validator_route(model="gpt-5.6-sol", effort="medium").adapter_id,
@@ -243,15 +248,59 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
 
     def test_historical_validator_readers_remain_available(self) -> None:
         active_payload = to_primitive(_active_draft())
-        historical_payload = deepcopy(active_payload)
-        historical_payload["schema_version"] = ContinuousSemanticValidatorDraftV1.SCHEMA_VERSION
-        historical = from_mapping(ContinuousSemanticValidatorDraftV1, historical_payload)
-        self.assertEqual(
-            historical.schema_version,
-            "cera.continuous_semantic_validator_draft.v1",
-        )
-        self.assertIsNotNone(historical.compile().finalization_package)
+        for historical_type in (
+            ContinuousSemanticValidatorDraftV1,
+            ContinuousSemanticValidatorDraftV2,
+        ):
+            with self.subTest(schema_version=historical_type.SCHEMA_VERSION):
+                historical_payload = deepcopy(active_payload)
+                historical_payload["schema_version"] = historical_type.SCHEMA_VERSION
+                final = historical_payload["complete_final_sequence"]
+                final["final_stop_state"] = final["items"][-1]["resulting_state"]
+                historical = from_mapping(historical_type, historical_payload)
+                self.assertEqual(
+                    historical.schema_version,
+                    historical_type.SCHEMA_VERSION,
+                )
+                self.assertIsNotNone(historical.compile().finalization_package)
         self.assertIn("complete_final_sequence", continuous_validator_draft_json_schema()["properties"])
+
+    def test_active_wire_omits_and_python_derives_final_stop_state(self) -> None:
+        payload = to_primitive(_active_draft())
+        provider_sequence = payload["complete_final_sequence"]
+        self.assertNotIn("final_stop_state", provider_sequence)
+        Draft202012Validator(continuous_semantic_validator_draft_json_schema()).validate(
+            payload
+        )
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV3, payload)
+        final_sequence = decoded.compile().finalization_package.complete_final_sequence
+        self.assertEqual(
+            final_sequence.final_stop_state,
+            final_sequence.items[-1].resulting_state,
+        )
+        injected = deepcopy(payload)
+        injected["complete_final_sequence"]["final_stop_state"] = "independent duplicate"
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(
+                continuous_semantic_validator_draft_json_schema()
+            ).validate(injected)
+        with self.assertRaises(ContractValidationError):
+            from_mapping(ContinuousSemanticValidatorDraftV3, injected)
+
+    def test_failed_v2_cross_field_shape_is_reproduced_provider_free(self) -> None:
+        payload = to_primitive(_active_draft())
+        payload["schema_version"] = ContinuousSemanticValidatorDraftV2.SCHEMA_VERSION
+        payload["complete_final_sequence"]["final_stop_state"] = (
+            "A schema-valid but unequal duplicate stop state."
+        )
+        Draft202012Validator(_schema_for(ContinuousSemanticValidatorDraftV2)).validate(
+            payload
+        )
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "final stop state must be the exact last resulting state",
+        ):
+            from_mapping(ContinuousSemanticValidatorDraftV2, payload)
 
     def test_writer_schema_and_boundary_are_unchanged(self) -> None:
         schema = continuous_scene_writer_draft_json_schema()
