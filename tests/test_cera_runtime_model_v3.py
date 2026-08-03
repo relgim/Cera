@@ -29,6 +29,10 @@ from cera.continuous.provider import (
 from cera.errors import ContractValidationError
 from cera.schema import from_mapping
 from cera.serialization import text_sha256
+from cera.continuous.prompting import (
+    CONTINUOUS_VALIDATOR_PROMPT_VERSION,
+    VALIDATOR_STABLE_INSTRUCTIONS,
+)
 from scripts.run_continuous_planner_validator_job4 import (
     JobHarness,
     _HarnessLiveReaderPort,
@@ -123,6 +127,18 @@ class RuntimeModelV3WriterBoundaryTests(unittest.TestCase):
 
 
 class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
+    def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
+        self.assertEqual(
+            CONTINUOUS_VALIDATOR_PROMPT_VERSION,
+            "cera.continuous_validator_prompt.v12",
+        )
+        for required in (
+            "applies independently to each final-sequence item",
+            "one character ID may occur in exactly one of its seven role arrays",
+            "split them into separate causally ordered final-sequence items",
+        ):
+            self.assertIn(required, VALIDATOR_STABLE_INSTRUCTIONS)
+
     def registry(self) -> RequestEvidenceBindingRegistry:
         return RequestEvidenceBindingRegistry(
             world_id="world:test",
