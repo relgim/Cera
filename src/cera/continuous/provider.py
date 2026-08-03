@@ -304,6 +304,14 @@ class ContinuousDeepSeekNonOwningRelationKind(str, Enum):
     REFERENCED = "referenced"
 
 
+class ContinuousDeepSeekAssertionKind(str, Enum):
+    ACTION_OWNED = "action_owned"
+    DIALOGUE_OWNED = "dialogue_owned"
+    PRIVATE_STATE_OWNED = "private_state_owned"
+    CONSENT_OR_DECISION_OWNED = "consent_or_decision_owned"
+    UNOWNED_NARRATION = "unowned_narration"
+
+
 @dataclass(frozen=True, slots=True)
 class ContinuousDeepSeekStorySegmentDraftV1:
     """Provider-owned prose with minimal advisory assertion ownership."""
@@ -312,7 +320,7 @@ class ContinuousDeepSeekStorySegmentDraftV1:
 
     schema_version: str
     segment_key: str
-    kind: StoryRealizationKind
+    assertion_kind: ContinuousDeepSeekAssertionKind
     text: str
     owner_ids: tuple[str, ...]
     non_owning_roles: tuple[ContinuousDeepSeekNonOwningRoleDraftV1, ...]
@@ -359,14 +367,14 @@ class ContinuousDeepSeekStorySegmentDraftV1:
                 if value.relation is ContinuousDeepSeekNonOwningRelationKind.REFERENCED
             ),
         }
-        if self.kind is StoryRealizationKind.ACTION:
+        if self.assertion_kind is ContinuousDeepSeekAssertionKind.ACTION_OWNED:
             if not self.owner_ids:
                 raise ContractValidationError("continuous DeepSeek action lacks an owner")
             return CharacterRoleLedgerV1(
                 action_owner_ids=self.owner_ids,
                 **non_owners,
             )
-        if self.kind is StoryRealizationKind.DIALOGUE:
+        if self.assertion_kind is ContinuousDeepSeekAssertionKind.DIALOGUE_OWNED:
             if len(self.owner_ids) != 1:
                 raise ContractValidationError(
                     "continuous DeepSeek dialogue requires one speaker"
@@ -375,9 +383,9 @@ class ContinuousDeepSeekStorySegmentDraftV1:
                 speaker_ids=self.owner_ids,
                 **non_owners,
             )
-        if self.kind in {
-            StoryRealizationKind.PRIVATE_STATE,
-            StoryRealizationKind.CONSENT_OR_DECISION,
+        if self.assertion_kind in {
+            ContinuousDeepSeekAssertionKind.PRIVATE_STATE_OWNED,
+            ContinuousDeepSeekAssertionKind.CONSENT_OR_DECISION_OWNED,
         }:
             if not self.owner_ids:
                 raise ContractValidationError("continuous DeepSeek state lacks an owner")
@@ -390,6 +398,21 @@ class ContinuousDeepSeekStorySegmentDraftV1:
                 "continuous DeepSeek narration requires only non-owning characters"
             )
         return CharacterRoleLedgerV1(**non_owners)
+
+    def compiled_kind(self) -> StoryRealizationKind:
+        return {
+            ContinuousDeepSeekAssertionKind.ACTION_OWNED: StoryRealizationKind.ACTION,
+            ContinuousDeepSeekAssertionKind.DIALOGUE_OWNED: StoryRealizationKind.DIALOGUE,
+            ContinuousDeepSeekAssertionKind.PRIVATE_STATE_OWNED: (
+                StoryRealizationKind.PRIVATE_STATE
+            ),
+            ContinuousDeepSeekAssertionKind.CONSENT_OR_DECISION_OWNED: (
+                StoryRealizationKind.CONSENT_OR_DECISION
+            ),
+            ContinuousDeepSeekAssertionKind.UNOWNED_NARRATION: (
+                StoryRealizationKind.NARRATION
+            ),
+        }[self.assertion_kind]
 
 
 @dataclass(frozen=True, slots=True)
@@ -479,7 +502,7 @@ class ContinuousDeepSeekWireDraftV1:
                 StoryRealizationSegmentV1(
                     schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
                     segment_key=segment.segment_key,
-                    kind=segment.kind,
+                    kind=segment.compiled_kind(),
                     output_start=cursor,
                     output_end=end,
                     exact_text=segment.text,
@@ -775,7 +798,7 @@ class DeepSeekContinuousComposerPort:
         messages = (
             DeepSeekMessage(
                 "system",
-                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Return the final prose once, as exhaustive ordered story_segments. Python joins segment text with exactly two newline characters and derives all character offsets; never calculate or return offsets or duplicate the full story in another field. Keep every segment semantically local. Declare only owner_ids for the characters who own that segment's action, dialogue, private state, or decision. For every other involved character, return exactly one non_owning_roles entry choosing affected, addressed, observing, or referenced. Never assign one character more than one role in a segment. Python maps these values into the closed role ledger; the separate Validator independently adjudicates the exact relation. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. Any assertion owned by Ted must exactly equal one supplied ingress claim and cite that claim. An NPC action may affect or address Ted without inventing Ted's response. For each copied protected-user claim, bind its exact text and claim key to the one story segment containing it; Python rejects absent or ambiguous occurrences. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
+                "You are CERA's prose Composer. Realize the supplied Planner sequence as complete presentation-neutral story prose. Preserve every required causal beat and boundary. Return the final prose once, as exhaustive ordered story_segments. Python joins segment text with exactly two newline characters and derives all character offsets; never calculate or return offsets or duplicate the full story in another field. Keep every segment semantically local. assertion_kind describes authority, not writing style: use action_owned for narratively written text that describes a character's action; dialogue_owned for an utterance; private_state_owned for thought, emotion, or bodily state; consent_or_decision_owned for consent or a decision; and unowned_narration only when no character owns any action, dialogue, state, consent, or decision in that exact text. Declare owner_ids for the owning characters. For every other involved character, return exactly one non_owning_roles entry choosing affected, addressed, observing, or referenced. Never assign one character more than one role in a segment. Python maps these values into the closed role ledger; the separate Validator independently adjudicates the exact relation. Do not invent, paraphrase, extend, or misattribute protected-user thought, dialogue, action, decision, emotion, consent, or movement. Any assertion owned by Ted must exactly equal one supplied ingress claim and cite that claim. An NPC action may affect or address Ted without inventing Ted's response. For each copied protected-user claim, bind its exact text and claim key to the one story segment containing it; Python rejects absent or ambiguous occurrences. Return exactly one JSON object matching the supplied schema. Thinking is disabled.",
             ),
             DeepSeekMessage(
                 "user",

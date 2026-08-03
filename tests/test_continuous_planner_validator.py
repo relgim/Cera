@@ -372,6 +372,7 @@ class RichPlannerContractTests(unittest.TestCase):
             self.assertIn(field, validator_text)
         for field in (
             "story_segments",
+            "assertion_kind",
             "owner_ids",
             "non_owning_roles",
             "relation",
@@ -391,7 +392,7 @@ class RichPlannerContractTests(unittest.TestCase):
                     {
                         "schema_version": "cera.continuous_deepseek_story_segment_draft.v2",
                         "segment_key": "sakura_action",
-                        "kind": "action",
+                        "assertion_kind": "action_owned",
                         "text": "Sakura studies the visitor without yielding the threshold.",
                         "owner_ids": ["character:sakura_hanezawa"],
                         "non_owning_roles": [
@@ -406,7 +407,7 @@ class RichPlannerContractTests(unittest.TestCase):
                     {
                         "schema_version": "cera.continuous_deepseek_story_segment_draft.v2",
                         "segment_key": "ted_source",
-                        "kind": "dialogue",
+                        "assertion_kind": "dialogue_owned",
                         "text": "Hello, my name is Ted.",
                         "owner_ids": ["character:ted"],
                         "non_owning_roles": [],
@@ -444,7 +445,7 @@ class RichPlannerContractTests(unittest.TestCase):
                     {
                         "schema_version": "cera.continuous_deepseek_story_segment_draft.v2",
                         "segment_key": "repeated_source",
-                        "kind": "dialogue",
+                        "assertion_kind": "dialogue_owned",
                         "text": "Hello. Hello.",
                         "owner_ids": ["character:ted"],
                         "non_owning_roles": [],

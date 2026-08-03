@@ -33,11 +33,11 @@ from .contracts import (
     ProtectedUserAllowanceV1,
     RichPlannerSequenceV1,
     RichSequenceBeatV1,
-    StoryRealizationKind,
     ValidatorSemanticStatus,
     ValidatorTaskMode,
 )
 from .provider import (
+    ContinuousDeepSeekAssertionKind,
     ContinuousDeepSeekNonOwningRelationKind,
     ContinuousDeepSeekNonOwningRoleDraftV1,
     ContinuousDeepSeekStorySegmentDraftV1,
@@ -262,7 +262,7 @@ class ScriptedJob4FixtureRuntime:
                         ContinuousDeepSeekStorySegmentDraftV1.SCHEMA_VERSION
                     ),
                     segment_key="segment_entire_story",
-                    kind=StoryRealizationKind.ACTION,
+                    assertion_kind=ContinuousDeepSeekAssertionKind.ACTION_OWNED,
                     text=story,
                     owner_ids=owners,
                     non_owning_roles=tuple(

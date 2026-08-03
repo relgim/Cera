@@ -52,6 +52,7 @@ from cera.continuous.job4_transaction import (
 )
 from cera.continuous.contracts import CharacterRoleLedgerV1
 from cera.continuous.provider import (
+    ContinuousDeepSeekAssertionKind,
     ContinuousDeepSeekNonOwningRelationKind,
     ContinuousDeepSeekNonOwningRoleDraftV1,
     ContinuousDeepSeekStorySegmentDraftV1,
@@ -2261,7 +2262,9 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                                 ContinuousDeepSeekStorySegmentDraftV1.SCHEMA_VERSION
                             ),
                             segment_key=original.segment_key,
-                            kind=original.kind,
+                            assertion_kind=(
+                                ContinuousDeepSeekAssertionKind.ACTION_OWNED
+                            ),
                             text=story,
                             owner_ids=owners,
                             non_owning_roles=tuple(
