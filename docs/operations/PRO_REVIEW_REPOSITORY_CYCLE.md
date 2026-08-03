@@ -224,10 +224,12 @@ tranche. Codex may apply corrections only when they fit the creator's already
 granted scope. A material expansion, new live-call ceiling, provider change,
 deployment, destructive action, or other creator decision still stops for Ted.
 
-Job 4 completion uses `cera.pro_review_job4_result.v1`. Provider/story/database,
-route, and deployment/remote effects are preserved as structured declarations
-from that stable result and labeled with their source; the transport never
-manufactures zero-effect facts.
+Historical Job 4 completion decodes `cera.pro_review_job4_result.v1` and v2.
+New exact-diagnostic audits use additive
+`cera.pro_review_job4_result.v3`. Provider/story/database, route, and
+deployment/remote effects remain structured declarations from the stable
+result and are labeled with their source; the transport never manufactures
+zero-effect facts.
 
 Every Job 4 producer, including a provider-free scripted harness, must first
 project its terminal detail into the exact canonical result shape and pass the
@@ -239,6 +241,17 @@ privacy-safe verification summary rather than the canonical `effects` object.
 Unknown fields fail before publication. Completed and failed live-shaped and
 scripted results are tested through both the decoder and the real
 `complete-job4` transition.
+
+Result v3 embeds the closed `cera.continuous_job4_test_diagnostics.v1`
+artifact. Its independently bound selected-test identity sequence must match
+the exact ordered terminal records. Every record has a self-hash; the result,
+terminal-evidence v6 wrapper, publication bytes, `job4_completed_v3` receipt,
+completed-chain validator, and recovery validator bind the aggregate and
+ordered-record roots. A missing, malformed, duplicated, reordered,
+substituted, or hash-drifted record fails closed. Failure messages are retained
+only as SHA-256 values with bounded repository-relative source frames; raw
+provider output, story prose, private character values, secrets, absolute
+paths, and unbounded tracebacks are prohibited.
 
 Every continuous-canary Job 4 producer must also bind
 `cera.continuous_job4_terminal_evidence.v1` and its SHA-256 into detailed

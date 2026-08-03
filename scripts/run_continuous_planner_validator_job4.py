@@ -43,6 +43,7 @@ from cera.continuous.job4_terminal import (
     ContinuousJob4TerminalEvidenceV3,
     ContinuousJob4TerminalEvidenceV4,
     ContinuousJob4TerminalEvidenceV5,
+    ContinuousJob4TerminalEvidenceV6,
     decode_continuous_job4_terminal_evidence,
     rebuild_failed_continuous_job4_terminal_evidence,
 )
@@ -1725,6 +1726,28 @@ def build_report(result: dict[str, Any], *, task_id: str | None = None) -> str:
             "",
         )
     )
+    if isinstance(terminal, ContinuousJob4TerminalEvidenceV6):
+        diagnostics = terminal.test_diagnostics
+        lines.extend(
+            (
+                "## Selected-test terminal evidence",
+                "",
+                f"- Record count: `{len(diagnostics.records)}`.",
+                f"- Selected-test identity root SHA-256: `{diagnostics.selection_root_sha256}`.",
+                f"- Ordered records root SHA-256: `{diagnostics.records_root_sha256}`.",
+                f"- Diagnostic artifact SHA-256: `{diagnostics.sha256}`.",
+                "",
+                "| # | Test ID | Status | Elapsed seconds | Record SHA-256 |",
+                "|---:|---|---|---:|---|",
+            )
+        )
+        for record in diagnostics.records:
+            lines.append(
+                f"| {record.index} | `{record.test_id}` | {record.status} | "
+                f"{record.elapsed_ns / 1_000_000_000:.6f} | "
+                f"`{record.record_sha256}` |"
+            )
+        lines.append("")
     return "\n".join(lines)
 
 
@@ -1738,6 +1761,11 @@ def build_canonical_job4_result(
 
     terminal = decode_continuous_job4_terminal_evidence(
         result.get("terminal_evidence")
+    )
+    custody_terminal = (
+        terminal.base_terminal_evidence
+        if isinstance(terminal, ContinuousJob4TerminalEvidenceV6)
+        else terminal
     )
     if result.get("terminal_evidence_sha256") != terminal.sha256:
         raise ValueError("terminal evidence hash is missing or inconsistent")
@@ -1759,7 +1787,7 @@ def build_canonical_job4_result(
         if result.get(field) != expected:
             raise ValueError(f"detailed result contradicts terminal evidence: {field}")
     if isinstance(
-        terminal,
+        custody_terminal,
         (
             ContinuousJob4TerminalEvidenceV2,
             ContinuousJob4TerminalEvidenceV3,
@@ -1768,29 +1796,31 @@ def build_canonical_job4_result(
         ),
     ):
         if (
-            result.get("capability_ledger") != terminal.capability_ledger.to_dict()
+            result.get("capability_ledger")
+            != custody_terminal.capability_ledger.to_dict()
             or result.get("capability_ledger_sha256")
-            != terminal.capability_ledger.sha256
+            != custody_terminal.capability_ledger.sha256
         ):
             raise ValueError("detailed capability custody contradicts terminal evidence")
     if isinstance(
-        terminal,
+        custody_terminal,
         (ContinuousJob4TerminalEvidenceV4, ContinuousJob4TerminalEvidenceV5),
     ):
         if (
             result.get("capability_boundary_evidence")
-            != terminal.capability_boundary_evidence.to_dict()
+            != custody_terminal.capability_boundary_evidence.to_dict()
             or result.get("capability_boundary_evidence_sha256")
-            != terminal.capability_boundary_evidence.sha256
+            != custody_terminal.capability_boundary_evidence.sha256
         ):
             raise ValueError(
                 "detailed capability boundary contradicts terminal evidence"
             )
-    if isinstance(terminal, ContinuousJob4TerminalEvidenceV5):
+    if isinstance(custody_terminal, ContinuousJob4TerminalEvidenceV5):
         if (
-            result.get("thread_lineage") != terminal.thread_lineage.to_dict()
+            result.get("thread_lineage")
+            != custody_terminal.thread_lineage.to_dict()
             or result.get("thread_lineage_sha256")
-            != terminal.thread_lineage.receipt_sha256
+            != custody_terminal.thread_lineage.receipt_sha256
         ):
             raise ValueError(
                 "detailed thread lineage contradicts terminal evidence"
@@ -1817,11 +1847,11 @@ def build_canonical_job4_result(
         raise ValueError("thread archival summary contradicts terminal evidence")
     archival_evidence = (
         {
-            role: terminal.thread_archival_evidence[role].to_dict()
+            role: custody_terminal.thread_archival_evidence[role].to_dict()
             for role in ("planner", "validator")
         }
         if isinstance(
-            terminal,
+            custody_terminal,
             (
                 ContinuousJob4TerminalEvidenceV3,
                 ContinuousJob4TerminalEvidenceV4,
@@ -1832,7 +1862,7 @@ def build_canonical_job4_result(
     )
     if (
         isinstance(
-            terminal,
+            custody_terminal,
             (
                 ContinuousJob4TerminalEvidenceV3,
                 ContinuousJob4TerminalEvidenceV4,
@@ -1867,7 +1897,7 @@ def build_canonical_job4_result(
         f"scripted_transport_invocations={scripted_invocations}; "
         f"terminal_status={status}; terminal_evidence_sha256={terminal.sha256}"
     )
-    return {
+    payload = {
         "schema_version": "cera.pro_review_job4_result.v2",
         "cycle_id": result["cycle_id"],
         "task_id": task_id,
@@ -1900,6 +1930,38 @@ def build_canonical_job4_result(
             },
         ],
     }
+    if isinstance(terminal, ContinuousJob4TerminalEvidenceV6):
+        diagnostics = terminal.test_diagnostics
+        if (
+            result.get("test_diagnostics") != diagnostics.to_dict()
+            or result.get("test_diagnostics_sha256") != diagnostics.sha256
+            or result.get("test_records_root_sha256")
+            != diagnostics.records_root_sha256
+        ):
+            raise ValueError(
+                "detailed test diagnostics contradict terminal evidence"
+            )
+        payload.update(
+            {
+                "schema_version": "cera.pro_review_job4_result.v3",
+                "test_diagnostics": diagnostics.to_dict(),
+                "test_diagnostics_sha256": diagnostics.sha256,
+                "test_records_root_sha256": diagnostics.records_root_sha256,
+                "test_record_count": len(diagnostics.records),
+            }
+        )
+        payload["verification"].append(
+            {
+                "command": "ordered-selected-test-terminal-evidence-v1",
+                "status": "passed" if diagnostics.all_acceptable else "failed",
+                "summary": (
+                    f"records={len(diagnostics.records)}; "
+                    f"records_root_sha256={diagnostics.records_root_sha256}; "
+                    f"diagnostics_sha256={diagnostics.sha256}"
+                ),
+            }
+        )
+    return payload
 
 
 def _complete_thread_archival_evidence(
@@ -2427,6 +2489,11 @@ def _apply_terminal_evidence(
     ]
     result["active_route_unchanged"] = effects["active_route_changes"] == 0
     result["finished_at"] = utc_now()
+    if isinstance(terminal, ContinuousJob4TerminalEvidenceV6):
+        diagnostics = terminal.test_diagnostics
+        result["test_diagnostics"] = diagnostics.to_dict()
+        result["test_diagnostics_sha256"] = diagnostics.sha256
+        result["test_records_root_sha256"] = diagnostics.records_root_sha256
     return terminal
 
 
@@ -2459,7 +2526,7 @@ def _emergency_canonical_result(
     terminal = decode_continuous_job4_terminal_evidence(
         result["terminal_evidence"]
     )
-    return {
+    payload = {
         "schema_version": "cera.pro_review_job4_result.v2",
         "cycle_id": result["cycle_id"],
         "task_id": task_id,
@@ -2482,6 +2549,18 @@ def _emergency_canonical_result(
             }
         ],
     }
+    if isinstance(terminal, ContinuousJob4TerminalEvidenceV6):
+        diagnostics = terminal.test_diagnostics
+        payload.update(
+            {
+                "schema_version": "cera.pro_review_job4_result.v3",
+                "test_diagnostics": diagnostics.to_dict(),
+                "test_diagnostics_sha256": diagnostics.sha256,
+                "test_records_root_sha256": diagnostics.records_root_sha256,
+                "test_record_count": len(diagnostics.records),
+            }
+        )
+    return payload
 
 
 def freeze_terminal_publication(

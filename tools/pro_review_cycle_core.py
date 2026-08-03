@@ -14,8 +14,10 @@ from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from cera.continuous.job4_terminal import (
+    ContinuousJob4TerminalEvidenceV6,
     decode_continuous_job4_terminal_evidence,
 )
+from cera.continuous.job4_diagnostics import ContinuousJob4TestDiagnosticsV1
 
 
 SPEC_SCHEMA = "cera.pro_review_cycle_spec.v2"
@@ -26,6 +28,7 @@ RECEIPT_SCHEMA = "cera.pro_review_cycle_receipt.v2"
 JOB4_AUTHORIZATION_SCHEMA = "cera.pro_review_job4_authorization.v1"
 JOB4_RESULT_SCHEMA = "cera.pro_review_job4_result.v1"
 JOB4_RESULT_SCHEMA_V2 = "cera.pro_review_job4_result.v2"
+JOB4_RESULT_SCHEMA_V3 = "cera.pro_review_job4_result.v3"
 
 STATE_JOB4_IN_PROGRESS = "job4_in_progress"
 STATE_RESPONSE_PENDING = "job4_complete_response_pending"
@@ -123,6 +126,21 @@ RECEIPT_EVENT_FIELDS = {
         "job4_report_relative_path",
         "terminal_evidence_sha256",
         "terminal_evidence_relative_path",
+        "effect_claim_source",
+        "effects",
+    ),
+    "job4_completed_v3": (
+        "job4_task_id",
+        "job4_status",
+        "job4_result_sha256",
+        "job4_result_relative_path",
+        "job4_report_sha256",
+        "job4_report_relative_path",
+        "terminal_evidence_sha256",
+        "terminal_evidence_relative_path",
+        "test_diagnostics_sha256",
+        "test_records_root_sha256",
+        "test_record_count",
         "effect_claim_source",
         "effects",
     ),
@@ -1563,19 +1581,33 @@ def validate_job4_result_contract(
         "effects",
         "verification",
     ]
-    if schema_version == JOB4_RESULT_SCHEMA_V2:
+    if schema_version in {JOB4_RESULT_SCHEMA_V2, JOB4_RESULT_SCHEMA_V3}:
         fields.extend(
             ("terminal_evidence_relative_path", "terminal_evidence_sha256")
         )
+    if schema_version == JOB4_RESULT_SCHEMA_V3:
+        fields.extend(
+            (
+                "test_diagnostics",
+                "test_diagnostics_sha256",
+                "test_records_root_sha256",
+                "test_record_count",
+            )
+        )
     exact_keys(value, fields, "Job 4 result")
     if (
-        schema_version not in {JOB4_RESULT_SCHEMA, JOB4_RESULT_SCHEMA_V2}
+        schema_version
+        not in {
+            JOB4_RESULT_SCHEMA,
+            JOB4_RESULT_SCHEMA_V2,
+            JOB4_RESULT_SCHEMA_V3,
+        }
         or value["cycle_id"] != manifest["cycle_id"]
         or value["task_id"] != manifest["job4"]["task_id"]
         or value["status"] not in {"completed", "failed"}
     ):
         raise CycleError("Job 4 result identity or status is invalid")
-    if schema_version == JOB4_RESULT_SCHEMA_V2:
+    if schema_version in {JOB4_RESULT_SCHEMA_V2, JOB4_RESULT_SCHEMA_V3}:
         if (
             value["terminal_evidence_relative_path"]
             != "source/JOB4_TERMINAL_EVIDENCE.json"
@@ -1584,6 +1616,27 @@ def validate_job4_result_contract(
         require_hash(
             value["terminal_evidence_sha256"], "terminal_evidence_sha256"
         )
+    if schema_version == JOB4_RESULT_SCHEMA_V3:
+        try:
+            diagnostics = ContinuousJob4TestDiagnosticsV1.from_dict(
+                value["test_diagnostics"]
+            )
+        except ValueError as exc:
+            raise CycleError("Job 4 test diagnostics are invalid") from exc
+        if (
+            require_hash(
+                value["test_diagnostics_sha256"],
+                "test_diagnostics_sha256",
+            )
+            != diagnostics.sha256
+            or require_hash(
+                value["test_records_root_sha256"],
+                "test_records_root_sha256",
+            )
+            != diagnostics.records_root_sha256
+            or value["test_record_count"] != len(diagnostics.records)
+        ):
+            raise CycleError("Job 4 test diagnostics identity changed")
     effects = value["effects"]
     if not isinstance(effects, dict):
         raise CycleError("Job 4 effects must be an object")
@@ -1677,6 +1730,20 @@ def validate_job4_terminal_evidence(
         or terminal.effect_evidence.canonical_effects != result["effects"]
     ):
         raise CycleError("Job 4 result contradicts typed terminal evidence")
+    if result["schema_version"] == JOB4_RESULT_SCHEMA_V3:
+        if not isinstance(terminal, ContinuousJob4TerminalEvidenceV6):
+            raise CycleError("Job 4 v3 result lacks terminal test diagnostics")
+        diagnostics = terminal.test_diagnostics
+        if (
+            result["test_diagnostics"] != diagnostics.to_dict()
+            or result["test_diagnostics_sha256"] != diagnostics.sha256
+            or result["test_records_root_sha256"]
+            != diagnostics.records_root_sha256
+            or result["test_record_count"] != len(diagnostics.records)
+        ):
+            raise CycleError(
+                "Job 4 result contradicts terminal test diagnostics"
+            )
     return data, digest
 
 
@@ -1738,6 +1805,22 @@ def complete_job4(
                 "effect_claim_source": "typed_terminal_evidence_v2",
             }
         )
+        if result["schema_version"] == JOB4_RESULT_SCHEMA_V3:
+            completion_event = "job4_completed_v3"
+            completion_fields.update(
+                {
+                    "test_diagnostics_sha256": result[
+                        "test_diagnostics_sha256"
+                    ],
+                    "test_records_root_sha256": result[
+                        "test_records_root_sha256"
+                    ],
+                    "test_record_count": result["test_record_count"],
+                    "effect_claim_source": (
+                        "typed_terminal_and_test_diagnostics_v3"
+                    ),
+                }
+            )
     receipt = make_receipt(
         manifest,
         completion_event,
@@ -1873,7 +1956,11 @@ def completed_chain(
         _, predecessor = validate_trigger_receipt(cycle, manifest, started_hash)
     completion_path = cycle / "receipts" / "JOB4_COMPLETED.json"
     completion_event = read_json(completion_path).get("event")
-    if completion_event not in {"job4_completed", "job4_completed_v2"}:
+    if completion_event not in {
+        "job4_completed",
+        "job4_completed_v2",
+        "job4_completed_v3",
+    }:
         raise CycleError("Job 4 completion receipt event is invalid")
     completion, completion_hash = validate_receipt(
         completion_path, manifest, completion_event, predecessor
@@ -1900,10 +1987,23 @@ def completed_chain(
         )
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise CycleError("completed Job 4 result is invalid JSON") from exc
-    if result["schema_version"] == JOB4_RESULT_SCHEMA_V2:
+    if result["schema_version"] in {
+        JOB4_RESULT_SCHEMA_V2,
+        JOB4_RESULT_SCHEMA_V3,
+    }:
+        expected_event = (
+            "job4_completed_v3"
+            if result["schema_version"] == JOB4_RESULT_SCHEMA_V3
+            else "job4_completed_v2"
+        )
+        expected_claim_source = (
+            "typed_terminal_and_test_diagnostics_v3"
+            if result["schema_version"] == JOB4_RESULT_SCHEMA_V3
+            else "typed_terminal_evidence_v2"
+        )
         if (
-            completion_event != "job4_completed_v2"
-            or completion["effect_claim_source"] != "typed_terminal_evidence_v2"
+            completion_event != expected_event
+            or completion["effect_claim_source"] != expected_claim_source
             or completion["terminal_evidence_relative_path"]
             != "artifacts/JOB4_TERMINAL_EVIDENCE.json"
             or completion["terminal_evidence_sha256"]
@@ -1932,6 +2032,29 @@ def completed_chain(
             or terminal.effect_evidence.canonical_effects != result["effects"]
         ):
             raise CycleError("completed terminal evidence contradicts Job 4 result")
+        if result["schema_version"] == JOB4_RESULT_SCHEMA_V3:
+            if not isinstance(terminal, ContinuousJob4TerminalEvidenceV6):
+                raise CycleError(
+                    "completed Job 4 v3 lacks terminal test diagnostics"
+                )
+            diagnostics = terminal.test_diagnostics
+            if (
+                completion["test_diagnostics_sha256"]
+                != diagnostics.sha256
+                or completion["test_records_root_sha256"]
+                != diagnostics.records_root_sha256
+                or completion["test_record_count"]
+                != len(diagnostics.records)
+                or result["test_diagnostics"] != diagnostics.to_dict()
+                or result["test_diagnostics_sha256"]
+                != diagnostics.sha256
+                or result["test_records_root_sha256"]
+                != diagnostics.records_root_sha256
+                or result["test_record_count"] != len(diagnostics.records)
+            ):
+                raise CycleError(
+                    "completed Job 4 test diagnostics changed"
+                )
     elif (
         completion_event != "job4_completed"
         or completion["effect_claim_source"]

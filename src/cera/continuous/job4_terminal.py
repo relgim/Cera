@@ -10,6 +10,7 @@ from typing import Any, Callable, Mapping, TypeVar
 
 from cera.serialization import canonical_sha256
 
+from .job4_diagnostics import ContinuousJob4TestDiagnosticsV1
 from .sessions import ContinuousThreadArchiveEvidenceV1
 from .thread_lineage import ContinuousThreadLineageReceiptV1
 
@@ -1901,12 +1902,140 @@ class ContinuousJob4TerminalEvidenceV5:
         return rebuilt
 
 
+@dataclass(frozen=True, slots=True)
+class ContinuousJob4TerminalEvidenceV6:
+    """Historical terminal custody plus ordered per-test terminal evidence."""
+
+    base_terminal_evidence: (
+        ContinuousJob4TerminalEvidenceV1
+        | ContinuousJob4TerminalEvidenceV2
+        | ContinuousJob4TerminalEvidenceV3
+        | ContinuousJob4TerminalEvidenceV4
+        | ContinuousJob4TerminalEvidenceV5
+    )
+    test_diagnostics: ContinuousJob4TestDiagnosticsV1
+    status: str
+    failure_codes: tuple[str, ...]
+
+    SCHEMA_VERSION = "cera.continuous_job4_terminal_evidence.v6"
+
+    def __post_init__(self) -> None:
+        if not isinstance(
+            self.base_terminal_evidence,
+            (
+                ContinuousJob4TerminalEvidenceV1,
+                ContinuousJob4TerminalEvidenceV2,
+                ContinuousJob4TerminalEvidenceV3,
+                ContinuousJob4TerminalEvidenceV4,
+                ContinuousJob4TerminalEvidenceV5,
+            ),
+        ):
+            raise ValueError("terminal v6 base evidence is invalid")
+        if not isinstance(
+            self.test_diagnostics, ContinuousJob4TestDiagnosticsV1
+        ):
+            raise ValueError("terminal v6 test diagnostics are invalid")
+        failures = list(self.base_terminal_evidence.failure_codes)
+        if not self.test_diagnostics.all_acceptable:
+            failures.append("selected_test_diagnostics_failed")
+        expected_failures = tuple(dict.fromkeys(failures))
+        if self.failure_codes != expected_failures:
+            raise ValueError("terminal v6 failure codes are not derived")
+        expected_status = "completed" if not expected_failures else "failed"
+        if self.status != expected_status:
+            raise ValueError("terminal v6 status contradicts test diagnostics")
+
+    @classmethod
+    def build(
+        cls,
+        *,
+        base_terminal_evidence: (
+            ContinuousJob4TerminalEvidenceV1
+            | ContinuousJob4TerminalEvidenceV2
+            | ContinuousJob4TerminalEvidenceV3
+            | ContinuousJob4TerminalEvidenceV4
+            | ContinuousJob4TerminalEvidenceV5
+        ),
+        test_diagnostics: ContinuousJob4TestDiagnosticsV1,
+    ) -> "ContinuousJob4TerminalEvidenceV6":
+        failures = list(base_terminal_evidence.failure_codes)
+        if not test_diagnostics.all_acceptable:
+            failures.append("selected_test_diagnostics_failed")
+        failure_codes = tuple(dict.fromkeys(failures))
+        return cls(
+            base_terminal_evidence=base_terminal_evidence,
+            test_diagnostics=test_diagnostics,
+            status="completed" if not failure_codes else "failed",
+            failure_codes=failure_codes,
+        )
+
+    @property
+    def execution_status(self) -> str:
+        return self.base_terminal_evidence.execution_status
+
+    @property
+    def effect_evidence(self) -> ContinuousJob4EffectEvidenceV1:
+        return self.base_terminal_evidence.effect_evidence
+
+    @property
+    def postconditions(self) -> ContinuousJob4PostconditionsV1:
+        return self.base_terminal_evidence.postconditions
+
+    @property
+    def sha256(self) -> str:
+        return canonical_sha256(self.to_dict())
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.SCHEMA_VERSION,
+            "base_terminal_evidence": self.base_terminal_evidence.to_dict(),
+            "test_diagnostics": self.test_diagnostics.to_dict(),
+            "status": self.status,
+            "failure_codes": list(self.failure_codes),
+        }
+
+    @classmethod
+    def from_dict(cls, raw: object) -> "ContinuousJob4TerminalEvidenceV6":
+        value = _closed(
+            raw,
+            {
+                "schema_version",
+                "base_terminal_evidence",
+                "test_diagnostics",
+                "status",
+                "failure_codes",
+            },
+            "terminal evidence v6",
+        )
+        if value["schema_version"] != cls.SCHEMA_VERSION:
+            raise ValueError("terminal evidence v6 schema version changed")
+        base = decode_continuous_job4_terminal_evidence(
+            value["base_terminal_evidence"]
+        )
+        if isinstance(base, cls):
+            raise ValueError("terminal evidence v6 cannot recursively wrap v6")
+        rebuilt = cls.build(
+            base_terminal_evidence=base,
+            test_diagnostics=ContinuousJob4TestDiagnosticsV1.from_dict(
+                value["test_diagnostics"]
+            ),
+        )
+        if value["status"] != rebuilt.status:
+            raise ValueError("terminal v6 status changed")
+        if not isinstance(value["failure_codes"], list) or tuple(
+            value["failure_codes"]
+        ) != rebuilt.failure_codes:
+            raise ValueError("terminal v6 failure codes changed")
+        return rebuilt
+
+
 ContinuousJob4TerminalEvidence = (
     ContinuousJob4TerminalEvidenceV1
     | ContinuousJob4TerminalEvidenceV2
     | ContinuousJob4TerminalEvidenceV3
     | ContinuousJob4TerminalEvidenceV4
     | ContinuousJob4TerminalEvidenceV5
+    | ContinuousJob4TerminalEvidenceV6
 )
 
 
@@ -1926,12 +2055,24 @@ def decode_continuous_job4_terminal_evidence(
         return ContinuousJob4TerminalEvidenceV4.from_dict(raw)
     if version == ContinuousJob4TerminalEvidenceV5.SCHEMA_VERSION:
         return ContinuousJob4TerminalEvidenceV5.from_dict(raw)
+    if version == ContinuousJob4TerminalEvidenceV6.SCHEMA_VERSION:
+        return ContinuousJob4TerminalEvidenceV6.from_dict(raw)
     raise ValueError("terminal evidence schema version is unsupported")
 
 
 def rebuild_failed_continuous_job4_terminal_evidence(
     terminal: ContinuousJob4TerminalEvidence,
 ) -> ContinuousJob4TerminalEvidence:
+    if isinstance(terminal, ContinuousJob4TerminalEvidenceV6):
+        base = rebuild_failed_continuous_job4_terminal_evidence(
+            terminal.base_terminal_evidence
+        )
+        if isinstance(base, ContinuousJob4TerminalEvidenceV6):
+            raise ValueError("terminal v6 failure rebuild became recursive")
+        return ContinuousJob4TerminalEvidenceV6.build(
+            base_terminal_evidence=base,
+            test_diagnostics=terminal.test_diagnostics,
+        )
     if isinstance(terminal, ContinuousJob4TerminalEvidenceV4):
         return ContinuousJob4TerminalEvidenceV4.build(
             execution_status="failed",

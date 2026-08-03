@@ -34,7 +34,12 @@ from cera.continuous.job4_terminal import (  # noqa: E402
     ContinuousJob4TerminalEvidenceV3,
     ContinuousJob4TerminalEvidenceV4,
     ContinuousJob4TerminalEvidenceV5,
+    ContinuousJob4TerminalEvidenceV6,
     decode_continuous_job4_terminal_evidence,
+)
+from cera.continuous.job4_diagnostics import (  # noqa: E402
+    ContinuousJob4TestDiagnosticsV1,
+    ContinuousJob4TestRecordV1,
 )
 from cera.continuous.sessions import (  # noqa: E402
     ContinuousSessionRole,
@@ -617,6 +622,7 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         ]
         | None = None,
         capability_container: ContinuousJob4CapabilityContainerV1 | None = None,
+        test_diagnostics: ContinuousJob4TestDiagnosticsV1 | None = None,
     ) -> dict[str, object]:
         report = self.source / "JOB4_REPORT.md"
         counters = operational_counters or ContinuousJob4OperationalCountersV1(
@@ -683,6 +689,12 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                 postconditions=postconditions,
                 thread_archival_evidence=thread_archival_evidence,
             )
+        custody_terminal = terminal
+        if test_diagnostics is not None:
+            terminal = ContinuousJob4TerminalEvidenceV6.build(
+                base_terminal_evidence=custody_terminal,
+                test_diagnostics=test_diagnostics,
+            )
         effects = terminal.effect_evidence.canonical_effects
         detail = {
             "cycle_id": self.cycle_id,
@@ -719,25 +731,25 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             "capability_ledger": (
                 None
                 if thread_archival_evidence is None
-                else terminal.capability_ledger.to_dict()
+                else custody_terminal.capability_ledger.to_dict()
             ),
             "capability_ledger_sha256": (
                 None
                 if thread_archival_evidence is None
-                else terminal.capability_ledger.sha256
+                else custody_terminal.capability_ledger.sha256
             ),
             "capability_boundary_evidence": (
-                terminal.capability_boundary_evidence.to_dict()
+                custody_terminal.capability_boundary_evidence.to_dict()
                 if isinstance(
-                    terminal,
+                    custody_terminal,
                     (ContinuousJob4TerminalEvidenceV4, ContinuousJob4TerminalEvidenceV5),
                 )
                 else None
             ),
             "capability_boundary_evidence_sha256": (
-                terminal.capability_boundary_evidence.sha256
+                custody_terminal.capability_boundary_evidence.sha256
                 if isinstance(
-                    terminal,
+                    custody_terminal,
                     (ContinuousJob4TerminalEvidenceV4, ContinuousJob4TerminalEvidenceV5),
                 )
                 else None
@@ -752,6 +764,16 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                 else {"stage": "terminal_postconditions"}
             ),
         }
+        if test_diagnostics is not None:
+            detail.update(
+                {
+                    "test_diagnostics": test_diagnostics.to_dict(),
+                    "test_diagnostics_sha256": test_diagnostics.sha256,
+                    "test_records_root_sha256": (
+                        test_diagnostics.records_root_sha256
+                    ),
+                }
+            )
         report.write_text(
             build_report(detail, task_id=self.job4_task_id),
             encoding="utf-8",
@@ -997,6 +1019,169 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
             repository_root_path=self.root,
         )
         self.assertEqual(state["state"], review_cycle.STATE_RESPONSE_PENDING)
+
+    def test_28c2_v3_test_diagnostics_cross_completion_and_recovery(self) -> None:
+        self.publish()
+        self.record_trigger()
+        diagnostics = ContinuousJob4TestDiagnosticsV1(
+            records=(
+                ContinuousJob4TestRecordV1(
+                    index=1,
+                    test_id=(
+                        "tests.test_pro_review_bridge."
+                        "ProReviewRepositoryCycleTests."
+                        "test_28c2_v3_test_diagnostics_cross_completion_and_recovery"
+                    ),
+                    status="passed",
+                    elapsed_ns=1,
+                ),
+            ),
+            selected_test_ids=(
+                "tests.test_pro_review_bridge."
+                "ProReviewRepositoryCycleTests."
+                "test_28c2_v3_test_diagnostics_cross_completion_and_recovery",
+            ),
+        )
+        value = self.write_canary_job4_result(
+            status="completed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=10,
+            test_diagnostics=diagnostics,
+        )
+        self.assertEqual(
+            value["schema_version"], review_cycle.JOB4_RESULT_SCHEMA_V3
+        )
+        state = review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+        self.assertEqual(state["state"], review_cycle.STATE_RESPONSE_PENDING)
+        completion = json.loads(
+            (self.cycle / "receipts" / "JOB4_COMPLETED.json").read_text()
+        )
+        self.assertEqual(completion["event"], "job4_completed_v3")
+        self.assertEqual(
+            completion["test_diagnostics_sha256"], diagnostics.sha256
+        )
+        self.assertEqual(
+            completion["test_records_root_sha256"],
+            diagnostics.records_root_sha256,
+        )
+        self.assertEqual(completion["test_record_count"], 1)
+        copied = json.loads(
+            (self.cycle / "artifacts" / "JOB4_RESULT.json").read_text()
+        )
+        self.assertEqual(copied["test_diagnostics"], diagnostics.to_dict())
+        recovered = review_cycle.recover_cycle(
+            self.cycle,
+            repository_root_path=self.root,
+        )
+        self.assertEqual(recovered["state"], review_cycle.STATE_RESPONSE_PENDING)
+
+    def test_28c3_v3_test_diagnostics_artifact_tamper_fails_recovery(self) -> None:
+        self.publish()
+        self.record_trigger()
+        test_id = (
+            "tests.test_pro_review_bridge.ProReviewRepositoryCycleTests."
+            "test_28c3_v3_test_diagnostics_artifact_tamper_fails_recovery"
+        )
+        diagnostics = ContinuousJob4TestDiagnosticsV1(
+            records=(
+                ContinuousJob4TestRecordV1(
+                    index=1,
+                    test_id=test_id,
+                    status="passed",
+                    elapsed_ns=1,
+                ),
+            ),
+            selected_test_ids=(test_id,),
+        )
+        self.write_canary_job4_result(
+            status="completed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=10,
+            test_diagnostics=diagnostics,
+        )
+        review_cycle.complete_job4(
+            self.cycle,
+            stability_delay_milliseconds=0,
+            repository_root_path=self.root,
+        )
+
+        for relative, mutation in (
+            (
+                "artifacts/JOB4_RESULT.json",
+                lambda value: value["test_diagnostics"]["records"][0].update(
+                    {"elapsed_ns": 2}
+                ),
+            ),
+            (
+                "artifacts/JOB4_TERMINAL_EVIDENCE.json",
+                lambda value: value["test_diagnostics"].update(
+                    {"records_root_sha256": "0" * 64}
+                ),
+            ),
+        ):
+            path = self.cycle / relative
+            original = path.read_bytes()
+            changed = json.loads(original)
+            mutation(changed)
+            path.write_text(json.dumps(changed), encoding="utf-8")
+            try:
+                with self.subTest(relative=relative), self.assertRaises(
+                    review_cycle.CycleError
+                ):
+                    review_cycle.recover_cycle(
+                        self.cycle,
+                        repository_root_path=self.root,
+                    )
+            finally:
+                path.write_bytes(original)
+
+        recovered = review_cycle.recover_cycle(
+            self.cycle,
+            repository_root_path=self.root,
+        )
+        self.assertEqual(recovered["state"], review_cycle.STATE_RESPONSE_PENDING)
+
+    def test_28c4_v3_test_diagnostics_source_tamper_blocks_completion(self) -> None:
+        self.publish()
+        self.record_trigger()
+        test_id = (
+            "tests.test_pro_review_bridge.ProReviewRepositoryCycleTests."
+            "test_28c4_v3_test_diagnostics_source_tamper_blocks_completion"
+        )
+        diagnostics = ContinuousJob4TestDiagnosticsV1(
+            records=(
+                ContinuousJob4TestRecordV1(
+                    index=1,
+                    test_id=test_id,
+                    status="passed",
+                    elapsed_ns=1,
+                ),
+            ),
+            selected_test_ids=(test_id,),
+        )
+        self.write_canary_job4_result(
+            status="completed",
+            execution_mode="provider_free_scripted_v8",
+            provider_calls=0,
+            scripted_transport_invocations=10,
+            test_diagnostics=diagnostics,
+        )
+        result_path = self.cycle / "source" / "JOB4_RESULT.json"
+        changed = json.loads(result_path.read_text(encoding="utf-8"))
+        changed["test_records_root_sha256"] = "0" * 64
+        result_path.write_text(json.dumps(changed), encoding="utf-8")
+        with self.assertRaises(review_cycle.CycleError):
+            review_cycle.complete_job4(
+                self.cycle,
+                stability_delay_milliseconds=0,
+                repository_root_path=self.root,
+            )
 
     def test_28d_actual_scripted_v8_canary_completes_job4_transport(self) -> None:
         self.publish()
