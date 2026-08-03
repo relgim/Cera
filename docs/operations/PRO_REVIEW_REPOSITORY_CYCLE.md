@@ -99,11 +99,24 @@ Only generated root runtime state, current-cycle transport state, and
 
 Each progression Markdown file must itself declare the exact bound `task_id`
 and one final `status: completed | blocked`; the spec cannot relabel a stale
-hash-valid result. Every v2 predecessor is accepted only after its immutable
+hash-valid result. Every modern predecessor is accepted only after its immutable
 outbox, source archive, publication/start/optional-trigger/completion/
 consumption receipt chain, structured Job 4 result and report, and accepted
 response identity are revalidated. Legacy cycle 002 is the single explicit
 compatibility boundary.
+
+Spec/manifest V3 retains that consumed predecessor and adds
+`failed_pre_manifest_predecessors`. For consumed sequence `P` and current
+sequence `C`, the list must prove exactly `P+1` through `C-1`, in order, with no
+duplicates or omissions. Every entry binds an exact source-local copy of the
+authoritative failure receipt plus a canonical
+`cera.pro_review_failed_pre_manifest_tombstone.v1`. Pre-publication validates
+the original receipt, attempted spec/authorization when present, zero effects,
+the failed directory inventory, and absence of publication/completion/
+consumption artifacts. Publication places the exact receipt and tombstone bytes
+in the immutable outbox; completion and recovery validate those published
+copies. A tombstone provides sequence custody only and never substitutes for a
+consumed predecessor, accepted response, Job 4 result, or execution authority.
 
 `complete-job4` stable-reads the exact expected result and preserves its bytes
 and hash. `consume` is unavailable before that transition. It stable-reads only
@@ -145,7 +158,7 @@ invalid mutable view is rebuilt. Later repository development therefore cannot
 invalidate or silently mutate a completed historical cycle.
 
 `latest-consumed` does not trust a mutable state label. It fully reconstructs
-v2 candidates from immutable evidence and the receipt-bound accepted response,
+modern V2/V3 candidates from immutable evidence and the receipt-bound accepted response,
 skips invalid higher-sequence candidates with an explicit diagnostic, and
 returns only the newest valid response. Post-consumption inbox state is
 diagnostic only.

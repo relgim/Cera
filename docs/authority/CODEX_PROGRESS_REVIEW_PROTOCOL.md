@@ -207,6 +207,9 @@ The generated immutable request must contain:
 - any disagreement with the prior Pro response;
 - the preceding Job 4 result after bootstrap, separately identified from the
   current/revised Jobs 1-3 results;
+- for a nonadjacent V3 sequence, the exact ordered failed-pre-manifest receipt
+  copies and typed tombstones for every intervening sequence; these provide
+  sequence custody but no Job 4, response, or creator authority;
 - the next Job 4 task ID, exact independent scope, and pre-publication
   authorization-artifact hash;
 - Codex's suggested next work, clearly labeled advisory rather than authorized.
@@ -243,7 +246,7 @@ path. If the response is not ready, Codex may wait again or perform only another
 separately named and pre-authorized independent task. Silence is not authority.
 The completion chain must preserve and revalidate both the structured Job 4
 result and its human-readable report. Startup discovery must reconstruct the
-latest consumed v2 cycle from its immutable outbox, source archive, typed
+latest consumed modern V2/V3 cycle from its immutable outbox, source archive, typed
 receipt chain, Job 4 evidence, and accepted response identity; a mutable state
 label alone is never a trusted startup source.
 

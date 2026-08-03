@@ -10,9 +10,13 @@ current or revised Jobs 1-3 from the preceding Job 4 result, and it proves that
 the next named Job 4 was creator-authorized before publication.
 The source identity is status-aware: tracked runtime source is reviewable,
 generated root runtime state is excluded, and deletions/renames are represented
-with tombstones and old/new paths. V2 predecessor and latest-consumed lookup
-revalidate the full outbox, source archive, typed receipt chain, Job 4 result
-and report, and accepted response.
+with tombstones and old/new paths. V1/V2 direct-predecessor cycles remain
+readable. V3 additionally permits only an exact contiguous sequence gap whose
+every intervening identity has an immutable failed-pre-manifest receipt copy
+and typed tombstone. Those tombstones convey sequence custody only; they are
+not consumed cycles or Job 4 authority. Modern predecessor and latest-consumed
+lookup revalidate the full outbox, source archive, typed receipt chain, Job 4
+result and report, accepted response, and any published V3 gap custody.
 
 Codex activates the existing ChatGPT Pro chat through the supported app thread
 operation, then performs only that pre-authorized Job 4. After Job 4 it consumes

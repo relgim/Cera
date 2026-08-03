@@ -21,8 +21,14 @@ from cera.continuous.job4_diagnostics import ContinuousJob4TestDiagnosticsV1
 
 
 SPEC_SCHEMA = "cera.pro_review_cycle_spec.v2"
+SPEC_SCHEMA_V3 = "cera.pro_review_cycle_spec.v3"
 MANIFEST_SCHEMA = "cera.pro_review_cycle_manifest.v2"
+MANIFEST_SCHEMA_V3 = "cera.pro_review_cycle_manifest.v3"
 LEGACY_MANIFEST_SCHEMA = "cera.pro_review_cycle_manifest.v1"
+FAILED_PRE_MANIFEST_TOMBSTONE_SCHEMA = (
+    "cera.pro_review_failed_pre_manifest_tombstone.v1"
+)
+FAILED_PUBLICATION_RECEIPT_SCHEMA = "cera.pro_review_cycle_publication_failure.v1"
 STATE_SCHEMA = "cera.pro_review_cycle_state.v2"
 RECEIPT_SCHEMA = "cera.pro_review_cycle_receipt.v2"
 JOB4_AUTHORIZATION_SCHEMA = "cera.pro_review_job4_authorization.v1"
@@ -53,6 +59,18 @@ FORBIDDEN_PARTS = {
     "secret",
 }
 FORBIDDEN_SUFFIXES = {".db", ".sqlite", ".sqlite3", ".key", ".pem"}
+
+FAILED_PRE_MANIFEST_ABSENT_ARTIFACTS = (
+    "CYCLE_MANIFEST.json",
+    "receipts/PUBLISHED.json",
+    "receipts/TRIGGER_SENT.json",
+    "receipts/JOB4_STARTED.json",
+    "receipts/JOB4_COMPLETED.json",
+    "source/JOB4_RESULT.json",
+    "artifacts/JOB4_RESULT.json",
+    "accepted/PRO_RESPONSE.md",
+    "receipts/RESPONSE_CONSUMED.json",
+)
 
 REVIEW_CONTEXT_FIELDS = (
     "creator_goal",
@@ -409,6 +427,29 @@ def verified_file(
         except UnicodeDecodeError as exc:
             raise CycleError(f"{label} is not UTF-8") from exc
     return path, data, actual
+
+
+def repository_relative_file(
+    root: Path,
+    path_value: Any,
+    label: str,
+    *,
+    suffixes: set[str] | None = None,
+) -> Path:
+    value = require_string(path_value, label)
+    candidate = Path(value)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise CycleError(f"{label} must be a safe repository-relative path")
+    path = resolve_inside(
+        root,
+        str(root / candidate),
+        label,
+        must_exist=True,
+        suffixes=suffixes,
+    )
+    if relative_path(root, path) != candidate.as_posix():
+        raise CycleError(f"{label} is not canonical")
+    return path
 
 
 def stable_read(path: Path, delay_milliseconds: int) -> tuple[bytes, str]:
@@ -775,9 +816,13 @@ def validate_authorization(
 def load_manifest_file(path: Path) -> dict[str, Any]:
     manifest = read_json(path)
     schema = manifest.get("schema_version")
-    if schema not in {MANIFEST_SCHEMA, LEGACY_MANIFEST_SCHEMA}:
+    if schema not in {
+        MANIFEST_SCHEMA,
+        MANIFEST_SCHEMA_V3,
+        LEGACY_MANIFEST_SCHEMA,
+    }:
         raise CycleError("unsupported cycle manifest schema")
-    if schema == MANIFEST_SCHEMA:
+    if schema in {MANIFEST_SCHEMA, MANIFEST_SCHEMA_V3}:
         expected = manifest.get("manifest_root_sha256")
         unsigned = {key: value for key, value in manifest.items() if key != "manifest_root_sha256"}
         if not isinstance(expected, str) or sha256_bytes(canonical_json_bytes(unsigned)) != expected:
@@ -785,7 +830,391 @@ def load_manifest_file(path: Path) -> dict[str, Any]:
     return manifest
 
 
-def prior_cycle_info(root: Path, prior_cycle_id: Any, sequence: int) -> dict[str, Any] | None:
+def _validate_failed_publication_receipt(
+    receipt: Mapping[str, Any], sequence: int
+) -> None:
+    if receipt.get("schema_version") != FAILED_PUBLICATION_RECEIPT_SCHEMA:
+        raise CycleError("unsupported failed-publication receipt schema")
+    if (
+        receipt.get("attempted_cycle_sequence") != sequence
+        or receipt.get("disposition")
+        != "publication_failed_pre_manifest_pre_job4"
+        or receipt.get("identity_reusable") is not False
+        or receipt.get("cycle_directory_created") is not True
+        or receipt.get("manifest_published") is not False
+        or receipt.get("published_receipt_created") is not False
+        or receipt.get("job4_started_receipt_created") is not False
+        or receipt.get("trigger_sent_receipt_created", False) is not False
+    ):
+        raise CycleError("failed-publication receipt does not prove a pre-manifest failure")
+    require_id(receipt.get("attempted_cycle_id"), "failed receipt cycle_id")
+    require_id(receipt.get("attempted_checkpoint_id"), "failed receipt checkpoint_id")
+    require_string(receipt.get("failure_type"), "failed receipt failure_type")
+    require_string(receipt.get("failure_message"), "failed receipt failure_message")
+    provider_calls = receipt.get("provider_calls")
+    if not isinstance(provider_calls, dict):
+        raise CycleError("failed-publication provider calls must be an object")
+    exact_keys(
+        provider_calls,
+        ("codex_family", "deepseek", "terra"),
+        "failed-publication provider calls",
+    )
+    if any(value != 0 or isinstance(value, bool) for value in provider_calls.values()):
+        raise CycleError("failed-publication receipt contains nonzero provider calls")
+    for field in (
+        "story_database_writes",
+        "route_changes",
+        "service_changes",
+        "installed_sillytavern_changes",
+    ):
+        if receipt.get(field) != 0 or isinstance(receipt.get(field), bool):
+            raise CycleError("failed-publication receipt contains nonzero product effects")
+
+
+def _failed_tombstone_fields() -> tuple[str, ...]:
+    return (
+        "schema_version",
+        "attempted_cycle_sequence",
+        "attempted_cycle_id",
+        "attempted_checkpoint_id",
+        "attempted_run_id",
+        "attempted_job4_task_id",
+        "original_failure_receipt_path",
+        "original_failure_receipt_sha256",
+        "source_local_receipt_copy_path",
+        "source_local_receipt_copy_sha256",
+        "attempted_cycle_spec_path",
+        "attempted_cycle_spec_sha256",
+        "authorization_record_path",
+        "authorization_record_sha256",
+        "disposition",
+        "failure_type",
+        "failure_message",
+        "identity_reusable",
+        "provider_calls",
+        "effects",
+        "absent_artifacts",
+        "residual_cycle_inventory",
+    )
+
+
+def _validate_optional_path_hash(
+    path_value: Any, hash_value: Any, label: str
+) -> tuple[str | None, str | None]:
+    if path_value is None or hash_value is None:
+        if path_value is not None or hash_value is not None:
+            raise CycleError(f"{label} path/hash must both be null or both be present")
+        return None, None
+    path = require_string(path_value, f"{label}.path")
+    digest = require_hash(hash_value, f"{label}.sha256")
+    return path, digest
+
+
+def _validate_tombstone_semantics(
+    tombstone: Mapping[str, Any], receipt: Mapping[str, Any], sequence: int
+) -> None:
+    exact_keys(tombstone, _failed_tombstone_fields(), "failed-pre-manifest tombstone")
+    if tombstone.get("schema_version") != FAILED_PRE_MANIFEST_TOMBSTONE_SCHEMA:
+        raise CycleError("unsupported failed-pre-manifest tombstone schema")
+    if tombstone.get("attempted_cycle_sequence") != sequence:
+        raise CycleError("failed-pre-manifest tombstone sequence is invalid")
+    if (
+        tombstone.get("attempted_cycle_id") != receipt.get("attempted_cycle_id")
+        or tombstone.get("attempted_checkpoint_id")
+        != receipt.get("attempted_checkpoint_id")
+        or tombstone.get("disposition") != receipt.get("disposition")
+        or tombstone.get("failure_type") != receipt.get("failure_type")
+        or tombstone.get("failure_message") != receipt.get("failure_message")
+        or tombstone.get("identity_reusable") is not False
+    ):
+        raise CycleError("failed-pre-manifest tombstone identity does not match its receipt")
+    expected_run = receipt.get("attempted_run_id")
+    if tombstone.get("attempted_run_id") != expected_run:
+        raise CycleError("failed-pre-manifest tombstone run identity is invalid")
+    if expected_run is not None:
+        require_id(expected_run, "failed tombstone run_id")
+    require_id(tombstone.get("attempted_job4_task_id"), "failed tombstone task_id")
+    if tombstone.get("provider_calls") != receipt.get("provider_calls"):
+        raise CycleError("failed-pre-manifest tombstone provider calls are invalid")
+    effects = tombstone.get("effects")
+    if not isinstance(effects, dict):
+        raise CycleError("failed-pre-manifest effects must be an object")
+    exact_keys(
+        effects,
+        (
+            "story_database_writes",
+            "route_changes",
+            "service_changes",
+            "installed_sillytavern_changes",
+        ),
+        "failed-pre-manifest effects",
+    )
+    if any(value != 0 or isinstance(value, bool) for value in effects.values()):
+        raise CycleError("failed-pre-manifest tombstone contains nonzero product effects")
+    if effects != {
+        "story_database_writes": receipt.get("story_database_writes"),
+        "route_changes": receipt.get("route_changes"),
+        "service_changes": receipt.get("service_changes"),
+        "installed_sillytavern_changes": receipt.get(
+            "installed_sillytavern_changes"
+        ),
+    }:
+        raise CycleError("failed-pre-manifest tombstone effects differ from its receipt")
+    if tombstone.get("absent_artifacts") != list(
+        FAILED_PRE_MANIFEST_ABSENT_ARTIFACTS
+    ):
+        raise CycleError("failed-pre-manifest absence inventory is invalid")
+
+
+def validate_failed_pre_manifest_tombstone(
+    root: Path,
+    cycle: Path,
+    raw: Mapping[str, Any],
+    sequence: int,
+) -> tuple[dict[str, Any], bytes, bytes]:
+    exact_keys(
+        raw,
+        (
+            "cycle_sequence",
+            "receipt_copy_path",
+            "receipt_copy_sha256",
+            "tombstone_path",
+            "tombstone_sha256",
+        ),
+        "failed_pre_manifest_predecessor",
+    )
+    if raw.get("cycle_sequence") != sequence:
+        raise CycleError("failed-pre-manifest predecessor order is invalid")
+    for field in ("receipt_copy_path", "tombstone_path"):
+        supplied_path = Path(require_string(raw.get(field), field))
+        if ".." in supplied_path.parts:
+            raise CycleError("failed-pre-manifest custody path contains traversal")
+    expected_receipt_name = f"FAILED_PRE_MANIFEST_RECEIPT_{sequence:04d}.json"
+    expected_tombstone_name = f"FAILED_PRE_MANIFEST_TOMBSTONE_{sequence:04d}.json"
+    receipt_copy, receipt_data, receipt_hash = verified_file(
+        root,
+        raw.get("receipt_copy_path"),
+        raw.get("receipt_copy_sha256"),
+        "failed receipt copy",
+        suffixes={".json"},
+        utf8=True,
+    )
+    tombstone_path, tombstone_data, tombstone_hash = verified_file(
+        root,
+        raw.get("tombstone_path"),
+        raw.get("tombstone_sha256"),
+        "failed tombstone",
+        suffixes={".json"},
+        utf8=True,
+    )
+    if (
+        receipt_copy.parent != cycle / "source"
+        or receipt_copy.name != expected_receipt_name
+        or tombstone_path.parent != cycle / "source"
+        or tombstone_path.name != expected_tombstone_name
+    ):
+        raise CycleError("failed-pre-manifest custody files must use exact source names")
+    receipt = json.loads(receipt_data.decode("utf-8-sig"))
+    tombstone = json.loads(tombstone_data.decode("utf-8-sig"))
+    if not isinstance(receipt, dict) or not isinstance(tombstone, dict):
+        raise CycleError("failed-pre-manifest custody JSON must contain objects")
+    if tombstone_data != canonical_json_bytes(tombstone):
+        raise CycleError("failed-pre-manifest tombstone must use canonical JSON")
+    _validate_failed_publication_receipt(receipt, sequence)
+    _validate_tombstone_semantics(tombstone, receipt, sequence)
+
+    original = repository_relative_file(
+        root,
+        tombstone["original_failure_receipt_path"],
+        "original failed receipt",
+        suffixes={".json"},
+    )
+    original_hash = require_hash(
+        tombstone["original_failure_receipt_sha256"],
+        "original failed receipt hash",
+    )
+    if sha256_bytes(original.read_bytes()) != original_hash or original.read_bytes() != receipt_data:
+        raise CycleError("failed receipt copy does not match authoritative original bytes")
+    source_copy_relative = relative_path(root, receipt_copy)
+    if (
+        tombstone["source_local_receipt_copy_path"] != source_copy_relative
+        or tombstone["source_local_receipt_copy_sha256"] != receipt_hash
+    ):
+        raise CycleError("failed tombstone does not bind its exact source-local receipt copy")
+
+    spec_path_value, spec_hash_value = _validate_optional_path_hash(
+        tombstone["attempted_cycle_spec_path"],
+        tombstone["attempted_cycle_spec_sha256"],
+        "attempted cycle spec",
+    )
+    spec: dict[str, Any] | None = None
+    if spec_path_value is not None and spec_hash_value is not None:
+        attempted_spec = repository_relative_file(
+            root, spec_path_value, "attempted cycle spec", suffixes={".json"}
+        )
+        if sha256_bytes(attempted_spec.read_bytes()) != spec_hash_value:
+            raise CycleError("attempted cycle spec hash mismatch")
+        spec = read_json(attempted_spec)
+        if (
+            spec.get("schema_version") not in {SPEC_SCHEMA, SPEC_SCHEMA_V3}
+            or spec.get("cycle_id") != tombstone["attempted_cycle_id"]
+            or spec.get("cycle_sequence") != sequence
+            or not isinstance(spec.get("checkpoint"), dict)
+            or spec["checkpoint"].get("id")
+            != tombstone["attempted_checkpoint_id"]
+            or not isinstance(spec.get("job4"), dict)
+            or spec["job4"].get("task_id")
+            != tombstone["attempted_job4_task_id"]
+        ):
+            raise CycleError("attempted cycle spec identity is invalid")
+    if receipt.get("attempted_job4_task_id") is not None and (
+        tombstone["attempted_job4_task_id"]
+        != receipt.get("attempted_job4_task_id")
+    ):
+        raise CycleError("failed tombstone task identity differs from its receipt")
+
+    auth_path_value, auth_hash_value = _validate_optional_path_hash(
+        tombstone["authorization_record_path"],
+        tombstone["authorization_record_sha256"],
+        "failed authorization record",
+    )
+    if auth_path_value is not None and auth_hash_value is not None:
+        attempted_auth = repository_relative_file(
+            root,
+            auth_path_value,
+            "failed authorization record",
+            suffixes={".json"},
+        )
+        if sha256_bytes(attempted_auth.read_bytes()) != auth_hash_value:
+            raise CycleError("failed authorization record hash mismatch")
+        if spec is None:
+            raise CycleError("failed authorization cannot exist without an attempted spec")
+        spec_auth = spec["job4"].get("authorization_record_path")
+        spec_auth_hash = spec["job4"].get("authorization_record_sha256")
+        resolved_spec_auth = resolve_inside(
+            root,
+            spec_auth,
+            "attempted spec authorization",
+            must_exist=True,
+            suffixes={".json"},
+        )
+        if resolved_spec_auth != attempted_auth or spec_auth_hash != auth_hash_value:
+            raise CycleError("attempted spec authorization binding is invalid")
+    if receipt.get("cycle_spec_sha256") not in {None, spec_hash_value}:
+        raise CycleError("failed receipt attempted-spec hash is invalid")
+    if receipt.get("source_local_job4_authorization_sha256") not in {
+        None,
+        auth_hash_value,
+    }:
+        raise CycleError("failed receipt authorization hash is invalid")
+
+    failed_cycle_id = require_id(
+        tombstone["attempted_cycle_id"], "failed tombstone cycle_id"
+    )
+    failed_cycle = cycle_path(
+        root,
+        root / ".chatgpt" / "pro-review" / "cycles" / failed_cycle_id,
+        failed_cycle_id,
+    )
+    if not failed_cycle.is_dir():
+        raise CycleError("failed cycle directory is missing")
+    actual_inventory: list[dict[str, str]] = []
+    for item in sorted(
+        (candidate for candidate in failed_cycle.rglob("*") if candidate.is_file()),
+        key=lambda candidate: candidate.relative_to(failed_cycle).as_posix(),
+    ):
+        if has_link_component(root, item):
+            raise CycleError("failed cycle inventory contains a symlink or junction")
+        actual_inventory.append(
+            {
+                "path": item.relative_to(failed_cycle).as_posix(),
+                "sha256": sha256_bytes(item.read_bytes()),
+            }
+        )
+    residual = tombstone.get("residual_cycle_inventory")
+    if not isinstance(residual, list):
+        raise CycleError("failed residual inventory must be a list")
+    for index, item in enumerate(residual):
+        if not isinstance(item, dict):
+            raise CycleError("failed residual inventory entries must be objects")
+        exact_keys(item, ("path", "sha256"), f"residual inventory[{index}]")
+        require_string(item["path"], f"residual inventory[{index}].path")
+        require_hash(item["sha256"], f"residual inventory[{index}].sha256")
+    if residual != actual_inventory:
+        raise CycleError("failed residual inventory does not match the failed cycle")
+    if receipt.get("cycle_directory_empty") is not (not actual_inventory):
+        raise CycleError("failed receipt directory-empty claim is invalid")
+    if "cycle_source_files" in receipt and receipt["cycle_source_files"] != [
+        item["path"] for item in actual_inventory
+    ]:
+        raise CycleError("failed receipt residual source inventory is invalid")
+    for relative in FAILED_PRE_MANIFEST_ABSENT_ARTIFACTS:
+        if (failed_cycle / Path(relative)).exists():
+            raise CycleError("failed identity contains a forbidden publication artifact")
+
+    public = {
+        "cycle_sequence": sequence,
+        "cycle_id": failed_cycle_id,
+        "checkpoint_id": tombstone["attempted_checkpoint_id"],
+        "run_id": tombstone["attempted_run_id"],
+        "job4_task_id": tombstone["attempted_job4_task_id"],
+        "original_failure_receipt_path": relative_path(root, original),
+        "original_failure_receipt_sha256": original_hash,
+        "published_receipt_copy_relative_path": f"outbox/{expected_receipt_name}",
+        "published_receipt_copy_sha256": receipt_hash,
+        "published_tombstone_relative_path": f"outbox/{expected_tombstone_name}",
+        "published_tombstone_sha256": tombstone_hash,
+        "attempted_cycle_spec_sha256": spec_hash_value,
+        "authorization_record_sha256": auth_hash_value,
+        "residual_cycle_inventory_sha256": sha256_bytes(
+            canonical_json_bytes({"files": actual_inventory})
+        ),
+    }
+    return public, receipt_data, tombstone_data
+
+
+def validate_failed_pre_manifest_predecessors(
+    root: Path,
+    cycle: Path,
+    value: Any,
+    *,
+    prior_sequence: int | None,
+    current_sequence: int,
+) -> tuple[list[dict[str, Any]], dict[str, bytes]]:
+    if not isinstance(value, list):
+        raise CycleError("failed_pre_manifest_predecessors must be a list")
+    expected = (
+        []
+        if prior_sequence is None
+        else list(range(prior_sequence + 1, current_sequence))
+    )
+    observed = [
+        item.get("cycle_sequence") if isinstance(item, dict) else None
+        for item in value
+    ]
+    if observed != expected:
+        raise CycleError("failed-pre-manifest sequence gap is not exact and contiguous")
+    public: list[dict[str, Any]] = []
+    artifacts: dict[str, bytes] = {}
+    for sequence, raw in zip(expected, value):
+        if not isinstance(raw, dict):
+            raise CycleError("failed-pre-manifest predecessor must be an object")
+        item, receipt_data, tombstone_data = validate_failed_pre_manifest_tombstone(
+            root, cycle, raw, sequence
+        )
+        public.append(item)
+        artifacts[f"FAILED_PRE_MANIFEST_RECEIPT_{sequence:04d}.json"] = receipt_data
+        artifacts[f"FAILED_PRE_MANIFEST_TOMBSTONE_{sequence:04d}.json"] = tombstone_data
+    return public, artifacts
+
+
+def prior_cycle_info(
+    root: Path,
+    prior_cycle_id: Any,
+    sequence: int,
+    *,
+    require_adjacent: bool = True,
+) -> dict[str, Any] | None:
     if prior_cycle_id is None:
         if sequence != 1:
             raise CycleError("every cycle after sequence 1 requires prior_cycle_id")
@@ -796,9 +1225,16 @@ def prior_cycle_info(root: Path, prior_cycle_id: Any, sequence: int) -> dict[str
     prior = cycle_path(root, root / ".chatgpt" / "pro-review" / "cycles" / prior_id, prior_id)
     manifest_path = prior / "CYCLE_MANIFEST.json"
     manifest = load_manifest_file(manifest_path)
-    if manifest.get("cycle_id") != prior_id or manifest.get("cycle_sequence") != sequence - 1:
+    prior_sequence = manifest.get("cycle_sequence")
+    if (
+        manifest.get("cycle_id") != prior_id
+        or not isinstance(prior_sequence, int)
+        or isinstance(prior_sequence, bool)
+        or prior_sequence >= sequence
+        or (require_adjacent and prior_sequence != sequence - 1)
+    ):
         raise CycleError("prior cycle identity or sequence is invalid")
-    if manifest.get("schema_version") == MANIFEST_SCHEMA:
+    if manifest.get("schema_version") in {MANIFEST_SCHEMA, MANIFEST_SCHEMA_V3}:
         completion, completion_hash, consumed_hash, _ = validate_consumed_cycle(
             root, prior, manifest, require_current_source=False
         )
@@ -811,7 +1247,7 @@ def prior_cycle_info(root: Path, prior_cycle_id: Any, sequence: int) -> dict[str
         artifact_data = artifact.read_bytes()
         return {
             "cycle_id": prior_id,
-            "cycle_sequence": sequence - 1,
+            "cycle_sequence": prior_sequence,
             "manifest_sha256": sha256_bytes(manifest_path.read_bytes()),
             "manifest_root_sha256": manifest["manifest_root_sha256"],
             "job4_task_id": completion["job4_task_id"],
@@ -850,7 +1286,7 @@ def prior_cycle_info(root: Path, prior_cycle_id: Any, sequence: int) -> dict[str
         raise CycleError("prior cycle accepted response does not match consumption")
     return {
         "cycle_id": prior_id,
-        "cycle_sequence": sequence - 1,
+        "cycle_sequence": prior_sequence,
         "manifest_sha256": sha256_bytes(manifest_path.read_bytes()),
         "manifest_root_sha256": manifest.get(
             "manifest_root_sha256", sha256_bytes(manifest_path.read_bytes())
@@ -867,9 +1303,9 @@ def prior_cycle_info(root: Path, prior_cycle_id: Any, sequence: int) -> dict[str
 def validate_spec(
     root: Path, cycle: Path, spec: Mapping[str, Any]
 ) -> tuple[dict[str, Any], dict[str, bytes]]:
-    exact_keys(
-        spec,
-        (
+    schema = spec.get("schema_version")
+    if schema == SPEC_SCHEMA:
+        spec_fields = (
             "schema_version",
             "cycle_id",
             "cycle_sequence",
@@ -879,11 +1315,27 @@ def validate_spec(
             "job4",
             "review_context",
             "review_snapshot",
-        ),
+        )
+    elif schema == SPEC_SCHEMA_V3:
+        spec_fields = (
+            "schema_version",
+            "cycle_id",
+            "cycle_sequence",
+            "checkpoint",
+            "jobs_1_3",
+            "prior_cycle_id",
+            "failed_pre_manifest_predecessors",
+            "job4",
+            "review_context",
+            "review_snapshot",
+        )
+    else:
+        raise CycleError("unsupported cycle spec schema")
+    exact_keys(
+        spec,
+        spec_fields,
         "cycle spec",
     )
-    if spec["schema_version"] != SPEC_SCHEMA:
-        raise CycleError("unsupported cycle spec schema")
     cycle_id = require_id(spec["cycle_id"], "cycle_id")
     cycle_path(root, cycle, cycle_id)
     sequence = spec["cycle_sequence"]
@@ -919,7 +1371,24 @@ def validate_spec(
         jobs.append(job)
         artifacts[f"JOB_{index}_RESULT.md"] = data
 
-    prior = prior_cycle_info(root, spec["prior_cycle_id"], sequence)
+    prior = prior_cycle_info(
+        root,
+        spec["prior_cycle_id"],
+        sequence,
+        require_adjacent=schema == SPEC_SCHEMA,
+    )
+    failed_pre_manifest: list[dict[str, Any]] = []
+    if schema == SPEC_SCHEMA_V3:
+        failed_pre_manifest, failed_artifacts = (
+            validate_failed_pre_manifest_predecessors(
+                root,
+                cycle,
+                spec["failed_pre_manifest_predecessors"],
+                prior_sequence=None if prior is None else prior["cycle_sequence"],
+                current_sequence=sequence,
+            )
+        )
+        artifacts.update(failed_artifacts)
     if prior is not None:
         if prior["job4_task_id"] in task_ids:
             raise CycleError("prior Job 4 must be distinct from current progressions")
@@ -984,10 +1453,17 @@ def validate_spec(
             "expected_result_relative_path": authorization["expected_result_relative_path"],
         },
     }
+    if schema == SPEC_SCHEMA_V3:
+        task_payload["failed_pre_manifest_predecessors"] = failed_pre_manifest
     task_set_hash = sha256_bytes(canonical_json_bytes(task_payload))
-    nonce = sha256_text(f"cera.pro_review_response_nonce.v2\0{task_set_hash}")
+    nonce_version = "v3" if schema == SPEC_SCHEMA_V3 else "v2"
+    nonce = sha256_text(
+        f"cera.pro_review_response_nonce.{nonce_version}\0{task_set_hash}"
+    )
     unsigned_manifest: dict[str, Any] = {
-        "schema_version": MANIFEST_SCHEMA,
+        "schema_version": (
+            MANIFEST_SCHEMA_V3 if schema == SPEC_SCHEMA_V3 else MANIFEST_SCHEMA
+        ),
         "cycle_id": cycle_id,
         "cycle_sequence": sequence,
         "repository_identity_sha256": sha256_text(str(root).casefold()),
@@ -1014,6 +1490,8 @@ def validate_spec(
         "expected_response_relative_path": EXPECTED_RESPONSE_RELATIVE_PATH.as_posix(),
         "accepted_response_relative_path": ACCEPTED_RESPONSE_RELATIVE_PATH.as_posix(),
     }
+    if schema == SPEC_SCHEMA_V3:
+        unsigned_manifest["failed_pre_manifest_predecessors"] = failed_pre_manifest
     manifest_root = sha256_bytes(canonical_json_bytes(unsigned_manifest))
     manifest = {**unsigned_manifest, "manifest_root_sha256": manifest_root}
     return manifest, artifacts
@@ -1062,6 +1540,19 @@ def request_markdown(manifest: Mapping[str, Any]) -> bytes:
                 f"- Consumption receipt: `{prior['response_consumption_receipt_sha256']}`.",
             ]
         )
+    if manifest["schema_version"] == MANIFEST_SCHEMA_V3:
+        lines.extend(["", "## Failed pre-manifest sequence custody", ""])
+        failed = manifest["failed_pre_manifest_predecessors"]
+        if not failed:
+            lines.append("- Direct consumed predecessor: no failed sequence gap.")
+        else:
+            for item in failed:
+                lines.append(
+                    f"- Failed sequence {item['cycle_sequence']}: "
+                    f"`{item['cycle_id']}`; receipt "
+                    f"`{item['published_receipt_copy_sha256']}`; tombstone "
+                    f"`{item['published_tombstone_sha256']}`."
+                )
     lines.extend(
         [
             "",
@@ -1280,12 +1771,125 @@ def validate_trigger_receipt(
 def load_v2_manifest(root: Path, cycle: Path) -> dict[str, Any]:
     cycle_path(root, cycle)
     manifest = load_manifest_file(cycle / "CYCLE_MANIFEST.json")
-    if manifest.get("schema_version") != MANIFEST_SCHEMA:
-        raise CycleError("legacy cycle is immutable and cannot use V2 transitions")
+    if manifest.get("schema_version") not in {
+        MANIFEST_SCHEMA,
+        MANIFEST_SCHEMA_V3,
+    }:
+        raise CycleError("legacy cycle is immutable and cannot use modern transitions")
     cycle_path(root, cycle, manifest["cycle_id"])
     if manifest.get("repository_identity_sha256") != sha256_text(str(root).casefold()):
         raise CycleError("cycle belongs to a different repository")
     return manifest
+
+
+def _failed_public_fields() -> tuple[str, ...]:
+    return (
+        "cycle_sequence",
+        "cycle_id",
+        "checkpoint_id",
+        "run_id",
+        "job4_task_id",
+        "original_failure_receipt_path",
+        "original_failure_receipt_sha256",
+        "published_receipt_copy_relative_path",
+        "published_receipt_copy_sha256",
+        "published_tombstone_relative_path",
+        "published_tombstone_sha256",
+        "attempted_cycle_spec_sha256",
+        "authorization_record_sha256",
+        "residual_cycle_inventory_sha256",
+    )
+
+
+def validate_published_failed_pre_manifest_chain(
+    root: Path, cycle: Path, manifest: Mapping[str, Any]
+) -> None:
+    if manifest.get("schema_version") != MANIFEST_SCHEMA_V3:
+        return
+    prior = manifest.get("prior_cycle")
+    prior_sequence = None if prior is None else prior.get("cycle_sequence")
+    sequence = manifest.get("cycle_sequence")
+    if not isinstance(sequence, int) or isinstance(sequence, bool):
+        raise CycleError("V3 cycle sequence is invalid")
+    expected = (
+        []
+        if prior_sequence is None
+        else list(range(prior_sequence + 1, sequence))
+    )
+    failed = manifest.get("failed_pre_manifest_predecessors")
+    if not isinstance(failed, list) or [
+        item.get("cycle_sequence") if isinstance(item, dict) else None
+        for item in failed
+    ] != expected:
+        raise CycleError("published failed-pre-manifest chain is not exact and contiguous")
+    for expected_sequence, item in zip(expected, failed):
+        if not isinstance(item, dict):
+            raise CycleError("published failed-pre-manifest entry must be an object")
+        exact_keys(item, _failed_public_fields(), "published failed-pre-manifest entry")
+        receipt_name = f"FAILED_PRE_MANIFEST_RECEIPT_{expected_sequence:04d}.json"
+        tombstone_name = f"FAILED_PRE_MANIFEST_TOMBSTONE_{expected_sequence:04d}.json"
+        expected_receipt_relative = f"outbox/{receipt_name}"
+        expected_tombstone_relative = f"outbox/{tombstone_name}"
+        if (
+            item["published_receipt_copy_relative_path"]
+            != expected_receipt_relative
+            or item["published_tombstone_relative_path"]
+            != expected_tombstone_relative
+        ):
+            raise CycleError("published failed-pre-manifest paths are invalid")
+        receipt_path = resolve_inside(
+            root,
+            str(cycle / expected_receipt_relative),
+            "published failed receipt",
+            must_exist=True,
+            suffixes={".json"},
+        )
+        tombstone_path = resolve_inside(
+            root,
+            str(cycle / expected_tombstone_relative),
+            "published failed tombstone",
+            must_exist=True,
+            suffixes={".json"},
+        )
+        receipt_data = receipt_path.read_bytes()
+        tombstone_data = tombstone_path.read_bytes()
+        if (
+            sha256_bytes(receipt_data)
+            != item["published_receipt_copy_sha256"]
+            or sha256_bytes(tombstone_data)
+            != item["published_tombstone_sha256"]
+        ):
+            raise CycleError("published failed-pre-manifest custody hash mismatch")
+        receipt = json.loads(receipt_data.decode("utf-8-sig"))
+        tombstone = json.loads(tombstone_data.decode("utf-8-sig"))
+        if not isinstance(receipt, dict) or not isinstance(tombstone, dict):
+            raise CycleError("published failed-pre-manifest custody must contain objects")
+        if tombstone_data != canonical_json_bytes(tombstone):
+            raise CycleError("published failed-pre-manifest tombstone is not canonical")
+        _validate_failed_publication_receipt(receipt, expected_sequence)
+        _validate_tombstone_semantics(tombstone, receipt, expected_sequence)
+        residual = tombstone["residual_cycle_inventory"]
+        if not isinstance(residual, list):
+            raise CycleError("published failed residual inventory must be a list")
+        residual_hash = sha256_bytes(canonical_json_bytes({"files": residual}))
+        if (
+            item["cycle_id"] != tombstone["attempted_cycle_id"]
+            or item["checkpoint_id"] != tombstone["attempted_checkpoint_id"]
+            or item["run_id"] != tombstone["attempted_run_id"]
+            or item["job4_task_id"] != tombstone["attempted_job4_task_id"]
+            or item["original_failure_receipt_path"]
+            != tombstone["original_failure_receipt_path"]
+            or item["original_failure_receipt_sha256"]
+            != tombstone["original_failure_receipt_sha256"]
+            or item["published_receipt_copy_sha256"]
+            != tombstone["source_local_receipt_copy_sha256"]
+            or item["attempted_cycle_spec_sha256"]
+            != tombstone["attempted_cycle_spec_sha256"]
+            or item["authorization_record_sha256"]
+            != tombstone["authorization_record_sha256"]
+            or item["residual_cycle_inventory_sha256"] != residual_hash
+        ):
+            raise CycleError("published failed-pre-manifest manifest binding is invalid")
 
 
 def validate_snapshot_archive(cycle: Path, manifest: Mapping[str, Any]) -> None:
@@ -1421,6 +2025,7 @@ def validate_publication(
         != "individually_atomic_with_published_commit_marker"
     ):
         raise CycleError("publication receipt identity fields do not match the manifest")
+    validate_published_failed_pre_manifest_chain(root, cycle, manifest)
     validate_snapshot_archive(cycle, manifest)
     started_path = cycle / "receipts" / "JOB4_STARTED.json"
     started, started_hash = validate_receipt(
@@ -2388,7 +2993,10 @@ def latest_consumed_cycle(*, repository_root_path: Path | None = None) -> dict[s
         candidates, key=lambda item: (item[0], item[1].name), reverse=True
     ):
         try:
-            if manifest.get("schema_version") == MANIFEST_SCHEMA:
+            if manifest.get("schema_version") in {
+                MANIFEST_SCHEMA,
+                MANIFEST_SCHEMA_V3,
+            }:
                 _, _, consumed_hash, data = validate_consumed_cycle(
                     root, path, manifest, require_current_source=False
                 )

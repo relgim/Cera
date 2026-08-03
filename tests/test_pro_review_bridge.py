@@ -2917,7 +2917,493 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                 repository_root_path=self.root,
             )
 
+class ProReviewFailedPreManifestGapTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.fixture = ProReviewRepositoryCycleTests(
+            "test_18_publish_binds_source_root_and_job4_authorization_contract"
+        )
+        self.fixture.setUp()
+        self.root = self.fixture.root
 
+    def tearDown(self) -> None:
+        self.fixture.tearDown()
+
+    @staticmethod
+    def _hash(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def _consume_bootstrap(self) -> None:
+        self.fixture.publish()
+        self.fixture.complete_job4()
+        self.fixture.write_response()
+        self.fixture.consume()
+
+    def _start_successor(
+        self, *, sequence: int, cycle_id: str = "cycle-successor"
+    ) -> None:
+        fixture = self.fixture
+        fixture.cycle_id = cycle_id
+        fixture.cycle = (
+            self.root / ".chatgpt" / "pro-review" / "cycles" / cycle_id
+        )
+        fixture.source = fixture.cycle / "source"
+        fixture.source.mkdir(parents=True)
+        fixture.spec_path = fixture.cycle / "CYCLE_SPEC.json"
+        fixture.job4_task_id = f"bounded-verification-{sequence}"
+        fixture._write_authorization()
+        fixture._write_spec(sequence=sequence, prior_cycle_id="cycle-001")
+
+    def _set_v3_spec(self, predecessors: list[dict[str, object]]) -> None:
+        value = json.loads(self.fixture.spec_path.read_text(encoding="utf-8"))
+        value["schema_version"] = review_cycle.SPEC_SCHEMA_V3
+        value["failed_pre_manifest_predecessors"] = predecessors
+        self.fixture.spec_path.write_text(
+            json.dumps(value, indent=2) + "\n", encoding="utf-8"
+        )
+
+    def _stage_failed_identity(
+        self,
+        sequence: int,
+        *,
+        residual_authorization: bool = False,
+    ) -> dict[str, object]:
+        failed_id = f"failed-cycle-{sequence}"
+        checkpoint_id = f"failed-checkpoint-{sequence}"
+        run_id = f"failed-run-{sequence}"
+        task_id = f"failed-task-{sequence}"
+        failed_cycle = (
+            self.root / ".chatgpt" / "pro-review" / "cycles" / failed_id
+        )
+        failed_cycle.mkdir(parents=True)
+        operation = self.root / ".chatgpt" / "operations" / f"failed-{sequence}"
+        operation.mkdir(parents=True)
+        if residual_authorization:
+            authorization = failed_cycle / "source" / "JOB4_AUTHORIZATION.json"
+            authorization.parent.mkdir()
+        else:
+            authorization = operation / "JOB4_AUTHORIZATION.json"
+        authorization.write_text(
+            json.dumps({"cycle_id": failed_id, "task_id": task_id}) + "\n",
+            encoding="utf-8",
+        )
+        attempted_spec = operation / "CYCLE_SPEC.json"
+        attempted_spec.write_text(
+            json.dumps(
+                {
+                    "schema_version": review_cycle.SPEC_SCHEMA,
+                    "cycle_id": failed_id,
+                    "cycle_sequence": sequence,
+                    "checkpoint": {"id": checkpoint_id},
+                    "job4": {
+                        "task_id": task_id,
+                        "authorization_record_path": str(authorization),
+                        "authorization_record_sha256": self._hash(authorization),
+                    },
+                },
+                indent=2,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        residual = [
+            {
+                "path": item.relative_to(failed_cycle).as_posix(),
+                "sha256": self._hash(item),
+            }
+            for item in sorted(
+                (path for path in failed_cycle.rglob("*") if path.is_file()),
+                key=lambda path: path.relative_to(failed_cycle).as_posix(),
+            )
+        ]
+        receipt = {
+            "schema_version": review_cycle.FAILED_PUBLICATION_RECEIPT_SCHEMA,
+            "recorded_at_utc": "2026-08-03T00:00:00Z",
+            "attempted_cycle_id": failed_id,
+            "attempted_cycle_sequence": sequence,
+            "attempted_checkpoint_id": checkpoint_id,
+            "attempted_run_id": run_id,
+            "attempted_job4_task_id": task_id,
+            "checkpoint_git_sha": self.fixture.checkpoint_sha,
+            "checkpoint_tree_sha": self.fixture._git(
+                "rev-parse", "HEAD^{tree}"
+            ).strip(),
+            "cycle_spec_sha256": self._hash(attempted_spec),
+            "source_local_job4_authorization_sha256": self._hash(authorization),
+            "disposition": "publication_failed_pre_manifest_pre_job4",
+            "failure_type": "CycleProtocolValidationError",
+            "failure_message": "focused failed publication fixture",
+            "cycle_directory_created": True,
+            "cycle_directory_empty": not residual,
+            "cycle_source_files": [item["path"] for item in residual],
+            "manifest_published": False,
+            "published_receipt_created": False,
+            "trigger_sent_receipt_created": False,
+            "job4_started_receipt_created": False,
+            "provider_calls": {"codex_family": 0, "deepseek": 0, "terra": 0},
+            "story_database_writes": 0,
+            "route_changes": 0,
+            "service_changes": 0,
+            "installed_sillytavern_changes": 0,
+            "identity_reusable": False,
+        }
+        original_receipt = operation / "PUBLICATION_FAILED_PRE_MANIFEST.json"
+        original_receipt.write_text(
+            json.dumps(receipt, indent=2) + "\n", encoding="utf-8"
+        )
+        receipt_copy = (
+            self.fixture.source
+            / f"FAILED_PRE_MANIFEST_RECEIPT_{sequence:04d}.json"
+        )
+        receipt_copy.write_bytes(original_receipt.read_bytes())
+        tombstone = {
+            "schema_version": review_cycle.FAILED_PRE_MANIFEST_TOMBSTONE_SCHEMA,
+            "attempted_cycle_sequence": sequence,
+            "attempted_cycle_id": failed_id,
+            "attempted_checkpoint_id": checkpoint_id,
+            "attempted_run_id": run_id,
+            "attempted_job4_task_id": task_id,
+            "original_failure_receipt_path": original_receipt.relative_to(
+                self.root
+            ).as_posix(),
+            "original_failure_receipt_sha256": self._hash(original_receipt),
+            "source_local_receipt_copy_path": receipt_copy.relative_to(
+                self.root
+            ).as_posix(),
+            "source_local_receipt_copy_sha256": self._hash(receipt_copy),
+            "attempted_cycle_spec_path": attempted_spec.relative_to(
+                self.root
+            ).as_posix(),
+            "attempted_cycle_spec_sha256": self._hash(attempted_spec),
+            "authorization_record_path": authorization.relative_to(
+                self.root
+            ).as_posix(),
+            "authorization_record_sha256": self._hash(authorization),
+            "disposition": "publication_failed_pre_manifest_pre_job4",
+            "failure_type": "CycleProtocolValidationError",
+            "failure_message": "focused failed publication fixture",
+            "identity_reusable": False,
+            "provider_calls": {"codex_family": 0, "deepseek": 0, "terra": 0},
+            "effects": {
+                "story_database_writes": 0,
+                "route_changes": 0,
+                "service_changes": 0,
+                "installed_sillytavern_changes": 0,
+            },
+            "absent_artifacts": list(
+                review_cycle.FAILED_PRE_MANIFEST_ABSENT_ARTIFACTS
+            ),
+            "residual_cycle_inventory": residual,
+        }
+        tombstone_path = (
+            self.fixture.source
+            / f"FAILED_PRE_MANIFEST_TOMBSTONE_{sequence:04d}.json"
+        )
+        tombstone_path.write_bytes(review_cycle.canonical_json_bytes(tombstone))
+        return {
+            "cycle_sequence": sequence,
+            "receipt_copy_path": str(receipt_copy),
+            "receipt_copy_sha256": self._hash(receipt_copy),
+            "tombstone_path": str(tombstone_path),
+            "tombstone_sha256": self._hash(tombstone_path),
+        }
+
+    def _stage_publishable_gap(self) -> list[dict[str, object]]:
+        self._consume_bootstrap()
+        self._start_successor(sequence=4)
+        entries = [
+            self._stage_failed_identity(2),
+            self._stage_failed_identity(3, residual_authorization=True),
+        ]
+        self._set_v3_spec(entries)
+        return entries
+
+    def _rewrite_tombstone(
+        self, entry: dict[str, object], transform: object
+    ) -> None:
+        path = Path(str(entry["tombstone_path"]))
+        value = json.loads(path.read_text(encoding="utf-8"))
+        transform(value)  # type: ignore[operator]
+        path.write_bytes(review_cycle.canonical_json_bytes(value))
+        entry["tombstone_sha256"] = self._hash(path)
+
+    def _rewrite_receipt(
+        self, entry: dict[str, object], transform: object
+    ) -> None:
+        tombstone_path = Path(str(entry["tombstone_path"]))
+        tombstone = json.loads(tombstone_path.read_text(encoding="utf-8"))
+        original = self.root / tombstone["original_failure_receipt_path"]
+        copy = Path(str(entry["receipt_copy_path"]))
+        receipt = json.loads(original.read_text(encoding="utf-8"))
+        transform(receipt)  # type: ignore[operator]
+        data = (json.dumps(receipt, indent=2) + "\n").encode()
+        original.write_bytes(data)
+        copy.write_bytes(data)
+        digest = self._hash(copy)
+        tombstone["original_failure_receipt_sha256"] = digest
+        tombstone["source_local_receipt_copy_sha256"] = digest
+        tombstone_path.write_bytes(review_cycle.canonical_json_bytes(tombstone))
+        entry["receipt_copy_sha256"] = digest
+        entry["tombstone_sha256"] = self._hash(tombstone_path)
+
+    def test_v2_direct_adjacency_remains_unchanged(self) -> None:
+        self._consume_bootstrap()
+        self._start_successor(sequence=2)
+        state = self.fixture.publish()
+        self.assertEqual(state["state"], review_cycle.STATE_JOB4_IN_PROGRESS)
+        manifest = json.loads(
+            (self.fixture.cycle / "CYCLE_MANIFEST.json").read_text()
+        )
+        self.assertEqual(manifest["schema_version"], review_cycle.MANIFEST_SCHEMA)
+
+    def test_v3_direct_predecessor_accepts_empty_gap(self) -> None:
+        self._consume_bootstrap()
+        self._start_successor(sequence=2)
+        self._set_v3_spec([])
+        self.fixture.publish()
+        manifest = json.loads(
+            (self.fixture.cycle / "CYCLE_MANIFEST.json").read_text()
+        )
+        self.assertEqual(manifest["schema_version"], review_cycle.MANIFEST_SCHEMA_V3)
+        self.assertEqual(manifest["failed_pre_manifest_predecessors"], [])
+
+    def test_exact_two_sequence_gap_publishes_and_preserves_latest_consumed(self) -> None:
+        self._stage_publishable_gap()
+        self.fixture.publish()
+        manifest = json.loads(
+            (self.fixture.cycle / "CYCLE_MANIFEST.json").read_text()
+        )
+        self.assertEqual(
+            [item["cycle_sequence"] for item in manifest["failed_pre_manifest_predecessors"]],
+            [2, 3],
+        )
+        self.assertTrue(
+            (self.fixture.cycle / "outbox" / "FAILED_PRE_MANIFEST_TOMBSTONE_0002.json").is_file()
+        )
+        latest = review_cycle.latest_consumed_cycle(repository_root_path=self.root)
+        self.assertEqual(latest["cycle_sequence"], 1)
+
+    def test_real_25_26_27_28_gap_shape_validates(self) -> None:
+        entries = [
+            self._stage_failed_identity(26),
+            self._stage_failed_identity(27, residual_authorization=True),
+        ]
+        public, artifacts = review_cycle.validate_failed_pre_manifest_predecessors(
+            self.root,
+            self.fixture.cycle,
+            entries,
+            prior_sequence=25,
+            current_sequence=28,
+        )
+        self.assertEqual([item["cycle_sequence"] for item in public], [26, 27])
+        self.assertEqual(len(artifacts), 4)
+
+    def test_missing_extra_duplicate_unsorted_and_noncontiguous_gaps_fail(self) -> None:
+        entries = self._stage_publishable_gap()
+        variants = (
+            entries[:1],
+            entries + [{**entries[1], "cycle_sequence": 4}],
+            [entries[0], entries[0]],
+            list(reversed(entries)),
+            [{**entries[0], "cycle_sequence": 1}, entries[1]],
+        )
+        for variant in variants:
+            with self.subTest(observed=[item["cycle_sequence"] for item in variant]):
+                self._set_v3_spec(variant)
+                with self.assertRaisesRegex(review_cycle.CycleError, "exact and contiguous"):
+                    self.fixture.publish()
+
+    def test_v2_cannot_smuggle_gap_field(self) -> None:
+        value = json.loads(self.fixture.spec_path.read_text())
+        value["failed_pre_manifest_predecessors"] = []
+        self.fixture.spec_path.write_text(json.dumps(value), encoding="utf-8")
+        with self.assertRaisesRegex(review_cycle.CycleError, "cycle spec fields"):
+            self.fixture.publish()
+
+    def test_wrong_identity_disposition_reuse_and_effects_fail(self) -> None:
+        entries = self._stage_publishable_gap()
+        path = Path(str(entries[0]["tombstone_path"]))
+        baseline = path.read_bytes()
+        mutations = (
+            ("cycle", lambda item: item.__setitem__("attempted_cycle_id", "wrong-cycle")),
+            (
+                "checkpoint",
+                lambda item: item.__setitem__("attempted_checkpoint_id", "wrong-checkpoint"),
+            ),
+            ("run", lambda item: item.__setitem__("attempted_run_id", "wrong-run")),
+            ("task", lambda item: item.__setitem__("attempted_job4_task_id", "wrong-task")),
+            ("disposition", lambda item: item.__setitem__("disposition", "wrong")),
+            ("reusable", lambda item: item.__setitem__("identity_reusable", True)),
+            (
+                "provider",
+                lambda item: item["provider_calls"].__setitem__("codex_family", 1),
+            ),
+            (
+                "effect",
+                lambda item: item["effects"].__setitem__("story_database_writes", 1),
+            ),
+        )
+        for label, transform in mutations:
+            with self.subTest(label=label):
+                path.write_bytes(baseline)
+                self._rewrite_tombstone(entries[0], transform)
+                self._set_v3_spec(entries)
+                with self.assertRaises(review_cycle.CycleError):
+                    self.fixture.publish()
+
+    def test_unsupported_receipt_schema_fails(self) -> None:
+        entries = self._stage_publishable_gap()
+        self._rewrite_receipt(
+            entries[0], lambda item: item.__setitem__("schema_version", "unsupported")
+        )
+        self._set_v3_spec(entries)
+        with self.assertRaisesRegex(review_cycle.CycleError, "unsupported failed-publication"):
+            self.fixture.publish()
+
+    def test_original_copy_spec_auth_and_residual_tamper_fail_closed(self) -> None:
+        entries = self._stage_publishable_gap()
+        tombstone = json.loads(Path(str(entries[0]["tombstone_path"])).read_text())
+        original = self.root / tombstone["original_failure_receipt_path"]
+        original.write_bytes(original.read_bytes() + b" ")
+        with self.assertRaisesRegex(review_cycle.CycleError, "authoritative original"):
+            self.fixture.publish()
+
+    def test_receipt_copy_hash_mismatch_fails(self) -> None:
+        entries = self._stage_publishable_gap()
+        copy = Path(str(entries[0]["receipt_copy_path"]))
+        copy.write_bytes(copy.read_bytes() + b" ")
+        with self.assertRaisesRegex(review_cycle.CycleError, "failed receipt copy hash mismatch"):
+            self.fixture.publish()
+
+    def test_tombstone_hash_mismatch_fails(self) -> None:
+        entries = self._stage_publishable_gap()
+        tombstone = Path(str(entries[0]["tombstone_path"]))
+        tombstone.write_bytes(tombstone.read_bytes() + b" ")
+        with self.assertRaisesRegex(review_cycle.CycleError, "failed tombstone hash mismatch"):
+            self.fixture.publish()
+
+    def test_attempted_spec_hash_mismatch_fails(self) -> None:
+        entries = self._stage_publishable_gap()
+        tombstone = json.loads(Path(str(entries[0]["tombstone_path"])).read_text())
+        attempted_spec = self.root / tombstone["attempted_cycle_spec_path"]
+        attempted_spec.write_bytes(attempted_spec.read_bytes() + b" ")
+        with self.assertRaisesRegex(review_cycle.CycleError, "attempted cycle spec hash mismatch"):
+            self.fixture.publish()
+
+    def test_authorization_hash_mismatch_fails(self) -> None:
+        entries = self._stage_publishable_gap()
+        tombstone = json.loads(Path(str(entries[0]["tombstone_path"])).read_text())
+        authorization = self.root / tombstone["authorization_record_path"]
+        authorization.write_bytes(authorization.read_bytes() + b" ")
+        with self.assertRaisesRegex(review_cycle.CycleError, "authorization record hash mismatch"):
+            self.fixture.publish()
+
+    def test_residual_inventory_mismatch_fails(self) -> None:
+        self._stage_publishable_gap()
+        residual = (
+            self.root
+            / ".chatgpt"
+            / "pro-review"
+            / "cycles"
+            / "failed-cycle-2"
+            / "unexpected.txt"
+        )
+        residual.write_text("unexpected\n", encoding="utf-8")
+        with self.assertRaisesRegex(review_cycle.CycleError, "residual inventory"):
+            self.fixture.publish()
+
+    def test_every_forbidden_published_or_consumed_artifact_fails(self) -> None:
+        self._stage_publishable_gap()
+        failed_cycle = (
+            self.root / ".chatgpt" / "pro-review" / "cycles" / "failed-cycle-2"
+        )
+        for relative in review_cycle.FAILED_PRE_MANIFEST_ABSENT_ARTIFACTS:
+            with self.subTest(relative=relative):
+                path = failed_cycle / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("{}\n", encoding="utf-8")
+                with self.assertRaises(review_cycle.CycleError):
+                    self.fixture.publish()
+                path.unlink()
+
+    def test_forbidden_postpublication_artifact_invalidates_tombstone(self) -> None:
+        entries = self._stage_publishable_gap()
+        failed_cycle = (
+            self.root / ".chatgpt" / "pro-review" / "cycles" / "failed-cycle-2"
+        )
+        (failed_cycle / "CYCLE_MANIFEST.json").write_text("{}\n", encoding="utf-8")
+        with self.assertRaisesRegex(review_cycle.CycleError, "residual inventory"):
+            self.fixture.publish()
+
+    def test_foreign_traversal_and_symlink_custody_paths_fail(self) -> None:
+        entries = self._stage_publishable_gap()
+        external = Path(self.fixture.temporary.name) / "external.json"
+        external.write_text("{}\n", encoding="utf-8")
+        foreign = [dict(item) for item in entries]
+        foreign[0]["receipt_copy_path"] = str(external)
+        foreign[0]["receipt_copy_sha256"] = self._hash(external)
+        self._set_v3_spec(foreign)
+        with self.assertRaisesRegex(review_cycle.CycleError, "escapes"):
+            self.fixture.publish()
+
+        traversal = [dict(item) for item in entries]
+        traversal[0]["receipt_copy_path"] = str(
+            self.fixture.source / "nested" / ".." / Path(str(entries[0]["receipt_copy_path"])).name
+        )
+        self._set_v3_spec(traversal)
+        with self.assertRaisesRegex(review_cycle.CycleError, "traversal"):
+            self.fixture.publish()
+
+        link = self.fixture.source / "linked-receipt.json"
+        try:
+            link.symlink_to(Path(str(entries[0]["receipt_copy_path"])))
+        except OSError:
+            return
+        linked = [dict(item) for item in entries]
+        linked[0]["receipt_copy_path"] = str(link)
+        linked[0]["receipt_copy_sha256"] = self._hash(link)
+        self._set_v3_spec(linked)
+        with self.assertRaisesRegex(review_cycle.CycleError, "symlink or junction"):
+            self.fixture.publish()
+
+    def test_published_tombstone_tamper_blocks_recovery(self) -> None:
+        self._stage_publishable_gap()
+        self.fixture.publish()
+        path = (
+            self.fixture.cycle
+            / "outbox"
+            / "FAILED_PRE_MANIFEST_TOMBSTONE_0002.json"
+        )
+        path.write_bytes(path.read_bytes() + b" ")
+        with self.assertRaisesRegex(review_cycle.CycleError, "outbox artifact changed"):
+            review_cycle.recover_cycle(
+                self.fixture.cycle, repository_root_path=self.root
+            )
+
+    def test_published_receipt_copy_tamper_blocks_recovery(self) -> None:
+        self._stage_publishable_gap()
+        self.fixture.publish()
+        path = (
+            self.fixture.cycle
+            / "outbox"
+            / "FAILED_PRE_MANIFEST_RECEIPT_0002.json"
+        )
+        path.write_bytes(path.read_bytes() + b" ")
+        with self.assertRaisesRegex(review_cycle.CycleError, "outbox artifact changed"):
+            review_cycle.recover_cycle(
+                self.fixture.cycle, repository_root_path=self.root
+            )
+
+    def test_failed_identity_cannot_replace_consumed_predecessor(self) -> None:
+        self._consume_bootstrap()
+        self._start_successor(sequence=3)
+        entries = [self._stage_failed_identity(2)]
+        value = json.loads(self.fixture.spec_path.read_text())
+        value["prior_cycle_id"] = "failed-cycle-2"
+        value["schema_version"] = review_cycle.SPEC_SCHEMA_V3
+        value["failed_pre_manifest_predecessors"] = entries
+        self.fixture.spec_path.write_text(json.dumps(value), encoding="utf-8")
+        with self.assertRaisesRegex(review_cycle.CycleError, "required file is missing"):
+            self.fixture.publish()
 
 
 if __name__ == "__main__":

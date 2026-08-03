@@ -1,5 +1,5 @@
 {
-  "schema_version": "cera.pro_review_cycle_spec.v2",
+  "schema_version": "cera.pro_review_cycle_spec.v3",
   "cycle_id": "<safe-cycle-id>",
   "cycle_sequence": 2,
   "checkpoint": {
@@ -16,6 +16,7 @@
     }
   ],
   "prior_cycle_id": "<required-after-bootstrap>",
+  "failed_pre_manifest_predecessors": [],
   "job4": {
     "task_id": "<new-pre-authorized-job-4-id>",
     "scope": "<exact bounded independent scope>",
