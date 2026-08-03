@@ -10,18 +10,19 @@ For shadow continuous-runtime work, read
 and the sole active role matrix in
 [`architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md)
 before older continuous-route documents. D-204 supersedes D-186 through D-194
-only as to stage ownership. Their evidence stays immutable. D-180 remains the
-active product route; Runtime Model V3 is provider-free and shadow-only until a
-later qualification and explicit promotion.
+only as to stage ownership. Their evidence stays immutable. Queue 0046 accepts
+Runtime Model V3 Stages 0-3 and opens its bounded shadow qualification through
+Stages 4-7. D-180 remains the active product route unless a later, separate
+promotion is explicitly authorized.
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** D-201 provider-free consumed-response authority and historical-recovery repair after completed D-200 integration; D-180 remains active
+**Phase:** Queue 0046 Runtime Model V3 bounded live shadow qualification; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** D-200 remains qualified at 197/197 focused and 797/797 complete; D-201 passes 62/62 repository-cycle, 83/83 final focused, and 806/806 complete, with one expected platform skip
+**Runtime Model V3 verification:** Stages 0-3 accepted at execution commit `a29aa8ac050ea12626d4b2042b986f6c042d52fc`; complete provider-free suite 967 passed, 3 skipped; Stage 4 is the active bounded shadow gate
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page

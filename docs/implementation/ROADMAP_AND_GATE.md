@@ -2,21 +2,22 @@
 
 **Status:** controlling ordered roadmap
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
-## Runtime Model V3 alignment gate (active)
+## Runtime Model V3 qualification gate (active)
 
-Queue 0044 installs
+Queue 0046 accepts the Queue 0044 provider-free Stages 0-3 result for
 [`CERA_RUNTIME_MODEL_V3.md`](../authority/CERA_RUNTIME_MODEL_V3.md) and uses the
 sole active ownership matrix in
 [`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](../architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
-The provider-free gate is: reconcile documents; reduce Writer to exact prose;
-move exact-span semantics to Validator; add an independent non-rewriting
-Reader; prove rejection, lineage, branch, restart, recovery, and creator-gated
-commit; run the complete local suite; then stop for manager review.
+The active gate is Stage 4 bounded live qualification of the prose-only Writer,
+independent Sol-medium Semantic Validator, fresh candidate-specific Sol-medium
+Reader, and five complete varied shadow scenes. Passing Stage 4 automatically
+opens the accepted-lineage Stage 5 test, isolated SillyTavern Stage 6 runs, and
+the disposable twenty-turn Stage 7 campaign under Queue 0046's exact ceilings.
 
-No provider call, live route, SillyTavern run, deployment, promotion, or story
-mutation is part of this gate. D-180 remains the active product route. The V7
-`4/20` report and all D-186 through D-194 evidence remain immutable historical
-results rather than targets for another local schema patch.
+All work is shadow/test-only. No active-route promotion, production story or
+database mutation, installed-user SillyTavern change, deployment, merge,
+remote operation, or push is authorized. D-180 remains active. The V7 `4/20`
+report and all D-186 through D-194 evidence remain immutable history.
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
 **Current local state (D-180):** canonical active runtime identity installed.
@@ -25,7 +26,7 @@ results rather than targets for another local schema patch.
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** 634/634 tests passed in 353.478 seconds; one optional live test skipped
+**Runtime Model V3 verification:** Stages 0-3 accepted at execution commit `a29aa8ac050ea12626d4b2042b986f6c042d52fc`; complete provider-free suite 967 passed, 3 skipped; Stage 4 is active under Queue 0046
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 <!-- CERA_CURRENT_RUNTIME_END -->
 

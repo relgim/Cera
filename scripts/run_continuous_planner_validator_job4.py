@@ -81,6 +81,7 @@ from cera.continuous.packets import (
 )
 from cera.continuous.provider import (
     CodexContinuousPlannerPort,
+    CodexContinuousReaderPort,
     CodexContinuousValidatorPort,
     DeepSeekContinuousComposerPort,
     ContinuousSemanticValidatorDraftV1,
@@ -727,6 +728,21 @@ class _HarnessReaderPort:
         )()
 
 
+class _HarnessLiveReaderPort:
+    """Opt-in fresh Reader used by Runtime Model V3 live qualification."""
+
+    def __init__(self, harness: "JobHarness") -> None:
+        self.harness = harness
+
+    def review(self, prompt: str):
+        number = self.harness._active_turn_number
+        return self.harness.provider_call(
+            f"turn-{number}-reader",
+            "reader",
+            lambda: self.harness.codex_reader(prompt),
+        )
+
+
 class JobHarness:
     def __init__(
         self,
@@ -744,6 +760,11 @@ class JobHarness:
         planner_transport_factory: Callable[[Path, str], Any] | None = None,
         validator_transport_factory: Callable[[Path, str], Any] | None = None,
         composer_transport_factory: Callable[[], Any] | None = None,
+        reader_transport_factory: Callable[[Path], Any] | None = None,
+        validator_model: str = "gpt-5.6-terra",
+        validator_effort: str = "high",
+        reader_model: str = "gpt-5.6-sol",
+        reader_effort: str = "medium",
         scripted_provider_free: bool = False,
         thread_lifecycle_failpoint: Callable[[str], None] | None = None,
         world_id: str = WORLD_ID,
@@ -764,6 +785,11 @@ class JobHarness:
         self.planner_transport_factory = planner_transport_factory
         self.validator_transport_factory = validator_transport_factory
         self.composer_transport_factory = composer_transport_factory
+        self.reader_transport_factory = reader_transport_factory
+        self.validator_model = validator_model
+        self.validator_effort = validator_effort
+        self.reader_model = reader_model
+        self.reader_effort = reader_effort
         self.scripted_provider_free = scripted_provider_free
         self.world_id = world_id
         self.branch_id = branch_id
@@ -791,7 +817,11 @@ class JobHarness:
             planner=_HarnessPlannerPort(self),
             composer=_HarnessComposerPort(self),
             validator=_HarnessValidatorPort(self),
-            reader=_HarnessReaderPort(self),
+            reader=(
+                _HarnessLiveReaderPort(self)
+                if reader_transport_factory is not None
+                else _HarnessReaderPort(self)
+            ),
             ingress_authority=self.ingress_authority,
             thread_lifecycle_failpoint=thread_lifecycle_failpoint,
         )
@@ -885,7 +915,7 @@ class JobHarness:
                     raise RuntimeError("Codex provider thread continuity hash changed")
                 expected_model, expected_effort = {
                     "planner": ("gpt-5.6-sol", "medium"),
-                    "validator": ("gpt-5.6-terra", "high"),
+                    "validator": (self.validator_model, self.validator_effort),
                 }[owner]
                 if (
                     telemetry.model != expected_model
@@ -894,6 +924,20 @@ class JobHarness:
                 ):
                     raise RuntimeError("Codex canary route identity changed")
                 record["expected_provider_thread_sha256"] = expected_thread_hash
+            elif owner == "reader":
+                if telemetry is None:
+                    raise RuntimeError("Reader call omitted required operation telemetry")
+                if (
+                    telemetry.model != self.reader_model
+                    or telemetry.reasoning_effort != self.reader_effort
+                    or telemetry.fast_mode_enabled
+                ):
+                    raise RuntimeError("Codex Reader route identity changed")
+                if result.physical_session_sha256 != telemetry.provider_thread_id_sha256:
+                    raise RuntimeError("Codex Reader physical-session evidence changed")
+                record["expected_provider_thread_sha256"] = (
+                    telemetry.provider_thread_id_sha256
+                )
             elif owner == "composer":
                 receipt = result.provider_receipt
                 expected_external_calls = 0 if self.scripted_provider_free else 1
@@ -1007,7 +1051,8 @@ class JobHarness:
                 else StablePrefixTransport(
                     CodexSDKTransport(
                         continuous_validator_route(
-                            model="gpt-5.6-terra", effort="high"
+                            model=self.validator_model,
+                            effort=self.validator_effort,
                         ),
                         workspace=workspace,
                         runner=StoredCodexThreadRunner(self.validator_handle),
@@ -1018,6 +1063,18 @@ class JobHarness:
             return CodexContinuousValidatorPort(
                 transport, world_bridge=bridge, call_ledger=self.call_ledger
             ).validate(prompt, accepted_pairs=accepted_pairs)
+
+    def codex_reader(self, prompt: str):
+        if self.reader_transport_factory is None:
+            raise RuntimeError("live Reader transport factory is unavailable")
+        workspace = self.lifecycle_root / (
+            f"call_{self.call_index_offset + len(self.call_records) + 1:02d}_reader"
+        )
+        self._create_workspace(workspace, "create_reader_call_workspace")
+        return CodexContinuousReaderPort(
+            lambda: self.reader_transport_factory(workspace),
+            call_ledger=self.call_ledger,
+        ).review(prompt)
 
     def _create_workspace(self, workspace: Path, operation: str) -> None:
         if self.root_diagnostic is None:
@@ -1102,7 +1159,9 @@ class JobHarness:
             CreatorReviewAction.ACCEPT
         )
         calls = len(self.call_records) - before_calls
-        expected_calls = 4 if turn_number == 3 else 3
+        expected_calls = (4 if turn_number == 3 else 3) + int(
+            self.reader_transport_factory is not None
+        )
         if calls != expected_calls:
             raise StateConflictError("continuous HTTP provider schedule changed")
         prepared = PreparedContinuousTestTurn(

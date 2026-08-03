@@ -18,7 +18,8 @@ persistence operations, acceptance receipts, and commits.
 Section 1A and later D-186 through D-194 descriptions are immutable historical
 route evidence where they assign semantic ledgers to the Composer. D-204
 removes those assignments from active use. D-180 remains the active product
-route; V3 is provider-free shadow work in this tranche.
+route. Queue 0046 accepts V3 Stages 0-3 and authorizes bounded, isolated shadow
+qualification through Stages 4-7; it does not authorize route promotion.
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
 
 ## 1. Component boundary

@@ -29,6 +29,10 @@ from cera.continuous.provider import (
 from cera.errors import ContractValidationError
 from cera.schema import from_mapping
 from cera.serialization import text_sha256
+from scripts.run_continuous_planner_validator_job4 import (
+    JobHarness,
+    _HarnessLiveReaderPort,
+)
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
@@ -258,6 +262,32 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
 
 
 class RuntimeModelV3ReaderAndDocumentationTests(unittest.TestCase):
+    def test_live_harness_reader_is_opt_in_and_independently_accounted(self) -> None:
+        harness = object.__new__(JobHarness)
+        harness._active_turn_number = 7
+        calls: list[tuple[str, str]] = []
+        harness.codex_reader = lambda prompt: ("reader-result", prompt)
+
+        def provider_call(label, owner, operation):
+            calls.append((label, owner))
+            return operation()
+
+        harness.provider_call = provider_call
+        result = _HarnessLiveReaderPort(harness).review("reader-prompt")
+        self.assertEqual(result, ("reader-result", "reader-prompt"))
+        self.assertEqual(calls, [("turn-7-reader", "reader")])
+
+        signature = inspect.signature(JobHarness.__init__)
+        self.assertIsNone(signature.parameters["reader_transport_factory"].default)
+        self.assertEqual(
+            signature.parameters["validator_model"].default,
+            "gpt-5.6-terra",
+        )
+        self.assertIn(
+            "CodexContinuousReaderPort",
+            inspect.getsource(JobHarness.codex_reader),
+        )
+
     def test_reader_schema_has_no_prose_or_rewrite_channel(self) -> None:
         properties = continuous_reader_verdict_json_schema()["properties"]
         forbidden = {

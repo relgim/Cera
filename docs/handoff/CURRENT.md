@@ -4,8 +4,9 @@
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
 ## Runtime Model V3 handoff (active)
 
-Queue 0044 freezes provider dispatch while the shadow continuous route is
-aligned to [`CERA_RUNTIME_MODEL_V3.md`](../authority/CERA_RUNTIME_MODEL_V3.md).
+Queue 0046 accepts the provider-free Runtime Model V3 Stages 0-3 result and
+opens bounded shadow qualification under
+[`CERA_RUNTIME_MODEL_V3.md`](../authority/CERA_RUNTIME_MODEL_V3.md).
 The sole active responsibility matrix is
 [`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](../architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
 The active work makes Writer prose-only, moves exact semantics to an independent
@@ -15,13 +16,13 @@ commit. D-180 remains the active product route. D-186 through D-194 role text
 below is historical evidence and does not override D-204.
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** Queue 0044 Runtime Model V3 provider-free role alignment; D-180 remains active
+**Phase:** Queue 0046 Runtime Model V3 bounded live shadow qualification; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Provider-free current verification:** Runtime Model V3 focused and complete gates are pending; D-203 evidence remains historical and unchanged
+**Runtime Model V3 verification:** Stages 0-3 accepted at execution commit `a29aa8ac050ea12626d4b2042b986f6c042d52fc`; complete provider-free suite 967 passed, 3 skipped; Stage 4 is active under Queue 0046
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
 **D-186/D-200 shadow continuity work:** D-199 V12-1/V12-2 remain completed history; V12-3 is superseded-uncommitted and its useful safety draft is being requalified under D-200; active route unchanged
