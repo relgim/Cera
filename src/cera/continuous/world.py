@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 import copy
-from dataclasses import dataclass
+from dataclasses import dataclass, fields as dataclass_fields
 from datetime import UTC, datetime
 import hashlib
 import json
@@ -39,6 +39,23 @@ from .record_policy import (
 )
 from .packets import LeanSceneChangeContextV1
 from .path_policy import preflight_windows_legacy_paths
+from .path_custody import (
+    NO_FOLLOW_CUSTODY_POLICY_SHA256,
+    NoFollowTargetCustodyV1,
+    capture_target_custody,
+    ensure_parent_chain,
+    inspect_leaf,
+    lexical_absolute,
+    lexical_target,
+    locked_directory_chain,
+    safe_create_new_bytes,
+    safe_read_bytes,
+    safe_replace,
+    safe_replace_directory,
+    unlink_if_identity,
+    validate_tree_no_follow,
+    verify_target_custody,
+)
 
 
 _ACTIVE_DIRS = (
@@ -72,15 +89,28 @@ _EMBEDDED_SECRET_PATTERNS = (
 )
 
 
-def _preflight_branch_materialization_receipt_paths(root: Path) -> None:
+CONTINUOUS_BRANCH_MATERIALIZATION_PATH_POLICY_SHA256 = canonical_sha256(
+    {
+        "policy_version": "cera.continuous_branch_materialization_path_policy.v1",
+        "no_follow_custody_policy_sha256": NO_FOLLOW_CUSTODY_POLICY_SHA256,
+        "maximum_resolved_path_characters": 248,
+        "receipt_locator": "branch_cutoff_full_sha256",
+        "temporary_name_rule": "same_directory_append_dot_tmp",
+        "staging_rule": "exclusive_sibling_directory_then_atomic_replace",
+        "full_hashes_are_authority": True,
+    }
+)
+
+
+def _preflight_branch_materialization_receipt_paths(root: Path) -> tuple[int, int]:
     """Prove the full-SHA receipt and its same-directory temp are writable."""
 
     receipt = (
-        root.resolve()
+        lexical_absolute(root)
         / "BRANCH_MATERIALIZATION"
         / (("0" * 64) + ".json")
     )
-    preflight_windows_legacy_paths(
+    return preflight_windows_legacy_paths(
         receipt,
         receipt.with_name(receipt.name + ".tmp"),
         label="continuous branch materialization receipt",
@@ -314,6 +344,133 @@ class ContinuousInheritedSummarySourceV1:
 
 
 @dataclass(frozen=True, slots=True)
+class ContinuousBranchMaterializationPathPlanV1:
+    """Lexical no-follow plan for one accepted-checkpoint branch publication."""
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.continuous_branch_materialization_path_plan.v1"
+    )
+
+    schema_version: str
+    path_policy_sha256: str
+    parent_branch_relative_path: str
+    child_branch_relative_path: str
+    staging_relative_path: str
+    receipt_relative_path: str
+    receipt_temporary_relative_path: str
+    child_resolved_path_characters: int
+    staging_resolved_path_characters: int
+    receipt_resolved_path_characters: int
+    receipt_temporary_resolved_path_characters: int
+    parent_branch_custody: NoFollowTargetCustodyV1
+    child_branch_custody: NoFollowTargetCustodyV1
+    staging_custody: NoFollowTargetCustodyV1
+    receipt_custody: NoFollowTargetCustodyV1
+    receipt_temporary_custody: NoFollowTargetCustodyV1
+    parent_branch_directory_identity_sha256: str
+    staging_directory_identity_sha256: str
+    verification_generation_sha256: str
+    plan_sha256: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous branch materialization path-plan schema changed"
+            )
+        if self.path_policy_sha256 != CONTINUOUS_BRANCH_MATERIALIZATION_PATH_POLICY_SHA256:
+            raise ContractValidationError(
+                "continuous branch materialization path policy changed"
+            )
+        for field_name in (
+            "parent_branch_directory_identity_sha256",
+            "staging_directory_identity_sha256",
+            "verification_generation_sha256",
+            "plan_sha256",
+        ):
+            if re.fullmatch(r"[0-9a-f]{64}", getattr(self, field_name)) is None:
+                raise ContractValidationError(
+                    f"branch materialization {field_name} is invalid"
+                )
+        paths = (
+            self.parent_branch_relative_path,
+            self.child_branch_relative_path,
+            self.staging_relative_path,
+        )
+        if any(
+            not isinstance(value, str)
+            or not value
+            or value.startswith(("/", "\\"))
+            or ".." in Path(value).parts
+            for value in paths
+        ):
+            raise ContractValidationError(
+                "branch materialization lexical branch path is invalid"
+            )
+        if re.fullmatch(
+            r"BRANCH_MATERIALIZATION/[0-9a-f]{64}\.json",
+            self.receipt_relative_path,
+        ) is None or self.receipt_temporary_relative_path != (
+            self.receipt_relative_path + ".tmp"
+        ):
+            raise ContractValidationError(
+                "branch materialization receipt locator changed"
+            )
+        lengths = (
+            self.child_resolved_path_characters,
+            self.staging_resolved_path_characters,
+            self.receipt_resolved_path_characters,
+            self.receipt_temporary_resolved_path_characters,
+        )
+        if any(type(value) is not int or value < 1 or value > 248 for value in lengths):
+            raise ContractValidationError(
+                "branch materialization path exceeds legacy budget"
+            )
+        if (
+            self.parent_branch_custody.lexical_relative_path
+            != self.parent_branch_relative_path
+            or self.child_branch_custody.lexical_relative_path
+            != self.child_branch_relative_path
+            or self.staging_custody.lexical_relative_path
+            != self.staging_relative_path
+            or self.receipt_custody.lexical_relative_path
+            != self.receipt_relative_path
+            or self.receipt_temporary_custody.lexical_relative_path
+            != self.receipt_temporary_relative_path
+        ):
+            raise ContractValidationError(
+                "branch materialization custody locator changed"
+            )
+        expected_generation = canonical_sha256(
+            {
+                "path_policy_sha256": self.path_policy_sha256,
+                "custody_sha256s": (
+                    self.parent_branch_custody.custody_sha256,
+                    self.child_branch_custody.custody_sha256,
+                    self.staging_custody.custody_sha256,
+                    self.receipt_custody.custody_sha256,
+                    self.receipt_temporary_custody.custody_sha256,
+                ),
+                "parent_branch_directory_identity_sha256": (
+                    self.parent_branch_directory_identity_sha256
+                ),
+                "staging_directory_identity_sha256": (
+                    self.staging_directory_identity_sha256
+                ),
+            }
+        )
+        if self.verification_generation_sha256 != expected_generation:
+            raise ContractValidationError(
+                "branch materialization verification generation changed"
+            )
+        payload = to_primitive(self)
+        payload.pop("plan_sha256")
+        if self.plan_sha256 != canonical_sha256(payload):
+            raise ContractValidationError(
+                "branch materialization path-plan binding changed"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class ContinuousBranchMaterializationReceiptV1:
     """Immutable Python custody for a complete child ACTIVE snapshot."""
 
@@ -461,6 +618,54 @@ class ContinuousBranchMaterializationReceiptV1:
             raise ContractValidationError("branch materialization receipt changed")
 
 
+@dataclass(frozen=True, slots=True)
+class ContinuousBranchMaterializationReceiptV2(
+    ContinuousBranchMaterializationReceiptV1
+):
+    """Accepted-checkpoint receipt bound to lexical no-follow path custody."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_branch_materialization_receipt.v2"
+
+    path_plan: ContinuousBranchMaterializationPathPlanV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous branch materialization schema changed"
+            )
+        # Reuse every V1 semantic/manifest/cutoff invariant with a synthetic
+        # historical envelope.  Only the additive V2 path custody and final
+        # receipt hash are validated below.
+        base_names = tuple(
+            value.name for value in dataclass_fields(ContinuousBranchMaterializationReceiptV1)
+        )
+        base_payload = {
+            name: getattr(self, name)
+            for name in base_names
+            if name != "receipt_sha256"
+        }
+        base_payload["schema_version"] = ContinuousBranchMaterializationReceiptV1.SCHEMA_VERSION
+        ContinuousBranchMaterializationReceiptV1(
+            **base_payload,
+            receipt_sha256=canonical_sha256(to_primitive(base_payload)),
+        )
+        expected_parent = f"{self.world_id}/{self.parent_branch_id}"
+        expected_child = f"{self.world_id}/{self.child_branch_id}"
+        if (
+            self.path_plan.parent_branch_relative_path != expected_parent
+            or self.path_plan.child_branch_relative_path != expected_child
+            or self.path_plan.receipt_relative_path
+            != f"BRANCH_MATERIALIZATION/{self.branch_cutoff_sha256}.json"
+        ):
+            raise ContractValidationError(
+                "branch materialization path plan changed receipt scope"
+            )
+        payload = to_primitive(self)
+        payload.pop("receipt_sha256")
+        if self.receipt_sha256 != canonical_sha256(payload):
+            raise ContractValidationError("branch materialization receipt changed")
+
+
 class ContinuousWorldStore:
     """One repository-local shadow world with atomic directory promotion."""
 
@@ -472,7 +677,7 @@ class ContinuousWorldStore:
     ) -> None:
         if not runtime_root.is_absolute():
             raise ContractValidationError("continuous world runtime root must be absolute")
-        self.runtime_root = runtime_root.resolve()
+        self.runtime_root = lexical_absolute(runtime_root)
         self._lock = RLock()
         self._promotion_failpoint = promotion_failpoint
 
@@ -515,7 +720,7 @@ class ContinuousWorldStore:
 
     def world_identity_sha256(self, world_id: str, branch_id: str) -> str:
         root = self.initialize(world_id, branch_id)
-        return text_sha256(str(root.resolve()).casefold())
+        return text_sha256(str(lexical_absolute(root)).casefold())
 
     def branch_directory_identity_sha256(
         self, world_id: str, branch_id: str
@@ -523,7 +728,139 @@ class ContinuousWorldStore:
         """Hash the actual branch path without creating or normalizing the target."""
 
         return text_sha256(
-            str(self.branch_root(world_id, branch_id).resolve()).casefold()
+            str(lexical_absolute(self.branch_root(world_id, branch_id))).casefold()
+        )
+
+    def _branch_materialization_path_plan(
+        self,
+        *,
+        world_id: str,
+        parent_branch_id: str,
+        child_branch_id: str,
+        staging_root: Path,
+        branch_cutoff_sha256: str,
+    ) -> ContinuousBranchMaterializationPathPlanV1:
+        parent_relative = f"{world_id}/{parent_branch_id}"
+        child_relative = f"{world_id}/{child_branch_id}"
+        staging_relative = staging_root.relative_to(self.runtime_root).as_posix()
+        receipt_relative = (
+            f"BRANCH_MATERIALIZATION/{branch_cutoff_sha256}.json"
+        )
+        receipt_temporary_relative = receipt_relative + ".tmp"
+        child_path = lexical_target(self.runtime_root, child_relative)
+        staging_path = lexical_target(self.runtime_root, staging_relative)
+        receipt_path = lexical_target(staging_root, receipt_relative)
+        receipt_temporary_path = lexical_target(
+            staging_root, receipt_temporary_relative
+        )
+        lengths = preflight_windows_legacy_paths(
+            child_path,
+            staging_path,
+            receipt_path,
+            receipt_temporary_path,
+            label="continuous branch materialization",
+        )
+        ensure_parent_chain(staging_root, receipt_relative)
+        parent_custody = capture_target_custody(
+            self.runtime_root, parent_relative
+        )
+        child_custody = capture_target_custody(
+            self.runtime_root, child_relative
+        )
+        staging_custody = capture_target_custody(
+            self.runtime_root, staging_relative
+        )
+        receipt_custody = capture_target_custody(
+            staging_root, receipt_relative
+        )
+        receipt_temporary_custody = capture_target_custody(
+            staging_root, receipt_temporary_relative
+        )
+        parent_leaf = inspect_leaf(
+            self.runtime_root, parent_relative, expected_kind="directory"
+        )
+        staging_leaf = inspect_leaf(
+            self.runtime_root, staging_relative, expected_kind="directory"
+        )
+        if parent_leaf.identity is None or staging_leaf.identity is None:
+            raise StateConflictError(
+                "branch materialization directory identity is unavailable"
+            )
+        if inspect_leaf(
+            self.runtime_root, child_relative, expected_kind="directory"
+        ).identity is not None:
+            raise StateConflictError("branch materialization child path is occupied")
+        if inspect_leaf(staging_root, receipt_relative).identity is not None:
+            raise StateConflictError(
+                "branch materialization receipt path is occupied"
+            )
+        if inspect_leaf(
+            staging_root, receipt_temporary_relative
+        ).identity is not None:
+            raise StateConflictError(
+                "branch materialization receipt temporary path is occupied"
+            )
+        custodies = (
+            parent_custody,
+            child_custody,
+            staging_custody,
+            receipt_custody,
+            receipt_temporary_custody,
+        )
+        generation = canonical_sha256(
+            {
+                "path_policy_sha256": (
+                    CONTINUOUS_BRANCH_MATERIALIZATION_PATH_POLICY_SHA256
+                ),
+                "custody_sha256s": tuple(value.custody_sha256 for value in custodies),
+                "parent_branch_directory_identity_sha256": (
+                    parent_leaf.identity.object_identity_sha256
+                ),
+                "staging_directory_identity_sha256": (
+                    staging_leaf.identity.object_identity_sha256
+                ),
+            }
+        )
+        payload = {
+            "schema_version": ContinuousBranchMaterializationPathPlanV1.SCHEMA_VERSION,
+            "path_policy_sha256": (
+                CONTINUOUS_BRANCH_MATERIALIZATION_PATH_POLICY_SHA256
+            ),
+            "parent_branch_relative_path": parent_relative,
+            "child_branch_relative_path": child_relative,
+            "staging_relative_path": staging_relative,
+            "receipt_relative_path": receipt_relative,
+            "receipt_temporary_relative_path": receipt_temporary_relative,
+            "child_resolved_path_characters": lengths[0],
+            "staging_resolved_path_characters": lengths[1],
+            "receipt_resolved_path_characters": lengths[2],
+            "receipt_temporary_resolved_path_characters": lengths[3],
+            "parent_branch_custody": parent_custody,
+            "child_branch_custody": child_custody,
+            "staging_custody": staging_custody,
+            "receipt_custody": receipt_custody,
+            "receipt_temporary_custody": receipt_temporary_custody,
+            "parent_branch_directory_identity_sha256": (
+                parent_leaf.identity.object_identity_sha256
+            ),
+            "staging_directory_identity_sha256": (
+                staging_leaf.identity.object_identity_sha256
+            ),
+            "verification_generation_sha256": generation,
+        }
+        primitive = {
+            **payload,
+            "parent_branch_custody": to_primitive(parent_custody),
+            "child_branch_custody": to_primitive(child_custody),
+            "staging_custody": to_primitive(staging_custody),
+            "receipt_custody": to_primitive(receipt_custody),
+            "receipt_temporary_custody": to_primitive(
+                receipt_temporary_custody
+            ),
+        }
+        return ContinuousBranchMaterializationPathPlanV1(
+            **payload,
+            plan_sha256=canonical_sha256(primitive),
         )
 
     def materialize_branch_from_checkpoint(
@@ -544,14 +881,24 @@ class ContinuousWorldStore:
         session_policy_version: str,
         persistence_policy_sha256: str,
         inherited_summary_sources: tuple[ContinuousInheritedSummarySourceV1, ...] = (),
-    ) -> ContinuousBranchMaterializationReceiptV1:
+    ) -> ContinuousBranchMaterializationReceiptV2:
         """Atomically materialize one child branch before provider transport."""
 
         parent_root = self.branch_root(world_id, parent_branch_id)
         child_root = self.branch_root(world_id, child_branch_id)
         if parent_branch_id == child_branch_id:
             raise StateConflictError("branch materialization target is the parent")
-        if not parent_root.is_dir() or not (parent_root / "ACTIVE").is_dir():
+        parent_relative = f"{_slug(world_id, 'world_id')}/{_slug(parent_branch_id, 'parent_branch_id')}"
+        child_relative = f"{_slug(world_id, 'world_id')}/{_slug(child_branch_id, 'child_branch_id')}"
+        parent_leaf = inspect_leaf(
+            self.runtime_root, parent_relative, expected_kind="directory"
+        )
+        if parent_leaf.identity is None:
+            raise StateConflictError("branch materialization parent is unavailable")
+        parent_active_relative = parent_relative + "/ACTIVE"
+        if inspect_leaf(
+            self.runtime_root, parent_active_relative, expected_kind="directory"
+        ).identity is None:
             raise StateConflictError("branch materialization parent is unavailable")
         actual_parent_identity = self.branch_directory_identity_sha256(
             world_id, parent_branch_id
@@ -566,7 +913,9 @@ class ContinuousWorldStore:
             raise StateConflictError(
                 "branch materialization directory identity does not match physical custody"
             )
-        if child_root.exists():
+        if inspect_leaf(
+            self.runtime_root, child_relative, expected_kind="directory"
+        ).identity is not None:
             raise StateConflictError(
                 "branch materialization requires a previously nonexistent child"
             )
@@ -578,12 +927,28 @@ class ContinuousWorldStore:
         _preflight_branch_materialization_receipt_paths(child_root)
 
         staging_root: Path | None = None
-        with self._lock:
-            if child_root.exists():
+        staging_relative: str | None = None
+        staging_directory_identity_sha256: str | None = None
+        staging_lock_context = None
+        path_plan: ContinuousBranchMaterializationPathPlanV1 | None = None
+        with self._lock, ExitStack() as path_locks:
+            path_locks.enter_context(
+                locked_directory_chain(
+                    self.runtime_root,
+                    _slug(world_id, "world_id"),
+                    create_missing=False,
+                )
+            )
+            if inspect_leaf(
+                self.runtime_root, child_relative, expected_kind="directory"
+            ).identity is not None:
                 raise StateConflictError(
                     "branch materialization child appeared during validation"
                 )
             parent_active = parent_root / "ACTIVE"
+            parent_no_follow_tree_sha256 = validate_tree_no_follow(
+                self.runtime_root, parent_relative
+            )
             parent_state_path = parent_active / "WORLD_STATE.json"
             if not parent_state_path.is_file():
                 raise StateConflictError("branch materialization lacks parent WORLD_STATE")
@@ -629,13 +994,40 @@ class ContinuousWorldStore:
                 }
             )
             try:
-                child_root.parent.mkdir(parents=True, exist_ok=True)
-                staging_root = Path(
-                    mkdtemp(prefix=".m-", dir=child_root.parent)
-                ).resolve()
+                staging_root = lexical_absolute(
+                    Path(mkdtemp(prefix=".m-", dir=child_root.parent))
+                )
+                staging_relative = staging_root.relative_to(
+                    self.runtime_root
+                ).as_posix()
+                staging_leaf = inspect_leaf(
+                    self.runtime_root,
+                    staging_relative,
+                    expected_kind="directory",
+                )
+                if staging_leaf.identity is None:
+                    raise StateConflictError(
+                        "branch materialization staging identity is unavailable"
+                    )
+                staging_directory_identity_sha256 = (
+                    staging_leaf.identity.object_identity_sha256
+                )
                 _preflight_branch_materialization_receipt_paths(staging_root)
+                path_plan = self._branch_materialization_path_plan(
+                    world_id=world_id,
+                    parent_branch_id=parent_branch_id,
+                    child_branch_id=child_branch_id,
+                    staging_root=staging_root,
+                    branch_cutoff_sha256=branch_cutoff_sha256,
+                )
+                staging_lock_context = locked_directory_chain(
+                    self.runtime_root,
+                    staging_relative,
+                    create_missing=False,
+                )
+                staging_lock_context.__enter__()
                 child_active = staging_root / "ACTIVE"
-                shutil.copytree(parent_active, child_active)
+                shutil.copytree(parent_active, child_active, symlinks=True)
                 child_state_path = child_active / "WORLD_STATE.json"
                 child_state = json.loads(child_state_path.read_text(encoding="utf-8"))
                 child_state["branch_id"] = child_branch_id
@@ -679,8 +1071,17 @@ class ContinuousWorldStore:
                     child_root=staging_root,
                     sources=inherited_summary_sources,
                 )
+                if validate_tree_no_follow(
+                    self.runtime_root, parent_relative
+                ) != parent_no_follow_tree_sha256:
+                    raise StateConflictError(
+                        "branch materialization parent path identity changed during copy"
+                    )
+                validate_tree_no_follow(
+                    self.runtime_root, staging_relative
+                )
                 payload = {
-                    "schema_version": ContinuousBranchMaterializationReceiptV1.SCHEMA_VERSION,
+                    "schema_version": ContinuousBranchMaterializationReceiptV2.SCHEMA_VERSION,
                     "world_id": world_id,
                     "parent_branch_id": parent_branch_id,
                     "child_branch_id": child_branch_id,
@@ -724,34 +1125,158 @@ class ContinuousWorldStore:
                             ),
                         )
                     ),
+                    "path_plan": path_plan,
                 }
-                receipt = ContinuousBranchMaterializationReceiptV1(
+                primitive_payload = {
                     **payload,
-                    receipt_sha256=canonical_sha256(payload),
+                    "parent_active_manifest": to_primitive(parent_manifest),
+                    "child_initial_active_manifest": to_primitive(child_manifest),
+                    "parent_accepted_checkpoint_manifest": to_primitive(
+                        payload["parent_accepted_checkpoint_manifest"]
+                    ),
+                    "child_accepted_checkpoint_manifest": to_primitive(
+                        payload["child_accepted_checkpoint_manifest"]
+                    ),
+                    "inherited_summary_sources": to_primitive(
+                        payload["inherited_summary_sources"]
+                    ),
+                    "path_plan": to_primitive(path_plan),
+                }
+                receipt = ContinuousBranchMaterializationReceiptV2(
+                    **payload,
+                    receipt_sha256=canonical_sha256(primitive_payload),
                 )
-                self._write_json(
-                    staging_root
-                    / "BRANCH_MATERIALIZATION"
-                    / f"{receipt.receipt_sha256}.json",
-                    to_primitive(receipt),
+                receipt_encoded = canonical_bytes(to_primitive(receipt)) + b"\n"
+                with locked_directory_chain(
+                    staging_root,
+                    "BRANCH_MATERIALIZATION",
+                    create_missing=False,
+                ):
+                    verify_target_custody(staging_root, path_plan.receipt_custody)
+                    verify_target_custody(
+                        staging_root, path_plan.receipt_temporary_custody
+                    )
+                    temporary_identity = safe_create_new_bytes(
+                        staging_root,
+                        path_plan.receipt_temporary_relative_path,
+                        receipt_encoded,
+                    )
+                    safe_replace(
+                        staging_root,
+                        temporary_relative_path=(
+                            path_plan.receipt_temporary_relative_path
+                        ),
+                        final_relative_path=path_plan.receipt_relative_path,
+                        expected_temporary_identity=temporary_identity,
+                    )
+                validate_tree_no_follow(
+                    self.runtime_root, staging_relative
                 )
+                if staging_lock_context is not None:
+                    staging_lock_context.__exit__(None, None, None)
+                    staging_lock_context = None
+                self._failpoint("before_branch_materialization_replace")
+                verify_target_custody(
+                    self.runtime_root, path_plan.parent_branch_custody
+                )
+                verify_target_custody(
+                    self.runtime_root, path_plan.child_branch_custody
+                )
+                verify_target_custody(
+                    self.runtime_root, path_plan.staging_custody
+                )
+                if validate_tree_no_follow(
+                    self.runtime_root, parent_relative
+                ) != parent_no_follow_tree_sha256:
+                    raise StateConflictError(
+                        "branch materialization parent changed before replacement"
+                    )
+                validate_tree_no_follow(
+                    self.runtime_root, path_plan.staging_relative_path
+                )
+                if inspect_leaf(
+                    self.runtime_root,
+                    path_plan.child_branch_relative_path,
+                    expected_kind="directory",
+                ).identity is not None:
+                    raise StateConflictError(
+                        "branch materialization child appeared before replacement"
+                    )
+                final_staging = inspect_leaf(
+                    self.runtime_root,
+                    path_plan.staging_relative_path,
+                    expected_kind="directory",
+                )
+                if (
+                    final_staging.identity is None
+                    or final_staging.identity.object_identity_sha256
+                    != path_plan.staging_directory_identity_sha256
+                ):
+                    raise StateConflictError(
+                        "branch materialization staging identity changed"
+                    )
                 os.replace(staging_root, child_root)
+                promoted_child = inspect_leaf(
+                    self.runtime_root,
+                    path_plan.child_branch_relative_path,
+                    expected_kind="directory",
+                )
+                if (
+                    promoted_child.identity is None
+                    or promoted_child.identity.object_identity_sha256
+                    != path_plan.staging_directory_identity_sha256
+                ):
+                    raise StateConflictError(
+                        "branch materialization promoted identity changed"
+                    )
                 staging_root = None
             finally:
-                if staging_root is not None and staging_root.exists():
-                    shutil.rmtree(staging_root)
+                if staging_lock_context is not None:
+                    staging_lock_context.__exit__(None, None, None)
+                    staging_lock_context = None
+                if (
+                    staging_root is not None
+                    and staging_relative is not None
+                    and staging_directory_identity_sha256 is not None
+                ):
+                    try:
+                        remaining = inspect_leaf(
+                            self.runtime_root,
+                            staging_relative,
+                            expected_kind="directory",
+                        )
+                        if (
+                            remaining.identity is not None
+                            and remaining.identity.object_identity_sha256
+                            == staging_directory_identity_sha256
+                        ):
+                            shutil.rmtree(staging_root)
+                    except StateConflictError:
+                        pass
         self.validate_branch_materialization(receipt)
         return receipt
 
     def validate_branch_materialization(
-        self, receipt: ContinuousBranchMaterializationReceiptV1
+        self,
+        receipt: ContinuousBranchMaterializationReceiptV1
+        | ContinuousBranchMaterializationReceiptV2,
     ) -> Path:
         """Revalidate immutable parent/child bytes without creating either branch."""
 
         parent_root = self.branch_root(receipt.world_id, receipt.parent_branch_id)
         child_root = self.branch_root(receipt.world_id, receipt.child_branch_id)
-        if not parent_root.is_dir() or not child_root.is_dir():
+        parent_relative = f"{receipt.world_id}/{receipt.parent_branch_id}"
+        child_relative = f"{receipt.world_id}/{receipt.child_branch_id}"
+        parent_leaf = inspect_leaf(
+            self.runtime_root, parent_relative, expected_kind="directory"
+        )
+        child_leaf = inspect_leaf(
+            self.runtime_root, child_relative, expected_kind="directory"
+        )
+        if parent_leaf.identity is None or child_leaf.identity is None:
             raise StateConflictError("branch materialization scope is unavailable")
+        validate_tree_no_follow(self.runtime_root, parent_relative)
+        validate_tree_no_follow(self.runtime_root, child_relative)
         if (
             self.branch_directory_identity_sha256(
                 receipt.world_id, receipt.parent_branch_id
@@ -763,16 +1288,37 @@ class ContinuousWorldStore:
             != receipt.child_world_directory_identity_sha256
         ):
             raise StateConflictError("branch materialization physical directory changed")
-        receipt_path = (
-            child_root
-            / "BRANCH_MATERIALIZATION"
-            / f"{receipt.receipt_sha256}.json"
+        if isinstance(receipt, ContinuousBranchMaterializationReceiptV2):
+            plan = receipt.path_plan
+            verify_target_custody(self.runtime_root, plan.parent_branch_custody)
+            verify_target_custody(self.runtime_root, plan.child_branch_custody)
+            if (
+                parent_leaf.identity.object_identity_sha256
+                != plan.parent_branch_directory_identity_sha256
+                or child_leaf.identity.object_identity_sha256
+                != plan.staging_directory_identity_sha256
+            ):
+                raise StateConflictError(
+                    "branch materialization directory path identity changed"
+                )
+            verify_target_custody(child_root, plan.receipt_custody)
+            verify_target_custody(child_root, plan.receipt_temporary_custody)
+            receipt_relative = plan.receipt_relative_path
+            if inspect_leaf(
+                child_root, plan.receipt_temporary_relative_path
+            ).identity is not None:
+                raise StateConflictError(
+                    "branch materialization receipt temporary path is occupied"
+                )
+        else:
+            receipt_relative = (
+                "BRANCH_MATERIALIZATION/" + receipt.receipt_sha256 + ".json"
+            )
+        encoded_receipt, _receipt_identity = safe_read_bytes(
+            child_root, receipt_relative
         )
-        if (
-            not receipt_path.is_file()
-            or json.loads(receipt_path.read_text(encoding="utf-8"))
-            != to_primitive(receipt)
-        ):
+        receipt_path = lexical_target(child_root, receipt_relative)
+        if json.loads(encoded_receipt.decode("utf-8")) != to_primitive(receipt):
             raise StateConflictError("branch materialization receipt is absent or changed")
         parent_active = parent_root / "ACTIVE"
         child_active = child_root / "ACTIVE"
@@ -1136,9 +1682,18 @@ class ContinuousWorldStore:
             else None
         )
         transaction_root = root / f".acceptance-{_slug(turn_id, 'turn_id')}"
-        if transaction_root.exists():
+        transaction_relative = transaction_root.relative_to(
+            self.runtime_root
+        ).as_posix()
+        if inspect_leaf(
+            self.runtime_root,
+            transaction_relative,
+            expected_kind="directory",
+        ).identity is not None:
             raise StateConflictError("creator acceptance journal already exists")
-        transaction_root.mkdir(parents=False)
+        ensure_parent_chain(
+            self.runtime_root, transaction_relative + "/JOURNAL.json"
+        )
         journal_base = {
             "schema_version": "cera.continuous_acceptance_journal.v6",
             "world_id": world_id,
@@ -1497,15 +2052,21 @@ class ContinuousWorldStore:
                     raise StateConflictError(
                         "private relationship persistence changed owner scope"
                     )
-            target = (active_view / operation.target_file).resolve()
-            if active_view.resolve() not in target.parents:
-                raise PermissionError("world edit escaped candidate ACTIVE view")
             key = operation.target_file.replace("\\", "/")
+            active_relative = lexical_absolute(active_view).relative_to(
+                self.runtime_root
+            ).as_posix()
+            target_relative = active_relative + "/" + key
+            target = lexical_target(self.runtime_root, target_relative)
             if key not in loaded:
-                if target.exists():
+                target_leaf = inspect_leaf(self.runtime_root, target_relative)
+                if target_leaf.identity is not None:
                     if target.suffix.casefold() != ".json":
                         raise ContractValidationError("V1 semantic edits require JSON targets")
-                    loaded[key] = json.loads(target.read_text(encoding="utf-8"))
+                    target_bytes, _target_identity = safe_read_bytes(
+                        self.runtime_root, target_relative
+                    )
+                    loaded[key] = json.loads(target_bytes.decode("utf-8"))
                     revision = loaded[key].get("_cera_revision") if isinstance(loaded[key], dict) else None
                     revisions[key] = revision
                     originals[key] = copy.deepcopy(loaded[key])
@@ -1623,79 +2184,172 @@ class ContinuousWorldStore:
         """Recover exact directory-swap transactions without provider work."""
 
         root = self.branch_root(world_id, branch_id)
-        if not root.exists():
+        if not os.path.lexists(root):
+            return ()
+        branch_relative = root.relative_to(self.runtime_root).as_posix()
+        if inspect_leaf(
+            self.runtime_root, branch_relative, expected_kind="directory"
+        ).identity is None:
             return ()
         recovered: list[str] = []
-        transaction_roots = tuple(sorted(root.glob(".promotion-*"))) + tuple(
-            sorted(root.glob(".acceptance-*"))
-        )
+        with locked_directory_chain(
+            self.runtime_root, branch_relative, create_missing=False
+        ):
+            with os.scandir(root) as entries:
+                transaction_names = tuple(
+                    sorted(
+                        entry.name
+                        for entry in entries
+                        if entry.name.startswith((".promotion-", ".acceptance-"))
+                    )
+                )
+        transaction_roots = tuple(root / name for name in transaction_names)
         for transaction_root in transaction_roots:
-            if not transaction_root.is_dir():
+            transaction_relative = transaction_root.relative_to(
+                self.runtime_root
+            ).as_posix()
+            transaction_leaf = inspect_leaf(
+                self.runtime_root,
+                transaction_relative,
+                expected_kind="directory",
+            )
+            if transaction_leaf.identity is None:
                 continue
-            journal = transaction_root / "JOURNAL.json"
-            if not journal.is_file():
-                raise StateConflictError("promotion transaction lacks a journal")
-            payload = json.loads(journal.read_text(encoding="utf-8"))
-            state = payload.get("state")
-            if state in {"finalized", "local_acceptance_complete", "rolled_back"}:
-                continue
-            prior_hash = payload.get("prior_sha256")
-            prepared_hash = payload.get("prepared_sha256")
-            if not isinstance(prior_hash, str) or not isinstance(prepared_hash, str):
-                raise StateConflictError("promotion journal lacks tree hashes")
-            active = root / "ACTIVE"
-            prepared = transaction_root / "PREPARED_ACTIVE"
-            backup = transaction_root / "PRIOR_ACTIVE"
-            active_hash = self.tree_sha256(active) if active.is_dir() else None
-            prepared_actual = self.tree_sha256(prepared) if prepared.is_dir() else None
-            backup_actual = self.tree_sha256(backup) if backup.is_dir() else None
-            for actual, expected, label in (
-                (prepared_actual, prepared_hash, "prepared"),
-                (backup_actual, prior_hash, "backup"),
-            ):
-                if actual is not None and actual != expected:
-                    raise StateConflictError(f"promotion {label} tree hash changed")
-            if active_hash == prepared_hash:
-                if backup.is_dir():
+            with ExitStack() as path_locks:
+                path_locks.enter_context(
+                    locked_directory_chain(
+                        self.runtime_root,
+                        branch_relative,
+                        create_missing=False,
+                    )
+                )
+                path_locks.enter_context(
+                    locked_directory_chain(
+                        self.runtime_root,
+                        transaction_relative,
+                        create_missing=False,
+                    )
+                )
+                journal = transaction_root / "JOURNAL.json"
+                journal_relative = transaction_relative + "/JOURNAL.json"
+                journal_bytes, _journal_identity = safe_read_bytes(
+                    self.runtime_root, journal_relative
+                )
+                payload = json.loads(journal_bytes.decode("utf-8"))
+                state = payload.get("state")
+                if state in {
+                    "finalized",
+                    "local_acceptance_complete",
+                    "rolled_back",
+                }:
+                    continue
+                prior_hash = payload.get("prior_sha256")
+                prepared_hash = payload.get("prepared_sha256")
+                if not isinstance(prior_hash, str) or not isinstance(
+                    prepared_hash, str
+                ):
+                    raise StateConflictError("promotion journal lacks tree hashes")
+                active = root / "ACTIVE"
+                prepared = transaction_root / "PREPARED_ACTIVE"
+                backup = transaction_root / "PRIOR_ACTIVE"
+                active_relative = branch_relative + "/ACTIVE"
+                prepared_relative = transaction_relative + "/PREPARED_ACTIVE"
+                backup_relative = transaction_relative + "/PRIOR_ACTIVE"
+
+                def tree_state(relative: str, path: Path):
+                    leaf = inspect_leaf(
+                        self.runtime_root, relative, expected_kind="directory"
+                    )
+                    if leaf.identity is None:
+                        return None, None
+                    validate_tree_no_follow(self.runtime_root, relative)
+                    return self.tree_sha256(path), leaf.identity
+
+                active_hash, active_identity = tree_state(active_relative, active)
+                prepared_actual, prepared_identity = tree_state(
+                    prepared_relative, prepared
+                )
+                backup_actual, backup_identity = tree_state(
+                    backup_relative, backup
+                )
+                for actual, expected, label in (
+                    (prepared_actual, prepared_hash, "prepared"),
+                    (backup_actual, prior_hash, "backup"),
+                ):
+                    if actual is not None and actual != expected:
+                        raise StateConflictError(
+                            f"promotion {label} tree hash changed"
+                        )
+                if active_hash == prepared_hash:
+                    if backup_identity is not None:
+                        shutil.rmtree(backup)
+                    if prepared_identity is not None:
+                        shutil.rmtree(prepared)
+                    terminal = "active_installed"
+                elif (
+                    active_hash is None
+                    and prepared_actual == prepared_hash
+                    and backup_actual == prior_hash
+                    and prepared_identity is not None
+                ):
+                    safe_replace_directory(
+                        self.runtime_root,
+                        source_relative_path=prepared_relative,
+                        target_relative_path=active_relative,
+                        expected_source_identity=prepared_identity,
+                    )
+                    if backup_identity is None:
+                        raise StateConflictError(
+                            "promotion recovery backup identity is unavailable"
+                        )
                     shutil.rmtree(backup)
-                if prepared.is_dir():
-                    shutil.rmtree(prepared)
-                terminal = "active_installed"
-            elif active_hash is None and prepared_actual == prepared_hash and backup_actual == prior_hash:
-                os.replace(prepared, active)
-                shutil.rmtree(backup)
-                terminal = "active_installed"
-            elif active_hash == prior_hash:
-                if prepared.is_dir():
-                    shutil.rmtree(prepared)
-                if backup.is_dir():
-                    shutil.rmtree(backup)
-                terminal = "rolled_back"
-            elif active_hash is None and backup_actual == prior_hash and prepared_actual is None:
-                os.replace(backup, active)
-                terminal = "rolled_back"
-            else:
-                raise StateConflictError("promotion recovery cannot verify an exact tree")
-            recovered_payload = {
-                **payload,
-                "state": terminal,
-                "recovered_at_utc": _utc_now(),
-                "active_sha256": self.tree_sha256(active),
-            }
-            self._write_json(journal, recovered_payload)
-            if (
-                terminal == "active_installed"
-                and payload.get("schema_version")
-                in {
-                    "cera.continuous_acceptance_journal.v2",
-                    "cera.continuous_acceptance_journal.v3",
-                    "cera.continuous_acceptance_journal.v4",
-                    "cera.continuous_acceptance_journal.v5",
-                    "cera.continuous_acceptance_journal.v6",
+                    terminal = "active_installed"
+                elif active_hash == prior_hash:
+                    if prepared_identity is not None:
+                        shutil.rmtree(prepared)
+                    if backup_identity is not None:
+                        shutil.rmtree(backup)
+                    terminal = "rolled_back"
+                elif (
+                    active_hash is None
+                    and backup_actual == prior_hash
+                    and prepared_actual is None
+                    and backup_identity is not None
+                ):
+                    safe_replace_directory(
+                        self.runtime_root,
+                        source_relative_path=backup_relative,
+                        target_relative_path=active_relative,
+                        expected_source_identity=backup_identity,
+                    )
+                    terminal = "rolled_back"
+                else:
+                    raise StateConflictError(
+                        "promotion recovery cannot verify an exact tree"
+                    )
+                validate_tree_no_follow(self.runtime_root, active_relative)
+                recovered_payload = {
+                    **payload,
+                    "state": terminal,
+                    "recovered_at_utc": _utc_now(),
+                    "active_sha256": self.tree_sha256(active),
                 }
-            ):
-                self._finish_local_acceptance(root, transaction_root)
-            recovered.append(str(payload.get("turn_id", transaction_root.name)))
+                self._write_json(journal, recovered_payload)
+                if (
+                    terminal == "active_installed"
+                    and payload.get("schema_version")
+                    in {
+                        "cera.continuous_acceptance_journal.v2",
+                        "cera.continuous_acceptance_journal.v3",
+                        "cera.continuous_acceptance_journal.v4",
+                        "cera.continuous_acceptance_journal.v5",
+                        "cera.continuous_acceptance_journal.v6",
+                    }
+                ):
+                    self._finish_local_acceptance(root, transaction_root)
+                recovered.append(
+                    str(payload.get("turn_id", transaction_root.name))
+                )
         return tuple(recovered)
 
     def _promote_directory(
@@ -1707,46 +2361,141 @@ class ContinuousWorldStore:
         transaction_root: Path | None = None,
         journal_base: dict[str, Any] | None = None,
     ) -> None:
+        branch_root = lexical_absolute(branch_root)
+        branch_relative = branch_root.relative_to(self.runtime_root).as_posix()
         active = branch_root / "ACTIVE"
-        transaction_root = transaction_root or Path(
-            mkdtemp(prefix=f".promotion-{turn_id}-", dir=branch_root)
+        active_relative = branch_relative + "/ACTIVE"
+        candidate_relative = lexical_absolute(candidate_active).relative_to(
+            self.runtime_root
+        ).as_posix()
+        validate_tree_no_follow(self.runtime_root, candidate_relative)
+        with locked_directory_chain(
+            self.runtime_root, branch_relative, create_missing=False
+        ):
+            transaction_root = lexical_absolute(
+                transaction_root
+                or Path(mkdtemp(prefix=f".promotion-{turn_id}-", dir=branch_root))
+            )
+        transaction_relative = transaction_root.relative_to(
+            self.runtime_root
+        ).as_posix()
+        transaction_leaf = inspect_leaf(
+            self.runtime_root,
+            transaction_relative,
+            expected_kind="directory",
         )
+        if transaction_leaf.identity is None:
+            raise StateConflictError("promotion transaction identity is unavailable")
         prepared = transaction_root / "PREPARED_ACTIVE"
-        shutil.copytree(candidate_active, prepared)
         backup = transaction_root / "PRIOR_ACTIVE"
         journal = transaction_root / "JOURNAL.json"
-        base = journal_base or {
-            "schema_version": "cera.continuous_world_promotion_journal.v2",
-            "turn_id": turn_id,
-            "prior_sha256": self.tree_sha256(active),
-            "prepared_sha256": self.tree_sha256(prepared),
-        }
-        self._write_json(journal, {**base, "state": "prepared"})
-        self._failpoint("journal_created")
-        os.replace(active, backup)
-        self._write_json(journal, {**base, "state": "active_moved_to_backup"})
-        self._failpoint("active_moved_to_backup")
-        try:
-            os.replace(prepared, active)
-        except Exception:
-            os.replace(backup, active)
-            self._write_json(journal, {**base, "state": "rolled_back"})
-            raise
-        self._write_json(journal, {**base, "state": "prepared_active_installed"})
-        self._failpoint("prepared_active_installed")
-        shutil.rmtree(backup)
-        self._write_json(journal, {**base, "state": "prior_backup_removed"})
-        self._failpoint("prior_backup_removed")
-        self._write_json(journal, {**base, "state": "committed"})
-        self._failpoint("committed")
-        self._write_json(
-            journal,
-            {
-                **base,
-                "state": "active_installed",
-                "active_sha256": self.tree_sha256(active),
-            },
-        )
+        prepared_relative = transaction_relative + "/PREPARED_ACTIVE"
+        backup_relative = transaction_relative + "/PRIOR_ACTIVE"
+        with ExitStack() as path_locks:
+            path_locks.enter_context(
+                locked_directory_chain(
+                    self.runtime_root, branch_relative, create_missing=False
+                )
+            )
+            path_locks.enter_context(
+                locked_directory_chain(
+                    self.runtime_root, transaction_relative, create_missing=False
+                )
+            )
+            if inspect_leaf(
+                self.runtime_root,
+                prepared_relative,
+                expected_kind="directory",
+            ).identity is not None or inspect_leaf(
+                self.runtime_root,
+                backup_relative,
+                expected_kind="directory",
+            ).identity is not None:
+                raise StateConflictError("promotion staging path is occupied")
+            shutil.copytree(candidate_active, prepared, symlinks=True)
+            validate_tree_no_follow(self.runtime_root, prepared_relative)
+            validate_tree_no_follow(self.runtime_root, active_relative)
+            base = journal_base or {
+                "schema_version": "cera.continuous_world_promotion_journal.v2",
+                "turn_id": turn_id,
+                "prior_sha256": self.tree_sha256(active),
+                "prepared_sha256": self.tree_sha256(prepared),
+            }
+            self._write_json(journal, {**base, "state": "prepared"})
+            self._failpoint("journal_created")
+            active_identity = inspect_leaf(
+                self.runtime_root, active_relative, expected_kind="directory"
+            ).identity
+            if active_identity is None:
+                raise StateConflictError("promotion ACTIVE identity is unavailable")
+            safe_replace_directory(
+                self.runtime_root,
+                source_relative_path=active_relative,
+                target_relative_path=backup_relative,
+                expected_source_identity=active_identity,
+            )
+            self._write_json(journal, {**base, "state": "active_moved_to_backup"})
+            self._failpoint("active_moved_to_backup")
+            prepared_identity = inspect_leaf(
+                self.runtime_root, prepared_relative, expected_kind="directory"
+            ).identity
+            if prepared_identity is None:
+                raise StateConflictError("promotion prepared identity is unavailable")
+            try:
+                safe_replace_directory(
+                    self.runtime_root,
+                    source_relative_path=prepared_relative,
+                    target_relative_path=active_relative,
+                    expected_source_identity=prepared_identity,
+                )
+            except Exception:
+                backup_identity = inspect_leaf(
+                    self.runtime_root,
+                    backup_relative,
+                    expected_kind="directory",
+                ).identity
+                if backup_identity is None:
+                    raise StateConflictError(
+                        "promotion rollback backup identity is unavailable"
+                    )
+                safe_replace_directory(
+                    self.runtime_root,
+                    source_relative_path=backup_relative,
+                    target_relative_path=active_relative,
+                    expected_source_identity=backup_identity,
+                )
+                self._write_json(journal, {**base, "state": "rolled_back"})
+                raise
+            self._write_json(
+                journal, {**base, "state": "prepared_active_installed"}
+            )
+            self._failpoint("prepared_active_installed")
+            backup_identity = inspect_leaf(
+                self.runtime_root, backup_relative, expected_kind="directory"
+            ).identity
+            if backup_identity is None:
+                raise StateConflictError("promotion backup identity is unavailable")
+            validate_tree_no_follow(self.runtime_root, backup_relative)
+            shutil.rmtree(backup)
+            if inspect_leaf(
+                self.runtime_root,
+                backup_relative,
+                expected_kind="directory",
+            ).identity is not None:
+                raise StateConflictError("promotion backup removal failed")
+            self._write_json(journal, {**base, "state": "prior_backup_removed"})
+            self._failpoint("prior_backup_removed")
+            self._write_json(journal, {**base, "state": "committed"})
+            self._failpoint("committed")
+            validate_tree_no_follow(self.runtime_root, active_relative)
+            self._write_json(
+                journal,
+                {
+                    **base,
+                    "state": "active_installed",
+                    "active_sha256": self.tree_sha256(active),
+                },
+            )
 
     def _finish_local_acceptance(
         self, branch_root: Path, transaction_root: Path
@@ -1762,6 +2511,7 @@ class ContinuousWorldStore:
         }:
             return
         active = branch_root / "ACTIVE"
+        active_relative = active.relative_to(self.runtime_root).as_posix()
         if self.tree_sha256(active) != payload.get("prepared_sha256"):
             raise StateConflictError("acceptance journal ACTIVE hash changed")
         for label in ("accepted_pair", "accepted_event"):
@@ -1769,13 +2519,11 @@ class ContinuousWorldStore:
             expected = payload.get(f"{label}_sha256")
             if not isinstance(relative, str) or not isinstance(expected, str):
                 raise StateConflictError(f"acceptance journal lacks {label} identity")
-            target = (active / relative).resolve()
-            if (
-                active.resolve() not in target.parents
-                or not target.is_file()
-                or target.is_symlink()
-                or text_sha256(target.read_text(encoding="utf-8")) != expected
-            ):
+            target_relative = active_relative + "/" + relative.replace("\\", "/")
+            encoded, _identity = safe_read_bytes(
+                self.runtime_root, target_relative
+            )
+            if text_sha256(encoded.decode("utf-8")) != expected:
                 raise StateConflictError(f"acceptance journal {label} changed")
         receipt_payload = payload.get("promotion_receipt_payload")
         if not isinstance(receipt_payload, dict):
@@ -1898,11 +2646,16 @@ class ContinuousWorldStore:
             ContinuousContextInjectionReceiptV1,
             ContinuousSessionSnapshotReceiptV1,
             ContinuousSessionSnapshotReceiptV2,
+            ContinuousSessionSnapshotReceiptV3,
             ContinuousSessionSnapshotStore,
         )
         if not isinstance(
             snapshot_receipt,
-            (ContinuousSessionSnapshotReceiptV1, ContinuousSessionSnapshotReceiptV2),
+            (
+                ContinuousSessionSnapshotReceiptV1,
+                ContinuousSessionSnapshotReceiptV2,
+                ContinuousSessionSnapshotReceiptV3,
+            ),
         ):
             raise ContractValidationError("acceptance snapshot receipt type changed")
         if not isinstance(injection_receipt, ContinuousContextInjectionReceiptV1):
@@ -2014,14 +2767,17 @@ class ContinuousWorldStore:
         store = StableAcceptedContextReferenceStore(
             self.branch_root(world_id, branch_id)
         )
-        expected_path = store.path_for(turn_id, provider_thread_sha256).resolve()
-        if reference_path.is_symlink():
-            raise StateConflictError(
-                "stable accepted-reference custody path is a symlink"
-            )
-        supplied_path = reference_path.resolve()
-        if supplied_path != expected_path or not supplied_path.is_file():
+        expected_path = lexical_absolute(
+            store.path_for(turn_id, provider_thread_sha256)
+        )
+        supplied_path = lexical_absolute(reference_path)
+        if supplied_path != expected_path:
             raise StateConflictError("stable accepted-reference custody path changed")
+        branch_root = lexical_absolute(self.branch_root(world_id, branch_id))
+        supplied_relative = supplied_path.relative_to(branch_root).as_posix()
+        supplied_bytes, _supplied_identity = safe_read_bytes(
+            branch_root, supplied_relative
+        )
         receipt, _references = store.load(
             turn_id,
             provider_thread_sha256=provider_thread_sha256,
@@ -2047,11 +2803,9 @@ class ContinuousWorldStore:
             stable_reference_state="persisted",
             compact_accepted_head_receipt_sha256=compact_head_receipt_sha256,
             stable_reference_relative_path=supplied_path.relative_to(
-                self.branch_root(world_id, branch_id).resolve()
+                branch_root
             ).as_posix(),
-            stable_reference_set_sha256=text_sha256(
-                supplied_path.read_text(encoding="utf-8")
-            ),
+            stable_reference_set_sha256=text_sha256(supplied_bytes.decode("utf-8")),
         )
 
     def acceptance_synchronization_record(
@@ -2115,21 +2869,78 @@ class ContinuousWorldStore:
     def _write_idempotent_json(
         self, path: Path, value: Any, label: str
     ) -> None:
-        if path.is_file():
-            if json.loads(path.read_text(encoding="utf-8")) != to_primitive(value):
+        path = lexical_absolute(path)
+        relative = path.relative_to(self.runtime_root).as_posix()
+        existing = inspect_leaf(self.runtime_root, relative)
+        if existing.identity is not None:
+            encoded, _identity = safe_read_bytes(self.runtime_root, relative)
+            if json.loads(encoded.decode("utf-8")) != to_primitive(value):
                 raise StateConflictError(f"{label} changed during acceptance recovery")
             return
         self._write_json(path, value)
 
-    @staticmethod
-    def _write_json(path: Path, value: Any) -> None:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_name(path.name + ".tmp")
-        with temporary.open("wb") as stream:
-            stream.write(canonical_bytes(value) + b"\n")
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
+    def _write_json(self, path: Path, value: Any) -> None:
+        """Write repository-world JSON under lexical no-follow custody."""
+
+        path = lexical_absolute(path)
+        try:
+            relative = path.relative_to(self.runtime_root).as_posix()
+        except ValueError as exc:
+            raise StateConflictError(
+                "continuous world write escaped its trusted runtime root"
+            ) from exc
+        temporary_relative = relative + ".tmp"
+        ensure_parent_chain(self.runtime_root, relative)
+        final_custody = capture_target_custody(self.runtime_root, relative)
+        temporary_custody = capture_target_custody(
+            self.runtime_root, temporary_relative
+        )
+        encoded = canonical_bytes(value) + b"\n"
+        temporary_identity = None
+        with locked_directory_chain(
+            self.runtime_root,
+            final_custody.verified_parent_relative_path,
+            create_missing=False,
+        ):
+            verify_target_custody(self.runtime_root, final_custody)
+            verify_target_custody(self.runtime_root, temporary_custody)
+            initial_final = inspect_leaf(self.runtime_root, relative)
+            temporary = inspect_leaf(self.runtime_root, temporary_relative)
+            try:
+                if temporary.identity is not None:
+                    temporary_bytes, temporary_identity = safe_read_bytes(
+                        self.runtime_root, temporary_relative
+                    )
+                    if temporary_bytes != encoded:
+                        raise StateConflictError(
+                            "continuous world temporary JSON custody changed"
+                        )
+                else:
+                    temporary_identity = safe_create_new_bytes(
+                        self.runtime_root, temporary_relative, encoded
+                    )
+                verify_target_custody(self.runtime_root, final_custody)
+                verify_target_custody(self.runtime_root, temporary_custody)
+                if inspect_leaf(
+                    self.runtime_root, relative
+                ).identity != initial_final.identity:
+                    raise StateConflictError(
+                        "continuous world final JSON changed before replacement"
+                    )
+                safe_replace(
+                    self.runtime_root,
+                    temporary_relative_path=temporary_relative,
+                    final_relative_path=relative,
+                    expected_temporary_identity=temporary_identity,
+                )
+                temporary_identity = None
+            finally:
+                if temporary_identity is not None:
+                    unlink_if_identity(
+                        self.runtime_root,
+                        temporary_relative,
+                        temporary_identity,
+                    )
 
 
 class ContinuousDebugRecorder:

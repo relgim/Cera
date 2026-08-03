@@ -40,6 +40,36 @@ from .contracts import (
     ValidatorFinalizationPackageV1,
 )
 from .record_policy import validate_persistence_field_path
+from .path_policy import preflight_windows_legacy_paths
+from .path_custody import (
+    capture_target_custody,
+    ensure_parent_chain,
+    inspect_leaf,
+    lexical_absolute,
+    lexical_target,
+    locked_directory_chain,
+    normalized_relative_path,
+    safe_create_new_bytes,
+    safe_read_bytes,
+    safe_replace,
+    unlink_if_identity,
+    verify_target_custody,
+)
+
+
+def _read_branch_file_no_follow(
+    branch_root: Path, relative_path: str
+) -> tuple[Path, str]:
+    root = lexical_absolute(branch_root)
+    normalized = normalized_relative_path(relative_path)
+    encoded, _identity = safe_read_bytes(root, normalized)
+    try:
+        text = encoded.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ContractValidationError(
+            "continuous branch evidence is not UTF-8"
+        ) from exc
+    return lexical_target(root, normalized), text
 
 
 @dataclass(frozen=True, slots=True)
@@ -391,7 +421,11 @@ class StableAcceptedContextReferenceStore:
     """Atomic branch-local custody for stable accepted references."""
 
     def __init__(self, branch_root: Path) -> None:
-        self.branch_root = branch_root.resolve()
+        if not branch_root.is_absolute():
+            raise ContractValidationError(
+                "stable accepted-reference root must be absolute"
+            )
+        self.branch_root = lexical_absolute(branch_root)
         self.root = self.branch_root / "PLANNER_SESSION" / "ACCEPTED_REFERENCES"
 
     def path_for(
@@ -426,30 +460,74 @@ class StableAcceptedContextReferenceStore:
             receipt.accepted_turn_id,
             receipt.provider_thread_sha256,
         )
-        if self.root.exists() and self.root.is_symlink():
-            raise StateConflictError("stable accepted-reference root is a symlink")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if path.exists():
-            if path.is_symlink():
-                raise StateConflictError(
-                    "stable accepted-reference artifact is a symlink"
-                )
-            if path.read_bytes() != encoded:
-                raise StateConflictError("stable accepted-reference bytes changed")
-            return path
+        relative_path = path.relative_to(self.branch_root).as_posix()
         temporary = path.with_suffix(".tmp")
-        if temporary.exists():
-            if temporary.is_symlink() or temporary.read_bytes() != encoded:
+        temporary_relative = temporary.relative_to(self.branch_root).as_posix()
+        preflight_windows_legacy_paths(
+            path,
+            temporary,
+            label="stable accepted-reference artifact",
+        )
+        ensure_parent_chain(self.branch_root, relative_path)
+        final_custody = capture_target_custody(
+            self.branch_root, relative_path
+        )
+        temporary_custody = capture_target_custody(
+            self.branch_root, temporary_relative
+        )
+        inspect_leaf(self.branch_root, relative_path)
+        inspect_leaf(self.branch_root, temporary_relative)
+        with locked_directory_chain(
+            self.branch_root,
+            final_custody.verified_parent_relative_path,
+            create_missing=False,
+        ):
+            verify_target_custody(self.branch_root, final_custody)
+            verify_target_custody(self.branch_root, temporary_custody)
+            if inspect_leaf(self.branch_root, relative_path).identity is not None:
+                existing, _identity = safe_read_bytes(
+                    self.branch_root, relative_path
+                )
+                if existing != encoded:
+                    raise StateConflictError(
+                        "stable accepted-reference bytes changed"
+                    )
+                return path
+            temporary_leaf = inspect_leaf(
+                self.branch_root, temporary_relative
+            )
+            if temporary_leaf.identity is not None:
+                temporary_bytes, temporary_identity = safe_read_bytes(
+                    self.branch_root, temporary_relative
+                )
+                if temporary_bytes != encoded:
+                    raise StateConflictError(
+                        "stable accepted-reference temporary custody changed"
+                    )
+            else:
+                temporary_identity = safe_create_new_bytes(
+                    self.branch_root, temporary_relative, encoded
+                )
+            try:
+                verify_target_custody(self.branch_root, final_custody)
+                verify_target_custody(self.branch_root, temporary_custody)
+                safe_replace(
+                    self.branch_root,
+                    temporary_relative_path=temporary_relative,
+                    final_relative_path=relative_path,
+                    expected_temporary_identity=temporary_identity,
+                )
+            except BaseException:
+                unlink_if_identity(
+                    self.branch_root,
+                    temporary_relative,
+                    temporary_identity,
+                )
+                raise
+            if inspect_leaf(self.branch_root, temporary_relative).identity is not None:
                 raise StateConflictError(
                     "stable accepted-reference temporary custody changed"
                 )
-            os.replace(temporary, path)
-            return path
-        with temporary.open("wb") as stream:
-            stream.write(encoded)
-            stream.flush()
-            os.fsync(stream.fileno())
-        os.replace(temporary, path)
         return path
 
     def load(
@@ -462,9 +540,9 @@ class StableAcceptedContextReferenceStore:
         tuple[StableAcceptedContextReferenceV1, ...],
     ]:
         path = self.path_for(accepted_turn_id, provider_thread_sha256)
-        if not path.is_file() or path.is_symlink():
-            raise StateConflictError("stable accepted-reference set is unavailable")
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        relative_path = path.relative_to(self.branch_root).as_posix()
+        encoded, _identity = safe_read_bytes(self.branch_root, relative_path)
+        raw = json.loads(encoded.decode("utf-8"))
         if (
             not isinstance(raw, dict)
             or raw.get("schema_version")
@@ -1388,16 +1466,14 @@ class RequestEvidenceBindingRegistry:
         visibility: EvidenceVisibility,
         knowledge_owner_id: str | None,
     ) -> RequestEvidenceBindingV1:
-        target = (branch_root / relative_path).resolve()
-        if branch_root.resolve() not in target.parents or not target.is_file() or target.is_symlink():
-            raise StateConflictError("initial evidence projection is unavailable or escaped branch")
-        text = target.read_text(encoding="utf-8")
+        target, text = _read_branch_file_no_follow(branch_root, relative_path)
+        normalized_relative = normalized_relative_path(relative_path)
         revision = None
         if target.suffix.casefold() == ".json":
             payload = json.loads(text)
             revision = payload.get("_cera_revision") if isinstance(payload, dict) else None
         return self.allocate_world_record(
-            relative_path=target.relative_to(branch_root).as_posix(),
+            relative_path=normalized_relative,
             source_sha256=text_sha256(text),
             record_revision=revision,
             record_type=record_type,
@@ -1406,7 +1482,7 @@ class RequestEvidenceBindingRegistry:
             exact_read_operation_sha256=canonical_sha256(
                 {
                     "operation": "deterministic_initial_projection",
-                    "relative_path": target.relative_to(branch_root).as_posix(),
+                    "relative_path": normalized_relative,
                     "source_sha256": text_sha256(text),
                     "turn_id": self.turn_id,
                 }
@@ -2224,13 +2300,10 @@ class RequestEvidenceBindingRegistry:
             directive.target_record_class,
             directive.field_path,
         )
-        active_root = (branch_root / "ACTIVE").resolve()
-        target = (active_root / directive.target_file).resolve()
-        if active_root not in target.parents or not target.is_file() or target.is_symlink():
-            raise StateConflictError(
-                "persistence directive target is unavailable or escaped branch"
-            )
-        payload = json.loads(target.read_text(encoding="utf-8"))
+        _target, target_text = _read_branch_file_no_follow(
+            branch_root, "ACTIVE/" + directive.target_file.replace("\\", "/")
+        )
+        payload = json.loads(target_text)
         if not isinstance(payload, dict):
             raise StateConflictError(
                 "persistence directive target is not a mutable semantic record"
@@ -2307,10 +2380,9 @@ class RequestEvidenceBindingRegistry:
 
     def _validate_world_binding(self, binding: RequestEvidenceBindingV1, branch_root: Path) -> None:
         assert binding.relative_path is not None
-        target = (branch_root / binding.relative_path).resolve()
-        if branch_root.resolve() not in target.parents or not target.is_file() or target.is_symlink():
-            raise StateConflictError("evidence binding record is unavailable or escaped branch")
-        text = target.read_text(encoding="utf-8")
+        target, text = _read_branch_file_no_follow(
+            branch_root, binding.relative_path
+        )
         if text_sha256(text) != binding.source_sha256:
             raise StateConflictError("evidence binding content is stale")
         if target.suffix.casefold() == ".json":
@@ -2359,10 +2431,7 @@ def build_character_summary_envelope(
         raise ContractValidationError(
             "character summary source must be an ACTIVE authoritative record"
         )
-    target = (branch_root / normalized).resolve()
-    if branch_root.resolve() not in target.parents or not target.is_file() or target.is_symlink():
-        raise StateConflictError("character summary source is unavailable or escaped branch")
-    text = target.read_text(encoding="utf-8")
+    target, text = _read_branch_file_no_follow(branch_root, normalized)
     payload = json.loads(text)
     if not isinstance(payload, dict):
         raise ContractValidationError("character summary source must be a JSON object")
@@ -2417,10 +2486,7 @@ def validate_character_summary_envelope(
     envelope: CharacterSummaryEnvelopeV1,
 ) -> Path:
     normalized = envelope.source_path_or_record_id.replace("\\", "/")
-    target = (branch_root / normalized).resolve()
-    if branch_root.resolve() not in target.parents or not target.is_file() or target.is_symlink():
-        raise StateConflictError("character summary source is unavailable or escaped branch")
-    text = target.read_text(encoding="utf-8")
+    target, text = _read_branch_file_no_follow(branch_root, normalized)
     if text_sha256(text) != envelope.source_sha256:
         raise StateConflictError("character summary source hash is stale")
     payload = json.loads(text)

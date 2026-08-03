@@ -184,6 +184,8 @@ from .continuous import (
     ContinuousBranchForkReceiptV1,
     ContinuousBranchForkReceiptV2,
     ContinuousBranchMaterializationReceiptV1,
+    ContinuousBranchMaterializationReceiptV2,
+    ContinuousBranchMaterializationPathPlanV1,
     ContinuousThreadLineageReceiptV1,
     ContinuousSessionInitializationReceiptV1,
     EventItemRoleLedgerV1,
@@ -193,12 +195,14 @@ from .continuous import (
 )
 from .continuous.sessions import (
     ContinuousAcceptedSnapshotPathPlanV1,
+    ContinuousAcceptedSnapshotPathPlanV2,
     ContinuousContextInjectionReceiptV1,
     ContinuousSessionCompatibilityV1,
     ContinuousSessionHandleV1,
     ContinuousSessionSnapshotV1,
     ContinuousSessionSnapshotReceiptV1,
     ContinuousSessionSnapshotReceiptV2,
+    ContinuousSessionSnapshotReceiptV3,
 )
 from .continuous.world import WorldPromotionReceiptV1
 from .continuous.provider import (
@@ -361,6 +365,8 @@ def build_schema_registry() -> SchemaRegistry:
         ContinuousBranchForkReceiptV1,
         ContinuousBranchForkReceiptV2,
         ContinuousBranchMaterializationReceiptV1,
+        ContinuousBranchMaterializationReceiptV2,
+        ContinuousBranchMaterializationPathPlanV1,
         ContinuousThreadLineageReceiptV1,
         CharacterSummaryDeliveryReceiptV1,
         EventItemRoleLedgerV1,
@@ -371,8 +377,10 @@ def build_schema_registry() -> SchemaRegistry:
         ContinuousSessionHandleV1,
         ContinuousSessionSnapshotV1,
         ContinuousAcceptedSnapshotPathPlanV1,
+        ContinuousAcceptedSnapshotPathPlanV2,
         ContinuousSessionSnapshotReceiptV1,
         ContinuousSessionSnapshotReceiptV2,
+        ContinuousSessionSnapshotReceiptV3,
         WorldPromotionReceiptV1,
         ContinuousValidatorDraftV1,
         ContinuousDeepSeekDraftV1,

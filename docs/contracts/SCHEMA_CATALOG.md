@@ -941,6 +941,8 @@ provider identities:
 | `cera.continuous_session_initialization_receipt.v1` | Python | One physical thread's base-instruction identity/bytes and lean, fork, or reconstruction provenance, including parent/branch and bounded reconstruction custody |
 | `cera.continuous_session_initialization_packet.v1` | Python session custody | Closed first-thread, reconstruction, or accepted-checkpoint-fork initialization identity wrapping the exact receipt before any turn submission |
 | `cera.continuous_branch_materialization_receipt.v1` | Python world authority | Immutable pre-transport proof of the actual parent/child directories, parent cutoff and accepted order, complete parent and child ACTIVE manifests, WORLD_STATE and index, accepted checkpoint artifacts, policy identities, and exact inherited summary sources |
+| `cera.continuous_branch_materialization_path_plan.v1` | Python path custody | Trusted runtime-root and parent identities, lexical parent/child/staging/receipt/temp paths, Windows handle-based no-follow component evidence, staging object identity, 248-character length plan, and a race-detection generation for one branch publication |
+| `cera.continuous_branch_materialization_receipt.v2` | Python world authority | Additive V1 semantic and manifest authority plus exact lexical no-follow materialization path plan; new receipts use the full branch-cutoff SHA-256 locator while historical V1 receipts remain decodeable |
 | `cera.continuous_branch_fork_receipt.v1` | Python branch authority, historical decode | Historical accepted-checkpoint parent/child branch, ancestry, parent-thread, and privacy-boundary proof retained for immutable V2 artifacts; it cannot authorize the V3 runtime route |
 | `cera.continuous_branch_fork_receipt.v2` | Python branch authority | Accepted-checkpoint parent/child branch, ancestry, parent-thread, privacy-boundary, and exact branch-materialization receipt proof required before a provider fork |
 | `cera.character_summary_delivery_receipt.v1` | Python Planner-thread custody | Character, revision, selected-content, source, thread, reason, and prompt identities for one Planner summary delivery |
@@ -950,6 +952,10 @@ provider identities:
 | `cera.continuous_session_snapshot_receipt.v1` | Python, historical decode | Historical acceptance-bound immutable Planner snapshot bytes, exact synchronized event/envelope/thread/injection hashes, retained full-hash path, and current-pointer path |
 | `cera.continuous_accepted_snapshot_path_plan.v1` | Python path custody | Hash-bound 248-character Windows legacy-path policy plus exact compact immutable/current final and same-directory temporary paths and their resolved lengths |
 | `cera.continuous_session_snapshot_receipt.v2` | Python | Compact-locator accepted Planner snapshot custody retaining the complete accepted-turn identity/hash, accepted envelope, provider thread, snapshot, nested injection receipt, canonical inner encoded-file hash, physical immutable-file hash, and exact path plan |
+| `cera.no_follow_path_identity.v1` | Python OS custody | Privacy-safe file/directory identity obtained without following the leaf, including verification mode, link count, and a mandatory zero reparse tag; multi-link files fail closed |
+| `cera.no_follow_target_custody.v1` | Python path custody | One lexical target's trusted-root identity, verified parent identity, component manifest, no-follow/non-reparse results, policy hash, deterministic verification generation, and self-hash |
+| `cera.continuous_accepted_snapshot_path_plan.v2` | Python path custody | Additive compact V2 locator plan binding the trusted branch-root identity, each verified parent identity, lexical final/temp paths, component manifests, Windows no-follow/reparse verification mode, 248-character lengths, and deterministic race-detection generation |
+| `cera.continuous_session_snapshot_receipt.v3` | Python | Additive complete V2 snapshot authority plus the V2 no-follow path plan, exact immutable/current published file identities, and a post-publication generation; V1/V2 receipts remain decodeable and are never rewritten |
 | `cera.continuous_thread_archive_evidence.v1` | Python session custody | One role's hashed provider-thread and archive-reason identities plus request, resume, backend-selectability, local-ancestry, error, and derived-verification outcomes |
 | `cera.continuous_job4_terminal_evidence.v4` | Python terminal custody | Canonical effects/postconditions, sealed capability ledger, source/policy-bound entrypoint boundary, and complete Planner/Validator archive DTOs with v1-v3 decode compatibility |
 | `cera.continuous_thread_lineage_receipt.v1` | Python session custody | Closed immutable all-physical-thread map binding role, purpose, parent, world, branch, compatibility, creation operation, lifecycle, adoption/supersession, and exactly one authorized-active or verified-archived terminal disposition |
@@ -1006,12 +1012,16 @@ the prior value hash; Python derives all operation and created-field metadata.
 `cera.continuous_branch_fork_receipt.v1`,
 `cera.continuous_branch_fork_receipt.v2`,
 `cera.continuous_branch_materialization_receipt.v1`,
+`cera.continuous_branch_materialization_path_plan.v1`,
+`cera.continuous_branch_materialization_receipt.v2`,
 `cera.continuous_thread_lineage_receipt.v1`,
 `cera.character_summary_delivery_receipt.v1`,
 `cera.continuous_context_injection_receipt.v1`,
 `cera.continuous_session_snapshot_receipt.v1`,
 `cera.continuous_accepted_snapshot_path_plan.v1`,
 `cera.continuous_session_snapshot_receipt.v2`,
+`cera.continuous_accepted_snapshot_path_plan.v2`,
+`cera.continuous_session_snapshot_receipt.v3`,
 `cera.continuous_provider_call_ledger_event.v3`, and
 `cera.scene_summary_derived_view.v2` are registered durable dataclass records.
 The request-local registry, mutable acceptance journal, root diagnostic, and

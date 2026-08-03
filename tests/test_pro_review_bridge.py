@@ -1395,7 +1395,7 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         snapshot_receipt = journal["planner_session_snapshot_receipt"]
         self.assertEqual(
             snapshot_receipt["schema_version"],
-            "cera.continuous_session_snapshot_receipt.v2",
+            "cera.continuous_session_snapshot_receipt.v3",
         )
         self.assertEqual(len(snapshot_receipt["accepted_turn_id_sha256"]), 64)
         self.assertEqual(len(snapshot_receipt["snapshot_sha256"]), 64)
@@ -1412,7 +1412,6 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
         )
         self.assertTrue(
             (expected_branch_root / snapshot_receipt["immutable_relative_path"])
-            .resolve()
             .is_file()
         )
 

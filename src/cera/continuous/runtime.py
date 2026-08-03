@@ -70,6 +70,7 @@ from .thread_lineage import (
 from .world import (
     CandidateWorldViewV1,
     ContinuousBranchMaterializationReceiptV1,
+    ContinuousBranchMaterializationReceiptV2,
     ContinuousDebugRecorder,
     ContinuousInheritedSummarySourceV1,
     ContinuousWorldStore,
@@ -352,7 +353,7 @@ class ContinuousShadowTurnCoordinator:
         *,
         target_compatibility: ContinuousSessionCompatibilityV1,
         required_character_summaries: tuple[CharacterSummaryEnvelopeV1, ...] = (),
-    ) -> ContinuousBranchMaterializationReceiptV1:
+    ) -> ContinuousBranchMaterializationReceiptV1 | ContinuousBranchMaterializationReceiptV2:
         """Create the complete child ACTIVE snapshot before any fork transport."""
 
         parent = self.planner_session
@@ -414,7 +415,8 @@ class ContinuousShadowTurnCoordinator:
         self,
         *,
         target_compatibility: ContinuousSessionCompatibilityV1,
-        materialization_receipt: ContinuousBranchMaterializationReceiptV1,
+        materialization_receipt: ContinuousBranchMaterializationReceiptV1
+        | ContinuousBranchMaterializationReceiptV2,
         branch_receipt: ContinuousBranchForkReceiptV2,
     ) -> ContinuousForkedPlannerSessionV2:
         """Fork one accepted Planner checkpoint and close child reference custody."""
@@ -561,7 +563,8 @@ class ContinuousShadowTurnCoordinator:
         source_sets: tuple[tuple[Any, Any], ...],
         target_compatibility: ContinuousSessionCompatibilityV1,
         branch_receipt: ContinuousBranchForkReceiptV2,
-        materialization_receipt: ContinuousBranchMaterializationReceiptV1,
+        materialization_receipt: ContinuousBranchMaterializationReceiptV1
+        | ContinuousBranchMaterializationReceiptV2,
     ) -> ContinuousForkedPlannerSessionV2:
         self.world.validate_branch_materialization(materialization_receipt)
         self._thread_failpoint(
@@ -732,7 +735,9 @@ class ContinuousShadowTurnCoordinator:
         bundle: ContinuousSessionReconstructionBundleV1,
         expected_compatibility: ContinuousSessionCompatibilityV1 | None = None,
         branch_receipt: ContinuousBranchForkReceiptV2 | None = None,
-        materialization_receipt: ContinuousBranchMaterializationReceiptV1 | None = None,
+        materialization_receipt: ContinuousBranchMaterializationReceiptV1
+        | ContinuousBranchMaterializationReceiptV2
+        | None = None,
     ) -> ContinuousSessionInitializationReceiptV1:
         """Replace a lost/non-forkable Planner thread with bounded authority."""
 

@@ -56,6 +56,7 @@ from .ingress import (
 from .sessions import (
     CharacterSummaryDeliveryReceiptV1,
     ContinuousAcceptedSnapshotPathPlanV1,
+    ContinuousAcceptedSnapshotPathPlanV2,
     ContinuousBranchForkReceiptV1,
     ContinuousBranchForkReceiptV2,
     ContinuousBranchReferenceTransferReceiptV1,
@@ -67,6 +68,7 @@ from .sessions import (
     ContinuousSessionReconstructionBundleV1,
     ContinuousSessionSnapshotReceiptV1,
     ContinuousSessionSnapshotReceiptV2,
+    ContinuousSessionSnapshotReceiptV3,
     ContinuousSessionSnapshotStore,
     CONTINUOUS_ACCEPTED_SNAPSHOT_MAX_RESOLVED_CHARS,
     CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256,
@@ -81,7 +83,11 @@ from .thread_lineage import (
     ContinuousThreadLineageReceiptV1,
     ContinuousThreadLifecycleEventV1,
 )
-from .world import ContinuousBranchMaterializationReceiptV1
+from .world import (
+    ContinuousBranchMaterializationPathPlanV1,
+    ContinuousBranchMaterializationReceiptV1,
+    ContinuousBranchMaterializationReceiptV2,
+)
 from .packets import (
     ContinuousPlannerPacketKind,
     ContinuousPlannerTurnPacketV1,
@@ -170,6 +176,7 @@ __all__ = [
     "build_default_prepared_classifier_registry",
     "ContinuousSessionSnapshotStore",
     "ContinuousAcceptedSnapshotPathPlanV1",
+    "ContinuousAcceptedSnapshotPathPlanV2",
     "PlannerContextMode",
     "ContinuousSessionInitializationPacketV1",
     "ContinuousSessionInitializationReceiptV1",
@@ -179,11 +186,14 @@ __all__ = [
     "ContinuousBranchForkReceiptV1",
     "ContinuousBranchForkReceiptV2",
     "ContinuousBranchMaterializationReceiptV1",
+    "ContinuousBranchMaterializationReceiptV2",
+    "ContinuousBranchMaterializationPathPlanV1",
     "ContinuousBranchReferenceTransferReceiptV1",
     "CharacterSummaryDeliveryReceiptV1",
     "ContinuousContextInjectionReceiptV1",
     "ContinuousSessionSnapshotReceiptV1",
     "ContinuousSessionSnapshotReceiptV2",
+    "ContinuousSessionSnapshotReceiptV3",
     "CONTINUOUS_ACCEPTED_SNAPSHOT_MAX_RESOLVED_CHARS",
     "CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_SHA256",
     "CONTINUOUS_ACCEPTED_SNAPSHOT_PATH_POLICY_VERSION",

@@ -674,9 +674,12 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             snapshot_receipt = journal["planner_session_snapshot_receipt"]
             self.assertEqual(
                 snapshot_receipt["schema_version"],
-                "cera.continuous_session_snapshot_receipt.v2",
+                "cera.continuous_session_snapshot_receipt.v3",
             )
-            path_plan = snapshot_receipt["path_plan"]
+            self.assertTrue(path_plan := snapshot_receipt["path_plan"])
+            self.assertTrue(
+                path_plan["current_custody"]["all_existing_components_no_follow"]
+            )
             self.assertLessEqual(
                 max(
                     path_plan["current_resolved_path_characters"],

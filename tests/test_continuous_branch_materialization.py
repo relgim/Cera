@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from dataclasses import replace
 import json
+import os
 from pathlib import Path
+import shutil
+import subprocess
 from tempfile import TemporaryDirectory
 import unittest
 
@@ -25,6 +28,8 @@ from cera.continuous.world import ContinuousWorldStore
 from cera.creator_review.models import CreatorReviewAction
 from cera.errors import StateConflictError
 from cera.serialization import canonical_bytes, canonical_sha256, text_sha256
+from cera.registry import build_schema_registry
+from cera.serialization import to_primitive
 
 from tests.test_continuous_corrections import _QueueStage, _seed_character
 from tests.test_continuous_world import (
@@ -36,6 +41,38 @@ from tests.test_continuous_world import (
     rich_sequence,
     session_compatibility,
 )
+
+
+def _junction(link: Path, target: Path) -> None:
+    if os.name == "nt":
+        result = subprocess.run(
+            ["cmd.exe", "/d", "/c", "mklink", "/J", str(link), str(target)],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0 or not os.path.isjunction(link):
+            raise AssertionError(
+                "Windows junction capability receipt: "
+                + json.dumps(
+                    {
+                        "returncode": result.returncode,
+                        "stdout": result.stdout.strip(),
+                        "stderr": result.stderr.strip(),
+                        "isjunction": os.path.isjunction(link),
+                    },
+                    sort_keys=True,
+                )
+            )
+    else:
+        os.symlink(target, link, target_is_directory=True)
+
+
+def _unlink_junction(path: Path) -> None:
+    if os.name == "nt" and os.path.isjunction(path):
+        path.rmdir()
+    elif path.is_symlink():
+        path.unlink()
 
 
 class ContinuousBranchMaterializationTests(unittest.TestCase):
@@ -193,6 +230,10 @@ class ContinuousBranchMaterializationTests(unittest.TestCase):
 
     def test_valid_materialization_binds_complete_snapshot_and_first_lean_fork(self) -> None:
         target, materialization, branch_receipt = self._materialize("child-valid")
+        self.assertEqual(
+            build_schema_registry().decode(to_primitive(materialization)),
+            materialization,
+        )
         categories = {
             entry.record_category
             for entry in materialization.child_initial_active_manifest
@@ -238,6 +279,71 @@ class ContinuousBranchMaterializationTests(unittest.TestCase):
             )
         self.assertFalse(child_root.exists())
         self.assertEqual(self.world.tree_sha256(parent_root), parent_tree_before)
+
+    def test_parent_active_junction_is_rejected_before_staging(self) -> None:
+        outside = self.root / "outside-active-alias"
+        outside.mkdir()
+        sentinel = outside / "sentinel.json"
+        sentinel.write_text("outside\n", encoding="utf-8")
+        alias = (
+            self.world.branch_root("world-test", "main")
+            / "ACTIVE"
+            / "Rules"
+            / "Alias"
+        )
+        _junction(alias, outside)
+        try:
+            with self.assertRaisesRegex(
+                StateConflictError, "no-follow|reparse|identity"
+            ):
+                self.runtime.materialize_planner_branch(
+                    target_compatibility=self._target("child-source-alias")
+                )
+            self.assertFalse(
+                self.world.branch_root("world-test", "child-source-alias").exists()
+            )
+            self.assertEqual(sentinel.read_text(encoding="utf-8"), "outside\n")
+        finally:
+            _unlink_junction(alias)
+
+    def test_staging_junction_substitution_fails_before_child_promotion(self) -> None:
+        outside = self.root / "outside-staging-alias"
+        outside.mkdir()
+        sentinel = outside / "sentinel.txt"
+        sentinel.write_text("outside\n", encoding="utf-8")
+        captured: dict[str, Path] = {}
+
+        def failpoint(stage: str) -> None:
+            if stage != "before_branch_materialization_replace" or captured:
+                return
+            world_parent = self.world.runtime_root / "world-test"
+            staging = next(world_parent.glob(".m-*"))
+            backup = world_parent / ".captured-staging-backup"
+            os.replace(staging, backup)
+            _junction(staging, outside)
+            captured.update(staging=staging, backup=backup)
+
+        self.world._promotion_failpoint = failpoint
+        try:
+            with self.assertRaisesRegex(
+                StateConflictError, "no-follow|reparse|identity|staging"
+            ):
+                self.runtime.materialize_planner_branch(
+                    target_compatibility=self._target("child-staging-race")
+                )
+            self.assertTrue(captured)
+            self.assertFalse(
+                self.world.branch_root("world-test", "child-staging-race").exists()
+            )
+            self.assertEqual(sentinel.read_text(encoding="utf-8"), "outside\n")
+        finally:
+            self.world._promotion_failpoint = None
+            staging = captured.get("staging")
+            backup = captured.get("backup")
+            if staging is not None:
+                _unlink_junction(staging)
+            if backup is not None and backup.is_dir():
+                shutil.rmtree(backup)
 
     def test_empty_and_partial_children_are_not_materializable(self) -> None:
         self.world.initialize("world-test", "child-empty")
