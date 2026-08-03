@@ -120,6 +120,7 @@ the active D-180 route.
 | `operations/CONTINUOUS_V3_PROVIDER_BACKED_MANUAL_ROUTE.md` | Separate port-5115 ordinary route, provider-model construction, fake-port qualification, exact cycle-bound activation, and two-way profile non-substitution |
 | `tests/test_continuous_v3_executable_readiness.py` | Provider-free integrated gate for the actual fresh-V2 parent/child process, failed-run recovery, long-root snapshot custody, and port-5115 fake-provider manual lifecycle |
 | `PRO_REVIEW_CONSUMED_RESPONSE_AUTHORITY_REPAIR_RESULT.md` | D-201 receipt-bound accepted-response authority, post-consumption inbox diagnostics, historical recovery, active-source strictness, and non-mutation evidence |
+| `PRO_REVIEW_SEQUENCE_CLAIM_ORIGIN_CUSTODY_V1_RESULT.md` | Repository-global V4 sequence claims/dispositions, 25-28 immutable adoption, origin-custody hardening, duplicate-highest conflict handling, and zero-effect focused proof |
 | `CONTINUOUS_WINDOWS_PATH_BUDGET_AND_SNAPSHOT_CUSTODY_V3_RESULT.md` | D-202 compact full-hash-bound accepted snapshots, 248-character legacy Windows path custody, historical V1 decoding, long-root fork/base-transaction proof, and zero-call completion/recovery chain |
 | `END_TO_END_WORKFLOWS.md` | Simulated ordinary and exceptional workflows |
 | `ROADMAP_AND_GATE.md` | Ordered implementation plan and authorization gates |

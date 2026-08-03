@@ -22,9 +22,18 @@ from cera.continuous.job4_diagnostics import ContinuousJob4TestDiagnosticsV1
 
 SPEC_SCHEMA = "cera.pro_review_cycle_spec.v2"
 SPEC_SCHEMA_V3 = "cera.pro_review_cycle_spec.v3"
+SPEC_SCHEMA_V4 = "cera.pro_review_cycle_spec.v4"
 MANIFEST_SCHEMA = "cera.pro_review_cycle_manifest.v2"
 MANIFEST_SCHEMA_V3 = "cera.pro_review_cycle_manifest.v3"
+MANIFEST_SCHEMA_V4 = "cera.pro_review_cycle_manifest.v4"
 LEGACY_MANIFEST_SCHEMA = "cera.pro_review_cycle_manifest.v1"
+SEQUENCE_AUTHORITY_ACTIVATION_SCHEMA = (
+    "cera.pro_review_sequence_authority_activation.v1"
+)
+SEQUENCE_CLAIM_SCHEMA = "cera.pro_review_sequence_claim.v1"
+SEQUENCE_CLAIM_DISPOSITION_SCHEMA = (
+    "cera.pro_review_sequence_claim_disposition.v1"
+)
 FAILED_PRE_MANIFEST_TOMBSTONE_SCHEMA = (
     "cera.pro_review_failed_pre_manifest_tombstone.v1"
 )
@@ -42,6 +51,10 @@ STATE_REVIEW_CONSUMED = "review_consumed_advisory"
 
 EXPECTED_RESPONSE_RELATIVE_PATH = Path("inbox") / "PRO_RESPONSE.md"
 ACCEPTED_RESPONSE_RELATIVE_PATH = Path("accepted") / "PRO_RESPONSE.md"
+SEQUENCE_AUTHORITY_RELATIVE_ROOT = Path(".chatgpt") / "pro-review" / "sequence-authority"
+SEQUENCE_AUTHORITY_ACTIVATION_RELATIVE_PATH = (
+    SEQUENCE_AUTHORITY_RELATIVE_ROOT / "ACTIVATION.json"
+)
 MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
 MAX_SNAPSHOT_FILES = 4096
 MAX_SNAPSHOT_TOTAL_BYTES = 64 * 1024 * 1024
@@ -115,6 +128,16 @@ RECEIPT_EVENT_FIELDS = {
         "authorization_record_sha256",
         "authorization_record_contract_validated",
         "unrelated_work_authorized",
+    ),
+    "job4_started_v4": (
+        "job4_task_id",
+        "job4_scope_sha256",
+        "authorization_record_sha256",
+        "authorization_record_contract_validated",
+        "unrelated_work_authorized",
+        "sequence_claim_sha256",
+        "sequence_disposition_sha256",
+        "sequence_disposition_relative_path",
     ),
     "review_trigger_sent": (
         "transport",
@@ -328,6 +351,838 @@ def relative_path(root: Path, path: Path) -> str:
         return path.relative_to(root).as_posix()
     except ValueError as exc:
         raise CycleError("path escapes the CERA repository") from exc
+
+
+def sequence_authority_root(root: Path) -> Path:
+    return root / SEQUENCE_AUTHORITY_RELATIVE_ROOT
+
+
+def sequence_claim_path(root: Path, sequence: int) -> Path:
+    return sequence_authority_root(root) / f"{sequence:08d}" / "CLAIM.json"
+
+
+def sequence_disposition_path(root: Path, sequence: int) -> Path:
+    return sequence_authority_root(root) / f"{sequence:08d}" / "DISPOSITION.json"
+
+
+def sequence_failure_path(root: Path, sequence: int) -> Path:
+    return sequence_authority_root(root) / f"{sequence:08d}" / "FAILURE.json"
+
+
+def sequence_activation_path(root: Path) -> Path:
+    return root / SEQUENCE_AUTHORITY_ACTIVATION_RELATIVE_PATH
+
+
+def repository_identity_sha256(root: Path) -> str:
+    return sha256_text(str(root).casefold())
+
+
+def _canonical_record(path: Path, label: str) -> tuple[dict[str, Any], bytes, str]:
+    data = path.read_bytes()
+    try:
+        value = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise CycleError(f"{label} is not canonical JSON: {path}") from exc
+    if not isinstance(value, dict) or data != canonical_json_bytes(value):
+        raise CycleError(f"{label} is not canonical JSON: {path}")
+    return value, data, sha256_bytes(data)
+
+
+def _sequence_record_path(
+    root: Path, value: Any, expected: Path, label: str
+) -> Path:
+    supplied = repository_relative_file(root, value, label, suffixes={".json"})
+    if supplied != expected or has_link_component(root, supplied):
+        raise CycleError(f"{label} must use its fixed sequence-authority path")
+    return supplied
+
+
+def _manifest_sequence_occupants(root: Path, sequence: int) -> list[str]:
+    cycles_root = root / ".chatgpt" / "pro-review" / "cycles"
+    occupants: list[str] = []
+    if not cycles_root.exists():
+        return occupants
+    for candidate in sorted(cycles_root.iterdir(), key=lambda item: item.name):
+        manifest_path = candidate / "CYCLE_MANIFEST.json"
+        if not manifest_path.is_file():
+            continue
+        try:
+            manifest = read_json(manifest_path)
+        except CycleError:
+            continue
+        if manifest.get("cycle_sequence") == sequence:
+            occupants.append(candidate.name)
+    return occupants
+
+
+def _validate_sequence_claim(
+    root: Path,
+    value: Mapping[str, Any],
+    *,
+    expected_sequence: int | None = None,
+    validate_evidence: bool = True,
+) -> dict[str, Any]:
+    exact_keys(
+        value,
+        (
+            "schema_version",
+            "repository_identity_sha256",
+            "cycle_sequence",
+            "claim_kind",
+            "cycle_id",
+            "checkpoint_id",
+            "run_id",
+            "job4_task_id",
+            "predecessor_claim_sha256",
+            "authority_evidence_path",
+            "authority_evidence_sha256",
+            "identity_reusable",
+        ),
+        "sequence claim",
+    )
+    sequence = value.get("cycle_sequence")
+    if (
+        value.get("schema_version") != SEQUENCE_CLAIM_SCHEMA
+        or value.get("repository_identity_sha256") != repository_identity_sha256(root)
+        or not isinstance(sequence, int)
+        or isinstance(sequence, bool)
+        or sequence < 1
+        or (expected_sequence is not None and sequence != expected_sequence)
+        or value.get("identity_reusable") is not False
+    ):
+        raise CycleError("sequence claim identity is invalid")
+    kind = value.get("claim_kind")
+    if kind not in {"consumed_cycle", "failed_pre_manifest", "publication_intent"}:
+        raise CycleError("sequence claim kind is invalid")
+    require_id(value.get("cycle_id"), "sequence claim cycle_id")
+    require_id(value.get("checkpoint_id"), "sequence claim checkpoint_id")
+    if value.get("run_id") is not None:
+        require_id(value.get("run_id"), "sequence claim run_id")
+    require_id(value.get("job4_task_id"), "sequence claim job4_task_id")
+    predecessor = value.get("predecessor_claim_sha256")
+    if predecessor is not None:
+        require_hash(predecessor, "sequence claim predecessor hash")
+    evidence = repository_relative_file(
+        root,
+        value.get("authority_evidence_path"),
+        "sequence claim authority evidence",
+    )
+    evidence_hash = require_hash(
+        value.get("authority_evidence_sha256"),
+        "sequence claim authority evidence hash",
+    )
+    if sha256_bytes(evidence.read_bytes()) != evidence_hash:
+        raise CycleError("sequence claim authority evidence hash mismatch")
+    if not validate_evidence:
+        return dict(value)
+
+    if kind == "consumed_cycle":
+        if value.get("run_id") is not None:
+            raise CycleError("consumed sequence claim cannot name a run identity")
+        cycle = cycle_path(
+            root,
+            root / ".chatgpt" / "pro-review" / "cycles" / str(value["cycle_id"]),
+            str(value["cycle_id"]),
+        )
+        expected = cycle / "receipts" / "RESPONSE_CONSUMED.json"
+        if evidence != expected:
+            raise CycleError("consumed sequence claim must bind its consumption receipt")
+        manifest = load_manifest_file(cycle / "CYCLE_MANIFEST.json")
+        if manifest.get("cycle_sequence") != sequence:
+            raise CycleError("consumed sequence claim manifest sequence mismatch")
+        validate_consumed_cycle(root, cycle, manifest, require_current_source=False)
+        if (
+            value.get("checkpoint_id") != manifest["checkpoint"]["id"]
+            or value.get("job4_task_id") != manifest["job4"]["task_id"]
+        ):
+            raise CycleError("consumed sequence claim manifest identity mismatch")
+    elif kind == "failed_pre_manifest":
+        if evidence.name != f"FAILED_PRE_MANIFEST_TOMBSTONE_{sequence:04d}.json":
+            raise CycleError("failed sequence claim must bind a published tombstone")
+        parts = evidence.relative_to(root).parts
+        if len(parts) < 6 or parts[-2] != "outbox" or "cycles" not in parts:
+            raise CycleError("failed sequence claim evidence is not published custody")
+        adoption_cycle = evidence.parent.parent
+        manifest = load_manifest_file(adoption_cycle / "CYCLE_MANIFEST.json")
+        validate_consumed_cycle(
+            root, adoption_cycle, manifest, require_current_source=False
+        )
+        validate_published_failed_pre_manifest_chain(root, adoption_cycle, manifest)
+        tombstone, _, _ = _canonical_record(evidence, "failed sequence tombstone")
+        if (
+            tombstone.get("attempted_cycle_sequence") != sequence
+            or tombstone.get("attempted_cycle_id") != value.get("cycle_id")
+            or tombstone.get("attempted_checkpoint_id") != value.get("checkpoint_id")
+            or tombstone.get("attempted_run_id") != value.get("run_id")
+            or tombstone.get("attempted_job4_task_id") != value.get("job4_task_id")
+        ):
+            raise CycleError("failed sequence claim does not match published custody")
+    else:
+        if value.get("run_id") is None:
+            raise CycleError("publication-intent claim requires its run identity")
+        authorization = read_json(evidence)
+        if (
+            authorization.get("schema_version") != JOB4_AUTHORIZATION_SCHEMA
+            or authorization.get("cycle_id") != value.get("cycle_id")
+            or authorization.get("task_id") != value.get("job4_task_id")
+        ):
+            raise CycleError("publication-intent claim evidence is invalid")
+    return dict(value)
+
+
+def _validate_sequence_disposition(
+    root: Path,
+    value: Mapping[str, Any],
+    *,
+    claim: Mapping[str, Any],
+) -> dict[str, Any]:
+    exact_keys(
+        value,
+        (
+            "schema_version",
+            "repository_identity_sha256",
+            "cycle_sequence",
+            "claim_sha256",
+            "disposition",
+            "cycle_id",
+            "manifest_root_sha256",
+            "publication_receipt_sha256",
+            "authority_evidence_path",
+            "authority_evidence_sha256",
+            "identity_reusable",
+        ),
+        "sequence claim disposition",
+    )
+    sequence = claim["cycle_sequence"]
+    claim_hash = sha256_bytes(canonical_json_bytes(claim))
+    if (
+        value.get("schema_version") != SEQUENCE_CLAIM_DISPOSITION_SCHEMA
+        or value.get("repository_identity_sha256") != repository_identity_sha256(root)
+        or value.get("cycle_sequence") != sequence
+        or value.get("claim_sha256") != claim_hash
+        or value.get("cycle_id") != claim.get("cycle_id")
+        or value.get("identity_reusable") is not False
+    ):
+        raise CycleError("sequence claim disposition identity is invalid")
+    disposition = value.get("disposition")
+    expected_by_kind = {
+        "consumed_cycle": "adopted_consumed",
+        "failed_pre_manifest": "adopted_failed_pre_manifest",
+    }
+    if claim["claim_kind"] in expected_by_kind and disposition != expected_by_kind[claim["claim_kind"]]:
+        raise CycleError("adopted sequence disposition is invalid")
+    if claim["claim_kind"] == "publication_intent" and disposition not in {
+        "published",
+        "publication_failed_pre_manifest_pre_job4",
+    }:
+        raise CycleError("current sequence disposition is invalid")
+    evidence = repository_relative_file(
+        root, value.get("authority_evidence_path"), "sequence disposition evidence"
+    )
+    evidence_hash = require_hash(
+        value.get("authority_evidence_sha256"),
+        "sequence disposition evidence hash",
+    )
+    if sha256_bytes(evidence.read_bytes()) != evidence_hash:
+        raise CycleError("sequence disposition evidence hash mismatch")
+    manifest_root = value.get("manifest_root_sha256")
+    publication_hash = value.get("publication_receipt_sha256")
+    if disposition in {"published", "adopted_consumed"}:
+        require_hash(manifest_root, "sequence disposition manifest root")
+    elif manifest_root is not None:
+        raise CycleError("failed sequence disposition cannot claim a manifest root")
+    if disposition == "published":
+        require_hash(publication_hash, "sequence disposition publication receipt")
+    elif publication_hash is not None:
+        raise CycleError("non-current disposition cannot claim a publication receipt")
+    if disposition == "publication_failed_pre_manifest_pre_job4":
+        expected_failure = sequence_failure_path(root, sequence)
+        if evidence != expected_failure:
+            raise CycleError("failed disposition must bind its fixed global failure record")
+        failure, _, _ = _canonical_record(evidence, "sequence publication failure")
+        _validate_failed_publication_receipt(failure, sequence)
+        if (
+            failure.get("attempted_cycle_id") != claim.get("cycle_id")
+            or failure.get("attempted_checkpoint_id") != claim.get("checkpoint_id")
+            or failure.get("attempted_run_id") != claim.get("run_id")
+            or failure.get("attempted_job4_task_id") != claim.get("job4_task_id")
+            or _manifest_sequence_occupants(root, sequence)
+        ):
+            raise CycleError("failed disposition does not match its claimed identity")
+    elif disposition == "published":
+        cycle = cycle_path(
+            root,
+            root / ".chatgpt" / "pro-review" / "cycles" / str(claim["cycle_id"]),
+            str(claim["cycle_id"]),
+        )
+        manifest = load_manifest_file(cycle / "CYCLE_MANIFEST.json")
+        published_path = cycle / "receipts" / "PUBLISHED.json"
+        if evidence != published_path:
+            raise CycleError("published disposition must bind its publication receipt")
+        validate_receipt(published_path, manifest, "jobs_1_3_published", None)
+        if (
+            manifest.get("cycle_sequence") != sequence
+            or manifest.get("cycle_id") != claim.get("cycle_id")
+            or manifest.get("manifest_root_sha256") != manifest_root
+            or evidence_hash != publication_hash
+        ):
+            raise CycleError("published disposition does not match its cycle")
+    return dict(value)
+
+
+def _validate_activation(root: Path, value: Mapping[str, Any]) -> dict[str, Any]:
+    exact_keys(
+        value,
+        (
+            "schema_version",
+            "repository_identity_sha256",
+            "activation_sequence",
+            "adopted_through_sequence",
+            "consumed_anchor_sequences",
+            "failed_pre_manifest_sequences",
+            "adoption_cycle_id",
+            "adoption_manifest_root_sha256",
+            "adoption_consumption_receipt_sha256",
+            "identity_reusable",
+        ),
+        "sequence authority activation",
+    )
+    activation_sequence = value.get("activation_sequence")
+    adopted_through = value.get("adopted_through_sequence")
+    if (
+        value.get("schema_version") != SEQUENCE_AUTHORITY_ACTIVATION_SCHEMA
+        or value.get("repository_identity_sha256") != repository_identity_sha256(root)
+        or not isinstance(activation_sequence, int)
+        or isinstance(activation_sequence, bool)
+        or not isinstance(adopted_through, int)
+        or isinstance(adopted_through, bool)
+        or activation_sequence != adopted_through + 1
+        or value.get("consumed_anchor_sequences") != [25, 28]
+        or value.get("failed_pre_manifest_sequences") != [26, 27]
+        or value.get("adopted_through_sequence") != 28
+        or value.get("identity_reusable") is not False
+    ):
+        raise CycleError("sequence authority activation contract is invalid")
+    adoption_id = require_id(value.get("adoption_cycle_id"), "adoption cycle_id")
+    adoption = cycle_path(
+        root,
+        root / ".chatgpt" / "pro-review" / "cycles" / adoption_id,
+        adoption_id,
+    )
+    manifest = load_manifest_file(adoption / "CYCLE_MANIFEST.json")
+    if (
+        manifest.get("cycle_sequence") != 28
+        or manifest.get("manifest_root_sha256")
+        != require_hash(
+            value.get("adoption_manifest_root_sha256"),
+            "adoption manifest root",
+        )
+    ):
+        raise CycleError("activation adoption cycle is invalid")
+    _, _, consumed_hash, _ = validate_consumed_cycle(
+        root, adoption, manifest, require_current_source=False
+    )
+    if consumed_hash != require_hash(
+        value.get("adoption_consumption_receipt_sha256"),
+        "adoption consumption receipt",
+    ):
+        raise CycleError("activation adoption receipt is invalid")
+    return dict(value)
+
+
+def load_sequence_activation(root: Path) -> tuple[dict[str, Any], str]:
+    path = sequence_activation_path(root)
+    value, _, digest = _canonical_record(path, "sequence authority activation")
+    return _validate_activation(root, value), digest
+
+
+def acquire_sequence_claim(
+    value: Mapping[str, Any], *, repository_root_path: Path | None = None
+) -> dict[str, Any]:
+    root = repository_root(repository_root_path)
+    activation, _ = load_sequence_activation(root)
+    claim = _validate_sequence_claim(root, value)
+    sequence = claim["cycle_sequence"]
+    if sequence < activation["activation_sequence"]:
+        raise CycleError("adopted sequence claims cannot be replaced")
+    previous = sequence_claim_path(root, sequence - 1)
+    if not previous.is_file():
+        raise CycleError("sequence claim predecessor is missing")
+    previous_claim, _, previous_hash = _canonical_record(
+        previous, "prior sequence claim"
+    )
+    previous_disposition_path = sequence_disposition_path(root, sequence - 1)
+    if not previous_disposition_path.is_file():
+        raise CycleError("sequence claim predecessor has no terminal disposition")
+    previous_disposition, _, _ = _canonical_record(
+        previous_disposition_path, "prior sequence disposition"
+    )
+    _validate_sequence_disposition(
+        root, previous_disposition, claim=previous_claim
+    )
+    if claim["predecessor_claim_sha256"] != previous_hash:
+        raise CycleError("sequence claim predecessor hash mismatch")
+    occupants = _manifest_sequence_occupants(root, sequence)
+    if occupants and occupants != [claim["cycle_id"]]:
+        raise CycleError("sequence is already occupied by a conflicting manifest")
+    path = sequence_claim_path(root, sequence)
+    immutable_write(path, canonical_json_bytes(claim))
+    return {"path": relative_path(root, path), "sha256": sha256_bytes(path.read_bytes())}
+
+
+def record_sequence_disposition(
+    value: Mapping[str, Any], *, repository_root_path: Path | None = None
+) -> dict[str, Any]:
+    root = repository_root(repository_root_path)
+    sequence = value.get("cycle_sequence")
+    if not isinstance(sequence, int) or isinstance(sequence, bool):
+        raise CycleError("sequence disposition sequence is invalid")
+    claim_path = sequence_claim_path(root, sequence)
+    claim, _, _ = _canonical_record(claim_path, "sequence claim")
+    _validate_sequence_claim(root, claim)
+    disposition = _validate_sequence_disposition(root, value, claim=claim)
+    path = sequence_disposition_path(root, sequence)
+    immutable_write(path, canonical_json_bytes(disposition))
+    return {"path": relative_path(root, path), "sha256": sha256_bytes(path.read_bytes())}
+
+
+def sequence_claim_chain_root(entries: Sequence[Mapping[str, Any]]) -> str:
+    return sha256_bytes(canonical_json_bytes({"sequence_claim_chain": list(entries)}))
+
+
+def install_sequence_authority(
+    activation_value: Mapping[str, Any],
+    claims: Sequence[Mapping[str, Any]],
+    dispositions: Sequence[Mapping[str, Any]],
+    *,
+    repository_root_path: Path | None = None,
+) -> dict[str, Any]:
+    """Adopt the frozen 25-28 history, publishing ACTIVATION.json last."""
+
+    root = repository_root(repository_root_path)
+    activation = _validate_activation(root, activation_value)
+    if len(claims) != 4 or len(dispositions) != 4:
+        raise CycleError("sequence authority adoption requires exact claims 25 through 28")
+    claim_values: list[dict[str, Any]] = []
+    disposition_values: list[dict[str, Any]] = []
+    previous_hash: str | None = None
+    for sequence, raw_claim, raw_disposition in zip(
+        range(25, 29), claims, dispositions
+    ):
+        claim = _validate_sequence_claim(
+            root, raw_claim, expected_sequence=sequence
+        )
+        if claim["predecessor_claim_sha256"] != previous_hash:
+            raise CycleError("adopted sequence claim chain is not exact")
+        expected_kind = (
+            "consumed_cycle" if sequence in {25, 28} else "failed_pre_manifest"
+        )
+        if claim["claim_kind"] != expected_kind:
+            raise CycleError("adopted sequence claim kind is invalid")
+        occupants = _manifest_sequence_occupants(root, sequence)
+        expected_occupants = [claim["cycle_id"]] if expected_kind == "consumed_cycle" else []
+        if occupants != expected_occupants:
+            raise CycleError("pre-adoption manifest occupancy conflicts with history")
+        disposition = _validate_sequence_disposition(
+            root, raw_disposition, claim=claim
+        )
+        if disposition["authority_evidence_path"] != claim["authority_evidence_path"]:
+            raise CycleError("adopted disposition must bind the claim evidence")
+        if expected_kind == "consumed_cycle":
+            manifest = load_manifest_file(
+                root
+                / ".chatgpt"
+                / "pro-review"
+                / "cycles"
+                / claim["cycle_id"]
+                / "CYCLE_MANIFEST.json"
+            )
+            if disposition["manifest_root_sha256"] != manifest.get(
+                "manifest_root_sha256"
+            ):
+                raise CycleError("adopted consumed disposition manifest root is invalid")
+        claim_values.append(claim)
+        disposition_values.append(disposition)
+        previous_hash = sha256_bytes(canonical_json_bytes(claim))
+    if _manifest_sequence_occupants(root, activation["activation_sequence"]):
+        raise CycleError("activation frontier is already occupied by a manifest")
+    frontier_claim = sequence_claim_path(root, activation["activation_sequence"])
+    if frontier_claim.exists():
+        raise CycleError("activation frontier is already occupied by a claim")
+    for claim, disposition in zip(claim_values, disposition_values):
+        sequence = claim["cycle_sequence"]
+        immutable_write(sequence_claim_path(root, sequence), canonical_json_bytes(claim))
+        immutable_write(
+            sequence_disposition_path(root, sequence),
+            canonical_json_bytes(disposition),
+        )
+    immutable_write(
+        sequence_activation_path(root), canonical_json_bytes(activation)
+    )
+    chain = [
+        {
+            "cycle_sequence": claim["cycle_sequence"],
+            "claim_sha256": sha256_bytes(canonical_json_bytes(claim)),
+            "disposition_sha256": sha256_bytes(canonical_json_bytes(disposition)),
+        }
+        for claim, disposition in zip(claim_values, disposition_values)
+    ]
+    return {
+        "activation_path": relative_path(root, sequence_activation_path(root)),
+        "activation_sha256": sha256_bytes(sequence_activation_path(root).read_bytes()),
+        "claim_chain_root_sha256": sequence_claim_chain_root(chain),
+        "adopted_sequences": [25, 26, 27, 28],
+    }
+
+
+def _unique_consumed_cycle_at_sequence(
+    root: Path, sequence: int
+) -> tuple[Path, dict[str, Any], str]:
+    cycles_root = root / ".chatgpt" / "pro-review" / "cycles"
+    valid: list[tuple[Path, dict[str, Any], str]] = []
+    for cycle_id in _manifest_sequence_occupants(root, sequence):
+        cycle = cycle_path(root, cycles_root / cycle_id, cycle_id)
+        manifest = load_manifest_file(cycle / "CYCLE_MANIFEST.json")
+        try:
+            _, _, consumed_hash, _ = validate_consumed_cycle(
+                root, cycle, manifest, require_current_source=False
+            )
+            validate_state_view(
+                cycle,
+                manifest,
+                STATE_REVIEW_CONSUMED,
+                "RESPONSE_CONSUMED.json",
+                consumed_hash,
+            )
+        except CycleError:
+            continue
+        valid.append((cycle, manifest, consumed_hash))
+    if len(valid) != 1:
+        raise CycleError(
+            f"sequence {sequence} must have exactly one valid consumed cycle"
+        )
+    return valid[0]
+
+
+def build_sequence_authority_adoption(
+    *, repository_root_path: Path | None = None
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    """Derive deterministic 25-28 adoption records from immutable published evidence."""
+
+    root = repository_root(repository_root_path)
+    cycle25, manifest25, consumed25_hash = _unique_consumed_cycle_at_sequence(
+        root, 25
+    )
+    cycle28, manifest28, consumed28_hash = _unique_consumed_cycle_at_sequence(
+        root, 28
+    )
+    if manifest28.get("schema_version") != MANIFEST_SCHEMA_V3:
+        raise CycleError("sequence 28 adoption cycle must publish the V3 gap chain")
+    validate_published_failed_pre_manifest_chain(root, cycle28, manifest28)
+    failed = manifest28.get("failed_pre_manifest_predecessors")
+    if not isinstance(failed, list) or [
+        item.get("cycle_sequence") if isinstance(item, dict) else None
+        for item in failed
+    ] != [26, 27]:
+        raise CycleError("sequence 28 does not publish the exact 26-27 gap")
+    if _manifest_sequence_occupants(root, 26) or _manifest_sequence_occupants(root, 27):
+        raise CycleError("failed adopted sequences are occupied by manifests")
+    if _manifest_sequence_occupants(root, 29) or sequence_claim_path(root, 29).exists():
+        raise CycleError("sequence 29 is already occupied")
+
+    activation = {
+        "schema_version": SEQUENCE_AUTHORITY_ACTIVATION_SCHEMA,
+        "repository_identity_sha256": repository_identity_sha256(root),
+        "activation_sequence": 29,
+        "adopted_through_sequence": 28,
+        "consumed_anchor_sequences": [25, 28],
+        "failed_pre_manifest_sequences": [26, 27],
+        "adoption_cycle_id": manifest28["cycle_id"],
+        "adoption_manifest_root_sha256": manifest28["manifest_root_sha256"],
+        "adoption_consumption_receipt_sha256": consumed28_hash,
+        "identity_reusable": False,
+    }
+    claims: list[dict[str, Any]] = []
+    dispositions: list[dict[str, Any]] = []
+    previous_hash: str | None = None
+
+    def append_consumed(
+        cycle: Path, manifest: Mapping[str, Any], consumed_hash: str
+    ) -> None:
+        nonlocal previous_hash
+        evidence = cycle / "receipts" / "RESPONSE_CONSUMED.json"
+        claim = {
+            "schema_version": SEQUENCE_CLAIM_SCHEMA,
+            "repository_identity_sha256": repository_identity_sha256(root),
+            "cycle_sequence": manifest["cycle_sequence"],
+            "claim_kind": "consumed_cycle",
+            "cycle_id": manifest["cycle_id"],
+            "checkpoint_id": manifest["checkpoint"]["id"],
+            "run_id": None,
+            "job4_task_id": manifest["job4"]["task_id"],
+            "predecessor_claim_sha256": previous_hash,
+            "authority_evidence_path": relative_path(root, evidence),
+            "authority_evidence_sha256": consumed_hash,
+            "identity_reusable": False,
+        }
+        claim_hash = sha256_bytes(canonical_json_bytes(claim))
+        disposition = {
+            "schema_version": SEQUENCE_CLAIM_DISPOSITION_SCHEMA,
+            "repository_identity_sha256": repository_identity_sha256(root),
+            "cycle_sequence": manifest["cycle_sequence"],
+            "claim_sha256": claim_hash,
+            "disposition": "adopted_consumed",
+            "cycle_id": manifest["cycle_id"],
+            "manifest_root_sha256": manifest["manifest_root_sha256"],
+            "publication_receipt_sha256": None,
+            "authority_evidence_path": relative_path(root, evidence),
+            "authority_evidence_sha256": consumed_hash,
+            "identity_reusable": False,
+        }
+        claims.append(claim)
+        dispositions.append(disposition)
+        previous_hash = claim_hash
+
+    append_consumed(cycle25, manifest25, consumed25_hash)
+    for item in failed:
+        sequence = item["cycle_sequence"]
+        tombstone_path = cycle28 / item["published_tombstone_relative_path"]
+        tombstone, _, tombstone_hash = _canonical_record(
+            tombstone_path, "published failed sequence tombstone"
+        )
+        claim = {
+            "schema_version": SEQUENCE_CLAIM_SCHEMA,
+            "repository_identity_sha256": repository_identity_sha256(root),
+            "cycle_sequence": sequence,
+            "claim_kind": "failed_pre_manifest",
+            "cycle_id": tombstone["attempted_cycle_id"],
+            "checkpoint_id": tombstone["attempted_checkpoint_id"],
+            "run_id": tombstone["attempted_run_id"],
+            "job4_task_id": tombstone["attempted_job4_task_id"],
+            "predecessor_claim_sha256": previous_hash,
+            "authority_evidence_path": relative_path(root, tombstone_path),
+            "authority_evidence_sha256": tombstone_hash,
+            "identity_reusable": False,
+        }
+        claim_hash = sha256_bytes(canonical_json_bytes(claim))
+        disposition = {
+            "schema_version": SEQUENCE_CLAIM_DISPOSITION_SCHEMA,
+            "repository_identity_sha256": repository_identity_sha256(root),
+            "cycle_sequence": sequence,
+            "claim_sha256": claim_hash,
+            "disposition": "adopted_failed_pre_manifest",
+            "cycle_id": tombstone["attempted_cycle_id"],
+            "manifest_root_sha256": None,
+            "publication_receipt_sha256": None,
+            "authority_evidence_path": relative_path(root, tombstone_path),
+            "authority_evidence_sha256": tombstone_hash,
+            "identity_reusable": False,
+        }
+        claims.append(claim)
+        dispositions.append(disposition)
+        previous_hash = claim_hash
+    append_consumed(cycle28, manifest28, consumed28_hash)
+    return activation, claims, dispositions
+
+
+def activate_sequence_authority_from_repository(
+    *, repository_root_path: Path | None = None
+) -> dict[str, Any]:
+    root = repository_root(repository_root_path)
+    activation, claims, dispositions = build_sequence_authority_adoption(
+        repository_root_path=root
+    )
+    return install_sequence_authority(
+        activation, claims, dispositions, repository_root_path=root
+    )
+
+
+def validate_sequence_authority_binding(
+    root: Path,
+    value: Any,
+    *,
+    current_sequence: int,
+    current_cycle_id: str,
+    allow_current_manifest: bool,
+) -> tuple[dict[str, Any], dict[str, bytes]]:
+    if not isinstance(value, dict):
+        raise CycleError("sequence_authority must be an object")
+    exact_keys(
+        value,
+        (
+            "activation_path",
+            "activation_sha256",
+            "claim_chain",
+            "claim_chain_root_sha256",
+            "current_claim_sha256",
+            "current_disposition_path",
+        ),
+        "sequence authority binding",
+    )
+    activation_path = _sequence_record_path(
+        root,
+        value["activation_path"],
+        sequence_activation_path(root),
+        "sequence activation",
+    )
+    activation, activation_data, activation_hash = _canonical_record(
+        activation_path, "sequence authority activation"
+    )
+    _validate_activation(root, activation)
+    if activation_hash != require_hash(
+        value["activation_sha256"], "sequence activation hash"
+    ):
+        raise CycleError("sequence activation hash mismatch")
+    if current_sequence < activation["activation_sequence"]:
+        raise CycleError("V4 sequence is below the activated frontier")
+    expected_sequences = list(range(25, current_sequence + 1))
+    raw_chain = value["claim_chain"]
+    if not isinstance(raw_chain, list) or len(raw_chain) != len(expected_sequences):
+        raise CycleError("sequence claim chain length is invalid")
+    public: list[dict[str, Any]] = []
+    artifacts: dict[str, bytes] = {
+        "SEQUENCE_AUTHORITY_ACTIVATION.json": activation_data
+    }
+    previous_hash: str | None = None
+    for sequence, entry in zip(expected_sequences, raw_chain):
+        if not isinstance(entry, dict):
+            raise CycleError("sequence claim chain entry must be an object")
+        exact_keys(
+            entry,
+            (
+                "cycle_sequence",
+                "claim_path",
+                "claim_sha256",
+                "disposition_path",
+                "disposition_sha256",
+            ),
+            "sequence claim chain entry",
+        )
+        if entry["cycle_sequence"] != sequence:
+            raise CycleError("sequence claim chain order is invalid")
+        claim_path = _sequence_record_path(
+            root,
+            entry["claim_path"],
+            sequence_claim_path(root, sequence),
+            "sequence claim",
+        )
+        claim, claim_data, claim_hash = _canonical_record(
+            claim_path, "sequence claim"
+        )
+        _validate_sequence_claim(root, claim, expected_sequence=sequence)
+        if (
+            claim_hash != require_hash(entry["claim_sha256"], "sequence claim hash")
+            or claim["predecessor_claim_sha256"] != previous_hash
+        ):
+            raise CycleError("sequence claim chain hash is invalid")
+        is_current = sequence == current_sequence
+        if is_current:
+            if (
+                claim["claim_kind"] != "publication_intent"
+                or claim["cycle_id"] != current_cycle_id
+                or entry["disposition_path"] is not None
+                or entry["disposition_sha256"] is not None
+            ):
+                raise CycleError("current sequence claim binding is invalid")
+            occupants = _manifest_sequence_occupants(root, sequence)
+            expected_occupants = [current_cycle_id] if allow_current_manifest else []
+            if occupants != expected_occupants:
+                raise CycleError("current sequence manifest occupancy conflicts with claim")
+            if not allow_current_manifest and sequence_disposition_path(
+                root, sequence
+            ).exists():
+                raise CycleError("current sequence claim already has a terminal disposition")
+        else:
+            disposition_path = _sequence_record_path(
+                root,
+                entry["disposition_path"],
+                sequence_disposition_path(root, sequence),
+                "sequence disposition",
+            )
+            disposition, disposition_data, disposition_hash = _canonical_record(
+                disposition_path, "sequence claim disposition"
+            )
+            _validate_sequence_disposition(root, disposition, claim=claim)
+            if disposition_hash != require_hash(
+                entry["disposition_sha256"], "sequence disposition hash"
+            ):
+                raise CycleError("sequence disposition hash mismatch")
+            artifacts[f"SEQUENCE_DISPOSITION_{sequence:04d}.json"] = disposition_data
+            occupants = _manifest_sequence_occupants(root, sequence)
+            expected_occupants = (
+                [claim["cycle_id"]]
+                if claim["claim_kind"] == "consumed_cycle"
+                else []
+            )
+            if occupants != expected_occupants:
+                raise CycleError("adopted sequence manifest occupancy conflicts with claim")
+        artifacts[f"SEQUENCE_CLAIM_{sequence:04d}.json"] = claim_data
+        public.append(dict(entry))
+        previous_hash = claim_hash
+    observed_root = sequence_claim_chain_root(public)
+    if observed_root != require_hash(
+        value["claim_chain_root_sha256"], "sequence claim chain root"
+    ):
+        raise CycleError("sequence claim chain root mismatch")
+    if previous_hash != require_hash(
+        value["current_claim_sha256"], "current sequence claim hash"
+    ):
+        raise CycleError("current sequence claim hash mismatch")
+    expected_disposition = sequence_disposition_path(root, current_sequence)
+    supplied_disposition = Path(
+        require_string(value["current_disposition_path"], "current disposition path")
+    )
+    if not supplied_disposition.is_absolute():
+        supplied_disposition = root / supplied_disposition
+    if supplied_disposition.resolve() != expected_disposition.resolve():
+        raise CycleError("current disposition path is not fixed")
+    return {
+        "activation_path": relative_path(root, activation_path),
+        "activation_sha256": activation_hash,
+        "claim_chain": public,
+        "claim_chain_root_sha256": observed_root,
+        "current_claim_sha256": previous_hash,
+        "current_disposition_path": relative_path(root, expected_disposition),
+    }, artifacts
+
+
+def current_sequence_authority_binding(
+    sequence: int, *, repository_root_path: Path | None = None
+) -> dict[str, Any]:
+    root = repository_root(repository_root_path)
+    _, activation_hash = load_sequence_activation(root)
+    chain: list[dict[str, Any]] = []
+    for item_sequence in range(25, sequence + 1):
+        claim_path = sequence_claim_path(root, item_sequence)
+        _, _, claim_hash = _canonical_record(claim_path, "sequence claim")
+        if item_sequence == sequence:
+            disposition_path_value: str | None = None
+            disposition_hash: str | None = None
+        else:
+            disposition_path = sequence_disposition_path(root, item_sequence)
+            _, _, disposition_hash = _canonical_record(
+                disposition_path, "sequence disposition"
+            )
+            disposition_path_value = relative_path(root, disposition_path)
+        chain.append(
+            {
+                "cycle_sequence": item_sequence,
+                "claim_path": relative_path(root, claim_path),
+                "claim_sha256": claim_hash,
+                "disposition_path": disposition_path_value,
+                "disposition_sha256": disposition_hash,
+            }
+        )
+    return {
+        "activation_path": relative_path(root, sequence_activation_path(root)),
+        "activation_sha256": activation_hash,
+        "claim_chain": chain,
+        "claim_chain_root_sha256": sequence_claim_chain_root(chain),
+        "current_claim_sha256": chain[-1]["claim_sha256"],
+        "current_disposition_path": relative_path(
+            root, sequence_disposition_path(root, sequence)
+        ),
+    }
 
 
 def has_link_component(root: Path, path: Path) -> bool:
@@ -551,6 +1406,10 @@ def snapshot_exclusions(cycle_id: str) -> tuple[dict[str, str], ...]:
         {
             "path_prefix": ".chatgpt/operations/",
             "reason_code": "connector_metadata_outside_task",
+        },
+        {
+            "path_prefix": ".chatgpt/pro-review/sequence-authority/",
+            "reason_code": "sequence_authority_transport_state",
         },
         {
             "path_prefix": f".chatgpt/pro-review/cycles/{cycle_id}/",
@@ -819,10 +1678,11 @@ def load_manifest_file(path: Path) -> dict[str, Any]:
     if schema not in {
         MANIFEST_SCHEMA,
         MANIFEST_SCHEMA_V3,
+        MANIFEST_SCHEMA_V4,
         LEGACY_MANIFEST_SCHEMA,
     }:
         raise CycleError("unsupported cycle manifest schema")
-    if schema in {MANIFEST_SCHEMA, MANIFEST_SCHEMA_V3}:
+    if schema in {MANIFEST_SCHEMA, MANIFEST_SCHEMA_V3, MANIFEST_SCHEMA_V4}:
         expected = manifest.get("manifest_root_sha256")
         unsigned = {key: value for key, value in manifest.items() if key != "manifest_root_sha256"}
         if not isinstance(expected, str) or sha256_bytes(canonical_json_bytes(unsigned)) != expected:
@@ -1033,6 +1893,24 @@ def validate_failed_pre_manifest_tombstone(
         tombstone["original_failure_receipt_sha256"],
         "original failed receipt hash",
     )
+    operations_root = root / ".chatgpt" / "operations"
+    try:
+        operation_relative = original.relative_to(operations_root)
+    except ValueError as exc:
+        raise CycleError(
+            "original failed receipt must come from the immutable operation origin"
+        ) from exc
+    if (
+        len(operation_relative.parts) != 2
+        or original.name != "PUBLICATION_FAILED_PRE_MANIFEST.json"
+        or original == receipt_copy
+    ):
+        raise CycleError("original failed receipt origin custody is invalid")
+    try:
+        if os.path.samefile(original, receipt_copy):
+            raise CycleError("original and staged failed receipts cannot share a file")
+    except OSError as exc:
+        raise CycleError("failed receipt file identity could not be verified") from exc
     if sha256_bytes(original.read_bytes()) != original_hash or original.read_bytes() != receipt_data:
         raise CycleError("failed receipt copy does not match authoritative original bytes")
     source_copy_relative = relative_path(root, receipt_copy)
@@ -1052,6 +1930,8 @@ def validate_failed_pre_manifest_tombstone(
         attempted_spec = repository_relative_file(
             root, spec_path_value, "attempted cycle spec", suffixes={".json"}
         )
+        if attempted_spec.parent != original.parent:
+            raise CycleError("attempted cycle spec does not share the failure origin")
         if sha256_bytes(attempted_spec.read_bytes()) != spec_hash_value:
             raise CycleError("attempted cycle spec hash mismatch")
         spec = read_json(attempted_spec)
@@ -1100,6 +1980,16 @@ def validate_failed_pre_manifest_tombstone(
         )
         if resolved_spec_auth != attempted_auth or spec_auth_hash != auth_hash_value:
             raise CycleError("attempted spec authorization binding is invalid")
+        failed_source = (
+            root
+            / ".chatgpt"
+            / "pro-review"
+            / "cycles"
+            / str(tombstone["attempted_cycle_id"])
+            / "source"
+        )
+        if attempted_auth.parent not in {original.parent, failed_source}:
+            raise CycleError("failed authorization does not share the failed identity origin")
     if receipt.get("cycle_spec_sha256") not in {None, spec_hash_value}:
         raise CycleError("failed receipt attempted-spec hash is invalid")
     if receipt.get("source_local_job4_authorization_sha256") not in {
@@ -1234,7 +2124,11 @@ def prior_cycle_info(
         or (require_adjacent and prior_sequence != sequence - 1)
     ):
         raise CycleError("prior cycle identity or sequence is invalid")
-    if manifest.get("schema_version") in {MANIFEST_SCHEMA, MANIFEST_SCHEMA_V3}:
+    if manifest.get("schema_version") in {
+        MANIFEST_SCHEMA,
+        MANIFEST_SCHEMA_V3,
+        MANIFEST_SCHEMA_V4,
+    }:
         completion, completion_hash, consumed_hash, _ = validate_consumed_cycle(
             root, prior, manifest, require_current_source=False
         )
@@ -1301,7 +2195,11 @@ def prior_cycle_info(
 
 
 def validate_spec(
-    root: Path, cycle: Path, spec: Mapping[str, Any]
+    root: Path,
+    cycle: Path,
+    spec: Mapping[str, Any],
+    *,
+    allow_existing_current_manifest: bool = False,
 ) -> tuple[dict[str, Any], dict[str, bytes]]:
     schema = spec.get("schema_version")
     if schema == SPEC_SCHEMA:
@@ -1329,6 +2227,19 @@ def validate_spec(
             "review_context",
             "review_snapshot",
         )
+    elif schema == SPEC_SCHEMA_V4:
+        spec_fields = (
+            "schema_version",
+            "cycle_id",
+            "cycle_sequence",
+            "checkpoint",
+            "jobs_1_3",
+            "prior_cycle_id",
+            "sequence_authority",
+            "job4",
+            "review_context",
+            "review_snapshot",
+        )
     else:
         raise CycleError("unsupported cycle spec schema")
     exact_keys(
@@ -1341,6 +2252,11 @@ def validate_spec(
     sequence = spec["cycle_sequence"]
     if not isinstance(sequence, int) or isinstance(sequence, bool) or sequence < 1:
         raise CycleError("cycle_sequence must be a positive integer")
+    activation_path = sequence_activation_path(root)
+    if schema != SPEC_SCHEMA_V4 and activation_path.is_file():
+        activation, _ = load_sequence_activation(root)
+        if sequence >= activation["activation_sequence"]:
+            raise CycleError("legacy cycle schema is closed at the activated frontier")
 
     checkpoint = spec["checkpoint"]
     if not isinstance(checkpoint, dict):
@@ -1375,7 +2291,7 @@ def validate_spec(
         root,
         spec["prior_cycle_id"],
         sequence,
-        require_adjacent=schema == SPEC_SCHEMA,
+        require_adjacent=schema in {SPEC_SCHEMA, SPEC_SCHEMA_V4},
     )
     failed_pre_manifest: list[dict[str, Any]] = []
     if schema == SPEC_SCHEMA_V3:
@@ -1389,6 +2305,16 @@ def validate_spec(
             )
         )
         artifacts.update(failed_artifacts)
+    sequence_authority: dict[str, Any] | None = None
+    if schema == SPEC_SCHEMA_V4:
+        sequence_authority, authority_artifacts = validate_sequence_authority_binding(
+            root,
+            spec["sequence_authority"],
+            current_sequence=sequence,
+            current_cycle_id=cycle_id,
+            allow_current_manifest=allow_existing_current_manifest,
+        )
+        artifacts.update(authority_artifacts)
     if prior is not None:
         if prior["job4_task_id"] in task_ids:
             raise CycleError("prior Job 4 must be distinct from current progressions")
@@ -1417,6 +2343,13 @@ def validate_spec(
         job4["authorization_record_path"],
         job4["authorization_record_sha256"],
     )
+    if schema == SPEC_SCHEMA_V4:
+        current_claim = read_json(sequence_claim_path(root, sequence))
+        if (
+            current_claim.get("checkpoint_id") != checkpoint_id
+            or current_claim.get("job4_task_id") != job4_id
+        ):
+            raise CycleError("current sequence claim does not bind checkpoint and Job 4")
     artifacts["JOB4_AUTHORIZATION.json"] = authorization_data
 
     review_context = validate_review_context(spec["review_context"], len(jobs))
@@ -1455,14 +2388,26 @@ def validate_spec(
     }
     if schema == SPEC_SCHEMA_V3:
         task_payload["failed_pre_manifest_predecessors"] = failed_pre_manifest
+    if schema == SPEC_SCHEMA_V4:
+        task_payload["sequence_authority"] = sequence_authority
     task_set_hash = sha256_bytes(canonical_json_bytes(task_payload))
-    nonce_version = "v3" if schema == SPEC_SCHEMA_V3 else "v2"
+    nonce_version = (
+        "v4"
+        if schema == SPEC_SCHEMA_V4
+        else "v3"
+        if schema == SPEC_SCHEMA_V3
+        else "v2"
+    )
     nonce = sha256_text(
         f"cera.pro_review_response_nonce.{nonce_version}\0{task_set_hash}"
     )
     unsigned_manifest: dict[str, Any] = {
         "schema_version": (
-            MANIFEST_SCHEMA_V3 if schema == SPEC_SCHEMA_V3 else MANIFEST_SCHEMA
+            MANIFEST_SCHEMA_V4
+            if schema == SPEC_SCHEMA_V4
+            else MANIFEST_SCHEMA_V3
+            if schema == SPEC_SCHEMA_V3
+            else MANIFEST_SCHEMA
         ),
         "cycle_id": cycle_id,
         "cycle_sequence": sequence,
@@ -1492,6 +2437,8 @@ def validate_spec(
     }
     if schema == SPEC_SCHEMA_V3:
         unsigned_manifest["failed_pre_manifest_predecessors"] = failed_pre_manifest
+    if schema == SPEC_SCHEMA_V4:
+        unsigned_manifest["sequence_authority"] = sequence_authority
     manifest_root = sha256_bytes(canonical_json_bytes(unsigned_manifest))
     manifest = {**unsigned_manifest, "manifest_root_sha256": manifest_root}
     return manifest, artifacts
@@ -1553,6 +2500,19 @@ def request_markdown(manifest: Mapping[str, Any]) -> bytes:
                     f"`{item['published_receipt_copy_sha256']}`; tombstone "
                     f"`{item['published_tombstone_sha256']}`."
                 )
+    if manifest["schema_version"] == MANIFEST_SCHEMA_V4:
+        authority = manifest["sequence_authority"]
+        lines.extend(
+            [
+                "",
+                "## Repository-global sequence authority",
+                "",
+                f"- Activation: `{authority['activation_sha256']}`.",
+                f"- Claim-chain root: `{authority['claim_chain_root_sha256']}`.",
+                f"- Current claim: `{authority['current_claim_sha256']}`.",
+                f"- Current disposition path: `{authority['current_disposition_path']}`.",
+            ]
+        )
     lines.extend(
         [
             "",
@@ -1774,6 +2734,7 @@ def load_v2_manifest(root: Path, cycle: Path) -> dict[str, Any]:
     if manifest.get("schema_version") not in {
         MANIFEST_SCHEMA,
         MANIFEST_SCHEMA_V3,
+        MANIFEST_SCHEMA_V4,
     }:
         raise CycleError("legacy cycle is immutable and cannot use modern transitions")
     cycle_path(root, cycle, manifest["cycle_id"])
@@ -2026,10 +2987,50 @@ def validate_publication(
     ):
         raise CycleError("publication receipt identity fields do not match the manifest")
     validate_published_failed_pre_manifest_chain(root, cycle, manifest)
+    sequence_disposition_hash: str | None = None
+    if manifest.get("schema_version") == MANIFEST_SCHEMA_V4:
+        authority, authority_artifacts = validate_sequence_authority_binding(
+            root,
+            manifest.get("sequence_authority"),
+            current_sequence=manifest["cycle_sequence"],
+            current_cycle_id=manifest["cycle_id"],
+            allow_current_manifest=True,
+        )
+        for name, data in authority_artifacts.items():
+            published_copy = cycle / "outbox" / name
+            if not published_copy.is_file() or published_copy.read_bytes() != data:
+                raise CycleError(
+                    f"published sequence-authority copy changed: {name}"
+                )
+        disposition_path = sequence_disposition_path(
+            root, manifest["cycle_sequence"]
+        )
+        disposition, _, sequence_disposition_hash = _canonical_record(
+            disposition_path, "current sequence disposition"
+        )
+        claim = read_json(sequence_claim_path(root, manifest["cycle_sequence"]))
+        _validate_sequence_disposition(root, disposition, claim=claim)
+        if (
+            disposition.get("disposition") != "published"
+            or disposition.get("manifest_root_sha256")
+            != manifest["manifest_root_sha256"]
+            or disposition.get("publication_receipt_sha256") != published_hash
+            or disposition.get("authority_evidence_path")
+            != relative_path(root, published_path)
+            or disposition.get("authority_evidence_sha256") != published_hash
+            or authority["current_claim_sha256"]
+            != sha256_bytes(sequence_claim_path(root, manifest["cycle_sequence"]).read_bytes())
+        ):
+            raise CycleError("current sequence publication disposition is invalid")
     validate_snapshot_archive(cycle, manifest)
     started_path = cycle / "receipts" / "JOB4_STARTED.json"
+    started_event = (
+        "job4_started_v4"
+        if manifest.get("schema_version") == MANIFEST_SCHEMA_V4
+        else "job4_started"
+    )
     started, started_hash = validate_receipt(
-        started_path, manifest, "job4_started", published_hash
+        started_path, manifest, started_event, published_hash
     )
     if (
         started.get("job4_task_id") != manifest["job4"]["task_id"]
@@ -2040,6 +3041,14 @@ def validate_publication(
         or started.get("unrelated_work_authorized") is not False
     ):
         raise CycleError("Job 4 start receipt does not match the manifest")
+    if manifest.get("schema_version") == MANIFEST_SCHEMA_V4 and (
+        started.get("sequence_claim_sha256")
+        != manifest["sequence_authority"]["current_claim_sha256"]
+        or started.get("sequence_disposition_sha256") != sequence_disposition_hash
+        or started.get("sequence_disposition_relative_path")
+        != manifest["sequence_authority"]["current_disposition_path"]
+    ):
+        raise CycleError("Job 4 start does not bind sequence authority")
     if require_current_source:
         validate_snapshot_current(root, cycle, manifest)
     return published_hash, started_hash
@@ -2053,8 +3062,26 @@ def publish_cycle(
     cycle_id = require_id(spec.get("cycle_id"), "cycle_id")
     cycle = cycle_path(root, cycle_directory, cycle_id)
     cycle.mkdir(parents=True, exist_ok=True)
-    manifest, artifacts = validate_spec(root, cycle, spec)
+    if (
+        (cycle / "CYCLE_MANIFEST.json").is_file()
+        and (cycle / "receipts" / "JOB4_STARTED.json").is_file()
+    ):
+        return recover_cycle(cycle, repository_root_path=root)
+    manifest, artifacts = validate_spec(
+        root,
+        cycle,
+        spec,
+        allow_existing_current_manifest=(cycle / "CYCLE_MANIFEST.json").is_file(),
+    )
     immutable_write(cycle / "CYCLE_MANIFEST.json", canonical_json_bytes(manifest))
+    if manifest.get("schema_version") == MANIFEST_SCHEMA_V4:
+        validate_sequence_authority_binding(
+            root,
+            manifest["sequence_authority"],
+            current_sequence=manifest["cycle_sequence"],
+            current_cycle_id=manifest["cycle_id"],
+            allow_current_manifest=True,
+        )
     outbox = cycle / "outbox"
     for name, data in artifacts.items():
         immutable_write(outbox / name, data)
@@ -2078,9 +3105,41 @@ def publish_cycle(
     published_path = cycle / "receipts" / "PUBLISHED.json"
     receipt_write(published_path, published)
     published_hash = sha256_bytes(published_path.read_bytes())
+    sequence_disposition_hash: str | None = None
+    if manifest.get("schema_version") == MANIFEST_SCHEMA_V4:
+        sequence = manifest["cycle_sequence"]
+        claim_path = sequence_claim_path(root, sequence)
+        disposition = {
+            "schema_version": SEQUENCE_CLAIM_DISPOSITION_SCHEMA,
+            "repository_identity_sha256": repository_identity_sha256(root),
+            "cycle_sequence": sequence,
+            "claim_sha256": sha256_bytes(claim_path.read_bytes()),
+            "disposition": "published",
+            "cycle_id": manifest["cycle_id"],
+            "manifest_root_sha256": manifest["manifest_root_sha256"],
+            "publication_receipt_sha256": published_hash,
+            "authority_evidence_path": relative_path(root, published_path),
+            "authority_evidence_sha256": published_hash,
+            "identity_reusable": False,
+        }
+        record_sequence_disposition(disposition, repository_root_path=root)
+        sequence_disposition_hash = sha256_bytes(
+            sequence_disposition_path(root, sequence).read_bytes()
+        )
+        validate_sequence_authority_binding(
+            root,
+            manifest["sequence_authority"],
+            current_sequence=sequence,
+            current_cycle_id=manifest["cycle_id"],
+            allow_current_manifest=True,
+        )
     started = make_receipt(
         manifest,
-        "job4_started",
+        (
+            "job4_started_v4"
+            if manifest.get("schema_version") == MANIFEST_SCHEMA_V4
+            else "job4_started"
+        ),
         published_hash,
         {
             "job4_task_id": manifest["job4"]["task_id"],
@@ -2088,6 +3147,19 @@ def publish_cycle(
             "authorization_record_sha256": manifest["job4"]["authorization_record_sha256"],
             "authorization_record_contract_validated": True,
             "unrelated_work_authorized": False,
+            **(
+                {
+                    "sequence_claim_sha256": manifest["sequence_authority"][
+                        "current_claim_sha256"
+                    ],
+                    "sequence_disposition_sha256": sequence_disposition_hash,
+                    "sequence_disposition_relative_path": manifest[
+                        "sequence_authority"
+                    ]["current_disposition_path"],
+                }
+                if manifest.get("schema_version") == MANIFEST_SCHEMA_V4
+                else {}
+            ),
         },
     )
     started_path = cycle / "receipts" / "JOB4_STARTED.json"
@@ -2989,13 +4061,13 @@ def latest_consumed_cycle(*, repository_root_path: Path | None = None) -> dict[s
                 invalid.append(path.name)
     if not candidates:
         raise CycleError("no consumed repository review cycle exists")
-    for _, path, manifest in sorted(
-        candidates, key=lambda item: (item[0], item[1].name), reverse=True
-    ):
+    valid: list[tuple[int, Path, dict[str, Any], bytes]] = []
+    for sequence, path, manifest in candidates:
         try:
             if manifest.get("schema_version") in {
                 MANIFEST_SCHEMA,
                 MANIFEST_SCHEMA_V3,
+                MANIFEST_SCHEMA_V4,
             }:
                 _, _, consumed_hash, data = validate_consumed_cycle(
                     root, path, manifest, require_current_source=False
@@ -3019,19 +4091,29 @@ def latest_consumed_cycle(*, repository_root_path: Path | None = None) -> dict[s
                 ):
                     raise CycleError("legacy consumed response evidence is invalid")
                 data = accepted.read_bytes()
-            return {
-                "cycle_id": manifest["cycle_id"],
-                "cycle_sequence": manifest["cycle_sequence"],
-                "accepted_response_path": str(path / ACCEPTED_RESPONSE_RELATIVE_PATH),
-                "review_is_advisory": True,
-                "skipped_invalid_cycles": sorted(set(invalid)),
-                **post_consumption_inbox_diagnostic(
-                    path, data, accepted_authority_validated=True
-                ),
-            }
+            valid.append((sequence, path, manifest, data))
         except (CycleError, KeyError, ValueError, TypeError, OSError):
             invalid.append(path.name)
-    raise CycleError(
-        "no valid consumed repository review cycle exists; rejected="
-        + ",".join(sorted(set(invalid)))
-    )
+    if not valid:
+        raise CycleError(
+            "no valid consumed repository review cycle exists; rejected="
+            + ",".join(sorted(set(invalid)))
+        )
+    maximum = max(item[0] for item in valid)
+    winners = [item for item in valid if item[0] == maximum]
+    if len(winners) != 1:
+        raise CycleError(
+            "multiple valid consumed cycles claim the highest sequence: "
+            + ",".join(sorted(item[1].name for item in winners))
+        )
+    _, path, manifest, data = winners[0]
+    return {
+        "cycle_id": manifest["cycle_id"],
+        "cycle_sequence": manifest["cycle_sequence"],
+        "accepted_response_path": str(path / ACCEPTED_RESPONSE_RELATIVE_PATH),
+        "review_is_advisory": True,
+        "skipped_invalid_cycles": sorted(set(invalid)),
+        **post_consumption_inbox_diagnostic(
+            path, data, accepted_authority_validated=True
+        ),
+    }

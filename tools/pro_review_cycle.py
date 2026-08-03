@@ -18,9 +18,14 @@ from pro_review_cycle_core import (
     JOB4_RESULT_SCHEMA_V3,
     MANIFEST_SCHEMA,
     MANIFEST_SCHEMA_V3,
+    MANIFEST_SCHEMA_V4,
     RECEIPT_SCHEMA,
     SPEC_SCHEMA,
     SPEC_SCHEMA_V3,
+    SPEC_SCHEMA_V4,
+    SEQUENCE_AUTHORITY_ACTIVATION_SCHEMA,
+    SEQUENCE_CLAIM_SCHEMA,
+    SEQUENCE_CLAIM_DISPOSITION_SCHEMA,
     STATE_JOB4_IN_PROGRESS,
     STATE_RESPONSE_PENDING,
     STATE_REVIEW_CONSUMED,
@@ -28,12 +33,16 @@ from pro_review_cycle_core import (
     CycleError,
     ResponseNotReady,
     canonical_json_bytes,
+    acquire_sequence_claim,
+    activate_sequence_authority_from_repository,
     complete_job4,
     consume_response,
     cycle_status,
     immutable_write,
     latest_consumed_cycle,
     publish_cycle,
+    read_json,
+    record_sequence_disposition,
     record_trigger,
     recover_cycle,
     wait_and_consume,
@@ -70,6 +79,11 @@ def parser() -> argparse.ArgumentParser:
     status = commands.add_parser("status")
     status.add_argument("--cycle-directory", type=Path, required=True)
     commands.add_parser("latest-consumed")
+    commands.add_parser("activate-sequence-authority")
+    claim = commands.add_parser("acquire-sequence-claim")
+    claim.add_argument("--claim", type=Path, required=True)
+    disposition = commands.add_parser("record-sequence-disposition")
+    disposition.add_argument("--disposition", type=Path, required=True)
     return value
 
 
@@ -113,9 +127,20 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif arguments.command == "status":
             result = cycle_status(arguments.cycle_directory)
             marker = "CERA_REVIEW_CYCLE_STATUS"
-        else:
+        elif arguments.command == "latest-consumed":
             result = latest_consumed_cycle()
             marker = "CERA_LATEST_CONSUMED_REVIEW_CYCLE"
+        elif arguments.command == "activate-sequence-authority":
+            result = activate_sequence_authority_from_repository()
+            marker = "CERA_SEQUENCE_AUTHORITY_ACTIVATED"
+        elif arguments.command == "acquire-sequence-claim":
+            result = acquire_sequence_claim(read_json(arguments.claim.resolve(strict=True)))
+            marker = "CERA_SEQUENCE_CLAIM_ACQUIRED"
+        else:
+            result = record_sequence_disposition(
+                read_json(arguments.disposition.resolve(strict=True))
+            )
+            marker = "CERA_SEQUENCE_DISPOSITION_RECORDED"
         print(marker)
         print(json.dumps(result, sort_keys=True, ensure_ascii=False))
         return 0

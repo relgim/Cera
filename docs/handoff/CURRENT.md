@@ -340,6 +340,11 @@
   binds checkpoint/Git/evidence/task identities, publishes Jobs 1-3, starts only
   a pre-authorized Job 4, stable-reads the exact Pro repository response after
   Job 4, and carries that Job 4 result separately into the next package.
+- The review protocol now has additive V4 repository-global sequence custody.
+  Fixed immutable claims and dispositions adopt consumed 25/28 plus Cycle 28's
+  published failed 26/27 evidence; V1-V3 remain historical readers but cannot
+  publish at or above the activated sequence-29 frontier. Sequence custody
+  grants neither Job 4 execution nor creator authority.
 - The installed app can activate an existing ChatGPT review chat through its
   supported follow-up operation. The receipt binds the generated message and
   caller-supplied successful app result by hash; it is not independent delivery

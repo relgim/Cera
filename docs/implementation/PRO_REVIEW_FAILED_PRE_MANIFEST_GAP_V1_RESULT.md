@@ -31,12 +31,12 @@ execute the failed task.
   `be865a059c5b36a4c9ac6e2fbd2bc9ec3edaebb12b092927fd2eae68039f0cc5`
 - Failed sequence 26 receipt SHA-256:
   `c3e6259137fc154dca6bc3cb6d7e3b5d96231353d43f32afd24a405b19d2d966`
-- Failed sequence 26 residual inventory root:
-  `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+- Failed sequence 26 manifest-bound canonical residual-inventory root:
+  `72094c8b2dcf0bfb4f1d7ef1e19f4be87352e3165051f0a9f28b3169215a5896`
 - Failed sequence 27 receipt SHA-256:
   `ba2e7561b4aae3920924f1dea15af261ce8e6864dece297a753b001043f7ba81`
-- Failed sequence 27 residual inventory root:
-  `456f4fc17c3e36629f4e238ce08046540ac11698f3690192a12af6554e3a06f5`
+- Failed sequence 27 manifest-bound canonical residual-inventory root:
+  `13d07d4e5aba16bb20e4c8175c8638631607978c7ec293a1eb5dbb3e9e2586dd`
 
 The original failure receipts and failed cycle directories were not modified.
 

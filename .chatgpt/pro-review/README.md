@@ -18,6 +18,14 @@ not consumed cycles or Job 4 authority. Modern predecessor and latest-consumed
 lookup revalidate the full outbox, source archive, typed receipt chain, Job 4
 result and report, accepted response, and any published V3 gap custody.
 
+V4 is mandatory at and above the activated sequence frontier. The fixed
+`sequence-authority/` namespace contains one deterministic activation record
+and immutable claim/disposition pair per sequence. Exact claim retries are
+idempotent; conflicting claims, manifest occupancy, dispositions, or duplicate
+highest consumed cycles fail closed. Adopted 26/27 history comes only from the
+consumed Cycle 28 outbox tombstones. Successful publication binds the current
+claim, manifest root, and `PUBLISHED.json` in a disposition before Job 4 starts.
+
 Codex activates the existing ChatGPT Pro chat through the supported app thread
 operation, then performs only that pre-authorized Job 4. After Job 4 it consumes
 only the matching stable repository response. Ted does not relay files or

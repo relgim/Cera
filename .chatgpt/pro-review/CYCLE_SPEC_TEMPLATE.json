@@ -1,7 +1,7 @@
 {
-  "schema_version": "cera.pro_review_cycle_spec.v3",
+  "schema_version": "cera.pro_review_cycle_spec.v4",
   "cycle_id": "<safe-cycle-id>",
-  "cycle_sequence": 2,
+  "cycle_sequence": 29,
   "checkpoint": {
     "id": "<checkpoint-id>",
     "git_sha": "<exact-existing-40-or-64-lowercase-Git-object-id>",
@@ -16,7 +16,50 @@
     }
   ],
   "prior_cycle_id": "<required-after-bootstrap>",
-  "failed_pre_manifest_predecessors": [],
+  "sequence_authority": {
+    "activation_path": ".chatgpt/pro-review/sequence-authority/ACTIVATION.json",
+    "activation_sha256": "<64-lowercase-hex>",
+    "claim_chain": [
+      {
+        "cycle_sequence": 25,
+        "claim_path": ".chatgpt/pro-review/sequence-authority/00000025/CLAIM.json",
+        "claim_sha256": "<64-lowercase-hex>",
+        "disposition_path": ".chatgpt/pro-review/sequence-authority/00000025/DISPOSITION.json",
+        "disposition_sha256": "<64-lowercase-hex>"
+      },
+      {
+        "cycle_sequence": 26,
+        "claim_path": ".chatgpt/pro-review/sequence-authority/00000026/CLAIM.json",
+        "claim_sha256": "<64-lowercase-hex>",
+        "disposition_path": ".chatgpt/pro-review/sequence-authority/00000026/DISPOSITION.json",
+        "disposition_sha256": "<64-lowercase-hex>"
+      },
+      {
+        "cycle_sequence": 27,
+        "claim_path": ".chatgpt/pro-review/sequence-authority/00000027/CLAIM.json",
+        "claim_sha256": "<64-lowercase-hex>",
+        "disposition_path": ".chatgpt/pro-review/sequence-authority/00000027/DISPOSITION.json",
+        "disposition_sha256": "<64-lowercase-hex>"
+      },
+      {
+        "cycle_sequence": 28,
+        "claim_path": ".chatgpt/pro-review/sequence-authority/00000028/CLAIM.json",
+        "claim_sha256": "<64-lowercase-hex>",
+        "disposition_path": ".chatgpt/pro-review/sequence-authority/00000028/DISPOSITION.json",
+        "disposition_sha256": "<64-lowercase-hex>"
+      },
+      {
+        "cycle_sequence": 29,
+        "claim_path": ".chatgpt/pro-review/sequence-authority/00000029/CLAIM.json",
+        "claim_sha256": "<64-lowercase-hex>",
+        "disposition_path": null,
+        "disposition_sha256": null
+      }
+    ],
+    "claim_chain_root_sha256": "<64-lowercase-hex>",
+    "current_claim_sha256": "<same-current-claim-hash>",
+    "current_disposition_path": ".chatgpt/pro-review/sequence-authority/00000029/DISPOSITION.json"
+  },
   "job4": {
     "task_id": "<new-pre-authorized-job-4-id>",
     "scope": "<exact bounded independent scope>",
@@ -55,6 +98,10 @@
       {
         "path_prefix": ".chatgpt/operations/",
         "reason_code": "connector_metadata_outside_task"
+      },
+      {
+        "path_prefix": ".chatgpt/pro-review/sequence-authority/",
+        "reason_code": "sequence_authority_transport_state"
       },
       {
         "path_prefix": ".chatgpt/pro-review/cycles/<cycle-id>/",

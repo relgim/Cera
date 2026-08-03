@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import sqlite3
 import subprocess
@@ -541,6 +542,10 @@ class ProReviewRepositoryCycleTests(unittest.TestCase):
                     {
                         "path_prefix": ".chatgpt/operations/",
                         "reason_code": "connector_metadata_outside_task",
+                    },
+                    {
+                        "path_prefix": ".chatgpt/pro-review/sequence-authority/",
+                        "reason_code": "sequence_authority_transport_state",
                     },
                     {
                         "path_prefix": f".chatgpt/pro-review/cycles/{self.cycle_id}/",
@@ -3403,6 +3408,430 @@ class ProReviewFailedPreManifestGapTests(unittest.TestCase):
         value["failed_pre_manifest_predecessors"] = entries
         self.fixture.spec_path.write_text(json.dumps(value), encoding="utf-8")
         with self.assertRaisesRegex(review_cycle.CycleError, "required file is missing"):
+            self.fixture.publish()
+
+    def test_self_current_and_samefile_failure_origins_fail_closed(self) -> None:
+        entries = self._stage_publishable_gap()
+        entry = entries[0]
+        tombstone_path = Path(str(entry["tombstone_path"]))
+        baseline = tombstone_path.read_bytes()
+        receipt_copy = Path(str(entry["receipt_copy_path"]))
+
+        tombstone = json.loads(baseline.decode())
+        tombstone["original_failure_receipt_path"] = receipt_copy.relative_to(
+            self.root
+        ).as_posix()
+        tombstone["original_failure_receipt_sha256"] = self._hash(receipt_copy)
+        tombstone_path.write_bytes(review_cycle.canonical_json_bytes(tombstone))
+        entry["tombstone_sha256"] = self._hash(tombstone_path)
+        self._set_v3_spec(entries)
+        with self.assertRaisesRegex(review_cycle.CycleError, "operation origin"):
+            self.fixture.publish()
+
+        tombstone_path.write_bytes(baseline)
+        entry["tombstone_sha256"] = self._hash(tombstone_path)
+        tombstone = json.loads(baseline.decode())
+        original = self.root / tombstone["original_failure_receipt_path"]
+        receipt_copy.unlink()
+        try:
+            os.link(original, receipt_copy)
+        except OSError:
+            self.skipTest("hard links are unavailable")
+        self._set_v3_spec(entries)
+        with self.assertRaisesRegex(review_cycle.CycleError, "share a file"):
+            self.fixture.publish()
+
+
+class ProReviewSequenceAuthorityTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.fixture = ProReviewRepositoryCycleTests(
+            "test_18_publish_binds_source_root_and_job4_authorization_contract"
+        )
+        self.fixture.setUp()
+        self.root = self.fixture.root
+        self._create_consumed_25()
+        self._create_consumed_28()
+        activation, claims, dispositions = (
+            review_cycle_core.build_sequence_authority_adoption(
+                repository_root_path=self.root
+            )
+        )
+        review_cycle_core.install_sequence_authority(
+            activation,
+            claims,
+            dispositions,
+            repository_root_path=self.root,
+        )
+        self._start_cycle(
+            "cycle-029", 29, "cycle-028", "bounded-verification-29"
+        )
+
+    def tearDown(self) -> None:
+        self.fixture.tearDown()
+
+    @staticmethod
+    def _hash(path: Path) -> str:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def _start_cycle(
+        self, cycle_id: str, sequence: int, prior_cycle_id: str | None, task_id: str
+    ) -> None:
+        fixture = self.fixture
+        fixture.cycle_id = cycle_id
+        fixture.cycle = (
+            self.root / ".chatgpt" / "pro-review" / "cycles" / cycle_id
+        )
+        fixture.source = fixture.cycle / "source"
+        fixture.source.mkdir(parents=True, exist_ok=True)
+        fixture.spec_path = fixture.cycle / "CYCLE_SPEC.json"
+        fixture.job4_task_id = task_id
+        fixture._write_authorization()
+        fixture._write_spec(sequence=sequence, prior_cycle_id=prior_cycle_id)
+
+    def _write_planning_response(self) -> None:
+        path = self.fixture.cycle / review_cycle.EXPECTED_RESPONSE_RELATIVE_PATH
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(self.fixture.response_bytes_with_planning_sections())
+
+    def _promote_consumed_sequence(self, sequence: int) -> None:
+        fixture = self.fixture
+        manifest_path = fixture.cycle / "CYCLE_MANIFEST.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["cycle_sequence"] = sequence
+        unsigned = {
+            key: value
+            for key, value in manifest.items()
+            if key != "manifest_root_sha256"
+        }
+        manifest["manifest_root_sha256"] = hashlib.sha256(
+            review_cycle.canonical_json_bytes(unsigned)
+        ).hexdigest()
+        manifest_path.write_bytes(review_cycle.canonical_json_bytes(manifest))
+        predecessor: str | None = None
+        for name in (
+            "PUBLISHED.json",
+            "JOB4_STARTED.json",
+            "JOB4_COMPLETED.json",
+            "RESPONSE_CONSUMED.json",
+        ):
+            path = fixture.cycle / "receipts" / name
+            value = json.loads(path.read_text(encoding="utf-8"))
+            value["manifest_root_sha256"] = manifest["manifest_root_sha256"]
+            value["predecessor_receipt_sha256"] = predecessor
+            path.write_bytes(review_cycle.canonical_json_bytes(value))
+            predecessor = self._hash(path)
+        state_path = fixture.cycle / "state" / "CYCLE_STATE.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["manifest_root_sha256"] = manifest["manifest_root_sha256"]
+        state["last_receipt_sha256"] = predecessor
+        state_path.write_bytes(review_cycle.canonical_json_bytes(state))
+
+    def _create_consumed_25(self) -> None:
+        self._start_cycle("cycle-025", 1, None, "bounded-verification-25")
+        self.fixture.publish()
+        self.fixture.complete_job4()
+        self._write_planning_response()
+        self.fixture.consume()
+        self._promote_consumed_sequence(25)
+
+    def _stage_failed_identity(self, sequence: int) -> dict[str, object]:
+        return ProReviewFailedPreManifestGapTests._stage_failed_identity(
+            self, sequence, residual_authorization=sequence == 27
+        )
+
+    def _create_consumed_28(self) -> None:
+        self._start_cycle(
+            "cycle-028", 28, "cycle-025", "bounded-verification-28"
+        )
+        entries = [self._stage_failed_identity(26), self._stage_failed_identity(27)]
+        value = json.loads(self.fixture.spec_path.read_text(encoding="utf-8"))
+        value["schema_version"] = review_cycle.SPEC_SCHEMA_V3
+        value["failed_pre_manifest_predecessors"] = entries
+        self.fixture.spec_path.write_text(
+            json.dumps(value, indent=2) + "\n", encoding="utf-8"
+        )
+        self.fixture.publish()
+        self.fixture.complete_job4()
+        self._write_planning_response()
+        self.fixture.consume()
+
+    def _claim(self, *, run_id: str = "run-029") -> dict[str, object]:
+        previous = review_cycle_core.sequence_claim_path(self.root, 28)
+        return {
+            "schema_version": review_cycle.SEQUENCE_CLAIM_SCHEMA,
+            "repository_identity_sha256": review_cycle_core.repository_identity_sha256(
+                self.root
+            ),
+            "cycle_sequence": 29,
+            "claim_kind": "publication_intent",
+            "cycle_id": self.fixture.cycle_id,
+            "checkpoint_id": "checkpoint-001",
+            "run_id": run_id,
+            "job4_task_id": self.fixture.job4_task_id,
+            "predecessor_claim_sha256": self._hash(previous),
+            "authority_evidence_path": self.fixture.authorization_record.relative_to(
+                self.root
+            ).as_posix(),
+            "authority_evidence_sha256": self._hash(
+                self.fixture.authorization_record
+            ),
+            "identity_reusable": False,
+        }
+
+    def _stage_v4(self) -> dict[str, object]:
+        claim = self._claim()
+        review_cycle_core.acquire_sequence_claim(
+            claim, repository_root_path=self.root
+        )
+        value = json.loads(self.fixture.spec_path.read_text(encoding="utf-8"))
+        value["schema_version"] = review_cycle.SPEC_SCHEMA_V4
+        value["sequence_authority"] = (
+            review_cycle_core.current_sequence_authority_binding(
+                29, repository_root_path=self.root
+            )
+        )
+        self.fixture.spec_path.write_text(
+            json.dumps(value, indent=2) + "\n", encoding="utf-8"
+        )
+        return claim
+
+    def _publish_complete_consume_v4(self) -> None:
+        self._stage_v4()
+        self.fixture.publish()
+        retry = self.fixture.publish()
+        self.assertEqual(retry["state"], review_cycle.STATE_JOB4_IN_PROGRESS)
+        self.fixture.complete_job4()
+        self._write_planning_response()
+        self.fixture.consume()
+
+    def test_activation_adoption_and_v4_lifecycle_bind_25_through_29(self) -> None:
+        self._publish_complete_consume_v4()
+        manifest = json.loads(
+            (self.fixture.cycle / "CYCLE_MANIFEST.json").read_text()
+        )
+        self.assertEqual(manifest["schema_version"], review_cycle.MANIFEST_SCHEMA_V4)
+        self.assertEqual(
+            [
+                item["cycle_sequence"]
+                for item in manifest["sequence_authority"]["claim_chain"]
+            ],
+            [25, 26, 27, 28, 29],
+        )
+        started = json.loads(
+            (self.fixture.cycle / "receipts" / "JOB4_STARTED.json").read_text()
+        )
+        self.assertEqual(started["event"], "job4_started_v4")
+        self.assertEqual(
+            started["sequence_disposition_sha256"],
+            self._hash(review_cycle_core.sequence_disposition_path(self.root, 29)),
+        )
+        recovered = review_cycle.recover_cycle(
+            self.fixture.cycle, repository_root_path=self.root
+        )
+        self.assertEqual(recovered["state"], review_cycle.STATE_REVIEW_CONSUMED)
+        latest = review_cycle.latest_consumed_cycle(repository_root_path=self.root)
+        self.assertEqual(latest["cycle_sequence"], 29)
+
+    def test_legacy_schema_is_rejected_at_activated_frontier(self) -> None:
+        with self.assertRaisesRegex(review_cycle.CycleError, "legacy cycle schema"):
+            self.fixture.publish()
+
+    def test_claim_retry_is_idempotent_and_conflict_is_immutable(self) -> None:
+        claim = self._claim()
+        first = review_cycle_core.acquire_sequence_claim(
+            claim, repository_root_path=self.root
+        )
+        second = review_cycle_core.acquire_sequence_claim(
+            claim, repository_root_path=self.root
+        )
+        self.assertEqual(first, second)
+        conflicting = {**claim, "run_id": "different-run-029"}
+        with self.assertRaisesRegex(review_cycle.CycleError, "immutable file conflicts"):
+            review_cycle_core.acquire_sequence_claim(
+                conflicting, repository_root_path=self.root
+            )
+
+    def test_concurrent_conflicting_claims_have_exactly_one_winner(self) -> None:
+        claims = [self._claim(run_id="run-a-029"), self._claim(run_id="run-b-029")]
+        outcomes: list[str] = []
+        barrier = threading.Barrier(2)
+
+        def worker(claim: dict[str, object]) -> None:
+            barrier.wait()
+            try:
+                review_cycle_core.acquire_sequence_claim(
+                    claim, repository_root_path=self.root
+                )
+                outcomes.append("won")
+            except review_cycle.CycleError:
+                outcomes.append("lost")
+
+        threads = [threading.Thread(target=worker, args=(claim,)) for claim in claims]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join()
+        self.assertEqual(sorted(outcomes), ["lost", "won"])
+
+    def test_activation_claim_disposition_and_chain_tamper_fail_closed(self) -> None:
+        self._stage_v4()
+        spec_baseline = self.fixture.spec_path.read_bytes()
+        paths = (
+            review_cycle_core.sequence_activation_path(self.root),
+            review_cycle_core.sequence_claim_path(self.root, 25),
+            review_cycle_core.sequence_disposition_path(self.root, 26),
+        )
+        for path in paths:
+            with self.subTest(path=path.name):
+                baseline = path.read_bytes()
+                path.write_bytes(baseline + b" ")
+                with self.assertRaises(review_cycle.CycleError):
+                    self.fixture.publish()
+                path.write_bytes(baseline)
+        value = json.loads(spec_baseline.decode())
+        value["sequence_authority"]["claim_chain_root_sha256"] = "0" * 64
+        self.fixture.spec_path.write_text(json.dumps(value), encoding="utf-8")
+        with self.assertRaisesRegex(review_cycle.CycleError, "chain root"):
+            self.fixture.publish()
+
+    def test_manifest_occupancy_conflicts_at_26_27_and_29_fail(self) -> None:
+        self._stage_v4()
+        for sequence in (26, 27, 29):
+            conflict = (
+                self.root
+                / ".chatgpt"
+                / "pro-review"
+                / "cycles"
+                / f"conflict-{sequence}"
+            )
+            conflict.mkdir(parents=True)
+            (conflict / "CYCLE_MANIFEST.json").write_text(
+                json.dumps({"cycle_sequence": sequence}) + "\n",
+                encoding="utf-8",
+            )
+            with self.subTest(sequence=sequence):
+                with self.assertRaisesRegex(review_cycle.CycleError, "occupancy"):
+                    self.fixture.publish()
+            shutil.rmtree(conflict)
+
+    def test_published_disposition_tamper_and_conflict_block_recovery(self) -> None:
+        self._stage_v4()
+        self.fixture.publish()
+        path = review_cycle_core.sequence_disposition_path(self.root, 29)
+        baseline = path.read_bytes()
+        value = json.loads(baseline.decode())
+        value["publication_receipt_sha256"] = "0" * 64
+        path.write_bytes(review_cycle.canonical_json_bytes(value))
+        with self.assertRaises(review_cycle.CycleError):
+            review_cycle.recover_cycle(
+                self.fixture.cycle, repository_root_path=self.root
+            )
+        path.write_bytes(baseline)
+        conflicting = json.loads(baseline.decode())
+        conflicting["manifest_root_sha256"] = "1" * 64
+        with self.assertRaises(review_cycle.CycleError):
+            review_cycle_core.record_sequence_disposition(
+                conflicting, repository_root_path=self.root
+            )
+
+    def test_pre_manifest_failure_disposition_retires_sequence(self) -> None:
+        claim = self._claim()
+        review_cycle_core.acquire_sequence_claim(
+            claim, repository_root_path=self.root
+        )
+        failure_path = review_cycle_core.sequence_failure_path(self.root, 29)
+        failure = {
+            "schema_version": review_cycle.FAILED_PUBLICATION_RECEIPT_SCHEMA,
+            "attempted_cycle_id": self.fixture.cycle_id,
+            "attempted_cycle_sequence": 29,
+            "attempted_checkpoint_id": "checkpoint-001",
+            "attempted_run_id": "run-029",
+            "attempted_job4_task_id": self.fixture.job4_task_id,
+            "disposition": "publication_failed_pre_manifest_pre_job4",
+            "failure_type": "CycleProtocolValidationError",
+            "failure_message": "focused V4 pre-manifest failure",
+            "cycle_directory_created": True,
+            "manifest_published": False,
+            "published_receipt_created": False,
+            "job4_started_receipt_created": False,
+            "trigger_sent_receipt_created": False,
+            "provider_calls": {"codex_family": 0, "deepseek": 0, "terra": 0},
+            "story_database_writes": 0,
+            "route_changes": 0,
+            "service_changes": 0,
+            "installed_sillytavern_changes": 0,
+            "identity_reusable": False,
+        }
+        failure_path.parent.mkdir(parents=True, exist_ok=True)
+        failure_path.write_bytes(review_cycle.canonical_json_bytes(failure))
+        disposition = {
+            "schema_version": review_cycle.SEQUENCE_CLAIM_DISPOSITION_SCHEMA,
+            "repository_identity_sha256": review_cycle_core.repository_identity_sha256(
+                self.root
+            ),
+            "cycle_sequence": 29,
+            "claim_sha256": self._hash(
+                review_cycle_core.sequence_claim_path(self.root, 29)
+            ),
+            "disposition": "publication_failed_pre_manifest_pre_job4",
+            "cycle_id": self.fixture.cycle_id,
+            "manifest_root_sha256": None,
+            "publication_receipt_sha256": None,
+            "authority_evidence_path": failure_path.relative_to(self.root).as_posix(),
+            "authority_evidence_sha256": self._hash(failure_path),
+            "identity_reusable": False,
+        }
+        review_cycle_core.record_sequence_disposition(
+            disposition, repository_root_path=self.root
+        )
+        value = json.loads(self.fixture.spec_path.read_text())
+        value["schema_version"] = review_cycle.SPEC_SCHEMA_V4
+        value["sequence_authority"] = (
+            review_cycle_core.current_sequence_authority_binding(
+                29, repository_root_path=self.root
+            )
+        )
+        self.fixture.spec_path.write_text(json.dumps(value), encoding="utf-8")
+        with self.assertRaisesRegex(review_cycle.CycleError, "terminal disposition"):
+            self.fixture.publish()
+
+    def test_duplicate_highest_consumed_sequence_fails_without_tiebreak(self) -> None:
+        duplicate = (
+            self.root
+            / ".chatgpt"
+            / "pro-review"
+            / "cycles"
+            / "duplicate-cycle-028"
+        )
+        shutil.copytree(
+            self.root / ".chatgpt" / "pro-review" / "cycles" / "cycle-028",
+            duplicate,
+        )
+        with self.assertRaisesRegex(review_cycle.CycleError, "multiple valid consumed"):
+            review_cycle.latest_consumed_cycle(repository_root_path=self.root)
+
+    def test_fake_empty_and_cross_sequence_failed_evidence_are_rejected(self) -> None:
+        self._stage_v4()
+        claim_path = review_cycle_core.sequence_claim_path(self.root, 26)
+        baseline = claim_path.read_bytes()
+        fake = self.root / ".chatgpt" / "operations" / "fake" / "empty.json"
+        fake.parent.mkdir(parents=True)
+        fake.write_text("{}\n", encoding="utf-8")
+        value = json.loads(baseline.decode())
+        value["authority_evidence_path"] = fake.relative_to(self.root).as_posix()
+        value["authority_evidence_sha256"] = self._hash(fake)
+        claim_path.write_bytes(review_cycle.canonical_json_bytes(value))
+        with self.assertRaises(review_cycle.CycleError):
+            self.fixture.publish()
+        claim_path.write_bytes(baseline)
+        cross = json.loads(baseline.decode())
+        claim27 = json.loads(
+            review_cycle_core.sequence_claim_path(self.root, 27).read_text()
+        )
+        cross["authority_evidence_path"] = claim27["authority_evidence_path"]
+        cross["authority_evidence_sha256"] = claim27["authority_evidence_sha256"]
+        claim_path.write_bytes(review_cycle.canonical_json_bytes(cross))
+        with self.assertRaises(review_cycle.CycleError):
             self.fixture.publish()
 
 

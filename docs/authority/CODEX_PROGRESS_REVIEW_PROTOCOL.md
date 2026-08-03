@@ -210,6 +210,10 @@ The generated immutable request must contain:
 - for a nonadjacent V3 sequence, the exact ordered failed-pre-manifest receipt
   copies and typed tombstones for every intervening sequence; these provide
   sequence custody but no Job 4, response, or creator authority;
+- for V4 at and above the activated frontier, the fixed repository-global
+  activation, exact immutable claim chain, adopted dispositions, current claim,
+  and expected current disposition path; these records own sequence identity
+  only and grant no execution or creator authority;
 - the next Job 4 task ID, exact independent scope, and pre-publication
   authorization-artifact hash;
 - Codex's suggested next work, clearly labeled advisory rather than authorized.
@@ -246,9 +250,17 @@ path. If the response is not ready, Codex may wait again or perform only another
 separately named and pre-authorized independent task. Silence is not authority.
 The completion chain must preserve and revalidate both the structured Job 4
 result and its human-readable report. Startup discovery must reconstruct the
-latest consumed modern V2/V3 cycle from its immutable outbox, source archive, typed
+latest consumed modern V2/V3/V4 cycle from its immutable outbox, source archive, typed
 receipt chain, Job 4 evidence, and accepted response identity; a mutable state
 label alone is never a trusted startup source.
+
+At the V4 frontier, acquire the fixed-path claim before publication. Exact-byte
+claim retries are idempotent; conflicting claims, manifests, dispositions, or
+duplicate highest consumed sequences fail closed. Successful publication must
+write the disposition binding the manifest root and publication receipt before
+Job 4 starts. Historical 26/27 custody is recovered only from the consumed
+Cycle 28 publication package, never from current failed-directory contents or
+the new successor's staging tree.
 
 ## ChatGPT Pro response
 

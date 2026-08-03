@@ -94,8 +94,11 @@ tombstones, and current bytes. Present bytes go into a deterministic ZIP; the
 complete status-aware manifest and archive root are bound into the task set.
 The snapshot fails closed above fixed aggregate file-count and uncompressed-byte
 ceilings as well as the per-artifact ceiling.
-Only generated root runtime state, current-cycle transport state, and
-`.chatgpt/operations/` connector metadata have fixed typed exclusions.
+Only generated root runtime state, current-cycle transport state,
+repository-global sequence-authority transport state, and
+`.chatgpt/operations/` connector metadata have fixed typed exclusions. V4
+binds the excluded sequence-authority bytes independently in its task set,
+manifest, outbox copies, disposition, and start receipt.
 
 Each progression Markdown file must itself declare the exact bound `task_id`
 and one final `status: completed | blocked`; the spec cannot relabel a stale
@@ -117,6 +120,27 @@ consumption artifacts. Publication places the exact receipt and tombstone bytes
 in the immutable outbox; completion and recovery validate those published
 copies. A tombstone provides sequence custody only and never substitutes for a
 consumed predecessor, accepted response, Job 4 result, or execution authority.
+
+Spec/manifest V4 activates repository-global sequence ownership at sequence
+29. The fixed namespace is
+`.chatgpt/pro-review/sequence-authority/ACTIVATION.json` and one
+`000000NN/CLAIM.json` plus `DISPOSITION.json` pair per sequence. Activation
+adopts exactly consumed sequences 25 and 28 and Cycle 28's already-published
+failed-pre-manifest custody for 26 and 27. Historical adoption is derived from
+validated consumed-cycle receipts, manifests, accepted responses, and Cycle
+28 outbox tombstones; mutable failed directories and successor staging are not
+historical authority.
+
+Claims use canonical deterministic bytes and exclusive non-replacing writes.
+An exact retry is idempotent; a different claimant loses without overwrite.
+Claims form a predecessor-hash chain and cannot be deleted, reassigned, reused,
+or replaced. Before and after manifest creation V4 scans both manifests and
+claims for conflicting occupancy. After activation, V1-V3 cannot publish at or
+above the frontier. A successful V4 publication records a global `published`
+disposition binding its manifest root and `PUBLISHED.json` hash before
+`JOB4_STARTED.json`; the start receipt binds both claim and disposition. A
+pre-manifest failure may instead receive the terminal failed disposition, which
+retires that sequence without granting Job 4 or execution authority.
 
 `complete-job4` stable-reads the exact expected result and preserves its bytes
 and hash. `consume` is unavailable before that transition. It stable-reads only
@@ -158,9 +182,11 @@ invalid mutable view is rebuilt. Later repository development therefore cannot
 invalidate or silently mutate a completed historical cycle.
 
 `latest-consumed` does not trust a mutable state label. It fully reconstructs
-modern V2/V3 candidates from immutable evidence and the receipt-bound accepted response,
+modern V2/V3/V4 candidates from immutable evidence and the receipt-bound accepted response,
 skips invalid higher-sequence candidates with an explicit diagnostic, and
-returns only the newest valid response. Post-consumption inbox state is
+returns only the newest valid response. More than one valid candidate at the
+highest sequence is an explicit conflict; directory-name ordering is never a
+tiebreaker. Post-consumption inbox state is
 diagnostic only.
 By contrast, `status` is deliberately labeled
 `state_view_validation: not_performed_status_only`; use `recover` for validated
@@ -190,6 +216,9 @@ python .\tools\pro_review_cycle.py wait-consume --cycle-directory "<cycle-path>"
 python .\tools\pro_review_cycle.py recover --cycle-directory "<cycle-path>"
 python .\tools\pro_review_cycle.py status --cycle-directory "<cycle-path>"
 python .\tools\pro_review_cycle.py latest-consumed
+python .\tools\pro_review_cycle.py activate-sequence-authority
+python .\tools\pro_review_cycle.py acquire-sequence-claim --claim "<claim-json>"
+python .\tools\pro_review_cycle.py record-sequence-disposition --disposition "<disposition-json>"
 ```
 
 The app-result trigger receipt must be recorded while state is exactly
