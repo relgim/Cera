@@ -12,7 +12,13 @@ from threading import RLock
 from typing import Any, Callable, ClassVar, TypeVar
 
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import canonical_bytes, canonical_sha256, re_is_sha256, to_primitive
+from cera.serialization import (
+    canonical_bytes,
+    canonical_sha256,
+    re_is_sha256,
+    text_sha256,
+    to_primitive,
+)
 
 
 class ProviderCallState(StrEnum):
@@ -261,8 +267,10 @@ class ContinuousProviderCallLedger:
             )
             raise
         mark_transport_invoked()
-        receipt_hash = _safe_hash(receipt_of(raw))
-        telemetry_hash = _safe_hash(telemetry_of(raw))
+        receipt = receipt_of(raw)
+        telemetry = telemetry_of(raw)
+        receipt_hash = _safe_hash(receipt)
+        telemetry_hash = _safe_hash(telemetry)
         tool_sequence_hash = _safe_hash(
             {
                 "tool_names": getattr(raw, "tool_names", ()),
@@ -273,6 +281,12 @@ class ContinuousProviderCallLedger:
         try:
             result = finalize(raw)
         except BaseException as exc:
+            _bind_completed_provider_failure_evidence(
+                exc,
+                raw=raw,
+                receipt=receipt,
+                telemetry=telemetry,
+            )
             self._record(call_id, owner, operation, ProviderCallState.POST_VALIDATION_FAILED, route, model, effort, provider_receipt_sha256=receipt_hash, operation_telemetry_sha256=telemetry_hash, tool_sequence_sha256=tool_sequence_hash, stored_thread_sha256=stored_thread_sha256, failure_type=type(exc).__name__)
             raise
         self._record(call_id, owner, operation, ProviderCallState.ACCEPTED, route, model, effort, provider_receipt_sha256=receipt_hash, operation_telemetry_sha256=telemetry_hash, tool_sequence_sha256=tool_sequence_hash, stored_thread_sha256=stored_thread_sha256)
@@ -374,3 +388,90 @@ def _safe_hash(value: Any) -> str | None:
         return canonical_sha256(to_primitive(value))
     except Exception:
         return canonical_sha256({"type": type(value).__name__})
+
+
+def _bind_completed_provider_failure_evidence(
+    exc: BaseException,
+    *,
+    raw: Any,
+    receipt: Any,
+    telemetry: Any,
+) -> None:
+    """Retain completed-call custody when local post-processing rejects the result."""
+
+    output_text = getattr(raw, "output_text", None)
+    output_sha256: str | None = None
+    output_bytes: int | None = None
+    if isinstance(output_text, str):
+        output_sha256 = text_sha256(output_text)
+        output_bytes = len(output_text.encode("utf-8"))
+    elif isinstance(receipt, dict):
+        candidate = receipt.get("output_sha256")
+        if isinstance(candidate, str) and re_is_sha256(candidate):
+            output_sha256 = candidate
+    else:
+        candidate = getattr(receipt, "output_sha256", None)
+        if isinstance(candidate, str) and re_is_sha256(candidate):
+            output_sha256 = candidate
+
+    exc.external_provider_calls_observed = 1
+    exc.provider_call_receipt = receipt
+    exc.operation_telemetry = telemetry
+    exc.completed_provider_result = raw
+    exc.provider_output_sha256 = output_sha256
+    exc.provider_output_bytes = output_bytes
+
+
+def completed_provider_failure_evidence(exc: BaseException) -> dict[str, Any]:
+    """Project bounded terminal evidence without retaining raw provider content."""
+
+    completed = getattr(exc, "completed_provider_result", None)
+    if completed is None or getattr(exc, "external_provider_calls_observed", 0) != 1:
+        raise ContractValidationError(
+            "completed provider failure evidence is unavailable"
+        )
+    receipt = getattr(exc, "provider_call_receipt", None)
+    telemetry = getattr(exc, "operation_telemetry", None)
+
+    def field(value: Any, name: str) -> Any:
+        if isinstance(value, dict):
+            return value.get(name)
+        return getattr(value, name, None)
+
+    input_tokens = field(telemetry, "cumulative_input_tokens")
+    if input_tokens is None:
+        input_tokens = field(receipt, "input_tokens")
+    cached_input_tokens = field(telemetry, "cumulative_cached_input_tokens")
+    if cached_input_tokens is None:
+        cached_input_tokens = field(receipt, "cached_input_tokens")
+    uncached_input_tokens = field(telemetry, "cumulative_uncached_input_tokens")
+    if (
+        uncached_input_tokens is None
+        and type(input_tokens) is int
+        and type(cached_input_tokens) is int
+    ):
+        uncached_input_tokens = input_tokens - cached_input_tokens
+    output_tokens = field(telemetry, "cumulative_output_tokens")
+    if output_tokens is None:
+        output_tokens = field(receipt, "output_tokens")
+    reasoning_tokens = field(telemetry, "cumulative_reasoning_tokens")
+    if reasoning_tokens is None:
+        reasoning_tokens = field(receipt, "reasoning_output_tokens")
+
+    return {
+        "schema_version": "cera.completed_provider_failure_evidence.v1",
+        "external_provider_calls_observed": 1,
+        "provider_receipt": to_primitive(receipt) if receipt is not None else None,
+        "operation_telemetry": (
+            to_primitive(telemetry) if telemetry is not None else None
+        ),
+        "input_tokens": input_tokens,
+        "cached_input_tokens": cached_input_tokens,
+        "uncached_input_tokens": uncached_input_tokens,
+        "output_tokens": output_tokens,
+        "reasoning_tokens": reasoning_tokens,
+        "provider_output_sha256": getattr(exc, "provider_output_sha256", None),
+        "provider_output_bytes": getattr(exc, "provider_output_bytes", None),
+        "completed_result_retained_in_memory": True,
+        "raw_output_in_primary_receipt": False,
+    }
