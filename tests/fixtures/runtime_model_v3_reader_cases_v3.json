@@ -1,0 +1,83 @@
+{
+  "schema_version": "cera.runtime_model_v3_reader_qualification_fixture_set.v2",
+  "fixture_set_id": "runtime_model_v3_reader_cases_v3",
+  "authority_context": {
+    "accepted_context": [],
+    "protected_user_source_claims": [],
+    "hard_constraints": [
+      "Do not invent protected-user action, dialogue, state, or choice.",
+      "Preserve character agency and the open stopping boundary."
+    ]
+  },
+  "cases": [
+    {
+      "case_id": "strong_complete_npc_only",
+      "story_text": "Hana eased the last cup onto the shelf, then turned with a tired but genuine smile. \"It has been a long evening,\" she said, \"but the quiet helps.\" She rested one hand on the counter and let the silence settle without closing the conversation.",
+      "plan_direction": "Develop Hana's grounded presence with natural voice, a complete beat, and an open stop.",
+      "expected_verdict": "accepted",
+      "authority_class": "npc_only_no_prior_context",
+      "planner_beats": [
+        {
+          "beat_key": "hana_finishes_cup_action",
+          "observable_direction": "Hana completes the visible cup-shelving action and turns with a tired but genuine smile.",
+          "roles": {
+            "action_owner_ids": ["character:hana_hanezawa"],
+            "state_owner_ids": [],
+            "speaker_ids": [],
+            "affected_ids": [],
+            "addressed_ids": [],
+            "observing_ids": [],
+            "referenced_ids": []
+          }
+        },
+        {
+          "beat_key": "hana_comments_on_evening",
+          "observable_direction": "Hana says the evening has been long and that the quiet helps.",
+          "roles": {
+            "action_owner_ids": [],
+            "state_owner_ids": [],
+            "speaker_ids": ["character:hana_hanezawa"],
+            "affected_ids": [],
+            "addressed_ids": [],
+            "observing_ids": [],
+            "referenced_ids": []
+          }
+        },
+        {
+          "beat_key": "hana_leaves_open_stop",
+          "observable_direction": "Hana rests one hand on the counter and lets the silence settle without closing the conversation.",
+          "roles": {
+            "action_owner_ids": ["character:hana_hanezawa"],
+            "state_owner_ids": [],
+            "speaker_ids": [],
+            "affected_ids": [],
+            "addressed_ids": [],
+            "observing_ids": [],
+            "referenced_ids": []
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "skipped_buildup_premature_closure",
+      "story_text": "Hana immediately forgave everything, declared the matter settled forever, and went to bed. The end.",
+      "plan_direction": "Build the tension gradually and leave the exchange open for Ted's next choice.",
+      "expected_verdict": "rejected",
+      "authority_class": "adversarial_quality_fixture"
+    },
+    {
+      "case_id": "repetitive_mechanical",
+      "story_text": "Hana nodded. Hana moved. Hana spoke. \"Okay.\" Hana nodded again. Hana waited.",
+      "plan_direction": "Use natural varied prose and character-specific dialogue for one complete response.",
+      "expected_verdict": "rejected",
+      "authority_class": "adversarial_quality_fixture"
+    },
+    {
+      "case_id": "unrealistic_reaction",
+      "story_text": "Without any evidence or prior trust, cautious Sakura threw open every door, handed Ted the household records, and laughed away all concern.",
+      "plan_direction": "Preserve Sakura's evidence-conscious caution during an unverified first contact.",
+      "expected_verdict": "rejected",
+      "authority_class": "adversarial_quality_fixture"
+    }
+  ]
+}

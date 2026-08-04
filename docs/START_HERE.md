@@ -25,7 +25,7 @@ explicitly authorized.
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
 **Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v8`; `cera.continuous_validator_adapter.v16`; `cera.continuous_validator_prompt.v20`; `cera.continuous_validator_request.v7`
 **Runtime Model V3 Reader identity:** `cera.provider_reader_verdict.v1`; `cera.continuous_reader_adapter.v3`; `cera.continuous_reader_prompt.v3`
-**Runtime Model V3 verification:** rejected-only diagnostic boundary passed 1,011 provider-free tests with 3 skipped; Stage 4 V5 Validator passed 6/6; Reader V3 schema passed 4/4 decoding, and the Reader correctly exposed one contradictory positive fixture now replaced by the authority-explicit V2 fixture set; the fresh correction identity is next
+**Runtime Model V3 verification:** rejected-only diagnostic boundary passed 1,011 provider-free tests with 3 skipped; Stage 4 V5 Validator passed 6/6; Reader V3 correctly exposed both unsupported Ted content and a missing dialogue-role beat in positive fixtures; the V3 fixture set now supplies exact ordered action/dialogue/action authority, and its fresh correction identity is next
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page

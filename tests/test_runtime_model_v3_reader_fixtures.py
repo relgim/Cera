@@ -6,7 +6,10 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURE_PATH = ROOT / "tests" / "fixtures" / "runtime_model_v3_reader_cases_v2.json"
+FAILED_FIXTURE_PATH = (
+    ROOT / "tests" / "fixtures" / "runtime_model_v3_reader_cases_v2.json"
+)
+FIXTURE_PATH = ROOT / "tests" / "fixtures" / "runtime_model_v3_reader_cases_v3.json"
 HISTORICAL_RUNNER_PATH = (
     ROOT
     / ".chatgpt"
@@ -24,11 +27,11 @@ class RuntimeModelV3ReaderFixtureAuthorityTests(unittest.TestCase):
     def test_fixture_set_is_closed_and_authority_explicit(self) -> None:
         self.assertEqual(
             self.fixture["schema_version"],
-            "cera.runtime_model_v3_reader_qualification_fixture_set.v1",
+            "cera.runtime_model_v3_reader_qualification_fixture_set.v2",
         )
         self.assertEqual(
             self.fixture["fixture_set_id"],
-            "runtime_model_v3_reader_cases_v2",
+            "runtime_model_v3_reader_cases_v3",
         )
         self.assertEqual(
             set(self.fixture),
@@ -55,16 +58,15 @@ class RuntimeModelV3ReaderFixtureAuthorityTests(unittest.TestCase):
             len(cases),
         )
         for value in cases:
-            self.assertEqual(
-                set(value),
-                {
-                    "case_id",
-                    "story_text",
-                    "plan_direction",
-                    "expected_verdict",
-                    "authority_class",
-                },
-            )
+            required = {
+                "case_id",
+                "story_text",
+                "plan_direction",
+                "expected_verdict",
+                "authority_class",
+            }
+            self.assertTrue(required <= set(value))
+            self.assertTrue(set(value) <= required | {"planner_beats"})
             self.assertIn(value["expected_verdict"], {"accepted", "rejected"})
             self.assertTrue(value["story_text"].strip())
             self.assertTrue(value["plan_direction"].strip())
@@ -79,6 +81,55 @@ class RuntimeModelV3ReaderFixtureAuthorityTests(unittest.TestCase):
         self.assertNotIn("you said", story.casefold())
         self.assertNotIn("you did", story.casefold())
         self.assertIn("without closing the conversation", story)
+
+    def test_positive_case_has_gap_ordered_exclusive_role_plan(self) -> None:
+        positive = self.fixture["cases"][0]
+        beats = positive["planner_beats"]
+        self.assertEqual(
+            [value["beat_key"] for value in beats],
+            [
+                "hana_finishes_cup_action",
+                "hana_comments_on_evening",
+                "hana_leaves_open_stop",
+            ],
+        )
+        role_fields = {
+            "action_owner_ids",
+            "state_owner_ids",
+            "speaker_ids",
+            "affected_ids",
+            "addressed_ids",
+            "observing_ids",
+            "referenced_ids",
+        }
+        self.assertEqual(len(beats), 3)
+        for beat in beats:
+            self.assertEqual(
+                set(beat), {"beat_key", "observable_direction", "roles"}
+            )
+            self.assertEqual(set(beat["roles"]), role_fields)
+            memberships = sum(
+                character_id == "character:hana_hanezawa"
+                for values in beat["roles"].values()
+                for character_id in values
+            )
+            self.assertEqual(memberships, 1)
+        self.assertEqual(
+            [
+                bool(value["roles"]["speaker_ids"])
+                for value in beats
+            ],
+            [False, True, False],
+        )
+
+    def test_failed_v2_fixture_is_preserved_as_immutable_evidence(self) -> None:
+        failed = json.loads(FAILED_FIXTURE_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(failed["fixture_set_id"], "runtime_model_v3_reader_cases_v2")
+        self.assertNotIn("planner_beats", failed["cases"][0])
+        self.assertEqual(
+            failed["cases"][0]["story_text"],
+            self.fixture["cases"][0]["story_text"],
+        )
 
     def test_historical_failed_fixture_source_is_not_rewritten(self) -> None:
         historical = HISTORICAL_RUNNER_PATH.read_text(encoding="utf-8")
