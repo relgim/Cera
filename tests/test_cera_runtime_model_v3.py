@@ -136,7 +136,7 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v20",
+            "cera.continuous_validator_prompt.v21",
         )
         for required in (
             "applies independently to each final-sequence item",
@@ -151,6 +151,10 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
             "each require at least one exact NPC predicate owner and no protected-user claim keys",
             "Every canonical story segment must have at least one character in exactly one role array",
             "Do not create a standalone role-empty narration or connector segment",
+            "derive the protected relation from that span's roles exactly",
+            "require character:ted in affected_ids, addressed_ids, observing_ids, and referenced_ids respectively",
+            "npc_assertion_owner_ids must equal all non-Ted action_owner, state_owner, and speaker IDs",
+            "split it at an exact text boundary",
         ):
             self.assertIn(required, VALIDATOR_STABLE_INSTRUCTIONS)
 
