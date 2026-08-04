@@ -41,7 +41,7 @@ from .contracts import (
 from .provider import (
     ContinuousSceneWriterDraftV1,
     ContinuousSemanticValidatorDraftV4,
-    ContinuousSemanticValidatorDraftV11,
+    ContinuousSemanticValidatorDraftV12,
     ProviderEventRecordDraftV1,
     ProviderFinalSequenceDraftV2,
     ProviderSceneSummaryDraftV1,
@@ -269,7 +269,7 @@ class ScriptedJob4FixtureRuntime:
             verifier_status="accepted",
         )
 
-    def _validator_value(self, prompt: str) -> ContinuousSemanticValidatorDraftV11:
+    def _validator_value(self, prompt: str) -> ContinuousSemanticValidatorDraftV12:
         harness = self._current()
         request = json.loads(prompt.rsplit("[VALIDATOR REQUEST]\n", 1)[1])
         package_id = request["package_id"]
@@ -279,7 +279,7 @@ class ScriptedJob4FixtureRuntime:
             accepted_ids = tuple(
                 value.accepted_turn_id for value in harness.accepted_pairs
             )
-            return ContinuousSemanticValidatorDraftV11.from_v4(ContinuousSemanticValidatorDraftV4(
+            return ContinuousSemanticValidatorDraftV12.from_v4(ContinuousSemanticValidatorDraftV4(
                 schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
                 package_id=package_id,
                 world_id=world_id,
@@ -353,7 +353,7 @@ class ScriptedJob4FixtureRuntime:
             ),
             final_stop_state="The exchange awaits Ted's next choice.",
         )
-        return ContinuousSemanticValidatorDraftV11.from_v4(ContinuousSemanticValidatorDraftV4(
+        return ContinuousSemanticValidatorDraftV12.from_v4(ContinuousSemanticValidatorDraftV4(
             schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
             package_id=package_id,
             world_id=world_id,

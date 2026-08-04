@@ -21,9 +21,9 @@ from cera.continuous.contracts import (
 )
 from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.provider import (
-    ContinuousSemanticValidatorDraftV11,
-    ProviderAcceptedTurnDecisionDraftV4,
-    ProviderConcernTurnDecisionDraftV4,
+    ContinuousSemanticValidatorDraftV12,
+    ProviderAcceptedTurnDecisionDraftV5,
+    ProviderConcernTurnDecisionDraftV5,
     ProviderDiagnosticProtectedSemanticAdjudicationDraftV1,
     ProviderDiagnosticStorySegmentDraftV1,
     ProviderRejectedSemanticStatus,
@@ -147,9 +147,9 @@ def _diagnostic_decision(
 
 def _wire(
     status: ProviderRejectedSemanticStatus = ProviderRejectedSemanticStatus.REJECTED,
-) -> ContinuousSemanticValidatorDraftV11:
-    return ContinuousSemanticValidatorDraftV11(
-        schema_version=ContinuousSemanticValidatorDraftV11.SCHEMA_VERSION,
+) -> ContinuousSemanticValidatorDraftV12:
+    return ContinuousSemanticValidatorDraftV12(
+        schema_version=ContinuousSemanticValidatorDraftV12.SCHEMA_VERSION,
         package_id="candidate:rejected_diagnostic_fixture",
         world_id="world:rejected_diagnostic_fixture",
         branch_id="branch:main",
@@ -162,7 +162,7 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
         payload = to_primitive(_wire())
         schema = continuous_semantic_validator_draft_json_schema()
         Draft202012Validator(schema).validate(payload)
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV11, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV12, payload)
         result = decoded.compile(writer_story_text=STORY)
 
         self.assertIs(result.semantic_status, ValidatorSemanticStatus.REJECTED)
@@ -202,7 +202,7 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
             continuous_semantic_validator_draft_json_schema()
         ).validate(payload)
 
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV11, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV12, payload)
         self.assertEqual(
             decoded.decision.additional_reason_codes,
             (
@@ -245,7 +245,7 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
                 Draft202012Validator(neutral).validate(payload)
                 Draft202012Validator(projected).validate(payload)
                 result = from_mapping(
-                    ContinuousSemanticValidatorDraftV11, payload
+                    ContinuousSemanticValidatorDraftV12, payload
                 ).compile(writer_story_text=STORY)
                 self.assertIs(
                     result.semantic_status,
@@ -353,7 +353,7 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
                 continuous_semantic_validator_draft_json_schema()
             ).validate(tampered)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV11, tampered)
+            from_mapping(ContinuousSemanticValidatorDraftV12, tampered)
 
     def test_accepted_and_concern_schema_branches_expose_no_diagnostics(self) -> None:
         schema = continuous_semantic_validator_draft_json_schema()
@@ -363,8 +363,8 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
             for branch in branches
             if branch.get("properties", {}).get("schema_version", {}).get("const")
             in {
-                ProviderAcceptedTurnDecisionDraftV4.SCHEMA_VERSION,
-                ProviderConcernTurnDecisionDraftV4.SCHEMA_VERSION,
+                ProviderAcceptedTurnDecisionDraftV5.SCHEMA_VERSION,
+                ProviderConcernTurnDecisionDraftV5.SCHEMA_VERSION,
             }
         ]
         self.assertEqual(len(canonical), 2)

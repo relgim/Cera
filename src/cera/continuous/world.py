@@ -2959,6 +2959,7 @@ class ContinuousDebugRecorder:
         "validator_cited_accepted_evidence.json",
         "validator_output.json",
         "presentation_realization_segments.json",
+        "source_grounded_public_state_receipts.json",
         "validator_tools.json",
         "reader_request.json",
         "reader_output.json",

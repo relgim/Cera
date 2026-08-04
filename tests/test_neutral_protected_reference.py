@@ -19,7 +19,7 @@ from cera.continuous.contracts import (
 from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.provider import (
     CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-    ContinuousSemanticValidatorDraftV11,
+    ContinuousSemanticValidatorDraftV12,
     ProviderDiagnosticProtectedSemanticAdjudicationDraftV1,
     ProviderDiagnosticStorySegmentDraftV1,
     ProviderProtectedSemanticAdjudicationDraftV1,
@@ -112,15 +112,15 @@ class NeutralProtectedReferenceTests(unittest.TestCase):
         Draft202012Validator.check_schema(projected)
         self.assertEqual(
             schema["properties"]["schema_version"]["const"],
-            ContinuousSemanticValidatorDraftV11.SCHEMA_VERSION,
+            ContinuousSemanticValidatorDraftV12.SCHEMA_VERSION,
         )
         self.assertEqual(
-            ContinuousSemanticValidatorDraftV11.SCHEMA_VERSION,
-            "cera.continuous_semantic_validator_draft.v11",
+            ContinuousSemanticValidatorDraftV12.SCHEMA_VERSION,
+            "cera.continuous_semantic_validator_draft.v12",
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v25",
+            "cera.continuous_validator_adapter.v26",
         )
         self.assertIn(
             ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE.value,

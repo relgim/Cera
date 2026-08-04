@@ -38,7 +38,7 @@ from cera.continuous.provider import (
     CONTINUOUS_DEEPSEEK_ADAPTER_VERSION,
     ContinuousSemanticValidatorResultV2,
     ContinuousSemanticValidatorResultV3,
-    ContinuousSemanticValidatorDraftV11,
+    ContinuousSemanticValidatorDraftV12,
     DeepSeekContinuousComposerPort,
     ProviderDiagnosticProtectedSemanticAdjudicationDraftV1,
     ProviderDiagnosticStorySegmentDraftV1,
@@ -273,8 +273,8 @@ def _rejected_result(
             ),
         ),
     )
-    return ContinuousSemanticValidatorDraftV11(
-        schema_version=ContinuousSemanticValidatorDraftV11.SCHEMA_VERSION,
+    return ContinuousSemanticValidatorDraftV12(
+        schema_version=ContinuousSemanticValidatorDraftV12.SCHEMA_VERSION,
         package_id="candidate:provider_free_rejected_fixture",
         world_id="world:provider_free_rejected_fixture",
         branch_id="branch:main",

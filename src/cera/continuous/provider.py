@@ -56,6 +56,7 @@ from .contracts import (
     ReaderVerdictV2,
     RichPlannerSequenceV1,
     SceneSummaryV1,
+    SourceGroundedPublicStateReceiptV1,
     StoryRealizationKind,
     StoryRealizationSegmentV1,
     ValidatorFinalizationPackageV1,
@@ -78,7 +79,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v8"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v25"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v26"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v4"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v4"
@@ -1062,6 +1063,176 @@ class ProviderProtectedSemanticAdjudicationDraftV1:
         )
 
 
+class ProviderProtectedSemanticRelationKindV2(str, Enum):
+    """Active provider relation with a source-grounded presentation route."""
+
+    NONE = ProtectedSemanticRelationKind.NONE.value
+    PROTECTED_ASSERTION = ProtectedSemanticRelationKind.PROTECTED_ASSERTION.value
+    AFFECTED_BY_NPC = ProtectedSemanticRelationKind.AFFECTED_BY_NPC.value
+    ADDRESSED_BY_NPC = ProtectedSemanticRelationKind.ADDRESSED_BY_NPC.value
+    OBSERVED_BY_NPC = ProtectedSemanticRelationKind.OBSERVED_BY_NPC.value
+    REFERENCED_ONLY_BY_NPC = ProtectedSemanticRelationKind.REFERENCED_ONLY_BY_NPC.value
+    NEUTRAL_PRESENTATION_REFERENCE = (
+        ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE.value
+    )
+    SOURCE_GROUNDED_PUBLIC_STATE = "source_grounded_public_state"
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderProtectedSemanticAdjudicationDraftV2:
+    """Active adjudication wire with exact current-source-unit citation."""
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.provider_protected_semantic_adjudication.v2"
+    )
+
+    schema_version: str
+    adjudication_key: str
+    segment_key: str
+    output_start: int
+    output_end: int
+    protected_user_id: str
+    relation: ProviderProtectedSemanticRelationKindV2
+    npc_assertion_owner_ids: tuple[str, ...]
+    protected_user_source_claim_keys: tuple[str, ...]
+    protected_user_source_unit_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider protected-semantic adjudication V2 schema changed"
+            )
+        for value in self.protected_user_source_unit_keys:
+            if not isinstance(value, str) or not value.strip():
+                raise ContractValidationError(
+                    "source-grounded public state has an invalid source-unit key"
+                )
+        if len(set(self.protected_user_source_unit_keys)) != len(
+            self.protected_user_source_unit_keys
+        ):
+            raise ContractValidationError(
+                "source-grounded public-state source-unit keys are duplicated"
+            )
+        source_grounded = (
+            self.relation
+            is ProviderProtectedSemanticRelationKindV2.SOURCE_GROUNDED_PUBLIC_STATE
+        )
+        if source_grounded:
+            if (
+                len(self.protected_user_source_unit_keys) != 1
+                or self.npc_assertion_owner_ids
+                or self.protected_user_source_claim_keys
+            ):
+                raise ContractValidationError(
+                    "source-grounded public state requires one source unit and no claims or NPC owners"
+                )
+        elif self.protected_user_source_unit_keys:
+            raise ContractValidationError(
+                "only source-grounded public state may cite source units"
+            )
+
+    @classmethod
+    def from_v1(
+        cls,
+        value: ProviderProtectedSemanticAdjudicationDraftV1,
+    ) -> "ProviderProtectedSemanticAdjudicationDraftV2":
+        return cls(
+            schema_version=cls.SCHEMA_VERSION,
+            adjudication_key=value.adjudication_key,
+            segment_key=value.segment_key,
+            output_start=value.output_start,
+            output_end=value.output_end,
+            protected_user_id=value.protected_user_id,
+            relation=ProviderProtectedSemanticRelationKindV2(
+                value.relation.value
+            ),
+            npc_assertion_owner_ids=value.npc_assertion_owner_ids,
+            protected_user_source_claim_keys=(
+                value.protected_user_source_claim_keys
+            ),
+            protected_user_source_unit_keys=(),
+        )
+
+    def compile(
+        self,
+        *,
+        writer_story_text: str,
+        story_segment: StoryRealizationSegmentV1,
+    ) -> tuple[
+        ProtectedSemanticAdjudicationV1,
+        SourceGroundedPublicStateReceiptV1 | None,
+    ]:
+        if (
+            not isinstance(writer_story_text, str)
+            or not writer_story_text
+            or "\x00" in writer_story_text
+        ):
+            raise ContractValidationError(
+                "Validator hash custody requires immutable Writer text"
+            )
+        if story_segment.segment_key != self.segment_key:
+            raise ContractValidationError(
+                "protected adjudication cited an unknown Validator story segment"
+            )
+        if (
+            story_segment.output_end > len(writer_story_text)
+            or writer_story_text[
+                story_segment.output_start : story_segment.output_end
+            ]
+            != story_segment.exact_text
+        ):
+            raise ContractValidationError(
+                "Validator story segment changed immutable Writer bytes"
+            )
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < story_segment.output_start
+            or self.output_end > story_segment.output_end
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError(
+                "protected adjudication span is empty, out of bounds, or crosses its segment"
+            )
+        source_grounded = (
+            self.relation
+            is ProviderProtectedSemanticRelationKindV2.SOURCE_GROUNDED_PUBLIC_STATE
+        )
+        canonical_relation = (
+            ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE
+            if source_grounded
+            else ProtectedSemanticRelationKind(self.relation.value)
+        )
+        adjudication = ProtectedSemanticAdjudicationV1(
+            schema_version=ProtectedSemanticAdjudicationV1.SCHEMA_VERSION,
+            adjudication_key=self.adjudication_key,
+            segment_key=self.segment_key,
+            output_start=self.output_start,
+            output_end=self.output_end,
+            exact_text_sha256=text_sha256(
+                writer_story_text[self.output_start : self.output_end]
+            ),
+            protected_user_id=self.protected_user_id,
+            relation=canonical_relation,
+            npc_assertion_owner_ids=self.npc_assertion_owner_ids,
+            protected_user_source_claim_keys=(
+                self.protected_user_source_claim_keys
+            ),
+        )
+        if not source_grounded:
+            return adjudication, None
+        return adjudication, SourceGroundedPublicStateReceiptV1(
+            schema_version=SourceGroundedPublicStateReceiptV1.SCHEMA_VERSION,
+            adjudication_key=self.adjudication_key,
+            segment_key=self.segment_key,
+            output_start=self.output_start,
+            output_end=self.output_end,
+            exact_text_sha256=adjudication.exact_text_sha256,
+            protected_user_id=self.protected_user_id,
+            source_unit_key=self.protected_user_source_unit_keys[0],
+        )
+
+
 def _compile_provider_protected_adjudications(
     *,
     writer_story_text: str,
@@ -1121,6 +1292,78 @@ def _compile_provider_protected_adjudications(
                 )
         compiled.append(adjudication)
     return tuple(compiled)
+
+
+def _compile_provider_protected_adjudications_v2(
+    *,
+    writer_story_text: str,
+    story_segments: tuple[StoryRealizationSegmentV1, ...],
+    adjudications: tuple[ProviderProtectedSemanticAdjudicationDraftV2, ...],
+    presentation_segments: tuple[PresentationRealizationSegmentV1, ...] = (),
+) -> tuple[
+    tuple[ProtectedSemanticAdjudicationV1, ...],
+    tuple[SourceGroundedPublicStateReceiptV1, ...],
+]:
+    segments_by_key = {value.segment_key: value for value in story_segments}
+    if len(segments_by_key) != len(story_segments):
+        raise ContractValidationError(
+            "Validator story segment keys are duplicated before hash custody"
+        )
+    presentation_by_key = {
+        value.segment_key: value for value in presentation_segments
+    }
+    compiled: list[ProtectedSemanticAdjudicationV1] = []
+    receipts: list[SourceGroundedPublicStateReceiptV1] = []
+    for value in adjudications:
+        segment = segments_by_key.get(value.segment_key)
+        if segment is None:
+            raise ContractValidationError(
+                "protected adjudication cited an unknown Validator story segment"
+            )
+        adjudication, receipt = value.compile(
+            writer_story_text=writer_story_text,
+            story_segment=segment,
+        )
+        presentation = presentation_by_key.get(segment.segment_key)
+        ted_role_fields = tuple(
+            field
+            for field in _CHARACTER_ROLE_LEDGER_FIELDS
+            if adjudication.protected_user_id in getattr(segment.roles, field)
+        )
+        if receipt is not None:
+            if (
+                presentation is None
+                or presentation.presentation_class
+                is not PresentationRealizationClass.NONPERSISTENT_SPATIAL_PHRASING
+                or segment.kind is not StoryRealizationKind.NARRATION
+                or ted_role_fields != ("referenced_ids",)
+                or segment.roles.assertion_owner_ids
+                or adjudication.npc_assertion_owner_ids
+                or adjudication.protected_user_source_claim_keys
+            ):
+                raise ContractValidationError(
+                    "source-grounded public state requires cited presentation-only narration"
+                )
+            receipts.append(receipt)
+        elif (
+            adjudication.relation
+            is ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE
+        ):
+            if (
+                presentation is None
+                or presentation.presentation_class
+                is not PresentationRealizationClass.NONPERSISTENT_ATMOSPHERE
+                or segment.kind is not StoryRealizationKind.NARRATION
+                or ted_role_fields != ("referenced_ids",)
+                or segment.roles.assertion_owner_ids
+                or adjudication.npc_assertion_owner_ids
+                or adjudication.protected_user_source_claim_keys
+            ):
+                raise ContractValidationError(
+                    "neutral protected reference requires nonpersistent presentation-only narration"
+                )
+        compiled.append(adjudication)
+    return tuple(compiled), tuple(receipts)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1912,6 +2155,16 @@ class ProviderRealizationSegmentDraftV1:
             raise ContractValidationError(
                 "realization disposition and presentation class disagree"
             )
+        if self.roles.is_empty and not (
+            self.authority_disposition
+            is RealizationAuthorityDisposition.PRESENTATION_ONLY
+            and self.presentation_class
+            is PresentationRealizationClass.NONPERSISTENT_ATMOSPHERE
+            and self.kind is StoryRealizationKind.NARRATION
+        ):
+            raise ContractValidationError(
+                "an empty role ledger is restricted to actorless atmosphere narration"
+            )
 
     def compile(
         self,
@@ -1948,6 +2201,10 @@ class ProviderRealizationSegmentDraftV1:
             self.authority_disposition
             is RealizationAuthorityDisposition.STORY_MATERIAL_ASSERTION
         ):
+            if self.roles.is_empty:
+                raise ContractValidationError(
+                    "story-material realization requires character roles"
+                )
             return semantic_segment, None
         if self.protected_user_source_claim_keys:
             raise ContractValidationError(
@@ -2235,6 +2492,9 @@ class ContinuousSemanticValidatorResultV3:
     finalization_package: ValidatorFinalizationPackageV1 | None
     writer_recall_eligibility: ProviderWriterRecallEligibility
     writer_recall_offending_spans: tuple[WriterRecallOffendingSpanV1, ...]
+    source_grounded_public_state_receipts: tuple[
+        SourceGroundedPublicStateReceiptV1, ...
+    ] = ()
 
     def __post_init__(self) -> None:
         ContinuousSemanticValidatorResultV2(
@@ -2281,10 +2541,22 @@ class ContinuousSemanticValidatorResultV3:
                 raise ContractValidationError(
                     "presentation and story authority segment keys cannot overlap"
                 )
+            receipt_keys = tuple(
+                value.segment_key
+                for value in self.source_grounded_public_state_receipts
+            )
+            if (
+                len(receipt_keys) != len(set(receipt_keys))
+                or not set(receipt_keys).issubset(presentation_keys)
+            ):
+                raise ContractValidationError(
+                    "source-grounded public state must cite unique presentation spans"
+                )
         else:
             if (
                 self.presentation_realization_segments
                 or self.presentation_protected_semantic_adjudications
+                or self.source_grounded_public_state_receipts
                 or self.writer_recall_eligibility
                 is ProviderWriterRecallEligibility.NOT_APPLICABLE
             ):
@@ -2332,6 +2604,9 @@ class ContinuousSemanticValidatorResultV3:
         writer_recall_offending_spans: tuple[
             WriterRecallOffendingSpanV1, ...
         ] = (),
+        source_grounded_public_state_receipts: tuple[
+            SourceGroundedPublicStateReceiptV1, ...
+        ] = (),
     ) -> "ContinuousSemanticValidatorResultV3":
         accepted = value.semantic_status in {
             ValidatorSemanticStatus.ACCEPTED,
@@ -2362,6 +2637,9 @@ class ContinuousSemanticValidatorResultV3:
                 or ProviderWriterRecallEligibility.INELIGIBLE
             ),
             writer_recall_offending_spans=writer_recall_offending_spans,
+            source_grounded_public_state_receipts=(
+                source_grounded_public_state_receipts
+            ),
         )
 
     def build_writer_recall_directive(
@@ -2759,6 +3037,220 @@ class ContinuousSemanticValidatorDraftV11:
         ).compile(
             writer_story_text=writer_story_text,
             accepted_pairs=accepted_pairs,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderAcceptedTurnDecisionDraftV5:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_accepted_turn_decision.v5"
+
+    schema_version: str
+    decision_kind: ProviderAcceptedDecisionKind
+    realization_segments: tuple[ProviderRealizationSegmentDraftV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV2
+    creator_review: ProviderGoodCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProviderProtectedSemanticAdjudicationDraftV2, ...
+    ]
+    event_record: ProviderEventRecordDraftV2
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider accepted-decision V5 schema changed"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderConcernTurnDecisionDraftV5:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_concern_turn_decision.v5"
+
+    schema_version: str
+    decision_kind: ProviderConcernDecisionKind
+    realization_segments: tuple[ProviderRealizationSegmentDraftV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV2
+    creator_review: ProviderConcernCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProviderProtectedSemanticAdjudicationDraftV2, ...
+    ]
+    event_record: ProviderEventRecordDraftV2
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider concern-decision V5 schema changed"
+            )
+
+
+ProviderSemanticDecisionDraftV6 = Union[
+    ProviderAcceptedTurnDecisionDraftV5,
+    ProviderConcernTurnDecisionDraftV5,
+    ProviderRejectedTurnDecisionDraftV4,
+    ProviderSceneSummaryDecisionDraftV1,
+]
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV12:
+    """Active wire for actorless presentation and source-grounded public state."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v12"
+
+    schema_version: str
+    package_id: str
+    world_id: str
+    branch_id: str
+    decision: ProviderSemanticDecisionDraftV6
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous Semantic Validator V12 provider schema changed"
+            )
+
+    @classmethod
+    def from_v4(
+        cls,
+        value: ContinuousSemanticValidatorDraftV4,
+    ) -> "ContinuousSemanticValidatorDraftV12":
+        historical = ContinuousSemanticValidatorDraftV11.from_v4(value)
+        decision = historical.decision
+        if isinstance(decision, ProviderAcceptedTurnDecisionDraftV4):
+            active: ProviderSemanticDecisionDraftV6 = (
+                ProviderAcceptedTurnDecisionDraftV5(
+                    schema_version=ProviderAcceptedTurnDecisionDraftV5.SCHEMA_VERSION,
+                    decision_kind=decision.decision_kind,
+                    realization_segments=decision.realization_segments,
+                    complete_final_sequence=decision.complete_final_sequence,
+                    creator_review=decision.creator_review,
+                    protected_semantic_adjudications=tuple(
+                        ProviderProtectedSemanticAdjudicationDraftV2.from_v1(item)
+                        for item in decision.protected_semantic_adjudications
+                    ),
+                    event_record=decision.event_record,
+                )
+            )
+        elif isinstance(decision, ProviderConcernTurnDecisionDraftV4):
+            active = ProviderConcernTurnDecisionDraftV5(
+                schema_version=ProviderConcernTurnDecisionDraftV5.SCHEMA_VERSION,
+                decision_kind=decision.decision_kind,
+                realization_segments=decision.realization_segments,
+                complete_final_sequence=decision.complete_final_sequence,
+                creator_review=decision.creator_review,
+                protected_semantic_adjudications=tuple(
+                    ProviderProtectedSemanticAdjudicationDraftV2.from_v1(item)
+                    for item in decision.protected_semantic_adjudications
+                ),
+                event_record=decision.event_record,
+            )
+        else:
+            active = decision
+        return cls(
+            schema_version=cls.SCHEMA_VERSION,
+            package_id=historical.package_id,
+            world_id=historical.world_id,
+            branch_id=historical.branch_id,
+            decision=active,
+        )
+
+    def compile(
+        self,
+        *,
+        writer_story_text: str | None,
+        accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
+    ) -> ContinuousSemanticValidatorResultV3:
+        decision = self.decision
+        if isinstance(
+            decision,
+            (ProviderSceneSummaryDecisionDraftV1, ProviderRejectedTurnDecisionDraftV4),
+        ):
+            return ContinuousSemanticValidatorDraftV11(
+                schema_version=ContinuousSemanticValidatorDraftV11.SCHEMA_VERSION,
+                package_id=self.package_id,
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                decision=decision,
+            ).compile(
+                writer_story_text=writer_story_text,
+                accepted_pairs=accepted_pairs,
+            )
+        if not isinstance(writer_story_text, str) or not writer_story_text:
+            raise ContractValidationError(
+                "turn Validator requires typed immutable Writer text"
+            )
+        all_segments, material_segments, presentation_segments = (
+            _compile_provider_realization_segments(
+                writer_story_text=writer_story_text,
+                values=decision.realization_segments,
+            )
+        )
+        all_adjudications, source_receipts = (
+            _compile_provider_protected_adjudications_v2(
+                writer_story_text=writer_story_text,
+                story_segments=all_segments,
+                adjudications=decision.protected_semantic_adjudications,
+                presentation_segments=presentation_segments,
+            )
+        )
+        if {value.segment_key for value in all_adjudications} != {
+            value.segment_key for value in all_segments
+        }:
+            raise ContractValidationError(
+                "Validator did not adjudicate every realization span"
+            )
+        material_keys = {value.segment_key for value in material_segments}
+        material_adjudications = tuple(
+            value
+            for value in all_adjudications
+            if value.segment_key in material_keys
+        )
+        presentation_adjudications = tuple(
+            value
+            for value in all_adjudications
+            if value.segment_key not in material_keys
+        )
+        event_record = _python_derived_event_record(
+            decision.event_record,
+            decision.complete_final_sequence,
+        )
+        if isinstance(decision, ProviderAcceptedTurnDecisionDraftV5):
+            historical_decision: ProviderSemanticDecisionDraftV1 = (
+                ProviderAcceptedTurnDecisionDraftV1(
+                    schema_version=ProviderAcceptedTurnDecisionDraftV1.SCHEMA_VERSION,
+                    decision_kind=decision.decision_kind,
+                    story_segments=material_segments,
+                    complete_final_sequence=decision.complete_final_sequence,
+                    creator_review=decision.creator_review,
+                    protected_semantic_adjudications=material_adjudications,
+                    event_record=event_record,
+                )
+            )
+        else:
+            historical_decision = ProviderConcernTurnDecisionDraftV1(
+                schema_version=ProviderConcernTurnDecisionDraftV1.SCHEMA_VERSION,
+                decision_kind=decision.decision_kind,
+                story_segments=material_segments,
+                complete_final_sequence=decision.complete_final_sequence,
+                creator_review=decision.creator_review,
+                protected_semantic_adjudications=material_adjudications,
+                event_record=event_record,
+            )
+        historical_result = ContinuousSemanticValidatorResultV2.from_v1(
+            ContinuousSemanticValidatorDraftV5(
+                schema_version=ContinuousSemanticValidatorDraftV5.SCHEMA_VERSION,
+                package_id=self.package_id,
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                decision=historical_decision,
+            ).compile(accepted_pairs=accepted_pairs)
+        )
+        return ContinuousSemanticValidatorResultV3.from_v2(
+            historical_result,
+            presentation_realization_segments=presentation_segments,
+            presentation_protected_semantic_adjudications=(
+                presentation_adjudications
+            ),
+            source_grounded_public_state_receipts=source_receipts,
         )
 
 
@@ -3552,7 +4044,9 @@ def _constrain_nonempty_character_role_ledgers(value: Any) -> None:
             _constrain_nonempty_character_role_ledgers(child)
 
 
-def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
+def historical_continuous_semantic_validator_draft_v11_json_schema() -> dict[str, Any]:
+    """Exact pre-Queue-0054 V11 projection retained for evidence replay."""
+
     schema = _schema_for(ContinuousSemanticValidatorDraftV11)
     for branch in schema["properties"]["decision"]["anyOf"]:
         properties = branch.get("properties", {})
@@ -3590,6 +4084,48 @@ def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
             ]
     _constrain_active_python_hash_constants(schema)
     _constrain_nonempty_character_role_ledgers(schema)
+    return schema
+
+
+def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
+    """Active V12 projection with context-validated actorless presentation."""
+
+    schema = _schema_for(ContinuousSemanticValidatorDraftV12)
+    for branch in schema["properties"]["decision"]["anyOf"]:
+        properties = branch.get("properties", {})
+        for collection in (
+            "story_segments",
+            "realization_segments",
+            "protected_semantic_adjudications",
+            "diagnostic_story_segments",
+            "diagnostic_protected_semantic_adjudications",
+        ):
+            if collection in properties:
+                properties[collection]["minItems"] = 1
+        sequence = properties.get("complete_final_sequence")
+        if sequence is not None:
+            sequence["properties"]["items"]["minItems"] = 1
+        review = properties.get("creator_review")
+        if review is not None:
+            review_properties = review["properties"]
+            for field_name in ("creator_reason", "verifier_status"):
+                review_properties[field_name]["minLength"] = 1
+            if "primary_reason_code" in review_properties:
+                review_properties["primary_reason_code"]["minLength"] = 1
+        if "primary_reason_code" in properties:
+            properties["primary_reason_code"]["minLength"] = 1
+            properties["primary_reason_code"]["pattern"] = LOCAL_KEY_JSON_PATTERN
+        additional = properties.get("additional_reason_codes")
+        if additional is not None:
+            additional["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
+        violations = properties.get("writer_recall_violations")
+        if violations is not None:
+            violations["items"]["properties"]["prohibited_detail_classes"][
+                "items"
+            ]["enum"] = [
+                value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES
+            ]
+    _constrain_active_python_hash_constants(schema)
     return schema
 
 
@@ -3819,9 +4355,18 @@ class CodexContinuousValidatorPort:
                     writer_story_text=writer_story_text,
                     accepted_pairs=accepted_pairs,
                 )
-            else:
+            elif schema_version == ContinuousSemanticValidatorDraftV11.SCHEMA_VERSION:
                 draft = from_mapping(
                     ContinuousSemanticValidatorDraftV11,
+                    canonical_payload,
+                )
+                value = draft.compile(
+                    writer_story_text=writer_story_text,
+                    accepted_pairs=accepted_pairs,
+                )
+            else:
+                draft = from_mapping(
+                    ContinuousSemanticValidatorDraftV12,
                     canonical_payload,
                 )
                 value = draft.compile(

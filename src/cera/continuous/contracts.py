@@ -465,12 +465,16 @@ class CharacterRoleLedgerV1:
                 _identity(value, f"character_roles.{field}")
             _unique(values, f"character_roles.{field}")
         all_roles = tuple(value for field in fields for value in getattr(self, field))
-        if not all_roles:
-            raise ContractValidationError("character role ledger is empty")
         if len(all_roles) != len(set(all_roles)):
             raise ContractValidationError(
                 "one character cannot hold multiple roles in one scoped assertion"
             )
+
+    @property
+    def is_empty(self) -> bool:
+        """Whether this ledger represents actorless presentation metadata."""
+
+        return not self.involved_ids
 
     @property
     def assertion_owner_ids(self) -> tuple[str, ...]:
@@ -1218,6 +1222,10 @@ class FinalFieldScopeV1:
             self.protected_user_source_claim_keys,
             "final_field_scope.protected_user_source_claim_keys",
         )
+        if self.roles.is_empty:
+            raise ContractValidationError(
+                "final field scope requires character-owned story roles"
+            )
         if (
             "character:ted" in self.roles.assertion_owner_ids
         ) != bool(self.protected_user_source_claim_keys):
@@ -1248,6 +1256,10 @@ class FinalSequenceItemV1:
 
     def __post_init__(self) -> None:
         _key(self.item_key, "final_sequence.item_key")
+        if self.roles.is_empty:
+            raise ContractValidationError(
+                "final sequence item requires character-owned story roles"
+            )
         if not self.planner_beat_keys:
             raise ContractValidationError("final sequence item requires Planner bindings")
         for value in self.planner_beat_keys:
@@ -1400,6 +1412,10 @@ class EventItemRoleLedgerV1:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("event item role ledger schema changed")
         _key(self.final_sequence_item_key, "event_item_role.final_sequence_item_key")
+        if self.roles.is_empty:
+            raise ContractValidationError(
+                "event item role ledger requires character-owned story roles"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1809,6 +1825,61 @@ class PresentationRealizationSegmentV1:
         if not valid:
             raise ContractValidationError(
                 "presentation realization kind disagrees with ownership roles"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class SourceGroundedPublicStateReceiptV1:
+    """Python-verifiable citation for one non-authoritative public-state restatement.
+
+    Codex owns the semantic-equivalence judgment. Python owns exact Writer-span
+    custody and verifies that the cited source unit belongs to the current
+    ingress ledger. This receipt never grants finalization or persistence
+    authority.
+    """
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.source_grounded_public_state_receipt.v1"
+    )
+
+    schema_version: str
+    adjudication_key: str
+    segment_key: str
+    output_start: int
+    output_end: int
+    exact_text_sha256: str
+    protected_user_id: str
+    source_unit_key: str
+    authority_classification: str = "non_authoritative_presentation_only"
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "source-grounded public-state receipt schema changed"
+            )
+        _key(self.adjudication_key, "source_grounded_state.adjudication_key")
+        _key(self.segment_key, "source_grounded_state.segment_key")
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError(
+                "source-grounded public-state span is invalid"
+            )
+        if not re_is_sha256(self.exact_text_sha256):
+            raise ContractValidationError(
+                "source-grounded public-state text hash is invalid"
+            )
+        if self.protected_user_id != "character:ted":
+            raise ContractValidationError(
+                "source-grounded public state is restricted to the protected user"
+            )
+        _key(self.source_unit_key, "source_grounded_state.source_unit_key")
+        if self.authority_classification != "non_authoritative_presentation_only":
+            raise ContractValidationError(
+                "source-grounded public state cannot become story authority"
             )
 
 

@@ -41,6 +41,7 @@ from .contracts import (
     ProtectedUserSourceClaimKind,
     ProtectedUserSourceClaimV1,
     RichPlannerSequenceV1,
+    SourceGroundedPublicStateReceiptV1,
     StoryRealizationKind,
     StoryRealizationSegmentV1,
     ValidatorFinalizationPackageV1,
@@ -2085,6 +2086,9 @@ class RequestEvidenceBindingRegistry:
             ProtectedSemanticAdjudicationV1, ...
         ],
         allowed_character_ids: tuple[str, ...],
+        source_grounded_public_state_receipts: tuple[
+            SourceGroundedPublicStateReceiptV1, ...
+        ] = (),
     ) -> tuple[ProtectedUserRealizationSpanV1, ...]:
         """Validate complete bytes, then retain only story/material authority."""
 
@@ -2093,6 +2097,10 @@ class RequestEvidenceBindingRegistry:
         if material_keys & presentation_keys:
             raise PermissionError(
                 "presentation and story/material segment keys overlap"
+            )
+        if any(value.roles.is_empty for value in story_segments):
+            raise PermissionError(
+                "actorless presentation escaped into story/material authority"
             )
         ephemeral_presentation = tuple(
             StoryRealizationSegmentV1(
@@ -2137,6 +2145,9 @@ class RequestEvidenceBindingRegistry:
         self._validate_protected_semantics(
             complete_package,
             presentation_segments=presentation_segments,
+            source_grounded_public_state_receipts=(
+                source_grounded_public_state_receipts
+            ),
         )
         self._story_segments = {
             value.segment_key: value for value in story_segments
@@ -2546,6 +2557,9 @@ class RequestEvidenceBindingRegistry:
         package: ValidatorFinalizationPackageV1,
         *,
         presentation_segments: tuple[PresentationRealizationSegmentV1, ...] = (),
+        source_grounded_public_state_receipts: tuple[
+            SourceGroundedPublicStateReceiptV1, ...
+        ] = (),
     ) -> None:
         adjudications = {
             value.segment_key: value
@@ -2564,8 +2578,28 @@ class RequestEvidenceBindingRegistry:
         presentation_by_key = {
             value.segment_key: value for value in presentation_segments
         }
+        source_grounding_by_key = {
+            value.segment_key: value
+            for value in source_grounded_public_state_receipts
+        }
+        if len(source_grounding_by_key) != len(
+            source_grounded_public_state_receipts
+        ) or not set(source_grounding_by_key).issubset(presentation_by_key):
+            raise StateConflictError(
+                "source-grounded public state is duplicated or not presentation-only"
+            )
+        if any(
+            key not in adjudications
+            or adjudications[key].relation
+            is not ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE
+            for key in source_grounding_by_key
+        ):
+            raise StateConflictError(
+                "source-grounded public state changed its protected relation"
+            )
         for segment_key, segment in self._story_segments.items():
             adjudication = adjudications[segment_key]
+            source_grounding = source_grounding_by_key.get(segment_key)
             if (
                 adjudication.protected_user_id != "character:ted"
                 or adjudication.output_start != segment.output_start
@@ -2626,6 +2660,34 @@ class RequestEvidenceBindingRegistry:
                     if adjudication.protected_user_id
                     in getattr(segment.roles, field)
                 )
+                if source_grounding is not None:
+                    source_unit = self._source_units.get(
+                        source_grounding.source_unit_key
+                    )
+                    if (
+                        presentation is None
+                        or presentation.presentation_class
+                        is not PresentationRealizationClass.NONPERSISTENT_SPATIAL_PHRASING
+                        or segment.kind is not StoryRealizationKind.NARRATION
+                        or ted_role_fields != ("referenced_ids",)
+                        or segment.roles.assertion_owner_ids
+                        or adjudication.npc_assertion_owner_ids
+                        or adjudication.protected_user_source_claim_keys
+                        or source_unit is None
+                        or source_grounding.adjudication_key
+                        != adjudication.adjudication_key
+                        or source_grounding.output_start
+                        != adjudication.output_start
+                        or source_grounding.output_end != adjudication.output_end
+                        or source_grounding.exact_text_sha256
+                        != adjudication.exact_text_sha256
+                        or source_grounding.protected_user_id
+                        != adjudication.protected_user_id
+                    ):
+                        raise StateConflictError(
+                            "source-grounded public state lacks exact current-source presentation custody"
+                        )
+                    continue
                 if (
                     presentation is None
                     or presentation.presentation_class

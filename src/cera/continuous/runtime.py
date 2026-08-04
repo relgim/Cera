@@ -1814,6 +1814,13 @@ class ContinuousShadowTurnCoordinator:
                 (),
             )
         )
+        source_grounded_public_state_receipts = tuple(
+            getattr(
+                semantic_result,
+                "source_grounded_public_state_receipts",
+                (),
+            )
+        )
         debug.write_json("validator_output.json", to_primitive(semantic_result))
         debug.write_json("validator_tools.json", _provider_debug(validator_result))
         semantic_status = getattr(semantic_result, "semantic_status", None)
@@ -1879,17 +1886,24 @@ class ContinuousShadowTurnCoordinator:
             )
         protected_realizations = (
             evidence_registry.validate_validator_realization_boundary(
-            story_text=story_text,
-            story_segments=story_segments,
-            presentation_segments=presentation_segments,
-            package=package,
-            presentation_adjudications=presentation_adjudications,
-            allowed_character_ids=planner_sequence.selected_character_ids,
+                story_text=story_text,
+                story_segments=story_segments,
+                presentation_segments=presentation_segments,
+                package=package,
+                presentation_adjudications=presentation_adjudications,
+                allowed_character_ids=planner_sequence.selected_character_ids,
+                source_grounded_public_state_receipts=(
+                    source_grounded_public_state_receipts
+                ),
             )
         )
         debug.write_json(
             "presentation_realization_segments.json",
             to_primitive(presentation_segments),
+        )
+        debug.write_json(
+            "source_grounded_public_state_receipts.json",
+            to_primitive(source_grounded_public_state_receipts),
         )
         if (
             package.world_id != request.world_id
