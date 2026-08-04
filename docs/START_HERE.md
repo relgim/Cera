@@ -25,7 +25,7 @@ explicitly authorized.
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
 **Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v8`; `cera.continuous_validator_adapter.v16`; `cera.continuous_validator_prompt.v20`; `cera.continuous_validator_request.v7`
 **Runtime Model V3 Reader identity:** `cera.provider_reader_verdict.v1`; `cera.continuous_reader_adapter.v3`; `cera.continuous_reader_prompt.v3`
-**Runtime Model V3 verification:** rejected-only diagnostic boundary passed 1,011 provider-free tests with 3 skipped; Stage 4 V5 Validator and combined Reader qualification passed 6/6 and 4/4; complete scenes next require the active primary Planner/Validator lineage labels after historical harness drift stopped correction 004 pre-provider
+**Runtime Model V3 verification:** rejected-only diagnostic boundary passed 1,011 provider-free tests with 3 skipped; Stage 4 V5 Validator and combined Reader qualification passed 6/6 and 4/4; complete-scene preflight proved active lineage labels, then exposed historical colon-delimited scene/turn IDs before provider dispatch; the fresh harness uses active slug IDs without weakening production validation
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page

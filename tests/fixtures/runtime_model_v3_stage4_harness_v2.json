@@ -1,0 +1,25 @@
+{
+  "schema_version": "cera.runtime_model_v3_stage4_harness_fixture.v2",
+  "fixture_id": "runtime_model_v3_stage4_harness_v2",
+  "thread_lineage": {
+    "planner": {
+      "role": "planner",
+      "purpose": "primary_planner",
+      "creation_operation": "create"
+    },
+    "validator": {
+      "role": "validator",
+      "purpose": "primary_validator",
+      "creation_operation": "create"
+    }
+  },
+  "request_identity": {
+    "scene_id": "scene-001",
+    "turn_id": "turn-001"
+  },
+  "obsolete_identifiers": {
+    "scene_id": "scene:001",
+    "turn_id": "turn:001"
+  },
+  "scope": "shadow_qualification_only"
+}
