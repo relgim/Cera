@@ -192,7 +192,7 @@ class ContinuousProtectedIngressRegressionTests(unittest.TestCase):
 
         self.assertEqual(
             CONTINUOUS_PLANNER_PROMPT_VERSION,
-            "cera.continuous_planner_prompt.v15",
+            "cera.continuous_planner_prompt.v16",
         )
         self.assertIn(
             "begin the rich sequence with the first NPC-controlled causal consequence",

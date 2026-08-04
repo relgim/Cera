@@ -204,6 +204,20 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
             PLANNER_STABLE_INSTRUCTIONS,
         )
 
+    def test_npc_and_private_beats_require_exact_owner_active_bindings(self) -> None:
+        self.assertIn(
+            "Every beat with an NPC assertion owner must cite at least one exact ACTIVE world-record binding for that NPC",
+            PLANNER_STABLE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "Every private-state beat must cite the exact character-private ACTIVE binding",
+            PLANNER_STABLE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "emit separate beats and cite each owner's ACTIVE binding on that owner's beat",
+            PLANNER_STABLE_INSTRUCTIONS,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
