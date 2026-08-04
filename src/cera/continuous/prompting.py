@@ -24,6 +24,9 @@ from .packets import (
 
 CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v15"
 CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v25"
+WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION = (
+    "cera.writer_beat_realization_constraints.v1"
+)
 
 VALIDATOR_IDENTITY_INSTRUCTIONS = (
     "Copy package_id, world_id, and branch_id exactly from the current Validator "
@@ -268,6 +271,7 @@ def build_continuous_composer_prompt(
     writer_recall_directive: WriterRecallDirectiveV1 | None = None,
 ) -> tuple[str, tuple[PromptComponentUsageV1, ...]]:
     boundary = realization_boundary or WriterRealizationBoundaryV1.default()
+    beat_constraints = writer_beat_realization_constraints(planner_sequence)
     summaries = tuple(character_summaries)
     source_bytes = current_user_source.encode("utf-8")
     sequence_bytes = canonical_bytes(planner_sequence)
@@ -276,6 +280,7 @@ def build_continuous_composer_prompt(
     session_bytes = canonical_bytes(accepted_session_projections)
     source_unit_bytes = canonical_bytes(ingress_source_units)
     boundary_bytes = canonical_bytes(boundary)
+    beat_constraint_bytes = canonical_bytes(beat_constraints)
     recall_bytes = canonical_bytes(
         to_primitive(writer_recall_directive)
         if writer_recall_directive is not None
@@ -290,6 +295,7 @@ def build_continuous_composer_prompt(
             "protected_user_claim_manifest": protected_user_claim_manifest,
             "accepted_session_projections": accepted_session_projections,
             "writer_realization_boundary": boundary,
+            "writer_beat_realization_constraints": beat_constraints,
         }
     )
     if (
@@ -317,12 +323,21 @@ def build_continuous_composer_prompt(
         + session_bytes.decode("utf-8")
         + "\n\n[WRITER REALIZATION BOUNDARY]\n"
         + boundary_bytes.decode("utf-8")
+        + "\n\n[WRITER BEAT REALIZATION CONSTRAINTS - DETERMINISTIC PLANNER PROJECTION]\n"
+        + beat_constraint_bytes.decode("utf-8")
         + "\n\n[NON-AUTHORITATIVE WRITER RECALL DIRECTIVE]\n"
         + recall_bytes.decode("utf-8")
         + "\n\nRealize the full sequence while retaining the declared DeepSeek realization space. "
         + "Return one complete presentation-neutral story in story_text. You may use compatible "
         + "transient expression, gaze, brief pause, cadence, ordinary posture, and nonpersistent "
-        + "atmosphere, but do not invent a continuity-relevant object, task, event, relocation, "
+        + "atmosphere only where each detail is inside the intersection of that beat's observable "
+        + "direction, physical/material continuity, realization space, roles, protected-user "
+        + "allowance, and the final stopping point. Presentation freedom never overrides a beat "
+        + "constraint. Ordinary posture does not authorize attaching a character to an unnamed "
+        + "object, surface, task, room feature, or durable position. One-sided NPC gaze toward Ted "
+        + "is permitted when compatible; reciprocal language such as meeting Ted's gaze, sharing "
+        + "a look, or receiving his returned smile asserts Ted behavior and requires exact supplied "
+        + "creator authority. Do not invent a continuity-relevant object, task, event, relocation, "
         + "material change, relationship/memory/knowledge fact, private fact, or protected-user "
         + "behavior. Do not label or audit your own presentation detail. A recall directive is "
         + "diagnostic feedback about one rejected candidate only: do not continue, patch, merge, "
@@ -342,8 +357,38 @@ def build_continuous_composer_prompt(
         _usage("protected_user_claim_manifest", claim_bytes),
         _usage("accepted_session_projections", session_bytes),
         _usage("writer_realization_boundary", boundary_bytes),
+        _usage("writer_beat_realization_constraints", beat_constraint_bytes),
         _usage("writer_recall_directive", recall_bytes),
     )
+
+
+def writer_beat_realization_constraints(
+    planner_sequence: RichPlannerSequenceV1,
+) -> dict[str, Any]:
+    """Project existing Planner constraints without interpreting or expanding them."""
+
+    if not isinstance(planner_sequence, RichPlannerSequenceV1):
+        raise TypeError("planner_sequence must be a validated RichPlannerSequenceV1")
+    return {
+        "schema_version": WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION,
+        "sequence_id": planner_sequence.sequence_id,
+        "beats": tuple(
+            {
+                "beat_key": beat.beat_key,
+                "roles": to_primitive(beat.roles),
+                "observable_action_or_dialogue_direction": (
+                    beat.observable_action_or_dialogue_direction
+                ),
+                "physical_material_continuity": beat.physical_material_continuity,
+                "deepseek_realization_space": beat.deepseek_realization_space,
+                "protected_user_allowance": to_primitive(
+                    beat.protected_user_allowance
+                ),
+            }
+            for beat in planner_sequence.beats
+        ),
+        "final_stop_state": planner_sequence.final_stop_state,
+    }
 
 
 def continuous_writer_authority_package_sha256(
@@ -359,6 +404,7 @@ def continuous_writer_authority_package_sha256(
     """Hash only immutable Writer authority; recall feedback is excluded."""
 
     boundary = realization_boundary or WriterRealizationBoundaryV1.default()
+    beat_constraints = writer_beat_realization_constraints(planner_sequence)
     return canonical_sha256(
         {
             "current_user_source": current_user_source,
@@ -368,6 +414,7 @@ def continuous_writer_authority_package_sha256(
             "protected_user_claim_manifest": protected_user_claim_manifest,
             "accepted_session_projections": accepted_session_projections,
             "writer_realization_boundary": boundary,
+            "writer_beat_realization_constraints": beat_constraints,
         }
     )
 

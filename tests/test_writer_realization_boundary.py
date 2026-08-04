@@ -23,8 +23,10 @@ from cera.continuous.contracts import (
 )
 from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.prompting import (
+    WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION,
     build_continuous_composer_prompt,
     continuous_writer_authority_package_sha256,
+    writer_beat_realization_constraints,
 )
 from cera.continuous.provider import (
     CONTINUOUS_DEEPSEEK_ADAPTER_VERSION,
@@ -380,6 +382,99 @@ class WriterRealizationBoundaryTests(unittest.TestCase):
                     result.writer_recall_offending_spans[0].exact_text,
                     offending,
                 )
+
+    def test_writer_beat_constraints_are_an_exact_planner_projection(self) -> None:
+        planner = sequence()
+        projection = writer_beat_realization_constraints(planner)
+        source_beat = planner.beats[0]
+
+        self.assertEqual(
+            projection["schema_version"],
+            WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION,
+        )
+        self.assertEqual(projection["sequence_id"], planner.sequence_id)
+        self.assertEqual(projection["final_stop_state"], planner.final_stop_state)
+        self.assertEqual(len(projection["beats"]), 1)
+        projected_beat = projection["beats"][0]
+        self.assertEqual(
+            set(projected_beat),
+            {
+                "beat_key",
+                "roles",
+                "observable_action_or_dialogue_direction",
+                "physical_material_continuity",
+                "deepseek_realization_space",
+                "protected_user_allowance",
+            },
+        )
+        self.assertEqual(projected_beat["beat_key"], source_beat.beat_key)
+        self.assertEqual(
+            projected_beat["observable_action_or_dialogue_direction"],
+            source_beat.observable_action_or_dialogue_direction,
+        )
+        self.assertEqual(
+            projected_beat["physical_material_continuity"],
+            source_beat.physical_material_continuity,
+        )
+        self.assertEqual(
+            projected_beat["deepseek_realization_space"],
+            source_beat.deepseek_realization_space,
+        )
+        self.assertEqual(
+            projected_beat["protected_user_allowance"]["mode"],
+            source_beat.protected_user_allowance.mode.value,
+        )
+
+    def test_writer_prompt_foregrounds_intersection_and_protected_gaze_rules(self) -> None:
+        prompt, usage = build_continuous_composer_prompt(
+            current_user_source="How was your evening?",
+            ingress_source_units=(),
+            planner_sequence=sequence(),
+        )
+
+        self.assertIn(
+            "WRITER BEAT REALIZATION CONSTRAINTS - DETERMINISTIC PLANNER PROJECTION",
+            prompt,
+        )
+        self.assertIn("inside the intersection of that beat's observable", prompt)
+        self.assertIn(
+            "Ordinary posture does not authorize attaching a character to an unnamed",
+            prompt,
+        )
+        self.assertIn("One-sided NPC gaze toward Ted is permitted", prompt)
+        self.assertIn("meeting Ted's gaze", prompt)
+        self.assertIn("requires exact supplied creator authority", prompt)
+        self.assertIn(
+            "Sakura remains at the closed or narrowly controlled threshold",
+            prompt,
+        )
+        self.assertEqual(
+            tuple(value.component for value in usage)[-2:],
+            ("writer_beat_realization_constraints", "writer_recall_directive"),
+        )
+
+    def test_writer_authority_hash_binds_beat_constraints(self) -> None:
+        planner = sequence()
+        changed_beat = replace(
+            planner.beats[0],
+            physical_material_continuity=(
+                "Sakura remains at the threshold and keeps the interior unexposed."
+            ),
+        )
+        changed_planner = replace(planner, beats=(changed_beat,))
+
+        self.assertNotEqual(
+            continuous_writer_authority_package_sha256(
+                current_user_source="How was your evening?",
+                ingress_source_units=(),
+                planner_sequence=planner,
+            ),
+            continuous_writer_authority_package_sha256(
+                current_user_source="How was your evening?",
+                ingress_source_units=(),
+                planner_sequence=changed_planner,
+            ),
+        )
 
     def test_recall_is_bounded_non_authoritative_and_does_not_change_inputs(self) -> None:
         result = _rejected_result(

@@ -28,7 +28,7 @@ report and all D-186 through D-194 evidence remain immutable history.
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`; Runtime Model V3 Planner `cera.continuous_planner_adapter.v8` / `cera.continuous_planner_prompt.v15`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
-**Runtime Model V3 Writer identity:** `cera.scene_writer_draft.v1`; `cera.continuous_deepseek_adapter.v9`; `cera.scene_writer_prompt.v2`; DeepSeek V4 Flash non-thinking, with V4 Pro non-thinking conditional canary only
+**Runtime Model V3 Writer identity:** `cera.scene_writer_draft.v1`; `cera.continuous_deepseek_adapter.v9`; `cera.scene_writer_prompt.v3`; DeepSeek V4 Flash non-thinking, with V4 Pro non-thinking conditional canary only
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
 **Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v9`; `cera.continuous_validator_adapter.v18`; `cera.continuous_validator_prompt.v25`; `cera.continuous_validator_request.v9`
 **Runtime Model V3 Reader identity:** `cera.provider_reader_verdict.v1`; `cera.continuous_reader_adapter.v3`; `cera.continuous_reader_prompt.v3`

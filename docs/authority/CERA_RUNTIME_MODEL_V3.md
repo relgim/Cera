@@ -122,6 +122,15 @@ contains only typed reason codes, exact offending rejected-candidate spans,
 and closed prohibited-detail classes. Rejected prose is never continued,
 patched, merged, or accepted as context.
 
+The active Writer prompt includes a versioned, hash-bound, deterministic
+projection of each Planner beat's roles, observable direction,
+physical/material continuity, realization space, protected-user allowance, and
+the final stopping point. Writer freedom is the intersection of those fields,
+not their union. A generic presentation class cannot authorize an unnamed
+object, surface, task, room feature, durable position, or protected-user
+response. Compatible one-sided NPC gaze toward Ted remains available;
+reciprocal gaze or response language requires exact supplied Ted authority.
+
 ### Codex Semantic Validator
 
 The Validator receives the exact Writer bytes plus the validated plan, exact source authority, active cast, evidence bindings, and accepted scene anchor. It independently determines what the prose actually says to a reader.
@@ -245,6 +254,7 @@ The implementation must have tests that fail when any of these conditions is vio
 24. A presentation-only span enters final sequence, event, material change, memory, relationship, summary, accepted context, persistence, candidate authority, or canon.
 25. Dialogue, private state, consent or decision, a protected-user assertion, or any causal/durable detail is classified as presentation-only.
 26. Writer recall changes the frozen source, Planner sequence, cast, character material, stopping boundary, or authority-package hash; carries non-diagnostic facts; merges attempts; or enters accepted ancestry.
+27. A generic Writer presentation class overrides a beat's observable, physical/material, realization-space, role, protected-user, or stopping constraint.
 
 A documentation test must identify one controlling role matrix and reject conflicting active claims in `CERA_OWNER_ARCHITECTURE.md`, `RUNTIME_PIPELINE_AND_PORTS.md`, the schema catalog, decision ledger, roadmap, and handoff.
 
