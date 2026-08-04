@@ -136,7 +136,7 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v26",
+            "cera.continuous_validator_prompt.v27",
         )
         for required in (
             "applies independently to each final-sequence item",

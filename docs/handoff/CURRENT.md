@@ -25,7 +25,7 @@ override D-204.
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Runtime Model V3 Writer identity:** `cera.scene_writer_draft.v1`; `cera.continuous_deepseek_adapter.v9`; `cera.scene_writer_prompt.v3`; DeepSeek V4 Flash non-thinking, with V4 Pro non-thinking conditional canary only
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v10`; `cera.continuous_validator_adapter.v19`; `cera.continuous_validator_prompt.v26`; `cera.continuous_validator_request.v10`
+**Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v11`; `cera.continuous_validator_adapter.v20`; `cera.continuous_validator_prompt.v27`; `cera.continuous_validator_request.v11`
 **Runtime Model V3 Reader identity:** `cera.provider_reader_verdict.v1`; `cera.continuous_reader_adapter.v3`; `cera.continuous_reader_prompt.v3`
 **Runtime Model V3 verification:** the neutral protected-reference contract passes 90 focused tests and the complete provider-free repository gate passes 1,050 tests with 3 skipped; the bounded frozen-Flash Validator recovery is next
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits

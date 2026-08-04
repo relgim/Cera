@@ -38,13 +38,13 @@ from cera.continuous.provider import (
     ContinuousSemanticValidatorDraftV4,
     ContinuousSemanticValidatorDraftV6,
     ContinuousSemanticValidatorDraftV7,
-    ContinuousSemanticValidatorDraftV10,
+    ContinuousSemanticValidatorDraftV11,
     ProviderAcceptedDecisionKind,
-    ProviderAcceptedTurnDecisionDraftV3,
+    ProviderAcceptedTurnDecisionDraftV4,
     ProviderConcernCreatorReviewDraftV1,
     ProviderConcernDecisionKind,
     ProviderConcernReviewDisposition,
-    ProviderConcernTurnDecisionDraftV3,
+    ProviderConcernTurnDecisionDraftV4,
     ProviderDiagnosticIssueOwner,
     ProviderDiagnosticProtectedSemanticAdjudicationDraftV1,
     ProviderDiagnosticStorySegmentDraftV1,
@@ -187,8 +187,8 @@ def _canonical_v4() -> ContinuousSemanticValidatorDraftV4:
     )
 
 
-def _accepted_wire() -> ContinuousSemanticValidatorDraftV10:
-    return ContinuousSemanticValidatorDraftV10.from_v4(_canonical_v4())
+def _accepted_wire() -> ContinuousSemanticValidatorDraftV11:
+    return ContinuousSemanticValidatorDraftV11.from_v4(_canonical_v4())
 
 
 def _walk_named_properties(value: object, name: str, path: str = "$"):
@@ -268,11 +268,11 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Draft202012Validator(schema).validate(payload)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV10, payload)
+            from_mapping(ContinuousSemanticValidatorDraftV11, payload)
 
     def test_python_derives_canonical_adjudication_hash(self) -> None:
         wire = from_mapping(
-            ContinuousSemanticValidatorDraftV10,
+            ContinuousSemanticValidatorDraftV11,
             to_primitive(_accepted_wire()),
         )
         result = wire.compile(writer_story_text=STORY)
@@ -288,10 +288,10 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         accepted_decision = accepted.decision
         self.assertIsInstance(
             accepted_decision,
-            ProviderAcceptedTurnDecisionDraftV3,
+            ProviderAcceptedTurnDecisionDraftV4,
         )
-        concern = ProviderConcernTurnDecisionDraftV3(
-            schema_version=ProviderConcernTurnDecisionDraftV3.SCHEMA_VERSION,
+        concern = ProviderConcernTurnDecisionDraftV4(
+            schema_version=ProviderConcernTurnDecisionDraftV4.SCHEMA_VERSION,
             decision_kind=ProviderConcernDecisionKind.CONCERN,
             realization_segments=accepted_decision.realization_segments,
             complete_final_sequence=accepted_decision.complete_final_sequence,
@@ -385,7 +385,7 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
                 wire = replace(accepted, decision=decision)
                 payload = to_primitive(wire)
                 Draft202012Validator(schema).validate(payload)
-                decoded = from_mapping(ContinuousSemanticValidatorDraftV10, payload)
+                decoded = from_mapping(ContinuousSemanticValidatorDraftV11, payload)
                 compiled = decoded.compile(writer_story_text=STORY)
                 self.assertIs(compiled.semantic_status, expected_status)
                 self.assertEqual(
@@ -552,7 +552,7 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v19",
+            "cera.continuous_validator_adapter.v20",
         )
 
     def test_active_schema_rejects_provider_authored_prior_value_hash(self) -> None:

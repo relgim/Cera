@@ -75,7 +75,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v8"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v19"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v20"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v9"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v3"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v3"
@@ -125,6 +125,17 @@ class ProviderEventRecordDraftV1:
     accepted_turn_id: str
     scene_id: str
     summary: str
+    final_sequence_item_keys: tuple[str, ...]
+    protected_user_source_claim_keys: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderEventRecordDraftV2:
+    """Active event provenance only; Python derives event meaning text."""
+
+    event_id: str
+    accepted_turn_id: str
+    scene_id: str
     final_sequence_item_keys: tuple[str, ...]
     protected_user_source_claim_keys: tuple[str, ...]
 
@@ -2080,6 +2091,48 @@ class ProviderConcernTurnDecisionDraftV3:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderAcceptedTurnDecisionDraftV4:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_accepted_turn_decision.v4"
+
+    schema_version: str
+    decision_kind: ProviderAcceptedDecisionKind
+    realization_segments: tuple[ProviderRealizationSegmentDraftV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV2
+    creator_review: ProviderGoodCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProviderProtectedSemanticAdjudicationDraftV1, ...
+    ]
+    event_record: ProviderEventRecordDraftV2
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider accepted-decision V4 schema changed"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderConcernTurnDecisionDraftV4:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_concern_turn_decision.v4"
+
+    schema_version: str
+    decision_kind: ProviderConcernDecisionKind
+    realization_segments: tuple[ProviderRealizationSegmentDraftV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV2
+    creator_review: ProviderConcernCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProviderProtectedSemanticAdjudicationDraftV1, ...
+    ]
+    event_record: ProviderEventRecordDraftV2
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider concern-decision V4 schema changed"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderRejectedTurnDecisionDraftV4:
     SCHEMA_VERSION: ClassVar[str] = "cera.provider_rejected_turn_decision.v4"
 
@@ -2526,6 +2579,162 @@ class ContinuousSemanticValidatorDraftV10(ContinuousSemanticValidatorDraftV9):
             world_id=historical.world_id,
             branch_id=historical.branch_id,
             decision=historical.decision,
+        )
+
+
+ProviderSemanticDecisionDraftV5 = Union[
+    ProviderAcceptedTurnDecisionDraftV4,
+    ProviderConcernTurnDecisionDraftV4,
+    ProviderRejectedTurnDecisionDraftV4,
+    ProviderSceneSummaryDecisionDraftV1,
+]
+
+
+def _python_derived_event_record(
+    event: ProviderEventRecordDraftV2,
+    sequence: ProviderFinalSequenceDraftV2,
+) -> ProviderEventRecordDraftV1:
+    return ProviderEventRecordDraftV1(
+        event_id=event.event_id,
+        accepted_turn_id=event.accepted_turn_id,
+        scene_id=event.scene_id,
+        summary=" ".join(value.realized_event for value in sequence.items),
+        final_sequence_item_keys=event.final_sequence_item_keys,
+        protected_user_source_claim_keys=event.protected_user_source_claim_keys,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV11:
+    """Active Validator wire with Python-derived event summary text."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v11"
+
+    schema_version: str
+    package_id: str
+    world_id: str
+    branch_id: str
+    decision: ProviderSemanticDecisionDraftV5
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous Semantic Validator V11 provider schema changed"
+            )
+
+    @classmethod
+    def from_v4(
+        cls,
+        value: ContinuousSemanticValidatorDraftV4,
+    ) -> "ContinuousSemanticValidatorDraftV11":
+        historical = ContinuousSemanticValidatorDraftV10.from_v4(value)
+        decision = historical.decision
+        if isinstance(decision, ProviderAcceptedTurnDecisionDraftV3):
+            active: ProviderSemanticDecisionDraftV5 = (
+                ProviderAcceptedTurnDecisionDraftV4(
+                    schema_version=ProviderAcceptedTurnDecisionDraftV4.SCHEMA_VERSION,
+                    decision_kind=decision.decision_kind,
+                    realization_segments=decision.realization_segments,
+                    complete_final_sequence=decision.complete_final_sequence,
+                    creator_review=decision.creator_review,
+                    protected_semantic_adjudications=(
+                        decision.protected_semantic_adjudications
+                    ),
+                    event_record=ProviderEventRecordDraftV2(
+                        event_id=decision.event_record.event_id,
+                        accepted_turn_id=decision.event_record.accepted_turn_id,
+                        scene_id=decision.event_record.scene_id,
+                        final_sequence_item_keys=(
+                            decision.event_record.final_sequence_item_keys
+                        ),
+                        protected_user_source_claim_keys=(
+                            decision.event_record.protected_user_source_claim_keys
+                        ),
+                    ),
+                )
+            )
+        elif isinstance(decision, ProviderConcernTurnDecisionDraftV3):
+            active = ProviderConcernTurnDecisionDraftV4(
+                schema_version=ProviderConcernTurnDecisionDraftV4.SCHEMA_VERSION,
+                decision_kind=decision.decision_kind,
+                realization_segments=decision.realization_segments,
+                complete_final_sequence=decision.complete_final_sequence,
+                creator_review=decision.creator_review,
+                protected_semantic_adjudications=(
+                    decision.protected_semantic_adjudications
+                ),
+                event_record=ProviderEventRecordDraftV2(
+                    event_id=decision.event_record.event_id,
+                    accepted_turn_id=decision.event_record.accepted_turn_id,
+                    scene_id=decision.event_record.scene_id,
+                    final_sequence_item_keys=(
+                        decision.event_record.final_sequence_item_keys
+                    ),
+                    protected_user_source_claim_keys=(
+                        decision.event_record.protected_user_source_claim_keys
+                    ),
+                ),
+            )
+        else:
+            active = decision
+        return cls(
+            schema_version=cls.SCHEMA_VERSION,
+            package_id=historical.package_id,
+            world_id=historical.world_id,
+            branch_id=historical.branch_id,
+            decision=active,
+        )
+
+    def compile(
+        self,
+        *,
+        writer_story_text: str | None,
+        accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
+    ) -> ContinuousSemanticValidatorResultV3:
+        decision = self.decision
+        if isinstance(decision, ProviderAcceptedTurnDecisionDraftV4):
+            historical: ProviderSemanticDecisionDraftV4 = (
+                ProviderAcceptedTurnDecisionDraftV3(
+                    schema_version=ProviderAcceptedTurnDecisionDraftV3.SCHEMA_VERSION,
+                    decision_kind=decision.decision_kind,
+                    realization_segments=decision.realization_segments,
+                    complete_final_sequence=decision.complete_final_sequence,
+                    creator_review=decision.creator_review,
+                    protected_semantic_adjudications=(
+                        decision.protected_semantic_adjudications
+                    ),
+                    event_record=_python_derived_event_record(
+                        decision.event_record,
+                        decision.complete_final_sequence,
+                    ),
+                )
+            )
+        elif isinstance(decision, ProviderConcernTurnDecisionDraftV4):
+            historical = ProviderConcernTurnDecisionDraftV3(
+                schema_version=ProviderConcernTurnDecisionDraftV3.SCHEMA_VERSION,
+                decision_kind=decision.decision_kind,
+                realization_segments=decision.realization_segments,
+                complete_final_sequence=decision.complete_final_sequence,
+                creator_review=decision.creator_review,
+                protected_semantic_adjudications=(
+                    decision.protected_semantic_adjudications
+                ),
+                event_record=_python_derived_event_record(
+                    decision.event_record,
+                    decision.complete_final_sequence,
+                ),
+            )
+        else:
+            historical = decision
+        return ContinuousSemanticValidatorDraftV10(
+            schema_version=ContinuousSemanticValidatorDraftV10.SCHEMA_VERSION,
+            package_id=self.package_id,
+            world_id=self.world_id,
+            branch_id=self.branch_id,
+            decision=historical,
+        ).compile(
+            writer_story_text=writer_story_text,
+            accepted_pairs=accepted_pairs,
         )
 
 
@@ -3140,7 +3349,7 @@ def _inject_python_owned_persistence_hashes(
 
 
 def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
-    schema = _schema_for(ContinuousSemanticValidatorDraftV10)
+    schema = _schema_for(ContinuousSemanticValidatorDraftV11)
     for branch in schema["properties"]["decision"]["anyOf"]:
         properties = branch.get("properties", {})
         for collection in (
@@ -3376,9 +3585,18 @@ class CodexContinuousValidatorPort:
                     writer_story_text=writer_story_text,
                     accepted_pairs=accepted_pairs,
                 )
-            else:
+            elif schema_version == ContinuousSemanticValidatorDraftV10.SCHEMA_VERSION:
                 draft = from_mapping(
                     ContinuousSemanticValidatorDraftV10,
+                    canonical_payload,
+                )
+                value = draft.compile(
+                    writer_story_text=writer_story_text,
+                    accepted_pairs=accepted_pairs,
+                )
+            else:
+                draft = from_mapping(
+                    ContinuousSemanticValidatorDraftV11,
                     canonical_payload,
                 )
                 value = draft.compile(
