@@ -136,6 +136,49 @@ def _writer_attempt_number_for_recall(
     return writer_recall_directive.next_attempt_number
 
 
+def _planner_reference_only_character_ids(
+    planner_sequence: RichPlannerSequenceV1,
+) -> tuple[str, ...]:
+    """Validate current participant semantics and return authorized references."""
+
+    selected = set(planner_sequence.selected_character_ids)
+    omitted = set(planner_sequence.omitted_character_ids)
+    if "character:ted" in selected:
+        raise PermissionError(
+            "Planner selected cast cannot contain the protected user"
+        )
+    authorized_references: set[str] = set()
+    non_reference_fields = (
+        "action_owner_ids",
+        "state_owner_ids",
+        "speaker_ids",
+        "affected_ids",
+        "addressed_ids",
+        "observing_ids",
+    )
+    for beat in planner_sequence.beats:
+        for character_id in beat.roles.involved_ids:
+            if character_id == "character:ted" or character_id in selected:
+                continue
+            if character_id not in omitted:
+                raise PermissionError(
+                    "Planner beat introduced a character outside selected and omitted cast"
+                )
+            if character_id not in beat.roles.referenced_ids or any(
+                character_id in getattr(beat.roles, field)
+                for field in non_reference_fields
+            ):
+                raise PermissionError(
+                    "Planner omitted character may appear only as a reference"
+                )
+            authorized_references.add(character_id)
+    return tuple(
+        character_id
+        for character_id in planner_sequence.omitted_character_ids
+        if character_id in authorized_references
+    )
+
+
 def _validator_package_id(
     *,
     task_mode: ValidatorTaskMode,
@@ -1634,6 +1677,9 @@ class ContinuousShadowTurnCoordinator:
             or planner_sequence.scene_id != request.scene_id
         ):
             raise StateConflictError("Planner changed turn scope")
+        reference_only_character_ids = _planner_reference_only_character_ids(
+            planner_sequence
+        )
         evidence_registry.validate_sequence(
             planner_sequence,
             branch_root=branch_root,
@@ -1841,6 +1887,7 @@ class ContinuousShadowTurnCoordinator:
                     diagnostic_adjudications
                 ),
                 allowed_character_ids=planner_sequence.selected_character_ids,
+                reference_only_character_ids=reference_only_character_ids,
             )
             reason_codes = tuple(
                 getattr(semantic_result, "reason_codes", ())
@@ -1892,6 +1939,7 @@ class ContinuousShadowTurnCoordinator:
                 package=package,
                 presentation_adjudications=presentation_adjudications,
                 allowed_character_ids=planner_sequence.selected_character_ids,
+                reference_only_character_ids=reference_only_character_ids,
                 source_grounded_public_state_receipts=(
                     source_grounded_public_state_receipts
                 ),

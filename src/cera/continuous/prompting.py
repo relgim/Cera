@@ -25,8 +25,8 @@ from .packets import (
 )
 
 
-CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v16"
-CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v33"
+CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v17"
+CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v34"
 WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION = (
     "cera.writer_beat_realization_constraints.v2"
 )
@@ -67,6 +67,15 @@ For every canonical and diagnostic span, the semantic kind and assertion-owner r
 
 
 READER_STABLE_INSTRUCTIONS = """You are CERA's independent minimum-quality Reader checkpoint. Judge the exact immutable candidate as a complete reader-facing response after the Semantic Validator has already accepted hard authority and continuity. Reject only a severe visible quality failure: incoherent or unreadable prose, severe repetition or mechanical phrasing, a missing central scene event, clearly wrong character logic or voice, premature scene closure, or development materially below the selected depth. Minor style preference, harmless brevity, soft noncanonical detail, ordinary wording variation, and a merely imperfect sentence are accepted. Do not reclassify semantic authority. Return exactly one schema-defined decision branch plus the four scores. The accepted branch contains only its schema version and accepted verdict; it has no reason_codes or issues fields. The rejected branch requires nonempty typed reason_codes and nonempty exact issue spans for a severe visible failure. The inconclusive branch requires nonempty typed reason_codes, has no issues field, is not a Writer failure, and cannot authorize recall. Every reason_codes value and every issue_code is a local key and must match lower snake case `[a-z][a-z0-9_]{0,95}` exactly. Select issue offsets only; never calculate or return full-story or issue hashes because Python derives them from the immutable Writer bytes. Never rewrite, repair, continue, quote a replacement, create canon, or override a hard Python or Semantic Validator failure. Provider conversation is not story authority. No retry, fallback, or post-generation normalization."""
+
+
+PLANNER_STABLE_INSTRUCTIONS += """
+
+selected_character_ids contains active NPC participants only and must never contain character:ted. An NPC may address, affect, observe, or reference Ted without selecting him. Any other nonselected character named by a beat must be listed in omitted_character_ids and may appear only in referenced_ids; that does not activate the character, give them scene knowledge, or permit action, state, speech, observation, address, or effect roles."""
+
+VALIDATOR_STABLE_INSTRUCTIONS += """
+
+A Planner-authorized omitted character may appear in Validator roles only in referenced_ids. This is a reference-only allowance, not active cast: never assign that character action, state, speech, affected, addressed, or observing roles, and never infer their scene knowledge, presence, or participation. Do not reject an exact authorized offscreen reference merely because the character is outside active cast."""
 
 
 def _usage(name: str, payload: bytes) -> PromptComponentUsageV1:

@@ -79,6 +79,42 @@ def _read_branch_file_no_follow(
     return lexical_target(root, normalized), text
 
 
+def _validate_reference_only_roles(
+    *,
+    roles: CharacterRoleLedgerV1,
+    allowed_character_ids: tuple[str, ...],
+    reference_only_character_ids: tuple[str, ...],
+    error_prefix: str,
+) -> None:
+    allowed = set(allowed_character_ids)
+    allowed.add("character:ted")
+    reference_only = set(reference_only_character_ids)
+    if reference_only & allowed:
+        raise PermissionError(
+            f"{error_prefix} reference-only cast overlaps active cast"
+        )
+    if set(roles.involved_ids) - allowed - reference_only:
+        raise PermissionError(
+            f"{error_prefix} introduced an inactive character role"
+        )
+    non_reference_fields = (
+        "action_owner_ids",
+        "state_owner_ids",
+        "speaker_ids",
+        "affected_ids",
+        "addressed_ids",
+        "observing_ids",
+    )
+    if any(
+        character_id in getattr(roles, field)
+        for character_id in reference_only
+        for field in non_reference_fields
+    ):
+        raise PermissionError(
+            f"{error_prefix} activated a reference-only character"
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class AcceptedSessionFactV1:
     SCHEMA_VERSION: ClassVar[str] = "cera.accepted_session_fact.v2"
@@ -1995,6 +2031,7 @@ class RequestEvidenceBindingRegistry:
         story_text: str,
         story_segments: tuple[StoryRealizationSegmentV1, ...],
         allowed_character_ids: tuple[str, ...],
+        reference_only_character_ids: tuple[str, ...] = (),
     ) -> tuple[ProtectedUserRealizationSpanV1, ...]:
         """Mechanically verify Validator semantics against immutable Writer text.
 
@@ -2006,8 +2043,6 @@ class RequestEvidenceBindingRegistry:
             raise PermissionError(
                 "Semantic Validator omitted the exhaustive story-span ledger"
             )
-        allowed = set(allowed_character_ids)
-        allowed.add("character:ted")
         cursor = 0
         pending_segments: dict[str, StoryRealizationSegmentV1] = {}
         realizations: list[ProtectedUserRealizationSpanV1] = []
@@ -2024,11 +2059,12 @@ class RequestEvidenceBindingRegistry:
                 raise PermissionError(
                     "Semantic Validator story span changed exact Writer text"
                 )
-            unknown_roles = set(segment.roles.involved_ids) - allowed
-            if unknown_roles:
-                raise PermissionError(
-                    "Semantic Validator introduced an inactive character role"
-                )
+            _validate_reference_only_roles(
+                roles=segment.roles,
+                allowed_character_ids=allowed_character_ids,
+                reference_only_character_ids=reference_only_character_ids,
+                error_prefix="Semantic Validator",
+            )
             cursor = segment.output_end
             pending_segments[segment.segment_key] = segment
             protected = "character:ted" in segment.roles.assertion_owner_ids
@@ -2086,6 +2122,7 @@ class RequestEvidenceBindingRegistry:
             ProtectedSemanticAdjudicationV1, ...
         ],
         allowed_character_ids: tuple[str, ...],
+        reference_only_character_ids: tuple[str, ...] = (),
         source_grounded_public_state_receipts: tuple[
             SourceGroundedPublicStateReceiptV1, ...
         ] = (),
@@ -2134,6 +2171,7 @@ class RequestEvidenceBindingRegistry:
             story_text=story_text,
             story_segments=complete_segments,
             allowed_character_ids=allowed_character_ids,
+            reference_only_character_ids=reference_only_character_ids,
         )
         complete_package = replace(
             package,
@@ -2167,6 +2205,7 @@ class RequestEvidenceBindingRegistry:
             DiagnosticProtectedSemanticAdjudicationV1, ...
         ],
         allowed_character_ids: tuple[str, ...],
+        reference_only_character_ids: tuple[str, ...] = (),
     ) -> None:
         """Validate rejected-only evidence without adding it to authority state."""
 
@@ -2174,8 +2213,6 @@ class RequestEvidenceBindingRegistry:
             raise PermissionError(
                 "Semantic Validator omitted rejected diagnostic story spans"
             )
-        allowed = set(allowed_character_ids)
-        allowed.add("character:ted")
         cursor = 0
         segments: dict[str, DiagnosticStorySegmentV1] = {}
         for segment in diagnostic_story_segments:
@@ -2195,10 +2232,12 @@ class RequestEvidenceBindingRegistry:
                 raise PermissionError(
                     "Semantic Validator diagnostic span changed exact Writer text"
                 )
-            if set(segment.roles.involved_ids) - allowed:
-                raise PermissionError(
-                    "Semantic Validator diagnostic introduced an inactive character role"
-                )
+            _validate_reference_only_roles(
+                roles=segment.roles,
+                allowed_character_ids=allowed_character_ids,
+                reference_only_character_ids=reference_only_character_ids,
+                error_prefix="Semantic Validator diagnostic",
+            )
             protected = "character:ted" in segment.roles.assertion_owner_ids
             if (
                 segment.grounding_status
