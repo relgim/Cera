@@ -108,6 +108,37 @@ def _source_grounded_provider_pair():
 
 
 class ValidatorSimplificationSourceGroundedStateTests(unittest.TestCase):
+    def test_optional_incidental_prop_offer_is_soft_and_nonpersistent(self) -> None:
+        encoded = FROZEN_WRITER_OUTPUT.read_bytes()
+        story = json.loads(encoded.decode("utf-8"))["story_text"]
+        start = story.index("There", story.index("She offered"))
+        end = story.index(" she said", start)
+        tea_offer = story[start:end]
+        _, presentation = ProviderRealizationSegmentDraftV1(
+            schema_version=ProviderRealizationSegmentDraftV1.SCHEMA_VERSION,
+            segment_key="hana_optional_tea_offer",
+            authority_disposition=RealizationAuthorityDisposition.PRESENTATION_ONLY,
+            presentation_class=PresentationRealizationClass.INCIDENTAL_PROP,
+            kind=StoryRealizationKind.DIALOGUE,
+            output_start=start,
+            output_end=end,
+            roles=CharacterRoleLedgerV1(
+                speaker_ids=(HANA,), addressed_ids=(TED,)
+            ),
+            protected_user_source_claim_keys=(),
+        ).compile(writer_story_text=story)
+        self.assertEqual(
+            presentation.presentation_class,
+            PresentationRealizationClass.INCIDENTAL_PROP,
+        )
+        for required in (
+            "offering an incidental household item as optional low-stakes invitation color",
+            "does not prepare, transfer, acquire, consume, inventory, causally require, or retain",
+            "Do not classify such an optional mention as new_continuity_object",
+            "Actual preparation, transfer, acquisition, consumption, inventory change",
+        ):
+            self.assertIn(required, VALIDATOR_STABLE_INSTRUCTIONS)
+
     def test_exact_frozen_candidate_exercises_both_corrected_classes(self) -> None:
         encoded = FROZEN_WRITER_OUTPUT.read_bytes()
         self.assertEqual(

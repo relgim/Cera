@@ -395,7 +395,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v26",
+            "cera.continuous_validator_adapter.v27",
         )
         self.assertEqual(
             continuous_validator_route(model="gpt-5.6-sol", effort="medium").adapter_id,
