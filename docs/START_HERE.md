@@ -17,16 +17,16 @@ campaign. D-180 remains the active product route unless a later, separate
 promotion is explicitly authorized.
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** Queue 0052 Pro canary Validator recovery after explicit qualification-evidence-root correction, before Stage 4 V6 and Stages 5-7; D-180 remains active
+**Phase:** Queue 0052 neutral protected-reference contract correction before bounded Flash Validator recovery, Stage 4 V6, and Stages 5-7; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`; Runtime Model V3 Planner `cera.continuous_planner_adapter.v8` / `cera.continuous_planner_prompt.v15`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Runtime Model V3 Writer identity:** `cera.scene_writer_draft.v1`; `cera.continuous_deepseek_adapter.v9`; `cera.scene_writer_prompt.v3`; DeepSeek V4 Flash non-thinking, with V4 Pro non-thinking conditional canary only
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v9`; `cera.continuous_validator_adapter.v18`; `cera.continuous_validator_prompt.v25`; `cera.continuous_validator_request.v9`
+**Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v10`; `cera.continuous_validator_adapter.v19`; `cera.continuous_validator_prompt.v26`; `cera.continuous_validator_request.v10`
 **Runtime Model V3 Reader identity:** `cera.provider_reader_verdict.v1`; `cera.continuous_reader_adapter.v3`; `cera.continuous_reader_prompt.v3`
-**Runtime Model V3 verification:** the Validator request-identity correction passes 102 focused provider-free tests, including the closed ten-stage harness; the prior complete repository gate passed 1,036 tests with 3 skipped; the Flash canary is terminal, and the exact frozen Pro Writer candidate awaits the bounded corrected Validator/Reader recovery
+**Runtime Model V3 verification:** the neutral protected-reference contract passes 90 focused tests and the complete provider-free repository gate passes 1,050 tests with 3 skipped; the bounded frozen-Flash Validator recovery is next
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page

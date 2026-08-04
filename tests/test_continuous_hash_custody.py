@@ -38,7 +38,7 @@ from cera.continuous.provider import (
     ContinuousSemanticValidatorDraftV4,
     ContinuousSemanticValidatorDraftV6,
     ContinuousSemanticValidatorDraftV7,
-    ContinuousSemanticValidatorDraftV9,
+    ContinuousSemanticValidatorDraftV10,
     ProviderAcceptedDecisionKind,
     ProviderAcceptedTurnDecisionDraftV3,
     ProviderConcernCreatorReviewDraftV1,
@@ -187,8 +187,8 @@ def _canonical_v4() -> ContinuousSemanticValidatorDraftV4:
     )
 
 
-def _accepted_wire() -> ContinuousSemanticValidatorDraftV9:
-    return ContinuousSemanticValidatorDraftV9.from_v4(_canonical_v4())
+def _accepted_wire() -> ContinuousSemanticValidatorDraftV10:
+    return ContinuousSemanticValidatorDraftV10.from_v4(_canonical_v4())
 
 
 def _walk_named_properties(value: object, name: str, path: str = "$"):
@@ -268,11 +268,11 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Draft202012Validator(schema).validate(payload)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV9, payload)
+            from_mapping(ContinuousSemanticValidatorDraftV10, payload)
 
     def test_python_derives_canonical_adjudication_hash(self) -> None:
         wire = from_mapping(
-            ContinuousSemanticValidatorDraftV9,
+            ContinuousSemanticValidatorDraftV10,
             to_primitive(_accepted_wire()),
         )
         result = wire.compile(writer_story_text=STORY)
@@ -385,7 +385,7 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
                 wire = replace(accepted, decision=decision)
                 payload = to_primitive(wire)
                 Draft202012Validator(schema).validate(payload)
-                decoded = from_mapping(ContinuousSemanticValidatorDraftV9, payload)
+                decoded = from_mapping(ContinuousSemanticValidatorDraftV10, payload)
                 compiled = decoded.compile(writer_story_text=STORY)
                 self.assertIs(compiled.semantic_status, expected_status)
                 self.assertEqual(
@@ -552,7 +552,7 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v18",
+            "cera.continuous_validator_adapter.v19",
         )
 
     def test_active_schema_rejects_provider_authored_prior_value_hash(self) -> None:

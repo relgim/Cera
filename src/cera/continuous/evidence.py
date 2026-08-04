@@ -35,6 +35,7 @@ from .contracts import (
     ProtectedUserAllowanceMode,
     ProtectedSemanticAdjudicationV1,
     ProtectedSemanticRelationKind,
+    PresentationRealizationClass,
     PresentationRealizationSegmentV1,
     ProtectedUserRealizationSpanV1,
     ProtectedUserSourceClaimKind,
@@ -2133,7 +2134,10 @@ class RequestEvidenceBindingRegistry:
                 *presentation_adjudications,
             ),
         )
-        self._validate_protected_semantics(complete_package)
+        self._validate_protected_semantics(
+            complete_package,
+            presentation_segments=presentation_segments,
+        )
         self._story_segments = {
             value.segment_key: value for value in story_segments
         }
@@ -2274,6 +2278,34 @@ class RequestEvidenceBindingRegistry:
                 if "character:ted" in segment.roles.involved_ids:
                     raise PermissionError(
                         "diagnostic protected-user role was mislabeled as absent"
+                    )
+                continue
+            if (
+                adjudication.relation
+                is ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE
+            ):
+                ted_role_fields = tuple(
+                    field
+                    for field in (
+                        "action_owner_ids",
+                        "state_owner_ids",
+                        "speaker_ids",
+                        "affected_ids",
+                        "addressed_ids",
+                        "observing_ids",
+                        "referenced_ids",
+                    )
+                    if "character:ted" in getattr(segment.roles, field)
+                )
+                if (
+                    segment.kind is not StoryRealizationKind.NARRATION
+                    or ted_role_fields != ("referenced_ids",)
+                    or segment.roles.assertion_owner_ids
+                    or adjudication.npc_assertion_owner_ids
+                    or adjudication.protected_user_source_claim_keys
+                ):
+                    raise PermissionError(
+                        "diagnostic neutral protected reference changed its closed narration roles"
                     )
                 continue
             role_field = relation_fields[adjudication.relation]
@@ -2510,7 +2542,10 @@ class RequestEvidenceBindingRegistry:
             raise StateConflictError("event summary changed final-sequence facts")
 
     def _validate_protected_semantics(
-        self, package: ValidatorFinalizationPackageV1
+        self,
+        package: ValidatorFinalizationPackageV1,
+        *,
+        presentation_segments: tuple[PresentationRealizationSegmentV1, ...] = (),
     ) -> None:
         adjudications = {
             value.segment_key: value
@@ -2525,6 +2560,9 @@ class RequestEvidenceBindingRegistry:
             ProtectedSemanticRelationKind.ADDRESSED_BY_NPC: "addressed_ids",
             ProtectedSemanticRelationKind.OBSERVED_BY_NPC: "observing_ids",
             ProtectedSemanticRelationKind.REFERENCED_ONLY_BY_NPC: "referenced_ids",
+        }
+        presentation_by_key = {
+            value.segment_key: value for value in presentation_segments
         }
         for segment_key, segment in self._story_segments.items():
             adjudication = adjudications[segment_key]
@@ -2567,6 +2605,39 @@ class RequestEvidenceBindingRegistry:
                 ):
                     raise StateConflictError(
                         "protected-user role was mislabeled as absent"
+                    )
+                continue
+            if (
+                adjudication.relation
+                is ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE
+            ):
+                presentation = presentation_by_key.get(segment_key)
+                ted_role_fields = tuple(
+                    field
+                    for field in (
+                        "action_owner_ids",
+                        "state_owner_ids",
+                        "speaker_ids",
+                        "affected_ids",
+                        "addressed_ids",
+                        "observing_ids",
+                        "referenced_ids",
+                    )
+                    if adjudication.protected_user_id
+                    in getattr(segment.roles, field)
+                )
+                if (
+                    presentation is None
+                    or presentation.presentation_class
+                    is not PresentationRealizationClass.NONPERSISTENT_ATMOSPHERE
+                    or segment.kind is not StoryRealizationKind.NARRATION
+                    or ted_role_fields != ("referenced_ids",)
+                    or segment.roles.assertion_owner_ids
+                    or adjudication.npc_assertion_owner_ids
+                    or adjudication.protected_user_source_claim_keys
+                ):
+                    raise StateConflictError(
+                        "neutral protected reference escaped nonpersistent presentation narration"
                     )
                 continue
             role_field = relation_fields[adjudication.relation]

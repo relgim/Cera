@@ -33,7 +33,7 @@ spans, and closed prohibited-detail classes. It cannot add facts, change the
 Planner, continue rejected prose, merge attempts, enter accepted ancestry, or
 authorize a call after a Python, contract, authority, or accounting failure.
 
-## Active compatibility identities
+## Compatibility identities at this checkpoint
 
 - Writer wire: `cera.scene_writer_draft.v1`
 - DeepSeek adapter: `cera.continuous_deepseek_adapter.v9`
@@ -46,6 +46,9 @@ authorize a call after a Python, contract, authority, or accounting failure.
 
 Historical Validator V8 decoding remains available only for immutable evidence.
 The Writer wire still contains exactly `schema_version` and `story_text`.
+Later Queue 0052 corrections supersede these provider-facing versions; the
+current active identities are recorded in `docs/START_HERE.md` and
+`docs/contracts/SCHEMA_CATALOG.md` without rewriting this checkpoint history.
 
 ## Frozen predecessor dispositions
 

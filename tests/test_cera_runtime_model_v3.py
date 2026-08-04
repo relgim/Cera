@@ -136,7 +136,7 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v25",
+            "cera.continuous_validator_prompt.v26",
         )
         for required in (
             "applies independently to each final-sequence item",
@@ -146,9 +146,11 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
             "story_segment_keys reference must copy one exact story_material_assertion segment key",
             "field_scopes must contain exactly realized_event and resulting_state",
             "never emit a field scope for an empty optional array",
-            "relation none requires both npc_assertion_owner_ids and protected_user_source_claim_keys to be empty",
+            "relation none requires Ted to be absent and both npc_assertion_owner_ids and protected_user_source_claim_keys to be empty",
             "protected_assertion requires no NPC owners and exactly one supplied claim key",
             "each require at least one exact NPC predicate owner and no protected-user claim keys",
+            "Use neutral_presentation_reference only for presentation_only narration classified nonpersistent_atmosphere",
+            "It is a neutral framing reference, never Ted behavior or story authority",
             "Every story_material_assertion segment must have at least one character in exactly one role array",
             "Presentation_only may use only action for a transient NPC-owned visible behavior or narration with a non-owning active-cast role",
             "dialogue, private_state, and consent_or_decision are always story_material_assertion",

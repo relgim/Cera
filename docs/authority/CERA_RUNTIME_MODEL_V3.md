@@ -154,7 +154,7 @@ use a separate diagnostic-only family. That family may represent an ungrounded
 Ted assertion with zero claims only through an explicit typed violation, has
 Python-derived exact text/hash custody, and cannot enter finalization or canon.
 
-The active Validator V9 ledger further classifies every accepted/concern span
+The active Validator V10 ledger further classifies every accepted/concern span
 as `presentation_only` or `story_material_assertion`. Presentation is visible
 in the immutable accepted prose but noncanonical: Python validates its exact
 coverage and protected-user relation, then excludes it from final sequence,
@@ -162,6 +162,12 @@ events, material changes, memory, relationships, summaries, accepted-context
 references, persistence, and canon. Dialogue, private state, consent or
 decision, protected-user assertions, and any causal or durable detail are
 always story/material assertions and require exact Planner/evidence authority.
+V10 also provides one closed `neutral_presentation_reference` relation for
+`presentation_only` narration classified as nonpersistent atmosphere. Ted may
+appear only as a referenced participant, with no action/state/speech owner, NPC
+predicate owner, or protected claim. Python rejects that relation on material
+spans and excludes it from every final, event, memory, summary, accepted-context,
+persistence, and canon channel.
 
 ### Independent Reader checkpoint
 

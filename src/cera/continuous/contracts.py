@@ -1861,6 +1861,7 @@ class ProtectedSemanticRelationKind(StrEnum):
     ADDRESSED_BY_NPC = "addressed_by_npc"
     OBSERVED_BY_NPC = "observed_by_npc"
     REFERENCED_ONLY_BY_NPC = "referenced_only_by_npc"
+    NEUTRAL_PRESENTATION_REFERENCE = "neutral_presentation_reference"
 
 
 @dataclass(frozen=True, slots=True)
@@ -1924,10 +1925,13 @@ class ProtectedSemanticAdjudicationV1:
                 raise ContractValidationError(
                     "protected assertion adjudication requires one exact claim"
                 )
-        elif self.relation is ProtectedSemanticRelationKind.NONE:
+        elif self.relation in {
+            ProtectedSemanticRelationKind.NONE,
+            ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE,
+        }:
             if self.npc_assertion_owner_ids or self.protected_user_source_claim_keys:
                 raise ContractValidationError(
-                    "no-relation adjudication cannot carry owners or claims"
+                    "non-assertive protected adjudication cannot carry owners or claims"
                 )
         elif (
             not self.npc_assertion_owner_ids
@@ -2131,10 +2135,13 @@ class DiagnosticProtectedSemanticAdjudicationV1:
                 raise ContractValidationError(
                     "grounded protected adjudication requires one exact claim"
                 )
-        elif self.relation is ProtectedSemanticRelationKind.NONE:
+        elif self.relation in {
+            ProtectedSemanticRelationKind.NONE,
+            ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE,
+        }:
             if self.npc_assertion_owner_ids or self.protected_user_source_claim_keys:
                 raise ContractValidationError(
-                    "diagnostic no-relation adjudication cannot carry owners or claims"
+                    "diagnostic non-assertive adjudication cannot carry owners or claims"
                 )
         elif (
             not self.npc_assertion_owner_ids

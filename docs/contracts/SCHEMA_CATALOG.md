@@ -10,20 +10,23 @@ The one active role matrix is
 [`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](../architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
 Runtime Model V3 uses `cera.scene_writer_draft.v1` for exact prose only,
 `cera.writer_mechanical_envelope.v1` for Python-derived byte/hash/paragraph
-boundaries, and `cera.continuous_semantic_validator_draft.v9` for
+boundaries, and `cera.continuous_semantic_validator_draft.v10` for
 schema-closed, mutually exclusive Validator decision branches. Accepted and
 concern branches classify exact gap-free spans as either
 `presentation_only` or `story_material_assertion`; Python retains only the
 latter in final sequence, event, memory, summary, accepted-context,
 persistence, and canon authority. Rejected-only diagnostic spans retain
 Python-derived exact text and hashes and may open only a typed,
-candidate-specific, non-authoritative Writer recall directive. The active
+candidate-specific, non-authoritative Writer recall directive. V10 adds the
+closed `neutral_presentation_reference` relation only for nonpersistent
+presentation narration that references Ted without asserting any action,
+state, speech, response, or durable fact. The active
 family also owns review defaults, final-sequence identity, and final stop
 state. `cera.provider_reader_verdict.v1` remains the hash-free
 independent non-rewriting Reader wire. Python compiles that wire into canonical
 `cera.reader_verdict.v1`, validates all bindings, and is the only owner of
 candidate identity, events, memory, persistence, acceptance, and commit.
-Validator adapter V17 and Reader adapter V3 submit the same anchored
+Validator adapter V19 and Reader adapter V3 submit the same anchored
 lower-snake local-key pattern used
 by Python for every reason code and issue code. Provider projection must retain
 that pattern; neither the adapter nor Python lowercases provider output.

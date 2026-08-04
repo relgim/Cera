@@ -75,7 +75,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v8"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v18"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v19"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v9"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v3"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v3"
@@ -1053,12 +1053,16 @@ def _compile_provider_protected_adjudications(
     writer_story_text: str,
     story_segments: tuple[StoryRealizationSegmentV1, ...],
     adjudications: tuple[ProviderProtectedSemanticAdjudicationDraftV1, ...],
+    presentation_segments: tuple[PresentationRealizationSegmentV1, ...] = (),
 ) -> tuple[ProtectedSemanticAdjudicationV1, ...]:
     segments_by_key = {value.segment_key: value for value in story_segments}
     if len(segments_by_key) != len(story_segments):
         raise ContractValidationError(
             "Validator story segment keys are duplicated before hash custody"
         )
+    presentation_by_key = {
+        value.segment_key: value for value in presentation_segments
+    }
     compiled: list[ProtectedSemanticAdjudicationV1] = []
     for value in adjudications:
         segment = segments_by_key.get(value.segment_key)
@@ -1066,12 +1070,42 @@ def _compile_provider_protected_adjudications(
             raise ContractValidationError(
                 "protected adjudication cited an unknown Validator story segment"
             )
-        compiled.append(
-            value.compile(
-                writer_story_text=writer_story_text,
-                story_segment=segment,
-            )
+        adjudication = value.compile(
+            writer_story_text=writer_story_text,
+            story_segment=segment,
         )
+        if (
+            adjudication.relation
+            is ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE
+        ):
+            presentation = presentation_by_key.get(segment.segment_key)
+            ted_role_fields = tuple(
+                field
+                for field in (
+                    "action_owner_ids",
+                    "state_owner_ids",
+                    "speaker_ids",
+                    "affected_ids",
+                    "addressed_ids",
+                    "observing_ids",
+                    "referenced_ids",
+                )
+                if adjudication.protected_user_id in getattr(segment.roles, field)
+            )
+            if (
+                presentation is None
+                or presentation.presentation_class
+                is not PresentationRealizationClass.NONPERSISTENT_ATMOSPHERE
+                or segment.kind is not StoryRealizationKind.NARRATION
+                or ted_role_fields != ("referenced_ids",)
+                or segment.roles.assertion_owner_ids
+                or adjudication.npc_assertion_owner_ids
+                or adjudication.protected_user_source_claim_keys
+            ):
+                raise ContractValidationError(
+                    "neutral protected reference requires nonpersistent presentation-only narration"
+                )
+        compiled.append(adjudication)
     return tuple(compiled)
 
 
@@ -1349,6 +1383,34 @@ def _validate_diagnostic_adjudication_against_segment(
         if protected_user_id in segment.roles.involved_ids:
             raise ContractValidationError(
                 "diagnostic protected-user role was mislabeled as absent"
+            )
+        return
+    if (
+        adjudication.relation
+        is ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE
+    ):
+        ted_role_fields = tuple(
+            field
+            for field in (
+                "action_owner_ids",
+                "state_owner_ids",
+                "speaker_ids",
+                "affected_ids",
+                "addressed_ids",
+                "observing_ids",
+                "referenced_ids",
+            )
+            if protected_user_id in getattr(segment.roles, field)
+        )
+        if (
+            segment.kind is not StoryRealizationKind.NARRATION
+            or ted_role_fields != ("referenced_ids",)
+            or segment.roles.assertion_owner_ids
+            or adjudication.npc_assertion_owner_ids
+            or adjudication.protected_user_source_claim_keys
+        ):
+            raise ContractValidationError(
+                "diagnostic neutral protected reference changed its closed narration roles"
             )
         return
     relation_fields = {
@@ -2379,6 +2441,7 @@ class ContinuousSemanticValidatorDraftV9:
             writer_story_text=writer_story_text,
             story_segments=all_segments,
             adjudications=decision.protected_semantic_adjudications,
+            presentation_segments=presentation_segments,
         )
         if {value.segment_key for value in all_adjudications} != {
             value.segment_key for value in all_segments
@@ -2436,6 +2499,33 @@ class ContinuousSemanticValidatorDraftV9:
             presentation_protected_semantic_adjudications=(
                 presentation_adjudications
             ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV10(ContinuousSemanticValidatorDraftV9):
+    """Active Validator wire with neutral presentation-reference semantics."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v10"
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous Semantic Validator V10 provider schema changed"
+            )
+
+    @classmethod
+    def from_v4(
+        cls,
+        value: ContinuousSemanticValidatorDraftV4,
+    ) -> "ContinuousSemanticValidatorDraftV10":
+        historical = ContinuousSemanticValidatorDraftV9.from_v4(value)
+        return cls(
+            schema_version=cls.SCHEMA_VERSION,
+            package_id=historical.package_id,
+            world_id=historical.world_id,
+            branch_id=historical.branch_id,
+            decision=historical.decision,
         )
 
 
@@ -3050,7 +3140,7 @@ def _inject_python_owned_persistence_hashes(
 
 
 def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
-    schema = _schema_for(ContinuousSemanticValidatorDraftV9)
+    schema = _schema_for(ContinuousSemanticValidatorDraftV10)
     for branch in schema["properties"]["decision"]["anyOf"]:
         properties = branch.get("properties", {})
         for collection in (
@@ -3277,9 +3367,18 @@ class CodexContinuousValidatorPort:
                         accepted_pairs=accepted_pairs,
                     )
                 )
-            else:
+            elif schema_version == ContinuousSemanticValidatorDraftV9.SCHEMA_VERSION:
                 draft = from_mapping(
                     ContinuousSemanticValidatorDraftV9,
+                    canonical_payload,
+                )
+                value = draft.compile(
+                    writer_story_text=writer_story_text,
+                    accepted_pairs=accepted_pairs,
+                )
+            else:
+                draft = from_mapping(
+                    ContinuousSemanticValidatorDraftV10,
                     canonical_payload,
                 )
                 value = draft.compile(
