@@ -221,6 +221,7 @@ The implementation must have tests that fail when any of these conditions is vio
 19. A qualification harness supplies filesystem-backed scene or turn identifiers outside the active bounded slug contract, or weakens production validation to accept historical campaign punctuation.
 20. The active Planner provider schema permits any output local-key field that the closed Python Planner DTO rejects, or provider output is normalized after generation to hide such a mismatch.
 21. The active Validator prompt leaves diagnostic protected relations ambiguous against their exact role arrays, or permits `npc_assertion_owner_ids` to differ from the span's complete non-Ted assertion-owner set.
+22. The active Validator prompt permits canonical or diagnostic span offsets outside the exact zero-based Python Unicode-codepoint range, permits gaps or overlaps, or permits the final end offset to differ from the immutable Writer text's codepoint count.
 
 A documentation test must identify one controlling role matrix and reject conflicting active claims in `CERA_OWNER_ARCHITECTURE.md`, `RUNTIME_PIPELINE_AND_PORTS.md`, the schema catalog, decision ledger, roadmap, and handoff.
 

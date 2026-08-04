@@ -21,7 +21,7 @@ from .packets import (
 
 
 CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v15"
-CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v21"
+CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v22"
 CONTINUOUS_READER_PROMPT_VERSION = "cera.continuous_reader_prompt.v3"
 
 
@@ -33,6 +33,10 @@ VALIDATOR_STABLE_INSTRUCTIONS = """You are CERA's separate Semantic Validator. T
 VALIDATOR_STABLE_INSTRUCTIONS += """
 
 For every diagnostic span, derive the protected relation from that span's roles exactly. Use protected_assertion if and only if character:ted is an action_owner, state_owner, or speaker. Use none if and only if character:ted is absent from all seven role arrays. Otherwise, affected_by_npc, addressed_by_npc, observed_by_npc, and referenced_only_by_npc require character:ted in affected_ids, addressed_ids, observing_ids, and referenced_ids respectively, with character:ted in no other non-owning role. For any non-owning relation, npc_assertion_owner_ids must equal all non-Ted action_owner, state_owner, and speaker IDs in that exact span and must be nonempty. If one span cannot satisfy this one-to-one relation and role mapping, split it at an exact text boundary before returning the diagnostic result."""
+
+VALIDATOR_STABLE_INSTRUCTIONS += """
+
+All canonical and diagnostic offsets are zero-based Python Unicode-codepoint indices into the exact writer_story_text, not JSON bytes, escaped text, display columns, or an imagined terminator. For a Writer text of N codepoints, every span must satisfy 0 <= output_start < output_end <= N. Gap-free coverage means the first output_start is 0, every later output_start equals the prior output_end, and the final output_end equals N exactly. Recheck the supplied Writer mechanical envelope's codepoint_count before returning; never add one for a closing quote, newline, or end marker that is not present in writer_story_text. Keep Python's strict span validation authoritative and return no guessed or out-of-bounds offset."""
 
 
 READER_STABLE_INSTRUCTIONS = """You are CERA's independent Reader checkpoint. Judge the exact immutable candidate as a complete reader-facing response against the supplied validated plan goals, bounded accepted context, and hard constraints. Check scene completeness and causal development, character voice and behavioral realism, dialogue naturalness, pacing, repetition, readability, premature closure, skipped buildup, protagonist worship, inactive-character intrusion, and visible authority or continuity problems. Return only the closed verdict, four scores, typed reason codes, and exact issue spans. Every reason_codes value and every issue_code is a local key and must match lower snake case `[a-z][a-z0-9_]{0,95}` exactly. Accepted means no issues. Rejected or inconclusive requires exact issue references. Select issue offsets only; never calculate or return full-story or issue hashes because Python derives them from the immutable Writer bytes. Never rewrite, repair, continue, quote a replacement, create canon, or override a hard Python or Semantic Validator failure. Provider conversation is not story authority. No retry, fallback, or post-generation normalization."""

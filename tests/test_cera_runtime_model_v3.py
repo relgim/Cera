@@ -136,7 +136,7 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v21",
+            "cera.continuous_validator_prompt.v22",
         )
         for required in (
             "applies independently to each final-sequence item",
@@ -155,6 +155,10 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
             "require character:ted in affected_ids, addressed_ids, observing_ids, and referenced_ids respectively",
             "npc_assertion_owner_ids must equal all non-Ted action_owner, state_owner, and speaker IDs",
             "split it at an exact text boundary",
+            "zero-based Python Unicode-codepoint indices",
+            "0 <= output_start < output_end <= N",
+            "the final output_end equals N exactly",
+            "return no guessed or out-of-bounds offset",
         ):
             self.assertIn(required, VALIDATOR_STABLE_INSTRUCTIONS)
 
