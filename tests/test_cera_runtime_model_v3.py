@@ -136,21 +136,24 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v23",
+            "cera.continuous_validator_prompt.v24",
         )
         for required in (
             "applies independently to each final-sequence item",
             "one character ID may occur in exactly one of its seven role arrays",
             "split them into separate causally ordered final-sequence items",
             "must match lower snake case `[a-z][a-z0-9_]{0,95}` with no colon",
-            "story_segment_keys reference must copy one exact canonical segment key",
+            "story_segment_keys reference must copy one exact story_material_assertion segment key",
             "field_scopes must contain exactly realized_event and resulting_state",
             "never emit a field scope for an empty optional array",
             "relation none requires both npc_assertion_owner_ids and protected_user_source_claim_keys to be empty",
             "protected_assertion requires no NPC owners and exactly one supplied claim key",
             "each require at least one exact NPC predicate owner and no protected-user claim keys",
-            "Every canonical story segment must have at least one character in exactly one role array",
-            "Do not create a standalone role-empty narration or connector segment",
+            "Every story_material_assertion segment must have at least one character in exactly one role array",
+            "Presentation_only may use only action for a transient NPC-owned visible behavior or narration with a non-owning active-cast role",
+            "dialogue, private_state, and consent_or_decision are always story_material_assertion",
+            "Presentation-only segment keys must not appear anywhere in complete_final_sequence",
+            "diagnostic and presentation-only spans cannot enter final fields",
             "derive the protected relation from that span's roles exactly",
             "require character:ted in affected_ids, addressed_ids, observing_ids, and referenced_ids respectively",
             "npc_assertion_owner_ids must equal all non-Ted action_owner, state_owner, and speaker IDs",

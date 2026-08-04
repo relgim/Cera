@@ -13,6 +13,7 @@ from cera.continuous.contracts import (
     DiagnosticProtectedSemanticAdjudicationV1,
     DiagnosticStorySegmentV1,
     DiagnosticViolationClassification,
+    ProhibitedWriterDetailClass,
     ProtectedSemanticRelationKind,
     StoryRealizationKind,
     StoryRealizationSegmentV1,
@@ -20,13 +21,15 @@ from cera.continuous.contracts import (
 )
 from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.provider import (
-    ContinuousSemanticValidatorDraftV8,
-    ProviderAcceptedTurnDecisionDraftV2,
-    ProviderConcernTurnDecisionDraftV2,
+    ContinuousSemanticValidatorDraftV9,
+    ProviderAcceptedTurnDecisionDraftV3,
+    ProviderConcernTurnDecisionDraftV3,
     ProviderDiagnosticProtectedSemanticAdjudicationDraftV1,
     ProviderDiagnosticStorySegmentDraftV1,
     ProviderRejectedSemanticStatus,
-    ProviderRejectedTurnDecisionDraftV3,
+    ProviderRejectedTurnDecisionDraftV4,
+    ProviderRejectedViolationDraftV1,
+    ProviderWriterRecallEligibility,
     continuous_semantic_validator_draft_json_schema,
 )
 from cera.errors import ContractValidationError
@@ -47,9 +50,10 @@ TED_TEXT = "Ted stepped inside."
 
 def _diagnostic_decision(
     status: ProviderRejectedSemanticStatus = ProviderRejectedSemanticStatus.REJECTED,
-) -> ProviderRejectedTurnDecisionDraftV3:
-    return ProviderRejectedTurnDecisionDraftV3(
-        schema_version=ProviderRejectedTurnDecisionDraftV3.SCHEMA_VERSION,
+) -> ProviderRejectedTurnDecisionDraftV4:
+    recall_eligible = status is ProviderRejectedSemanticStatus.REJECTED
+    return ProviderRejectedTurnDecisionDraftV4(
+        schema_version=ProviderRejectedTurnDecisionDraftV4.SCHEMA_VERSION,
         semantic_status=status,
         primary_reason_code="protected_user_invention",
         additional_reason_codes=("protected_user_stopping_boundary_violation",),
@@ -117,14 +121,35 @@ def _diagnostic_decision(
                 protected_user_source_claim_keys=(),
             ),
         ),
+        writer_recall_eligibility=(
+            ProviderWriterRecallEligibility.ELIGIBLE
+            if recall_eligible
+            else ProviderWriterRecallEligibility.INELIGIBLE
+        ),
+        writer_recall_violations=(
+            (
+                ProviderRejectedViolationDraftV1(
+                    schema_version=(
+                        ProviderRejectedViolationDraftV1.SCHEMA_VERSION
+                    ),
+                    segment_key="ted_steps_inside",
+                    prohibited_detail_classes=(
+                        ProhibitedWriterDetailClass.PROTECTED_USER_BEHAVIOR,
+                        ProhibitedWriterDetailClass.STOPPING_BOUNDARY_VIOLATION,
+                    ),
+                ),
+            )
+            if recall_eligible
+            else ()
+        ),
     )
 
 
 def _wire(
     status: ProviderRejectedSemanticStatus = ProviderRejectedSemanticStatus.REJECTED,
-) -> ContinuousSemanticValidatorDraftV8:
-    return ContinuousSemanticValidatorDraftV8(
-        schema_version=ContinuousSemanticValidatorDraftV8.SCHEMA_VERSION,
+) -> ContinuousSemanticValidatorDraftV9:
+    return ContinuousSemanticValidatorDraftV9(
+        schema_version=ContinuousSemanticValidatorDraftV9.SCHEMA_VERSION,
         package_id="candidate:rejected_diagnostic_fixture",
         world_id="world:rejected_diagnostic_fixture",
         branch_id="branch:main",
@@ -137,7 +162,7 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
         payload = to_primitive(_wire())
         schema = continuous_semantic_validator_draft_json_schema()
         Draft202012Validator(schema).validate(payload)
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV8, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV9, payload)
         result = decoded.compile(writer_story_text=STORY)
 
         self.assertIs(result.semantic_status, ValidatorSemanticStatus.REJECTED)
@@ -158,6 +183,14 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
             result.diagnostic_protected_semantic_adjudications[1].violation_classification,
             DiagnosticViolationClassification.UNGROUNDED_PROTECTED_USER_ASSERTION,
         )
+        self.assertIs(
+            result.writer_recall_eligibility,
+            ProviderWriterRecallEligibility.ELIGIBLE,
+        )
+        self.assertEqual(
+            result.writer_recall_offending_spans[0].exact_text,
+            TED_TEXT,
+        )
 
     def test_rejected_inconclusive_and_error_round_trip_neutral_and_openai(self) -> None:
         neutral = continuous_semantic_validator_draft_json_schema()
@@ -175,7 +208,7 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
                 Draft202012Validator(neutral).validate(payload)
                 Draft202012Validator(projected).validate(payload)
                 result = from_mapping(
-                    ContinuousSemanticValidatorDraftV8, payload
+                    ContinuousSemanticValidatorDraftV9, payload
                 ).compile(writer_story_text=STORY)
                 self.assertIs(
                     result.semantic_status,
@@ -283,7 +316,7 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
                 continuous_semantic_validator_draft_json_schema()
             ).validate(tampered)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV8, tampered)
+            from_mapping(ContinuousSemanticValidatorDraftV9, tampered)
 
     def test_accepted_and_concern_schema_branches_expose_no_diagnostics(self) -> None:
         schema = continuous_semantic_validator_draft_json_schema()
@@ -293,14 +326,14 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
             for branch in branches
             if branch.get("properties", {}).get("schema_version", {}).get("const")
             in {
-                ProviderAcceptedTurnDecisionDraftV2.SCHEMA_VERSION,
-                ProviderConcernTurnDecisionDraftV2.SCHEMA_VERSION,
+                ProviderAcceptedTurnDecisionDraftV3.SCHEMA_VERSION,
+                ProviderConcernTurnDecisionDraftV3.SCHEMA_VERSION,
             }
         ]
         self.assertEqual(len(canonical), 2)
         for branch in canonical:
             properties = branch["properties"]
-            self.assertIn("story_segments", properties)
+            self.assertIn("realization_segments", properties)
             self.assertNotIn("diagnostic_story_segments", properties)
             self.assertNotIn(
                 "diagnostic_protected_semantic_adjudications", properties
@@ -309,10 +342,10 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
             branch
             for branch in branches
             if branch.get("properties", {}).get("schema_version", {}).get("const")
-            == ProviderRejectedTurnDecisionDraftV3.SCHEMA_VERSION
+            == ProviderRejectedTurnDecisionDraftV4.SCHEMA_VERSION
         ]
         self.assertEqual(len(rejected), 1)
-        self.assertNotIn("story_segments", rejected[0]["properties"])
+        self.assertNotIn("realization_segments", rejected[0]["properties"])
         self.assertNotIn(
             "protected_semantic_adjudications", rejected[0]["properties"]
         )
@@ -367,11 +400,11 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
     def test_diagnostic_types_have_no_conversion_to_canonical_authority(self) -> None:
         self.assertNotIn(
             "finalization_package",
-            {value.name for value in fields(ProviderRejectedTurnDecisionDraftV3)},
+            {value.name for value in fields(ProviderRejectedTurnDecisionDraftV4)},
         )
         self.assertNotIn(
             "complete_final_sequence",
-            {value.name for value in fields(ProviderRejectedTurnDecisionDraftV3)},
+            {value.name for value in fields(ProviderRejectedTurnDecisionDraftV4)},
         )
         self.assertFalse(hasattr(DiagnosticStorySegmentV1, "to_canonical"))
         self.assertFalse(

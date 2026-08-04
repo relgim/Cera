@@ -36,6 +36,7 @@ from cera.continuous.provider import (
     ContinuousSemanticValidatorDraftV6,
     ContinuousSemanticValidatorDraftV7,
     ContinuousSemanticValidatorDraftV8,
+    ContinuousSemanticValidatorDraftV9,
     ProviderEventRecordDraftV1,
     ProviderFinalSequenceDraftV2,
     _schema_for,
@@ -196,8 +197,8 @@ def _active_draft() -> ContinuousSemanticValidatorDraftV4:
     )
 
 
-def _active_wire() -> ContinuousSemanticValidatorDraftV8:
-    return ContinuousSemanticValidatorDraftV8.from_v4(_active_draft())
+def _active_wire() -> ContinuousSemanticValidatorDraftV9:
+    return ContinuousSemanticValidatorDraftV9.from_v4(_active_draft())
 
 
 class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
@@ -227,7 +228,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
 
     def test_all_five_values_decode_and_compile(self) -> None:
         payload = to_primitive(_active_wire())
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV8, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV9, payload)
         scopes = decoded.decision.complete_final_sequence.items[0].field_scopes
         self.assertEqual(tuple(value.field_name.value for value in scopes), EXPECTED_FINAL_FIELD_NAMES)
         self.assertTrue(all(isinstance(value.field_name, FinalFieldName) for value in scopes))
@@ -246,7 +247,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     Draft202012Validator(schema).validate(payload)
                 with self.assertRaises(ContractValidationError):
-                    from_mapping(ContinuousSemanticValidatorDraftV8, payload)
+                    from_mapping(ContinuousSemanticValidatorDraftV9, payload)
                 with self.assertRaises(ContractValidationError):
                     FinalFieldScopeV1(
                         field_name=arbitrary,
@@ -268,12 +269,12 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
             ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
         )
         self.assertEqual(
-            ContinuousSemanticValidatorDraftV8.SCHEMA_VERSION,
-            "cera.continuous_semantic_validator_draft.v8",
+            ContinuousSemanticValidatorDraftV9.SCHEMA_VERSION,
+            "cera.continuous_semantic_validator_draft.v9",
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v16",
+            "cera.continuous_validator_adapter.v17",
         )
         self.assertEqual(
             continuous_validator_route(model="gpt-5.6-sol", effort="medium").adapter_id,
@@ -327,6 +328,16 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 writer_story_text="Hana set down the teacup."
             ).finalization_package
         )
+        historical_v8 = ContinuousSemanticValidatorDraftV8.from_v4(_active_draft())
+        decoded_v8 = from_mapping(
+            ContinuousSemanticValidatorDraftV8,
+            to_primitive(historical_v8),
+        )
+        self.assertIsNotNone(
+            decoded_v8.compile(
+                writer_story_text="Hana set down the teacup."
+            ).finalization_package
+        )
 
     def test_active_wire_omits_and_python_derives_final_stop_state(self) -> None:
         payload = to_primitive(_active_wire())
@@ -336,7 +347,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         Draft202012Validator(continuous_semantic_validator_draft_json_schema()).validate(
             payload
         )
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV8, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV9, payload)
         final_sequence = decoded.compile(
             writer_story_text="Hana set down the teacup."
         ).finalization_package.complete_final_sequence
@@ -357,7 +368,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 continuous_semantic_validator_draft_json_schema()
             ).validate(injected)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV8, injected)
+            from_mapping(ContinuousSemanticValidatorDraftV9, injected)
 
     def test_failed_v2_cross_field_shape_is_reproduced_provider_free(self) -> None:
         payload = to_primitive(_active_draft())
@@ -389,7 +400,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 self.assertTrue(version_schema["const"].startswith("cera."))
         self.assertEqual(
             dict(versions)["$.properties.schema_version"]["const"],
-            ContinuousSemanticValidatorDraftV8.SCHEMA_VERSION,
+            ContinuousSemanticValidatorDraftV9.SCHEMA_VERSION,
         )
         decision_branches = schema["properties"]["decision"]["anyOf"]
         sequence_schemas = [
@@ -412,7 +423,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         for forbidden in ("reason_codes", "semantic_status"):
             self.assertNotIn(forbidden, payload)
         compiled = from_mapping(
-            ContinuousSemanticValidatorDraftV8, payload
+            ContinuousSemanticValidatorDraftV9, payload
         ).compile(
             writer_story_text="Hana set down the teacup."
         ).finalization_package
@@ -424,12 +435,12 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         canonical_branches = [
             branch
             for branch in schema["properties"]["decision"]["anyOf"]
-            if "story_segments" in branch.get("properties", {})
+            if "realization_segments" in branch.get("properties", {})
         ]
         self.assertEqual(len(canonical_branches), 2)
         for branch in canonical_branches:
             properties = branch["properties"]
-            self.assertEqual(properties["story_segments"]["minItems"], 1)
+            self.assertEqual(properties["realization_segments"]["minItems"], 1)
             self.assertEqual(
                 properties["protected_semantic_adjudications"]["minItems"], 1
             )
@@ -449,7 +460,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
             diagnostic["diagnostic_protected_semantic_adjudications"]["minItems"],
             1,
         )
-        self.assertNotIn("story_segments", diagnostic)
+        self.assertNotIn("realization_segments", diagnostic)
         self.assertNotIn("protected_semantic_adjudications", diagnostic)
         finalizing = [
             branch

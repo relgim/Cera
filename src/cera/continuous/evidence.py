@@ -33,7 +33,9 @@ from .contracts import (
     IngressSourceUnitV1,
     PersistenceRecordClass,
     ProtectedUserAllowanceMode,
+    ProtectedSemanticAdjudicationV1,
     ProtectedSemanticRelationKind,
+    PresentationRealizationSegmentV1,
     ProtectedUserRealizationSpanV1,
     ProtectedUserSourceClaimKind,
     ProtectedUserSourceClaimV1,
@@ -2070,6 +2072,76 @@ class RequestEvidenceBindingRegistry:
             )
         self._story_segments = pending_segments
         return tuple(realizations)
+
+    def validate_validator_realization_boundary(
+        self,
+        *,
+        story_text: str,
+        story_segments: tuple[StoryRealizationSegmentV1, ...],
+        presentation_segments: tuple[PresentationRealizationSegmentV1, ...],
+        package: ValidatorFinalizationPackageV1,
+        presentation_adjudications: tuple[
+            ProtectedSemanticAdjudicationV1, ...
+        ],
+        allowed_character_ids: tuple[str, ...],
+    ) -> tuple[ProtectedUserRealizationSpanV1, ...]:
+        """Validate complete bytes, then retain only story/material authority."""
+
+        material_keys = {value.segment_key for value in story_segments}
+        presentation_keys = {value.segment_key for value in presentation_segments}
+        if material_keys & presentation_keys:
+            raise PermissionError(
+                "presentation and story/material segment keys overlap"
+            )
+        ephemeral_presentation = tuple(
+            StoryRealizationSegmentV1(
+                schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+                segment_key=value.segment_key,
+                kind=value.kind,
+                output_start=value.output_start,
+                output_end=value.output_end,
+                exact_text=value.exact_text,
+                roles=value.roles,
+                protected_user_source_claim_keys=(),
+            )
+            for value in presentation_segments
+        )
+        complete_segments = tuple(
+            sorted(
+                (*story_segments, *ephemeral_presentation),
+                key=lambda value: value.output_start,
+            )
+        )
+        material_adjudications = package.protected_semantic_adjudications
+        if {value.segment_key for value in material_adjudications} != material_keys:
+            raise PermissionError(
+                "finalization carried presentation or omitted material adjudication"
+            )
+        if {value.segment_key for value in presentation_adjudications} != presentation_keys:
+            raise PermissionError(
+                "presentation adjudications do not cover presentation spans"
+            )
+        realizations = self.validate_validator_semantics(
+            story_text=story_text,
+            story_segments=complete_segments,
+            allowed_character_ids=allowed_character_ids,
+        )
+        complete_package = replace(
+            package,
+            protected_semantic_adjudications=(
+                *material_adjudications,
+                *presentation_adjudications,
+            ),
+        )
+        self._validate_protected_semantics(complete_package)
+        self._story_segments = {
+            value.segment_key: value for value in story_segments
+        }
+        if presentation_keys & set(self._story_segments):
+            raise PermissionError(
+                "presentation detail leaked into accepted story authority"
+            )
+        return realizations
 
     def validate_validator_diagnostics(
         self,

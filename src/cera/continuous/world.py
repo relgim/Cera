@@ -2958,6 +2958,7 @@ class ContinuousDebugRecorder:
         "validator_request.json",
         "validator_cited_accepted_evidence.json",
         "validator_output.json",
+        "presentation_realization_segments.json",
         "validator_tools.json",
         "reader_request.json",
         "reader_output.json",
@@ -2980,6 +2981,7 @@ class ContinuousDebugRecorder:
         "scene_change_output.json",
         "scene_change_tools.json",
         "scene_change_timing.json",
+        "writer_recall_directive.json",
     )
 
     def __init__(self, branch_root: Path, scene_id: str, turn_id: str) -> None:

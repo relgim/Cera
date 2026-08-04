@@ -112,6 +112,16 @@ The target Writer wire is intentionally minimal:
 
 Python may later accept raw text instead of this wrapper if the adapter contract is simpler and equally auditable. No semantic field may be added to the Writer wire without a new creator-reviewed architecture decision.
 
+The Writer may realize compatible transient expression, gaze, brief pause,
+cadence, ordinary posture, and nonpersistent atmosphere without self-labeling
+those details. It may not use that freedom to create continuity-relevant
+objects, tasks, events, relocation, material state, relationships, memory,
+knowledge, private facts, or protected-user behavior. A rejected Writer recall
+is one fresh stateless request against the same frozen authority package; it
+contains only typed reason codes, exact offending rejected-candidate spans,
+and closed prohibited-detail classes. Rejected prose is never continued,
+patched, merged, or accepted as context.
+
 ### Codex Semantic Validator
 
 The Validator receives the exact Writer bytes plus the validated plan, exact source authority, active cast, evidence bindings, and accepted scene anchor. It independently determines what the prose actually says to a reader.
@@ -134,6 +144,15 @@ and protected-adjudication family. Rejected, inconclusive, and error decisions
 use a separate diagnostic-only family. That family may represent an ungrounded
 Ted assertion with zero claims only through an explicit typed violation, has
 Python-derived exact text/hash custody, and cannot enter finalization or canon.
+
+The active Validator V9 ledger further classifies every accepted/concern span
+as `presentation_only` or `story_material_assertion`. Presentation is visible
+in the immutable accepted prose but noncanonical: Python validates its exact
+coverage and protected-user relation, then excludes it from final sequence,
+events, material changes, memory, relationships, summaries, accepted-context
+references, persistence, and canon. Dialogue, private state, consent or
+decision, protected-user assertions, and any causal or durable detail are
+always story/material assertions and require exact Planner/evidence authority.
 
 ### Independent Reader checkpoint
 
@@ -223,6 +242,9 @@ The implementation must have tests that fail when any of these conditions is vio
 21. The active Validator prompt leaves diagnostic protected relations ambiguous against their exact role arrays, or permits `npc_assertion_owner_ids` to differ from the span's complete non-Ted assertion-owner set.
 22. The active Validator prompt permits canonical or diagnostic span offsets outside the exact zero-based Python Unicode-codepoint range, permits gaps or overlaps, or permits the final end offset to differ from the immutable Writer text's codepoint count.
 23. The active Validator prompt permits a canonical or diagnostic span's semantic kind to disagree with its exact assertion-owner roles, including state-owned narration, or leaves mixed semantic kinds unsplit.
+24. A presentation-only span enters final sequence, event, material change, memory, relationship, summary, accepted context, persistence, candidate authority, or canon.
+25. Dialogue, private state, consent or decision, a protected-user assertion, or any causal/durable detail is classified as presentation-only.
+26. Writer recall changes the frozen source, Planner sequence, cast, character material, stopping boundary, or authority-package hash; carries non-diagnostic facts; merges attempts; or enters accepted ancestry.
 
 A documentation test must identify one controlling role matrix and reject conflicting active claims in `CERA_OWNER_ARCHITECTURE.md`, `RUNTIME_PIPELINE_AND_PORTS.md`, the schema catalog, decision ledger, roadmap, and handoff.
 
@@ -307,9 +329,15 @@ After the normal Runtime Model V3 route is provider-free complete and separately
 
 ## 9. Current effect
 
-Further live provider experiments are paused while Stages 0-3 are reconciled. The Queue 0043 creator budgets remain available but frozen at the last verified balance:
+Queue 0052 controls the current shadow qualification. The provider-free Writer
+realization checkpoint must pass before any new provider call. At Queue 0052
+start, the verified creator balances are Codex/Sol-family `764` and
+DeepSeek-family `791`; only the queue's exact stage ceilings and shared reserve
+may be used. The ordered path is Flash V4 non-thinking canary, conditional Pro
+V4 non-thinking canary only if required, Stage 4 V6, Stage 5 V6 using exact
+creator text `Continue the scene`, two isolated Stage 6 V6 SillyTavern runs,
+and one mandatory twenty-accepted-turn Stage 7 V6 disposable campaign.
 
-- Sol/Codex-family remaining: `491`;
-- DeepSeek-family remaining: `459`.
-
-No sequence 30 is allocated by this decision. No active production route, story database, installed SillyTavern profile, service, deployment, merge, remote, or push authority changes.
+No sequence 30 is allocated. No active product route, production story
+database, installed-user SillyTavern profile, service, deployment, merge,
+remote operation, or push authority changes.

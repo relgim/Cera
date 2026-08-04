@@ -19,11 +19,13 @@ from .contracts import (
     ReaderVerdictStatus,
     ReaderVerdictV1,
     RichPlannerSequenceV1,
+    PresentationRealizationSegmentV1,
     StoryRealizationSegmentV1,
     ValidatorFinalizationPackageV1,
     ValidatorSemanticStatus,
     ValidatorTaskMode,
     WriterMechanicalEnvelopeV1,
+    WriterRealizationBoundaryV1,
 )
 from .ingress import ContinuousIngressAuthorityPort
 from .evidence import (
@@ -47,6 +49,7 @@ from .prompting import (
     build_planner_turn_prompt,
     build_reader_prompt,
     build_validator_prompt,
+    continuous_writer_authority_package_sha256,
     planner_base_instruction_usage,
     prompt_text_usage,
     PLANNER_STABLE_INSTRUCTIONS,
@@ -1594,6 +1597,22 @@ class ContinuousShadowTurnCoordinator:
                 branch_root=branch_root,
                 envelope=summary,
             )
+        realization_boundary = WriterRealizationBoundaryV1.default()
+        frozen_writer_authority_sha256 = (
+            continuous_writer_authority_package_sha256(
+                current_user_source=request.user_message,
+                ingress_source_units=tuple(
+                    to_primitive(value) for value in source_units
+                ),
+                planner_sequence=planner_sequence,
+                character_summaries=request.character_summaries,
+                protected_user_claim_manifest=(
+                    evidence_registry.protected_user_claim_manifest()
+                ),
+                accepted_session_projections=(),
+                realization_boundary=realization_boundary,
+            )
+        )
         composer_prompt, composer_usage = build_continuous_composer_prompt(
             current_user_source=request.user_message,
             ingress_source_units=tuple(
@@ -1603,6 +1622,7 @@ class ContinuousShadowTurnCoordinator:
             character_summaries=request.character_summaries,
             protected_user_claim_manifest=evidence_registry.protected_user_claim_manifest(),
             accepted_session_projections=(),
+            realization_boundary=realization_boundary,
         )
         debug.write_json("deepseek_request.json", {"prompt": composer_prompt})
         started = time.perf_counter_ns()
@@ -1657,6 +1677,7 @@ class ContinuousShadowTurnCoordinator:
             cited_accepted_evidence=(
                 validator_cited_accepted_evidence_payload
             ),
+            realization_boundary=realization_boundary,
         )
         debug.write_json("validator_request.json", {"prompt": validator_prompt})
         started = time.perf_counter_ns()
@@ -1684,6 +1705,20 @@ class ContinuousShadowTurnCoordinator:
                 (),
             )
         )
+        presentation_segments = tuple(
+            getattr(
+                semantic_result,
+                "presentation_realization_segments",
+                (),
+            )
+        )
+        presentation_adjudications = tuple(
+            getattr(
+                semantic_result,
+                "presentation_protected_semantic_adjudications",
+                (),
+            )
+        )
         debug.write_json("validator_output.json", to_primitive(semantic_result))
         debug.write_json("validator_tools.json", _provider_debug(validator_result))
         semantic_status = getattr(semantic_result, "semantic_status", None)
@@ -1708,6 +1743,28 @@ class ContinuousShadowTurnCoordinator:
             reason_codes = tuple(
                 getattr(semantic_result, "reason_codes", ())
             )
+            recall_builder = getattr(
+                semantic_result,
+                "build_writer_recall_directive",
+                None,
+            )
+            if callable(recall_builder) and getattr(
+                semantic_result,
+                "writer_recall_offending_spans",
+                (),
+            ):
+                recall_directive = recall_builder(
+                    rejected_candidate_id=candidate_id,
+                    rejected_story_text=story_text,
+                    frozen_authority_package_sha256=(
+                        frozen_writer_authority_sha256
+                    ),
+                    source_attempt_number=1,
+                )
+                debug.write_json(
+                    "writer_recall_directive.json",
+                    to_primitive(recall_directive),
+                )
             error = PermissionError(
                 "Semantic Validator rejected or could not resolve the immutable "
                 f"Writer candidate: {','.join(reason_codes) or 'missing_typed_reason'}"
@@ -1718,10 +1775,26 @@ class ContinuousShadowTurnCoordinator:
             raise StateConflictError(
                 "accepted Validator result carried rejected diagnostic evidence"
             )
-        protected_realizations = evidence_registry.validate_validator_semantics(
+        if any(
+            not isinstance(value, PresentationRealizationSegmentV1)
+            for value in presentation_segments
+        ):
+            raise StateConflictError(
+                "Validator returned the wrong presentation realization contract"
+            )
+        protected_realizations = (
+            evidence_registry.validate_validator_realization_boundary(
             story_text=story_text,
             story_segments=story_segments,
+            presentation_segments=presentation_segments,
+            package=package,
+            presentation_adjudications=presentation_adjudications,
             allowed_character_ids=planner_sequence.selected_character_ids,
+            )
+        )
+        debug.write_json(
+            "presentation_realization_segments.json",
+            to_primitive(presentation_segments),
         )
         if (
             package.world_id != request.world_id
@@ -1750,6 +1823,7 @@ class ContinuousShadowTurnCoordinator:
                 "Do not invent protected-user action, dialogue, state, or choice.",
                 "Do not introduce inactive characters as scene participants.",
                 "Preserve the Planner stopping boundary.",
+                "Treat presentation-only realization as visible but noncanonical.",
             ),
         )
         debug.write_json("reader_request.json", {"prompt": reader_prompt})
@@ -1921,6 +1995,9 @@ class ContinuousShadowTurnCoordinator:
                 validator_cited_accepted_evidence_payload
             ),
             "validator_output.json": to_primitive(semantic_result),
+            "presentation_realization_segments.json": to_primitive(
+                presentation_segments
+            ),
             "validator_tools.json": _provider_debug(validator_result),
             "reader_request.json": {"prompt": reader_prompt},
             "reader_output.json": to_primitive(reader_verdict),

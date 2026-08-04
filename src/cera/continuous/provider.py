@@ -45,6 +45,10 @@ from .contracts import (
     ProtectedSemanticRelationKind,
     ProtectedUserRealizationSpanV1,
     ProtectedUserSourceClaimKind,
+    PresentationRealizationClass,
+    PresentationRealizationSegmentV1,
+    ProhibitedWriterDetailClass,
+    RealizationAuthorityDisposition,
     ReaderIssueReferenceV1,
     ReaderVerdictStatus,
     ReaderVerdictV1,
@@ -55,6 +59,8 @@ from .contracts import (
     ValidatorFinalizationPackageV1,
     ValidatorSemanticStatus,
     ValidatorTaskMode,
+    WriterRecallDirectiveV1,
+    WriterRecallOffendingSpanV1,
     WorldEditOperationKind,
     WorldEditOperationV1,
     json_value_type,
@@ -69,9 +75,9 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v8"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v16"
-CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v8"
-CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v1"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v17"
+CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v9"
+CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v2"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v3"
 
 
@@ -1792,6 +1798,647 @@ class ContinuousSemanticValidatorDraftV8:
         return ContinuousSemanticValidatorResultV2.from_v1(historical)
 
 
+class ProviderWriterRecallEligibility(str, Enum):
+    NOT_APPLICABLE = "not_applicable"
+    ELIGIBLE = "eligible"
+    INELIGIBLE = "ineligible"
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRealizationSegmentDraftV1:
+    """Validator classification over one exact Writer span.
+
+    Python slices the immutable Writer bytes.  The provider classifies meaning
+    and whether the span is transient presentation or a story/material fact.
+    """
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_realization_segment.v1"
+
+    schema_version: str
+    segment_key: str
+    authority_disposition: RealizationAuthorityDisposition
+    presentation_class: PresentationRealizationClass | None
+    kind: StoryRealizationKind
+    output_start: int
+    output_end: int
+    roles: CharacterRoleLedgerV1
+    protected_user_source_claim_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider realization-segment schema changed"
+            )
+        if (
+            self.authority_disposition
+            is RealizationAuthorityDisposition.PRESENTATION_ONLY
+        ) != (self.presentation_class is not None):
+            raise ContractValidationError(
+                "realization disposition and presentation class disagree"
+            )
+
+    def compile(
+        self,
+        *,
+        writer_story_text: str,
+    ) -> tuple[StoryRealizationSegmentV1, PresentationRealizationSegmentV1 | None]:
+        if (
+            not isinstance(writer_story_text, str)
+            or not writer_story_text
+            or "\x00" in writer_story_text
+            or type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end > len(writer_story_text)
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError(
+                "realization span is empty or outside immutable Writer text"
+            )
+        exact_text = writer_story_text[self.output_start : self.output_end]
+        semantic_segment = StoryRealizationSegmentV1(
+            schema_version=StoryRealizationSegmentV1.SCHEMA_VERSION,
+            segment_key=self.segment_key,
+            kind=self.kind,
+            output_start=self.output_start,
+            output_end=self.output_end,
+            exact_text=exact_text,
+            roles=self.roles,
+            protected_user_source_claim_keys=(
+                self.protected_user_source_claim_keys
+            ),
+        )
+        if (
+            self.authority_disposition
+            is RealizationAuthorityDisposition.STORY_MATERIAL_ASSERTION
+        ):
+            return semantic_segment, None
+        if self.protected_user_source_claim_keys:
+            raise ContractValidationError(
+                "presentation-only realization cannot carry protected claims"
+            )
+        assert self.presentation_class is not None
+        return semantic_segment, PresentationRealizationSegmentV1(
+            schema_version=PresentationRealizationSegmentV1.SCHEMA_VERSION,
+            segment_key=self.segment_key,
+            presentation_class=self.presentation_class,
+            kind=self.kind,
+            output_start=self.output_start,
+            output_end=self.output_end,
+            exact_text=exact_text,
+            exact_text_sha256=text_sha256(exact_text),
+            roles=self.roles,
+        )
+
+
+def _compile_provider_realization_segments(
+    *,
+    writer_story_text: str,
+    values: tuple[ProviderRealizationSegmentDraftV1, ...],
+) -> tuple[
+    tuple[StoryRealizationSegmentV1, ...],
+    tuple[StoryRealizationSegmentV1, ...],
+    tuple[PresentationRealizationSegmentV1, ...],
+]:
+    if not values:
+        raise ContractValidationError(
+            "Validator omitted the exhaustive realization-span ledger"
+        )
+    all_segments: list[StoryRealizationSegmentV1] = []
+    material_segments: list[StoryRealizationSegmentV1] = []
+    presentation_segments: list[PresentationRealizationSegmentV1] = []
+    cursor = 0
+    keys: set[str] = set()
+    for value in values:
+        semantic, presentation = value.compile(
+            writer_story_text=writer_story_text
+        )
+        if semantic.segment_key in keys or semantic.output_start != cursor:
+            raise ContractValidationError(
+                "realization spans are duplicated, unordered, or not gap-free"
+            )
+        keys.add(semantic.segment_key)
+        cursor = semantic.output_end
+        all_segments.append(semantic)
+        if presentation is None:
+            material_segments.append(semantic)
+        else:
+            presentation_segments.append(presentation)
+    if cursor != len(writer_story_text):
+        raise ContractValidationError(
+            "realization spans do not cover immutable Writer text"
+        )
+    if not material_segments:
+        raise ContractValidationError(
+            "accepted prose requires at least one story/material assertion"
+        )
+    return (
+        tuple(all_segments),
+        tuple(material_segments),
+        tuple(presentation_segments),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRejectedViolationDraftV1:
+    """Provider-selected offending span; Python owns exact text custody."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_rejected_violation.v1"
+
+    schema_version: str
+    segment_key: str
+    prohibited_detail_classes: tuple[ProhibitedWriterDetailClass, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider rejected-violation schema changed"
+            )
+
+    def compile(
+        self,
+        *,
+        segment: DiagnosticStorySegmentV1,
+    ) -> WriterRecallOffendingSpanV1:
+        if segment.segment_key != self.segment_key:
+            raise ContractValidationError(
+                "Writer recall violation cited the wrong diagnostic span"
+            )
+        return WriterRecallOffendingSpanV1(
+            schema_version=WriterRecallOffendingSpanV1.SCHEMA_VERSION,
+            segment_key=segment.segment_key,
+            output_start=segment.output_start,
+            output_end=segment.output_end,
+            exact_text=segment.exact_text,
+            exact_text_sha256=segment.exact_text_sha256,
+            prohibited_detail_classes=self.prohibited_detail_classes,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderAcceptedTurnDecisionDraftV3:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_accepted_turn_decision.v3"
+
+    schema_version: str
+    decision_kind: ProviderAcceptedDecisionKind
+    realization_segments: tuple[ProviderRealizationSegmentDraftV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV2
+    creator_review: ProviderGoodCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProviderProtectedSemanticAdjudicationDraftV1, ...
+    ]
+    event_record: ProviderEventRecordDraftV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider accepted-decision V3 schema changed"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderConcernTurnDecisionDraftV3:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_concern_turn_decision.v3"
+
+    schema_version: str
+    decision_kind: ProviderConcernDecisionKind
+    realization_segments: tuple[ProviderRealizationSegmentDraftV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV2
+    creator_review: ProviderConcernCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProviderProtectedSemanticAdjudicationDraftV1, ...
+    ]
+    event_record: ProviderEventRecordDraftV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider concern-decision V3 schema changed"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRejectedTurnDecisionDraftV4:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_rejected_turn_decision.v4"
+
+    schema_version: str
+    semantic_status: ProviderRejectedSemanticStatus
+    primary_reason_code: str
+    additional_reason_codes: tuple[str, ...]
+    diagnostic_story_segments: tuple[ProviderDiagnosticStorySegmentDraftV1, ...]
+    diagnostic_protected_semantic_adjudications: tuple[
+        ProviderDiagnosticProtectedSemanticAdjudicationDraftV1, ...
+    ]
+    writer_recall_eligibility: ProviderWriterRecallEligibility
+    writer_recall_violations: tuple[ProviderRejectedViolationDraftV1, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider rejected-decision V4 schema changed"
+            )
+        eligible = (
+            self.writer_recall_eligibility
+            is ProviderWriterRecallEligibility.ELIGIBLE
+        )
+        if eligible != bool(self.writer_recall_violations):
+            raise ContractValidationError(
+                "Writer recall eligibility and violations disagree"
+            )
+        if eligible and self.semantic_status is not ProviderRejectedSemanticStatus.REJECTED:
+            raise ContractValidationError(
+                "only a rejected Writer-attributable verdict may open recall"
+            )
+
+    @property
+    def reason_codes(self) -> tuple[str, ...]:
+        return (self.primary_reason_code, *self.additional_reason_codes)
+
+    def compile(
+        self,
+        *,
+        writer_story_text: str,
+    ) -> tuple[ContinuousSemanticValidatorResultV2, tuple[WriterRecallOffendingSpanV1, ...]]:
+        historical = ProviderRejectedTurnDecisionDraftV3(
+            schema_version=ProviderRejectedTurnDecisionDraftV3.SCHEMA_VERSION,
+            semantic_status=self.semantic_status,
+            primary_reason_code=self.primary_reason_code,
+            additional_reason_codes=self.additional_reason_codes,
+            diagnostic_story_segments=self.diagnostic_story_segments,
+            diagnostic_protected_semantic_adjudications=(
+                self.diagnostic_protected_semantic_adjudications
+            ),
+        ).compile(writer_story_text=writer_story_text)
+        segment_map = {
+            value.segment_key: value
+            for value in historical.diagnostic_story_segments
+        }
+        if len({value.segment_key for value in self.writer_recall_violations}) != len(
+            self.writer_recall_violations
+        ):
+            raise ContractValidationError(
+                "Writer recall violations duplicated a diagnostic span"
+            )
+        offending: list[WriterRecallOffendingSpanV1] = []
+        for value in self.writer_recall_violations:
+            segment = segment_map.get(value.segment_key)
+            if segment is None:
+                raise ContractValidationError(
+                    "Writer recall violation cited an unknown diagnostic span"
+                )
+            offending.append(value.compile(segment=segment))
+        return historical, tuple(offending)
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorResultV3:
+    """Active result with non-authoritative presentation and recall channels."""
+
+    semantic_status: ValidatorSemanticStatus
+    reason_codes: tuple[str, ...]
+    story_segments: tuple[StoryRealizationSegmentV1, ...]
+    protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ]
+    presentation_realization_segments: tuple[
+        PresentationRealizationSegmentV1, ...
+    ]
+    presentation_protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ]
+    diagnostic_story_segments: tuple[DiagnosticStorySegmentV1, ...]
+    diagnostic_protected_semantic_adjudications: tuple[
+        DiagnosticProtectedSemanticAdjudicationV1, ...
+    ]
+    finalization_package: ValidatorFinalizationPackageV1 | None
+    writer_recall_eligibility: ProviderWriterRecallEligibility
+    writer_recall_offending_spans: tuple[WriterRecallOffendingSpanV1, ...]
+
+    def __post_init__(self) -> None:
+        ContinuousSemanticValidatorResultV2(
+            semantic_status=self.semantic_status,
+            reason_codes=self.reason_codes,
+            story_segments=self.story_segments,
+            protected_semantic_adjudications=(
+                self.protected_semantic_adjudications
+            ),
+            diagnostic_story_segments=self.diagnostic_story_segments,
+            diagnostic_protected_semantic_adjudications=(
+                self.diagnostic_protected_semantic_adjudications
+            ),
+            finalization_package=self.finalization_package,
+        )
+        accepted = self.semantic_status in {
+            ValidatorSemanticStatus.ACCEPTED,
+            ValidatorSemanticStatus.CONCERN,
+        }
+        if accepted:
+            if (
+                self.writer_recall_eligibility
+                is not ProviderWriterRecallEligibility.NOT_APPLICABLE
+                or self.writer_recall_offending_spans
+            ):
+                raise ContractValidationError(
+                    "accepted Validator result cannot carry Writer recall feedback"
+                )
+            presentation_keys = {
+                value.segment_key
+                for value in self.presentation_realization_segments
+            }
+            adjudication_keys = {
+                value.segment_key
+                for value in self.presentation_protected_semantic_adjudications
+            }
+            if presentation_keys != adjudication_keys:
+                raise ContractValidationError(
+                    "presentation spans require separate complete protected adjudication"
+                )
+            if presentation_keys & {
+                value.segment_key for value in self.story_segments
+            }:
+                raise ContractValidationError(
+                    "presentation and story authority segment keys cannot overlap"
+                )
+        else:
+            if (
+                self.presentation_realization_segments
+                or self.presentation_protected_semantic_adjudications
+                or self.writer_recall_eligibility
+                is ProviderWriterRecallEligibility.NOT_APPLICABLE
+            ):
+                raise ContractValidationError(
+                    "rejected Validator result mixed presentation or missing recall disposition"
+                )
+            eligible = (
+                self.writer_recall_eligibility
+                is ProviderWriterRecallEligibility.ELIGIBLE
+            )
+            if eligible != bool(self.writer_recall_offending_spans):
+                raise ContractValidationError(
+                    "compiled Writer recall eligibility changed"
+                )
+
+    @classmethod
+    def from_v2(
+        cls,
+        value: ContinuousSemanticValidatorResultV2,
+        *,
+        presentation_realization_segments: tuple[
+            PresentationRealizationSegmentV1, ...
+        ] = (),
+        presentation_protected_semantic_adjudications: tuple[
+            ProtectedSemanticAdjudicationV1, ...
+        ] = (),
+        writer_recall_eligibility: ProviderWriterRecallEligibility | None = None,
+        writer_recall_offending_spans: tuple[
+            WriterRecallOffendingSpanV1, ...
+        ] = (),
+    ) -> "ContinuousSemanticValidatorResultV3":
+        accepted = value.semantic_status in {
+            ValidatorSemanticStatus.ACCEPTED,
+            ValidatorSemanticStatus.CONCERN,
+        }
+        return cls(
+            semantic_status=value.semantic_status,
+            reason_codes=value.reason_codes,
+            story_segments=value.story_segments,
+            protected_semantic_adjudications=(
+                value.protected_semantic_adjudications
+            ),
+            presentation_realization_segments=(
+                presentation_realization_segments
+            ),
+            presentation_protected_semantic_adjudications=(
+                presentation_protected_semantic_adjudications
+            ),
+            diagnostic_story_segments=value.diagnostic_story_segments,
+            diagnostic_protected_semantic_adjudications=(
+                value.diagnostic_protected_semantic_adjudications
+            ),
+            finalization_package=value.finalization_package,
+            writer_recall_eligibility=(
+                ProviderWriterRecallEligibility.NOT_APPLICABLE
+                if accepted
+                else writer_recall_eligibility
+                or ProviderWriterRecallEligibility.INELIGIBLE
+            ),
+            writer_recall_offending_spans=writer_recall_offending_spans,
+        )
+
+    def build_writer_recall_directive(
+        self,
+        *,
+        rejected_candidate_id: str,
+        rejected_story_text: str,
+        frozen_authority_package_sha256: str,
+        source_attempt_number: int,
+    ) -> WriterRecallDirectiveV1:
+        if (
+            self.writer_recall_eligibility
+            is not ProviderWriterRecallEligibility.ELIGIBLE
+        ):
+            raise ContractValidationError(
+                "Validator result does not authorize a Writer recall"
+            )
+        if any(
+            rejected_story_text[value.output_start : value.output_end]
+            != value.exact_text
+            for value in self.writer_recall_offending_spans
+        ):
+            raise ContractValidationError(
+                "Writer recall feedback changed rejected candidate bytes"
+            )
+        return WriterRecallDirectiveV1(
+            schema_version=WriterRecallDirectiveV1.SCHEMA_VERSION,
+            rejected_candidate_id=rejected_candidate_id,
+            rejected_story_text_sha256=text_sha256(rejected_story_text),
+            frozen_authority_package_sha256=frozen_authority_package_sha256,
+            source_attempt_number=source_attempt_number,
+            next_attempt_number=source_attempt_number + 1,
+            reason_codes=self.reason_codes,
+            offending_spans=self.writer_recall_offending_spans,
+            authoritative=False,
+            attempts_may_merge=False,
+        )
+
+
+ProviderSemanticDecisionDraftV4 = Union[
+    ProviderAcceptedTurnDecisionDraftV3,
+    ProviderConcernTurnDecisionDraftV3,
+    ProviderRejectedTurnDecisionDraftV4,
+    ProviderSceneSummaryDecisionDraftV1,
+]
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV9:
+    """Active typed realization-boundary and feedback-aware Validator wire."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v9"
+
+    schema_version: str
+    package_id: str
+    world_id: str
+    branch_id: str
+    decision: ProviderSemanticDecisionDraftV4
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous Semantic Validator V9 provider schema changed"
+            )
+
+    @classmethod
+    def from_v4(
+        cls,
+        value: ContinuousSemanticValidatorDraftV4,
+    ) -> "ContinuousSemanticValidatorDraftV9":
+        historical = ContinuousSemanticValidatorDraftV8.from_v4(value)
+        decision = historical.decision
+        if isinstance(decision, ProviderAcceptedTurnDecisionDraftV2):
+            active: ProviderSemanticDecisionDraftV4 = (
+                ProviderAcceptedTurnDecisionDraftV3(
+                    schema_version=(
+                        ProviderAcceptedTurnDecisionDraftV3.SCHEMA_VERSION
+                    ),
+                    decision_kind=decision.decision_kind,
+                    realization_segments=tuple(
+                        ProviderRealizationSegmentDraftV1(
+                            schema_version=(
+                                ProviderRealizationSegmentDraftV1.SCHEMA_VERSION
+                            ),
+                            segment_key=segment.segment_key,
+                            authority_disposition=(
+                                RealizationAuthorityDisposition.STORY_MATERIAL_ASSERTION
+                            ),
+                            presentation_class=None,
+                            kind=segment.kind,
+                            output_start=segment.output_start,
+                            output_end=segment.output_end,
+                            roles=segment.roles,
+                            protected_user_source_claim_keys=(
+                                segment.protected_user_source_claim_keys
+                            ),
+                        )
+                        for segment in decision.story_segments
+                    ),
+                    complete_final_sequence=decision.complete_final_sequence,
+                    creator_review=decision.creator_review,
+                    protected_semantic_adjudications=(
+                        decision.protected_semantic_adjudications
+                    ),
+                    event_record=decision.event_record,
+                )
+            )
+        else:
+            active = decision
+        return cls(
+            schema_version=cls.SCHEMA_VERSION,
+            package_id=historical.package_id,
+            world_id=historical.world_id,
+            branch_id=historical.branch_id,
+            decision=active,
+        )
+
+    def compile(
+        self,
+        *,
+        writer_story_text: str | None,
+        accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
+    ) -> ContinuousSemanticValidatorResultV3:
+        decision = self.decision
+        if isinstance(decision, ProviderSceneSummaryDecisionDraftV1):
+            historical = ContinuousSemanticValidatorDraftV8(
+                schema_version=ContinuousSemanticValidatorDraftV8.SCHEMA_VERSION,
+                package_id=self.package_id,
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                decision=decision,
+            ).compile(writer_story_text=None, accepted_pairs=accepted_pairs)
+            return ContinuousSemanticValidatorResultV3.from_v2(historical)
+        if not isinstance(writer_story_text, str) or not writer_story_text:
+            raise ContractValidationError(
+                "turn Validator requires typed immutable Writer text"
+            )
+        if isinstance(decision, ProviderRejectedTurnDecisionDraftV4):
+            historical, offending = decision.compile(
+                writer_story_text=writer_story_text
+            )
+            return ContinuousSemanticValidatorResultV3.from_v2(
+                historical,
+                writer_recall_eligibility=decision.writer_recall_eligibility,
+                writer_recall_offending_spans=offending,
+            )
+        all_segments, material_segments, presentation_segments = (
+            _compile_provider_realization_segments(
+                writer_story_text=writer_story_text,
+                values=decision.realization_segments,
+            )
+        )
+        all_adjudications = _compile_provider_protected_adjudications(
+            writer_story_text=writer_story_text,
+            story_segments=all_segments,
+            adjudications=decision.protected_semantic_adjudications,
+        )
+        if {value.segment_key for value in all_adjudications} != {
+            value.segment_key for value in all_segments
+        }:
+            raise ContractValidationError(
+                "Validator did not adjudicate every realization span"
+            )
+        material_keys = {value.segment_key for value in material_segments}
+        material_adjudications = tuple(
+            value
+            for value in all_adjudications
+            if value.segment_key in material_keys
+        )
+        presentation_adjudications = tuple(
+            value
+            for value in all_adjudications
+            if value.segment_key not in material_keys
+        )
+        if isinstance(decision, ProviderAcceptedTurnDecisionDraftV3):
+            historical_decision: ProviderSemanticDecisionDraftV1 = (
+                ProviderAcceptedTurnDecisionDraftV1(
+                    schema_version=(
+                        ProviderAcceptedTurnDecisionDraftV1.SCHEMA_VERSION
+                    ),
+                    decision_kind=decision.decision_kind,
+                    story_segments=material_segments,
+                    complete_final_sequence=decision.complete_final_sequence,
+                    creator_review=decision.creator_review,
+                    protected_semantic_adjudications=material_adjudications,
+                    event_record=decision.event_record,
+                )
+            )
+        else:
+            historical_decision = ProviderConcernTurnDecisionDraftV1(
+                schema_version=ProviderConcernTurnDecisionDraftV1.SCHEMA_VERSION,
+                decision_kind=decision.decision_kind,
+                story_segments=material_segments,
+                complete_final_sequence=decision.complete_final_sequence,
+                creator_review=decision.creator_review,
+                protected_semantic_adjudications=material_adjudications,
+                event_record=decision.event_record,
+            )
+        historical_result = ContinuousSemanticValidatorResultV2.from_v1(
+            ContinuousSemanticValidatorDraftV5(
+                schema_version=ContinuousSemanticValidatorDraftV5.SCHEMA_VERSION,
+                package_id=self.package_id,
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                decision=historical_decision,
+            ).compile(accepted_pairs=accepted_pairs)
+        )
+        return ContinuousSemanticValidatorResultV3.from_v2(
+            historical_result,
+            presentation_realization_segments=presentation_segments,
+            presentation_protected_semantic_adjudications=(
+                presentation_adjudications
+            ),
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class ContinuousSceneWriterDraftV1:
     """Active Writer wire: exact candidate prose and nothing semantic."""
@@ -2403,11 +3050,12 @@ def _inject_python_owned_persistence_hashes(
 
 
 def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
-    schema = _schema_for(ContinuousSemanticValidatorDraftV8)
+    schema = _schema_for(ContinuousSemanticValidatorDraftV9)
     for branch in schema["properties"]["decision"]["anyOf"]:
         properties = branch.get("properties", {})
         for collection in (
             "story_segments",
+            "realization_segments",
             "protected_semantic_adjudications",
             "diagnostic_story_segments",
             "diagnostic_protected_semantic_adjudications",
@@ -2426,6 +3074,10 @@ def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
                 review_properties["primary_reason_code"]["minLength"] = 1
         if "primary_reason_code" in properties:
             properties["primary_reason_code"]["minLength"] = 1
+            properties["primary_reason_code"]["pattern"] = LOCAL_KEY_JSON_PATTERN
+        additional = properties.get("additional_reason_codes")
+        if additional is not None:
+            additional["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
     _constrain_active_python_hash_constants(schema)
     return schema
 
@@ -2584,15 +3236,29 @@ class CodexContinuousValidatorPort:
                 raw_provider_json,
                 world_bridge=self.world_bridge,
             )
-            draft = from_mapping(
-                ContinuousSemanticValidatorDraftV8,
-                canonical_payload,
-            )
-            return ContinuousProviderResultV1(
-                value=draft.compile(
+            schema_version = canonical_payload.get("schema_version")
+            if schema_version == ContinuousSemanticValidatorDraftV8.SCHEMA_VERSION:
+                historical_draft = from_mapping(
+                    ContinuousSemanticValidatorDraftV8,
+                    canonical_payload,
+                )
+                value = ContinuousSemanticValidatorResultV3.from_v2(
+                    historical_draft.compile(
+                        writer_story_text=writer_story_text,
+                        accepted_pairs=accepted_pairs,
+                    )
+                )
+            else:
+                draft = from_mapping(
+                    ContinuousSemanticValidatorDraftV9,
+                    canonical_payload,
+                )
+                value = draft.compile(
                     writer_story_text=writer_story_text,
                     accepted_pairs=accepted_pairs,
-                ),
+                )
+            return ContinuousProviderResultV1(
+                value=value,
                 provider_receipt=result.receipt,
                 operation_telemetry=result.operation_telemetry,
                 tool_call_count=result.tool_call_count,
@@ -2691,8 +3357,13 @@ class DeepSeekContinuousComposerPort:
         *,
         call_ledger: ContinuousProviderCallLedger,
     ) -> None:
-        if transport.route.model_name != "deepseek-v4-flash":
-            raise ContractValidationError("continuous Composer requires DeepSeek V4 Flash")
+        if transport.route.model_name not in {
+            "deepseek-v4-flash",
+            "deepseek-v4-pro",
+        }:
+            raise ContractValidationError(
+                "continuous Composer requires an authorized DeepSeek V4 route"
+            )
         self.transport = transport
         self.call_ledger = call_ledger
         self._operation_index = 0
@@ -2702,7 +3373,7 @@ class DeepSeekContinuousComposerPort:
         messages = (
             DeepSeekMessage(
                 "system",
-                "You are CERA's Scene Writer. Realize the validated Planner sequence as one complete presentation-neutral story response. Preserve the required causal beats, character boundaries, exact creator-source constraints, and stopping point. Write natural prose with dialogue, gesture, staging, pacing, atmosphere, imagery, rhythm, and only the allowed character interiority. Return exactly one JSON object containing schema_version and story_text. Do not return analysis, semantic labels, roles, owners, claim keys, consent judgments, offsets, hashes, coverage, events, memory, persistence, or acceptance decisions. Do not certify or explain your own prose. Thinking is disabled.",
+                "You are CERA's stateless Scene Writer. Realize the validated Planner sequence as one fresh complete presentation-neutral story response. Preserve the required causal beats, character boundaries, exact creator-source constraints, and stopping point. Write natural prose with dialogue, compatible transient gesture and staging, pacing, atmosphere, imagery, rhythm, and only the allowed character interiority. Never invent continuity-relevant objects, tasks, events, relocation, material state, relationship or memory facts, or protected-user behavior. Any recall directive is non-authoritative feedback about a rejected candidate; do not continue, patch, merge, or treat it as story context. Return exactly one JSON object containing schema_version and story_text. Do not return analysis, semantic labels, roles, owners, claim keys, consent judgments, offsets, hashes, coverage, events, memory, persistence, or acceptance decisions. Do not certify or explain your own prose. Thinking is disabled.",
             ),
             DeepSeekMessage(
                 "user",
@@ -2766,9 +3437,11 @@ def continuous_validator_route(*, model: str, effort: str):
     )
 
 
-def continuous_deepseek_route():
+def continuous_deepseek_route(*, model: str = "deepseek-v4-flash"):
+    if model not in {"deepseek-v4-flash", "deepseek-v4-pro"}:
+        raise ContractValidationError("continuous DeepSeek route is unsupported")
     return replace(
-        deepseek_composer_candidate(model="deepseek-v4-flash"),
+        deepseek_composer_candidate(model=model),
         adapter_id=CONTINUOUS_DEEPSEEK_ADAPTER_VERSION,
         prompt_version=CONTINUOUS_DEEPSEEK_PROMPT_VERSION,
         maximum_output_tokens=32_768,

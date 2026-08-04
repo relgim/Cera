@@ -1536,6 +1536,261 @@ class StoryRealizationKind(StrEnum):
     NARRATION = "narration"
 
 
+class RealizationAuthorityDisposition(StrEnum):
+    """Validator-owned authority status for one exact Writer span."""
+
+    PRESENTATION_ONLY = "presentation_only"
+    STORY_MATERIAL_ASSERTION = "story_material_assertion"
+
+
+class PresentationRealizationClass(StrEnum):
+    """Closed transient classes that may remain visible without becoming canon."""
+
+    EXPRESSION = "expression"
+    GAZE = "gaze"
+    BRIEF_PAUSE = "brief_pause"
+    CADENCE = "cadence"
+    ORDINARY_POSTURE = "ordinary_posture"
+    NONPERSISTENT_ATMOSPHERE = "nonpersistent_atmosphere"
+
+
+class ProhibitedWriterDetailClass(StrEnum):
+    """Closed feedback classes for unsupported continuity-significant prose."""
+
+    NEW_CONTINUITY_OBJECT = "new_continuity_object"
+    UNSUPPORTED_TASK_OR_EVENT = "unsupported_task_or_event"
+    RELOCATION_OR_DURABLE_POSITION = "relocation_or_durable_position"
+    MATERIAL_OR_SCENE_STATE_CHANGE = "material_or_scene_state_change"
+    RELATIONSHIP_MEMORY_OR_KNOWLEDGE = "relationship_memory_or_knowledge"
+    UNAUTHORIZED_PRIVATE_FACT = "unauthorized_private_fact"
+    PROTECTED_USER_BEHAVIOR = "protected_user_behavior"
+    PLANNER_SEQUENCE_DEPARTURE = "planner_sequence_departure"
+    STOPPING_BOUNDARY_VIOLATION = "stopping_boundary_violation"
+
+
+@dataclass(frozen=True, slots=True)
+class WriterRealizationBoundaryV1:
+    """Closed shared Writer/Validator boundary for transient visible detail."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.writer_realization_boundary.v1"
+
+    schema_version: str
+    presentation_classes: tuple[PresentationRealizationClass, ...]
+    continuity_significant_classes: tuple[ProhibitedWriterDetailClass, ...]
+    presentation_enters_final_sequence: bool
+    presentation_enters_events_or_material_changes: bool
+    presentation_enters_memory_relationship_or_summary: bool
+    presentation_enters_accepted_context_or_persistence: bool
+    presentation_enters_canon: bool
+    semantic_classifier: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("Writer realization boundary schema changed")
+        if self.presentation_classes != tuple(PresentationRealizationClass):
+            raise ContractValidationError(
+                "Writer realization boundary changed its closed presentation classes"
+            )
+        if self.continuity_significant_classes != tuple(ProhibitedWriterDetailClass):
+            raise ContractValidationError(
+                "Writer realization boundary changed its closed prohibited classes"
+            )
+        if any(
+            (
+                self.presentation_enters_final_sequence,
+                self.presentation_enters_events_or_material_changes,
+                self.presentation_enters_memory_relationship_or_summary,
+                self.presentation_enters_accepted_context_or_persistence,
+                self.presentation_enters_canon,
+            )
+        ):
+            raise ContractValidationError(
+                "presentation-only realization cannot enter story authority"
+            )
+        if self.semantic_classifier != "independent_codex_semantic_validator":
+            raise ContractValidationError(
+                "Python cannot replace the semantic realization classifier"
+            )
+
+    @classmethod
+    def default(cls) -> "WriterRealizationBoundaryV1":
+        return cls(
+            schema_version=cls.SCHEMA_VERSION,
+            presentation_classes=tuple(PresentationRealizationClass),
+            continuity_significant_classes=tuple(ProhibitedWriterDetailClass),
+            presentation_enters_final_sequence=False,
+            presentation_enters_events_or_material_changes=False,
+            presentation_enters_memory_relationship_or_summary=False,
+            presentation_enters_accepted_context_or_persistence=False,
+            presentation_enters_canon=False,
+            semantic_classifier="independent_codex_semantic_validator",
+        )
+
+    @property
+    def boundary_sha256(self) -> str:
+        return canonical_sha256(self)
+
+
+@dataclass(frozen=True, slots=True)
+class PresentationRealizationSegmentV1:
+    """Exact visible span retained only as non-authoritative presentation."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.presentation_realization_segment.v1"
+
+    schema_version: str
+    segment_key: str
+    presentation_class: PresentationRealizationClass
+    kind: StoryRealizationKind
+    output_start: int
+    output_end: int
+    exact_text: str
+    exact_text_sha256: str
+    roles: CharacterRoleLedgerV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "presentation realization segment schema changed"
+            )
+        _key(self.segment_key, "presentation_realization.segment_key")
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError(
+                "presentation realization segment span is invalid"
+            )
+        _text(
+            self.exact_text,
+            "presentation_realization.exact_text",
+            maximum=64_000,
+        )
+        if (
+            self.output_end - self.output_start != len(self.exact_text)
+            or self.exact_text_sha256 != text_sha256(self.exact_text)
+        ):
+            raise ContractValidationError(
+                "presentation realization exact-text custody changed"
+            )
+        if self.kind not in {
+            StoryRealizationKind.ACTION,
+            StoryRealizationKind.NARRATION,
+        }:
+            raise ContractValidationError(
+                "dialogue, private state, and consent or decision cannot be "
+                "presentation-only"
+            )
+        if "character:ted" in self.roles.assertion_owner_ids:
+            raise ContractValidationError(
+                "protected-user assertions cannot be presentation-only"
+            )
+        if self.kind is StoryRealizationKind.ACTION:
+            valid = bool(self.roles.action_owner_ids) and not (
+                self.roles.state_owner_ids or self.roles.speaker_ids
+            )
+        else:
+            valid = not self.roles.assertion_owner_ids
+        if not valid:
+            raise ContractValidationError(
+                "presentation realization kind disagrees with ownership roles"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class WriterRecallOffendingSpanV1:
+    """Exact rejected-candidate text carried only as non-authoritative feedback."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.writer_recall_offending_span.v1"
+
+    schema_version: str
+    segment_key: str
+    output_start: int
+    output_end: int
+    exact_text: str
+    exact_text_sha256: str
+    prohibited_detail_classes: tuple[ProhibitedWriterDetailClass, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("Writer recall span schema changed")
+        _key(self.segment_key, "writer_recall.segment_key")
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+            or not isinstance(self.exact_text, str)
+            or self.output_end - self.output_start != len(self.exact_text)
+            or self.exact_text_sha256 != text_sha256(self.exact_text)
+        ):
+            raise ContractValidationError("Writer recall span custody changed")
+        _text(self.exact_text, "writer_recall.exact_text", maximum=64_000)
+        if not self.prohibited_detail_classes:
+            raise ContractValidationError(
+                "Writer recall span requires a prohibited-detail class"
+            )
+        _unique(
+            self.prohibited_detail_classes,
+            "writer_recall.prohibited_detail_classes",
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class WriterRecallDirectiveV1:
+    """Bounded feedback for one fresh stateless Writer candidate."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.writer_recall_directive.v1"
+
+    schema_version: str
+    rejected_candidate_id: str
+    rejected_story_text_sha256: str
+    frozen_authority_package_sha256: str
+    source_attempt_number: int
+    next_attempt_number: int
+    reason_codes: tuple[str, ...]
+    offending_spans: tuple[WriterRecallOffendingSpanV1, ...]
+    authoritative: bool
+    attempts_may_merge: bool
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("Writer recall directive schema changed")
+        _identity(self.rejected_candidate_id, "writer_recall.rejected_candidate_id")
+        if not re_is_sha256(self.rejected_story_text_sha256) or not re_is_sha256(
+            self.frozen_authority_package_sha256
+        ):
+            raise ContractValidationError("Writer recall hash custody is invalid")
+        if (
+            type(self.source_attempt_number) is not int
+            or type(self.next_attempt_number) is not int
+            or self.source_attempt_number not in {1, 2}
+            or self.next_attempt_number != self.source_attempt_number + 1
+            or self.next_attempt_number > 3
+        ):
+            raise ContractValidationError("Writer recall attempt custody changed")
+        if not self.reason_codes or not self.offending_spans:
+            raise ContractValidationError(
+                "Writer recall requires typed reasons and exact offending spans"
+            )
+        for value in self.reason_codes:
+            _key(value, "writer_recall.reason_codes")
+        _unique(self.reason_codes, "writer_recall.reason_codes")
+        if len({value.segment_key for value in self.offending_spans}) != len(
+            self.offending_spans
+        ):
+            raise ContractValidationError("Writer recall offending spans are duplicated")
+        if self.authoritative or self.attempts_may_merge:
+            raise ContractValidationError(
+                "Writer recall feedback is non-authoritative and cannot merge attempts"
+            )
+
+    @property
+    def directive_sha256(self) -> str:
+        return canonical_sha256(self)
+
+
 @dataclass(frozen=True, slots=True)
 class StoryRealizationSegmentV1:
     """Exhaustive Validator-owned semantics for one exact Writer span."""
