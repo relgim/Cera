@@ -10,14 +10,13 @@ The one active role matrix is
 [`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](../architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
 Runtime Model V3 uses `cera.scene_writer_draft.v1` for exact prose only,
 `cera.writer_mechanical_envelope.v1` for Python-derived byte/hash/paragraph
-boundaries, `cera.continuous_semantic_validator_draft.v6` for schema-closed,
+boundaries, `cera.continuous_semantic_validator_draft.v7` for schema-closed,
 mutually exclusive Validator decision branches and exact spans with
-Python-derived review defaults, final-sequence identity, and final stop state,
-and
-`cera.reader_verdict.v1` for the independent
-non-rewriting whole-response check. Python validates all bindings and is the
-only owner of candidate identity, events, memory, persistence, acceptance, and
-commit.
+Python-derived exact-text hashes, review defaults, final-sequence identity, and
+final stop state, and `cera.provider_reader_verdict.v1` for the hash-free
+independent non-rewriting Reader wire. Python compiles that wire into canonical
+`cera.reader_verdict.v1`, validates all bindings, and is the only owner of
+candidate identity, events, memory, persistence, acceptance, and commit.
 
 The D-186 through D-194 Composer ledgers and V7 schemas later in this catalog
 remain decodeable historical-reader contracts. They are not accepted as active
@@ -953,9 +952,12 @@ provider identities:
 | `cera.protected_user_realization_span.v1` | DeepSeek draft, Python validated | Exact zero-based occurrence of one protected-user source claim in accepted-candidate prose; undeclared exact copies and changed spans fail |
 | `cera.story_realization_segment.v3` | DeepSeek draft, advisory until independent validation | Exhaustive gap-free exact output segments with semantic kind, closed owner/non-owner roles, and protected-user-claim ownership; Composer role labels do not independently establish semantic authority |
 | `cera.protected_semantic_adjudication.v1` | separate runtime Codex Validator, Python validated | Independent exact-span classification of every Composer segment as a protected assertion, one closed NPC-owned non-owning relation, or no protected involvement, with exact ingress claims required for protected assertions |
+| `cera.provider_protected_semantic_adjudication.v1` | runtime Codex Validator, advisory | Hash-free active adjudication wire containing semantic segment/span/relation/owner/claim choices; Python proves the cited bytes against the typed immutable Writer text and derives the canonical exact-text hash |
+| `cera.provider_reader_issue_reference.v1` | runtime Codex Reader, advisory | Hash-free issue-code/span/explanation choice; Python bounds the span against typed immutable Writer text and derives the canonical issue hash |
+| `cera.provider_reader_verdict.v1` | runtime Codex Reader, advisory | Non-rewriting verdict, scores, reasons, and hash-free issue references; Python supplies candidate custody and derives the full-story and issue hashes before constructing `cera.reader_verdict.v1` |
 | `cera.character_summary_envelope.v3` | Python projection | Explicitly incomplete exact-field projection bound only to an ACTIVE character record, stable JSON pointers, revision, content hash, payload, and derivation receipt; candidate-derived character summaries are not accepted |
 | `cera.accepted_final_sequence_envelope.v1` | Python after creator acceptance | Exact user message plus Validator final sequence, appended once and superseding the provisional Planner sequence |
-| `cera.persistence_directive.v2` | runtime Codex Validator selection, Python validated | Exact add/replace projection destination bound to the current closed writable-path policy, one final-field value, Character or Relationship record identity, typed and field-justified subject identities, approved semantic JSON path, current revision, and prior-value hash for replace; Python validates the complete post-edit record and derives bookkeeping |
+| `cera.persistence_directive.v2` | runtime Codex Validator selection, Python validated | Exact add/replace projection destination bound to the current closed writable-path policy, one final-field value, Character or Relationship record identity, typed and field-justified subject identities, approved semantic JSON path, and current revision; the active provider wire omits the prior-value hash, which Python derives from the exact ACTIVE JSON-pointer value before canonical decode, complete post-edit validation, and bookkeeping derivation |
 | `cera.complete_final_sequence.v6` | runtime Codex Validator, advisory until Python validation and creator action | Closed realized items retaining exact Planner beats and Composer segments plus field-level role, visibility, owner, protected-user claim, and typed persistence-destination provenance; the final stop is the exact last resulting state |
 | `cera.validator_finalization_package.v8` | runtime Codex Validator draft compiled by Python | Closed final sequence, independent exact-span protected semantics, V8 writable-record policy, field-justified relationship authority, Python-derived add/replace operations and created-field log, Python-derived event participants/item roles, or an explicit scene summary |
 | `cera.continuous_session_compatibility.v3` | Python session custody | Role/provider/model/prompt/output/world compatibility, exact policy hashes, and closed default/allowed Planner context modes; pre-D-200 sessions fail compatibility |

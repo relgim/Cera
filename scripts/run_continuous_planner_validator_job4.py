@@ -84,7 +84,7 @@ from cera.continuous.provider import (
     CodexContinuousReaderPort,
     CodexContinuousValidatorPort,
     DeepSeekContinuousComposerPort,
-    ContinuousSemanticValidatorDraftV6,
+    ContinuousSemanticValidatorDraftV7,
     continuous_deepseek_route,
     continuous_planner_route,
     continuous_validator_route,
@@ -490,7 +490,7 @@ def compatibility(
         output_schema_version=(
             RichPlannerSequenceV1.SCHEMA_VERSION
             if role is ContinuousSessionRole.PLANNER
-            else ContinuousSemanticValidatorDraftV6.SCHEMA_VERSION
+            else ContinuousSemanticValidatorDraftV7.SCHEMA_VERSION
         ),
         world_directory_identity_sha256=world.world_identity_sha256(
             world_id, branch_id
@@ -678,6 +678,7 @@ class _HarnessValidatorPort:
             lambda: self.harness.codex_validator(
                 prompt,
                 turn_id,
+                writer_story_text=kwargs.get("writer_story_text"),
                 accepted_pairs=tuple(kwargs.get("accepted_pairs", ())),
             ),
         )
@@ -690,7 +691,7 @@ class _HarnessReaderPort:
         self.harness = harness
         self._counter = 0
 
-    def review(self, prompt: str):
+    def review(self, prompt: str, *, writer_story_text: str):
         self._counter += 1
         request = json.loads(prompt.rsplit("[READER REQUEST]\n", 1)[1])
         verdict = ReaderVerdictV1(
@@ -700,9 +701,7 @@ class _HarnessReaderPort:
             branch_id=request["branch_id"],
             turn_id=request["turn_id"],
             candidate_id=request["candidate_id"],
-            story_text_sha256=request["writer_mechanical_envelope"][
-                "story_text_sha256"
-            ],
+            story_text_sha256=text_sha256(writer_story_text),
             verdict=ReaderVerdictStatus.ACCEPTED,
             reason_codes=(),
             issues=(),
@@ -734,12 +733,15 @@ class _HarnessLiveReaderPort:
     def __init__(self, harness: "JobHarness") -> None:
         self.harness = harness
 
-    def review(self, prompt: str):
+    def review(self, prompt: str, *, writer_story_text: str):
         number = self.harness._active_turn_number
         return self.harness.provider_call(
             f"turn-{number}-reader",
             "reader",
-            lambda: self.harness.codex_reader(prompt),
+            lambda: self.harness.codex_reader(
+                prompt,
+                writer_story_text=writer_story_text,
+            ),
         )
 
 
@@ -1033,6 +1035,7 @@ class JobHarness:
         prompt: str,
         turn_id: str,
         *,
+        writer_story_text: str | None,
         accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
     ):
         workspace = self.lifecycle_root / (
@@ -1062,9 +1065,13 @@ class JobHarness:
             )
             return CodexContinuousValidatorPort(
                 transport, world_bridge=bridge, call_ledger=self.call_ledger
-            ).validate(prompt, accepted_pairs=accepted_pairs)
+            ).validate(
+                prompt,
+                writer_story_text=writer_story_text,
+                accepted_pairs=accepted_pairs,
+            )
 
-    def codex_reader(self, prompt: str):
+    def codex_reader(self, prompt: str, *, writer_story_text: str):
         if self.reader_transport_factory is None:
             raise RuntimeError("live Reader transport factory is unavailable")
         workspace = self.lifecycle_root / (
@@ -1074,7 +1081,7 @@ class JobHarness:
         return CodexContinuousReaderPort(
             lambda: self.reader_transport_factory(workspace),
             call_ledger=self.call_ledger,
-        ).review(prompt)
+        ).review(prompt, writer_story_text=writer_story_text)
 
     def _create_workspace(self, workspace: Path, operation: str) -> None:
         if self.root_diagnostic is None:

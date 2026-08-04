@@ -1,0 +1,15 @@
+# Runtime Model V3 deterministic hash-custody checkpoint
+
+Status: `passed_provider_free_checkpoint`
+
+The active Semantic Validator and Reader wires no longer require Codex to calculate unavailable exact-text hashes. Validator adjudication hashes are derived by Python only after the selected segment and span are proven against the typed immutable Writer text. Reader full-story and issue hashes are likewise Python-derived. The adjacent persistence prior-value hash is absent from the provider wire and is injected deterministically from the bounded ACTIVE value before canonical DTO decode; provider-authored values fail closed.
+
+The complete active provider-output audit found only one remaining `*_sha256` field: `persistence_policy_sha256`, constrained to the exact supplied Python `const` in both neutral and OpenAI-projected schemas. Every active `schema_version` is also a string `const`. The field-family ownership inventory classifies all required role outputs, exact identities, local semantic keys, offsets, exact text, and Python-derived or unnecessary bookkeeping.
+
+Compatibility identities are now Semantic Validator draft V7, Validator adapter V15/prompt V16/request V6, and Reader provider verdict V1 with Reader adapter V2/prompt V2/request V2. Historical Validator V1-V6 and canonical Reader V1 readers remain available. The Writer schema remains exactly `schema_version` plus `story_text`, SHA-256 `dec9386e5a4b0fd3c9c9f48cd4826a14daf17009970c2be0d5bfa336ba8a717d`; its DTO, prompt, adapter, route, and transport are unchanged. The original Stage 4B result remains byte-identical at SHA-256 `1a18a47eb4a9a6ad523f8d651d6450aa637adf39f9a9a5d207dfd70e1ad52abd` and still records 5/5 first-attempt mechanical passes.
+
+Provider-free gates passed: compilation, strict neutral/OpenAI preflight, adversarial schema and typed-custody tests, raw-capture and ledger checks, historical compatibility, diff checks, and 151/151 focused affected tests. The frozen complete suite ran 1,001 tests: 997 passed, 3 skipped for unavailable Windows symlink privilege, and one stopped before its test body because the execution checkout lacked the expected disposable source database. Supplying a byte-identical temporary read-only copy (`bfbf23eb2fa7199fad38e8fb3f1ae0d6b547467f17ed68e84b7115275a2fc555`) made that exact test pass 1/1; all temporary prerequisites were then removed. This reconciles every executable test without changing the historical test or product source to accommodate the checkout environment.
+
+Implementation candidate tree before terminal result files: `02fadcb5572dc0082748143f13f7d775b2c109ce`. Implementation diff SHA-256: `9f35e06fe2e02a77ae719e9e7c778150964d37839b215acb955cde77d4dbd467` over 115,954 bytes.
+
+Provider calls: 0 Codex, 0 DeepSeek. Active route, production story/database, installed SillyTavern, services, deployment, remotes, and protected historical evidence remain unchanged. Queue 0049 Stage 4 V4 may begin only from the local commit that freezes this checkpoint.

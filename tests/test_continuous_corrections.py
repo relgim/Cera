@@ -224,7 +224,7 @@ class _AcceptingReaderStage:
         self.prompts: list[str] = []
         self._counter = 0
 
-    def review(self, prompt: str):
+    def review(self, prompt: str, *, writer_story_text: str):
         self.prompts.append(prompt)
         self._counter += 1
         request = json.loads(prompt.rsplit("[READER REQUEST]\n", 1)[1])
@@ -1458,7 +1458,10 @@ class ContinuousCallAccountingTests(unittest.TestCase):
 
         port = CodexContinuousValidatorPort(Transport(), call_ledger=self.ledger)
         with self.assertRaises(ContractValidationError):
-            port.validate("Validate this turn.")
+            port.validate(
+                "Validate this turn.",
+                writer_story_text="Immutable Writer candidate.",
+            )
         self.assertEqual(self.ledger.dispatched_call_count, 1)
         self.assertEqual(
             self.ledger.events[-1]["state"],

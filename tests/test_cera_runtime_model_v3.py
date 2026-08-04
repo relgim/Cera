@@ -130,7 +130,7 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v15",
+            "cera.continuous_validator_prompt.v16",
         )
         for required in (
             "applies independently to each final-sequence item",
@@ -284,15 +284,25 @@ class RuntimeModelV3ReaderAndDocumentationTests(unittest.TestCase):
         harness = object.__new__(JobHarness)
         harness._active_turn_number = 7
         calls: list[tuple[str, str]] = []
-        harness.codex_reader = lambda prompt: ("reader-result", prompt)
+        harness.codex_reader = lambda prompt, *, writer_story_text: (
+            "reader-result",
+            prompt,
+            writer_story_text,
+        )
 
         def provider_call(label, owner, operation):
             calls.append((label, owner))
             return operation()
 
         harness.provider_call = provider_call
-        result = _HarnessLiveReaderPort(harness).review("reader-prompt")
-        self.assertEqual(result, ("reader-result", "reader-prompt"))
+        result = _HarnessLiveReaderPort(harness).review(
+            "reader-prompt",
+            writer_story_text="Hana opened the door.",
+        )
+        self.assertEqual(
+            result,
+            ("reader-result", "reader-prompt", "Hana opened the door."),
+        )
         self.assertEqual(calls, [("turn-7-reader", "reader")])
 
         signature = inspect.signature(JobHarness.__init__)

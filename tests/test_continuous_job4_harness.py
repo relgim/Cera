@@ -63,7 +63,7 @@ from cera.continuous.provider import (
     ContinuousDeepSeekWireDraftV1,
     ContinuousSceneWriterDraftV1,
     ContinuousSemanticValidatorDraftV4,
-    ContinuousSemanticValidatorDraftV6,
+    ContinuousSemanticValidatorDraftV7,
     ContinuousSemanticValidatorResultV1,
     ContinuousValidatorDraftV1,
     ProviderEventRecordDraftV1,
@@ -2003,7 +2003,14 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     return self._result(draft)
                 return self._result(composer_draft("Sakura requests bounded proof."))
 
-            def codex_validator(self, _prompt, turn_id, *, accepted_pairs=()):
+            def codex_validator(
+                self,
+                _prompt,
+                turn_id,
+                *,
+                writer_story_text=None,
+                accepted_pairs=(),
+            ):
                 if accepted_pairs:
                     result = scene_summary_package(
                         accepted_pairs[0], new_prompt="unused"
@@ -2297,7 +2304,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         ),
                         last_five_exact_pairs=tuple(harness.accepted_pairs),
                     )
-                    return ContinuousSemanticValidatorDraftV6.from_v4(ContinuousSemanticValidatorDraftV4(
+                    return ContinuousSemanticValidatorDraftV7.from_v4(ContinuousSemanticValidatorDraftV4(
                         schema_version=(
                             ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION
                         ),
@@ -2418,7 +2425,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     ),
                 )
                 event = result.event_record
-                return ContinuousSemanticValidatorDraftV6.from_v4(ContinuousSemanticValidatorDraftV4(
+                return ContinuousSemanticValidatorDraftV7.from_v4(ContinuousSemanticValidatorDraftV4(
                     schema_version=(
                         ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION
                     ),

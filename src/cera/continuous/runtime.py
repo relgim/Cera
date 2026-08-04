@@ -100,11 +100,17 @@ class ComposerPort(Protocol):
 
 
 class ValidatorPort(Protocol):
-    def validate(self, prompt: str, **kwargs): ...
+    def validate(
+        self,
+        prompt: str,
+        *,
+        writer_story_text: str | None,
+        **kwargs,
+    ): ...
 
 
 class ReaderPort(Protocol):
-    def review(self, prompt: str): ...
+    def review(self, prompt: str, *, writer_story_text: str): ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -1304,7 +1310,11 @@ class ContinuousShadowTurnCoordinator:
         scene_debug.write_json("scene_change_request.json", {"prompt": prompt})
         started = time.perf_counter_ns()
         try:
-            result = self.validator.validate(prompt, accepted_pairs=pairs)
+            result = self.validator.validate(
+                prompt,
+                writer_story_text=None,
+                accepted_pairs=pairs,
+            )
         except BaseException as exc:
             scene_debug.record_failure("scene_summary_validator", exc)
             raise
@@ -1626,7 +1636,10 @@ class ContinuousShadowTurnCoordinator:
         debug.write_json("validator_request.json", {"prompt": validator_prompt})
         started = time.perf_counter_ns()
         try:
-            validator_result = self.validator.validate(validator_prompt)
+            validator_result = self.validator.validate(
+                validator_prompt,
+                writer_story_text=story_text,
+            )
         except BaseException as exc:
             debug.record_failure("validator", exc)
             raise
@@ -1689,7 +1702,10 @@ class ContinuousShadowTurnCoordinator:
         debug.write_json("reader_request.json", {"prompt": reader_prompt})
         started = time.perf_counter_ns()
         try:
-            reader_result = self.reader.review(reader_prompt)
+            reader_result = self.reader.review(
+                reader_prompt,
+                writer_story_text=story_text,
+            )
         except BaseException as exc:
             debug.record_failure("reader", exc)
             raise

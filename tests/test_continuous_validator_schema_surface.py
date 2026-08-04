@@ -34,6 +34,7 @@ from cera.continuous.provider import (
     ContinuousSemanticValidatorDraftV4,
     ContinuousSemanticValidatorDraftV5,
     ContinuousSemanticValidatorDraftV6,
+    ContinuousSemanticValidatorDraftV7,
     ProviderEventRecordDraftV1,
     ProviderFinalSequenceDraftV2,
     _schema_for,
@@ -194,8 +195,8 @@ def _active_draft() -> ContinuousSemanticValidatorDraftV4:
     )
 
 
-def _active_wire() -> ContinuousSemanticValidatorDraftV6:
-    return ContinuousSemanticValidatorDraftV6.from_v4(_active_draft())
+def _active_wire() -> ContinuousSemanticValidatorDraftV7:
+    return ContinuousSemanticValidatorDraftV7.from_v4(_active_draft())
 
 
 class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
@@ -225,11 +226,11 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
 
     def test_all_five_values_decode_and_compile(self) -> None:
         payload = to_primitive(_active_wire())
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV6, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV7, payload)
         scopes = decoded.decision.complete_final_sequence.items[0].field_scopes
         self.assertEqual(tuple(value.field_name.value for value in scopes), EXPECTED_FINAL_FIELD_NAMES)
         self.assertTrue(all(isinstance(value.field_name, FinalFieldName) for value in scopes))
-        compiled = decoded.compile()
+        compiled = decoded.compile(writer_story_text="Hana set down the teacup.")
         self.assertEqual(
             tuple(value.field_name.value for value in compiled.finalization_package.complete_final_sequence.items[0].field_scopes),
             EXPECTED_FINAL_FIELD_NAMES,
@@ -244,7 +245,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     Draft202012Validator(schema).validate(payload)
                 with self.assertRaises(ContractValidationError):
-                    from_mapping(ContinuousSemanticValidatorDraftV6, payload)
+                    from_mapping(ContinuousSemanticValidatorDraftV7, payload)
                 with self.assertRaises(ContractValidationError):
                     FinalFieldScopeV1(
                         field_name=arbitrary,
@@ -266,12 +267,12 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
             ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
         )
         self.assertEqual(
-            ContinuousSemanticValidatorDraftV6.SCHEMA_VERSION,
-            "cera.continuous_semantic_validator_draft.v6",
+            ContinuousSemanticValidatorDraftV7.SCHEMA_VERSION,
+            "cera.continuous_semantic_validator_draft.v7",
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v14",
+            "cera.continuous_validator_adapter.v15",
         )
         self.assertEqual(
             continuous_validator_route(model="gpt-5.6-sol", effort="medium").adapter_id,
@@ -309,6 +310,12 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
             to_primitive(historical_v5),
         )
         self.assertIsNotNone(decoded_v5.compile().finalization_package)
+        historical_v6 = ContinuousSemanticValidatorDraftV6.from_v4(_active_draft())
+        decoded_v6 = from_mapping(
+            ContinuousSemanticValidatorDraftV6,
+            to_primitive(historical_v6),
+        )
+        self.assertIsNotNone(decoded_v6.compile().finalization_package)
 
     def test_active_wire_omits_and_python_derives_final_stop_state(self) -> None:
         payload = to_primitive(_active_wire())
@@ -318,8 +325,10 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         Draft202012Validator(continuous_semantic_validator_draft_json_schema()).validate(
             payload
         )
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV6, payload)
-        final_sequence = decoded.compile().finalization_package.complete_final_sequence
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV7, payload)
+        final_sequence = decoded.compile(
+            writer_story_text="Hana set down the teacup."
+        ).finalization_package.complete_final_sequence
         self.assertEqual(
             final_sequence.schema_version,
             FinalSequenceV1.SCHEMA_VERSION,
@@ -337,7 +346,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 continuous_semantic_validator_draft_json_schema()
             ).validate(injected)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV6, injected)
+            from_mapping(ContinuousSemanticValidatorDraftV7, injected)
 
     def test_failed_v2_cross_field_shape_is_reproduced_provider_free(self) -> None:
         payload = to_primitive(_active_draft())
@@ -369,7 +378,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 self.assertTrue(version_schema["const"].startswith("cera."))
         self.assertEqual(
             dict(versions)["$.properties.schema_version"]["const"],
-            ContinuousSemanticValidatorDraftV6.SCHEMA_VERSION,
+            ContinuousSemanticValidatorDraftV7.SCHEMA_VERSION,
         )
         decision_branches = schema["properties"]["decision"]["anyOf"]
         sequence_schemas = [
@@ -392,8 +401,10 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         for forbidden in ("reason_codes", "semantic_status"):
             self.assertNotIn(forbidden, payload)
         compiled = from_mapping(
-            ContinuousSemanticValidatorDraftV6, payload
-        ).compile().finalization_package
+            ContinuousSemanticValidatorDraftV7, payload
+        ).compile(
+            writer_story_text="Hana set down the teacup."
+        ).finalization_package
         self.assertEqual(compiled.creator_review.reason_codes, ())
         self.assertIs(compiled.creator_review.issue_owner, ReviewIssueOwner.NONE)
 
@@ -473,7 +484,10 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 raw_result_observer=capture,
             )
             with self.assertRaises(ContractValidationError):
-                port.validate("Validate the benign fixture.")
+                port.validate(
+                    "Validate the benign fixture.",
+                    writer_story_text="Hana set down the teacup.",
+                )
             self.assertEqual(
                 ledger.events[-1]["state"],
                 "provider_completed_post_validation_failed",

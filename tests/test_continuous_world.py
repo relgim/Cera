@@ -546,7 +546,7 @@ class _FakeStage:
         self.value = value
         self.method = method
 
-    def plan(self, prompt):
+    def plan(self, prompt, **_kwargs):
         value = self.value
         if isinstance(value, RichPlannerSequenceV1):
             keys = tuple(dict.fromkeys(re.findall(r'"binding_key":"(binding_[a-z0-9_]+)"', prompt)))
@@ -609,7 +609,7 @@ class _AcceptingReaderStage:
     def __init__(self) -> None:
         self._counter = 0
 
-    def review(self, prompt):
+    def review(self, prompt, *, writer_story_text):
         self._counter += 1
         request = json.loads(prompt.rsplit("[READER REQUEST]\n", 1)[1])
         verdict = ReaderVerdictV1(
@@ -676,7 +676,7 @@ class _RejectingReaderStage:
     def __init__(self) -> None:
         self.calls = 0
 
-    def review(self, prompt):
+    def review(self, prompt, *, writer_story_text):
         self.calls += 1
         request = json.loads(prompt.rsplit("[READER REQUEST]\n", 1)[1])
         story_text = request["writer_story_text"]
@@ -719,7 +719,7 @@ class _RejectingReaderStage:
 
 
 class _FailStage:
-    def plan(self, _prompt):
+    def plan(self, _prompt, **_kwargs):
         raise RuntimeError("Bearer private-test-token")
 
 

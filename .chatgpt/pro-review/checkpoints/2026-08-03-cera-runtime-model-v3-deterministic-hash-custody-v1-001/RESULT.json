@@ -1,0 +1,94 @@
+{
+  "schema_version": "cera.runtime_model_v3_deterministic_hash_custody_result.v1",
+  "checkpoint_id": "2026-08-03-cera-runtime-model-v3-deterministic-hash-custody-v1-001",
+  "queue_revision": "0049",
+  "completed_at_utc": "2026-08-04T00:50:25.2630238Z",
+  "status": "passed_provider_free_checkpoint",
+  "provider_calls": {
+    "codex_family": 0,
+    "deepseek_family": 0,
+    "total": 0
+  },
+  "source_custody": {
+    "starting_git_sha": "0d5a2af9b31ab67a2ff62b3138c4374789a25745",
+    "starting_tree_sha": "b5a428d87c9932aff681ada59630a49d00093748",
+    "implementation_candidate_tree_sha": "02fadcb5572dc0082748143f13f7d775b2c109ce",
+    "implementation_diff_sha256": "9f35e06fe2e02a77ae719e9e7c778150964d37839b215acb955cde77d4dbd467",
+    "implementation_diff_bytes": 115954,
+    "historical_evidence_preserved": true
+  },
+  "active_contract": {
+    "validator_schema_version": "cera.continuous_semantic_validator_draft.v7",
+    "validator_adapter_version": "cera.continuous_validator_adapter.v15",
+    "validator_prompt_version": "cera.continuous_validator_prompt.v16",
+    "validator_request_version": "cera.continuous_validator_request.v6",
+    "validator_schema_sha256": "21b2c9e16124bc57c390e689e3a3f73f9a1b85c164341b3f7659fc0fbba172dc",
+    "validator_openai_schema_sha256": "21b2c9e16124bc57c390e689e3a3f73f9a1b85c164341b3f7659fc0fbba172dc",
+    "reader_provider_schema_version": "cera.provider_reader_verdict.v1",
+    "reader_adapter_version": "cera.continuous_reader_adapter.v2",
+    "reader_prompt_version": "cera.continuous_reader_prompt.v2",
+    "reader_request_version": "cera.continuous_reader_request.v2",
+    "reader_schema_sha256": "1265449dfa6f7583f89a0bc34193dafc0c5bd3c8aee50deab486621e55ce0632",
+    "reader_openai_schema_sha256": "1265449dfa6f7583f89a0bc34193dafc0c5bd3c8aee50deab486621e55ce0632",
+    "openai_projection_strict": true,
+    "all_schema_versions_const": true,
+    "provider_authored_exact_text_hashes": 0,
+    "provider_authored_prior_value_hashes": 0,
+    "remaining_provider_hashes": {
+      "persistence_policy_sha256": "supplied_exact_const"
+    }
+  },
+  "python_custody": {
+    "validator_writer_text_typed_parameter": true,
+    "reader_writer_text_typed_parameter": true,
+    "prompt_parsing_for_custody": false,
+    "adjudication_hash_derived_after_span_validation": true,
+    "reader_hashes_derived_after_span_validation": true,
+    "persistence_add_prior_hash": null,
+    "persistence_replace_prior_hash_source": "bounded_branch_ACTIVE_file_and_json_pointer",
+    "raw_provider_capture_precedes_deterministic_injection": true,
+    "provider_authored_hash_rejected": true
+  },
+  "writer_binding": {
+    "writer_schema_sha256": "dec9386e5a4b0fd3c9c9f48cd4826a14daf17009970c2be0d5bfa336ba8a717d",
+    "writer_adapter_version": "cera.continuous_deepseek_adapter.v8",
+    "stage4b_result_sha256": "1a18a47eb4a9a6ad523f8d651d6450aa637adf39f9a9a5d207dfd70e1ad52abd",
+    "first_attempt_passes": 5,
+    "dto_prompt_adapter_route_transport_unchanged": true,
+    "eligible_for_stage4v4_reuse": true
+  },
+  "tests": {
+    "py_compile": "passed",
+    "focused_tests_run": 151,
+    "focused_tests_passed": 151,
+    "focused_tests_failed": 0,
+    "complete_suite": {
+      "command": "python -m unittest discover -s tests -v",
+      "tests_run": 1001,
+      "tests_passed": 997,
+      "tests_skipped": 3,
+      "test_failures": 1,
+      "test_errors": 0,
+      "failure_classification": "temporary_execution_checkout_prerequisite_absent_before_test_body",
+      "missing_prerequisite": "runtime/development/hanezawa_human_test_v1_2.sqlite3",
+      "exact_prerequisite_sha256": "bfbf23eb2fa7199fad38e8fb3f1ae0d6b547467f17ed68e84b7115275a2fc555",
+      "focused_prerequisite_rerun_passed": true,
+      "focused_prerequisite_rerun_tests": 1,
+      "temporary_prerequisites_removed": true,
+      "all_executable_tests_reconciled": true
+    },
+    "git_diff_check": "passed"
+  },
+  "protected_effects": {
+    "active_runtime_profile_sha256": "f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801",
+    "active_runtime_valid": true,
+    "production_database_bytes_sha256": "bfbf23eb2fa7199fad38e8fb3f1ae0d6b547467f17ed68e84b7115275a2fc555",
+    "active_route_changes": 0,
+    "production_story_or_database_writes": 0,
+    "installed_sillytavern_changes": 0,
+    "service_or_deployment_changes": 0,
+    "remote_operations_or_pushes": 0,
+    "unchanged": true
+  },
+  "next_authorized_program": "2026-08-03-cera-runtime-model-v3-live-qualification-v4"
+}
