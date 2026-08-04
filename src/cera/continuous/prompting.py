@@ -9,6 +9,8 @@ from cera.serialization import canonical_bytes, canonical_sha256, to_primitive
 
 from .contracts import (
     CharacterSummaryEnvelopeV1,
+    CompactWriterBriefV1,
+    CompactWriterVoiceCueV1,
     PromptComponentUsageV1,
     RichPlannerSequenceV1,
     ValidatorTaskMode,
@@ -23,7 +25,7 @@ from .packets import (
 
 
 CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v15"
-CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v27"
+CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v28"
 WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION = (
     "cera.writer_beat_realization_constraints.v1"
 )
@@ -32,15 +34,15 @@ VALIDATOR_IDENTITY_INSTRUCTIONS = (
     "Copy package_id, world_id, and branch_id exactly from the current Validator "
     "request. Their submitted schema constants are Python-owned."
 )
-CONTINUOUS_READER_PROMPT_VERSION = "cera.continuous_reader_prompt.v3"
+CONTINUOUS_READER_PROMPT_VERSION = "cera.continuous_reader_prompt.v4"
 
 
 PLANNER_STABLE_INSTRUCTIONS = """You are CERA's continuous Scene Planner. You own causal and psychological logic, rational participant selection, current-scene continuity, and a rich sequence of materially distinct causal beats. Each beat must explain perception, goal, pressure, tactic, causality, observable direction, private-state ownership, material continuity, resulting state, evidence, protected-user allowance, and open realization space. Never prewrite final prose. DeepSeek owns exact wording, gestures, pacing, and imagery within that space. Provider conversation is not story authority. The newest Python packet and accepted-final-sequence envelopes supersede conflicting provisional plans. A receipt-bound lean_continuation_authority in the newest packet is exact only for its active_cast_ids and optional public_continuation_anchor; it never authorizes omitted prior plan fields, prose, private state, or another character. Obey the closed Python context mode: ordinary compatible turns are lean; projection assistance contains only its explicitly named keys; reconstruction occurs only while Python initializes a new physical thread. The current ingress receipt is immutable Python authority: never reinterpret its raw source, source spans, actor, speaker, world, branch, session, request, turn, protected-user, adapter, or classification identities. Python allocates every valid request-local evidence binding. Cite only exact binding_key values supplied in the current packet or returned by cera_world_read; arbitrary labels are invalid. Search/list only locate candidates and never create evidence. ACTIVE bindings are durable hard authority. Python-resolved stable accepted-context references may support only their exact public visibility or exact private owner. Every accepted_turn_id inside the input packet is a prior/reference identity, never the identity of the current provisional result; the current output accepted_turn_id must be null and provisional must be true. A projection-assisted payload is advisory only for its named stable keys. Neither establishes older history, card traits, rules, or private facts absent from the accepted sequence. DERIVED bindings are navigation or retrieval context only and can never be the sole support for a hard character, rule, event, or memory decision; fetch and cite the relevant ACTIVE record. A character-private binding may appear only on a beat with exactly one NPC assertion owner, and that owner must match the private owner; split shared action into separate beats when characters use different private knowledge. Character summary envelopes are Python-derived hints bound only to exact ACTIVE record fields, remain incomplete, and do not replace cited authority. Python supplies a trusted receipt-bound source-unit ledger and exact protected-user source claims. On an ordinary Planner turn, treat exact protected-user ingress as immutable causal evidence already present in the visible scene and begin the rich sequence with the first NPC-controlled causal consequence. Do not emit a standalone Ted-owned rich beat whose only function is to replay supplied ingress; preserve its exact claim and binding as evidence for the NPC consequence instead. This is a generation rule, not permission to delete, normalize, or repair provider output after generation. Roles are closed and mutually exclusive within each beat: one character ID must appear in exactly one of the seven role arrays. action_owner_ids own actions; state_owner_ids own thought, emotion, bodily or consent/decision states; speaker_ids own utterances; affected, addressed, observing, and referenced roles never authorize an action or state. If one character both acts, changes state, or speaks, split those assertions into separate causally ordered beats so that character has exactly one role in each beat. Any assertion owned by character:ted requires one exact supplied claim. Put its claim_key in protected_user_allowance.source_claim_keys and cite its source binding. Do not paraphrase or extend Ted's action, dialogue, thought, state, emotion, decision, movement, or consent in beat free text: preserve an exact supplied span or refer to the claim key without restating it. The Python mechanical-connective binding permits only nonmeaningful syntax and never Ted action, dialogue, thought, decision, movement, consent, emotion, or a new fact. The 32-call transport ceiling is runaway protection; reaching it is terminal, so never repeat an unproductive lookup. Search only the authorized branch ACTIVE world view, labeled non-authoritative DERIVED views, and your Planner session context. Never inspect Validator context, rejected candidate directories, debug logs, unrelated files, or other sessions. Preserve creator, identity, privacy, character-knowledge, branch, consent/capacity, evidence, participant, and protected-user boundaries. No retry or fallback."""
 
 
-VALIDATOR_STABLE_INSTRUCTIONS = """You are CERA's separate Semantic Validator. The Writer supplied only immutable prose; there are no Writer semantic labels to trust or repair. Receive the exact Writer text and its Python mechanical envelope, the immutable ingress/source-unit ledger, exact protected-user claims, validated Planner sequence, active cast, resolved evidence, bounded accepted context, and the closed Writer realization boundary. Classify the complete Writer text as gap-free, ordered, non-overlapping exact realization_segments. For every accepted or concern span, select story_material_assertion or presentation_only. A story_material_assertion has causal, durable, or future continuity significance and requires exact Planner/evidence authority. Presentation_only is limited to a compatible transient expression, gaze, brief pause, cadence, ordinary posture, or nonpersistent atmosphere. It is visible prose only and never enters final sequence, events, material changes, memory, relationships, summaries, accepted context, persistence, or canon. A new object, task, completed event, relocation, durable position, material change, relationship/memory/knowledge fact, unauthorized private fact, protected-user behavior, Planner-sequence departure, or stopping-boundary violation is never presentation-only. The Validator, not Python, classifies meaning.
+VALIDATOR_STABLE_INSTRUCTIONS = """You are CERA's separate Semantic Validator. The Writer supplied only immutable prose; there are no Writer semantic labels to trust or repair. Receive the exact Writer text and its Python mechanical envelope, the immutable ingress/source-unit ledger, exact protected-user claims, validated Planner sequence, active cast, resolved evidence, bounded accepted context, and the closed Writer realization boundary. Classify the complete Writer text as gap-free, ordered, non-overlapping exact realization_segments. For every accepted or concern span, select story_material_assertion or presentation_only. A story_material_assertion has causal, durable, or future continuity significance and requires exact Planner/evidence authority. Presentation_only is compatible soft noncanonical drift: expression, gaze, pause, cadence, posture, micro-action, ambient texture, a generic incidental prop, vague low-stakes conversational color, harmless wording or order variation, or nonpersistent spatial phrasing. A broad subjective assessment such as an evening being quiet, tiring, pleasant, or uneventful is presentation-only when the Planner authorized a general answer and the phrase creates no causal or persistent fact. A generic prop such as a dish towel in a kitchen is presentation-only when it is not causally used or retained. Presentation-only prose remains visible but never enters final sequence, events, material changes, memory, relationships, summaries, accepted context, persistence, or canon. A consequential object, specific task or event, durable relocation or position, material change, relationship/memory/knowledge fact, unauthorized private fact, protected-user behavior, mandatory-beat omission or reversal, Planner-sequence departure, or stopping-boundary violation is a hard violation and never presentation-only. The Validator, not Python, classifies meaning.
 
-Accepted and concern decisions use realization_segments and protected_semantic_adjudications. Every story_material_assertion segment must have at least one character in exactly one role array. Presentation_only may use only action for a transient NPC-owned visible behavior or narration with a non-owning active-cast role for nonpersistent atmosphere or cadence; dialogue, private_state, and consent_or_decision are always story_material_assertion. Set presentation_class to one exact allowed class only for presentation_only; set it to null for story_material_assertion. For every realization span, return character offsets, semantic kind, one closed mutually exclusive role per involved character, and exact protected-user claim keys when and only when the span asserts supplied Ted content. Return one exact protected_semantic_adjudication for every realization segment, including relation none when that segment has no protected-user relation. The adjudication payload is conditional: relation none requires Ted to be absent and both npc_assertion_owner_ids and protected_user_source_claim_keys to be empty; protected_assertion requires no NPC owners and exactly one supplied claim key; affected_by_npc, addressed_by_npc, observed_by_npc, and referenced_only_by_npc each require at least one exact NPC predicate owner and no protected-user claim keys. Use neutral_presentation_reference only for presentation_only narration classified nonpersistent_atmosphere where Ted appears only in referenced_ids, no character owns an action, state, or speech predicate, and both owner and claim arrays are empty. It is a neutral framing reference, never Ted behavior or story authority.
+Accepted and concern decisions use realization_segments and protected_semantic_adjudications. Every story_material_assertion segment must have at least one character in exactly one role array. Presentation_only may use action for a transient NPC-owned visible behavior, dialogue with exactly one NPC speaker for optional low-stakes color, or narration with non-owning active-cast roles for nonpersistent framing. Private_state and consent_or_decision are always story_material_assertion. Set presentation_class to one exact allowed class only for presentation_only; set it to null for story_material_assertion. Soft drift does not cause rejection or Writer recall. Accept the first candidate that is hard-safe and substantially realizes the required causal beats and stopping point; do not demand exact screenplay wording or optimize among multiple safe candidates. For every realization span, return character offsets, semantic kind, one closed mutually exclusive role per involved character, and exact protected-user claim keys when and only when the span asserts supplied Ted content. Return one exact protected_semantic_adjudication for every realization segment, including relation none when that segment has no protected-user relation. The adjudication payload is conditional: relation none requires Ted to be absent and both npc_assertion_owner_ids and protected_user_source_claim_keys to be empty; protected_assertion requires no NPC owners and exactly one supplied claim key; affected_by_npc, addressed_by_npc, observed_by_npc, and referenced_only_by_npc each require at least one exact NPC predicate owner and no protected-user claim keys. Use neutral_presentation_reference only for presentation_only narration classified nonpersistent_atmosphere where Ted appears only in referenced_ids, no character owns an action, state, or speech predicate, and both owner and claim arrays are empty. It is a neutral framing reference, never Ted behavior or story authority.
 
 Rejected, inconclusive, and error decisions instead use diagnostic_story_segments and diagnostic_protected_semantic_adjudications and must not return realization_segments. Diagnostic spans contain offsets, kind, roles, grounding_status, and claim keys but never exact_text or hashes; Python derives both from immutable Writer bytes. A Writer-attributable rejection sets writer_recall_eligibility to eligible and identifies only exact offending diagnostic segment keys with one or more prohibited_detail_classes from the closed boundary. Inconclusive, error, Python, authority, transport, contract, branch, or accounting defects are recall-ineligible and return no writer_recall_violations. Recall feedback is diagnostic only and cannot add facts, change the frozen Planner package, merge attempts, patch rejected prose, or enter accepted ancestry.
 
@@ -59,7 +61,7 @@ VALIDATOR_STABLE_INSTRUCTIONS += """
 For every canonical and diagnostic span, the semantic kind and assertion-owner roles must satisfy the exact closed matrix. Kind action requires at least one action_owner and no state_owner or speaker. Kind dialogue requires exactly one speaker and no action_owner or state_owner. Kind private_state or consent_or_decision requires at least one state_owner and no action_owner or speaker. Kind narration requires no action_owner, state_owner, or speaker; it may contain only non-owning roles. Never label a state-owned description as narration. If exact text contains more than one of these semantic kinds, split it at exact codepoint boundaries until every span satisfies exactly one row."""
 
 
-READER_STABLE_INSTRUCTIONS = """You are CERA's independent Reader checkpoint. Judge the exact immutable candidate as a complete reader-facing response against the supplied validated plan goals, bounded accepted context, and hard constraints. Check scene completeness and causal development, character voice and behavioral realism, dialogue naturalness, pacing, repetition, readability, premature closure, skipped buildup, protagonist worship, inactive-character intrusion, and visible authority or continuity problems. Return only the closed verdict, four scores, typed reason codes, and exact issue spans. Every reason_codes value and every issue_code is a local key and must match lower snake case `[a-z][a-z0-9_]{0,95}` exactly. Accepted means no issues. Rejected or inconclusive requires exact issue references. Select issue offsets only; never calculate or return full-story or issue hashes because Python derives them from the immutable Writer bytes. Never rewrite, repair, continue, quote a replacement, create canon, or override a hard Python or Semantic Validator failure. Provider conversation is not story authority. No retry, fallback, or post-generation normalization."""
+READER_STABLE_INSTRUCTIONS = """You are CERA's independent minimum-quality Reader checkpoint. Judge the exact immutable candidate as a complete reader-facing response after the Semantic Validator has already accepted hard authority and continuity. Reject only a severe visible quality failure: incoherent or unreadable prose, severe repetition or mechanical phrasing, a missing central scene event, clearly wrong character logic or voice, premature scene closure, or development materially below the selected depth. Minor style preference, harmless brevity, soft noncanonical detail, ordinary wording variation, and a merely imperfect sentence are accepted. Do not reclassify semantic authority. Return only the closed verdict, four scores, typed reason codes, and exact issue spans. Every reason_codes value and every issue_code is a local key and must match lower snake case `[a-z][a-z0-9_]{0,95}` exactly. Accepted means the minimum quality gate is met and carries no issues. Rejected means severe quality failure and requires exact issue references. Inconclusive is not a Writer failure and cannot authorize recall. Select issue offsets only; never calculate or return full-story or issue hashes because Python derives them from the immutable Writer bytes. Never rewrite, repair, continue, quote a replacement, create canon, or override a hard Python or Semantic Validator failure. Provider conversation is not story authority. No retry, fallback, or post-generation normalization."""
 
 
 def _usage(name: str, payload: bytes) -> PromptComponentUsageV1:
@@ -259,6 +261,112 @@ def build_validator_prompt(
     )
 
 
+def compile_compact_writer_brief(
+    *,
+    current_user_source: str,
+    planner_sequence: RichPlannerSequenceV1,
+) -> CompactWriterBriefV1:
+    """Project only the Planner decisions needed by the stochastic prose Writer."""
+
+    if not isinstance(planner_sequence, RichPlannerSequenceV1):
+        raise TypeError("planner_sequence must be a validated RichPlannerSequenceV1")
+    if len(planner_sequence.beats) > 5:
+        raise ValueError("compact Writer Brief supports at most five causal beats")
+
+    mandatory = tuple(
+        f"Beat {index}: {beat.observable_action_or_dialogue_direction}"
+        for index, beat in enumerate(planner_sequence.beats, start=1)
+    )
+    if len(mandatory) == 1:
+        mandatory += (
+            "Result: leave the scene in this state: "
+            + planner_sequence.beats[0].resulting_state,
+        )
+
+    voice_cues: list[CompactWriterVoiceCueV1] = []
+    for character_id in planner_sequence.selected_character_ids:
+        cues = tuple(
+            dict.fromkeys(
+                beat.selected_tactic
+                for beat in planner_sequence.beats
+                if character_id in beat.roles.assertion_owner_ids
+            )
+        )[:4]
+        if not cues:
+            cues = (
+                "Keep this active character consistent with the scene objective; "
+                "do not invent a new motive or private fact.",
+            )
+        voice_cues.append(
+            CompactWriterVoiceCueV1(
+                schema_version=CompactWriterVoiceCueV1.SCHEMA_VERSION,
+                character_id=character_id,
+                cues=cues,
+            )
+        )
+
+    continuity_boundaries = tuple(
+        dict.fromkeys(
+            "Preserve this durable continuity boundary: "
+            + beat.physical_material_continuity
+            for beat in planner_sequence.beats
+        )
+    )
+    active_cast_text = ", ".join(planner_sequence.selected_character_ids)
+    hard_boundaries = (
+        "Do not invent, paraphrase, extend, or imply Ted's action, dialogue, "
+        "thought, emotion, bodily state, consent, decision, movement, or response "
+        "beyond the exact current user source.",
+        "Only these active characters may participate in the visible scene: "
+        + active_cast_text
+        + ". A reference to another character does not make them active.",
+        "Do not create a consequential unsupported event, object, task, relocation, "
+        "relationship change, knowledge change, private fact, or material state.",
+        "Realize every mandatory causal beat substantially and do not reverse, "
+        "replace, or skip its central event.",
+        *continuity_boundaries,
+    )
+    return CompactWriterBriefV1(
+        schema_version=CompactWriterBriefV1.SCHEMA_VERSION,
+        current_user_source=current_user_source,
+        active_cast=planner_sequence.selected_character_ids,
+        scene_objective=planner_sequence.beats[0].immediate_goal,
+        mandatory_causal_beats=mandatory,
+        active_character_voice_cues=tuple(voice_cues),
+        hard_boundaries=hard_boundaries,
+        stopping_boundary=planner_sequence.final_stop_state,
+        presentation_freedom=(
+            "Use natural wording, pacing, sentence order, dialogue texture, "
+            "micro-actions, gaze, expression, posture, cadence, ambient texture, "
+            "generic incidental props, and other nonpersistent scene-local color. "
+            "These details must remain harmless and must not become causal or durable facts."
+        ),
+    )
+
+
+def _compact_writer_recall_feedback(
+    directive: WriterRecallDirectiveV1 | None,
+) -> dict[str, Any]:
+    if directive is None:
+        return {}
+    return {
+        "reason_codes": directive.reason_codes,
+        "offending_spans": tuple(
+            {
+                "exact_text": value.exact_text,
+                "failure_classes": tuple(
+                    item.value for item in value.prohibited_detail_classes
+                ),
+            }
+            for value in directive.offending_spans
+        ),
+        "instruction": (
+            "Create a fresh candidate from the unchanged brief. Do not continue, "
+            "patch, quote, or merge the rejected candidate."
+        ),
+    }
+
+
 def build_continuous_composer_prompt(
     *,
     current_user_source: str,
@@ -271,32 +379,23 @@ def build_continuous_composer_prompt(
     writer_recall_directive: WriterRecallDirectiveV1 | None = None,
 ) -> tuple[str, tuple[PromptComponentUsageV1, ...]]:
     boundary = realization_boundary or WriterRealizationBoundaryV1.default()
-    beat_constraints = writer_beat_realization_constraints(planner_sequence)
     summaries = tuple(character_summaries)
-    source_bytes = current_user_source.encode("utf-8")
-    sequence_bytes = canonical_bytes(planner_sequence)
-    summary_bytes = canonical_bytes(summaries)
-    claim_bytes = canonical_bytes(protected_user_claim_manifest)
-    session_bytes = canonical_bytes(accepted_session_projections)
-    source_unit_bytes = canonical_bytes(ingress_source_units)
-    boundary_bytes = canonical_bytes(boundary)
-    beat_constraint_bytes = canonical_bytes(beat_constraints)
-    recall_bytes = canonical_bytes(
-        to_primitive(writer_recall_directive)
-        if writer_recall_directive is not None
-        else {}
+    brief = compile_compact_writer_brief(
+        current_user_source=current_user_source,
+        planner_sequence=planner_sequence,
     )
-    frozen_authority_package_sha256 = canonical_sha256(
-        {
-            "current_user_source": current_user_source,
-            "ingress_source_units": ingress_source_units,
-            "planner_sequence": planner_sequence,
-            "character_summaries": summaries,
-            "protected_user_claim_manifest": protected_user_claim_manifest,
-            "accepted_session_projections": accepted_session_projections,
-            "writer_realization_boundary": boundary,
-            "writer_beat_realization_constraints": beat_constraints,
-        }
+    brief_bytes = canonical_bytes(brief)
+    recall_bytes = canonical_bytes(
+        _compact_writer_recall_feedback(writer_recall_directive)
+    )
+    frozen_authority_package_sha256 = continuous_writer_authority_package_sha256(
+        current_user_source=current_user_source,
+        ingress_source_units=ingress_source_units,
+        planner_sequence=planner_sequence,
+        character_summaries=summaries,
+        protected_user_claim_manifest=protected_user_claim_manifest,
+        accepted_session_projections=accepted_session_projections,
+        realization_boundary=boundary,
     )
     if (
         writer_recall_directive is not None
@@ -307,58 +406,20 @@ def build_continuous_composer_prompt(
             "Writer recall directive changed the frozen authority package"
         )
     prompt = (
-        "[FROZEN WRITER AUTHORITY PACKAGE SHA256]\n"
-        + frozen_authority_package_sha256
-        + "\n\n[CURRENT USER SOURCE]\n"
-        + current_user_source
-        + "\n\n[INGRESS-OWNED SOURCE UNITS]\n"
-        + source_unit_bytes.decode("utf-8")
-        + "\n\n[COMPLETE RICH PLANNER SEQUENCE]\n"
-        + sequence_bytes.decode("utf-8")
-        + "\n\n[SELECTED CHARACTER SUMMARIES - EACH IS INCOMPLETE]\n"
-        + summary_bytes.decode("utf-8")
-        + "\n\n[EXACT PROTECTED-USER CLAIM MANIFEST]\n"
-        + claim_bytes.decode("utf-8")
-        + "\n\n[OWNER-SCOPED ACCEPTED-SESSION PROJECTIONS]\n"
-        + session_bytes.decode("utf-8")
-        + "\n\n[WRITER REALIZATION BOUNDARY]\n"
-        + boundary_bytes.decode("utf-8")
-        + "\n\n[WRITER BEAT REALIZATION CONSTRAINTS - DETERMINISTIC PLANNER PROJECTION]\n"
-        + beat_constraint_bytes.decode("utf-8")
-        + "\n\n[NON-AUTHORITATIVE WRITER RECALL DIRECTIVE]\n"
+        "[COMPACT WRITER BRIEF]\n"
+        + brief_bytes.decode("utf-8")
+        + "\n\n[BOUNDED NON-AUTHORITATIVE RECALL FEEDBACK]\n"
         + recall_bytes.decode("utf-8")
-        + "\n\nRealize the full sequence while retaining the declared DeepSeek realization space. "
-        + "Return one complete presentation-neutral story in story_text. You may use compatible "
-        + "transient expression, gaze, brief pause, cadence, ordinary posture, and nonpersistent "
-        + "atmosphere only where each detail is inside the intersection of that beat's observable "
-        + "direction, physical/material continuity, realization space, roles, protected-user "
-        + "allowance, and the final stopping point. Presentation freedom never overrides a beat "
-        + "constraint. Ordinary posture does not authorize attaching a character to an unnamed "
-        + "object, surface, task, room feature, or durable position. One-sided NPC gaze toward Ted "
-        + "is permitted when compatible; reciprocal language such as meeting Ted's gaze, sharing "
-        + "a look, or receiving his returned smile asserts Ted behavior and requires exact supplied "
-        + "creator authority. Do not invent a continuity-relevant object, task, event, relocation, "
-        + "material change, relationship/memory/knowledge fact, private fact, or protected-user "
-        + "behavior. Do not label or audit your own presentation detail. A recall directive is "
-        + "diagnostic feedback about one rejected candidate only: do not continue, patch, merge, "
-        + "or treat its prose as scene authority. Create a fresh independent candidate from the "
-        + "unchanged authority package. Do not return analysis, "
-        + "segments, semantic kinds, character roles, owner IDs, protected claim keys, consent "
-        + "judgments, offsets, hashes, coverage, events, memory, persistence, or acceptance. "
-        + "Do not paraphrase, extend, or create protected-user behavior; exact supplied creator "
-        + "source is the only allowed Ted-owned material. An NPC may act toward, address, observe, "
-        + "or refer to Ted without inventing his response. Preserve the validated stopping point."
+        + "\n\nWrite one complete, natural, presentation-neutral story response in story_text. "
+        + "Substantially realize the mandatory causal beats and stop at the stated boundary. "
+        + "Use the presentation freedom instead of copying the brief like a screenplay. "
+        + "Harmless local variation is welcome; hard boundaries are not optional. "
+        + "Return prose only through the supplied Writer output schema. Do not return analysis, "
+        + "labels, IDs, hashes, offsets, evidence, events, memory, persistence, or acceptance."
     )
     return prompt, (
-        _usage("current_user_source", source_bytes),
-        _usage("ingress_source_units", source_unit_bytes),
-        _usage("rich_planner_sequence", sequence_bytes),
-        _usage("character_summaries", summary_bytes),
-        _usage("protected_user_claim_manifest", claim_bytes),
-        _usage("accepted_session_projections", session_bytes),
-        _usage("writer_realization_boundary", boundary_bytes),
-        _usage("writer_beat_realization_constraints", beat_constraint_bytes),
-        _usage("writer_recall_directive", recall_bytes),
+        _usage("compact_writer_brief", brief_bytes),
+        _usage("writer_recall_feedback", recall_bytes),
     )
 
 

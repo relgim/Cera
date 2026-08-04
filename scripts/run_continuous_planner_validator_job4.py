@@ -1477,8 +1477,10 @@ class JobHarness:
                     or not planner_packet["character_summary_bindings"]
                 ),
                 "composer_prior_projection_absent": (
-                    "[OWNER-SCOPED ACCEPTED-SESSION PROJECTIONS]\n[]"
-                    in composer_prompt_text
+                    "OWNER-SCOPED ACCEPTED-SESSION PROJECTIONS"
+                    not in composer_prompt_text
+                    and '"accepted_session_projections"'
+                    not in composer_prompt_text
                 ),
                 "validator_prior_projection_absent": (
                     '"accepted_session_projections"'

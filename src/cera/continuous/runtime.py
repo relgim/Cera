@@ -1971,6 +1971,26 @@ class ContinuousShadowTurnCoordinator:
         debug.write_json("reader_output.json", to_primitive(reader_verdict))
         debug.write_json("reader_tools.json", _provider_debug(reader_result))
         if reader_verdict.verdict is not ReaderVerdictStatus.ACCEPTED:
+            if (
+                reader_verdict.verdict is ReaderVerdictStatus.REJECTED
+                and writer_attempt_number < 3
+            ):
+                reader_recall_directive = (
+                    reader_verdict.build_writer_recall_directive(
+                        writer_story_text=story_text,
+                        frozen_authority_package_sha256=(
+                            frozen_writer_authority_sha256
+                        ),
+                        source_attempt_number=writer_attempt_number,
+                    )
+                )
+                debug.write_json(
+                    "writer_recall_directive.json",
+                    {
+                        "source": "severe_reader_quality_failure",
+                        "directive": to_primitive(reader_recall_directive),
+                    },
+                )
             error = PermissionError(
                 "Reader rejected or could not resolve the immutable candidate"
             )

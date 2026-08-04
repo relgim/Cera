@@ -59,6 +59,7 @@ from .contracts import (
     ValidatorFinalizationPackageV1,
     ValidatorSemanticStatus,
     ValidatorTaskMode,
+    WriterCandidateDisposition,
     WriterRecallDirectiveV1,
     WriterRecallOffendingSpanV1,
     WorldEditOperationKind,
@@ -75,9 +76,9 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v8"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v20"
-CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v9"
-CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v3"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v22"
+CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
+CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v4"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v3"
 
 
@@ -2167,7 +2168,11 @@ class ProviderRejectedTurnDecisionDraftV4:
 
     @property
     def reason_codes(self) -> tuple[str, ...]:
-        return (self.primary_reason_code, *self.additional_reason_codes)
+        return tuple(
+            dict.fromkeys(
+                (self.primary_reason_code, *self.additional_reason_codes)
+            )
+        )
 
     def compile(
         self,
@@ -2178,7 +2183,7 @@ class ProviderRejectedTurnDecisionDraftV4:
             schema_version=ProviderRejectedTurnDecisionDraftV3.SCHEMA_VERSION,
             semantic_status=self.semantic_status,
             primary_reason_code=self.primary_reason_code,
-            additional_reason_codes=self.additional_reason_codes,
+            additional_reason_codes=self.reason_codes[1:],
             diagnostic_story_segments=self.diagnostic_story_segments,
             diagnostic_protected_semantic_adjudications=(
                 self.diagnostic_protected_semantic_adjudications
@@ -2292,6 +2297,23 @@ class ContinuousSemanticValidatorResultV3:
                 raise ContractValidationError(
                     "compiled Writer recall eligibility changed"
                 )
+
+    @property
+    def writer_candidate_disposition(self) -> WriterCandidateDisposition:
+        accepted = self.semantic_status in {
+            ValidatorSemanticStatus.ACCEPTED,
+            ValidatorSemanticStatus.CONCERN,
+        }
+        if accepted:
+            if self.presentation_realization_segments:
+                return WriterCandidateDisposition.SOFT_NONCANONICAL_DRIFT
+            return WriterCandidateDisposition.CLEAN
+        if (
+            self.writer_recall_eligibility
+            is ProviderWriterRecallEligibility.ELIGIBLE
+        ):
+            return WriterCandidateDisposition.HARD_WRITER_VIOLATION
+        return WriterCandidateDisposition.VALIDATION_UNRESOLVED
 
     @classmethod
     def from_v2(

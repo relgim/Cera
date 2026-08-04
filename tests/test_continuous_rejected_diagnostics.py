@@ -192,6 +192,43 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
             TED_TEXT,
         )
 
+    def test_duplicate_primary_reason_is_normalized_only_at_semantic_projection(self) -> None:
+        payload = to_primitive(_wire())
+        payload["decision"]["additional_reason_codes"] = [
+            "protected_user_stopping_boundary_violation",
+            "protected_user_invention",
+        ]
+        Draft202012Validator(
+            continuous_semantic_validator_draft_json_schema()
+        ).validate(payload)
+
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV11, payload)
+        self.assertEqual(
+            decoded.decision.additional_reason_codes,
+            (
+                "protected_user_stopping_boundary_violation",
+                "protected_user_invention",
+            ),
+        )
+        result = decoded.compile(writer_story_text=STORY)
+        self.assertEqual(
+            result.reason_codes,
+            (
+                "protected_user_invention",
+                "protected_user_stopping_boundary_violation",
+            ),
+        )
+
+        directive = result.build_writer_recall_directive(
+            rejected_candidate_id="candidate:duplicate_reason_fixture",
+            rejected_story_text=STORY,
+            frozen_authority_package_sha256="a" * 64,
+            source_attempt_number=1,
+        )
+        self.assertEqual(directive.reason_codes, result.reason_codes)
+        self.assertFalse(directive.authoritative)
+        self.assertFalse(directive.attempts_may_merge)
+
     def test_rejected_inconclusive_and_error_round_trip_neutral_and_openai(self) -> None:
         neutral = continuous_semantic_validator_draft_json_schema()
         projected = project_provider_output_schema(

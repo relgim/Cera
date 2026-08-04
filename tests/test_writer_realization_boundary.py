@@ -17,19 +17,27 @@ from cera.continuous.contracts import (
     ProtectedSemanticAdjudicationV1,
     ProtectedSemanticRelationKind,
     RealizationAuthorityDisposition,
+    ReaderIssueReferenceV1,
+    ReaderQualityDisposition,
+    ReaderVerdictStatus,
+    ReaderVerdictV1,
     StoryRealizationKind,
     StoryRealizationSegmentV1,
+    WriterCandidateDisposition,
     WriterRealizationBoundaryV1,
 )
 from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.prompting import (
     WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION,
     build_continuous_composer_prompt,
+    compile_compact_writer_brief,
     continuous_writer_authority_package_sha256,
     writer_beat_realization_constraints,
 )
 from cera.continuous.provider import (
     CONTINUOUS_DEEPSEEK_ADAPTER_VERSION,
+    ContinuousSemanticValidatorResultV2,
+    ContinuousSemanticValidatorResultV3,
     ContinuousSemanticValidatorDraftV11,
     DeepSeekContinuousComposerPort,
     ProviderDiagnosticProtectedSemanticAdjudicationDraftV1,
@@ -295,9 +303,25 @@ class WriterRealizationBoundaryTests(unittest.TestCase):
             "independent_codex_semantic_validator",
         )
 
-    def test_presentation_cannot_hide_dialogue_private_state_consent_or_ted(self) -> None:
+    def test_presentation_allows_soft_dialogue_but_not_private_state_consent_or_ted(self) -> None:
+        soft_dialogue = PresentationRealizationSegmentV1(
+            schema_version=PresentationRealizationSegmentV1.SCHEMA_VERSION,
+            segment_key="soft_dialogue",
+            presentation_class=(
+                PresentationRealizationClass.LOW_STAKES_CONVERSATIONAL_COLOR
+            ),
+            kind=StoryRealizationKind.DIALOGUE,
+            output_start=0,
+            output_end=len("It was a quiet day."),
+            exact_text="It was a quiet day.",
+            exact_text_sha256=text_sha256("It was a quiet day."),
+            roles=CharacterRoleLedgerV1(speaker_ids=(HANA,)),
+        )
+        self.assertEqual(
+            soft_dialogue.presentation_class,
+            PresentationRealizationClass.LOW_STAKES_CONVERSATIONAL_COLOR,
+        )
         invalid = (
-            (StoryRealizationKind.DIALOGUE, CharacterRoleLedgerV1(speaker_ids=(HANA,))),
             (
                 StoryRealizationKind.PRIVATE_STATE,
                 CharacterRoleLedgerV1(state_owner_ids=(HANA,)),
@@ -383,6 +407,129 @@ class WriterRealizationBoundaryTests(unittest.TestCase):
                     offending,
                 )
 
+    def test_typed_candidate_disposition_separates_soft_drift_and_hard_failure(self) -> None:
+        base = ContinuousSemanticValidatorResultV2.from_v1(
+            _canonical_v4().compile()
+        )
+        presentation_text = "A dish towel lay nearby."
+        presentation = PresentationRealizationSegmentV1(
+            schema_version=PresentationRealizationSegmentV1.SCHEMA_VERSION,
+            segment_key="incidental_dish_towel",
+            presentation_class=PresentationRealizationClass.INCIDENTAL_PROP,
+            kind=StoryRealizationKind.NARRATION,
+            output_start=0,
+            output_end=len(presentation_text),
+            exact_text=presentation_text,
+            exact_text_sha256=text_sha256(presentation_text),
+            roles=CharacterRoleLedgerV1(referenced_ids=(HANA,)),
+        )
+        adjudication = ProtectedSemanticAdjudicationV1(
+            schema_version=ProtectedSemanticAdjudicationV1.SCHEMA_VERSION,
+            adjudication_key="incidental_dish_towel_adjudication",
+            segment_key=presentation.segment_key,
+            output_start=0,
+            output_end=len(presentation_text),
+            exact_text_sha256=text_sha256(presentation_text),
+            protected_user_id=TED,
+            relation=ProtectedSemanticRelationKind.NONE,
+            npc_assertion_owner_ids=(),
+            protected_user_source_claim_keys=(),
+        )
+        soft = ContinuousSemanticValidatorResultV3.from_v2(
+            base,
+            presentation_realization_segments=(presentation,),
+            presentation_protected_semantic_adjudications=(adjudication,),
+        )
+        self.assertIs(
+            soft.writer_candidate_disposition,
+            WriterCandidateDisposition.SOFT_NONCANONICAL_DRIFT,
+        )
+        self.assertIs(
+            ContinuousSemanticValidatorResultV3.from_v2(
+                base
+            ).writer_candidate_disposition,
+            WriterCandidateDisposition.CLEAN,
+        )
+
+        for hard_class in (
+            ProhibitedWriterDetailClass.PROTECTED_USER_BEHAVIOR,
+            ProhibitedWriterDetailClass.INACTIVE_CHARACTER_PARTICIPATION,
+            ProhibitedWriterDetailClass.OWNER_OR_PRIVATE_STATE_MISMATCH,
+            ProhibitedWriterDetailClass.MANDATORY_BEAT_OMISSION_OR_REVERSAL,
+            ProhibitedWriterDetailClass.STOPPING_BOUNDARY_VIOLATION,
+        ):
+            with self.subTest(hard_class=hard_class):
+                hard = _rejected_result(
+                    story="A consequential unsupported assertion.",
+                    offending_text="A consequential unsupported assertion.",
+                    prohibited=(hard_class,),
+                )
+                self.assertIs(
+                    hard.writer_candidate_disposition,
+                    WriterCandidateDisposition.HARD_WRITER_VIOLATION,
+                )
+
+    def test_only_severe_reader_failure_builds_quality_recall(self) -> None:
+        story = "Hana's response ends before the central event."
+        issue = ReaderIssueReferenceV1(
+            schema_version=ReaderIssueReferenceV1.SCHEMA_VERSION,
+            issue_code="missing_central_event",
+            output_start=0,
+            output_end=len(story),
+            exact_text_sha256=text_sha256(story),
+            explanation="The central planned event is absent.",
+        )
+        rejected = ReaderVerdictV1(
+            schema_version=ReaderVerdictV1.SCHEMA_VERSION,
+            verdict_id="reader:severe_quality_fixture",
+            world_id="world:quality_fixture",
+            branch_id="branch:main",
+            turn_id="turn:quality_fixture",
+            candidate_id="candidate:quality_fixture",
+            story_text_sha256=text_sha256(story),
+            verdict=ReaderVerdictStatus.REJECTED,
+            reason_codes=("missing_central_event",),
+            issues=(issue,),
+            scene_completeness_score=10,
+            character_voice_score=70,
+            dialogue_pacing_score=60,
+            readability_score=70,
+        )
+        self.assertIs(
+            rejected.quality_disposition,
+            ReaderQualityDisposition.SEVERE_QUALITY_FAILURE,
+        )
+        recall = rejected.build_writer_recall_directive(
+            writer_story_text=story,
+            frozen_authority_package_sha256="a" * 64,
+            source_attempt_number=1,
+        )
+        self.assertEqual(
+            recall.offending_spans[0].prohibited_detail_classes,
+            (ProhibitedWriterDetailClass.SEVERE_READER_QUALITY_FAILURE,),
+        )
+
+        accepted = replace(
+            rejected,
+            verdict_id="reader:minimum_quality_fixture",
+            verdict=ReaderVerdictStatus.ACCEPTED,
+            reason_codes=(),
+            issues=(),
+        )
+        self.assertIs(
+            accepted.quality_disposition,
+            ReaderQualityDisposition.MINIMUM_QUALITY_MET,
+        )
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "does not authorize",
+        ):
+            accepted.build_writer_recall_directive(
+                writer_story_text=story,
+                frozen_authority_package_sha256="a" * 64,
+                source_attempt_number=1,
+            )
+
     def test_writer_beat_constraints_are_an_exact_planner_projection(self) -> None:
         planner = sequence()
         projection = writer_beat_realization_constraints(planner)
@@ -425,32 +572,40 @@ class WriterRealizationBoundaryTests(unittest.TestCase):
             source_beat.protected_user_allowance.mode.value,
         )
 
-    def test_writer_prompt_foregrounds_intersection_and_protected_gaze_rules(self) -> None:
+    def test_writer_prompt_uses_only_the_compact_writer_brief(self) -> None:
         prompt, usage = build_continuous_composer_prompt(
             current_user_source="How was your evening?",
             ingress_source_units=(),
             planner_sequence=sequence(),
         )
 
-        self.assertIn(
-            "WRITER BEAT REALIZATION CONSTRAINTS - DETERMINISTIC PLANNER PROJECTION",
-            prompt,
-        )
-        self.assertIn("inside the intersection of that beat's observable", prompt)
-        self.assertIn(
-            "Ordinary posture does not authorize attaching a character to an unnamed",
-            prompt,
-        )
-        self.assertIn("One-sided NPC gaze toward Ted is permitted", prompt)
-        self.assertIn("meeting Ted's gaze", prompt)
-        self.assertIn("requires exact supplied creator authority", prompt)
+        self.assertIn("[COMPACT WRITER BRIEF]", prompt)
+        self.assertIn("mandatory_causal_beats", prompt)
+        self.assertIn("presentation_freedom", prompt)
+        self.assertNotIn("COMPLETE RICH PLANNER SEQUENCE", prompt)
+        self.assertNotIn("evidence_bindings", prompt)
+        self.assertNotIn("sequence_id", prompt)
+        self.assertNotIn("SHA256", prompt)
         self.assertIn(
             "Sakura remains at the closed or narrowly controlled threshold",
             prompt,
         )
         self.assertEqual(
-            tuple(value.component for value in usage)[-2:],
-            ("writer_beat_realization_constraints", "writer_recall_directive"),
+            tuple(value.component for value in usage),
+            ("compact_writer_brief", "writer_recall_feedback"),
+        )
+
+    def test_compact_writer_brief_contains_two_to_five_causal_beats(self) -> None:
+        brief = compile_compact_writer_brief(
+            current_user_source="How was your evening?",
+            planner_sequence=sequence(),
+        )
+        self.assertEqual(brief.active_cast, ("character:sakura_hanezawa",))
+        self.assertGreaterEqual(len(brief.mandatory_causal_beats), 2)
+        self.assertLessEqual(len(brief.mandatory_causal_beats), 5)
+        self.assertEqual(
+            tuple(value.character_id for value in brief.active_character_voice_cues),
+            brief.active_cast,
         )
 
     def test_writer_authority_hash_binds_beat_constraints(self) -> None:
@@ -508,11 +663,13 @@ class WriterRealizationBoundaryTests(unittest.TestCase):
             realization_boundary=boundary,
             writer_recall_directive=directive,
         )
-        self.assertIn(frozen_hash, prompt)
+        self.assertNotIn(frozen_hash, prompt)
         self.assertIn(directive.offending_spans[0].exact_text, prompt)
-        self.assertIn("NON-AUTHORITATIVE WRITER RECALL DIRECTIVE", prompt)
-        self.assertIn("do not continue, patch, merge", prompt)
-        self.assertEqual(usage[-1].component, "writer_recall_directive")
+        self.assertIn("BOUNDED NON-AUTHORITATIVE RECALL FEEDBACK", prompt)
+        self.assertIn("Do not continue", prompt)
+        self.assertNotIn("output_start", prompt)
+        self.assertNotIn("rejected_candidate_id", prompt)
+        self.assertEqual(usage[-1].component, "writer_recall_feedback")
         self.assertEqual(
             frozen_hash,
             continuous_writer_authority_package_sha256(

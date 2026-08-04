@@ -528,7 +528,7 @@ class ContinuousLeanContextTests(unittest.TestCase):
                 current_authority_packet={"untyped_caller_data": True},
             )
 
-    def test_character_delivery_is_thread_local_but_composer_context_is_not_suppressed(self) -> None:
+    def test_character_delivery_is_thread_local_and_writer_uses_planner_voice_cue(self) -> None:
         port = InMemoryContinuousStoredSessionPort()
         planner = ContinuousSessionCoordinator(
             compatibility(ContinuousSessionRole.PLANNER), port
@@ -556,7 +556,12 @@ class ContinuousLeanContextTests(unittest.TestCase):
             planner_sequence=sequence(),
             character_summaries=(summary,),
         )
-        self.assertIn(summary.summary, composer_prompt)
+        self.assertNotIn(summary.summary, composer_prompt)
+        self.assertIn("active_character_voice_cues", composer_prompt)
+        self.assertIn(
+            "Ask for one arrangement-specific identifying fact",
+            composer_prompt,
+        )
 
     def test_true_reconstruction_creates_a_new_thread_and_then_returns_to_lean(self) -> None:
         port = InMemoryContinuousStoredSessionPort()

@@ -732,6 +732,79 @@ class RichPlannerSequenceV1:
 
 
 @dataclass(frozen=True, slots=True)
+class CompactWriterVoiceCueV1:
+    """Small Planner-derived voice guidance for one active character."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.compact_writer_voice_cue.v1"
+
+    schema_version: str
+    character_id: str
+    cues: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("compact Writer voice cue schema changed")
+        _identity(self.character_id, "compact_writer_voice_cue.character_id")
+        if not 1 <= len(self.cues) <= 4:
+            raise ContractValidationError(
+                "compact Writer voice cue requires one to four cues"
+            )
+        for value in self.cues:
+            _text(value, "compact_writer_voice_cue.cues", maximum=1_200)
+        _unique(self.cues, "compact_writer_voice_cue.cues")
+
+
+@dataclass(frozen=True, slots=True)
+class CompactWriterBriefV1:
+    """The complete provider-visible authority surface for prose realization."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.compact_writer_brief.v1"
+
+    schema_version: str
+    current_user_source: str
+    active_cast: tuple[str, ...]
+    scene_objective: str
+    mandatory_causal_beats: tuple[str, ...]
+    active_character_voice_cues: tuple[CompactWriterVoiceCueV1, ...]
+    hard_boundaries: tuple[str, ...]
+    stopping_boundary: str
+    presentation_freedom: str
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("compact Writer Brief schema changed")
+        _text(self.current_user_source, "compact_writer_brief.current_user_source", maximum=64_000)
+        for value in self.active_cast:
+            _identity(value, "compact_writer_brief.active_cast")
+        _unique(self.active_cast, "compact_writer_brief.active_cast")
+        if not self.active_cast:
+            raise ContractValidationError("compact Writer Brief requires active cast")
+        _text(self.scene_objective, "compact_writer_brief.scene_objective", maximum=4_000)
+        if not 2 <= len(self.mandatory_causal_beats) <= 5:
+            raise ContractValidationError(
+                "compact Writer Brief requires two to five mandatory causal beats"
+            )
+        for value in self.mandatory_causal_beats:
+            _text(value, "compact_writer_brief.mandatory_causal_beats", maximum=4_000)
+        _unique(
+            self.mandatory_causal_beats,
+            "compact_writer_brief.mandatory_causal_beats",
+        )
+        cue_ids = tuple(value.character_id for value in self.active_character_voice_cues)
+        if cue_ids != self.active_cast:
+            raise ContractValidationError(
+                "compact Writer voice cues must match active cast order exactly"
+            )
+        if not self.hard_boundaries:
+            raise ContractValidationError("compact Writer Brief requires hard boundaries")
+        for value in self.hard_boundaries:
+            _text(value, "compact_writer_brief.hard_boundaries", maximum=4_000)
+        _unique(self.hard_boundaries, "compact_writer_brief.hard_boundaries")
+        _text(self.stopping_boundary, "compact_writer_brief.stopping_boundary", maximum=4_000)
+        _text(self.presentation_freedom, "compact_writer_brief.presentation_freedom", maximum=4_000)
+
+
+@dataclass(frozen=True, slots=True)
 class CharacterSummaryEnvelopeV1:
     """Exact record-derived summary; the class name remains for API continuity."""
 
@@ -1543,6 +1616,15 @@ class RealizationAuthorityDisposition(StrEnum):
     STORY_MATERIAL_ASSERTION = "story_material_assertion"
 
 
+class WriterCandidateDisposition(StrEnum):
+    """Python-derived overall disposition of one immutable Writer candidate."""
+
+    CLEAN = "clean"
+    SOFT_NONCANONICAL_DRIFT = "soft_noncanonical_drift"
+    HARD_WRITER_VIOLATION = "hard_writer_violation"
+    VALIDATION_UNRESOLVED = "validation_unresolved"
+
+
 class PresentationRealizationClass(StrEnum):
     """Closed transient classes that may remain visible without becoming canon."""
 
@@ -1552,10 +1634,15 @@ class PresentationRealizationClass(StrEnum):
     CADENCE = "cadence"
     ORDINARY_POSTURE = "ordinary_posture"
     NONPERSISTENT_ATMOSPHERE = "nonpersistent_atmosphere"
+    MICRO_ACTION = "micro_action"
+    INCIDENTAL_PROP = "incidental_prop"
+    LOW_STAKES_CONVERSATIONAL_COLOR = "low_stakes_conversational_color"
+    HARMLESS_WORDING_OR_ORDER_VARIATION = "harmless_wording_or_order_variation"
+    NONPERSISTENT_SPATIAL_PHRASING = "nonpersistent_spatial_phrasing"
 
 
 class ProhibitedWriterDetailClass(StrEnum):
-    """Closed feedback classes for unsupported continuity-significant prose."""
+    """Closed feedback classes that can justify a fresh Writer attempt."""
 
     NEW_CONTINUITY_OBJECT = "new_continuity_object"
     UNSUPPORTED_TASK_OR_EVENT = "unsupported_task_or_event"
@@ -1564,8 +1651,14 @@ class ProhibitedWriterDetailClass(StrEnum):
     RELATIONSHIP_MEMORY_OR_KNOWLEDGE = "relationship_memory_or_knowledge"
     UNAUTHORIZED_PRIVATE_FACT = "unauthorized_private_fact"
     PROTECTED_USER_BEHAVIOR = "protected_user_behavior"
+    INACTIVE_CHARACTER_PARTICIPATION = "inactive_character_participation"
+    OWNER_OR_PRIVATE_STATE_MISMATCH = "owner_or_private_state_mismatch"
+    MANDATORY_BEAT_OMISSION_OR_REVERSAL = (
+        "mandatory_beat_omission_or_reversal"
+    )
     PLANNER_SEQUENCE_DEPARTURE = "planner_sequence_departure"
     STOPPING_BOUNDARY_VIOLATION = "stopping_boundary_violation"
+    SEVERE_READER_QUALITY_FAILURE = "severe_reader_quality_failure"
 
 
 @dataclass(frozen=True, slots=True)
@@ -1676,11 +1769,11 @@ class PresentationRealizationSegmentV1:
             )
         if self.kind not in {
             StoryRealizationKind.ACTION,
+            StoryRealizationKind.DIALOGUE,
             StoryRealizationKind.NARRATION,
         }:
             raise ContractValidationError(
-                "dialogue, private state, and consent or decision cannot be "
-                "presentation-only"
+                "private state and consent or decision cannot be presentation-only"
             )
         if "character:ted" in self.roles.assertion_owner_ids:
             raise ContractValidationError(
@@ -1689,6 +1782,10 @@ class PresentationRealizationSegmentV1:
         if self.kind is StoryRealizationKind.ACTION:
             valid = bool(self.roles.action_owner_ids) and not (
                 self.roles.state_owner_ids or self.roles.speaker_ids
+            )
+        elif self.kind is StoryRealizationKind.DIALOGUE:
+            valid = len(self.roles.speaker_ids) == 1 and not (
+                self.roles.action_owner_ids or self.roles.state_owner_ids
             )
         else:
             valid = not self.roles.assertion_owner_ids
@@ -2158,6 +2255,12 @@ class ReaderVerdictStatus(StrEnum):
     INCONCLUSIVE = "inconclusive"
 
 
+class ReaderQualityDisposition(StrEnum):
+    MINIMUM_QUALITY_MET = "minimum_quality_met"
+    SEVERE_QUALITY_FAILURE = "severe_quality_failure"
+    QUALITY_UNRESOLVED = "quality_unresolved"
+
+
 @dataclass(frozen=True, slots=True)
 class ReaderIssueReferenceV1:
     """One non-rewriting Reader issue bound to exact immutable Writer text."""
@@ -2260,6 +2363,53 @@ class ReaderVerdictV1:
                 raise ContractValidationError(
                     "Reader issue reference changed exact Writer bytes"
                 )
+
+    @property
+    def quality_disposition(self) -> ReaderQualityDisposition:
+        if self.verdict is ReaderVerdictStatus.ACCEPTED:
+            return ReaderQualityDisposition.MINIMUM_QUALITY_MET
+        if self.verdict is ReaderVerdictStatus.REJECTED:
+            return ReaderQualityDisposition.SEVERE_QUALITY_FAILURE
+        return ReaderQualityDisposition.QUALITY_UNRESOLVED
+
+    def build_writer_recall_directive(
+        self,
+        *,
+        writer_story_text: str,
+        frozen_authority_package_sha256: str,
+        source_attempt_number: int,
+    ) -> WriterRecallDirectiveV1:
+        self.validate_story_text(writer_story_text)
+        if self.quality_disposition is not ReaderQualityDisposition.SEVERE_QUALITY_FAILURE:
+            raise ContractValidationError(
+                "Reader verdict does not authorize a Writer recall"
+            )
+        spans = tuple(
+            WriterRecallOffendingSpanV1(
+                schema_version=WriterRecallOffendingSpanV1.SCHEMA_VERSION,
+                segment_key=f"reader_issue_{index:02d}",
+                output_start=issue.output_start,
+                output_end=issue.output_end,
+                exact_text=writer_story_text[issue.output_start : issue.output_end],
+                exact_text_sha256=issue.exact_text_sha256,
+                prohibited_detail_classes=(
+                    ProhibitedWriterDetailClass.SEVERE_READER_QUALITY_FAILURE,
+                ),
+            )
+            for index, issue in enumerate(self.issues, start=1)
+        )
+        return WriterRecallDirectiveV1(
+            schema_version=WriterRecallDirectiveV1.SCHEMA_VERSION,
+            rejected_candidate_id=self.candidate_id,
+            rejected_story_text_sha256=self.story_text_sha256,
+            frozen_authority_package_sha256=frozen_authority_package_sha256,
+            source_attempt_number=source_attempt_number,
+            next_attempt_number=source_attempt_number + 1,
+            reason_codes=self.reason_codes,
+            offending_spans=spans,
+            authoritative=False,
+            attempts_may_merge=False,
+        )
 
 
 @dataclass(frozen=True, slots=True)

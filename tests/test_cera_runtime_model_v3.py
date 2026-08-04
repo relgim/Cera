@@ -136,7 +136,7 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v27",
+            "cera.continuous_validator_prompt.v28",
         )
         for required in (
             "applies independently to each final-sequence item",
@@ -152,8 +152,10 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
             "Use neutral_presentation_reference only for presentation_only narration classified nonpersistent_atmosphere",
             "It is a neutral framing reference, never Ted behavior or story authority",
             "Every story_material_assertion segment must have at least one character in exactly one role array",
-            "Presentation_only may use only action for a transient NPC-owned visible behavior or narration with a non-owning active-cast role",
-            "dialogue, private_state, and consent_or_decision are always story_material_assertion",
+            "Presentation_only may use action for a transient NPC-owned visible behavior, dialogue with exactly one NPC speaker",
+            "Private_state and consent_or_decision are always story_material_assertion",
+            "Soft drift does not cause rejection or Writer recall",
+            "Accept the first candidate that is hard-safe",
             "Presentation-only segment keys must not appear anywhere in complete_final_sequence",
             "diagnostic and presentation-only spans cannot enter final fields",
             "derive the protected relation from that span's roles exactly",

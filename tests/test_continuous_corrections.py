@@ -994,8 +994,9 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
             )
             self.assertNotIn('"projection_assisted"', planner.prompts[1])
             self.assertNotIn('"field_value"', planner.prompts[1])
-            self.assertIn(
-                "[OWNER-SCOPED ACCEPTED-SESSION PROJECTIONS]\n[]",
+            self.assertIn("[COMPACT WRITER BRIEF]", composer.prompts[1])
+            self.assertNotIn(
+                "OWNER-SCOPED ACCEPTED-SESSION PROJECTIONS",
                 composer.prompts[1],
             )
             self.assertNotIn(

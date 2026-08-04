@@ -552,7 +552,7 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v20",
+            "cera.continuous_validator_adapter.v22",
         )
 
     def test_active_schema_rejects_provider_authored_prior_value_hash(self) -> None:
@@ -870,7 +870,7 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_READER_PROMPT_VERSION,
-            "cera.continuous_reader_prompt.v3",
+            "cera.continuous_reader_prompt.v4",
         )
         self.assertIn(LOCAL_KEY_JSON_PATTERN[1:-1], READER_STABLE_INSTRUCTIONS)
 
