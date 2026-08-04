@@ -6,10 +6,13 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FAILED_FIXTURE_PATH = (
+FAILED_FIXTURE_V2_PATH = (
     ROOT / "tests" / "fixtures" / "runtime_model_v3_reader_cases_v2.json"
 )
-FIXTURE_PATH = ROOT / "tests" / "fixtures" / "runtime_model_v3_reader_cases_v3.json"
+FAILED_FIXTURE_V3_PATH = (
+    ROOT / "tests" / "fixtures" / "runtime_model_v3_reader_cases_v3.json"
+)
+FIXTURE_PATH = ROOT / "tests" / "fixtures" / "runtime_model_v3_reader_cases_v4.json"
 HISTORICAL_RUNNER_PATH = (
     ROOT
     / ".chatgpt"
@@ -27,11 +30,11 @@ class RuntimeModelV3ReaderFixtureAuthorityTests(unittest.TestCase):
     def test_fixture_set_is_closed_and_authority_explicit(self) -> None:
         self.assertEqual(
             self.fixture["schema_version"],
-            "cera.runtime_model_v3_reader_qualification_fixture_set.v2",
+            "cera.runtime_model_v3_reader_qualification_fixture_set.v3",
         )
         self.assertEqual(
             self.fixture["fixture_set_id"],
-            "runtime_model_v3_reader_cases_v3",
+            "runtime_model_v3_reader_cases_v4",
         )
         self.assertEqual(
             set(self.fixture),
@@ -81,6 +84,8 @@ class RuntimeModelV3ReaderFixtureAuthorityTests(unittest.TestCase):
         self.assertNotIn("you said", story.casefold())
         self.assertNotIn("you did", story.casefold())
         self.assertIn("without closing the conversation", story)
+        self.assertNotIn("tired", story.casefold())
+        self.assertNotIn("genuine", story.casefold())
 
     def test_positive_case_has_gap_ordered_exclusive_role_plan(self) -> None:
         positive = self.fixture["cases"][0]
@@ -122,14 +127,15 @@ class RuntimeModelV3ReaderFixtureAuthorityTests(unittest.TestCase):
             [False, True, False],
         )
 
-    def test_failed_v2_fixture_is_preserved_as_immutable_evidence(self) -> None:
-        failed = json.loads(FAILED_FIXTURE_PATH.read_text(encoding="utf-8"))
-        self.assertEqual(failed["fixture_set_id"], "runtime_model_v3_reader_cases_v2")
-        self.assertNotIn("planner_beats", failed["cases"][0])
-        self.assertEqual(
-            failed["cases"][0]["story_text"],
-            self.fixture["cases"][0]["story_text"],
-        )
+    def test_failed_v2_and_v3_fixtures_are_preserved(self) -> None:
+        failed_v2 = json.loads(FAILED_FIXTURE_V2_PATH.read_text(encoding="utf-8"))
+        failed_v3 = json.loads(FAILED_FIXTURE_V3_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(failed_v2["fixture_set_id"], "runtime_model_v3_reader_cases_v2")
+        self.assertNotIn("planner_beats", failed_v2["cases"][0])
+        self.assertEqual(failed_v3["fixture_set_id"], "runtime_model_v3_reader_cases_v3")
+        self.assertIn("planner_beats", failed_v3["cases"][0])
+        self.assertIn("tired but genuine smile", failed_v3["cases"][0]["story_text"])
+        self.assertIn("small smile", self.fixture["cases"][0]["story_text"])
 
     def test_historical_failed_fixture_source_is_not_rewritten(self) -> None:
         historical = HISTORICAL_RUNNER_PATH.read_text(encoding="utf-8")
