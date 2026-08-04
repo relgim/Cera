@@ -51,8 +51,15 @@ from cera.continuous.provider import (
     ProviderEventRecordDraftV1,
     ProviderFinalSequenceDraftV2,
     ProviderProtectedSemanticAdjudicationDraftV1,
+    ProviderAcceptedReaderDecisionDraftV1,
+    ProviderAcceptedReaderVerdictStatus,
+    ProviderInconclusiveReaderDecisionDraftV1,
+    ProviderInconclusiveReaderVerdictStatus,
     ProviderReaderIssueReferenceDraftV1,
     ProviderReaderVerdictDraftV1,
+    ProviderReaderVerdictDraftV2,
+    ProviderRejectedReaderDecisionDraftV1,
+    ProviderRejectedReaderVerdictStatus,
     ProviderRejectedSemanticStatus,
     ProviderRejectedTurnDecisionDraftV2,
     ProviderRejectedTurnDecisionDraftV4,
@@ -63,6 +70,7 @@ from cera.continuous.provider import (
     continuous_scene_writer_draft_json_schema,
     continuous_semantic_validator_draft_json_schema,
     continuous_validator_route,
+    historical_provider_reader_verdict_json_schema,
     historical_reader_verdict_json_schema,
     rich_planner_sequence_json_schema,
 )
@@ -727,11 +735,18 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
     def _draft(
         self,
         status: ReaderVerdictStatus,
-    ) -> ProviderReaderVerdictDraftV1:
-        issues = ()
-        reasons = ()
-        if status is not ReaderVerdictStatus.ACCEPTED:
-            issues = (
+    ) -> ProviderReaderVerdictDraftV2:
+        if status is ReaderVerdictStatus.ACCEPTED:
+            decision = ProviderAcceptedReaderDecisionDraftV1(
+                schema_version=ProviderAcceptedReaderDecisionDraftV1.SCHEMA_VERSION,
+                verdict=ProviderAcceptedReaderVerdictStatus.ACCEPTED,
+            )
+        elif status is ReaderVerdictStatus.REJECTED:
+            decision = ProviderRejectedReaderDecisionDraftV1(
+                schema_version=ProviderRejectedReaderDecisionDraftV1.SCHEMA_VERSION,
+                verdict=ProviderRejectedReaderVerdictStatus.REJECTED,
+                reason_codes=("premature_closure",),
+                issues=(
                 ProviderReaderIssueReferenceDraftV1(
                     schema_version=(
                         ProviderReaderIssueReferenceDraftV1.SCHEMA_VERSION
@@ -741,21 +756,31 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
                     output_end=len(STORY),
                     explanation="The scene closes before the planned exchange develops.",
                 ),
+                ),
             )
-            reasons = ("premature_closure",)
-        return ProviderReaderVerdictDraftV1(
-            schema_version=ProviderReaderVerdictDraftV1.SCHEMA_VERSION,
+        else:
+            decision = ProviderInconclusiveReaderDecisionDraftV1(
+                schema_version=(
+                    ProviderInconclusiveReaderDecisionDraftV1.SCHEMA_VERSION
+                ),
+                verdict=ProviderInconclusiveReaderVerdictStatus.INCONCLUSIVE,
+                reason_codes=("insufficient_context",),
+            )
+        return ProviderReaderVerdictDraftV2(
+            schema_version=ProviderReaderVerdictDraftV2.SCHEMA_VERSION,
             verdict_id=f"reader:{status.value}",
             world_id="world:hash_custody",
             branch_id="branch:main",
             turn_id="turn:hash_custody",
             candidate_id="candidate:hash_custody",
-            verdict=status,
-            reason_codes=reasons,
-            issues=issues,
-            scene_completeness_score=90 if not issues else 30,
+            decision=decision,
+            scene_completeness_score=(
+                30 if status is ReaderVerdictStatus.REJECTED else 90
+            ),
             character_voice_score=90,
-            dialogue_pacing_score=90 if not issues else 40,
+            dialogue_pacing_score=(
+                40 if status is ReaderVerdictStatus.REJECTED else 90
+            ),
             readability_score=90,
         )
 
@@ -766,11 +791,11 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
         self.assertNotIn("exact_text_sha256", rendered)
         payload = to_primitive(self._draft(ReaderVerdictStatus.REJECTED))
         payload["story_text_sha256"] = text_sha256(STORY)
-        payload["issues"][0]["exact_text_sha256"] = text_sha256(STORY)
+        payload["decision"]["issues"][0]["exact_text_sha256"] = text_sha256(STORY)
         with self.assertRaises(ValidationError):
             Draft202012Validator(schema).validate(payload)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ProviderReaderVerdictDraftV1, payload)
+            from_mapping(ProviderReaderVerdictDraftV2, payload)
 
     def test_all_reader_branches_derive_exact_hashes_without_rewrite(self) -> None:
         schema = continuous_reader_verdict_json_schema()
@@ -787,7 +812,7 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
             with self.subTest(status=status.value):
                 payload = to_primitive(self._draft(status))
                 Draft202012Validator(schema).validate(payload)
-                draft = from_mapping(ProviderReaderVerdictDraftV1, payload)
+                draft = from_mapping(ProviderReaderVerdictDraftV2, payload)
                 verdict = draft.compile(writer_story_text=STORY)
                 self.assertIs(verdict.verdict, status)
                 self.assertEqual(verdict.story_text_sha256, text_sha256(STORY))
@@ -796,7 +821,8 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
 
     def test_reader_invalid_spans_and_missing_typed_text_fail_closed(self) -> None:
         rejected = self._draft(ReaderVerdictStatus.REJECTED)
-        issue = rejected.issues[0]
+        self.assertIsInstance(rejected.decision, ProviderRejectedReaderDecisionDraftV1)
+        issue = rejected.decision.issues[0]
         for name, invalid in {
             "empty": replace(issue, output_end=issue.output_start),
             "out_of_bounds": replace(issue, output_end=len(STORY) + 1),
@@ -804,7 +830,10 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
             with self.subTest(name=name), self.assertRaises(
                 ContractValidationError
             ):
-                replace(rejected, issues=(invalid,)).compile(
+                replace(
+                    rejected,
+                    decision=replace(rejected.decision, issues=(invalid,)),
+                ).compile(
                     writer_story_text=STORY
                 )
         with self.assertRaisesRegex(ContractValidationError, "requires immutable"):
@@ -866,11 +895,11 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
         self.assertIn("exact_text_sha256", issue_schema["properties"])
         self.assertEqual(
             CONTINUOUS_READER_ADAPTER_VERSION,
-            "cera.continuous_reader_adapter.v3",
+            "cera.continuous_reader_adapter.v4",
         )
         self.assertEqual(
             CONTINUOUS_READER_PROMPT_VERSION,
-            "cera.continuous_reader_prompt.v4",
+            "cera.continuous_reader_prompt.v5",
         )
         self.assertIn(LOCAL_KEY_JSON_PATTERN[1:-1], READER_STABLE_INSTRUCTIONS)
 
@@ -880,37 +909,60 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
             neutral,
             ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
         ).provider_schema
-        paths = (
-            ("reason_codes", "items"),
-            ("issues", "items", "properties", "issue_code"),
-        )
         for schema in (neutral, projected):
-            for path in paths:
-                value = schema["properties"]
-                for part in path:
-                    value = value[part]
-                self.assertEqual(value["pattern"], LOCAL_KEY_JSON_PATTERN)
+            branches = schema["properties"]["decision"]["anyOf"]
+            rejected = next(
+                value
+                for value in branches
+                if "issues" in value["properties"]
+            )["properties"]
+            inconclusive = next(
+                value
+                for value in branches
+                if "reason_codes" in value["properties"]
+                and "issues" not in value["properties"]
+            )["properties"]
+            self.assertEqual(
+                rejected["reason_codes"]["items"]["pattern"],
+                LOCAL_KEY_JSON_PATTERN,
+            )
+            self.assertEqual(
+                rejected["issues"]["items"]["properties"]["issue_code"][
+                    "pattern"
+                ],
+                LOCAL_KEY_JSON_PATTERN,
+            )
+            self.assertEqual(
+                inconclusive["reason_codes"]["items"]["pattern"],
+                LOCAL_KEY_JSON_PATTERN,
+            )
             validate_provider_output_schema(
                 schema,
                 ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
             )
 
         payload = to_primitive(self._draft(ReaderVerdictStatus.REJECTED))
-        payload["reason_codes"] = ["PROTECTED_USER_BOUNDARY_VIOLATION"]
-        payload["issues"][0]["issue_code"] = "PROTECTED_USER_ACTION_INVENTED"
+        payload["decision"]["reason_codes"] = ["PROTECTED_USER_BOUNDARY_VIOLATION"]
+        payload["decision"]["issues"][0]["issue_code"] = (
+            "PROTECTED_USER_ACTION_INVENTED"
+        )
         for schema in (neutral, projected):
             with self.assertRaises(ValidationError):
                 Draft202012Validator(schema).validate(payload)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ProviderReaderVerdictDraftV1, payload).compile(
+            from_mapping(ProviderReaderVerdictDraftV2, payload).compile(
                 writer_story_text=STORY
             )
 
-        payload["reason_codes"] = ["protected_user_boundary_violation"]
-        payload["issues"][0]["issue_code"] = "protected_user_action_invented"
+        payload["decision"]["reason_codes"] = [
+            "protected_user_boundary_violation"
+        ]
+        payload["decision"]["issues"][0]["issue_code"] = (
+            "protected_user_action_invented"
+        )
         for schema in (neutral, projected):
             Draft202012Validator(schema).validate(payload)
-        compiled = from_mapping(ProviderReaderVerdictDraftV1, payload).compile(
+        compiled = from_mapping(ProviderReaderVerdictDraftV2, payload).compile(
             writer_story_text=STORY
         )
         self.assertEqual(
@@ -921,6 +973,37 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
             compiled.issues[0].issue_code,
             "protected_user_action_invented",
         )
+
+    def test_flat_v1_acceptance_reason_mismatch_is_historical_only(self) -> None:
+        payload = {
+            "schema_version": ProviderReaderVerdictDraftV1.SCHEMA_VERSION,
+            "verdict_id": "reader:historical_mismatch",
+            "world_id": "world:hash_custody",
+            "branch_id": "branch:main",
+            "turn_id": "turn:hash_custody",
+            "candidate_id": "candidate:hash_custody",
+            "verdict": "accepted",
+            "reason_codes": ["minimum_quality_met"],
+            "issues": [],
+            "scene_completeness_score": 100,
+            "character_voice_score": 100,
+            "dialogue_pacing_score": 100,
+            "readability_score": 100,
+        }
+        Draft202012Validator(
+            historical_provider_reader_verdict_json_schema()
+        ).validate(payload)
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "accepted Reader verdict cannot carry rejection issues",
+        ):
+            from_mapping(ProviderReaderVerdictDraftV1, payload).compile(
+                writer_story_text=STORY
+            )
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(continuous_reader_verdict_json_schema()).validate(
+                payload
+            )
 
 
 if __name__ == "__main__":

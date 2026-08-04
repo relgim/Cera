@@ -53,6 +53,7 @@ from .contracts import (
     ReaderIssueReferenceV1,
     ReaderVerdictStatus,
     ReaderVerdictV1,
+    ReaderVerdictV2,
     RichPlannerSequenceV1,
     SceneSummaryV1,
     StoryRealizationKind,
@@ -80,7 +81,7 @@ CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v8"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v24"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v4"
-CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v3"
+CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v4"
 
 
 @dataclass(frozen=True, slots=True)
@@ -2831,7 +2832,7 @@ class ProviderReaderIssueReferenceDraftV1:
 
 @dataclass(frozen=True, slots=True)
 class ProviderReaderVerdictDraftV1:
-    """Active Reader wire with all exact-text hashes derived by Python."""
+    """Historical flat Reader wire retained for immutable provider evidence."""
 
     SCHEMA_VERSION: ClassVar[str] = "cera.provider_reader_verdict.v1"
 
@@ -2876,6 +2877,153 @@ class ProviderReaderVerdictDraftV1:
                 value.compile(writer_story_text=writer_story_text)
                 for value in self.issues
             ),
+            scene_completeness_score=self.scene_completeness_score,
+            character_voice_score=self.character_voice_score,
+            dialogue_pacing_score=self.dialogue_pacing_score,
+            readability_score=self.readability_score,
+        )
+        verdict.validate_story_text(writer_story_text)
+        return verdict
+
+
+class ProviderAcceptedReaderVerdictStatus(str, Enum):
+    ACCEPTED = "accepted"
+
+
+class ProviderRejectedReaderVerdictStatus(str, Enum):
+    REJECTED = "rejected"
+
+
+class ProviderInconclusiveReaderVerdictStatus(str, Enum):
+    INCONCLUSIVE = "inconclusive"
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderAcceptedReaderDecisionDraftV1:
+    """Accepted Reader branch; reasons and issues are structurally absent."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_accepted_reader_decision.v1"
+
+    schema_version: str
+    verdict: ProviderAcceptedReaderVerdictStatus
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider accepted Reader decision schema changed"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRejectedReaderDecisionDraftV1:
+    """Rejected Reader branch with exact severe-quality diagnostics."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_rejected_reader_decision.v1"
+
+    schema_version: str
+    verdict: ProviderRejectedReaderVerdictStatus
+    reason_codes: tuple[str, ...]
+    issues: tuple[ProviderReaderIssueReferenceDraftV1, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider rejected Reader decision schema changed"
+            )
+        if not self.reason_codes or not self.issues:
+            raise ContractValidationError(
+                "rejected Reader decision requires reasons and issues"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderInconclusiveReaderDecisionDraftV1:
+    """Non-recallable Reader uncertainty branch without rejection issues."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_inconclusive_reader_decision.v1"
+
+    schema_version: str
+    verdict: ProviderInconclusiveReaderVerdictStatus
+    reason_codes: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider inconclusive Reader decision schema changed"
+            )
+        if not self.reason_codes:
+            raise ContractValidationError(
+                "inconclusive Reader decision requires reasons"
+            )
+
+
+ProviderReaderDecisionDraftV1 = Union[
+    ProviderAcceptedReaderDecisionDraftV1,
+    ProviderRejectedReaderDecisionDraftV1,
+    ProviderInconclusiveReaderDecisionDraftV1,
+]
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderReaderVerdictDraftV2:
+    """Active branch-exact Reader wire with Python-owned text hashes."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_reader_verdict.v2"
+
+    schema_version: str
+    verdict_id: str
+    world_id: str
+    branch_id: str
+    turn_id: str
+    candidate_id: str
+    decision: ProviderReaderDecisionDraftV1
+    scene_completeness_score: int
+    character_voice_score: int
+    dialogue_pacing_score: int
+    readability_score: int
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("provider Reader verdict V2 schema changed")
+
+    def compile(self, *, writer_story_text: str) -> ReaderVerdictV2:
+        if (
+            not isinstance(writer_story_text, str)
+            or not writer_story_text
+            or "\x00" in writer_story_text
+        ):
+            raise ContractValidationError(
+                "Reader hash custody requires immutable Writer text"
+            )
+        decision = self.decision
+        if isinstance(decision, ProviderAcceptedReaderDecisionDraftV1):
+            verdict_status = ReaderVerdictStatus.ACCEPTED
+            reason_codes: tuple[str, ...] = ()
+            issues: tuple[ReaderIssueReferenceV1, ...] = ()
+        elif isinstance(decision, ProviderRejectedReaderDecisionDraftV1):
+            verdict_status = ReaderVerdictStatus.REJECTED
+            reason_codes = decision.reason_codes
+            issues = tuple(
+                value.compile(writer_story_text=writer_story_text)
+                for value in decision.issues
+            )
+        elif isinstance(decision, ProviderInconclusiveReaderDecisionDraftV1):
+            verdict_status = ReaderVerdictStatus.INCONCLUSIVE
+            reason_codes = decision.reason_codes
+            issues = ()
+        else:  # pragma: no cover - closed by the dataclass decoder
+            raise ContractValidationError("provider Reader decision branch is unknown")
+        verdict = ReaderVerdictV2(
+            schema_version=ReaderVerdictV2.SCHEMA_VERSION,
+            verdict_id=self.verdict_id,
+            world_id=self.world_id,
+            branch_id=self.branch_id,
+            turn_id=self.turn_id,
+            candidate_id=self.candidate_id,
+            story_text_sha256=text_sha256(writer_story_text),
+            verdict=verdict_status,
+            reason_codes=reason_codes,
+            issues=issues,
             scene_completeness_score=self.scene_completeness_score,
             character_voice_score=self.character_voice_score,
             dialogue_pacing_score=self.dialogue_pacing_score,
@@ -3416,13 +3564,26 @@ def continuous_scene_writer_draft_json_schema() -> dict[str, Any]:
 
 
 def continuous_reader_verdict_json_schema() -> dict[str, Any]:
-    schema = _schema_for(ProviderReaderVerdictDraftV1)
-    properties = schema["properties"]
-    properties["reason_codes"]["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
-    properties["issues"]["items"]["properties"]["issue_code"][
-        "pattern"
-    ] = LOCAL_KEY_JSON_PATTERN
+    schema = _schema_for(ProviderReaderVerdictDraftV2)
+    for branch in schema["properties"]["decision"]["anyOf"]:
+        properties = branch["properties"]
+        reasons = properties.get("reason_codes")
+        if reasons is not None:
+            reasons["minItems"] = 1
+            reasons["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
+        issues = properties.get("issues")
+        if issues is not None:
+            issues["minItems"] = 1
+            issues["items"]["properties"]["issue_code"][
+                "pattern"
+            ] = LOCAL_KEY_JSON_PATTERN
     return schema
+
+
+def historical_provider_reader_verdict_json_schema() -> dict[str, Any]:
+    """Flat provider Reader V1 schema retained for immutable evidence replay."""
+
+    return _schema_for(ProviderReaderVerdictDraftV1)
 
 
 def historical_reader_verdict_json_schema() -> dict[str, Any]:
@@ -3702,7 +3863,7 @@ class CodexContinuousReaderPort:
             raw_provider_json = result.parsed_json or {}
             if self.raw_result_observer is not None:
                 self.raw_result_observer(deepcopy(raw_provider_json))
-            draft = from_mapping(ProviderReaderVerdictDraftV1, raw_provider_json)
+            draft = from_mapping(ProviderReaderVerdictDraftV2, raw_provider_json)
             value = draft.compile(writer_story_text=writer_story_text)
             return ContinuousProviderResultV1(
                 value=value,

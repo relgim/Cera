@@ -2430,6 +2430,60 @@ class ReaderVerdictV1:
 
 
 @dataclass(frozen=True, slots=True)
+class ReaderVerdictV2(ReaderVerdictV1):
+    """Active Reader verdict with branch-specific inconclusive diagnostics."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.reader_verdict.v2"
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("Reader verdict V2 schema changed")
+        for field in (
+            "verdict_id",
+            "world_id",
+            "branch_id",
+            "turn_id",
+            "candidate_id",
+        ):
+            _identity(getattr(self, field), f"reader_verdict.{field}")
+        if not re_is_sha256(self.story_text_sha256):
+            raise ContractValidationError("Reader verdict text hash is invalid")
+        for value in self.reason_codes:
+            _key(value, "reader_verdict.reason_codes")
+        _unique(self.reason_codes, "reader_verdict.reason_codes")
+        _unique(
+            tuple(
+                (value.issue_code, value.output_start, value.output_end)
+                for value in self.issues
+            ),
+            "reader_verdict.issues",
+        )
+        for field in (
+            "scene_completeness_score",
+            "character_voice_score",
+            "dialogue_pacing_score",
+            "readability_score",
+        ):
+            value = getattr(self, field)
+            if type(value) is not int or not 0 <= value <= 100:
+                raise ContractValidationError(f"Reader {field} is out of range")
+        if self.verdict is ReaderVerdictStatus.ACCEPTED:
+            if self.reason_codes or self.issues:
+                raise ContractValidationError(
+                    "accepted Reader verdict cannot carry rejection issues"
+                )
+        elif self.verdict is ReaderVerdictStatus.REJECTED:
+            if not self.reason_codes or not self.issues:
+                raise ContractValidationError(
+                    "rejected Reader verdict requires reasons and exact issues"
+                )
+        elif not self.reason_codes or self.issues:
+            raise ContractValidationError(
+                "inconclusive Reader verdict requires reasons without rejection issues"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class AcceptedTurnPairV1:
     accepted_turn_id: str
     user_message: str
