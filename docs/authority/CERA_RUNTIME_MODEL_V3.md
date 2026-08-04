@@ -146,7 +146,7 @@ The Reader is a separate provider-neutral role and receives the exact candidate,
 - reader-visible protected-user or continuity problems missed by local span classification;
 - whether the response is worth presenting to the creator.
 
-The Reader returns only a verdict, scores/reason codes, and exact issue references. It cannot rewrite or repair prose. Hard Validator/Python failure cannot be overridden by the Reader. Reader approval cannot create canon.
+The Reader returns only a verdict, scores/reason codes, and exact issue references. Every reason code and issue code uses the same closed lower-snake local-key surface enforced by both the submitted provider schema and Python; output is never normalized after generation. It cannot rewrite or repair prose. Hard Validator/Python failure cannot be overridden by the Reader. Reader approval cannot create canon.
 
 ### Python acceptance and creator review
 
@@ -214,6 +214,7 @@ The implementation must have tests that fail when any of these conditions is vio
 12. A Python deterministic defect is treated as a reason to recall DeepSeek.
 13. Raw capability-restricted prose is sent to Codex or used directly as Memory / Directory authority instead of crossing through the safe retained package.
 14. Rejected diagnostic spans or adjudications appear in an accepted/concern decision, finalization package, Reader request, review-ready candidate, event, memory, persistence operation, accepted ancestry, or commit.
+15. The active Reader provider schema permits a reason code or issue code that the Python Reader DTO rejects, or transport output is normalized to bridge such a mismatch.
 
 A documentation test must identify one controlling role matrix and reject conflicting active claims in `CERA_OWNER_ARCHITECTURE.md`, `RUNTIME_PIPELINE_AND_PORTS.md`, the schema catalog, decision ledger, roadmap, and handoff.
 

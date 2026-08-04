@@ -26,7 +26,11 @@ from .record_policy import (
 )
 
 
-_KEY = re.compile(r"[a-z][a-z0-9_]{0,95}\Z")
+LOCAL_KEY_BODY_PATTERN = r"[a-z][a-z0-9_]{0,95}"
+LOCAL_KEY_JSON_PATTERN = rf"^{LOCAL_KEY_BODY_PATTERN}$"
+
+
+_KEY = re.compile(rf"{LOCAL_KEY_BODY_PATTERN}\Z")
 _IDENTITY = re.compile(r"[a-z][a-z0-9_.:-]{0,191}\Z")
 _RELATIVE_PART = re.compile(r"[^\\/:*?\"<>|\x00-\x1f]+\Z")
 

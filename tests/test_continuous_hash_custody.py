@@ -21,6 +21,7 @@ from cera.continuous.contracts import (
     FinalInformationVisibility,
     FinalSequenceItemV1,
     FinalSequenceV1,
+    LOCAL_KEY_JSON_PATTERN,
     ProtectedSemanticAdjudicationV1,
     ProtectedSemanticRelationKind,
     ReaderVerdictStatus,
@@ -79,6 +80,10 @@ from cera.providers import (
 from cera.schema import from_mapping
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 from cera.continuous.record_policy import PERSISTENCE_POLICY_SHA256
+from cera.continuous.prompting import (
+    CONTINUOUS_READER_PROMPT_VERSION,
+    READER_STABLE_INSTRUCTIONS,
+)
 
 
 STORY = "Hana set down the teacup."
@@ -856,7 +861,60 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
         self.assertIn("exact_text_sha256", issue_schema["properties"])
         self.assertEqual(
             CONTINUOUS_READER_ADAPTER_VERSION,
-            "cera.continuous_reader_adapter.v2",
+            "cera.continuous_reader_adapter.v3",
+        )
+        self.assertEqual(
+            CONTINUOUS_READER_PROMPT_VERSION,
+            "cera.continuous_reader_prompt.v3",
+        )
+        self.assertIn(LOCAL_KEY_JSON_PATTERN[1:-1], READER_STABLE_INSTRUCTIONS)
+
+    def test_reader_schema_and_python_share_closed_local_key_surface(self) -> None:
+        neutral = continuous_reader_verdict_json_schema()
+        projected = project_provider_output_schema(
+            neutral,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        paths = (
+            ("reason_codes", "items"),
+            ("issues", "items", "properties", "issue_code"),
+        )
+        for schema in (neutral, projected):
+            for path in paths:
+                value = schema["properties"]
+                for part in path:
+                    value = value[part]
+                self.assertEqual(value["pattern"], LOCAL_KEY_JSON_PATTERN)
+            validate_provider_output_schema(
+                schema,
+                ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+            )
+
+        payload = to_primitive(self._draft(ReaderVerdictStatus.REJECTED))
+        payload["reason_codes"] = ["PROTECTED_USER_BOUNDARY_VIOLATION"]
+        payload["issues"][0]["issue_code"] = "PROTECTED_USER_ACTION_INVENTED"
+        for schema in (neutral, projected):
+            with self.assertRaises(ValidationError):
+                Draft202012Validator(schema).validate(payload)
+        with self.assertRaises(ContractValidationError):
+            from_mapping(ProviderReaderVerdictDraftV1, payload).compile(
+                writer_story_text=STORY
+            )
+
+        payload["reason_codes"] = ["protected_user_boundary_violation"]
+        payload["issues"][0]["issue_code"] = "protected_user_action_invented"
+        for schema in (neutral, projected):
+            Draft202012Validator(schema).validate(payload)
+        compiled = from_mapping(ProviderReaderVerdictDraftV1, payload).compile(
+            writer_story_text=STORY
+        )
+        self.assertEqual(
+            compiled.reason_codes,
+            ("protected_user_boundary_violation",),
+        )
+        self.assertEqual(
+            compiled.issues[0].issue_code,
+            "protected_user_action_invented",
         )
 
 

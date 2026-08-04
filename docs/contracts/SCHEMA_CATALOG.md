@@ -18,6 +18,9 @@ state, and `cera.provider_reader_verdict.v1` for the hash-free
 independent non-rewriting Reader wire. Python compiles that wire into canonical
 `cera.reader_verdict.v1`, validates all bindings, and is the only owner of
 candidate identity, events, memory, persistence, acceptance, and commit.
+Reader adapter V3 submits the same anchored lower-snake local-key pattern used
+by Python for every reason code and issue code. Provider projection must retain
+that pattern; neither the adapter nor Python lowercases provider output.
 
 The D-186 through D-194 Composer ledgers and V7 schemas later in this catalog
 remain decodeable historical-reader contracts. They are not accepted as active
@@ -958,8 +961,8 @@ provider identities:
 | `cera.provider_diagnostic_story_segment.v1` | runtime Codex Validator, advisory | Rejected/inconclusive/error-only offset, kind, role, grounding, and claim choices; exact text and hashes are absent and derived by Python from immutable Writer bytes |
 | `cera.diagnostic_protected_semantic_adjudication.v1` | Python over rejected Validator wire, non-authoritative | Rejected-only protected relation plus explicit violation classification and Python-derived exact-text hash; an ungrounded Ted assertion may carry zero claims and cannot satisfy canonical adjudication |
 | `cera.provider_diagnostic_protected_semantic_adjudication.v1` | runtime Codex Validator, advisory | Hash-free rejected-only relation, grounding, violation, owner, and claim choices bound to one diagnostic span |
-| `cera.provider_reader_issue_reference.v1` | runtime Codex Reader, advisory | Hash-free issue-code/span/explanation choice; Python bounds the span against typed immutable Writer text and derives the canonical issue hash |
-| `cera.provider_reader_verdict.v1` | runtime Codex Reader, advisory | Non-rewriting verdict, scores, reasons, and hash-free issue references; Python supplies candidate custody and derives the full-story and issue hashes before constructing `cera.reader_verdict.v1` |
+| `cera.provider_reader_issue_reference.v1` | runtime Codex Reader, advisory | Hash-free lower-snake issue-code/span/explanation choice; the active submitted schema and Python share one local-key regex, then Python bounds the span against typed immutable Writer text and derives the canonical issue hash |
+| `cera.provider_reader_verdict.v1` | runtime Codex Reader, advisory | Non-rewriting verdict, scores, lower-snake reasons, and hash-free issue references; the provider schema retains Python's local-key regex without normalization, then Python supplies candidate custody and derives the full-story and issue hashes before constructing `cera.reader_verdict.v1` |
 | `cera.character_summary_envelope.v3` | Python projection | Explicitly incomplete exact-field projection bound only to an ACTIVE character record, stable JSON pointers, revision, content hash, payload, and derivation receipt; candidate-derived character summaries are not accepted |
 | `cera.accepted_final_sequence_envelope.v1` | Python after creator acceptance | Exact user message plus Validator final sequence, appended once and superseding the provisional Planner sequence |
 | `cera.persistence_directive.v2` | runtime Codex Validator selection, Python validated | Exact add/replace projection destination bound to the current closed writable-path policy, one final-field value, Character or Relationship record identity, typed and field-justified subject identities, approved semantic JSON path, and current revision; the active provider wire omits the prior-value hash, which Python derives from the exact ACTIVE JSON-pointer value before canonical decode, complete post-edit validation, and bookkeeping derivation |

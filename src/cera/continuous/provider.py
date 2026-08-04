@@ -40,6 +40,7 @@ from .contracts import (
     EventItemRoleLedgerV1,
     FinalSequenceItemV1,
     FinalSequenceV1,
+    LOCAL_KEY_JSON_PATTERN,
     ProtectedSemanticAdjudicationV1,
     ProtectedSemanticRelationKind,
     ProtectedUserRealizationSpanV1,
@@ -71,7 +72,7 @@ CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v7"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v16"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v8"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v1"
-CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v2"
+CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v3"
 
 
 @dataclass(frozen=True, slots=True)
@@ -2428,7 +2429,13 @@ def continuous_scene_writer_draft_json_schema() -> dict[str, Any]:
 
 
 def continuous_reader_verdict_json_schema() -> dict[str, Any]:
-    return _schema_for(ProviderReaderVerdictDraftV1)
+    schema = _schema_for(ProviderReaderVerdictDraftV1)
+    properties = schema["properties"]
+    properties["reason_codes"]["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
+    properties["issues"]["items"]["properties"]["issue_code"][
+        "pattern"
+    ] = LOCAL_KEY_JSON_PATTERN
+    return schema
 
 
 def historical_reader_verdict_json_schema() -> dict[str, Any]:
