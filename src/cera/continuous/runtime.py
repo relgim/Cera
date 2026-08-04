@@ -25,6 +25,7 @@ from .contracts import (
     ValidatorSemanticStatus,
     ValidatorTaskMode,
     WriterMechanicalEnvelopeV1,
+    WriterRecallDirectiveV1,
     WriterRealizationBoundaryV1,
 )
 from .ingress import ContinuousIngressAuthorityPort
@@ -114,6 +115,25 @@ class ValidatorPort(Protocol):
 
 class ReaderPort(Protocol):
     def review(self, prompt: str, *, writer_story_text: str): ...
+
+
+def _writer_attempt_number_for_recall(
+    writer_recall_directive: WriterRecallDirectiveV1 | None,
+    *,
+    frozen_authority_package_sha256: str,
+) -> int:
+    """Validate one internal recall handoff before the fresh Writer dispatch."""
+
+    if writer_recall_directive is None:
+        return 1
+    if not isinstance(writer_recall_directive, WriterRecallDirectiveV1):
+        raise ContractValidationError("Writer recall input uses the wrong contract")
+    if (
+        writer_recall_directive.frozen_authority_package_sha256
+        != frozen_authority_package_sha256
+    ):
+        raise StateConflictError("Writer recall changed the frozen authority package")
+    return writer_recall_directive.next_attempt_number
 
 
 @dataclass(frozen=True, slots=True)
@@ -1250,12 +1270,22 @@ class ContinuousShadowTurnCoordinator:
             restored.append(turn_id)
         return tuple(restored)
 
-    def prepare(self, request: ContinuousTurnRequestV1) -> ContinuousTurnCandidateV1:
+    def prepare(
+        self,
+        request: ContinuousTurnRequestV1,
+        *,
+        writer_recall_directive: WriterRecallDirectiveV1 | None = None,
+    ) -> ContinuousTurnCandidateV1:
         if request.cera_scene_change:
             raise StateConflictError(
                 "scene-change prompt must first pass the explicit SceneChangeCoordinator"
             )
-        return self._prepare(request, scene_change_envelope=None, prior_provider_calls=0)
+        return self._prepare(
+            request,
+            scene_change_envelope=None,
+            prior_provider_calls=0,
+            writer_recall_directive=writer_recall_directive,
+        )
 
     def prepare_after_validated_scene_change(
         self,
@@ -1263,6 +1293,7 @@ class ContinuousShadowTurnCoordinator:
         *,
         scene_change_envelope: SceneChangeEnvelopeV1,
         summary_provider_calls: int,
+        writer_recall_directive: WriterRecallDirectiveV1 | None = None,
     ) -> ContinuousTurnCandidateV1:
         """Continue after this coordinator's explicit summary phase completed."""
 
@@ -1279,6 +1310,7 @@ class ContinuousShadowTurnCoordinator:
             replace(request, cera_scene_change=False),
             scene_change_envelope=scene_change_envelope.lean_planner_context(),
             prior_provider_calls=summary_provider_calls,
+            writer_recall_directive=writer_recall_directive,
         )
 
     def prepare_scene_change(
@@ -1399,6 +1431,7 @@ class ContinuousShadowTurnCoordinator:
         *,
         scene_change_envelope: LeanSceneChangeContextV1 | None,
         prior_provider_calls: int,
+        writer_recall_directive: WriterRecallDirectiveV1 | None,
     ) -> ContinuousTurnCandidateV1:
         if (
             request.world_id != self.planner_session.compatibility.world_id
@@ -1613,6 +1646,15 @@ class ContinuousShadowTurnCoordinator:
                 realization_boundary=realization_boundary,
             )
         )
+        writer_attempt_number = _writer_attempt_number_for_recall(
+            writer_recall_directive,
+            frozen_authority_package_sha256=frozen_writer_authority_sha256,
+        )
+        if writer_recall_directive is not None:
+            debug.write_json(
+                "writer_recall_input.json",
+                to_primitive(writer_recall_directive),
+            )
         composer_prompt, composer_usage = build_continuous_composer_prompt(
             current_user_source=request.user_message,
             ingress_source_units=tuple(
@@ -1623,6 +1665,7 @@ class ContinuousShadowTurnCoordinator:
             protected_user_claim_manifest=evidence_registry.protected_user_claim_manifest(),
             accepted_session_projections=(),
             realization_boundary=realization_boundary,
+            writer_recall_directive=writer_recall_directive,
         )
         debug.write_json("deepseek_request.json", {"prompt": composer_prompt})
         started = time.perf_counter_ns()
@@ -1752,14 +1795,14 @@ class ContinuousShadowTurnCoordinator:
                 semantic_result,
                 "writer_recall_offending_spans",
                 (),
-            ):
+            ) and writer_attempt_number < 3:
                 recall_directive = recall_builder(
                     rejected_candidate_id=candidate_id,
                     rejected_story_text=story_text,
                     frozen_authority_package_sha256=(
                         frozen_writer_authority_sha256
                     ),
-                    source_attempt_number=1,
+                    source_attempt_number=writer_attempt_number,
                 )
                 debug.write_json(
                     "writer_recall_directive.json",

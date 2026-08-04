@@ -27,7 +27,7 @@ override D-204.
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
 **Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v9`; `cera.continuous_validator_adapter.v17`; `cera.continuous_validator_prompt.v24`; `cera.continuous_validator_request.v8`
 **Runtime Model V3 Reader identity:** `cera.provider_reader_verdict.v1`; `cera.continuous_reader_adapter.v3`; `cera.continuous_reader_prompt.v3`
-**Runtime Model V3 verification:** typed presentation-only versus story/material boundary, no-leakage enforcement, and bounded Writer recall pass 66 focused provider-free tests; the complete repository gate passes 1,034 tests with 3 skipped; Queue 0052 provider use remains zero before the frozen checkpoint
+**Runtime Model V3 verification:** typed presentation-only versus story/material boundary, no-leakage enforcement, bounded Writer recall, and the authority-bound internal recall handoff pass 181 focused provider-free tests; the complete repository gate passes 1,036 tests with 3 skipped; Queue 0052 provider use remains zero before the recall-injection checkpoint
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
 **D-186/D-200 shadow continuity work:** D-199 V12-1/V12-2 remain completed history; V12-3 is superseded-uncommitted and its useful safety draft is being requalified under D-200; active route unchanged

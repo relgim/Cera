@@ -26,7 +26,7 @@ promotion is explicitly authorized.
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
 **Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v9`; `cera.continuous_validator_adapter.v17`; `cera.continuous_validator_prompt.v24`; `cera.continuous_validator_request.v8`
 **Runtime Model V3 Reader identity:** `cera.provider_reader_verdict.v1`; `cera.continuous_reader_adapter.v3`; `cera.continuous_reader_prompt.v3`
-**Runtime Model V3 verification:** typed presentation-only versus story/material boundary, no-leakage enforcement, and bounded Writer recall pass 66 focused provider-free tests; the complete repository gate passes 1,034 tests with 3 skipped; Queue 0052 provider use remains zero before the frozen checkpoint
+**Runtime Model V3 verification:** typed presentation-only versus story/material boundary, no-leakage enforcement, bounded Writer recall, and the authority-bound internal recall handoff pass 181 focused provider-free tests; the complete repository gate passes 1,036 tests with 3 skipped; Queue 0052 provider use remains zero before the recall-injection checkpoint
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page

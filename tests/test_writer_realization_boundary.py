@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import replace
+from dataclasses import fields, replace
 import inspect
 import unittest
 
@@ -45,6 +45,11 @@ from cera.continuous.provider import (
 from cera.errors import ContractValidationError, StateConflictError
 from cera.providers import ProviderSchemaDialect, project_provider_output_schema
 from cera.serialization import text_sha256
+from cera.continuous.runtime import (
+    ContinuousShadowTurnCoordinator,
+    ContinuousTurnRequestV1,
+    _writer_attempt_number_for_recall,
+)
 from tests.test_continuous_hash_custody import STORY, _canonical_v4
 from tests.test_continuous_planner_validator import beat, sequence
 
@@ -437,6 +442,83 @@ class WriterRealizationBoundaryTests(unittest.TestCase):
                 frozen_authority_package_sha256=frozen_hash,
                 source_attempt_number=1,
             )
+
+    def test_runtime_recall_handoff_is_consecutive_and_authority_bound(self) -> None:
+        result = _rejected_result(
+            story=CANDIDATE_1,
+            offending_text=(
+                "A plate of cut fruit sat untouched on the counter between them."
+            ),
+            prohibited=(ProhibitedWriterDetailClass.NEW_CONTINUITY_OBJECT,),
+        )
+        planner = sequence()
+        frozen_hash = continuous_writer_authority_package_sha256(
+            current_user_source="How was your evening?",
+            ingress_source_units=(),
+            planner_sequence=planner,
+            realization_boundary=WriterRealizationBoundaryV1.default(),
+        )
+        attempt_two = result.build_writer_recall_directive(
+            rejected_candidate_id="candidate:writer_attempt_001",
+            rejected_story_text=CANDIDATE_1,
+            frozen_authority_package_sha256=frozen_hash,
+            source_attempt_number=1,
+        )
+        self.assertEqual(
+            _writer_attempt_number_for_recall(
+                attempt_two,
+                frozen_authority_package_sha256=frozen_hash,
+            ),
+            2,
+        )
+        self.assertEqual(
+            _writer_attempt_number_for_recall(
+                None,
+                frozen_authority_package_sha256=frozen_hash,
+            ),
+            1,
+        )
+        attempt_three = replace(
+            attempt_two,
+            source_attempt_number=2,
+            next_attempt_number=3,
+        )
+        self.assertEqual(
+            _writer_attempt_number_for_recall(
+                attempt_three,
+                frozen_authority_package_sha256=frozen_hash,
+            ),
+            3,
+        )
+        with self.assertRaisesRegex(StateConflictError, "frozen authority"):
+            _writer_attempt_number_for_recall(
+                attempt_two,
+                frozen_authority_package_sha256="0" * 64,
+            )
+        with self.assertRaisesRegex(ContractValidationError, "wrong contract"):
+            _writer_attempt_number_for_recall(
+                object(),  # type: ignore[arg-type]
+                frozen_authority_package_sha256=frozen_hash,
+            )
+        with self.assertRaises(ContractValidationError):
+            replace(
+                attempt_two,
+                source_attempt_number=1,
+                next_attempt_number=3,
+            )
+
+    def test_runtime_injects_recall_only_into_internal_writer_prompt(self) -> None:
+        public_fields = {field.name for field in fields(ContinuousTurnRequestV1)}
+        self.assertNotIn("writer_recall_directive", public_fields)
+        prepare_signature = inspect.signature(ContinuousShadowTurnCoordinator.prepare)
+        recall_parameter = prepare_signature.parameters["writer_recall_directive"]
+        self.assertIs(recall_parameter.kind, inspect.Parameter.KEYWORD_ONLY)
+        source = inspect.getsource(ContinuousShadowTurnCoordinator._prepare)
+        self.assertIn(
+            "writer_recall_directive=writer_recall_directive",
+            source,
+        )
+        self.assertIn('"writer_recall_input.json"', source)
 
     def test_python_retains_only_material_story_authority(self) -> None:
         prefix = "Hana smiled. "

@@ -2981,6 +2981,7 @@ class ContinuousDebugRecorder:
         "scene_change_output.json",
         "scene_change_tools.json",
         "scene_change_timing.json",
+        "writer_recall_input.json",
         "writer_recall_directive.json",
     )
 
