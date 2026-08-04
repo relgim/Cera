@@ -75,7 +75,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v8"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v17"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v18"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v9"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v2"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v3"
@@ -3206,10 +3206,32 @@ class CodexContinuousValidatorPort:
         *,
         writer_story_text: str | None,
         accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
+        expected_package_id: str | None = None,
+        expected_world_id: str | None = None,
+        expected_branch_id: str | None = None,
     ) -> ContinuousProviderResultV1:
         self._operation_index += 1
         route = self.transport.route
         output_schema = continuous_semantic_validator_draft_json_schema()
+        expected_identities = {
+            "package_id": expected_package_id,
+            "world_id": expected_world_id,
+            "branch_id": expected_branch_id,
+        }
+        supplied_identities = tuple(
+            value is not None for value in expected_identities.values()
+        )
+        if any(supplied_identities) and not all(supplied_identities):
+            raise ContractValidationError(
+                "continuous Validator expected identities are incomplete"
+            )
+        if all(supplied_identities):
+            for field_name, expected_value in expected_identities.items():
+                if not isinstance(expected_value, str) or not expected_value.strip():
+                    raise ContractValidationError(
+                        "continuous Validator expected identity is invalid"
+                    )
+                output_schema["properties"][field_name]["const"] = expected_value
         mcp_binding = (
             self.world_bridge.runtime_binding if self.world_bridge is not None else None
         )
@@ -3229,6 +3251,13 @@ class CodexContinuousValidatorPort:
             raw_provider_json = result.parsed_json or {}
             if self.raw_result_observer is not None:
                 self.raw_result_observer(deepcopy(raw_provider_json))
+            if all(supplied_identities) and any(
+                raw_provider_json.get(field_name) != expected_value
+                for field_name, expected_value in expected_identities.items()
+            ):
+                raise ContractValidationError(
+                    "continuous Validator provider identity changed"
+                )
             world_tool_debug = (
                 self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )

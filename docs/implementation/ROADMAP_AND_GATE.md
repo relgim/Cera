@@ -30,9 +30,9 @@ report and all D-186 through D-194 evidence remain immutable history.
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Runtime Model V3 Writer identity:** `cera.scene_writer_draft.v1`; `cera.continuous_deepseek_adapter.v9`; `cera.scene_writer_prompt.v2`; DeepSeek V4 Flash non-thinking, with V4 Pro non-thinking conditional canary only
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v9`; `cera.continuous_validator_adapter.v17`; `cera.continuous_validator_prompt.v24`; `cera.continuous_validator_request.v8`
+**Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v9`; `cera.continuous_validator_adapter.v18`; `cera.continuous_validator_prompt.v25`; `cera.continuous_validator_request.v9`
 **Runtime Model V3 Reader identity:** `cera.provider_reader_verdict.v1`; `cera.continuous_reader_adapter.v3`; `cera.continuous_reader_prompt.v3`
-**Runtime Model V3 verification:** typed presentation-only versus story/material boundary, no-leakage enforcement, and bounded Writer recall pass 66 focused provider-free tests; the complete repository gate passes 1,034 tests with 3 skipped; Queue 0052 provider use remains zero before the frozen checkpoint
+**Runtime Model V3 verification:** the Validator request-identity correction passes 102 focused provider-free tests, including the closed ten-stage harness; the prior complete repository gate passed 1,036 tests with 3 skipped; Queue 0052 used zero provider calls for this correction
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 <!-- CERA_CURRENT_RUNTIME_END -->
 

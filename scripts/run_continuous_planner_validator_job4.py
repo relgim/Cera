@@ -680,6 +680,9 @@ class _HarnessValidatorPort:
                 turn_id,
                 writer_story_text=kwargs.get("writer_story_text"),
                 accepted_pairs=tuple(kwargs.get("accepted_pairs", ())),
+                expected_package_id=kwargs.get("expected_package_id"),
+                expected_world_id=kwargs.get("expected_world_id"),
+                expected_branch_id=kwargs.get("expected_branch_id"),
             ),
         )
 
@@ -1059,6 +1062,9 @@ class JobHarness:
         *,
         writer_story_text: str | None,
         accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
+        expected_package_id: str | None = None,
+        expected_world_id: str | None = None,
+        expected_branch_id: str | None = None,
     ):
         workspace = self.lifecycle_root / (
             f"call_{self.call_index_offset + len(self.call_records) + 1:02d}_validator"
@@ -1091,6 +1097,9 @@ class JobHarness:
                 prompt,
                 writer_story_text=writer_story_text,
                 accepted_pairs=accepted_pairs,
+                expected_package_id=expected_package_id,
+                expected_world_id=expected_world_id,
+                expected_branch_id=expected_branch_id,
             )
 
     def codex_reader(self, prompt: str, *, writer_story_text: str):

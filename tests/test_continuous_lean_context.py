@@ -874,6 +874,10 @@ class ContinuousLeanContextTests(unittest.TestCase):
         )
         compatible_prompt, _ = build_validator_prompt(
             task_mode=ValidatorTaskMode.FINALIZE_TURN,
+            package_id="package:turn_002",
+            world_id="world:hanezawa_test",
+            branch_id="branch:main",
+            candidate_id="candidate:turn_002",
             current_user_source="Continue.",
             planner_sequence=compatible,
             writer_story_text="Sakura waits at the threshold.",
@@ -890,6 +894,10 @@ class ContinuousLeanContextTests(unittest.TestCase):
         )
         incompatible_prompt, _ = build_validator_prompt(
             task_mode=ValidatorTaskMode.FINALIZE_TURN,
+            package_id="package:turn_002",
+            world_id="world:hanezawa_test",
+            branch_id="branch:main",
+            candidate_id="candidate:turn_002",
             current_user_source="Continue.",
             planner_sequence=incompatible,
             writer_story_text="Sakura waits at the threshold.",
@@ -919,6 +927,18 @@ class ContinuousLeanContextTests(unittest.TestCase):
             ):
                 return "concern"
             return "accepted"
+
+        validator_request = json.loads(
+            compatible_prompt.split("[VALIDATOR REQUEST]\n", 1)[1]
+        )
+        self.assertEqual(
+            validator_request["schema_version"],
+            "cera.continuous_validator_request.v9",
+        )
+        self.assertEqual(validator_request["package_id"], "package:turn_002")
+        self.assertEqual(validator_request["world_id"], "world:hanezawa_test")
+        self.assertEqual(validator_request["branch_id"], "branch:main")
+        self.assertEqual(validator_request["candidate_id"], "candidate:turn_002")
 
         self.assertEqual(
             provider_free_semantic_disposition(compatible_prompt),

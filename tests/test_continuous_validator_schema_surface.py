@@ -275,7 +275,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v17",
+            "cera.continuous_validator_adapter.v18",
         )
         self.assertEqual(
             continuous_validator_route(model="gpt-5.6-sol", effort="medium").adapter_id,
@@ -484,6 +484,115 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
             ).provider_schema
         )
         self.assertEqual(projected, neutral)
+
+    def test_runtime_identity_constants_reach_the_provider_schema(self) -> None:
+        payload = to_primitive(_active_wire())
+        captured: dict[str, object] = {}
+
+        class Transport:
+            route = continuous_validator_route(model="gpt-5.6-sol", effort="medium")
+            runner = SimpleNamespace(provider_thread_id="thread:identity-schema-test")
+
+            def invoke(self, _prompt: str, **kwargs):
+                captured["output_schema"] = deepcopy(kwargs["output_schema"])
+                for name in (
+                    "on_worker_started",
+                    "on_worker_preflight",
+                    "on_transport_invoke",
+                ):
+                    callback = kwargs.get(name)
+                    if callback is not None:
+                        callback()
+                return SimpleNamespace(
+                    parsed_json=deepcopy(payload),
+                    receipt={"status": "completed"},
+                    operation_telemetry={"status": "completed"},
+                    tool_call_count=0,
+                    failed_tool_call_count=0,
+                    tool_names=(),
+                    tool_server_names=(),
+                )
+
+        expected = {
+            "package_id": payload["package_id"],
+            "world_id": payload["world_id"],
+            "branch_id": payload["branch_id"],
+        }
+        with TemporaryDirectory() as directory:
+            port = CodexContinuousValidatorPort(
+                Transport(),
+                call_ledger=ContinuousProviderCallLedger(
+                    Path(directory) / "CALL_LEDGER.jsonl"
+                ),
+            )
+            port.validate(
+                "Validate the benign fixture.",
+                writer_story_text="Hana set down the teacup.",
+                expected_package_id=expected["package_id"],
+                expected_world_id=expected["world_id"],
+                expected_branch_id=expected["branch_id"],
+            )
+
+        submitted = captured["output_schema"]
+        for field_name, expected_value in expected.items():
+            self.assertEqual(
+                submitted["properties"][field_name]["const"], expected_value
+            )
+        projected = project_provider_output_schema(
+            submitted,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        for field_name, expected_value in expected.items():
+            self.assertEqual(
+                projected["properties"][field_name]["const"], expected_value
+            )
+
+    def test_runtime_identity_mismatch_fails_after_provider_capture(self) -> None:
+        payload = to_primitive(_active_wire())
+        payload["package_id"] = "package:changed_by_provider"
+
+        class Transport:
+            route = continuous_validator_route(model="gpt-5.6-sol", effort="medium")
+            runner = SimpleNamespace(provider_thread_id="thread:identity-mismatch-test")
+
+            def invoke(self, _prompt: str, **kwargs):
+                for name in (
+                    "on_worker_started",
+                    "on_worker_preflight",
+                    "on_transport_invoke",
+                ):
+                    callback = kwargs.get(name)
+                    if callback is not None:
+                        callback()
+                return SimpleNamespace(
+                    parsed_json=deepcopy(payload),
+                    receipt={"status": "completed"},
+                    operation_telemetry={"status": "completed"},
+                    tool_call_count=0,
+                    failed_tool_call_count=0,
+                    tool_names=(),
+                    tool_server_names=(),
+                )
+
+        with TemporaryDirectory() as directory:
+            ledger = ContinuousProviderCallLedger(
+                Path(directory) / "CALL_LEDGER.jsonl"
+            )
+            port = CodexContinuousValidatorPort(Transport(), call_ledger=ledger)
+            with self.assertRaisesRegex(
+                ContractValidationError, "provider identity changed"
+            ):
+                port.validate(
+                    "Validate the benign fixture.",
+                    writer_story_text="Hana set down the teacup.",
+                    expected_package_id="package:validator_schema_surface",
+                    expected_world_id="world:validator_schema_surface",
+                    expected_branch_id="branch:main",
+                )
+            self.assertEqual(
+                ledger.events[-1]["state"],
+                "provider_completed_post_validation_failed",
+            )
 
     def test_raw_provider_json_is_observed_before_closed_dto_decode(self) -> None:
         payload = to_primitive(_active_wire())

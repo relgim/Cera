@@ -51,7 +51,7 @@ from .provider import (
 )
 
 
-SCRIPTED_JOB4_FIXTURE_ID = "cera.continuous_job4_scripted_fixture.v10_lean_v2"
+SCRIPTED_JOB4_FIXTURE_ID = "cera.continuous_job4_scripted_fixture.v11_validator_identity"
 _STORIES = {
     "turn-001": "Sakura requests bounded proof.",
     "turn-002": "Sakura keeps the threshold controlled.",
@@ -269,17 +269,21 @@ class ScriptedJob4FixtureRuntime:
             verifier_status="accepted",
         )
 
-    def _validator_value(self, _prompt: str) -> ContinuousSemanticValidatorDraftV9:
+    def _validator_value(self, prompt: str) -> ContinuousSemanticValidatorDraftV9:
         harness = self._current()
+        request = json.loads(prompt.rsplit("[VALIDATOR REQUEST]\n", 1)[1])
+        package_id = request["package_id"]
+        world_id = request["world_id"]
+        branch_id = request["branch_id"]
         if harness._active_validator_label == "scene-1-validator-summary":
             accepted_ids = tuple(
                 value.accepted_turn_id for value in harness.accepted_pairs
             )
             return ContinuousSemanticValidatorDraftV9.from_v4(ContinuousSemanticValidatorDraftV4(
                 schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
-                package_id="package:scene_summary",
-                world_id=self.world_id,
-                branch_id=self.branch_id,
+                package_id=package_id,
+                world_id=world_id,
+                branch_id=branch_id,
                 task_mode=ValidatorTaskMode.SCENE_SUMMARY,
                 semantic_status=ValidatorSemanticStatus.ACCEPTED,
                 reason_codes=(),
@@ -351,9 +355,9 @@ class ScriptedJob4FixtureRuntime:
         )
         return ContinuousSemanticValidatorDraftV9.from_v4(ContinuousSemanticValidatorDraftV4(
             schema_version=ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION,
-            package_id=f"package:{turn_id}",
-            world_id=self.world_id,
-            branch_id=self.branch_id,
+            package_id=package_id,
+            world_id=world_id,
+            branch_id=branch_id,
             task_mode=ValidatorTaskMode.FINALIZE_TURN,
             semantic_status=ValidatorSemanticStatus.ACCEPTED,
             reason_codes=(),

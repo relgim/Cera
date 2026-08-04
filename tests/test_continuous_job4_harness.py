@@ -2044,6 +2044,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                 *,
                 writer_story_text=None,
                 accepted_pairs=(),
+                **_expected_identities,
             ):
                 if accepted_pairs:
                     result = scene_summary_package(
@@ -2324,8 +2325,9 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     story_text=story,
                 )
 
-            def validator_value(_prompt: str):
+            def validator_value(prompt: str):
                 harness = holder["harness"]
+                request = json.loads(prompt.rsplit("[VALIDATOR REQUEST]\n", 1)[1])
                 if harness._active_validator_label == "scene-1-validator-summary":
                     summary = scene_summary_package(
                         harness.accepted_pairs[0], new_prompt="unused"
@@ -2342,9 +2344,9 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                         schema_version=(
                             ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION
                         ),
-                        package_id="package:scene_summary",
-                        world_id=WORLD_ID,
-                        branch_id=BRANCH_ID,
+                        package_id=request["package_id"],
+                        world_id=request["world_id"],
+                        branch_id=request["branch_id"],
                         task_mode=scene_summary_package(
                             harness.accepted_pairs[0], new_prompt="unused"
                         ).task_mode,
@@ -2463,9 +2465,9 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
                     schema_version=(
                         ContinuousSemanticValidatorDraftV4.SCHEMA_VERSION
                     ),
-                    package_id=result.package_id,
-                    world_id=result.world_id,
-                    branch_id=result.branch_id,
+                    package_id=request["package_id"],
+                    world_id=request["world_id"],
+                    branch_id=request["branch_id"],
                     task_mode=result.task_mode,
                     semantic_status=result.semantic_status,
                     reason_codes=(),

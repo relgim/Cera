@@ -136,6 +136,28 @@ def _writer_attempt_number_for_recall(
     return writer_recall_directive.next_attempt_number
 
 
+def _validator_package_id(
+    *,
+    task_mode: ValidatorTaskMode,
+    world_id: str,
+    branch_id: str,
+    accepted_turn_id: str | None,
+    accepted_scene_turn_ids: tuple[str, ...],
+    candidate_id: str | None,
+) -> str:
+    return "package:" + canonical_sha256(
+        {
+            "contract": "cera.validator_package_identity.v1",
+            "task_mode": task_mode.value,
+            "world_id": world_id,
+            "branch_id": branch_id,
+            "accepted_turn_id": accepted_turn_id,
+            "accepted_scene_turn_ids": accepted_scene_turn_ids,
+            "candidate_id": candidate_id,
+        }
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ContinuousTurnRequestV1:
     world_id: str
@@ -1354,8 +1376,20 @@ class ContinuousShadowTurnCoordinator:
         pairs = self.world.accepted_turn_pairs(
             request.world_id, request.branch_id, accepted_turn_ids
         )
+        package_id = _validator_package_id(
+            task_mode=ValidatorTaskMode.SCENE_SUMMARY,
+            world_id=request.world_id,
+            branch_id=request.branch_id,
+            accepted_turn_id=None,
+            accepted_scene_turn_ids=accepted_turn_ids,
+            candidate_id=None,
+        )
         prompt, _usage = build_validator_prompt(
             task_mode=ValidatorTaskMode.SCENE_SUMMARY,
+            package_id=package_id,
+            world_id=request.world_id,
+            branch_id=request.branch_id,
+            candidate_id=None,
             current_user_source=None,
             planner_sequence=None,
             writer_story_text=None,
@@ -1374,6 +1408,9 @@ class ContinuousShadowTurnCoordinator:
                 prompt,
                 writer_story_text=None,
                 accepted_pairs=pairs,
+                expected_package_id=package_id,
+                expected_world_id=request.world_id,
+                expected_branch_id=request.branch_id,
             )
         except BaseException as exc:
             scene_debug.record_failure("scene_summary_validator", exc)
@@ -1702,8 +1739,20 @@ class ContinuousShadowTurnCoordinator:
             "writer_mechanical_envelope.json",
             to_primitive(writer_envelope),
         )
+        package_id = _validator_package_id(
+            task_mode=ValidatorTaskMode.FINALIZE_TURN,
+            world_id=request.world_id,
+            branch_id=request.branch_id,
+            accepted_turn_id=request.turn_id,
+            accepted_scene_turn_ids=(),
+            candidate_id=candidate_id,
+        )
         validator_prompt, validator_usage = build_validator_prompt(
             task_mode=ValidatorTaskMode.FINALIZE_TURN,
+            package_id=package_id,
+            world_id=request.world_id,
+            branch_id=request.branch_id,
+            candidate_id=candidate_id,
             current_user_source=request.user_message,
             planner_sequence=planner_sequence,
             writer_story_text=story_text,
@@ -1728,6 +1777,9 @@ class ContinuousShadowTurnCoordinator:
             validator_result = self.validator.validate(
                 validator_prompt,
                 writer_story_text=story_text,
+                expected_package_id=package_id,
+                expected_world_id=request.world_id,
+                expected_branch_id=request.branch_id,
             )
         except BaseException as exc:
             debug.record_failure("validator", exc)

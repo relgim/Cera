@@ -23,7 +23,12 @@ from .packets import (
 
 
 CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v15"
-CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v24"
+CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v25"
+
+VALIDATOR_IDENTITY_INSTRUCTIONS = (
+    "Copy package_id, world_id, and branch_id exactly from the current Validator "
+    "request. Their submitted schema constants are Python-owned."
+)
 CONTINUOUS_READER_PROMPT_VERSION = "cera.continuous_reader_prompt.v3"
 
 
@@ -188,6 +193,10 @@ def prompt_text_usage(
 def build_validator_prompt(
     *,
     task_mode: ValidatorTaskMode,
+    package_id: str,
+    world_id: str,
+    branch_id: str,
+    candidate_id: str | None,
     current_user_source: str | None,
     planner_sequence: RichPlannerSequenceV1 | None,
     writer_story_text: str | None,
@@ -204,8 +213,12 @@ def build_validator_prompt(
 ) -> tuple[str, tuple[PromptComponentUsageV1, ...]]:
     boundary = realization_boundary or WriterRealizationBoundaryV1.default()
     request = {
-        "schema_version": "cera.continuous_validator_request.v8",
+        "schema_version": "cera.continuous_validator_request.v9",
         "task_mode": task_mode.value,
+        "package_id": package_id,
+        "world_id": world_id,
+        "branch_id": branch_id,
+        "candidate_id": candidate_id,
         "current_user_source": current_user_source,
         "planner_sequence": (
             to_primitive(planner_sequence) if planner_sequence is not None else None
@@ -227,9 +240,18 @@ def build_validator_prompt(
         ),
     }
     request_bytes = canonical_bytes(request)
-    prompt = VALIDATOR_STABLE_INSTRUCTIONS + "\n\n[VALIDATOR REQUEST]\n" + request_bytes.decode("utf-8")
+    prompt = (
+        VALIDATOR_STABLE_INSTRUCTIONS
+        + "\n\n"
+        + VALIDATOR_IDENTITY_INSTRUCTIONS
+        + "\n\n[VALIDATOR REQUEST]\n"
+        + request_bytes.decode("utf-8")
+    )
     return prompt, (
-        _usage("stable_instructions", VALIDATOR_STABLE_INSTRUCTIONS.encode("utf-8")),
+        _usage(
+            "stable_instructions",
+            (VALIDATOR_STABLE_INSTRUCTIONS + "\n\n" + VALIDATOR_IDENTITY_INSTRUCTIONS).encode("utf-8"),
+        ),
         _usage("current_packet", request_bytes),
     )
 
