@@ -1,0 +1,21 @@
+{
+  "schema_version": "cera.runtime_model_v3_stage4_harness_fixture.v1",
+  "fixture_id": "runtime_model_v3_stage4_harness_v1",
+  "thread_lineage": {
+    "planner": {
+      "role": "planner",
+      "purpose": "primary_planner",
+      "creation_operation": "create"
+    },
+    "validator": {
+      "role": "validator",
+      "purpose": "primary_validator",
+      "creation_operation": "create"
+    }
+  },
+  "obsolete_purposes": [
+    "stage4_planner",
+    "stage4_validator"
+  ],
+  "scope": "shadow_qualification_only"
+}

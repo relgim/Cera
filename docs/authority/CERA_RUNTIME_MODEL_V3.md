@@ -217,6 +217,7 @@ The implementation must have tests that fail when any of these conditions is vio
 15. The active Reader provider schema permits a reason code or issue code that the Python Reader DTO rejects, or transport output is normalized to bridge such a mismatch.
 16. A positive Reader qualification fixture expects acceptance while its prose asserts protected-user action, dialogue, state, or choice absent from that fixture's explicit accepted context and source claims.
 17. A positive Reader qualification fixture's prose uses a character-owned semantic channel absent from its explicit ordered Planner role beats.
+18. A qualification harness broadens the production thread-lineage purpose contract or attaches obsolete campaign labels instead of the active `primary_planner` and `primary_validator` purposes.
 
 A documentation test must identify one controlling role matrix and reject conflicting active claims in `CERA_OWNER_ARCHITECTURE.md`, `RUNTIME_PIPELINE_AND_PORTS.md`, the schema catalog, decision ledger, roadmap, and handoff.
 
