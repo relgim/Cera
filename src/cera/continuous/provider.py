@@ -29,6 +29,7 @@ from cera.schema import from_mapping
 from cera.serialization import canonical_sha256, re_is_sha256, text_sha256
 
 from .contracts import (
+    ACTIVE_VALIDATOR_WRITER_HARD_CLASSES,
     AcceptedTurnPairV1,
     CharacterRoleLedgerV1,
     CreatedFieldLogEntryV1,
@@ -76,7 +77,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v8"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v22"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v24"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v4"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v3"
@@ -3399,6 +3400,13 @@ def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
         additional = properties.get("additional_reason_codes")
         if additional is not None:
             additional["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
+        violations = properties.get("writer_recall_violations")
+        if violations is not None:
+            violations["items"]["properties"]["prohibited_detail_classes"][
+                "items"
+            ]["enum"] = [
+                value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES
+            ]
     _constrain_active_python_hash_constants(schema)
     return schema
 

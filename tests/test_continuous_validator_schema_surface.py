@@ -12,6 +12,7 @@ from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
 from cera.continuous.contracts import (
+    ACTIVE_VALIDATOR_WRITER_HARD_CLASSES,
     CharacterRoleLedgerV1,
     FinalFieldName,
     FinalFieldScopeV1,
@@ -20,6 +21,7 @@ from cera.continuous.contracts import (
     FinalSequenceV1,
     ProtectedSemanticAdjudicationV1,
     ProtectedSemanticRelationKind,
+    ProhibitedWriterDetailClass,
     StoryRealizationKind,
     StoryRealizationSegmentV1,
     ValidatorSemanticStatus,
@@ -43,6 +45,7 @@ from cera.continuous.provider import (
     ProviderEventRecordDraftV1,
     ProviderEventRecordDraftV2,
     ProviderFinalSequenceDraftV2,
+    ProviderRejectedViolationDraftV1,
     _python_derived_event_record,
     _schema_for,
     continuous_scene_writer_draft_json_schema,
@@ -208,6 +211,34 @@ def _active_wire() -> ContinuousSemanticValidatorDraftV11:
 
 
 class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
+    def test_active_validator_recall_vocabulary_is_precise_and_projected(self) -> None:
+        expected = [value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES]
+        for schema in (
+            continuous_semantic_validator_draft_json_schema(),
+            project_provider_output_schema(
+                continuous_semantic_validator_draft_json_schema(),
+                ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+            ).provider_schema,
+        ):
+            rejected = next(
+                branch
+                for branch in schema["properties"]["decision"]["anyOf"]
+                if "writer_recall_violations" in branch.get("properties", {})
+            )
+            actual = rejected["properties"]["writer_recall_violations"]["items"][
+                "properties"
+            ]["prohibited_detail_classes"]["items"]["enum"]
+            self.assertEqual(actual, expected)
+            self.assertNotIn("planner_sequence_departure", actual)
+            self.assertNotIn("severe_reader_quality_failure", actual)
+
+        historical = _schema_for(ProviderRejectedViolationDraftV1)
+        historical_values = historical["properties"]["prohibited_detail_classes"][
+            "items"
+        ]["enum"]
+        self.assertIn(ProhibitedWriterDetailClass.PLANNER_SEQUENCE_DEPARTURE.value, historical_values)
+        self.assertIn(ProhibitedWriterDetailClass.SEVERE_READER_QUALITY_FAILURE.value, historical_values)
+
     def test_provider_neutral_schema_has_the_exact_enum_at_every_path(self) -> None:
         schemas = _field_name_schemas(continuous_semantic_validator_draft_json_schema())
         self.assertEqual(len(schemas), 2)
@@ -280,7 +311,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v22",
+            "cera.continuous_validator_adapter.v24",
         )
         self.assertEqual(
             continuous_validator_route(model="gpt-5.6-sol", effort="medium").adapter_id,

@@ -1661,6 +1661,23 @@ class ProhibitedWriterDetailClass(StrEnum):
     SEVERE_READER_QUALITY_FAILURE = "severe_reader_quality_failure"
 
 
+ACTIVE_VALIDATOR_WRITER_HARD_CLASSES = tuple(
+    value
+    for value in ProhibitedWriterDetailClass
+    if value
+    not in {
+        ProhibitedWriterDetailClass.PLANNER_SEQUENCE_DEPARTURE,
+        ProhibitedWriterDetailClass.SEVERE_READER_QUALITY_FAILURE,
+    }
+)
+"""Hard Writer violations the active Semantic Validator may return.
+
+The broad Planner-departure value remains decodable for historical evidence but
+is superseded by the precise mandatory-beat class. Severe Reader quality is
+owned by the later Reader stage and is never a Validator-selected violation.
+"""
+
+
 @dataclass(frozen=True, slots=True)
 class WriterRealizationBoundaryV1:
     """Closed shared Writer/Validator boundary for transient visible detail."""

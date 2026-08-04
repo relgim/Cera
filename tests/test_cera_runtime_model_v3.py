@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import hashlib
 import inspect
+import json
 from pathlib import Path
 import re
 import unittest
 
 from cera.continuous.contracts import (
+    ACTIVE_VALIDATOR_WRITER_HARD_CLASSES,
     CharacterRoleLedgerV1,
     DiagnosticGroundingStatus,
     DiagnosticProtectedSemanticAdjudicationV1,
@@ -21,6 +23,7 @@ from cera.continuous.contracts import (
     StoryRealizationKind,
     StoryRealizationSegmentV1,
     ValidatorSemanticStatus,
+    ValidatorTaskMode,
     WriterMechanicalEnvelopeV1,
 )
 from cera.continuous.evidence import RequestEvidenceBindingRegistry
@@ -38,6 +41,7 @@ from cera.serialization import text_sha256
 from cera.continuous.prompting import (
     CONTINUOUS_VALIDATOR_PROMPT_VERSION,
     VALIDATOR_STABLE_INSTRUCTIONS,
+    build_validator_prompt,
 )
 from scripts.run_continuous_planner_validator_job4 import (
     JobHarness,
@@ -133,10 +137,37 @@ class RuntimeModelV3WriterBoundaryTests(unittest.TestCase):
 
 
 class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
+    def test_validator_request_exposes_only_active_hard_recall_classes(self) -> None:
+        prompt, _ = build_validator_prompt(
+            task_mode=ValidatorTaskMode.FINALIZE_TURN,
+            package_id="package:test",
+            world_id="world:test",
+            branch_id="branch:main",
+            candidate_id="candidate:test",
+            current_user_source="Ted asks a question.",
+            planner_sequence=None,
+            writer_story_text="Hana answers.",
+            writer_mechanical_envelope=None,
+            accepted_turn_id="turn:test",
+        )
+        request = json.loads(prompt.split("\n\n[VALIDATOR REQUEST]\n", 1)[1])
+        self.assertEqual(
+            request["writer_realization_boundary"][
+                "continuity_significant_classes"
+            ],
+            [value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES],
+        )
+        self.assertNotIn(
+            "planner_sequence_departure",
+            request["writer_realization_boundary"][
+                "continuity_significant_classes"
+            ],
+        )
+
     def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v28",
+            "cera.continuous_validator_prompt.v29",
         )
         for required in (
             "applies independently to each final-sequence item",
@@ -156,6 +187,10 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
             "Private_state and consent_or_decision are always story_material_assertion",
             "Soft drift does not cause rejection or Writer recall",
             "Accept the first candidate that is hard-safe",
+            "does not become hard merely because the Planner did not enumerate its exact staging",
+            "it does not prohibit a transient turn, posture change, glance, pause",
+            "Use mandatory_beat_omission_or_reversal only for that material beat failure",
+            "legacy broad planner_sequence_departure label is not an active Validator recall class",
             "Presentation-only segment keys must not appear anywhere in complete_final_sequence",
             "diagnostic and presentation-only spans cannot enter final fields",
             "derive the protected relation from that span's roles exactly",
