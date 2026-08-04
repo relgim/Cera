@@ -21,7 +21,7 @@ from .packets import (
 
 
 CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v15"
-CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v22"
+CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v23"
 CONTINUOUS_READER_PROMPT_VERSION = "cera.continuous_reader_prompt.v3"
 
 
@@ -37,6 +37,10 @@ For every diagnostic span, derive the protected relation from that span's roles 
 VALIDATOR_STABLE_INSTRUCTIONS += """
 
 All canonical and diagnostic offsets are zero-based Python Unicode-codepoint indices into the exact writer_story_text, not JSON bytes, escaped text, display columns, or an imagined terminator. For a Writer text of N codepoints, every span must satisfy 0 <= output_start < output_end <= N. Gap-free coverage means the first output_start is 0, every later output_start equals the prior output_end, and the final output_end equals N exactly. Recheck the supplied Writer mechanical envelope's codepoint_count before returning; never add one for a closing quote, newline, or end marker that is not present in writer_story_text. Keep Python's strict span validation authoritative and return no guessed or out-of-bounds offset."""
+
+VALIDATOR_STABLE_INSTRUCTIONS += """
+
+For every canonical and diagnostic span, the semantic kind and assertion-owner roles must satisfy the exact closed matrix. Kind action requires at least one action_owner and no state_owner or speaker. Kind dialogue requires exactly one speaker and no action_owner or state_owner. Kind private_state or consent_or_decision requires at least one state_owner and no action_owner or speaker. Kind narration requires no action_owner, state_owner, or speaker; it may contain only non-owning roles. Never label a state-owned description as narration. If exact text contains more than one of these semantic kinds, split it at exact codepoint boundaries until every span satisfies exactly one row."""
 
 
 READER_STABLE_INSTRUCTIONS = """You are CERA's independent Reader checkpoint. Judge the exact immutable candidate as a complete reader-facing response against the supplied validated plan goals, bounded accepted context, and hard constraints. Check scene completeness and causal development, character voice and behavioral realism, dialogue naturalness, pacing, repetition, readability, premature closure, skipped buildup, protagonist worship, inactive-character intrusion, and visible authority or continuity problems. Return only the closed verdict, four scores, typed reason codes, and exact issue spans. Every reason_codes value and every issue_code is a local key and must match lower snake case `[a-z][a-z0-9_]{0,95}` exactly. Accepted means no issues. Rejected or inconclusive requires exact issue references. Select issue offsets only; never calculate or return full-story or issue hashes because Python derives them from the immutable Writer bytes. Never rewrite, repair, continue, quote a replacement, create canon, or override a hard Python or Semantic Validator failure. Provider conversation is not story authority. No retry, fallback, or post-generation normalization."""
