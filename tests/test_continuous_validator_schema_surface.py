@@ -48,6 +48,7 @@ from cera.continuous.provider import (
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.qualification_evidence import (
     QualificationRawProviderJsonCapture,
+    QualificationRawProviderJsonCaptureRegistry,
 )
 from cera.creator_review.models import (
     CreatorReviewAssessment,
@@ -55,7 +56,7 @@ from cera.creator_review.models import (
     PublicationEligibility,
     ReviewIssueOwner,
 )
-from cera.errors import ContractValidationError
+from cera.errors import ContractValidationError, StateConflictError
 from cera.providers import (
     ProviderSchemaDialect,
     project_provider_output_schema,
@@ -541,6 +542,58 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                     "raw_provider_result_sha256": capture.artifact_sha256,
                 },
             )
+
+    def test_raw_provider_registry_owns_one_explicit_evidence_root(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            first_root = root / "first"
+            second_root = root / "second"
+            first = QualificationRawProviderJsonCaptureRegistry(first_root)
+            second = QualificationRawProviderJsonCaptureRegistry(second_root)
+            first.configure("attempt_001")
+            second.configure("attempt_001")
+
+            first_capture = first.allocate("validator")
+            second_capture = second.allocate("validator")
+            first_capture({"verdict": "first"})
+            second_capture({"verdict": "second"})
+            first.bind("validator", "session:first", first_capture)
+            second.bind("validator", "session:second", second_capture)
+
+            self.assertTrue(first_capture.artifact_path.is_relative_to(first_root))
+            self.assertTrue(second_capture.artifact_path.is_relative_to(second_root))
+            self.assertNotEqual(first_capture.artifact_path, second_capture.artifact_path)
+            self.assertEqual(
+                first.for_session("validator", "session:first"),
+                first_capture.evidence(evidence_root=first_root),
+            )
+            self.assertEqual(first.inventory()[0]["role"], "validator")
+            self.assertEqual(second.inventory()[0]["role"], "validator")
+
+    def test_raw_provider_registry_is_closed_and_fail_closed(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory).resolve()
+            with self.assertRaises(ContractValidationError):
+                QualificationRawProviderJsonCaptureRegistry(Path("relative"))
+
+            registry = QualificationRawProviderJsonCaptureRegistry(root)
+            with self.assertRaises(StateConflictError):
+                registry.allocate("validator")
+            with self.assertRaises(ContractValidationError):
+                registry.configure("../escaped")
+            registry.configure("attempt_001")
+            with self.assertRaises(StateConflictError):
+                registry.configure("attempt_002")
+            with self.assertRaises(ContractValidationError):
+                registry.allocate("planner")
+
+            capture = registry.allocate("reader")
+            capture({"verdict": "accepted"})
+            registry.bind("reader", "session:reader", capture)
+            with self.assertRaises(StateConflictError):
+                registry.bind("reader", "session:reader", capture)
+            with self.assertRaises(StateConflictError):
+                capture({"verdict": "changed"})
 
     def test_writer_schema_and_boundary_are_unchanged(self) -> None:
         schema = continuous_scene_writer_draft_json_schema()

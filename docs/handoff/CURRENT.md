@@ -18,7 +18,7 @@ D-186 through D-194 role text below is historical evidence and does not
 override D-204.
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** Queue 0052 conditional Pro Writer canary after Flash exhaustion and provider-free harness correction, before Stage 4 V6 and Stages 5-7; D-180 remains active
+**Phase:** Queue 0052 Pro canary Validator recovery after explicit qualification-evidence-root correction, before Stage 4 V6 and Stages 5-7; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`; Runtime Model V3 Planner `cera.continuous_planner_adapter.v8` / `cera.continuous_planner_prompt.v15`
@@ -27,13 +27,24 @@ override D-204.
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
 **Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v9`; `cera.continuous_validator_adapter.v17`; `cera.continuous_validator_prompt.v24`; `cera.continuous_validator_request.v8`
 **Runtime Model V3 Reader identity:** `cera.provider_reader_verdict.v1`; `cera.continuous_reader_adapter.v3`; `cera.continuous_reader_prompt.v3`
-**Runtime Model V3 verification:** typed presentation-only versus story/material boundary, no-leakage enforcement, bounded Writer recall, and the authority-bound internal recall handoff pass 181 focused provider-free tests; the complete repository gate passes 1,036 tests with 3 skipped; the Flash canary exhausted three Writer-attributable attempts; the qualification harness Composer-model correction passes 107 focused tests and preserves Flash as the default
+**Runtime Model V3 verification:** typed presentation-only versus story/material boundary, no-leakage enforcement, bounded Writer recall, and the authority-bound internal recall handoff pass 181 focused provider-free tests; the complete repository gate passes 1,036 tests with 3 skipped; the Flash canary exhausted three Writer-attributable attempts; the Pro Writer candidate is frozen after a Validator capture-root collision; explicit-root capture-registry qualification is in progress before Validator recovery
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
 **D-186/D-200 shadow continuity work:** D-199 V12-1/V12-2 remain completed history; V12-3 is superseded-uncommitted and its useful safety draft is being requalified under D-200; active route unchanged
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## Current status and next action
+
+- Queue 0052's final Pro Writer call returned a typed-accepted candidate, but
+  its fresh Validator could not reach DTO decoding because a nested historical
+  campaign registry retained another campaign's immutable `attempt_001` raw
+  capture path. The Writer bytes are frozen and all three Pro Writer calls are
+  counted; no further DeepSeek call is available for this canary.
+- The provider-free correction makes the raw-result registry own one explicit
+  absolute evidence root. The next bounded operation is a fresh identity that
+  replays the exact Planner and Writer bytes with zero Planner/Writer calls,
+  then dispatches one Validator and a Reader only after Validator acceptance.
+  See `implementation/CERA_QUALIFICATION_CAPTURE_ROOT_OWNERSHIP_V1_RESULT.md`.
 
 - Queue 0033 Progression 2 is complete provider-free. Accepted Planner
   snapshots use `cera.continuous_session_snapshot_receipt.v3` and the compact

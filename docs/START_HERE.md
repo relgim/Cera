@@ -17,7 +17,7 @@ campaign. D-180 remains the active product route unless a later, separate
 promotion is explicitly authorized.
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_END -->
 <!-- CERA_CURRENT_RUNTIME_BEGIN -->
-**Phase:** Queue 0052 conditional Pro Writer canary after Flash exhaustion and provider-free harness correction, before Stage 4 V6 and Stages 5-7; D-180 remains active
+**Phase:** Queue 0052 Pro canary Validator recovery after explicit qualification-evidence-root correction, before Stage 4 V6 and Stages 5-7; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`; Runtime Model V3 Planner `cera.continuous_planner_adapter.v8` / `cera.continuous_planner_prompt.v15`
@@ -26,7 +26,7 @@ promotion is explicitly authorized.
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
 **Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v9`; `cera.continuous_validator_adapter.v17`; `cera.continuous_validator_prompt.v24`; `cera.continuous_validator_request.v8`
 **Runtime Model V3 Reader identity:** `cera.provider_reader_verdict.v1`; `cera.continuous_reader_adapter.v3`; `cera.continuous_reader_prompt.v3`
-**Runtime Model V3 verification:** typed presentation-only versus story/material boundary, no-leakage enforcement, bounded Writer recall, and the authority-bound internal recall handoff pass 181 focused provider-free tests; the complete repository gate passes 1,036 tests with 3 skipped; the Flash canary exhausted three Writer-attributable attempts; the qualification harness Composer-model correction passes 107 focused tests and preserves Flash as the default
+**Runtime Model V3 verification:** typed presentation-only versus story/material boundary, no-leakage enforcement, bounded Writer recall, and the authority-bound internal recall handoff pass 181 focused provider-free tests; the complete repository gate passes 1,036 tests with 3 skipped; the Flash canary exhausted three Writer-attributable attempts; the Pro Writer candidate is frozen after a Validator capture-root collision; explicit-root capture-registry qualification is in progress before Validator recovery
 <!-- CERA_CURRENT_RUNTIME_END -->
 
 ## 1. Authority in one page
