@@ -219,6 +219,7 @@ The implementation must have tests that fail when any of these conditions is vio
 17. A positive Reader qualification fixture's prose uses a character-owned semantic channel absent from its explicit ordered Planner role beats.
 18. A qualification harness broadens the production thread-lineage purpose contract or attaches obsolete campaign labels instead of the active `primary_planner` and `primary_validator` purposes.
 19. A qualification harness supplies filesystem-backed scene or turn identifiers outside the active bounded slug contract, or weakens production validation to accept historical campaign punctuation.
+20. The active Planner provider schema permits any output local-key field that the closed Python Planner DTO rejects, or provider output is normalized after generation to hide such a mismatch.
 
 A documentation test must identify one controlling role matrix and reject conflicting active claims in `CERA_OWNER_ARCHITECTURE.md`, `RUNTIME_PIPELINE_AND_PORTS.md`, the schema catalog, decision ledger, roadmap, and handoff.
 

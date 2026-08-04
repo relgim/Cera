@@ -11,6 +11,7 @@ from cera.continuous.contracts import (
     FinalInformationVisibility,
     IngressSourceUnitKind,
     IngressSourceUnitV1,
+    LOCAL_KEY_JSON_PATTERN,
     RichPlannerSequenceV1,
 )
 from cera.continuous.evidence import (
@@ -18,7 +19,10 @@ from cera.continuous.evidence import (
     StableAcceptedContextReferenceV1,
 )
 from cera.continuous.prompting import PLANNER_STABLE_INSTRUCTIONS
-from cera.continuous.provider import rich_planner_sequence_json_schema
+from cera.continuous.provider import (
+    CONTINUOUS_PLANNER_ADAPTER_VERSION,
+    rich_planner_sequence_json_schema,
+)
 from cera.errors import ContractValidationError
 from cera.providers import ProviderSchemaDialect, project_provider_output_schema
 from cera.schema import from_mapping
@@ -71,6 +75,34 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
             {"type": "null", "const": None},
         )
         self.assertEqual(len(canonical_sha256(schema)), 64)
+
+    def test_planner_schema_and_projection_constrain_every_local_key(self) -> None:
+        schema = rich_planner_sequence_json_schema()
+        projected = project_provider_output_schema(
+            schema,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        for candidate in (schema, projected):
+            beat = candidate["properties"]["beats"]["items"]["properties"]
+            self.assertEqual(
+                beat["beat_key"]["pattern"], LOCAL_KEY_JSON_PATTERN
+            )
+            self.assertEqual(
+                beat["source_evidence_bindings"]["items"]["pattern"],
+                LOCAL_KEY_JSON_PATTERN,
+            )
+            allowance = beat["protected_user_allowance"]["properties"]
+            for field in ("source_binding_keys", "source_claim_keys"):
+                self.assertEqual(
+                    allowance[field]["items"]["pattern"],
+                    LOCAL_KEY_JSON_PATTERN,
+                )
+
+    def test_planner_schema_change_has_a_new_adapter_identity(self) -> None:
+        self.assertEqual(
+            CONTINUOUS_PLANNER_ADAPTER_VERSION,
+            "cera.continuous_planner_adapter.v8",
+        )
 
     def test_exact_cycle25_copied_prior_id_is_rejected_but_null_passes_unchanged(self) -> None:
         original = deepcopy(self.payload)

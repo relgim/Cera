@@ -20,12 +20,12 @@ below is historical evidence and does not override D-204.
 **Phase:** Queue 0050 Runtime Model V3 rejected-diagnostic checkpoint, then V5 bounded live shadow qualification; D-180 remains active
 **Active runtime profile:** `cera.active_runtime.d180.v1`
 **Active runtime profile SHA-256:** `f74347604d9adb7be0ded2a3c9c62e7076aca4d5d773aa8a3c97f8e7bcee0801`
-**Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
+**Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`; Runtime Model V3 Planner `cera.continuous_planner_adapter.v8` / `cera.continuous_planner_prompt.v15`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
 **Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v8`; `cera.continuous_validator_adapter.v16`; `cera.continuous_validator_prompt.v20`; `cera.continuous_validator_request.v7`
 **Runtime Model V3 Reader identity:** `cera.provider_reader_verdict.v1`; `cera.continuous_reader_adapter.v3`; `cera.continuous_reader_prompt.v3`
-**Runtime Model V3 verification:** rejected-only diagnostic boundary passed 1,011 provider-free tests with 3 skipped; Stage 4 V5 Validator and combined Reader qualification passed 6/6 and 4/4; complete-scene preflight proved active lineage labels, then exposed historical colon-delimited scene/turn IDs before provider dispatch; the fresh harness uses active slug IDs without weakening production validation
+**Runtime Model V3 verification:** rejected-only diagnostic boundary passed 1,011 provider-free tests with 3 skipped; Stage 4 V5 Validator and combined Reader qualification passed 6/6 and 4/4; active lineage and slug IDs passed; the first complete-scene Planner call exposed a provider-schema/Python local-key mismatch, now closed in Planner adapter V8 without output repair
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 **D-185 shadow speed work:** Compact Reasoner v7/input scoping and cumulative Codex operation telemetry implemented provider-free; active D-180 v6 route unchanged
 **D-186/D-200 shadow continuity work:** D-199 V12-1/V12-2 remain completed history; V12-3 is superseded-uncommitted and its useful safety draft is being requalified under D-200; active route unchanged
