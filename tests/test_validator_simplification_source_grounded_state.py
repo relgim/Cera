@@ -135,7 +135,7 @@ class ValidatorSimplificationSourceGroundedStateTests(unittest.TestCase):
             "offering an incidental household item as optional low-stakes invitation color",
             "does not prepare, transfer, acquire, consume, inventory, causally require, or retain",
             "Do not classify such an optional mention as new_continuity_object",
-            "Actual preparation, transfer, acquisition, consumption, inventory change",
+            "An additional preparation, transfer, acquisition, consumption, inventory change",
         ):
             self.assertIn(required, VALIDATOR_STABLE_INSTRUCTIONS)
 

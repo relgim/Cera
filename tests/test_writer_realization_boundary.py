@@ -28,6 +28,7 @@ from cera.continuous.contracts import (
 )
 from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.prompting import (
+    VALIDATOR_STABLE_INSTRUCTIONS,
     WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION,
     build_continuous_composer_prompt,
     compile_compact_writer_brief,
@@ -669,11 +670,160 @@ class WriterRealizationBoundaryTests(unittest.TestCase):
         self.assertIn("Mia privately recognizes her pull", brief.mandatory_causal_beats[1])
         self.assertIn("service as one way she seeks belonging", brief.mandatory_causal_beats[1])
         self.assertIn("teacups remain stored", brief.mandatory_causal_beats[1])
-        self.assertIn("keep that target abstract", prompt)
-        self.assertIn("not presentation freedom", prompt)
+        self.assertIn("Generic local staging may give concrete prose shape", prompt)
+        self.assertIn("must not add another task or outcome", prompt)
         self.assertNotIn("source_evidence_bindings", prompt)
         self.assertNotIn("causal_explanation", prompt)
         self.assertNotIn("relevant_character_pressures", prompt)
+
+    def test_authorized_material_core_can_exclude_noncanonical_realization_scaffold(self) -> None:
+        story = (
+            "Hana gathered the cups from the low table, her hands threading stems carefully. "
+            "She carried them across the room, her steps soft against the floorboards, and "
+            "slid them onto the shelf. Their rims caught a sliver of afternoon light before "
+            "disappearing into the row of waiting spaces. She closed the cabinet without a "
+            "sound.\n\nMia stayed where she was, watching the empty space where Hana’s hands "
+            "had been. The familiar urge to rise, to offer, to be useful, stirred in her "
+            "chest. She felt its shape—a quiet, insistent reach toward someone else’s motion, "
+            "a way of writing herself into the room. She did not move. She let the feeling "
+            "sit, unnamed and hers."
+        )
+        self.assertEqual(
+            text_sha256(story),
+            "4195eb2ef22dd19d104553678103e44e112943cb325e14c53593b63f26e1de44",
+        )
+        pieces = (
+            (
+                "Hana gathered the cups",
+                RealizationAuthorityDisposition.STORY_MATERIAL_ASSERTION,
+                None,
+                StoryRealizationKind.ACTION,
+                CharacterRoleLedgerV1(action_owner_ids=(HANA,)),
+            ),
+            (
+                " from the low table, her hands threading stems carefully.",
+                RealizationAuthorityDisposition.PRESENTATION_ONLY,
+                PresentationRealizationClass.INCIDENTAL_PROP,
+                StoryRealizationKind.ACTION,
+                CharacterRoleLedgerV1(action_owner_ids=(HANA,)),
+            ),
+            (
+                " She carried them",
+                RealizationAuthorityDisposition.STORY_MATERIAL_ASSERTION,
+                None,
+                StoryRealizationKind.ACTION,
+                CharacterRoleLedgerV1(action_owner_ids=(HANA,)),
+            ),
+            (
+                " across the room, her steps soft against the floorboards,",
+                RealizationAuthorityDisposition.PRESENTATION_ONLY,
+                PresentationRealizationClass.NONPERSISTENT_SPATIAL_PHRASING,
+                StoryRealizationKind.ACTION,
+                CharacterRoleLedgerV1(action_owner_ids=(HANA,)),
+            ),
+            (
+                " and slid them",
+                RealizationAuthorityDisposition.STORY_MATERIAL_ASSERTION,
+                None,
+                StoryRealizationKind.ACTION,
+                CharacterRoleLedgerV1(action_owner_ids=(HANA,)),
+            ),
+            (
+                " onto the shelf. Their rims caught a sliver of afternoon light before "
+                "disappearing into the row of waiting spaces. She closed the cabinet without a "
+                "sound.\n\n",
+                RealizationAuthorityDisposition.PRESENTATION_ONLY,
+                PresentationRealizationClass.INCIDENTAL_PROP,
+                StoryRealizationKind.ACTION,
+                CharacterRoleLedgerV1(action_owner_ids=(HANA,)),
+            ),
+            (
+                "Mia stayed where she was, watching the empty space where Hana’s hands had been.",
+                RealizationAuthorityDisposition.PRESENTATION_ONLY,
+                PresentationRealizationClass.MICRO_ACTION,
+                StoryRealizationKind.ACTION,
+                CharacterRoleLedgerV1(
+                    action_owner_ids=("character:mia_hanezawa",),
+                    referenced_ids=(HANA,),
+                ),
+            ),
+            (
+                " The familiar urge to rise, to offer, to be useful, stirred in her chest. She "
+                "felt its shape—a quiet, insistent reach toward someone else’s motion, a way "
+                "of writing herself into the room.",
+                RealizationAuthorityDisposition.STORY_MATERIAL_ASSERTION,
+                None,
+                StoryRealizationKind.PRIVATE_STATE,
+                CharacterRoleLedgerV1(
+                    state_owner_ids=("character:mia_hanezawa",),
+                    referenced_ids=(HANA,),
+                ),
+            ),
+            (
+                " She did not move.",
+                RealizationAuthorityDisposition.PRESENTATION_ONLY,
+                PresentationRealizationClass.MICRO_ACTION,
+                StoryRealizationKind.ACTION,
+                CharacterRoleLedgerV1(action_owner_ids=("character:mia_hanezawa",)),
+            ),
+            (
+                " She let the feeling sit, unnamed and hers.",
+                RealizationAuthorityDisposition.STORY_MATERIAL_ASSERTION,
+                None,
+                StoryRealizationKind.PRIVATE_STATE,
+                CharacterRoleLedgerV1(state_owner_ids=("character:mia_hanezawa",)),
+            ),
+        )
+        drafts = []
+        cursor = 0
+        for index, (text, disposition, presentation_class, kind, roles) in enumerate(pieces):
+            self.assertEqual(story[cursor : cursor + len(text)], text)
+            drafts.append(
+                ProviderRealizationSegmentDraftV1(
+                    schema_version=ProviderRealizationSegmentDraftV1.SCHEMA_VERSION,
+                    segment_key=f"scaffold_segment_{index}",
+                    authority_disposition=disposition,
+                    presentation_class=presentation_class,
+                    kind=kind,
+                    output_start=cursor,
+                    output_end=cursor + len(text),
+                    roles=roles,
+                    protected_user_source_claim_keys=(),
+                )
+            )
+            cursor += len(text)
+        self.assertEqual(cursor, len(story))
+
+        _, material, presentation = _compile_provider_realization_segments(
+            writer_story_text=story,
+            values=tuple(drafts),
+        )
+        material_text = "".join(value.exact_text for value in material)
+        presentation_text = "".join(value.exact_text for value in presentation)
+        self.assertIn("Hana gathered the cups", material_text)
+        self.assertIn("She carried them", material_text)
+        self.assertIn("and slid them", material_text)
+        self.assertIn("stirred in her chest", material_text)
+        self.assertIn("feeling sit", material_text)
+        self.assertNotIn("low table", material_text)
+        self.assertNotIn("shelf", material_text)
+        self.assertNotIn("cabinet", material_text)
+        self.assertIn("low table", presentation_text)
+        self.assertIn("shelf", presentation_text)
+        self.assertIn("cabinet", presentation_text)
+        boundary = WriterRealizationBoundaryV1.default()
+        self.assertFalse(boundary.presentation_enters_final_sequence)
+        self.assertFalse(boundary.presentation_enters_events_or_material_changes)
+        self.assertFalse(boundary.presentation_enters_accepted_context_or_persistence)
+        self.assertFalse(boundary.presentation_enters_canon)
+        self.assertIn(
+            "Generic local staging that only gives concrete prose shape",
+            VALIDATOR_STABLE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "Final fields may cite only the material spans",
+            VALIDATOR_STABLE_INSTRUCTIONS,
+        )
 
     def test_writer_authority_hash_binds_beat_constraints(self) -> None:
         planner = sequence()

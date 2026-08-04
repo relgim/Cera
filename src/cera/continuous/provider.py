@@ -81,7 +81,7 @@ from .prompting import (
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v8"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v27"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
-CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v5"
+CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v6"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v4"
 
 
