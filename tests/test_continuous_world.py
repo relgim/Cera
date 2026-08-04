@@ -60,11 +60,19 @@ from cera.continuous.sessions import (
 )
 from cera.continuous.ingress import build_default_prepared_classifier_registry
 from cera.continuous.contracts import (
+    DiagnosticGroundingStatus,
+    DiagnosticViolationClassification,
     ReaderIssueReferenceV1,
     ReaderVerdictStatus,
     ReaderVerdictV1,
 )
-from cera.continuous.provider import ContinuousSemanticValidatorResultV1
+from cera.continuous.provider import (
+    ContinuousSemanticValidatorResultV1,
+    ProviderDiagnosticProtectedSemanticAdjudicationDraftV1,
+    ProviderDiagnosticStorySegmentDraftV1,
+    ProviderRejectedSemanticStatus,
+    ProviderRejectedTurnDecisionDraftV3,
+)
 from cera.continuous.world_mcp import (
     ContinuousWorldMcpBridge,
     ContinuousWorldToolDispatcher,
@@ -656,14 +664,76 @@ class _RejectingValidatorStage:
     def validate(self, prompt, **_kwargs):
         request = json.loads(prompt.rsplit("[VALIDATOR REQUEST]\n", 1)[1])
         story_text = request["writer_story_text"]
-        return SimpleNamespace(
-            value=ContinuousSemanticValidatorResultV1(
-                semantic_status=ValidatorSemanticStatus.REJECTED,
-                reason_codes=("mixed_protected_user_action",),
-                story_segments=composer_draft(story_text).story_segments,
-                protected_semantic_adjudications=(),
-                finalization_package=None,
+        protected_start = story_text.index("Ted")
+        diagnostic_segments = (
+            ProviderDiagnosticStorySegmentDraftV1(
+                schema_version=(
+                    ProviderDiagnosticStorySegmentDraftV1.SCHEMA_VERSION
+                ),
+                segment_key="sakura_boundary",
+                kind=StoryRealizationKind.ACTION,
+                output_start=0,
+                output_end=protected_start,
+                roles=CharacterRoleLedgerV1(
+                    action_owner_ids=("character:sakura_hanezawa",),
+                ),
+                grounding_status=DiagnosticGroundingStatus.GROUNDED,
+                protected_user_source_claim_keys=(),
             ),
+            ProviderDiagnosticStorySegmentDraftV1(
+                schema_version=(
+                    ProviderDiagnosticStorySegmentDraftV1.SCHEMA_VERSION
+                ),
+                segment_key="ungrounded_ted_entry",
+                kind=StoryRealizationKind.ACTION,
+                output_start=protected_start,
+                output_end=len(story_text),
+                roles=CharacterRoleLedgerV1(
+                    action_owner_ids=("character:ted",),
+                ),
+                grounding_status=(
+                    DiagnosticGroundingStatus.UNGROUNDED_PROTECTED_USER_ASSERTION
+                ),
+                protected_user_source_claim_keys=(),
+            ),
+        )
+        diagnostic_adjudications = tuple(
+            ProviderDiagnosticProtectedSemanticAdjudicationDraftV1(
+                schema_version=(
+                    ProviderDiagnosticProtectedSemanticAdjudicationDraftV1.SCHEMA_VERSION
+                ),
+                adjudication_key=f"{segment.segment_key}_adjudication",
+                segment_key=segment.segment_key,
+                output_start=segment.output_start,
+                output_end=segment.output_end,
+                protected_user_id="character:ted",
+                relation=(
+                    ProtectedSemanticRelationKind.PROTECTED_ASSERTION
+                    if segment.segment_key == "ungrounded_ted_entry"
+                    else ProtectedSemanticRelationKind.NONE
+                ),
+                grounding_status=segment.grounding_status,
+                violation_classification=(
+                    DiagnosticViolationClassification.UNGROUNDED_PROTECTED_USER_ASSERTION
+                    if segment.segment_key == "ungrounded_ted_entry"
+                    else DiagnosticViolationClassification.NONE
+                ),
+                npc_assertion_owner_ids=(),
+                protected_user_source_claim_keys=(),
+            )
+            for segment in diagnostic_segments
+        )
+        return SimpleNamespace(
+            value=ProviderRejectedTurnDecisionDraftV3(
+                schema_version=ProviderRejectedTurnDecisionDraftV3.SCHEMA_VERSION,
+                semantic_status=ProviderRejectedSemanticStatus.REJECTED,
+                primary_reason_code="mixed_protected_user_action",
+                additional_reason_codes=(),
+                diagnostic_story_segments=diagnostic_segments,
+                diagnostic_protected_semantic_adjudications=(
+                    diagnostic_adjudications
+                ),
+            ).compile(writer_story_text=story_text),
             provider_receipt=None,
             operation_telemetry=None,
             tool_call_count=0,
@@ -1481,7 +1551,7 @@ class ContinuousWorldTests(unittest.TestCase):
             ),
             planner=_FakeStage(rich_sequence(), "plan"),
             composer=_FakeStage(
-                composer_draft("Sakura keeps the threshold."), "compose"
+                composer_draft("Sakura watches as Ted steps inside."), "compose"
             ),
             validator=_RejectingValidatorStage(),
             reader=reader,

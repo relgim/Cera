@@ -8,11 +8,16 @@ import unittest
 
 from cera.continuous.contracts import (
     CharacterRoleLedgerV1,
+    DiagnosticGroundingStatus,
+    DiagnosticProtectedSemanticAdjudicationV1,
+    DiagnosticStorySegmentV1,
+    DiagnosticViolationClassification,
     IngressSourceUnitKind,
     IngressSourceUnitV1,
     ReaderIssueReferenceV1,
     ReaderVerdictStatus,
     ReaderVerdictV1,
+    ProtectedSemanticRelationKind,
     StoryRealizationKind,
     StoryRealizationSegmentV1,
     ValidatorSemanticStatus,
@@ -22,6 +27,7 @@ from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.provider import (
     ContinuousSceneWriterDraftV1,
     ContinuousSemanticValidatorResultV1,
+    ContinuousSemanticValidatorResultV2,
     continuous_deepseek_draft_json_schema,
     continuous_reader_verdict_json_schema,
     continuous_scene_writer_draft_json_schema,
@@ -130,20 +136,20 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v19",
+            "cera.continuous_validator_prompt.v20",
         )
         for required in (
             "applies independently to each final-sequence item",
             "one character ID may occur in exactly one of its seven role arrays",
             "split them into separate causally ordered final-sequence items",
             "must match lower snake case `[a-z][a-z0-9_]{0,95}` with no colon",
-            "story_segment_keys reference must copy one of those exact local segment keys",
+            "story_segment_keys reference must copy one exact canonical segment key",
             "field_scopes must contain exactly realized_event and resulting_state",
             "never emit a field scope for an empty optional array",
             "relation none requires both npc_assertion_owner_ids and protected_user_source_claim_keys to be empty",
             "protected_assertion requires no NPC owners and exactly one supplied claim key",
             "each require at least one exact NPC predicate owner and no protected-user claim keys",
-            "Every story segment must have at least one character in exactly one role array",
+            "Every canonical story segment must have at least one character in exactly one role array",
             "Do not create a standalone role-empty narration or connector segment",
         ):
             self.assertIn(required, VALIDATOR_STABLE_INSTRUCTIONS)
@@ -179,23 +185,95 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
 
     def test_mixed_protected_action_can_be_a_clean_typed_rejection(self) -> None:
         story = "Hana smiled as Ted stepped inside."
-        result = ContinuousSemanticValidatorResultV1(
+        hana_text = "Hana smiled as "
+        ted_text = "Ted stepped inside."
+        hana = DiagnosticStorySegmentV1(
+            schema_version=DiagnosticStorySegmentV1.SCHEMA_VERSION,
+            segment_key="hana_smile",
+            kind=StoryRealizationKind.ACTION,
+            output_start=0,
+            output_end=len(hana_text),
+            exact_text=hana_text,
+            exact_text_sha256=text_sha256(hana_text),
+            roles=CharacterRoleLedgerV1(
+                action_owner_ids=("character:hana_hanezawa",),
+            ),
+            grounding_status=DiagnosticGroundingStatus.GROUNDED,
+        )
+        ted = DiagnosticStorySegmentV1(
+            schema_version=DiagnosticStorySegmentV1.SCHEMA_VERSION,
+            segment_key="ted_steps_inside",
+            kind=StoryRealizationKind.ACTION,
+            output_start=len(hana_text),
+            output_end=len(story),
+            exact_text=ted_text,
+            exact_text_sha256=text_sha256(ted_text),
+            roles=CharacterRoleLedgerV1(
+                action_owner_ids=("character:ted",),
+            ),
+            grounding_status=(
+                DiagnosticGroundingStatus.UNGROUNDED_PROTECTED_USER_ASSERTION
+            ),
+        )
+        result = ContinuousSemanticValidatorResultV2(
             semantic_status=ValidatorSemanticStatus.REJECTED,
             reason_codes=("mixed_protected_user_action",),
-            story_segments=(
-                segment(
-                    story,
-                    roles=CharacterRoleLedgerV1(
-                        action_owner_ids=("character:hana_hanezawa",),
-                        referenced_ids=("character:ted",),
+            story_segments=(),
+            protected_semantic_adjudications=(),
+            diagnostic_story_segments=(hana, ted),
+            diagnostic_protected_semantic_adjudications=(
+                DiagnosticProtectedSemanticAdjudicationV1(
+                    schema_version=(
+                        DiagnosticProtectedSemanticAdjudicationV1.SCHEMA_VERSION
                     ),
+                    adjudication_key="hana_smile_adjudication",
+                    segment_key=hana.segment_key,
+                    output_start=hana.output_start,
+                    output_end=hana.output_end,
+                    exact_text_sha256=hana.exact_text_sha256,
+                    protected_user_id="character:ted",
+                    relation=ProtectedSemanticRelationKind.NONE,
+                    grounding_status=DiagnosticGroundingStatus.GROUNDED,
+                    violation_classification=(
+                        DiagnosticViolationClassification.NONE
+                    ),
+                    npc_assertion_owner_ids=(),
+                    protected_user_source_claim_keys=(),
+                ),
+                DiagnosticProtectedSemanticAdjudicationV1(
+                    schema_version=(
+                        DiagnosticProtectedSemanticAdjudicationV1.SCHEMA_VERSION
+                    ),
+                    adjudication_key="ted_steps_inside_adjudication",
+                    segment_key=ted.segment_key,
+                    output_start=ted.output_start,
+                    output_end=ted.output_end,
+                    exact_text_sha256=ted.exact_text_sha256,
+                    protected_user_id="character:ted",
+                    relation=ProtectedSemanticRelationKind.PROTECTED_ASSERTION,
+                    grounding_status=(
+                        DiagnosticGroundingStatus.UNGROUNDED_PROTECTED_USER_ASSERTION
+                    ),
+                    violation_classification=(
+                        DiagnosticViolationClassification.UNGROUNDED_PROTECTED_USER_ASSERTION
+                    ),
+                    npc_assertion_owner_ids=(),
+                    protected_user_source_claim_keys=(),
                 ),
             ),
-            protected_semantic_adjudications=(),
             finalization_package=None,
+        )
+        self.registry().validate_validator_diagnostics(
+            story_text=story,
+            diagnostic_story_segments=result.diagnostic_story_segments,
+            diagnostic_protected_semantic_adjudications=(
+                result.diagnostic_protected_semantic_adjudications
+            ),
+            allowed_character_ids=("character:hana_hanezawa",),
         )
         self.assertIsNone(result.finalization_package)
         self.assertEqual(result.semantic_status, ValidatorSemanticStatus.REJECTED)
+        self.assertFalse(result.story_segments)
 
     def test_one_span_cannot_mix_visible_action_and_private_state(self) -> None:
         with self.assertRaisesRegex(

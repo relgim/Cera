@@ -1679,6 +1679,213 @@ class ProtectedSemanticAdjudicationV1:
             )
 
 
+class DiagnosticGroundingStatus(StrEnum):
+    """Grounding status for non-authoritative rejected-candidate evidence."""
+
+    GROUNDED = "grounded"
+    UNGROUNDED_PROTECTED_USER_ASSERTION = (
+        "ungrounded_protected_user_assertion"
+    )
+
+
+class DiagnosticViolationClassification(StrEnum):
+    """Closed violation class for rejected-only semantic adjudication."""
+
+    NONE = "none"
+    UNGROUNDED_PROTECTED_USER_ASSERTION = (
+        "ungrounded_protected_user_assertion"
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class DiagnosticStorySegmentV1:
+    """Exact Python-custodied span that can describe invalid Writer semantics.
+
+    This contract is diagnostic only.  In particular, it can retain a Ted-owned
+    assertion precisely because no ingress claim authorizes it.  It must never
+    be converted into ``StoryRealizationSegmentV1``.
+    """
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.diagnostic_story_segment.v1"
+
+    schema_version: str
+    segment_key: str
+    kind: StoryRealizationKind
+    output_start: int
+    output_end: int
+    exact_text: str
+    exact_text_sha256: str
+    roles: CharacterRoleLedgerV1
+    grounding_status: DiagnosticGroundingStatus
+    protected_user_source_claim_keys: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("diagnostic story segment schema changed")
+        _key(self.segment_key, "diagnostic_story_segment.segment_key")
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError("diagnostic story segment span is invalid")
+        _text(self.exact_text, "diagnostic_story_segment.exact_text", maximum=64_000)
+        if self.output_end - self.output_start != len(self.exact_text):
+            raise ContractValidationError(
+                "diagnostic story segment span length changed"
+            )
+        if self.exact_text_sha256 != text_sha256(self.exact_text):
+            raise ContractValidationError(
+                "diagnostic story segment exact-text hash changed"
+            )
+        if self.kind is StoryRealizationKind.ACTION:
+            valid = bool(self.roles.action_owner_ids) and not (
+                self.roles.state_owner_ids or self.roles.speaker_ids
+            )
+        elif self.kind is StoryRealizationKind.DIALOGUE:
+            valid = len(self.roles.speaker_ids) == 1 and not (
+                self.roles.action_owner_ids or self.roles.state_owner_ids
+            )
+        elif self.kind in {
+            StoryRealizationKind.PRIVATE_STATE,
+            StoryRealizationKind.CONSENT_OR_DECISION,
+        }:
+            valid = bool(self.roles.state_owner_ids) and not (
+                self.roles.action_owner_ids or self.roles.speaker_ids
+            )
+        else:
+            valid = not self.roles.assertion_owner_ids
+        if not valid:
+            raise ContractValidationError(
+                "diagnostic story kind disagrees with exact ownership roles"
+            )
+        for value in self.protected_user_source_claim_keys:
+            _key(value, "diagnostic_story_segment.protected_user_source_claim_keys")
+        _unique(
+            self.protected_user_source_claim_keys,
+            "diagnostic_story_segment.protected_user_source_claim_keys",
+        )
+        protected = "character:ted" in self.roles.assertion_owner_ids
+        if (
+            self.grounding_status
+            is DiagnosticGroundingStatus.UNGROUNDED_PROTECTED_USER_ASSERTION
+        ):
+            if not protected or self.protected_user_source_claim_keys:
+                raise ContractValidationError(
+                    "ungrounded protected diagnostic requires a Ted assertion with zero claims"
+                )
+        elif protected:
+            if len(self.protected_user_source_claim_keys) != 1:
+                raise ContractValidationError(
+                    "grounded protected diagnostic requires one exact supplied claim"
+                )
+        elif self.protected_user_source_claim_keys:
+            raise ContractValidationError(
+                "non-protected diagnostic cannot carry protected-user claims"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class DiagnosticProtectedSemanticAdjudicationV1:
+    """Rejected-only protected semantic judgment with Python byte custody."""
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.diagnostic_protected_semantic_adjudication.v1"
+    )
+
+    schema_version: str
+    adjudication_key: str
+    segment_key: str
+    output_start: int
+    output_end: int
+    exact_text_sha256: str
+    protected_user_id: str
+    relation: ProtectedSemanticRelationKind
+    grounding_status: DiagnosticGroundingStatus
+    violation_classification: DiagnosticViolationClassification
+    npc_assertion_owner_ids: tuple[str, ...]
+    protected_user_source_claim_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "diagnostic protected adjudication schema changed"
+            )
+        _key(self.adjudication_key, "diagnostic_protected.adjudication_key")
+        _key(self.segment_key, "diagnostic_protected.segment_key")
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError(
+                "diagnostic protected adjudication span is invalid"
+            )
+        if not re_is_sha256(self.exact_text_sha256):
+            raise ContractValidationError(
+                "diagnostic protected adjudication text hash is invalid"
+            )
+        _identity(self.protected_user_id, "diagnostic_protected.protected_user_id")
+        for value in self.npc_assertion_owner_ids:
+            _identity(value, "diagnostic_protected.npc_assertion_owner_ids")
+            if value == self.protected_user_id:
+                raise ContractValidationError(
+                    "diagnostic protected NPC owner cannot be the protected user"
+                )
+        _unique(
+            self.npc_assertion_owner_ids,
+            "diagnostic_protected.npc_assertion_owner_ids",
+        )
+        for value in self.protected_user_source_claim_keys:
+            _key(value, "diagnostic_protected.protected_user_source_claim_keys")
+        _unique(
+            self.protected_user_source_claim_keys,
+            "diagnostic_protected.protected_user_source_claim_keys",
+        )
+        ungrounded = (
+            self.grounding_status
+            is DiagnosticGroundingStatus.UNGROUNDED_PROTECTED_USER_ASSERTION
+        )
+        violation = (
+            self.violation_classification
+            is DiagnosticViolationClassification.UNGROUNDED_PROTECTED_USER_ASSERTION
+        )
+        if ungrounded != violation:
+            raise ContractValidationError(
+                "diagnostic grounding and violation classification disagree"
+            )
+        if ungrounded:
+            if (
+                self.relation is not ProtectedSemanticRelationKind.PROTECTED_ASSERTION
+                or self.npc_assertion_owner_ids
+                or self.protected_user_source_claim_keys
+            ):
+                raise ContractValidationError(
+                    "ungrounded protected adjudication requires an unclaimed protected assertion"
+                )
+        elif self.relation is ProtectedSemanticRelationKind.PROTECTED_ASSERTION:
+            if self.npc_assertion_owner_ids or len(
+                self.protected_user_source_claim_keys
+            ) != 1:
+                raise ContractValidationError(
+                    "grounded protected adjudication requires one exact claim"
+                )
+        elif self.relation is ProtectedSemanticRelationKind.NONE:
+            if self.npc_assertion_owner_ids or self.protected_user_source_claim_keys:
+                raise ContractValidationError(
+                    "diagnostic no-relation adjudication cannot carry owners or claims"
+                )
+        elif (
+            not self.npc_assertion_owner_ids
+            or self.protected_user_source_claim_keys
+        ):
+            raise ContractValidationError(
+                "diagnostic non-owning relation requires an exact NPC predicate owner"
+            )
+
+
 class ReaderVerdictStatus(StrEnum):
     ACCEPTED = "accepted"
     REJECTED = "rejected"
@@ -1921,6 +2128,13 @@ class ValidatorFinalizationPackageV1:
             if not self.protected_semantic_adjudications:
                 raise ContractValidationError(
                     "turn finalization lacks independent protected semantics"
+                )
+            if any(
+                not isinstance(value, ProtectedSemanticAdjudicationV1)
+                for value in self.protected_semantic_adjudications
+            ):
+                raise ContractValidationError(
+                    "turn finalization accepts only canonical protected adjudications"
                 )
             _unique(
                 tuple(

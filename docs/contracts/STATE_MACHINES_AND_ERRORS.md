@@ -18,6 +18,12 @@ inconclusive status stops before candidate publication. No rejected path enters
 accepted provider ancestry or mutates story state. Only creator acceptance
 opens Python's atomic commit transition.
 
+Rejected, inconclusive, and error Validator decisions may retain exact
+Python-custodied diagnostic spans/adjudications and typed reasons only. They
+contain no canonical realization segments or finalization package and stop
+before Reader. Diagnostic evidence is never event, memory, persistence,
+accepted-context, candidate, or commit input.
+
 The D-186 state machine below is historical where it gives Composer output
 semantic self-certification duties. D-204 controls the V3 successor while D-180
 remains the active product route.

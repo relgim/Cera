@@ -32,6 +32,10 @@ from .contracts import (
     AcceptedTurnPairV1,
     CharacterRoleLedgerV1,
     CreatedFieldLogEntryV1,
+    DiagnosticGroundingStatus,
+    DiagnosticProtectedSemanticAdjudicationV1,
+    DiagnosticStorySegmentV1,
+    DiagnosticViolationClassification,
     EventRecordCandidateV1,
     EventItemRoleLedgerV1,
     FinalSequenceItemV1,
@@ -64,7 +68,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v7"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v15"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v16"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v8"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v1"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v2"
@@ -350,6 +354,147 @@ class ContinuousSemanticValidatorResultV1:
                 finalization_package.protected_semantic_adjudications
             ),
             finalization_package=finalization_package,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorResultV2:
+    """Branch-separated semantic result for Runtime Model V3.
+
+    Canonical story authority appears only on accepted/concern turn results.
+    Rejected, inconclusive, and error results carry a separate diagnostic
+    provenance family that cannot satisfy finalization contracts.
+    """
+
+    semantic_status: ValidatorSemanticStatus
+    reason_codes: tuple[str, ...]
+    story_segments: tuple[StoryRealizationSegmentV1, ...]
+    protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ]
+    diagnostic_story_segments: tuple[DiagnosticStorySegmentV1, ...]
+    diagnostic_protected_semantic_adjudications: tuple[
+        DiagnosticProtectedSemanticAdjudicationV1, ...
+    ]
+    finalization_package: ValidatorFinalizationPackageV1 | None
+
+    def __post_init__(self) -> None:
+        if any(
+            not isinstance(value, StoryRealizationSegmentV1)
+            for value in self.story_segments
+        ) or any(
+            not isinstance(value, ProtectedSemanticAdjudicationV1)
+            for value in self.protected_semantic_adjudications
+        ):
+            raise ContractValidationError(
+                "accepted Validator evidence requires canonical segment types"
+            )
+        if any(
+            not isinstance(value, DiagnosticStorySegmentV1)
+            for value in self.diagnostic_story_segments
+        ) or any(
+            not isinstance(value, DiagnosticProtectedSemanticAdjudicationV1)
+            for value in self.diagnostic_protected_semantic_adjudications
+        ):
+            raise ContractValidationError(
+                "rejected Validator evidence requires diagnostic segment types"
+            )
+        canonical_present = bool(
+            self.story_segments or self.protected_semantic_adjudications
+        )
+        diagnostic_present = bool(
+            self.diagnostic_story_segments
+            or self.diagnostic_protected_semantic_adjudications
+        )
+        if canonical_present and diagnostic_present:
+            raise ContractValidationError(
+                "canonical and diagnostic Validator evidence cannot mix"
+            )
+        if len({value.segment_key for value in self.story_segments}) != len(
+            self.story_segments
+        ):
+            raise ContractValidationError(
+                "continuous Semantic Validator duplicated canonical story span keys"
+            )
+        diagnostic_keys = tuple(
+            value.segment_key for value in self.diagnostic_story_segments
+        )
+        if len(diagnostic_keys) != len(set(diagnostic_keys)):
+            raise ContractValidationError(
+                "continuous Semantic Validator duplicated diagnostic story span keys"
+            )
+        diagnostic_adjudication_keys = tuple(
+            value.segment_key
+            for value in self.diagnostic_protected_semantic_adjudications
+        )
+        if (
+            len(diagnostic_adjudication_keys)
+            != len(set(diagnostic_adjudication_keys))
+            or set(diagnostic_adjudication_keys) != set(diagnostic_keys)
+        ):
+            raise ContractValidationError(
+                "diagnostic adjudications must cover every diagnostic story span exactly once"
+            )
+        if self.finalization_package is not None:
+            if diagnostic_present:
+                raise ContractValidationError(
+                    "diagnostic Validator evidence cannot enter finalization"
+                )
+            if self.finalization_package.task_mode is ValidatorTaskMode.SCENE_SUMMARY:
+                if (
+                    self.semantic_status is not ValidatorSemanticStatus.ACCEPTED
+                    or canonical_present
+                    or self.reason_codes
+                ):
+                    raise ContractValidationError(
+                        "scene-summary result carried turn evidence or diagnostics"
+                    )
+            elif (
+                self.semantic_status
+                not in {
+                    ValidatorSemanticStatus.ACCEPTED,
+                    ValidatorSemanticStatus.CONCERN,
+                }
+                or not self.story_segments
+                or not self.protected_semantic_adjudications
+            ):
+                raise ContractValidationError(
+                    "finalizing turn requires strict canonical Validator evidence"
+                )
+            if self.finalization_package.semantic_status is not self.semantic_status:
+                raise ContractValidationError(
+                    "Semantic Validator result changed finalization status"
+                )
+        else:
+            if (
+                self.semantic_status
+                in {
+                    ValidatorSemanticStatus.ACCEPTED,
+                    ValidatorSemanticStatus.CONCERN,
+                }
+                or not self.reason_codes
+                or canonical_present
+                or not self.diagnostic_story_segments
+                or not self.diagnostic_protected_semantic_adjudications
+            ):
+                raise ContractValidationError(
+                    "non-finalizing Validator result requires diagnostic-only evidence"
+                )
+
+    @classmethod
+    def from_v1(
+        cls, value: ContinuousSemanticValidatorResultV1
+    ) -> "ContinuousSemanticValidatorResultV2":
+        return cls(
+            semantic_status=value.semantic_status,
+            reason_codes=value.reason_codes,
+            story_segments=value.story_segments,
+            protected_semantic_adjudications=(
+                value.protected_semantic_adjudications
+            ),
+            diagnostic_story_segments=(),
+            diagnostic_protected_semantic_adjudications=(),
+            finalization_package=value.finalization_package,
         )
 
 
@@ -1036,6 +1181,271 @@ class ProviderRejectedTurnDecisionDraftV2:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderDiagnosticStorySegmentDraftV1:
+    """Hash- and text-free rejected-only semantic span choices."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_diagnostic_story_segment.v1"
+
+    schema_version: str
+    segment_key: str
+    kind: StoryRealizationKind
+    output_start: int
+    output_end: int
+    roles: CharacterRoleLedgerV1
+    grounding_status: DiagnosticGroundingStatus
+    protected_user_source_claim_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider diagnostic story-segment schema changed"
+            )
+
+    def compile(self, *, writer_story_text: str) -> DiagnosticStorySegmentV1:
+        if (
+            not isinstance(writer_story_text, str)
+            or not writer_story_text
+            or "\x00" in writer_story_text
+        ):
+            raise ContractValidationError(
+                "diagnostic span custody requires immutable Writer text"
+            )
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end > len(writer_story_text)
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError(
+                "provider diagnostic story span is empty or out of bounds"
+            )
+        exact_text = writer_story_text[self.output_start : self.output_end]
+        return DiagnosticStorySegmentV1(
+            schema_version=DiagnosticStorySegmentV1.SCHEMA_VERSION,
+            segment_key=self.segment_key,
+            kind=self.kind,
+            output_start=self.output_start,
+            output_end=self.output_end,
+            exact_text=exact_text,
+            exact_text_sha256=text_sha256(exact_text),
+            roles=self.roles,
+            grounding_status=self.grounding_status,
+            protected_user_source_claim_keys=(
+                self.protected_user_source_claim_keys
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderDiagnosticProtectedSemanticAdjudicationDraftV1:
+    """Hash-free violation classification for one diagnostic story span."""
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.provider_diagnostic_protected_semantic_adjudication.v1"
+    )
+
+    schema_version: str
+    adjudication_key: str
+    segment_key: str
+    output_start: int
+    output_end: int
+    protected_user_id: str
+    relation: ProtectedSemanticRelationKind
+    grounding_status: DiagnosticGroundingStatus
+    violation_classification: DiagnosticViolationClassification
+    npc_assertion_owner_ids: tuple[str, ...]
+    protected_user_source_claim_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider diagnostic protected-adjudication schema changed"
+            )
+
+    def compile(
+        self,
+        *,
+        writer_story_text: str,
+        story_segment: DiagnosticStorySegmentV1,
+    ) -> DiagnosticProtectedSemanticAdjudicationV1:
+        if (
+            story_segment.segment_key != self.segment_key
+            or self.output_start != story_segment.output_start
+            or self.output_end != story_segment.output_end
+        ):
+            raise ContractValidationError(
+                "diagnostic adjudication must bind one exact diagnostic story span"
+            )
+        if (
+            story_segment.output_end > len(writer_story_text)
+            or writer_story_text[
+                story_segment.output_start : story_segment.output_end
+            ]
+            != story_segment.exact_text
+        ):
+            raise ContractValidationError(
+                "diagnostic adjudication changed immutable Writer bytes"
+            )
+        return DiagnosticProtectedSemanticAdjudicationV1(
+            schema_version=(
+                DiagnosticProtectedSemanticAdjudicationV1.SCHEMA_VERSION
+            ),
+            adjudication_key=self.adjudication_key,
+            segment_key=self.segment_key,
+            output_start=self.output_start,
+            output_end=self.output_end,
+            exact_text_sha256=text_sha256(story_segment.exact_text),
+            protected_user_id=self.protected_user_id,
+            relation=self.relation,
+            grounding_status=self.grounding_status,
+            violation_classification=self.violation_classification,
+            npc_assertion_owner_ids=self.npc_assertion_owner_ids,
+            protected_user_source_claim_keys=(
+                self.protected_user_source_claim_keys
+            ),
+        )
+
+
+def _validate_diagnostic_adjudication_against_segment(
+    *,
+    segment: DiagnosticStorySegmentV1,
+    adjudication: DiagnosticProtectedSemanticAdjudicationV1,
+) -> None:
+    if adjudication.grounding_status is not segment.grounding_status:
+        raise ContractValidationError(
+            "diagnostic segment and adjudication grounding disagree"
+        )
+    protected_user_id = adjudication.protected_user_id
+    protected_assertion = protected_user_id in segment.roles.assertion_owner_ids
+    npc_owners = tuple(
+        value
+        for value in segment.roles.assertion_owner_ids
+        if value != protected_user_id
+    )
+    if adjudication.relation is ProtectedSemanticRelationKind.PROTECTED_ASSERTION:
+        if (
+            not protected_assertion
+            or adjudication.npc_assertion_owner_ids
+            or adjudication.protected_user_source_claim_keys
+            != segment.protected_user_source_claim_keys
+        ):
+            raise ContractValidationError(
+                "diagnostic protected assertion disagrees with story-span roles"
+            )
+        return
+    if protected_assertion:
+        raise ContractValidationError(
+            "diagnostic Ted assertion must be classified as protected_assertion"
+        )
+    if adjudication.relation is ProtectedSemanticRelationKind.NONE:
+        if protected_user_id in segment.roles.involved_ids:
+            raise ContractValidationError(
+                "diagnostic protected-user role was mislabeled as absent"
+            )
+        return
+    relation_fields = {
+        ProtectedSemanticRelationKind.AFFECTED_BY_NPC: "affected_ids",
+        ProtectedSemanticRelationKind.ADDRESSED_BY_NPC: "addressed_ids",
+        ProtectedSemanticRelationKind.OBSERVED_BY_NPC: "observing_ids",
+        ProtectedSemanticRelationKind.REFERENCED_ONLY_BY_NPC: "referenced_ids",
+    }
+    role_field = relation_fields[adjudication.relation]
+    ted_role_fields = tuple(
+        field
+        for field in relation_fields.values()
+        if protected_user_id in getattr(segment.roles, field)
+    )
+    if (
+        ted_role_fields != (role_field,)
+        or set(adjudication.npc_assertion_owner_ids) != set(npc_owners)
+        or not npc_owners
+    ):
+        raise ContractValidationError(
+            "diagnostic non-owning relation lacks an exact NPC-owned predicate"
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderRejectedTurnDecisionDraftV3:
+    """Active rejected branch with diagnostic-only semantic provenance."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_rejected_turn_decision.v3"
+
+    schema_version: str
+    semantic_status: ProviderRejectedSemanticStatus
+    primary_reason_code: str
+    additional_reason_codes: tuple[str, ...]
+    diagnostic_story_segments: tuple[ProviderDiagnosticStorySegmentDraftV1, ...]
+    diagnostic_protected_semantic_adjudications: tuple[
+        ProviderDiagnosticProtectedSemanticAdjudicationDraftV1, ...
+    ]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider rejected-decision V3 schema changed"
+            )
+
+    @property
+    def reason_codes(self) -> tuple[str, ...]:
+        return (self.primary_reason_code, *self.additional_reason_codes)
+
+    def compile(
+        self, *, writer_story_text: str
+    ) -> ContinuousSemanticValidatorResultV2:
+        segments = tuple(
+            value.compile(writer_story_text=writer_story_text)
+            for value in self.diagnostic_story_segments
+        )
+        if not segments:
+            raise ContractValidationError(
+                "rejected Validator decision omitted diagnostic story spans"
+            )
+        segment_map = {value.segment_key: value for value in segments}
+        if len(segment_map) != len(segments):
+            raise ContractValidationError(
+                "rejected Validator decision duplicated diagnostic story span keys"
+            )
+        cursor = 0
+        for segment in segments:
+            if segment.output_start != cursor:
+                raise ContractValidationError(
+                    "diagnostic story spans are not gap-free and ordered"
+                )
+            cursor = segment.output_end
+        if cursor != len(writer_story_text):
+            raise ContractValidationError(
+                "diagnostic story spans do not cover immutable Writer text"
+            )
+        adjudications: list[DiagnosticProtectedSemanticAdjudicationV1] = []
+        for value in self.diagnostic_protected_semantic_adjudications:
+            segment = segment_map.get(value.segment_key)
+            if segment is None:
+                raise ContractValidationError(
+                    "diagnostic adjudication cited an unknown story span"
+                )
+            adjudication = value.compile(
+                writer_story_text=writer_story_text,
+                story_segment=segment,
+            )
+            _validate_diagnostic_adjudication_against_segment(
+                segment=segment,
+                adjudication=adjudication,
+            )
+            adjudications.append(adjudication)
+        return ContinuousSemanticValidatorResultV2(
+            semantic_status=ValidatorSemanticStatus(self.semantic_status.value),
+            reason_codes=self.reason_codes,
+            story_segments=(),
+            protected_semantic_adjudications=(),
+            diagnostic_story_segments=segments,
+            diagnostic_protected_semantic_adjudications=tuple(adjudications),
+            finalization_package=None,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderSceneSummaryDecisionDraftV1:
     SCHEMA_VERSION: ClassVar[str] = "cera.provider_scene_summary_decision.v1"
 
@@ -1314,6 +1724,71 @@ class ContinuousSemanticValidatorDraftV7:
             decision=historical_decision,
         )
         return historical.compile(accepted_pairs=accepted_pairs)
+
+
+ProviderSemanticDecisionDraftV3 = Union[
+    ProviderAcceptedTurnDecisionDraftV2,
+    ProviderConcernTurnDecisionDraftV2,
+    ProviderRejectedTurnDecisionDraftV3,
+    ProviderSceneSummaryDecisionDraftV1,
+]
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV8:
+    """Active branch-separated Validator wire with rejected-only diagnostics."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v8"
+
+    schema_version: str
+    package_id: str
+    world_id: str
+    branch_id: str
+    decision: ProviderSemanticDecisionDraftV3
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous Semantic Validator V8 provider schema changed"
+            )
+
+    @classmethod
+    def from_v4(
+        cls,
+        value: ContinuousSemanticValidatorDraftV4,
+    ) -> "ContinuousSemanticValidatorDraftV8":
+        historical = ContinuousSemanticValidatorDraftV7.from_v4(value)
+        return cls(
+            schema_version=cls.SCHEMA_VERSION,
+            package_id=historical.package_id,
+            world_id=historical.world_id,
+            branch_id=historical.branch_id,
+            decision=historical.decision,
+        )
+
+    def compile(
+        self,
+        *,
+        writer_story_text: str | None,
+        accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
+    ) -> ContinuousSemanticValidatorResultV2:
+        if isinstance(self.decision, ProviderRejectedTurnDecisionDraftV3):
+            if not isinstance(writer_story_text, str) or not writer_story_text:
+                raise ContractValidationError(
+                    "turn Validator requires typed immutable Writer text"
+                )
+            return self.decision.compile(writer_story_text=writer_story_text)
+        historical = ContinuousSemanticValidatorDraftV7(
+            schema_version=ContinuousSemanticValidatorDraftV7.SCHEMA_VERSION,
+            package_id=self.package_id,
+            world_id=self.world_id,
+            branch_id=self.branch_id,
+            decision=self.decision,
+        ).compile(
+            writer_story_text=writer_story_text,
+            accepted_pairs=accepted_pairs,
+        )
+        return ContinuousSemanticValidatorResultV2.from_v1(historical)
 
 
 @dataclass(frozen=True, slots=True)
@@ -1921,12 +2396,14 @@ def _inject_python_owned_persistence_hashes(
 
 
 def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
-    schema = _schema_for(ContinuousSemanticValidatorDraftV7)
+    schema = _schema_for(ContinuousSemanticValidatorDraftV8)
     for branch in schema["properties"]["decision"]["anyOf"]:
         properties = branch.get("properties", {})
         for collection in (
             "story_segments",
             "protected_semantic_adjudications",
+            "diagnostic_story_segments",
+            "diagnostic_protected_semantic_adjudications",
         ):
             if collection in properties:
                 properties[collection]["minItems"] = 1
@@ -2095,7 +2572,7 @@ class CodexContinuousValidatorPort:
                 world_bridge=self.world_bridge,
             )
             draft = from_mapping(
-                ContinuousSemanticValidatorDraftV7,
+                ContinuousSemanticValidatorDraftV8,
                 canonical_payload,
             )
             return ContinuousProviderResultV1(

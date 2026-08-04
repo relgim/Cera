@@ -129,6 +129,12 @@ The Validator cannot rewrite, repair, continue, summarize away, or reinterpret t
 
 Python verifies every Validator offset, exact text hash, role identity, claim reference, and coverage statement before using the verdict.
 
+Accepted and concern decisions use the strict canonical realization segment
+and protected-adjudication family. Rejected, inconclusive, and error decisions
+use a separate diagnostic-only family. That family may represent an ungrounded
+Ted assertion with zero claims only through an explicit typed violation, has
+Python-derived exact text/hash custody, and cannot enter finalization or canon.
+
 ### Independent Reader checkpoint
 
 The Reader is a separate provider-neutral role and receives the exact candidate, validated plan goals, bounded accepted context, and hard constraints. It performs final whole-response review for:
@@ -207,6 +213,7 @@ The implementation must have tests that fail when any of these conditions is vio
 11. A DeepSeek stage exceeds three total attempts, merges outputs across attempts, or mutates its frozen stage input between attempts.
 12. A Python deterministic defect is treated as a reason to recall DeepSeek.
 13. Raw capability-restricted prose is sent to Codex or used directly as Memory / Directory authority instead of crossing through the safe retained package.
+14. Rejected diagnostic spans or adjudications appear in an accepted/concern decision, finalization package, Reader request, review-ready candidate, event, memory, persistence operation, accepted ancestry, or commit.
 
 A documentation test must identify one controlling role matrix and reject conflicting active claims in `CERA_OWNER_ARCHITECTURE.md`, `RUNTIME_PIPELINE_AND_PORTS.md`, the schema catalog, decision ledger, roadmap, and handoff.
 

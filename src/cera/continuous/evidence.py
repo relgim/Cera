@@ -24,6 +24,9 @@ from .contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     CharacterRoleLedgerV1,
     CharacterSummaryEnvelopeV1,
+    DiagnosticGroundingStatus,
+    DiagnosticProtectedSemanticAdjudicationV1,
+    DiagnosticStorySegmentV1,
     FinalInformationVisibility,
     FinalSequenceItemV1,
     IngressSourceUnitKind,
@@ -2067,6 +2070,157 @@ class RequestEvidenceBindingRegistry:
             )
         self._story_segments = pending_segments
         return tuple(realizations)
+
+    def validate_validator_diagnostics(
+        self,
+        *,
+        story_text: str,
+        diagnostic_story_segments: tuple[DiagnosticStorySegmentV1, ...],
+        diagnostic_protected_semantic_adjudications: tuple[
+            DiagnosticProtectedSemanticAdjudicationV1, ...
+        ],
+        allowed_character_ids: tuple[str, ...],
+    ) -> None:
+        """Validate rejected-only evidence without adding it to authority state."""
+
+        if not diagnostic_story_segments:
+            raise PermissionError(
+                "Semantic Validator omitted rejected diagnostic story spans"
+            )
+        allowed = set(allowed_character_ids)
+        allowed.add("character:ted")
+        cursor = 0
+        segments: dict[str, DiagnosticStorySegmentV1] = {}
+        for segment in diagnostic_story_segments:
+            if segment.segment_key in segments:
+                raise PermissionError(
+                    "Semantic Validator diagnostic story span key is duplicated"
+                )
+            if segment.output_start != cursor or segment.output_end > len(story_text):
+                raise PermissionError(
+                    "Semantic Validator diagnostic spans are not gap-free"
+                )
+            if (
+                story_text[segment.output_start : segment.output_end]
+                != segment.exact_text
+                or segment.exact_text_sha256 != text_sha256(segment.exact_text)
+            ):
+                raise PermissionError(
+                    "Semantic Validator diagnostic span changed exact Writer text"
+                )
+            if set(segment.roles.involved_ids) - allowed:
+                raise PermissionError(
+                    "Semantic Validator diagnostic introduced an inactive character role"
+                )
+            protected = "character:ted" in segment.roles.assertion_owner_ids
+            if (
+                segment.grounding_status
+                is DiagnosticGroundingStatus.UNGROUNDED_PROTECTED_USER_ASSERTION
+            ):
+                if not protected or segment.protected_user_source_claim_keys:
+                    raise PermissionError(
+                        "ungrounded diagnostic does not describe a zero-claim Ted assertion"
+                    )
+            elif protected:
+                if len(segment.protected_user_source_claim_keys) != 1:
+                    raise PermissionError(
+                        "grounded protected diagnostic requires one supplied claim"
+                    )
+                claim = self._protected_user_claims.get(
+                    segment.protected_user_source_claim_keys[0]
+                )
+                if claim is None or segment.exact_text != claim.exact_text:
+                    raise PermissionError(
+                        "grounded protected diagnostic lacks exact ingress authority"
+                    )
+                if (
+                    segment.kind is StoryRealizationKind.DIALOGUE
+                ) != (claim.kind is ProtectedUserSourceClaimKind.DIALOGUE):
+                    raise PermissionError(
+                        "grounded protected diagnostic changed claim semantics"
+                    )
+            cursor = segment.output_end
+            segments[segment.segment_key] = segment
+        if cursor != len(story_text):
+            raise PermissionError(
+                "Semantic Validator diagnostic spans do not cover complete Writer text"
+            )
+        adjudications = {
+            value.segment_key: value
+            for value in diagnostic_protected_semantic_adjudications
+        }
+        if (
+            len(adjudications) != len(
+                diagnostic_protected_semantic_adjudications
+            )
+            or set(adjudications) != set(segments)
+        ):
+            raise PermissionError(
+                "Semantic Validator did not adjudicate every diagnostic span"
+            )
+        relation_fields = {
+            ProtectedSemanticRelationKind.AFFECTED_BY_NPC: "affected_ids",
+            ProtectedSemanticRelationKind.ADDRESSED_BY_NPC: "addressed_ids",
+            ProtectedSemanticRelationKind.OBSERVED_BY_NPC: "observing_ids",
+            ProtectedSemanticRelationKind.REFERENCED_ONLY_BY_NPC: "referenced_ids",
+        }
+        for segment_key, segment in segments.items():
+            adjudication = adjudications[segment_key]
+            if (
+                adjudication.protected_user_id != "character:ted"
+                or adjudication.output_start != segment.output_start
+                or adjudication.output_end != segment.output_end
+                or adjudication.exact_text_sha256
+                != segment.exact_text_sha256
+                or adjudication.grounding_status is not segment.grounding_status
+            ):
+                raise PermissionError(
+                    "diagnostic adjudication changed its exact Writer span"
+                )
+            protected = "character:ted" in segment.roles.assertion_owner_ids
+            npc_owners = tuple(
+                value
+                for value in segment.roles.assertion_owner_ids
+                if value != "character:ted"
+            )
+            if adjudication.relation is ProtectedSemanticRelationKind.PROTECTED_ASSERTION:
+                if (
+                    not protected
+                    or adjudication.npc_assertion_owner_ids
+                    or adjudication.protected_user_source_claim_keys
+                    != segment.protected_user_source_claim_keys
+                ):
+                    raise PermissionError(
+                        "diagnostic protected assertion disagrees with span roles"
+                    )
+                continue
+            if protected:
+                raise PermissionError(
+                    "diagnostic Ted assertion was not classified as protected"
+                )
+            if adjudication.relation is ProtectedSemanticRelationKind.NONE:
+                if "character:ted" in segment.roles.involved_ids:
+                    raise PermissionError(
+                        "diagnostic protected-user role was mislabeled as absent"
+                    )
+                continue
+            role_field = relation_fields[adjudication.relation]
+            ted_role_fields = tuple(
+                field
+                for field in relation_fields.values()
+                if "character:ted" in getattr(segment.roles, field)
+            )
+            if (
+                ted_role_fields != (role_field,)
+                or set(adjudication.npc_assertion_owner_ids) != set(npc_owners)
+                or not npc_owners
+            ):
+                raise PermissionError(
+                    "diagnostic non-owning relation lacks an NPC predicate owner"
+                )
+
+        # Deliberately do not assign ``self._story_segments``.  Diagnostic
+        # evidence is rejected-candidate provenance, never accepted authority.
 
     def validate_traceability(
         self,

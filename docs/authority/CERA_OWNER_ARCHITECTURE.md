@@ -18,6 +18,14 @@ Python enforces hard authority, then an independent non-rewriting Reader checks
 the complete response before Python creates a review-ready candidate. Only
 creator acceptance lets Python commit story truth.
 
+Queue 0050 separates rejected semantic evidence from accepted authority. An
+accepted or concerning Validator decision keeps strict canonical realization
+segments and protected adjudications. A rejected, inconclusive, or error
+decision uses diagnostic-only spans/adjudications with explicit grounding and
+violation status; Python derives their exact text/hashes, and they terminate
+before Reader, candidate creation, accepted ancestry, event, memory,
+persistence, or commit.
+
 D-204 supersedes the role allocation in D-186 through D-194 without rewriting
 their evidence. D-180 remains the active product route until Runtime Model V3
 passes later live qualification and explicit promotion. The older Composer and

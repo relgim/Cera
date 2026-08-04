@@ -15,6 +15,12 @@ Python applies hard enforcement; Reader supplies a candidate-bound verdict and
 no replacement prose. Python alone creates candidates, events, memory,
 persistence operations, acceptance receipts, and commits.
 
+Validator V8 keeps accepted/concern spans in the strict canonical realization
+family. Rejected/inconclusive/error decisions instead return offset-only
+diagnostic spans and adjudications with explicit grounding/violation status.
+Python derives their text and hashes from immutable Writer bytes and terminates
+them before Reader or any authority-producing path.
+
 Section 1A and later D-186 through D-194 descriptions are immutable historical
 route evidence where they assign semantic ledgers to the Composer. D-204
 removes those assignments from active use. D-180 remains the active product

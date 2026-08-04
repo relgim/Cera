@@ -14,6 +14,8 @@ from jsonschema.exceptions import ValidationError
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.contracts import (
     CharacterRoleLedgerV1,
+    DiagnosticGroundingStatus,
+    DiagnosticViolationClassification,
     FinalFieldName,
     FinalFieldScopeV1,
     FinalInformationVisibility,
@@ -35,6 +37,7 @@ from cera.continuous.provider import (
     ContinuousSemanticValidatorDraftV4,
     ContinuousSemanticValidatorDraftV6,
     ContinuousSemanticValidatorDraftV7,
+    ContinuousSemanticValidatorDraftV8,
     ProviderAcceptedDecisionKind,
     ProviderAcceptedTurnDecisionDraftV2,
     ProviderConcernCreatorReviewDraftV1,
@@ -42,6 +45,8 @@ from cera.continuous.provider import (
     ProviderConcernReviewDisposition,
     ProviderConcernTurnDecisionDraftV2,
     ProviderDiagnosticIssueOwner,
+    ProviderDiagnosticProtectedSemanticAdjudicationDraftV1,
+    ProviderDiagnosticStorySegmentDraftV1,
     ProviderEventRecordDraftV1,
     ProviderFinalSequenceDraftV2,
     ProviderProtectedSemanticAdjudicationDraftV1,
@@ -49,6 +54,7 @@ from cera.continuous.provider import (
     ProviderReaderVerdictDraftV1,
     ProviderRejectedSemanticStatus,
     ProviderRejectedTurnDecisionDraftV2,
+    ProviderRejectedTurnDecisionDraftV3,
     _inject_python_owned_persistence_hashes,
     continuous_reader_route,
     continuous_reader_verdict_json_schema,
@@ -175,8 +181,8 @@ def _canonical_v4() -> ContinuousSemanticValidatorDraftV4:
     )
 
 
-def _accepted_wire() -> ContinuousSemanticValidatorDraftV7:
-    return ContinuousSemanticValidatorDraftV7.from_v4(_canonical_v4())
+def _accepted_wire() -> ContinuousSemanticValidatorDraftV8:
+    return ContinuousSemanticValidatorDraftV8.from_v4(_canonical_v4())
 
 
 def _walk_named_properties(value: object, name: str, path: str = "$"):
@@ -256,11 +262,11 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Draft202012Validator(schema).validate(payload)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV7, payload)
+            from_mapping(ContinuousSemanticValidatorDraftV8, payload)
 
     def test_python_derives_canonical_adjudication_hash(self) -> None:
         wire = from_mapping(
-            ContinuousSemanticValidatorDraftV7,
+            ContinuousSemanticValidatorDraftV8,
             to_primitive(_accepted_wire()),
         )
         result = wire.compile(writer_story_text=STORY)
@@ -310,16 +316,53 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         ):
             cases.append(
                 (
-                    ProviderRejectedTurnDecisionDraftV2(
+                    ProviderRejectedTurnDecisionDraftV3(
                         schema_version=(
-                            ProviderRejectedTurnDecisionDraftV2.SCHEMA_VERSION
+                            ProviderRejectedTurnDecisionDraftV3.SCHEMA_VERSION
                         ),
                         semantic_status=status,
                         primary_reason_code=f"seeded_{status.value}",
                         additional_reason_codes=(),
-                        story_segments=accepted_decision.story_segments,
-                        protected_semantic_adjudications=(
-                            accepted_decision.protected_semantic_adjudications
+                        diagnostic_story_segments=(
+                            ProviderDiagnosticStorySegmentDraftV1(
+                                schema_version=(
+                                    ProviderDiagnosticStorySegmentDraftV1.SCHEMA_VERSION
+                                ),
+                                segment_key="segment_entire_story",
+                                kind=StoryRealizationKind.ACTION,
+                                output_start=0,
+                                output_end=len(STORY),
+                                roles=_roles(),
+                                grounding_status=(
+                                    DiagnosticGroundingStatus.GROUNDED
+                                ),
+                                protected_user_source_claim_keys=(),
+                            ),
+                        ),
+                        diagnostic_protected_semantic_adjudications=(
+                            ProviderDiagnosticProtectedSemanticAdjudicationDraftV1(
+                                schema_version=(
+                                    ProviderDiagnosticProtectedSemanticAdjudicationDraftV1.SCHEMA_VERSION
+                                ),
+                                adjudication_key="adjudication_entire_story",
+                                segment_key="segment_entire_story",
+                                output_start=0,
+                                output_end=len(STORY),
+                                protected_user_id="character:ted",
+                                relation=(
+                                    ProtectedSemanticRelationKind.ADDRESSED_BY_NPC
+                                ),
+                                grounding_status=(
+                                    DiagnosticGroundingStatus.GROUNDED
+                                ),
+                                violation_classification=(
+                                    DiagnosticViolationClassification.NONE
+                                ),
+                                npc_assertion_owner_ids=(
+                                    "character:hana_hanezawa",
+                                ),
+                                protected_user_source_claim_keys=(),
+                            ),
                         ),
                     ),
                     ValidatorSemanticStatus(status.value),
@@ -332,17 +375,27 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
                 wire = replace(accepted, decision=decision)
                 payload = to_primitive(wire)
                 Draft202012Validator(schema).validate(payload)
-                decoded = from_mapping(ContinuousSemanticValidatorDraftV7, payload)
+                decoded = from_mapping(ContinuousSemanticValidatorDraftV8, payload)
                 compiled = decoded.compile(writer_story_text=STORY)
                 self.assertIs(compiled.semantic_status, expected_status)
                 self.assertEqual(
                     compiled.finalization_package is not None,
                     finalizes,
                 )
-                self.assertEqual(
-                    compiled.protected_semantic_adjudications[0].exact_text_sha256,
-                    text_sha256(STORY),
-                )
+                if finalizes:
+                    self.assertEqual(
+                        compiled.protected_semantic_adjudications[
+                            0
+                        ].exact_text_sha256,
+                        text_sha256(STORY),
+                    )
+                    self.assertFalse(compiled.diagnostic_story_segments)
+                else:
+                    self.assertEqual(
+                        compiled.diagnostic_story_segments[0].exact_text_sha256,
+                        text_sha256(STORY),
+                    )
+                    self.assertFalse(compiled.story_segments)
 
     def test_invalid_adjudication_and_segment_spans_fail_closed(self) -> None:
         accepted = _accepted_wire()
@@ -489,7 +542,7 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v15",
+            "cera.continuous_validator_adapter.v16",
         )
 
     def test_active_schema_rejects_provider_authored_prior_value_hash(self) -> None:

@@ -4,15 +4,16 @@
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
 ## Runtime Model V3 qualification gate (active)
 
-Queue 0046 accepts the Queue 0044 provider-free Stages 0-3 result for
+Queue 0050 adds the rejected-only diagnostic evidence boundary for
 [`CERA_RUNTIME_MODEL_V3.md`](../authority/CERA_RUNTIME_MODEL_V3.md) and uses the
 sole active ownership matrix in
 [`CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md`](../architecture/CERA_RUNTIME_MODEL_V3_ROLE_CONFLICT_MAP.md).
-The active gate is Stage 4 bounded live qualification of the prose-only Writer,
-independent Sol-medium Semantic Validator, fresh candidate-specific Sol-medium
-Reader, and five complete varied shadow scenes. Passing Stage 4 automatically
-opens the accepted-lineage Stage 5 test, isolated SillyTavern Stage 6 runs, and
-the disposable twenty-turn Stage 7 campaign under Queue 0046's exact ceilings.
+After the provider-free checkpoint freezes, the active gate is fresh Stage 4
+V5 bounded live qualification of the prose-only Writer, independent Sol-medium
+Semantic Validator, fresh candidate-specific Sol-medium Reader, and five
+complete varied shadow scenes. Passing Stage 4 automatically opens the V5
+accepted-lineage Stage 5 test, isolated SillyTavern Stage 6 runs, and the
+disposable twenty-turn Stage 7 campaign under Queue 0050's exact ceilings.
 
 All work is shadow/test-only. No active-route promotion, production story or
 database mutation, installed-user SillyTavern change, deployment, merge,
@@ -26,7 +27,8 @@ report and all D-186 through D-194 evidence remain immutable history.
 **Reasoner identity:** `cera.codex_scene_reasoner.v25`; `cera.codex_scene_reasoner_packet.v14`; `cera.codex_scene_reasoner_prompt.v25`; `cera.reasoner_evidence_mcp.v7`; `branch_bound_native_stored_v1`
 **Composer identity:** `deepseek-v4-flash`; `cera.deepseek_scene_composer.v29`; `cera.deepseek_scene_composer_packet.v15`; `cera.deepseek_scene_composer_prompt.v26`; non-thinking
 **Verifier identity:** `cera.codex_scene_realization_verifier.v8`; `cera.codex_scene_realization_verifier_prompt.v8`; `cera.scene_realization_verification_request.v7`; Sol-medium
-**Runtime Model V3 verification:** Stages 0-3 accepted at execution commit `a29aa8ac050ea12626d4b2042b986f6c042d52fc`; complete provider-free suite 967 passed, 3 skipped; Stage 4 is active under Queue 0046
+**Runtime Model V3 Validator identity:** `cera.continuous_semantic_validator_draft.v8`; `cera.continuous_validator_adapter.v16`; `cera.continuous_validator_prompt.v20`; `cera.continuous_validator_request.v7`
+**Runtime Model V3 verification:** rejected-only diagnostic boundary passed 1,011 provider-free tests with 3 skipped; Stage 4 V5 is next after checkpoint freeze
 **D-184 live validation:** one creator-authorized SillyTavern retry reached `review_ready` after exactly three provider calls; zero accepted story commits
 <!-- CERA_CURRENT_RUNTIME_END -->
 

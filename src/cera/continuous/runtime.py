@@ -219,6 +219,31 @@ class ContinuousTurnCandidateV1:
     compact_accepted_head_receipt_sha256: str | None = None
     character_summary_delivery_receipt_sha256s: tuple[str, ...] = ()
 
+    def __post_init__(self) -> None:
+        if (
+            not self.validator_story_segments
+            or any(
+                not isinstance(value, StoryRealizationSegmentV1)
+                for value in self.validator_story_segments
+            )
+        ):
+            raise ContractValidationError(
+                "review-ready candidate requires canonical Validator story segments"
+            )
+        if (
+            not isinstance(self.validator_package, ValidatorFinalizationPackageV1)
+            or self.validator_package.task_mode
+            is not ValidatorTaskMode.FINALIZE_TURN
+            or self.validator_package.semantic_status
+            not in {
+                ValidatorSemanticStatus.ACCEPTED,
+                ValidatorSemanticStatus.CONCERN,
+            }
+        ):
+            raise ContractValidationError(
+                "review-ready candidate requires an accepted canonical finalization"
+            )
+
     @property
     def authority_context_sha256(self) -> str:
         return canonical_sha256(
@@ -1649,18 +1674,37 @@ class ContinuousShadowTurnCoordinator:
         story_segments = tuple(
             getattr(semantic_result, "story_segments", ())
         )
+        diagnostic_story_segments = tuple(
+            getattr(semantic_result, "diagnostic_story_segments", ())
+        )
+        diagnostic_adjudications = tuple(
+            getattr(
+                semantic_result,
+                "diagnostic_protected_semantic_adjudications",
+                (),
+            )
+        )
         debug.write_json("validator_output.json", to_primitive(semantic_result))
         debug.write_json("validator_tools.json", _provider_debug(validator_result))
-        protected_realizations = evidence_registry.validate_validator_semantics(
-            story_text=story_text,
-            story_segments=story_segments,
-            allowed_character_ids=planner_sequence.selected_character_ids,
-        )
         semantic_status = getattr(semantic_result, "semantic_status", None)
         if semantic_status not in {
             ValidatorSemanticStatus.ACCEPTED,
             ValidatorSemanticStatus.CONCERN,
         } or package is None:
+            if package is not None or story_segments or getattr(
+                semantic_result, "protected_semantic_adjudications", ()
+            ):
+                raise StateConflictError(
+                    "rejected Validator result carried canonical finalization authority"
+                )
+            evidence_registry.validate_validator_diagnostics(
+                story_text=story_text,
+                diagnostic_story_segments=diagnostic_story_segments,
+                diagnostic_protected_semantic_adjudications=(
+                    diagnostic_adjudications
+                ),
+                allowed_character_ids=planner_sequence.selected_character_ids,
+            )
             reason_codes = tuple(
                 getattr(semantic_result, "reason_codes", ())
             )
@@ -1670,6 +1714,15 @@ class ContinuousShadowTurnCoordinator:
             )
             debug.record_failure("validator_semantic_verdict", error)
             raise error
+        if diagnostic_story_segments or diagnostic_adjudications:
+            raise StateConflictError(
+                "accepted Validator result carried rejected diagnostic evidence"
+            )
+        protected_realizations = evidence_registry.validate_validator_semantics(
+            story_text=story_text,
+            story_segments=story_segments,
+            allowed_character_ids=planner_sequence.selected_character_ids,
+        )
         if (
             package.world_id != request.world_id
             or package.branch_id != request.branch_id

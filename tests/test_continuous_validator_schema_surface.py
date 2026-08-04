@@ -35,6 +35,7 @@ from cera.continuous.provider import (
     ContinuousSemanticValidatorDraftV5,
     ContinuousSemanticValidatorDraftV6,
     ContinuousSemanticValidatorDraftV7,
+    ContinuousSemanticValidatorDraftV8,
     ProviderEventRecordDraftV1,
     ProviderFinalSequenceDraftV2,
     _schema_for,
@@ -195,8 +196,8 @@ def _active_draft() -> ContinuousSemanticValidatorDraftV4:
     )
 
 
-def _active_wire() -> ContinuousSemanticValidatorDraftV7:
-    return ContinuousSemanticValidatorDraftV7.from_v4(_active_draft())
+def _active_wire() -> ContinuousSemanticValidatorDraftV8:
+    return ContinuousSemanticValidatorDraftV8.from_v4(_active_draft())
 
 
 class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
@@ -226,7 +227,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
 
     def test_all_five_values_decode_and_compile(self) -> None:
         payload = to_primitive(_active_wire())
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV7, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV8, payload)
         scopes = decoded.decision.complete_final_sequence.items[0].field_scopes
         self.assertEqual(tuple(value.field_name.value for value in scopes), EXPECTED_FINAL_FIELD_NAMES)
         self.assertTrue(all(isinstance(value.field_name, FinalFieldName) for value in scopes))
@@ -245,7 +246,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     Draft202012Validator(schema).validate(payload)
                 with self.assertRaises(ContractValidationError):
-                    from_mapping(ContinuousSemanticValidatorDraftV7, payload)
+                    from_mapping(ContinuousSemanticValidatorDraftV8, payload)
                 with self.assertRaises(ContractValidationError):
                     FinalFieldScopeV1(
                         field_name=arbitrary,
@@ -267,12 +268,12 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
             ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
         )
         self.assertEqual(
-            ContinuousSemanticValidatorDraftV7.SCHEMA_VERSION,
-            "cera.continuous_semantic_validator_draft.v7",
+            ContinuousSemanticValidatorDraftV8.SCHEMA_VERSION,
+            "cera.continuous_semantic_validator_draft.v8",
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v15",
+            "cera.continuous_validator_adapter.v16",
         )
         self.assertEqual(
             continuous_validator_route(model="gpt-5.6-sol", effort="medium").adapter_id,
@@ -316,6 +317,16 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
             to_primitive(historical_v6),
         )
         self.assertIsNotNone(decoded_v6.compile().finalization_package)
+        historical_v7 = ContinuousSemanticValidatorDraftV7.from_v4(_active_draft())
+        decoded_v7 = from_mapping(
+            ContinuousSemanticValidatorDraftV7,
+            to_primitive(historical_v7),
+        )
+        self.assertIsNotNone(
+            decoded_v7.compile(
+                writer_story_text="Hana set down the teacup."
+            ).finalization_package
+        )
 
     def test_active_wire_omits_and_python_derives_final_stop_state(self) -> None:
         payload = to_primitive(_active_wire())
@@ -325,7 +336,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         Draft202012Validator(continuous_semantic_validator_draft_json_schema()).validate(
             payload
         )
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV7, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV8, payload)
         final_sequence = decoded.compile(
             writer_story_text="Hana set down the teacup."
         ).finalization_package.complete_final_sequence
@@ -346,7 +357,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 continuous_semantic_validator_draft_json_schema()
             ).validate(injected)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV7, injected)
+            from_mapping(ContinuousSemanticValidatorDraftV8, injected)
 
     def test_failed_v2_cross_field_shape_is_reproduced_provider_free(self) -> None:
         payload = to_primitive(_active_draft())
@@ -378,7 +389,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 self.assertTrue(version_schema["const"].startswith("cera."))
         self.assertEqual(
             dict(versions)["$.properties.schema_version"]["const"],
-            ContinuousSemanticValidatorDraftV7.SCHEMA_VERSION,
+            ContinuousSemanticValidatorDraftV8.SCHEMA_VERSION,
         )
         decision_branches = schema["properties"]["decision"]["anyOf"]
         sequence_schemas = [
@@ -401,30 +412,48 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         for forbidden in ("reason_codes", "semantic_status"):
             self.assertNotIn(forbidden, payload)
         compiled = from_mapping(
-            ContinuousSemanticValidatorDraftV7, payload
+            ContinuousSemanticValidatorDraftV8, payload
         ).compile(
             writer_story_text="Hana set down the teacup."
         ).finalization_package
         self.assertEqual(compiled.creator_review.reason_codes, ())
         self.assertIs(compiled.creator_review.issue_owner, ReviewIssueOwner.NONE)
 
-    def test_every_turn_branch_requires_story_and_protected_adjudication(self) -> None:
+    def test_turn_branches_require_their_own_span_and_adjudication_family(self) -> None:
         schema = continuous_semantic_validator_draft_json_schema()
-        turn_branches = [
+        canonical_branches = [
             branch
             for branch in schema["properties"]["decision"]["anyOf"]
             if "story_segments" in branch.get("properties", {})
         ]
-        self.assertEqual(len(turn_branches), 3)
-        for branch in turn_branches:
+        self.assertEqual(len(canonical_branches), 2)
+        for branch in canonical_branches:
             properties = branch["properties"]
             self.assertEqual(properties["story_segments"]["minItems"], 1)
             self.assertEqual(
                 properties["protected_semantic_adjudications"]["minItems"], 1
             )
+            self.assertNotIn("diagnostic_story_segments", properties)
+            self.assertNotIn(
+                "diagnostic_protected_semantic_adjudications", properties
+            )
+        diagnostic_branches = [
+            branch
+            for branch in schema["properties"]["decision"]["anyOf"]
+            if "diagnostic_story_segments" in branch.get("properties", {})
+        ]
+        self.assertEqual(len(diagnostic_branches), 1)
+        diagnostic = diagnostic_branches[0]["properties"]
+        self.assertEqual(diagnostic["diagnostic_story_segments"]["minItems"], 1)
+        self.assertEqual(
+            diagnostic["diagnostic_protected_semantic_adjudications"]["minItems"],
+            1,
+        )
+        self.assertNotIn("story_segments", diagnostic)
+        self.assertNotIn("protected_semantic_adjudications", diagnostic)
         finalizing = [
             branch
-            for branch in turn_branches
+            for branch in canonical_branches
             if "complete_final_sequence" in branch["properties"]
         ]
         self.assertEqual(len(finalizing), 2)
