@@ -78,7 +78,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v8"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v24"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v25"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v4"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v4"
@@ -3519,6 +3519,39 @@ def _inject_python_owned_persistence_hashes(
     return value
 
 
+_CHARACTER_ROLE_LEDGER_FIELDS = (
+    "action_owner_ids",
+    "state_owner_ids",
+    "speaker_ids",
+    "affected_ids",
+    "addressed_ids",
+    "observing_ids",
+    "referenced_ids",
+)
+
+
+def _constrain_nonempty_character_role_ledgers(value: Any) -> None:
+    if isinstance(value, dict):
+        properties = value.get("properties")
+        if (
+            isinstance(properties, dict)
+            and properties.get("schema_version", {}).get("const")
+            == CharacterRoleLedgerV1.SCHEMA_VERSION
+        ):
+            value["anyOf"] = [
+                {
+                    "properties": {field_name: {"minItems": 1}},
+                    "required": [field_name],
+                }
+                for field_name in _CHARACTER_ROLE_LEDGER_FIELDS
+            ]
+        for child in value.values():
+            _constrain_nonempty_character_role_ledgers(child)
+    elif isinstance(value, list):
+        for child in value:
+            _constrain_nonempty_character_role_ledgers(child)
+
+
 def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
     schema = _schema_for(ContinuousSemanticValidatorDraftV11)
     for branch in schema["properties"]["decision"]["anyOf"]:
@@ -3556,6 +3589,7 @@ def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
                 value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES
             ]
     _constrain_active_python_hash_constants(schema)
+    _constrain_nonempty_character_role_ledgers(schema)
     return schema
 
 

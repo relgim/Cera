@@ -113,6 +113,24 @@ def _schema_version_schemas(
     return found
 
 
+def _role_ledger_schemas(value: object, path: str = "$") -> list[tuple[str, dict]]:
+    found: list[tuple[str, dict]] = []
+    if isinstance(value, dict):
+        properties = value.get("properties")
+        if (
+            isinstance(properties, dict)
+            and properties.get("schema_version", {}).get("const")
+            == CharacterRoleLedgerV1.SCHEMA_VERSION
+        ):
+            found.append((path, value))
+        for key, child in value.items():
+            found.extend(_role_ledger_schemas(child, f"{path}.{key}"))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            found.extend(_role_ledger_schemas(child, f"{path}[{index}]"))
+    return found
+
+
 def _active_draft() -> ContinuousSemanticValidatorDraftV4:
     story = "Hana set down the teacup."
     roles = CharacterRoleLedgerV1(
@@ -211,6 +229,61 @@ def _active_wire() -> ContinuousSemanticValidatorDraftV11:
 
 
 class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
+    def test_every_active_role_ledger_schema_requires_one_nonempty_role(self) -> None:
+        role_fields = (
+            "action_owner_ids",
+            "state_owner_ids",
+            "speaker_ids",
+            "affected_ids",
+            "addressed_ids",
+            "observing_ids",
+            "referenced_ids",
+        )
+        neutral = _role_ledger_schemas(
+            continuous_semantic_validator_draft_json_schema()
+        )
+        projected = _role_ledger_schemas(
+            project_provider_output_schema(
+                continuous_semantic_validator_draft_json_schema(),
+                ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+            ).provider_schema
+        )
+        self.assertTrue(neutral)
+        self.assertEqual(len(projected), len(neutral))
+        expected = [
+            {
+                "properties": {field_name: {"minItems": 1}},
+                "required": [field_name],
+            }
+            for field_name in role_fields
+        ]
+        for schema_family in (neutral, projected):
+            for path, role_schema in schema_family:
+                with self.subTest(path=path):
+                    self.assertEqual(role_schema["anyOf"], expected)
+
+    def test_empty_role_ledger_fails_provider_schema_and_python_dto(self) -> None:
+        payload = deepcopy(to_primitive(_active_wire()))
+        roles = payload["decision"]["realization_segments"][0]["roles"]
+        for field_name in (
+            "action_owner_ids",
+            "state_owner_ids",
+            "speaker_ids",
+            "affected_ids",
+            "addressed_ids",
+            "observing_ids",
+            "referenced_ids",
+        ):
+            roles[field_name] = []
+        with self.assertRaises(ValidationError):
+            Draft202012Validator(
+                continuous_semantic_validator_draft_json_schema()
+            ).validate(payload)
+        with self.assertRaisesRegex(
+            ContractValidationError, "character role ledger is empty"
+        ):
+            from_mapping(ContinuousSemanticValidatorDraftV11, payload)
+
     def test_active_validator_recall_vocabulary_is_precise_and_projected(self) -> None:
         expected = [value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES]
         for schema in (
@@ -311,7 +384,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v24",
+            "cera.continuous_validator_adapter.v25",
         )
         self.assertEqual(
             continuous_validator_route(model="gpt-5.6-sol", effort="medium").adapter_id,
