@@ -745,6 +745,24 @@ class _HarnessLiveReaderPort:
         )
 
 
+_JOB4_COMPOSER_MODELS = frozenset({"deepseek-v4-flash", "deepseek-v4-pro"})
+
+
+def _validate_composer_route_identity(
+    receipt: Any,
+    *,
+    expected_model: str,
+    expected_external_calls: int,
+) -> None:
+    if expected_model not in _JOB4_COMPOSER_MODELS:
+        raise ValueError("Job 4 Composer model is not in the closed qualification set")
+    if (
+        receipt.requested_model != expected_model
+        or receipt.external_provider_calls != expected_external_calls
+    ):
+        raise RuntimeError("DeepSeek canary route identity changed")
+
+
 class JobHarness:
     def __init__(
         self,
@@ -763,6 +781,7 @@ class JobHarness:
         validator_transport_factory: Callable[[Path, str], Any] | None = None,
         composer_transport_factory: Callable[[], Any] | None = None,
         reader_transport_factory: Callable[[Path], Any] | None = None,
+        composer_model: str = "deepseek-v4-flash",
         validator_model: str = "gpt-5.6-terra",
         validator_effort: str = "high",
         reader_model: str = "gpt-5.6-sol",
@@ -788,6 +807,9 @@ class JobHarness:
         self.validator_transport_factory = validator_transport_factory
         self.composer_transport_factory = composer_transport_factory
         self.reader_transport_factory = reader_transport_factory
+        if composer_model not in _JOB4_COMPOSER_MODELS:
+            raise ValueError("Job 4 Composer model is not in the closed qualification set")
+        self.composer_model = composer_model
         self.validator_model = validator_model
         self.validator_effort = validator_effort
         self.reader_model = reader_model
@@ -943,11 +965,11 @@ class JobHarness:
             elif owner == "composer":
                 receipt = result.provider_receipt
                 expected_external_calls = 0 if self.scripted_provider_free else 1
-                if (
-                    receipt.requested_model != "deepseek-v4-flash"
-                    or receipt.external_provider_calls != expected_external_calls
-                ):
-                    raise RuntimeError("DeepSeek canary route identity changed")
+                _validate_composer_route_identity(
+                    receipt,
+                    expected_model=self.composer_model,
+                    expected_external_calls=expected_external_calls,
+                )
             record.update(
                 {
                     "status": (

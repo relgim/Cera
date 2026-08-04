@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from dataclasses import dataclass, replace
+import inspect
 import json
 import re
 import sqlite3
@@ -18,6 +19,7 @@ from scripts.run_continuous_planner_validator_job4 import (
     BRANCH_ID,
     JobHarness,
     build_canonical_job4_result,
+    _validate_composer_route_identity,
     validate_job4_identity,
     StablePrefixTransport,
     WORLD_ID,
@@ -275,6 +277,38 @@ class _ScriptedDeepSeekTransport:
 
 
 class ContinuousJob4HarnessTests(unittest.TestCase):
+    def test_job_harness_composer_route_is_explicit_and_closed(self) -> None:
+        parameter = inspect.signature(JobHarness.__init__).parameters[
+            "composer_model"
+        ]
+        self.assertEqual(parameter.default, "deepseek-v4-flash")
+        _validate_composer_route_identity(
+            _ScriptedReceipt(
+                requested_model="deepseek-v4-pro",
+                external_provider_calls=1,
+            ),
+            expected_model="deepseek-v4-pro",
+            expected_external_calls=1,
+        )
+        with self.assertRaisesRegex(RuntimeError, "route identity changed"):
+            _validate_composer_route_identity(
+                _ScriptedReceipt(
+                    requested_model="deepseek-v4-flash",
+                    external_provider_calls=1,
+                ),
+                expected_model="deepseek-v4-pro",
+                expected_external_calls=1,
+            )
+        with self.assertRaisesRegex(ValueError, "closed qualification set"):
+            _validate_composer_route_identity(
+                _ScriptedReceipt(
+                    requested_model="deepseek-v4-pro",
+                    external_provider_calls=1,
+                ),
+                expected_model="deepseek-v5-unknown",
+                expected_external_calls=1,
+            )
+
     def test_actual_cli_completes_closed_provider_free_scripted_v7_mode(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory).resolve()
