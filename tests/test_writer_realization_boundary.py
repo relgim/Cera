@@ -549,6 +549,7 @@ class WriterRealizationBoundaryTests(unittest.TestCase):
                 "beat_key",
                 "roles",
                 "observable_action_or_dialogue_direction",
+                "private_state_guidance",
                 "physical_material_continuity",
                 "deepseek_realization_space",
                 "protected_user_allowance",
@@ -562,6 +563,10 @@ class WriterRealizationBoundaryTests(unittest.TestCase):
         self.assertEqual(
             projected_beat["physical_material_continuity"],
             source_beat.physical_material_continuity,
+        )
+        self.assertEqual(
+            projected_beat["private_state_guidance"],
+            source_beat.private_state_guidance,
         )
         self.assertEqual(
             projected_beat["deepseek_realization_space"],
@@ -607,6 +612,68 @@ class WriterRealizationBoundaryTests(unittest.TestCase):
             tuple(value.character_id for value in brief.active_character_voice_cues),
             brief.active_cast,
         )
+
+    def test_compact_writer_brief_carries_private_and_material_beat_guidance(self) -> None:
+        hana = replace(
+            beat(key="hana_visible_action", actor=HANA),
+            observable_action_or_dialogue_direction=(
+                "Hana visibly completes putting away the teacups without dialogue."
+            ),
+            private_state_guidance=(
+                "Do not state or imply Hana's private thoughts, feelings, or motive."
+            ),
+            physical_material_continuity=(
+                "The teacups move into proper storage without naming a new container."
+            ),
+        )
+        mia = replace(
+            beat(key="mia_private_reaction", actor="character:mia_hanezawa"),
+            roles=CharacterRoleLedgerV1(
+                state_owner_ids=("character:mia_hanezawa",),
+                referenced_ids=(HANA,),
+            ),
+            observable_action_or_dialogue_direction=(
+                "No outward action or dialogue; realize only Mia's private reaction."
+            ),
+            private_state_guidance=(
+                "Mia privately recognizes her pull toward care or helpfulness and may "
+                "notice service as one way she seeks belonging; keep this tentative."
+            ),
+            physical_material_continuity=(
+                "The teacups remain stored and no object moves again."
+            ),
+        )
+        planner = replace(
+            sequence(),
+            selected_character_ids=(HANA, "character:mia_hanezawa"),
+            omitted_character_ids=(TED,),
+            beats=(hana, mia),
+            final_stop_state=(
+                "Stop after Mia's private reaction and before outward follow-through."
+            ),
+        )
+
+        brief = compile_compact_writer_brief(
+            current_user_source="Mia watches Hana put away the teacups.",
+            planner_sequence=planner,
+        )
+        prompt, _ = build_continuous_composer_prompt(
+            current_user_source="Mia watches Hana put away the teacups.",
+            ingress_source_units=(),
+            planner_sequence=planner,
+        )
+
+        self.assertIn("Hana visibly completes", brief.mandatory_causal_beats[0])
+        self.assertIn("Do not state or imply Hana's private", brief.mandatory_causal_beats[0])
+        self.assertIn("proper storage without naming", brief.mandatory_causal_beats[0])
+        self.assertIn("Mia privately recognizes her pull", brief.mandatory_causal_beats[1])
+        self.assertIn("service as one way she seeks belonging", brief.mandatory_causal_beats[1])
+        self.assertIn("teacups remain stored", brief.mandatory_causal_beats[1])
+        self.assertIn("keep that target abstract", prompt)
+        self.assertIn("not presentation freedom", prompt)
+        self.assertNotIn("source_evidence_bindings", prompt)
+        self.assertNotIn("causal_explanation", prompt)
+        self.assertNotIn("relevant_character_pressures", prompt)
 
     def test_writer_authority_hash_binds_beat_constraints(self) -> None:
         planner = sequence()

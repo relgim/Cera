@@ -28,7 +28,7 @@ from .packets import (
 CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v16"
 CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v32"
 WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION = (
-    "cera.writer_beat_realization_constraints.v1"
+    "cera.writer_beat_realization_constraints.v2"
 )
 
 VALIDATOR_IDENTITY_INSTRUCTIONS = (
@@ -281,7 +281,11 @@ def compile_compact_writer_brief(
         raise ValueError("compact Writer Brief supports at most five causal beats")
 
     mandatory = tuple(
-        f"Beat {index}: {beat.observable_action_or_dialogue_direction}"
+        (
+            f"Beat {index}: {beat.observable_action_or_dialogue_direction} "
+            f"Private-state direction: {beat.private_state_guidance} "
+            f"Material continuity: {beat.physical_material_continuity}"
+        )
         for index, beat in enumerate(planner_sequence.beats, start=1)
     )
     if len(mandatory) == 1:
@@ -329,6 +333,9 @@ def compile_compact_writer_brief(
         + ". A reference to another character does not make them active.",
         "Do not create a consequential unsupported event, object, task, relocation, "
         "relationship change, knowledge change, private fact, or material state.",
+        "When an authorized material action leaves its container, destination, surface, "
+        "or room feature unspecified, keep that target abstract rather than inventing "
+        "or locating one.",
         "Realize every mandatory causal beat substantially and do not reverse, "
         "replace, or skip its central event.",
         *continuity_boundaries,
@@ -346,7 +353,9 @@ def compile_compact_writer_brief(
             "Use natural wording, pacing, sentence order, dialogue texture, "
             "micro-actions, gaze, expression, posture, cadence, ambient texture, "
             "generic incidental props, and other nonpersistent scene-local color. "
-            "These details must remain harmless and must not become causal or durable facts."
+            "These details must remain harmless and must not become causal or durable facts. "
+            "An incidental prop is not presentation freedom when it is used to realize a "
+            "mandatory material action or establish a location, inventory, or future state."
         ),
     )
 
@@ -447,6 +456,7 @@ def writer_beat_realization_constraints(
                 "observable_action_or_dialogue_direction": (
                     beat.observable_action_or_dialogue_direction
                 ),
+                "private_state_guidance": beat.private_state_guidance,
                 "physical_material_continuity": beat.physical_material_continuity,
                 "deepseek_realization_space": beat.deepseek_realization_space,
                 "protected_user_allowance": to_primitive(
