@@ -1729,347 +1729,419 @@ class ContinuousShadowTurnCoordinator:
                 realization_boundary=realization_boundary,
             )
         )
-        writer_attempt_number = _writer_attempt_number_for_recall(
-            writer_recall_directive,
-            frozen_authority_package_sha256=frozen_writer_authority_sha256,
-        )
-        if writer_recall_directive is not None:
-            debug.write_json(
-                "writer_recall_input.json",
-                to_primitive(writer_recall_directive),
+        attempt_provider_calls = 0
+        while True:
+            writer_attempt_number = _writer_attempt_number_for_recall(
+                writer_recall_directive,
+                frozen_authority_package_sha256=frozen_writer_authority_sha256,
             )
-        composer_prompt, composer_usage = build_continuous_composer_prompt(
-            current_user_source=request.user_message,
-            ingress_source_units=tuple(
-                to_primitive(value) for value in source_units
-            ),
-            planner_sequence=planner_sequence,
-            character_summaries=request.character_summaries,
-            protected_user_claim_manifest=evidence_registry.protected_user_claim_manifest(),
-            accepted_session_projections=(),
-            realization_boundary=realization_boundary,
-            writer_recall_directive=writer_recall_directive,
-        )
-        debug.write_json("deepseek_request.json", {"prompt": composer_prompt})
-        started = time.perf_counter_ns()
-        try:
-            composer_result = self.composer.compose(composer_prompt)
-        except BaseException as exc:
-            debug.record_failure("composer", exc)
-            raise
-        composer_elapsed = time.perf_counter_ns() - started
-        story_text = composer_result.value.story_text
-        candidate_id = "candidate:" + canonical_sha256(
-            {
-                "world_id": request.world_id,
-                "branch_id": request.branch_id,
-                "turn_id": request.turn_id,
-                "request_id": request.request_id,
-                "idempotency_key_sha256": request.idempotency_key_sha256,
-                "ingress_receipt_sha256": request.ingress_receipt_sha256,
-                "planner_sequence_sha256": planner_sequence.sequence_sha256,
-                "writer_story_text_sha256": text_sha256(story_text),
-            }
-        )
-        writer_envelope = WriterMechanicalEnvelopeV1.from_story_text(
-            candidate_id=candidate_id,
-            story_text=story_text,
-        )
-        writer_envelope.validate_story_text(story_text)
-        composer_payload = {
-            "schema_version": getattr(composer_result.value, "schema_version", None),
-            "story_text": story_text,
-        }
-        debug.write_json("deepseek_output.json", composer_payload)
-        debug.write_json(
-            "writer_mechanical_envelope.json",
-            to_primitive(writer_envelope),
-        )
-        package_id = _validator_package_id(
-            task_mode=ValidatorTaskMode.FINALIZE_TURN,
-            world_id=request.world_id,
-            branch_id=request.branch_id,
-            accepted_turn_id=request.turn_id,
-            accepted_scene_turn_ids=(),
-            candidate_id=candidate_id,
-        )
-        validator_prompt, validator_usage = build_validator_prompt(
-            task_mode=ValidatorTaskMode.FINALIZE_TURN,
-            package_id=package_id,
-            world_id=request.world_id,
-            branch_id=request.branch_id,
-            candidate_id=candidate_id,
-            current_user_source=request.user_message,
-            planner_sequence=planner_sequence,
-            writer_story_text=story_text,
-            writer_mechanical_envelope=to_primitive(writer_envelope),
-            accepted_turn_id=request.turn_id,
-            world_file_manifest=self.world.active_manifest(
-                request.world_id, request.branch_id
-            ),
-            evidence_binding_manifest=validator_binding_manifest,
-            protected_user_claim_manifest=evidence_registry.protected_user_claim_manifest(),
-            ingress_source_units=tuple(
-                to_primitive(value) for value in source_units
-            ),
-            cited_accepted_evidence=(
-                validator_cited_accepted_evidence_payload
-            ),
-            realization_boundary=realization_boundary,
-        )
-        debug.write_json("validator_request.json", {"prompt": validator_prompt})
-        started = time.perf_counter_ns()
-        try:
-            validator_result = self.validator.validate(
-                validator_prompt,
-                writer_story_text=story_text,
-                expected_package_id=package_id,
-                expected_world_id=request.world_id,
-                expected_branch_id=request.branch_id,
-            )
-        except BaseException as exc:
-            debug.record_failure("validator", exc)
-            raise
-        validator_elapsed = time.perf_counter_ns() - started
-        semantic_result = validator_result.value
-        package = getattr(semantic_result, "finalization_package", None)
-        story_segments = tuple(
-            getattr(semantic_result, "story_segments", ())
-        )
-        diagnostic_story_segments = tuple(
-            getattr(semantic_result, "diagnostic_story_segments", ())
-        )
-        diagnostic_adjudications = tuple(
-            getattr(
-                semantic_result,
-                "diagnostic_protected_semantic_adjudications",
-                (),
-            )
-        )
-        presentation_segments = tuple(
-            getattr(
-                semantic_result,
-                "presentation_realization_segments",
-                (),
-            )
-        )
-        presentation_adjudications = tuple(
-            getattr(
-                semantic_result,
-                "presentation_protected_semantic_adjudications",
-                (),
-            )
-        )
-        source_grounded_public_state_receipts = tuple(
-            getattr(
-                semantic_result,
-                "source_grounded_public_state_receipts",
-                (),
-            )
-        )
-        debug.write_json("validator_output.json", to_primitive(semantic_result))
-        debug.write_json("validator_tools.json", _provider_debug(validator_result))
-        semantic_status = getattr(semantic_result, "semantic_status", None)
-        if semantic_status not in {
-            ValidatorSemanticStatus.ACCEPTED,
-            ValidatorSemanticStatus.CONCERN,
-        } or package is None:
-            if package is not None or story_segments or getattr(
-                semantic_result, "protected_semantic_adjudications", ()
-            ):
-                raise StateConflictError(
-                    "rejected Validator result carried canonical finalization authority"
+            attempt_debug = debug.for_writer_attempt(writer_attempt_number)
+            if attempt_debug is not debug:
+                attempt_debug.write_json(
+                    "planner_authority_packet.json",
+                    planner_authority_packet_payload,
                 )
-            evidence_registry.validate_validator_diagnostics(
-                story_text=story_text,
-                diagnostic_story_segments=diagnostic_story_segments,
-                diagnostic_protected_semantic_adjudications=(
-                    diagnostic_adjudications
+                attempt_debug.write_json(
+                    "planner_prompt_components.json",
+                    [to_primitive(value) for value in planner_usage],
+                )
+                attempt_debug.write_text("planner_raw_prompt.txt", planner_prompt)
+                attempt_debug.write_json(
+                    "planner_output.json",
+                    to_primitive(planner_sequence),
+                )
+                attempt_debug.write_json(
+                    "planner_tools.json",
+                    _provider_debug(planner_result),
+                )
+            if writer_recall_directive is not None:
+                attempt_debug.write_json(
+                    "writer_recall_input.json",
+                    to_primitive(writer_recall_directive),
+                )
+            composer_prompt, composer_usage = build_continuous_composer_prompt(
+                current_user_source=request.user_message,
+                ingress_source_units=tuple(
+                    to_primitive(value) for value in source_units
                 ),
-                allowed_character_ids=planner_sequence.selected_character_ids,
-                reference_only_character_ids=reference_only_character_ids,
+                planner_sequence=planner_sequence,
+                character_summaries=request.character_summaries,
+                protected_user_claim_manifest=(
+                    evidence_registry.protected_user_claim_manifest()
+                ),
+                accepted_session_projections=(),
+                realization_boundary=realization_boundary,
+                writer_recall_directive=writer_recall_directive,
             )
-            reason_codes = tuple(
-                getattr(semantic_result, "reason_codes", ())
+            attempt_debug.write_json(
+                "deepseek_request.json",
+                {"prompt": composer_prompt},
             )
-            recall_builder = getattr(
-                semantic_result,
-                "build_writer_recall_directive",
-                None,
+            started = time.perf_counter_ns()
+            try:
+                composer_result = self.composer.compose(composer_prompt)
+            except BaseException as exc:
+                attempt_debug.record_failure("composer", exc)
+                raise
+            composer_elapsed = time.perf_counter_ns() - started
+            attempt_provider_calls += int(
+                getattr(composer_result.provider_receipt, "external_provider_calls", 0)
             )
-            if callable(recall_builder) and getattr(
-                semantic_result,
-                "writer_recall_offending_spans",
-                (),
-            ) and writer_attempt_number < 3:
-                recall_directive = recall_builder(
-                    rejected_candidate_id=candidate_id,
-                    rejected_story_text=story_text,
-                    frozen_authority_package_sha256=(
-                        frozen_writer_authority_sha256
+            story_text = composer_result.value.story_text
+            candidate_id = "candidate:" + canonical_sha256(
+                {
+                    "world_id": request.world_id,
+                    "branch_id": request.branch_id,
+                    "turn_id": request.turn_id,
+                    "request_id": request.request_id,
+                    "idempotency_key_sha256": request.idempotency_key_sha256,
+                    "ingress_receipt_sha256": request.ingress_receipt_sha256,
+                    "planner_sequence_sha256": planner_sequence.sequence_sha256,
+                    "writer_story_text_sha256": text_sha256(story_text),
+                }
+            )
+            writer_envelope = WriterMechanicalEnvelopeV1.from_story_text(
+                candidate_id=candidate_id,
+                story_text=story_text,
+            )
+            writer_envelope.validate_story_text(story_text)
+            composer_payload = {
+                "schema_version": getattr(composer_result.value, "schema_version", None),
+                "story_text": story_text,
+            }
+            attempt_debug.write_json("deepseek_output.json", composer_payload)
+            attempt_debug.write_json(
+                "writer_mechanical_envelope.json",
+                to_primitive(writer_envelope),
+            )
+            package_id = _validator_package_id(
+                task_mode=ValidatorTaskMode.FINALIZE_TURN,
+                world_id=request.world_id,
+                branch_id=request.branch_id,
+                accepted_turn_id=request.turn_id,
+                accepted_scene_turn_ids=(),
+                candidate_id=candidate_id,
+            )
+            validator_prompt, validator_usage = build_validator_prompt(
+                task_mode=ValidatorTaskMode.FINALIZE_TURN,
+                package_id=package_id,
+                world_id=request.world_id,
+                branch_id=request.branch_id,
+                candidate_id=candidate_id,
+                current_user_source=request.user_message,
+                planner_sequence=planner_sequence,
+                writer_story_text=story_text,
+                writer_mechanical_envelope=to_primitive(writer_envelope),
+                accepted_turn_id=request.turn_id,
+                world_file_manifest=self.world.active_manifest(
+                    request.world_id, request.branch_id
+                ),
+                evidence_binding_manifest=validator_binding_manifest,
+                protected_user_claim_manifest=(
+                    evidence_registry.protected_user_claim_manifest()
+                ),
+                ingress_source_units=tuple(
+                    to_primitive(value) for value in source_units
+                ),
+                cited_accepted_evidence=(
+                    validator_cited_accepted_evidence_payload
+                ),
+                realization_boundary=realization_boundary,
+            )
+            attempt_debug.write_json(
+                "validator_request.json",
+                {"prompt": validator_prompt},
+            )
+            started = time.perf_counter_ns()
+            try:
+                validator_result = self.validator.validate(
+                    validator_prompt,
+                    writer_story_text=story_text,
+                    expected_package_id=package_id,
+                    expected_world_id=request.world_id,
+                    expected_branch_id=request.branch_id,
+                )
+            except BaseException as exc:
+                attempt_debug.record_failure("validator", exc)
+                raise
+            validator_elapsed = time.perf_counter_ns() - started
+            attempt_provider_calls += int(
+                getattr(validator_result.provider_receipt, "external_provider_calls", 0)
+            )
+            semantic_result = validator_result.value
+            package = getattr(semantic_result, "finalization_package", None)
+            story_segments = tuple(
+                getattr(semantic_result, "story_segments", ())
+            )
+            diagnostic_story_segments = tuple(
+                getattr(semantic_result, "diagnostic_story_segments", ())
+            )
+            diagnostic_adjudications = tuple(
+                getattr(
+                    semantic_result,
+                    "diagnostic_protected_semantic_adjudications",
+                    (),
+                )
+            )
+            presentation_segments = tuple(
+                getattr(
+                    semantic_result,
+                    "presentation_realization_segments",
+                    (),
+                )
+            )
+            presentation_adjudications = tuple(
+                getattr(
+                    semantic_result,
+                    "presentation_protected_semantic_adjudications",
+                    (),
+                )
+            )
+            source_grounded_public_state_receipts = tuple(
+                getattr(
+                    semantic_result,
+                    "source_grounded_public_state_receipts",
+                    (),
+                )
+            )
+            attempt_debug.write_json(
+                "validator_output.json",
+                to_primitive(semantic_result),
+            )
+            attempt_debug.write_json(
+                "validator_tools.json",
+                _provider_debug(validator_result),
+            )
+            semantic_status = getattr(semantic_result, "semantic_status", None)
+            if semantic_status not in {
+                ValidatorSemanticStatus.ACCEPTED,
+                ValidatorSemanticStatus.CONCERN,
+            } or package is None:
+                if package is not None or story_segments or getattr(
+                    semantic_result, "protected_semantic_adjudications", ()
+                ):
+                    raise StateConflictError(
+                        "rejected Validator result carried canonical finalization authority"
+                    )
+                evidence_registry.validate_validator_diagnostics(
+                    story_text=story_text,
+                    diagnostic_story_segments=diagnostic_story_segments,
+                    diagnostic_protected_semantic_adjudications=(
+                        diagnostic_adjudications
                     ),
-                    source_attempt_number=writer_attempt_number,
+                    allowed_character_ids=planner_sequence.selected_character_ids,
+                    reference_only_character_ids=reference_only_character_ids,
                 )
-                debug.write_json(
-                    "writer_recall_directive.json",
-                    to_primitive(recall_directive),
+                reason_codes = tuple(
+                    getattr(semantic_result, "reason_codes", ())
                 )
-            error = PermissionError(
-                "Semantic Validator rejected or could not resolve the immutable "
-                f"Writer candidate: {','.join(reason_codes) or 'missing_typed_reason'}"
-            )
-            debug.record_failure("validator_semantic_verdict", error)
-            raise error
-        if diagnostic_story_segments or diagnostic_adjudications:
-            raise StateConflictError(
-                "accepted Validator result carried rejected diagnostic evidence"
-            )
-        if any(
-            not isinstance(value, PresentationRealizationSegmentV1)
-            for value in presentation_segments
-        ):
-            raise StateConflictError(
-                "Validator returned the wrong presentation realization contract"
-            )
-        protected_realizations = (
-            evidence_registry.validate_validator_realization_boundary(
-                story_text=story_text,
-                story_segments=story_segments,
-                presentation_segments=presentation_segments,
-                package=package,
-                presentation_adjudications=presentation_adjudications,
-                allowed_character_ids=planner_sequence.selected_character_ids,
-                reference_only_character_ids=reference_only_character_ids,
-                source_grounded_public_state_receipts=(
-                    source_grounded_public_state_receipts
-                ),
-            )
-        )
-        debug.write_json(
-            "presentation_realization_segments.json",
-            to_primitive(presentation_segments),
-        )
-        debug.write_json(
-            "source_grounded_public_state_receipts.json",
-            to_primitive(source_grounded_public_state_receipts),
-        )
-        if (
-            package.world_id != request.world_id
-            or package.branch_id != request.branch_id
-            or package.complete_final_sequence is None
-            or package.complete_final_sequence.accepted_turn_id != request.turn_id
-            or package.event_record is None
-            or package.event_record.scene_id != request.scene_id
-        ):
-            raise StateConflictError("Validator changed turn scope")
-        evidence_registry.validate_traceability(
-            planner_sequence,
-            package,
-            branch_root=branch_root,
-        )
-        reader_prompt, reader_usage = build_reader_prompt(
-            world_id=request.world_id,
-            branch_id=request.branch_id,
-            turn_id=request.turn_id,
-            candidate_id=candidate_id,
-            writer_story_text=story_text,
-            writer_mechanical_envelope=to_primitive(writer_envelope),
-            planner_sequence=planner_sequence,
-            bounded_accepted_context=validator_cited_accepted_evidence_payload,
-            hard_constraints=(
-                "Do not invent protected-user action, dialogue, state, or choice.",
-                "Do not introduce inactive characters as scene participants.",
-                "Preserve the Planner stopping boundary.",
-                "Treat presentation-only realization as visible but noncanonical.",
-            ),
-        )
-        debug.write_json("reader_request.json", {"prompt": reader_prompt})
-        started = time.perf_counter_ns()
-        try:
-            reader_result = self.reader.review(
-                reader_prompt,
-                writer_story_text=story_text,
-            )
-        except BaseException as exc:
-            debug.record_failure("reader", exc)
-            raise
-        reader_elapsed = time.perf_counter_ns() - started
-        reader_verdict = reader_result.value
-        if not isinstance(reader_verdict, ReaderVerdictV1):
-            raise StateConflictError("Reader returned the wrong result contract")
-        reader_verdict.validate_story_text(story_text)
-        if (
-            reader_verdict.world_id != request.world_id
-            or reader_verdict.branch_id != request.branch_id
-            or reader_verdict.turn_id != request.turn_id
-            or reader_verdict.candidate_id != candidate_id
-        ):
-            raise StateConflictError("Reader changed candidate scope")
-        reader_session_sha256 = getattr(
-            reader_result,
-            "physical_session_sha256",
-            None,
-        )
-        planner_session_sha256 = (
-            self.planner_session.ensure_session().provider_thread_id_sha256
-        )
-        validator_session_sha256 = (
-            self.validator_session.ensure_session().provider_thread_id_sha256
-        )
-        if (
-            not isinstance(reader_session_sha256, str)
-            or not re_is_sha256(reader_session_sha256)
-            or reader_session_sha256
-            in {
-                planner_session_sha256,
-                validator_session_sha256,
-                *self._reader_session_sha256s,
-            }
-        ):
-            raise StateConflictError(
-                "Planner, Validator, and candidate Reader require distinct physical sessions"
-            )
-        self._reader_session_sha256s.add(reader_session_sha256)
-        debug.write_json("reader_output.json", to_primitive(reader_verdict))
-        debug.write_json("reader_tools.json", _provider_debug(reader_result))
-        if reader_verdict.verdict is not ReaderVerdictStatus.ACCEPTED:
-            if (
-                reader_verdict.verdict is ReaderVerdictStatus.REJECTED
-                and writer_attempt_number < 3
-            ):
-                reader_recall_directive = (
-                    reader_verdict.build_writer_recall_directive(
-                        writer_story_text=story_text,
+                recall_builder = getattr(
+                    semantic_result,
+                    "build_writer_recall_directive",
+                    None,
+                )
+                if callable(recall_builder) and getattr(
+                    semantic_result,
+                    "writer_recall_offending_spans",
+                    (),
+                ) and writer_attempt_number < 3:
+                    recall_directive = recall_builder(
+                        rejected_candidate_id=candidate_id,
+                        rejected_story_text=story_text,
                         frozen_authority_package_sha256=(
                             frozen_writer_authority_sha256
                         ),
                         source_attempt_number=writer_attempt_number,
                     )
+                    attempt_debug.write_json(
+                        "writer_recall_directive.json",
+                        to_primitive(recall_directive),
+                    )
+                    error = PermissionError(
+                        "Semantic Validator rejected immutable Writer attempt "
+                        f"{writer_attempt_number}; bounded recall remains eligible"
+                    )
+                    attempt_debug.record_failure(
+                        "validator_semantic_verdict",
+                        error,
+                    )
+                    writer_recall_directive = recall_directive
+                    continue
+                error = PermissionError(
+                    "Semantic Validator rejected or could not resolve the immutable "
+                    f"Writer candidate: {','.join(reason_codes) or 'missing_typed_reason'}"
                 )
-                debug.write_json(
-                    "writer_recall_directive.json",
-                    {
-                        "source": "severe_reader_quality_failure",
-                        "directive": to_primitive(reader_recall_directive),
-                    },
+                attempt_debug.record_failure("validator_semantic_verdict", error)
+                raise error
+            if diagnostic_story_segments or diagnostic_adjudications:
+                raise StateConflictError(
+                    "accepted Validator result carried rejected diagnostic evidence"
                 )
-            error = PermissionError(
-                "Reader rejected or could not resolve the immutable candidate"
+            if any(
+                not isinstance(value, PresentationRealizationSegmentV1)
+                for value in presentation_segments
+            ):
+                raise StateConflictError(
+                    "Validator returned the wrong presentation realization contract"
+                )
+            protected_realizations = (
+                evidence_registry.validate_validator_realization_boundary(
+                    story_text=story_text,
+                    story_segments=story_segments,
+                    presentation_segments=presentation_segments,
+                    package=package,
+                    presentation_adjudications=presentation_adjudications,
+                    allowed_character_ids=planner_sequence.selected_character_ids,
+                    reference_only_character_ids=reference_only_character_ids,
+                    source_grounded_public_state_receipts=(
+                        source_grounded_public_state_receipts
+                    ),
+                )
             )
-            debug.record_failure("reader_verdict", error)
-            raise error
+            attempt_debug.write_json(
+                "presentation_realization_segments.json",
+                to_primitive(presentation_segments),
+            )
+            attempt_debug.write_json(
+                "source_grounded_public_state_receipts.json",
+                to_primitive(source_grounded_public_state_receipts),
+            )
+            if (
+                package.world_id != request.world_id
+                or package.branch_id != request.branch_id
+                or package.complete_final_sequence is None
+                or package.complete_final_sequence.accepted_turn_id != request.turn_id
+                or package.event_record is None
+                or package.event_record.scene_id != request.scene_id
+            ):
+                raise StateConflictError("Validator changed turn scope")
+            evidence_registry.validate_traceability(
+                planner_sequence,
+                package,
+                branch_root=branch_root,
+            )
+            reader_prompt, reader_usage = build_reader_prompt(
+                world_id=request.world_id,
+                branch_id=request.branch_id,
+                turn_id=request.turn_id,
+                candidate_id=candidate_id,
+                writer_story_text=story_text,
+                writer_mechanical_envelope=to_primitive(writer_envelope),
+                planner_sequence=planner_sequence,
+                bounded_accepted_context=validator_cited_accepted_evidence_payload,
+                hard_constraints=(
+                    "Do not invent protected-user action, dialogue, state, or choice.",
+                    "Do not introduce inactive characters as scene participants.",
+                    "Preserve the Planner stopping boundary.",
+                    "Treat presentation-only realization as visible but noncanonical.",
+                ),
+            )
+            attempt_debug.write_json(
+                "reader_request.json",
+                {"prompt": reader_prompt},
+            )
+            started = time.perf_counter_ns()
+            try:
+                reader_result = self.reader.review(
+                    reader_prompt,
+                    writer_story_text=story_text,
+                )
+            except BaseException as exc:
+                attempt_debug.record_failure("reader", exc)
+                raise
+            reader_elapsed = time.perf_counter_ns() - started
+            attempt_provider_calls += int(
+                getattr(reader_result.provider_receipt, "external_provider_calls", 0)
+            )
+            reader_verdict = reader_result.value
+            if not isinstance(reader_verdict, ReaderVerdictV1):
+                raise StateConflictError("Reader returned the wrong result contract")
+            reader_verdict.validate_story_text(story_text)
+            if (
+                reader_verdict.world_id != request.world_id
+                or reader_verdict.branch_id != request.branch_id
+                or reader_verdict.turn_id != request.turn_id
+                or reader_verdict.candidate_id != candidate_id
+            ):
+                raise StateConflictError("Reader changed candidate scope")
+            reader_session_sha256 = getattr(
+                reader_result,
+                "physical_session_sha256",
+                None,
+            )
+            planner_session_sha256 = (
+                self.planner_session.ensure_session().provider_thread_id_sha256
+            )
+            validator_session_sha256 = (
+                self.validator_session.ensure_session().provider_thread_id_sha256
+            )
+            if (
+                not isinstance(reader_session_sha256, str)
+                or not re_is_sha256(reader_session_sha256)
+                or reader_session_sha256
+                in {
+                    planner_session_sha256,
+                    validator_session_sha256,
+                    *self._reader_session_sha256s,
+                }
+            ):
+                raise StateConflictError(
+                    "Planner, Validator, and candidate Reader require distinct physical sessions"
+                )
+            self._reader_session_sha256s.add(reader_session_sha256)
+            attempt_debug.write_json(
+                "reader_output.json",
+                to_primitive(reader_verdict),
+            )
+            attempt_debug.write_json(
+                "reader_tools.json",
+                _provider_debug(reader_result),
+            )
+            if reader_verdict.verdict is not ReaderVerdictStatus.ACCEPTED:
+                if (
+                    reader_verdict.verdict is ReaderVerdictStatus.REJECTED
+                    and writer_attempt_number < 3
+                ):
+                    reader_recall_directive = (
+                        reader_verdict.build_writer_recall_directive(
+                            writer_story_text=story_text,
+                            frozen_authority_package_sha256=(
+                                frozen_writer_authority_sha256
+                            ),
+                            source_attempt_number=writer_attempt_number,
+                        )
+                    )
+                    attempt_debug.write_json(
+                        "writer_recall_directive.json",
+                        {
+                            "source": "severe_reader_quality_failure",
+                            "directive": to_primitive(reader_recall_directive),
+                        },
+                    )
+                    error = PermissionError(
+                        "Reader rejected immutable Writer attempt "
+                        f"{writer_attempt_number}; bounded recall remains eligible"
+                    )
+                    attempt_debug.record_failure("reader_verdict", error)
+                    writer_recall_directive = reader_recall_directive
+                    continue
+                error = PermissionError(
+                    "Reader rejected or could not resolve the immutable candidate"
+                )
+                attempt_debug.record_failure("reader_verdict", error)
+                raise error
+            debug = attempt_debug
+            break
         self.validator_session.record_validator_candidate(
             request.turn_id, package.package_sha256
         )
         before_files = _snapshot_files(candidate_view.root / "ACTIVE_VIEW")
-        provider_calls = prior_provider_calls + sum(
-            int(getattr(value.provider_receipt, "external_provider_calls", 0))
-            for value in (
-                planner_result,
-                composer_result,
-                validator_result,
-                reader_result,
+        provider_calls = (
+            prior_provider_calls
+            + int(
+                getattr(planner_result.provider_receipt, "external_provider_calls", 0)
             )
+            + attempt_provider_calls
         )
         candidate = ContinuousTurnCandidateV1(
             request=request,

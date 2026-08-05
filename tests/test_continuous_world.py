@@ -29,6 +29,7 @@ from cera.continuous import (
     WorldEditOperationV1,
     ProtectedUserAllowanceMode,
     ProtectedUserAllowanceV1,
+    ProhibitedWriterDetailClass,
     RichPlannerSequenceV1,
     RichSequenceBeatV1,
     IngressSourceUnitKind,
@@ -67,11 +68,15 @@ from cera.continuous.contracts import (
     ReaderVerdictV1,
 )
 from cera.continuous.provider import (
+    ContinuousSemanticValidatorDraftV12,
     ContinuousSemanticValidatorResultV1,
     ProviderDiagnosticProtectedSemanticAdjudicationDraftV1,
     ProviderDiagnosticStorySegmentDraftV1,
     ProviderRejectedSemanticStatus,
     ProviderRejectedTurnDecisionDraftV3,
+    ProviderRejectedTurnDecisionDraftV4,
+    ProviderRejectedViolationDraftV1,
+    ProviderWriterRecallEligibility,
 )
 from cera.continuous.world_mcp import (
     ContinuousWorldMcpBridge,
@@ -590,6 +595,36 @@ class _FakeStage:
     validate = plan
 
 
+class _CountingPlannerStage(_FakeStage):
+    def __init__(self, value) -> None:
+        super().__init__(value, "plan")
+        self.calls = 0
+
+    def plan(self, prompt, **kwargs):
+        self.calls += 1
+        return super().plan(prompt, **kwargs)
+
+
+class _QueueComposerStage:
+    def __init__(self, *story_texts: str) -> None:
+        self.story_texts = list(story_texts)
+        self.calls = 0
+        self.prompts: list[str] = []
+
+    def compose(self, prompt: str):
+        self.calls += 1
+        self.prompts.append(prompt)
+        value = composer_draft(self.story_texts.pop(0))
+        return SimpleNamespace(
+            value=value,
+            provider_receipt=None,
+            operation_telemetry=None,
+            tool_call_count=0,
+            failed_tool_call_count=0,
+            world_tool_debug=None,
+        )
+
+
 class _FakeQueueStage:
     def __init__(self, *values) -> None:
         self.values = list(values)
@@ -734,6 +769,94 @@ class _RejectingValidatorStage:
                     diagnostic_adjudications
                 ),
             ).compile(writer_story_text=story_text),
+            provider_receipt=None,
+            operation_telemetry=None,
+            tool_call_count=0,
+            failed_tool_call_count=0,
+            world_tool_debug=None,
+        )
+
+
+class _RecallThenAcceptValidatorStage:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def validate(self, prompt, **_kwargs):
+        self.calls += 1
+        request = json.loads(prompt.rsplit("[VALIDATOR REQUEST]\n", 1)[1])
+        story_text = request["writer_story_text"]
+        if self.calls == 1:
+            diagnostic_segment = ProviderDiagnosticStorySegmentDraftV1(
+                schema_version=(
+                    ProviderDiagnosticStorySegmentDraftV1.SCHEMA_VERSION
+                ),
+                segment_key="unsupported_private_fact",
+                kind=StoryRealizationKind.NARRATION,
+                output_start=0,
+                output_end=len(story_text),
+                roles=CharacterRoleLedgerV1(
+                    referenced_ids=("character:sakura_hanezawa",),
+                ),
+                grounding_status=DiagnosticGroundingStatus.GROUNDED,
+                protected_user_source_claim_keys=(),
+            )
+            diagnostic_adjudication = (
+                ProviderDiagnosticProtectedSemanticAdjudicationDraftV1(
+                    schema_version=(
+                        ProviderDiagnosticProtectedSemanticAdjudicationDraftV1.SCHEMA_VERSION
+                    ),
+                    adjudication_key="unsupported_private_fact_adjudication",
+                    segment_key=diagnostic_segment.segment_key,
+                    output_start=0,
+                    output_end=len(story_text),
+                    protected_user_id="character:ted",
+                    relation=ProtectedSemanticRelationKind.NONE,
+                    grounding_status=DiagnosticGroundingStatus.GROUNDED,
+                    violation_classification=(
+                        DiagnosticViolationClassification.NONE
+                    ),
+                    npc_assertion_owner_ids=(),
+                    protected_user_source_claim_keys=(),
+                )
+            )
+            decision = ProviderRejectedTurnDecisionDraftV4(
+                schema_version=ProviderRejectedTurnDecisionDraftV4.SCHEMA_VERSION,
+                semantic_status=ProviderRejectedSemanticStatus.REJECTED,
+                primary_reason_code="unauthorized_private_fact",
+                additional_reason_codes=(),
+                diagnostic_story_segments=(diagnostic_segment,),
+                diagnostic_protected_semantic_adjudications=(
+                    diagnostic_adjudication,
+                ),
+                writer_recall_eligibility=(
+                    ProviderWriterRecallEligibility.ELIGIBLE
+                ),
+                writer_recall_violations=(
+                    ProviderRejectedViolationDraftV1(
+                        schema_version=(
+                            ProviderRejectedViolationDraftV1.SCHEMA_VERSION
+                        ),
+                        segment_key=diagnostic_segment.segment_key,
+                        prohibited_detail_classes=(
+                            ProhibitedWriterDetailClass.UNAUTHORIZED_PRIVATE_FACT,
+                        ),
+                    ),
+                ),
+            )
+            value = ContinuousSemanticValidatorDraftV12(
+                schema_version=ContinuousSemanticValidatorDraftV12.SCHEMA_VERSION,
+                package_id=request["package_id"],
+                world_id=request["world_id"],
+                branch_id=request["branch_id"],
+                decision=decision,
+            ).compile(writer_story_text=story_text)
+        else:
+            value = ContinuousSemanticValidatorResultV1.from_finalization_package(
+                finalization_package=package(story_text=story_text),
+                story_segments=composer_draft(story_text).story_segments,
+            )
+        return SimpleNamespace(
+            value=value,
             provider_receipt=None,
             operation_telemetry=None,
             tool_call_count=0,
@@ -1588,7 +1711,7 @@ class ContinuousWorldTests(unittest.TestCase):
         self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
         self.assertEqual(coordinator.planner_session.snapshot().accepted_turn_ids, ())
 
-    def test_reader_rejection_never_becomes_review_ready_or_story_authority(self) -> None:
+    def test_reader_rejection_exhausts_bounded_recall_without_story_authority(self) -> None:
         port = InMemoryContinuousStoredSessionPort()
         message = "Hello."
         ingress_authority = make_ingress_authority(
@@ -1640,10 +1763,109 @@ class ContinuousWorldTests(unittest.TestCase):
                     ),
                 )
             )
-        self.assertEqual(reader.calls, 1)
+        self.assertEqual(reader.calls, 3)
         self.assertEqual(coordinator._candidates, {})
         self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
         self.assertEqual(coordinator.planner_session.snapshot().accepted_turn_ids, ())
+        debug = ContinuousDebugRecorder(self.root, "scene-001", "turn-001")
+        self.assertTrue(
+            (debug.root / "WRITER_ATTEMPTS" / "attempt-002").is_dir()
+        )
+        self.assertTrue(
+            (debug.root / "WRITER_ATTEMPTS" / "attempt-003").is_dir()
+        )
+
+    def test_validator_recall_reuses_one_planner_and_accepts_first_safe_attempt(
+        self,
+    ) -> None:
+        port = InMemoryContinuousStoredSessionPort()
+        message = "Hello."
+        ingress_authority = make_ingress_authority(
+            self.root.parent / "ingress_authority_validator_recall",
+            (message, "turn-001"),
+        )
+        planner = _CountingPlannerStage(rich_sequence())
+        composer = _QueueComposerStage(
+            "Sakura privately decided what Ted must be feeling.",
+            "Sakura keeps the threshold and requests proof.",
+        )
+        validator = _RecallThenAcceptValidatorStage()
+        reader = _AcceptingReaderStage()
+        coordinator = ContinuousShadowTurnCoordinator(
+            world=self.store,
+            planner_session=ContinuousSessionCoordinator(
+                session_compatibility(ContinuousSessionRole.PLANNER), port
+            ),
+            validator_session=ContinuousSessionCoordinator(
+                session_compatibility(ContinuousSessionRole.VALIDATOR), port
+            ),
+            planner=planner,
+            composer=composer,
+            validator=validator,
+            reader=reader,
+            ingress_authority=ingress_authority,
+        )
+        before = self.store.tree_sha256(self.root / "ACTIVE")
+        candidate = coordinator.prepare(
+            ContinuousTurnRequestV1(
+                world_id="world-test",
+                branch_id="main",
+                scene_id="scene-001",
+                turn_id="turn-001",
+                user_message=message,
+                **ingress_reference(ingress_authority, message, "turn-001"),
+                character_summaries=(
+                    character_summary(
+                        source_sha256=text_sha256(
+                            (
+                                self.root
+                                / "ACTIVE"
+                                / "Characters"
+                                / "Sakura.json"
+                            ).read_text(encoding="utf-8")
+                        )
+                    ),
+                ),
+            )
+        )
+        self.assertEqual(planner.calls, 1)
+        self.assertEqual(composer.calls, 2)
+        self.assertEqual(validator.calls, 2)
+        self.assertEqual(reader._counter, 1)
+        self.assertEqual(
+            candidate.deepseek_story_text,
+            "Sakura keeps the threshold and requests proof.",
+        )
+        self.assertEqual(before, self.store.tree_sha256(self.root / "ACTIVE"))
+        self.assertEqual(coordinator.planner_session.snapshot().accepted_turn_ids, ())
+
+        debug = ContinuousDebugRecorder(self.root, "scene-001", "turn-001")
+        attempt_two = debug.root / "WRITER_ATTEMPTS" / "attempt-002"
+        self.assertTrue(attempt_two.is_dir())
+        self.assertFalse(
+            (debug.root / "WRITER_ATTEMPTS" / "attempt-003").exists()
+        )
+        first_directive = json.loads(
+            (debug.root / "writer_recall_directive.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        second_input = json.loads(
+            (attempt_two / "writer_recall_input.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(first_directive, second_input)
+        self.assertEqual(first_directive["source_attempt_number"], 1)
+        self.assertEqual(first_directive["next_attempt_number"], 2)
+        self.assertEqual(
+            (debug.root / "planner_output.json").read_bytes(),
+            (attempt_two / "planner_output.json").read_bytes(),
+        )
+        self.assertNotEqual(
+            (debug.root / "deepseek_output.json").read_bytes(),
+            (attempt_two / "deepseek_output.json").read_bytes(),
+        )
 
     def test_provider_failure_leaves_complete_secret_free_debug_skeleton(self) -> None:
         port = InMemoryContinuousStoredSessionPort()

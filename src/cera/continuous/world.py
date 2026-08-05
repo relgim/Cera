@@ -2990,6 +2990,27 @@ class ContinuousDebugRecorder:
         self.root = branch_root / "DEBUG" / _slug(scene_id, "scene_id") / _slug(turn_id, "turn_id")
         self.root.mkdir(parents=True, exist_ok=True)
 
+    def for_writer_attempt(self, attempt_number: int) -> "ContinuousDebugRecorder":
+        """Return immutable debug custody for one bounded Writer attempt.
+
+        Attempt one retains the historical turn-level layout.  Later attempts
+        receive complete, isolated skeletons below that root so rejected
+        candidates and their Validator/Reader evidence are never overwritten.
+        """
+
+        if type(attempt_number) is not int or not 1 <= attempt_number <= 3:
+            raise ContractValidationError("Writer attempt number must be between 1 and 3")
+        if attempt_number == 1:
+            return self
+        root = self.root / "WRITER_ATTEMPTS" / f"attempt-{attempt_number:03d}"
+        if root.exists():
+            raise StateConflictError("Writer attempt debug custody already exists")
+        recorder = object.__new__(type(self))
+        recorder.root = root
+        recorder.root.mkdir(parents=True, exist_ok=False)
+        recorder.initialize()
+        return recorder
+
     def write_json(self, name: str, value: Any) -> Path:
         if name not in self.REQUIRED_ARTIFACTS and name not in self.OPTIONAL_ARTIFACTS:
             raise ContractValidationError("unknown continuous debug artifact")
