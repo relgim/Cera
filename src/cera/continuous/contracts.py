@@ -758,6 +758,9 @@ class CompactWriterVoiceCueV1:
         _unique(self.cues, "compact_writer_voice_cue.cues")
 
 
+COMPACT_WRITER_BRIEF_MAX_BEATS = 8
+
+
 @dataclass(frozen=True, slots=True)
 class CompactWriterBriefV1:
     """The complete provider-visible authority surface for prose realization."""
@@ -784,9 +787,9 @@ class CompactWriterBriefV1:
         if not self.active_cast:
             raise ContractValidationError("compact Writer Brief requires active cast")
         _text(self.scene_objective, "compact_writer_brief.scene_objective", maximum=4_000)
-        if not 2 <= len(self.mandatory_causal_beats) <= 5:
+        if not 2 <= len(self.mandatory_causal_beats) <= COMPACT_WRITER_BRIEF_MAX_BEATS:
             raise ContractValidationError(
-                "compact Writer Brief requires two to five mandatory causal beats"
+                "compact Writer Brief requires two to eight mandatory causal beats"
             )
         for value in self.mandatory_causal_beats:
             _text(value, "compact_writer_brief.mandatory_causal_beats", maximum=4_000)

@@ -9,6 +9,7 @@ from jsonschema import Draft202012Validator
 
 from cera.continuous.contracts import (
     CharacterRoleLedgerV1,
+    COMPACT_WRITER_BRIEF_MAX_BEATS,
     DiagnosticGroundingStatus,
     DiagnosticViolationClassification,
     PresentationRealizationClass,
@@ -601,18 +602,48 @@ class WriterRealizationBoundaryTests(unittest.TestCase):
             ("compact_writer_brief", "writer_recall_feedback"),
         )
 
-    def test_compact_writer_brief_contains_two_to_five_causal_beats(self) -> None:
+    def test_compact_writer_brief_contains_two_to_eight_causal_beats(self) -> None:
         brief = compile_compact_writer_brief(
             current_user_source="How was your evening?",
             planner_sequence=sequence(),
         )
         self.assertEqual(brief.active_cast, ("character:sakura_hanezawa",))
         self.assertGreaterEqual(len(brief.mandatory_causal_beats), 2)
-        self.assertLessEqual(len(brief.mandatory_causal_beats), 5)
+        self.assertLessEqual(
+            len(brief.mandatory_causal_beats),
+            COMPACT_WRITER_BRIEF_MAX_BEATS,
+        )
         self.assertEqual(
             tuple(value.character_id for value in brief.active_character_voice_cues),
             brief.active_cast,
         )
+
+    def test_compact_writer_brief_preserves_six_beats_and_rejects_nine(self) -> None:
+        beats = tuple(
+            replace(
+                beat(key=f"welcome_{index:02d}"),
+                observable_action_or_dialogue_direction=(
+                    f"Sakura realizes ordered welcome beat {index}."
+                ),
+            )
+            for index in range(1, 10)
+        )
+        six = replace(sequence(), beats=beats[:6])
+        brief = compile_compact_writer_brief(
+            current_user_source="Continue the welcome.",
+            planner_sequence=six,
+        )
+        self.assertEqual(len(brief.mandatory_causal_beats), 6)
+        self.assertTrue(
+            brief.mandatory_causal_beats[-1].startswith(
+                "Beat 6: Sakura realizes ordered welcome beat 6."
+            )
+        )
+        with self.assertRaisesRegex(ValueError, "at most eight"):
+            compile_compact_writer_brief(
+                current_user_source="Continue the welcome.",
+                planner_sequence=replace(sequence(), beats=beats),
+            )
 
     def test_compact_writer_brief_carries_private_and_material_beat_guidance(self) -> None:
         hana = replace(

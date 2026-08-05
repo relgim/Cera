@@ -10,6 +10,7 @@ from cera.serialization import canonical_bytes, canonical_sha256, to_primitive
 from .contracts import (
     ACTIVE_VALIDATOR_WRITER_HARD_CLASSES,
     CharacterSummaryEnvelopeV1,
+    COMPACT_WRITER_BRIEF_MAX_BEATS,
     CompactWriterBriefV1,
     CompactWriterVoiceCueV1,
     PromptComponentUsageV1,
@@ -319,8 +320,8 @@ def compile_compact_writer_brief(
 
     if not isinstance(planner_sequence, RichPlannerSequenceV1):
         raise TypeError("planner_sequence must be a validated RichPlannerSequenceV1")
-    if len(planner_sequence.beats) > 5:
-        raise ValueError("compact Writer Brief supports at most five causal beats")
+    if len(planner_sequence.beats) > COMPACT_WRITER_BRIEF_MAX_BEATS:
+        raise ValueError("compact Writer Brief supports at most eight causal beats")
 
     mandatory = tuple(
         (

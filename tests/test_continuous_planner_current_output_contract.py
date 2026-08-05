@@ -378,7 +378,13 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
     def test_planner_schema_change_has_a_new_adapter_identity(self) -> None:
         self.assertEqual(
             CONTINUOUS_PLANNER_ADAPTER_VERSION,
-            "cera.continuous_planner_adapter.v13",
+            "cera.continuous_planner_adapter.v14",
+        )
+
+    def test_planner_schema_uses_the_compact_writer_beat_maximum(self) -> None:
+        self.assertEqual(
+            rich_planner_sequence_json_schema()["properties"]["beats"]["maxItems"],
+            8,
         )
 
     def test_exact_cycle25_copied_prior_id_is_rejected_but_null_passes_unchanged(self) -> None:

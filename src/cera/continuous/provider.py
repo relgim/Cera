@@ -33,6 +33,7 @@ from .contracts import (
     ACTIVE_VALIDATOR_WRITER_HARD_CLASSES,
     AcceptedTurnPairV1,
     CharacterRoleLedgerV1,
+    COMPACT_WRITER_BRIEF_MAX_BEATS,
     CreatedFieldLogEntryV1,
     DiagnosticGroundingStatus,
     DiagnosticProtectedSemanticAdjudicationV1,
@@ -83,7 +84,7 @@ from .prompting import (
 )
 
 
-CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v13"
+CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v14"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v30"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v6"
@@ -4390,6 +4391,7 @@ def rich_planner_sequence_json_schema(
     schema["properties"]["accepted_turn_id"] = {"type": "null", "const": None}
     schema["properties"]["selected_character_ids"]["minItems"] = 1
     schema["properties"]["beats"]["minItems"] = 1
+    schema["properties"]["beats"]["maxItems"] = COMPACT_WRITER_BRIEF_MAX_BEATS
     beat = schema["properties"]["beats"]["items"]["properties"]
     beat["beat_key"]["pattern"] = LOCAL_KEY_JSON_PATTERN
     beat["source_evidence_bindings"]["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
