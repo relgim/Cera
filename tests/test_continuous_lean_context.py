@@ -137,6 +137,19 @@ def first_planner_packet(
 
 
 class ContinuousLeanContextTests(unittest.TestCase):
+    def test_explicit_lean_continuation_requires_active_npc_exact_retrieval(self) -> None:
+        for required in (
+            "explicitly asks to continue",
+            "lean_continuation_authority names active NPCs",
+            "mandatory retrieval trigger",
+            "cera_world_search for each named active NPC's character record",
+            "cera_world_read the exact result",
+            "Cite the returned ACTIVE binding",
+            "Only conclude that evidence is insufficient after bounded search or exact read fails",
+            "accepted references, and provider history remain non-authoritative",
+        ):
+            self.assertIn(required, PLANNER_STABLE_INSTRUCTIONS)
+
     def test_context_modes_are_closed_and_lean_prompt_has_no_stable_prefix(self) -> None:
         current = compatibility(ContinuousSessionRole.PLANNER)
         self.assertIs(

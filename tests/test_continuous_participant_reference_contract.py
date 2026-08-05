@@ -160,7 +160,7 @@ class PlannerParticipantReferenceTests(unittest.TestCase):
     def test_prompt_identities_and_closed_role_guidance_advance_together(self) -> None:
         self.assertEqual(
             CONTINUOUS_PLANNER_PROMPT_VERSION,
-            "cera.continuous_planner_prompt.v17",
+            "cera.continuous_planner_prompt.v18",
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,

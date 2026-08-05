@@ -25,7 +25,7 @@ from .packets import (
 )
 
 
-CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v17"
+CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v18"
 CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v38"
 WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION = (
     "cera.writer_beat_realization_constraints.v2"
@@ -84,6 +84,10 @@ READER_STABLE_INSTRUCTIONS = """You are CERA's independent minimum-quality Reade
 PLANNER_STABLE_INSTRUCTIONS += """
 
 selected_character_ids contains active NPC participants only and must never contain character:ted. An NPC may address, affect, observe, or reference Ted without selecting him. Any other nonselected character named by a beat must be listed in omitted_character_ids and may appear only in referenced_ids; that does not activate the character, give them scene knowledge, or permit action, state, speech, observation, address, or effect roles."""
+
+PLANNER_STABLE_INSTRUCTIONS += """
+
+When the current ingress explicitly asks to continue and lean_continuation_authority names active NPCs, a missing request-local ACTIVE character binding is a mandatory retrieval trigger, not evidence that continuation is impossible. Before emitting a non-event or evidence-insufficient beat, use cera_world_search for each named active NPC's character record and cera_world_read the exact result. Cite the returned ACTIVE binding on every new assertion-owner beat for that NPC. Only conclude that evidence is insufficient after bounded search or exact read fails, or the exact ACTIVE record forbids the continuation. Search results, descriptors, summaries, accepted references, and provider history remain non-authoritative."""
 
 VALIDATOR_STABLE_INSTRUCTIONS += """
 
