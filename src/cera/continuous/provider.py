@@ -78,7 +78,7 @@ from .prompting import (
 )
 
 
-CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v8"
+CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v9"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v27"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v6"
@@ -3877,6 +3877,8 @@ def rich_planner_sequence_json_schema() -> dict[str, Any]:
     schema = _schema_for(RichPlannerSequenceV1)
     schema["properties"]["provisional"] = {"type": "boolean", "const": True}
     schema["properties"]["accepted_turn_id"] = {"type": "null", "const": None}
+    schema["properties"]["selected_character_ids"]["minItems"] = 1
+    schema["properties"]["beats"]["minItems"] = 1
     beat = schema["properties"]["beats"]["items"]["properties"]
     beat["beat_key"]["pattern"] = LOCAL_KEY_JSON_PATTERN
     beat["source_evidence_bindings"]["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN

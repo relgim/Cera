@@ -6,6 +6,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
+from jsonschema import Draft202012Validator
+
 from cera.continuous.contracts import (
     CharacterRoleLedgerV1,
     FinalInformationVisibility,
@@ -76,6 +78,37 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
         )
         self.assertEqual(len(canonical_sha256(schema)), 64)
 
+    def test_provider_schema_and_python_dto_both_require_cast_and_beats(self) -> None:
+        source_schema = rich_planner_sequence_json_schema()
+        projected_schema = project_provider_output_schema(
+            source_schema,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        for schema in (source_schema, projected_schema):
+            self.assertEqual(
+                schema["properties"]["selected_character_ids"]["minItems"],
+                1,
+            )
+            self.assertEqual(schema["properties"]["beats"]["minItems"], 1)
+            for field in ("selected_character_ids", "beats"):
+                invalid = deepcopy(self.payload)
+                invalid["accepted_turn_id"] = None
+                invalid[field] = []
+                self.assertTrue(
+                    tuple(Draft202012Validator(schema).iter_errors(invalid)),
+                    field,
+                )
+
+        for field in ("selected_character_ids", "beats"):
+            invalid = deepcopy(self.payload)
+            invalid["accepted_turn_id"] = None
+            invalid[field] = []
+            with self.assertRaisesRegex(
+                ContractValidationError,
+                "rich Planner sequence requires cast and beats",
+            ):
+                from_mapping(RichPlannerSequenceV1, invalid)
+
     def test_planner_schema_and_projection_constrain_every_local_key(self) -> None:
         schema = rich_planner_sequence_json_schema()
         projected = project_provider_output_schema(
@@ -101,7 +134,7 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
     def test_planner_schema_change_has_a_new_adapter_identity(self) -> None:
         self.assertEqual(
             CONTINUOUS_PLANNER_ADAPTER_VERSION,
-            "cera.continuous_planner_adapter.v8",
+            "cera.continuous_planner_adapter.v9",
         )
 
     def test_exact_cycle25_copied_prior_id_is_rejected_but_null_passes_unchanged(self) -> None:
