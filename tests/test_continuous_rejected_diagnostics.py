@@ -13,6 +13,8 @@ from cera.continuous.contracts import (
     DiagnosticProtectedSemanticAdjudicationV1,
     DiagnosticStorySegmentV1,
     DiagnosticViolationClassification,
+    IngressSourceUnitKind,
+    IngressSourceUnitV1,
     ProhibitedWriterDetailClass,
     ProtectedSemanticRelationKind,
     StoryRealizationKind,
@@ -455,6 +457,102 @@ class RejectedDiagnosticContractTests(unittest.TestCase):
             allowed_character_ids=("character:hana_hanezawa",),
         )
         self.assertEqual(registry._story_segments, {})
+
+    def test_rejected_diagnostic_may_cite_source_without_gaining_authority(self) -> None:
+        source = "Ted remains silent and still."
+        registry = RequestEvidenceBindingRegistry(
+            world_id="world:diagnostic-citation",
+            branch_id="branch:main",
+            turn_id="turn:diagnostic-citation",
+        )
+        registry.allocate_current_source(
+            source_identity="source:diagnostic-citation",
+            source_text=source,
+            protected_user_allowance_scope="exact_source_only",
+            source_units=(
+                IngressSourceUnitV1(
+                    schema_version=IngressSourceUnitV1.SCHEMA_VERSION,
+                    source_unit_key="source_state_0001",
+                    kind=IngressSourceUnitKind.STATE,
+                    source_start=0,
+                    source_end=len(source),
+                    exact_text=source,
+                    actor_id="character:ted",
+                    speaker_id=None,
+                    classification_basis="explicit_ingress_actor",
+                ),
+            ),
+        )
+        claim_key = next(iter(registry._protected_user_claims))
+        rejected_text = "the one who had not yet spoken."
+        segment = DiagnosticStorySegmentV1(
+            schema_version=DiagnosticStorySegmentV1.SCHEMA_VERSION,
+            segment_key="ted_silence_paraphrase",
+            kind=StoryRealizationKind.PRIVATE_STATE,
+            output_start=0,
+            output_end=len(rejected_text),
+            exact_text=rejected_text,
+            exact_text_sha256=text_sha256(rejected_text),
+            roles=CharacterRoleLedgerV1(
+                state_owner_ids=("character:ted",),
+            ),
+            grounding_status=DiagnosticGroundingStatus.GROUNDED,
+            protected_user_source_claim_keys=(claim_key,),
+        )
+        adjudication = DiagnosticProtectedSemanticAdjudicationV1(
+            schema_version=DiagnosticProtectedSemanticAdjudicationV1.SCHEMA_VERSION,
+            adjudication_key="ted_silence_paraphrase_adjudication",
+            segment_key=segment.segment_key,
+            output_start=0,
+            output_end=len(rejected_text),
+            exact_text_sha256=text_sha256(rejected_text),
+            protected_user_id="character:ted",
+            relation=ProtectedSemanticRelationKind.PROTECTED_ASSERTION,
+            grounding_status=DiagnosticGroundingStatus.GROUNDED,
+            violation_classification=DiagnosticViolationClassification.NONE,
+            npc_assertion_owner_ids=(),
+            protected_user_source_claim_keys=(claim_key,),
+        )
+
+        registry.validate_validator_diagnostics(
+            story_text=rejected_text,
+            diagnostic_story_segments=(segment,),
+            diagnostic_protected_semantic_adjudications=(adjudication,),
+            allowed_character_ids=(),
+        )
+        self.assertEqual(registry._story_segments, {})
+
+        unknown = "claim_source_00000000000000000000"
+        with self.assertRaisesRegex(PermissionError, "supplied ingress citation"):
+            registry.validate_validator_diagnostics(
+                story_text=rejected_text,
+                diagnostic_story_segments=(
+                    replace(
+                        segment,
+                        protected_user_source_claim_keys=(unknown,),
+                    ),
+                ),
+                diagnostic_protected_semantic_adjudications=(
+                    replace(
+                        adjudication,
+                        protected_user_source_claim_keys=(unknown,),
+                    ),
+                ),
+                allowed_character_ids=(),
+            )
+
+        dialogue = replace(
+            segment,
+            kind=StoryRealizationKind.DIALOGUE,
+            roles=CharacterRoleLedgerV1(speaker_ids=("character:ted",)),
+        )
+        with self.assertRaisesRegex(PermissionError, "changed claim semantics"):
+            registry.validate_validator_diagnostics(
+                story_text=rejected_text,
+                diagnostic_story_segments=(dialogue,),
+                diagnostic_protected_semantic_adjudications=(adjudication,),
+                allowed_character_ids=(),
+            )
 
     def test_diagnostic_types_have_no_conversion_to_canonical_authority(self) -> None:
         self.assertNotIn(

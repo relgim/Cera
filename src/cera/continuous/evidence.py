@@ -2261,9 +2261,9 @@ class RequestEvidenceBindingRegistry:
                 claim = self._protected_user_claims.get(
                     segment.protected_user_source_claim_keys[0]
                 )
-                if claim is None or segment.exact_text != claim.exact_text:
+                if claim is None:
                     raise PermissionError(
-                        "grounded protected diagnostic lacks exact ingress authority"
+                        "grounded protected diagnostic lacks a supplied ingress citation"
                     )
                 if (
                     segment.kind is StoryRealizationKind.DIALOGUE
