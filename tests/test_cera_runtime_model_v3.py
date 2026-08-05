@@ -167,7 +167,7 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v35",
+            "cera.continuous_validator_prompt.v36",
         )
         for required in (
             "applies independently to each final-sequence item",
@@ -202,6 +202,9 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
             "0 <= output_start < output_end <= N",
             "the final output_end equals N exactly",
             "return no guessed or out-of-bounds offset",
+            "must cover at least one non-whitespace character",
+            "Never return a standalone span containing only spaces, tabs, line breaks",
+            "attaching each separator to the immediately preceding or following substantive semantic span",
             "semantic kind and assertion-owner roles must satisfy the exact closed matrix",
             "Kind narration requires no action_owner, state_owner, or speaker",
             "Never label a state-owned description as narration",

@@ -26,7 +26,7 @@ from .packets import (
 
 
 CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v17"
-CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v35"
+CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v36"
 WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION = (
     "cera.writer_beat_realization_constraints.v2"
 )
@@ -64,6 +64,10 @@ For every diagnostic span, derive the protected relation from that span's roles 
 VALIDATOR_STABLE_INSTRUCTIONS += """
 
 All canonical and diagnostic offsets are zero-based Python Unicode-codepoint indices into the exact writer_story_text, not JSON bytes, escaped text, display columns, or an imagined terminator. For a Writer text of N codepoints, every span must satisfy 0 <= output_start < output_end <= N. Gap-free coverage means the first output_start is 0, every later output_start equals the prior output_end, and the final output_end equals N exactly. Recheck the supplied Writer mechanical envelope's codepoint_count before returning; never add one for a closing quote, newline, or end marker that is not present in writer_story_text. Keep Python's strict span validation authoritative and return no guessed or out-of-bounds offset."""
+
+VALIDATOR_STABLE_INSTRUCTIONS += """
+
+Every canonical realization span and every diagnostic span must cover at least one non-whitespace character of the immutable writer_story_text. Never return a standalone span containing only spaces, tabs, line breaks, or other formatting separators. Preserve ordered, non-overlapping, gap-free coverage by attaching each separator to the immediately preceding or following substantive semantic span; do not discard, normalize, or invent characters."""
 
 VALIDATOR_STABLE_INSTRUCTIONS += """
 

@@ -158,6 +158,28 @@ def _wire(
 
 
 class RejectedDiagnosticContractTests(unittest.TestCase):
+    def test_whitespace_only_diagnostic_span_is_rejected_without_python_repair(self) -> None:
+        span = ProviderDiagnosticStorySegmentDraftV1(
+            schema_version=ProviderDiagnosticStorySegmentDraftV1.SCHEMA_VERSION,
+            segment_key="paragraph_break",
+            kind=StoryRealizationKind.NARRATION,
+            output_start=0,
+            output_end=2,
+            roles=CharacterRoleLedgerV1(),
+            grounding_status=DiagnosticGroundingStatus.GROUNDED,
+            protected_user_source_claim_keys=(),
+        )
+
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "diagnostic_story_segment.exact_text must be non-empty and bounded",
+        ):
+            span.compile(writer_story_text="\n\nHana spoke.")
+
+        attached = replace(span, output_end=len("\n\nHana spoke."))
+        compiled = attached.compile(writer_story_text="\n\nHana spoke.")
+        self.assertEqual(compiled.exact_text, "\n\nHana spoke.")
+
     def test_exact_seeded_rejection_decodes_and_compiles_truthfully(self) -> None:
         payload = to_primitive(_wire())
         schema = continuous_semantic_validator_draft_json_schema()
