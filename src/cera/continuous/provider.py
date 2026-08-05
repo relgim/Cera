@@ -48,6 +48,7 @@ from .contracts import (
     LOCAL_KEY_JSON_PATTERN,
     ProtectedSemanticAdjudicationV1,
     ProtectedSemanticRelationKind,
+    ProtectedUserAllowanceMode,
     ProtectedUserRealizationSpanV1,
     ProtectedUserSourceClaimKind,
     PresentationRealizationClass,
@@ -82,7 +83,7 @@ from .prompting import (
 )
 
 
-CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v12"
+CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v13"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v29"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v6"
@@ -4407,6 +4408,60 @@ def rich_planner_sequence_json_schema(
     allowance = beat["protected_user_allowance"]["properties"]
     allowance["source_binding_keys"]["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
     allowance["source_claim_keys"]["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
+    allowance_schema = beat["protected_user_allowance"]
+    allowance_base = deepcopy(allowance_schema)
+
+    def allowance_branch(
+        mode: ProtectedUserAllowanceMode,
+        *,
+        minimum_bindings: int,
+        maximum_bindings: int | None,
+        minimum_claims: int,
+        maximum_claims: int,
+    ) -> dict[str, Any]:
+        branch = deepcopy(allowance_base)
+        properties = branch["properties"]
+        properties["mode"] = {"type": "string", "const": mode.value}
+        bindings = properties["source_binding_keys"]
+        if minimum_bindings:
+            bindings["minItems"] = minimum_bindings
+        if maximum_bindings is not None:
+            bindings["maxItems"] = maximum_bindings
+        claims = properties["source_claim_keys"]
+        if minimum_claims:
+            claims["minItems"] = minimum_claims
+        claims["maxItems"] = maximum_claims
+        return branch
+
+    allowance_branches = [
+        allowance_branch(
+            ProtectedUserAllowanceMode.NONE,
+            minimum_bindings=0,
+            maximum_bindings=0,
+            minimum_claims=0,
+            maximum_claims=0,
+        ),
+        allowance_branch(
+            ProtectedUserAllowanceMode.MINIMAL_NONBRANCHING_CONNECTIVE,
+            minimum_bindings=1,
+            maximum_bindings=None,
+            minimum_claims=0,
+            maximum_claims=0,
+        ),
+    ]
+    if protected_user_source_claim_keys:
+        exact = allowance_branch(
+            ProtectedUserAllowanceMode.EXACT_SOURCE_ONLY,
+            minimum_bindings=1,
+            maximum_bindings=None,
+            minimum_claims=1,
+            maximum_claims=1,
+        )
+        exact["properties"]["source_claim_keys"]["items"]["enum"] = list(
+            protected_user_source_claim_keys
+        )
+        allowance_branches.append(exact)
+    allowance_schema["anyOf"] = allowance_branches
     return schema
 
 

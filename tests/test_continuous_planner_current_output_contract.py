@@ -27,7 +27,11 @@ from cera.continuous.provider import (
     rich_planner_sequence_json_schema,
 )
 from cera.errors import ContractValidationError
-from cera.providers import ProviderSchemaDialect, project_provider_output_schema
+from cera.providers import (
+    ProviderSchemaDialect,
+    project_provider_output_schema,
+    validate_provider_output_schema,
+)
 from cera.schema import from_mapping
 from cera.serialization import canonical_sha256, text_sha256
 
@@ -227,6 +231,128 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
         for field in ("action_owner_ids", "state_owner_ids", "speaker_ids"):
             self.assertNotIn("pattern", roles["properties"][field]["items"])
 
+    def test_zero_claim_schema_closes_allowance_mode_and_claim_cardinality(self) -> None:
+        source = rich_planner_sequence_json_schema(
+            protected_user_id="character:ted",
+            protected_user_source_claim_keys=(),
+        )
+        projected = project_provider_output_schema(
+            source,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        for schema in (source, projected):
+            allowance = schema["properties"]["beats"]["items"]["properties"][
+                "protected_user_allowance"
+            ]
+            modes = {
+                branch["properties"]["mode"]["const"]
+                for branch in allowance["anyOf"]
+            }
+            self.assertEqual(
+                modes,
+                {"none", "minimal_nonbranching_connective"},
+            )
+
+            invalid_exact = deepcopy(self.payload)
+            invalid_exact["accepted_turn_id"] = None
+            invalid_exact["beats"][0]["protected_user_allowance"] = {
+                "mode": "exact_source_only",
+                "source_binding_keys": ["binding_source_current"],
+                "source_claim_keys": [],
+                "explanation": "Invalid exact mode without a typed claim.",
+            }
+            self.assertTrue(
+                tuple(Draft202012Validator(schema).iter_errors(invalid_exact))
+            )
+
+            valid_none = deepcopy(self.payload)
+            valid_none["accepted_turn_id"] = None
+            self.assertFalse(
+                tuple(Draft202012Validator(schema).iter_errors(valid_none))
+            )
+
+            valid_minimal = deepcopy(valid_none)
+            valid_minimal["beats"][0]["protected_user_allowance"] = {
+                "mode": "minimal_nonbranching_connective",
+                "source_binding_keys": ["binding_mechanical_current"],
+                "source_claim_keys": [],
+                "explanation": "Only a Python-authorized connective.",
+            }
+            self.assertFalse(
+                tuple(Draft202012Validator(schema).iter_errors(valid_minimal))
+            )
+        validate_provider_output_schema(
+            projected,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        )
+
+    def test_exact_claim_schema_accepts_only_one_supplied_claim(self) -> None:
+        claim_keys = (
+            "claim_current_dialogue_0001",
+            "claim_current_action_0002",
+        )
+        source = rich_planner_sequence_json_schema(
+            protected_user_id="character:ted",
+            protected_user_source_claim_keys=claim_keys,
+        )
+        projected = project_provider_output_schema(
+            source,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        for schema in (source, projected):
+            allowance = schema["properties"]["beats"]["items"]["properties"][
+                "protected_user_allowance"
+            ]
+            exact = next(
+                branch
+                for branch in allowance["anyOf"]
+                if branch["properties"]["mode"].get("const")
+                == "exact_source_only"
+            )
+            claims = exact["properties"]["source_claim_keys"]
+            self.assertEqual(claims["minItems"], 1)
+            self.assertEqual(claims["maxItems"], 1)
+            self.assertEqual(tuple(claims["items"]["enum"]), claim_keys)
+            self.assertEqual(
+                exact["properties"]["source_binding_keys"]["minItems"], 1
+            )
+
+            def candidate(keys: list[str]) -> dict[str, object]:
+                payload = deepcopy(self.payload)
+                payload["accepted_turn_id"] = None
+                payload["beats"][0]["protected_user_allowance"] = {
+                    "mode": "exact_source_only",
+                    "source_binding_keys": ["binding_source_current"],
+                    "source_claim_keys": keys,
+                    "explanation": "Use one exact typed source claim.",
+                }
+                return payload
+
+            self.assertFalse(
+                tuple(
+                    Draft202012Validator(schema).iter_errors(
+                        candidate([claim_keys[0]])
+                    )
+                )
+            )
+            for invalid_keys in (
+                [],
+                ["claim_unknown"],
+                [claim_keys[0], claim_keys[1]],
+            ):
+                self.assertTrue(
+                    tuple(
+                        Draft202012Validator(schema).iter_errors(
+                            candidate(invalid_keys)
+                        )
+                    ),
+                    invalid_keys,
+                )
+        validate_provider_output_schema(
+            projected,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        )
+
     def test_planner_schema_and_projection_constrain_every_local_key(self) -> None:
         schema = rich_planner_sequence_json_schema()
         projected = project_provider_output_schema(
@@ -252,7 +378,7 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
     def test_planner_schema_change_has_a_new_adapter_identity(self) -> None:
         self.assertEqual(
             CONTINUOUS_PLANNER_ADAPTER_VERSION,
-            "cera.continuous_planner_adapter.v12",
+            "cera.continuous_planner_adapter.v13",
         )
 
     def test_exact_cycle25_copied_prior_id_is_rejected_but_null_passes_unchanged(self) -> None:
