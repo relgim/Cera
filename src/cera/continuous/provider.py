@@ -5180,7 +5180,6 @@ def continuous_compact_semantic_validator_draft_json_schema() -> dict[str, Any]:
                 value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES
             ]
     _constrain_active_python_hash_constants(schema)
-    _constrain_nonempty_character_role_ledgers(schema)
     return schema
 
 

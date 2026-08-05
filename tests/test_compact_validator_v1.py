@@ -20,7 +20,11 @@ from cera.continuous.provider import (
     continuous_compact_semantic_validator_draft_json_schema,
     continuous_compact_validator_route,
 )
-from cera.providers import ProviderSchemaDialect, project_provider_output_schema
+from cera.providers import (
+    ProviderSchemaDialect,
+    project_provider_output_schema,
+    validate_provider_output_schema,
+)
 from cera.schema import from_mapping
 from cera.serialization import to_primitive
 from tests.test_continuous_planner_validator import sequence as planner_sequence
@@ -293,6 +297,37 @@ class CompactValidatorV1Tests(unittest.TestCase):
             projected["properties"]["schema_version"]["const"],
             ContinuousCompactSemanticValidatorDraftV1.SCHEMA_VERSION,
         )
+        validate_provider_output_schema(
+            projected,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        )
+
+        role_schemas = []
+
+        def collect_role_schemas(value: object) -> None:
+            if isinstance(value, dict):
+                properties = value.get("properties")
+                if (
+                    isinstance(properties, dict)
+                    and properties.get("schema_version", {}).get("const")
+                    == "cera.character_role_ledger.v1"
+                ):
+                    role_schemas.append(value)
+                for child in value.values():
+                    collect_role_schemas(child)
+            elif isinstance(value, list):
+                for child in value:
+                    collect_role_schemas(child)
+
+        collect_role_schemas(projected)
+        self.assertTrue(role_schemas)
+        for role_schema in role_schemas:
+            self.assertEqual(role_schema.get("type"), "object")
+            self.assertFalse(role_schema.get("additionalProperties"))
+            self.assertEqual(
+                role_schema.get("required"), list(role_schema["properties"])
+            )
+            self.assertNotIn("anyOf", role_schema)
 
     def test_compact_prompt_and_route_are_opt_in(self) -> None:
         plan = planner_sequence()
