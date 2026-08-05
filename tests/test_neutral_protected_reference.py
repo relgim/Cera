@@ -120,7 +120,7 @@ class NeutralProtectedReferenceTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v28",
+            "cera.continuous_validator_adapter.v29",
         )
         self.assertIn(
             ProtectedSemanticRelationKind.NEUTRAL_PRESENTATION_REFERENCE.value,

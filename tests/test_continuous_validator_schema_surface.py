@@ -733,12 +733,13 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v28",
+            "cera.continuous_validator_adapter.v29",
         )
-        self.assertEqual(
-            continuous_validator_route(model="gpt-5.6-sol", effort="medium").adapter_id,
-            CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-        )
+        route = continuous_validator_route(model="gpt-5.6-sol", effort="medium")
+        self.assertEqual(route.adapter_id, CONTINUOUS_VALIDATOR_ADAPTER_VERSION)
+        self.assertEqual(route.timeout_seconds, 300)
+        self.assertEqual(route.automatic_retry_count, 0)
+        self.assertFalse(route.fallback_enabled)
 
     def test_historical_validator_readers_remain_available(self) -> None:
         active_payload = to_primitive(_active_draft())
