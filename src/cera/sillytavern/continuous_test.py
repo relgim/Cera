@@ -110,7 +110,11 @@ class PreparedContinuousTestTurn:
         )
         if assessment.assessment_sha256 != self.assessment_receipt_sha256:
             raise ContractValidationError("continuous test assessment receipt changed")
-        if self.provider_calls not in {3, 4} or type(self.accept_allowed) is not bool:
+        if (
+            type(self.provider_calls) is not int
+            or self.provider_calls not in {3, 4, 6, 8}
+            or type(self.accept_allowed) is not bool
+        ):
             raise ContractValidationError("continuous test candidate call/accept contract changed")
         expected_accept = (
             self.validator_semantic_status == "accepted"

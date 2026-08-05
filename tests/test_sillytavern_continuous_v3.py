@@ -123,11 +123,15 @@ class ContinuousSillyTavernV3Tests(unittest.TestCase):
         self.server.server_close()
         self.thread.join(timeout=2)
 
-    def test_prepared_turn_accepts_supported_three_and_four_role_schedules(self) -> None:
+    def test_prepared_turn_accepts_supported_bounded_recall_schedules(self) -> None:
         prepared = self.adapter._prepare_turn(1)
-        self.assertEqual(replace(prepared, provider_calls=3).provider_calls, 3)
-        self.assertEqual(replace(prepared, provider_calls=4).provider_calls, 4)
-        for unsupported in (2, 5):
+        for supported in (3, 4, 6, 8):
+            with self.subTest(provider_calls=supported):
+                self.assertEqual(
+                    replace(prepared, provider_calls=supported).provider_calls,
+                    supported,
+                )
+        for unsupported in (2, 5, 7, 9, 4.0):
             with self.subTest(provider_calls=unsupported):
                 with self.assertRaises(ContractValidationError):
                     replace(prepared, provider_calls=unsupported)
