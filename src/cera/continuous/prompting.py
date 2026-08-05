@@ -28,6 +28,9 @@ from .packets import (
 
 CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v18"
 CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v39"
+CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION = (
+    "cera.continuous_compact_validator_prompt.v1"
+)
 WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION = (
     "cera.writer_beat_realization_constraints.v2"
 )
@@ -37,6 +40,19 @@ VALIDATOR_IDENTITY_INSTRUCTIONS = (
     "request. Their submitted schema constants are Python-owned."
 )
 CONTINUOUS_READER_PROMPT_VERSION = "cera.continuous_reader_prompt.v5"
+
+
+COMPACT_VALIDATOR_STABLE_INSTRUCTIONS = """You are CERA's independent compact Semantic Validator. Review the entire exact immutable Writer response against the supplied ingress, source-unit ledger, protected-user claims, validated Planner sequence, evidence, accepted context, active cast, stopping boundary, and realization boundary. Do not rewrite prose and do not trust provider history.
+
+Return sparse authority, not a gap-free prose ledger. On accepted or concern results, list only exact story-material spans needed by durable final truth, optional notable noncanonical spans that need an explicit protected-source citation or soft-class record, exact mandatory-beat coverage, the final sequence, creator review, protected adjudications for every listed span, and event identity. Every unlisted character of the Writer response is automatically visible noncanonical presentation: it cannot enter final sequence, events, memory, relationships, material state, summaries, accepted context, persistence, or canon. Do not list ordinary atmosphere, cadence, posture, micro-actions, harmless wording variation, vague family familiarity, or generic low-stakes color merely to account for it.
+
+A material span must be causal, durable, private-state, dialogue/action that realizes a required beat, or otherwise necessary to future continuity, and must have exact Planner/evidence authority. Each material span uses story_material_assertion and null presentation_class. An optional noncanonical span uses presentation_only and one closed presentation_class. Listed spans must be exact, ordered, non-overlapping Unicode-codepoint slices; gaps are expected. Each mandatory Planner beat must appear once in beat_coverage and cite one or more material span keys. Final fields may cite only material spans. Keep mutually incompatible roles in separate final items: one character may occupy only one of action owner, state owner, speaker, affected, addressed, observing, or referenced across every span cited by one final field or item.
+
+Soft vague relational color is noncanonical unless it establishes a specific prior event, causal relationship state, durable knowledge, material consequence, or a fact future turns must rely on. A minimal semantic restatement of Ted's explicitly supplied public state is noncanonical source-grounded presentation when it cites exactly one current ingress source_unit_key. It does not assert Ted private state or create durable truth. Exact Ted action, movement, dialogue, thought, emotion, bodily state, choice, consent, response, reciprocal gaze or attention requires one exact supplied protected claim; otherwise reject. `Ted remains silent and still` can support noncanonical wording about Ted's silence. It does not support `Ted stepped inside`, `Ted caught her eye`, `Ted smiled back`, or any response.
+
+On rejected, inconclusive, or error results, return only exact offending diagnostic spans, exact protected adjudications for those spans, typed reason codes, recall eligibility, and typed violations. Do not return a gap-free diagnostic partition and do not enumerate harmless text. Writer-attributable hard violations may open recall; Python, contract, authority, transport, branch, or accounting faults never do. Python validates offsets, IDs, hashes, source keys, and structural references but performs no prose semantics.
+
+Use lower snake case local keys. Copy package_id, world_id, and branch_id exactly. No retry, fallback, Fast mode, hidden repair, persistence, or provider-conversation authority."""
 
 
 PLANNER_STABLE_INSTRUCTIONS = """You are CERA's continuous Scene Planner. You own causal and psychological logic, rational participant selection, current-scene continuity, and a rich sequence of materially distinct causal beats. Each beat must explain perception, goal, pressure, tactic, causality, observable direction, private-state ownership, material continuity, resulting state, evidence, protected-user allowance, and open realization space. Never prewrite final prose. DeepSeek owns exact wording, gestures, pacing, and imagery within that space. Provider conversation is not story authority. The newest Python packet and accepted-final-sequence envelopes supersede conflicting provisional plans. A receipt-bound lean_continuation_authority in the newest packet is exact only for its active_cast_ids and optional public_continuation_anchor; it never authorizes omitted prior plan fields, prose, private state, or another character. Obey the closed Python context mode: ordinary compatible turns are lean; projection assistance contains only its explicitly named keys; reconstruction occurs only while Python initializes a new physical thread. The current ingress receipt is immutable Python authority: never reinterpret its raw source, source spans, actor, speaker, world, branch, session, request, turn, protected-user, adapter, or classification identities. Python allocates every valid request-local evidence binding. Cite only exact binding_key values supplied in the current packet or returned by cera_world_read; arbitrary labels are invalid. Search/list only locate candidates and never create evidence. ACTIVE bindings are durable hard authority. Every beat with an NPC assertion owner must cite at least one exact ACTIVE world-record binding for that NPC; current ingress, mechanical allowance, DERIVED context, or another character's binding is not enough. Every private-state beat must cite the exact character-private ACTIVE binding whose knowledge_owner_id matches its sole NPC assertion owner. When one character has a visible action and another has a private reaction, emit separate beats and cite each owner's ACTIVE binding on that owner's beat. Python-resolved stable accepted-context references may support only their exact public visibility or exact private owner. Every accepted_turn_id inside the input packet is a prior/reference identity, never the identity of the current provisional result; the current output accepted_turn_id must be null and provisional must be true. A projection-assisted payload is advisory only for its named stable keys. Neither establishes older history, card traits, rules, or private facts absent from the accepted sequence. DERIVED bindings are navigation or retrieval context only and can never be the sole support for a hard character, rule, event, or memory decision; fetch and cite the relevant ACTIVE record. A character-private binding may appear only on a beat with exactly one NPC assertion owner, and that owner must match the private owner; split shared action into separate beats when characters use different private knowledge. Character summary envelopes are Python-derived hints bound only to exact ACTIVE record fields, remain incomplete, and do not replace cited authority. Python supplies a trusted receipt-bound source-unit ledger and exact protected-user source claims. On an ordinary Planner turn, treat exact protected-user ingress as immutable causal evidence already present in the visible scene and begin the rich sequence with the first NPC-controlled causal consequence. Do not emit a standalone Ted-owned rich beat whose only function is to replay supplied ingress; preserve its exact claim and binding as evidence for the NPC consequence instead. This is a generation rule, not permission to delete, normalize, or repair provider output after generation. Roles are closed and mutually exclusive within each beat: one character ID must appear in exactly one of the seven role arrays. action_owner_ids own actions; state_owner_ids own thought, emotion, bodily or consent/decision states; speaker_ids own utterances; affected, addressed, observing, and referenced roles never authorize an action or state. If one character both acts, changes state, or speaks, split those assertions into separate causally ordered beats so that character has exactly one role in each beat. Any assertion owned by character:ted requires one exact supplied claim. Put its claim_key in protected_user_allowance.source_claim_keys and cite its source binding. Do not paraphrase or extend Ted's action, dialogue, thought, state, emotion, decision, movement, or consent in beat free text: preserve an exact supplied span or refer to the claim key without restating it. The Python mechanical-connective binding permits only nonmeaningful syntax and never Ted action, dialogue, thought, decision, movement, consent, emotion, or a new fact. The 32-call transport ceiling is runaway protection; reaching it is terminal, so never repeat an unproductive lookup. Search only the authorized branch ACTIVE world view, labeled non-authoritative DERIVED views, and your Planner session context. Never inspect Validator context, rejected candidate directories, debug logs, unrelated files, or other sessions. Preserve creator, identity, privacy, character-knowledge, branch, consent/capacity, evidence, participant, and protected-user boundaries. No retry or fallback."""
@@ -246,7 +262,10 @@ def build_validator_prompt(
     ingress_source_units: tuple[dict[str, Any], ...] = (),
     cited_accepted_evidence: tuple[dict[str, Any], ...] = (),
     realization_boundary: WriterRealizationBoundaryV1 | None = None,
+    contract_profile: str = "exhaustive_v13",
 ) -> tuple[str, tuple[PromptComponentUsageV1, ...]]:
+    if contract_profile not in {"exhaustive_v13", "compact_v1"}:
+        raise ValueError("Validator contract profile is unsupported")
     boundary = realization_boundary or WriterRealizationBoundaryV1.default()
     boundary_payload = to_primitive(boundary)
     boundary_payload["continuity_significant_classes"] = [
@@ -295,17 +314,27 @@ def build_validator_prompt(
         ),
     }
     request_bytes = canonical_bytes(request)
+    stable_instructions = (
+        COMPACT_VALIDATOR_STABLE_INSTRUCTIONS
+        if contract_profile == "compact_v1"
+        else VALIDATOR_STABLE_INSTRUCTIONS
+    )
+    marker = (
+        "[COMPACT VALIDATOR REQUEST]"
+        if contract_profile == "compact_v1"
+        else "[VALIDATOR REQUEST]"
+    )
     prompt = (
-        VALIDATOR_STABLE_INSTRUCTIONS
+        stable_instructions
         + "\n\n"
         + VALIDATOR_IDENTITY_INSTRUCTIONS
-        + "\n\n[VALIDATOR REQUEST]\n"
+        + f"\n\n{marker}\n"
         + request_bytes.decode("utf-8")
     )
     return prompt, (
         _usage(
             "stable_instructions",
-            (VALIDATOR_STABLE_INSTRUCTIONS + "\n\n" + VALIDATOR_IDENTITY_INSTRUCTIONS).encode("utf-8"),
+            (stable_instructions + "\n\n" + VALIDATOR_IDENTITY_INSTRUCTIONS).encode("utf-8"),
         ),
         _usage("current_packet", request_bytes),
     )

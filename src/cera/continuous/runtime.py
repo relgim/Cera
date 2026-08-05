@@ -441,6 +441,7 @@ class ContinuousShadowTurnCoordinator:
         validator: ValidatorPort,
         reader: ReaderPort,
         ingress_authority: ContinuousIngressAuthorityPort,
+        validator_contract_profile: str = "exhaustive_v13",
         acceptance_sync_failpoint: Callable[[str], None] | None = None,
         thread_lifecycle_failpoint: Callable[[str], None] | None = None,
         thread_lineage_ledger: ContinuousThreadLineageLedger | None = None,
@@ -458,6 +459,16 @@ class ContinuousShadowTurnCoordinator:
         self.validator = validator
         self.reader = reader
         self.ingress_authority = ingress_authority
+        if validator_contract_profile not in {"exhaustive_v13", "compact_v1"}:
+            raise StateConflictError("continuous Validator contract profile changed")
+        if (
+            validator_contract_profile == "compact_v1"
+            and not bool(getattr(validator, "uses_compact_turn_contract", False))
+        ):
+            raise StateConflictError(
+                "compact Validator prompt requires the compact provider adapter"
+            )
+        self.validator_contract_profile = validator_contract_profile
         self._acceptance_sync_failpoint = acceptance_sync_failpoint
         self._thread_lifecycle_failpoint = thread_lifecycle_failpoint
         inherited_lineages = tuple(
@@ -1855,6 +1866,7 @@ class ContinuousShadowTurnCoordinator:
                     validator_cited_accepted_evidence_payload
                 ),
                 realization_boundary=realization_boundary,
+                contract_profile=self.validator_contract_profile,
             )
             attempt_debug.write_json(
                 "validator_request.json",

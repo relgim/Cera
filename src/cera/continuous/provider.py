@@ -78,6 +78,7 @@ from .contracts import (
 from .call_ledger import ContinuousProviderCallLedger
 from .record_policy import PERSISTENCE_POLICY_SHA256
 from .prompting import (
+    CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION,
     CONTINUOUS_PLANNER_PROMPT_VERSION,
     CONTINUOUS_READER_PROMPT_VERSION,
     CONTINUOUS_VALIDATOR_PROMPT_VERSION,
@@ -86,6 +87,9 @@ from .prompting import (
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v14"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v30"
+CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION = (
+    "cera.continuous_compact_validator_adapter.v1"
+)
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v6"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v4"
@@ -3721,6 +3725,423 @@ class ContinuousSemanticValidatorDraftV13:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderCompactBeatCoverageDraftV1:
+    """One mandatory Planner beat bound to sparse material spans."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_compact_beat_coverage.v1"
+
+    schema_version: str
+    beat_key: str
+    material_segment_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("compact beat-coverage schema changed")
+        if not re.fullmatch(LOCAL_KEY_JSON_PATTERN, self.beat_key):
+            raise ContractValidationError("compact beat key is invalid")
+        if not self.material_segment_keys:
+            raise ContractValidationError(
+                "compact beat coverage requires material spans"
+            )
+        if len(set(self.material_segment_keys)) != len(
+            self.material_segment_keys
+        ):
+            raise ContractValidationError(
+                "compact beat coverage duplicated a material span"
+            )
+        for value in self.material_segment_keys:
+            if not re.fullmatch(LOCAL_KEY_JSON_PATTERN, value):
+                raise ContractValidationError(
+                    "compact beat material-segment key is invalid"
+                )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderCompactAcceptedTurnDecisionDraftV1:
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.provider_compact_accepted_turn_decision.v1"
+    )
+
+    schema_version: str
+    decision_kind: ProviderAcceptedDecisionKind
+    material_segments: tuple[ProviderRealizationSegmentDraftV1, ...]
+    noncanonical_spans: tuple[ProviderRealizationSegmentDraftV1, ...]
+    beat_coverage: tuple[ProviderCompactBeatCoverageDraftV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV3
+    creator_review: ProviderGoodCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProviderProtectedSemanticAdjudicationDraftV2, ...
+    ]
+    event_record: ProviderEventRecordDraftV2
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "compact accepted-decision schema changed"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderCompactConcernTurnDecisionDraftV1:
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.provider_compact_concern_turn_decision.v1"
+    )
+
+    schema_version: str
+    decision_kind: ProviderConcernDecisionKind
+    material_segments: tuple[ProviderRealizationSegmentDraftV1, ...]
+    noncanonical_spans: tuple[ProviderRealizationSegmentDraftV1, ...]
+    beat_coverage: tuple[ProviderCompactBeatCoverageDraftV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV3
+    creator_review: ProviderConcernCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProviderProtectedSemanticAdjudicationDraftV2, ...
+    ]
+    event_record: ProviderEventRecordDraftV2
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "compact concern-decision schema changed"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderCompactRejectedTurnDecisionDraftV1:
+    """Sparse rejected branch containing only exact offending spans."""
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.provider_compact_rejected_turn_decision.v1"
+    )
+
+    schema_version: str
+    semantic_status: ProviderRejectedSemanticStatus
+    primary_reason_code: str
+    additional_reason_codes: tuple[str, ...]
+    offending_spans: tuple[ProviderDiagnosticStorySegmentDraftV1, ...]
+    protected_semantic_adjudications: tuple[
+        ProviderDiagnosticProtectedSemanticAdjudicationDraftV1, ...
+    ]
+    writer_recall_eligibility: ProviderWriterRecallEligibility
+    writer_recall_violations: tuple[ProviderRejectedViolationDraftV1, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "compact rejected-decision schema changed"
+            )
+        eligible = (
+            self.writer_recall_eligibility
+            is ProviderWriterRecallEligibility.ELIGIBLE
+        )
+        if eligible != bool(self.writer_recall_violations):
+            raise ContractValidationError(
+                "compact Writer recall eligibility and violations disagree"
+            )
+        if eligible and self.semantic_status is not ProviderRejectedSemanticStatus.REJECTED:
+            raise ContractValidationError(
+                "only a rejected Writer-attributable compact verdict may open recall"
+            )
+
+    @property
+    def reason_codes(self) -> tuple[str, ...]:
+        return tuple(
+            dict.fromkeys((self.primary_reason_code, *self.additional_reason_codes))
+        )
+
+    def compile(
+        self, *, writer_story_text: str
+    ) -> ContinuousSemanticValidatorResultV3:
+        segments = tuple(
+            value.compile(writer_story_text=writer_story_text)
+            for value in self.offending_spans
+        )
+        if not segments:
+            raise ContractValidationError(
+                "compact rejected decision omitted offending spans"
+            )
+        segment_map = {value.segment_key: value for value in segments}
+        if len(segment_map) != len(segments):
+            raise ContractValidationError(
+                "compact rejected decision duplicated offending-span keys"
+            )
+        prior_end = 0
+        for index, segment in enumerate(segments):
+            if index and segment.output_start < prior_end:
+                raise ContractValidationError(
+                    "compact offending spans are unordered or overlap"
+                )
+            prior_end = segment.output_end
+        adjudications: list[DiagnosticProtectedSemanticAdjudicationV1] = []
+        for value in self.protected_semantic_adjudications:
+            segment = segment_map.get(value.segment_key)
+            if segment is None:
+                raise ContractValidationError(
+                    "compact protected adjudication cited an unknown offending span"
+                )
+            adjudication = value.compile(
+                writer_story_text=writer_story_text,
+                story_segment=segment,
+            )
+            _validate_diagnostic_adjudication_against_segment(
+                segment=segment,
+                adjudication=adjudication,
+            )
+            adjudications.append(adjudication)
+        if {value.segment_key for value in adjudications} != set(segment_map):
+            raise ContractValidationError(
+                "compact rejected decision must adjudicate every offending span"
+            )
+        violation_keys = tuple(
+            value.segment_key for value in self.writer_recall_violations
+        )
+        if len(set(violation_keys)) != len(violation_keys):
+            raise ContractValidationError(
+                "compact Writer recall duplicated an offending span"
+            )
+        offending: list[WriterRecallOffendingSpanV1] = []
+        for value in self.writer_recall_violations:
+            segment = segment_map.get(value.segment_key)
+            if segment is None:
+                raise ContractValidationError(
+                    "compact Writer recall cited an unknown offending span"
+                )
+            offending.append(value.compile(segment=segment))
+        base = ContinuousSemanticValidatorResultV2(
+            semantic_status=ValidatorSemanticStatus(self.semantic_status.value),
+            reason_codes=self.reason_codes,
+            story_segments=(),
+            protected_semantic_adjudications=(),
+            diagnostic_story_segments=segments,
+            diagnostic_protected_semantic_adjudications=tuple(adjudications),
+            finalization_package=None,
+        )
+        return ContinuousSemanticValidatorResultV3.from_v2(
+            base,
+            writer_recall_eligibility=self.writer_recall_eligibility,
+            writer_recall_offending_spans=tuple(offending),
+        )
+
+
+ProviderCompactSemanticDecisionDraftV1 = Union[
+    ProviderCompactAcceptedTurnDecisionDraftV1,
+    ProviderCompactConcernTurnDecisionDraftV1,
+    ProviderCompactRejectedTurnDecisionDraftV1,
+]
+
+
+def _compile_sparse_provider_realization_segments(
+    *,
+    writer_story_text: str,
+    material_values: tuple[ProviderRealizationSegmentDraftV1, ...],
+    noncanonical_values: tuple[ProviderRealizationSegmentDraftV1, ...],
+) -> tuple[
+    tuple[StoryRealizationSegmentV1, ...],
+    tuple[StoryRealizationSegmentV1, ...],
+    tuple[PresentationRealizationSegmentV1, ...],
+]:
+    """Compile only listed authority; gaps remain noncanonical by contract."""
+
+    if not material_values:
+        raise ContractValidationError(
+            "compact accepted prose requires at least one material span"
+        )
+    all_segments: list[StoryRealizationSegmentV1] = []
+    material_segments: list[StoryRealizationSegmentV1] = []
+    presentation_segments: list[PresentationRealizationSegmentV1] = []
+    for value in material_values:
+        semantic, presentation = value.compile(writer_story_text=writer_story_text)
+        if presentation is not None:
+            raise ContractValidationError(
+                "compact material span was classified as presentation"
+            )
+        all_segments.append(semantic)
+        material_segments.append(semantic)
+    for value in noncanonical_values:
+        semantic, presentation = value.compile(writer_story_text=writer_story_text)
+        if presentation is None:
+            raise ContractValidationError(
+                "compact noncanonical span was classified as material"
+            )
+        all_segments.append(semantic)
+        presentation_segments.append(presentation)
+    for values, label in (
+        (material_segments, "material"),
+        (presentation_segments, "noncanonical"),
+    ):
+        if values != sorted(
+            values, key=lambda value: (value.output_start, value.output_end)
+        ):
+            raise ContractValidationError(
+                f"compact {label} spans must be ordered"
+            )
+    ordered = sorted(all_segments, key=lambda value: (value.output_start, value.output_end))
+    keys: set[str] = set()
+    prior_end = 0
+    for index, value in enumerate(ordered):
+        if value.segment_key in keys:
+            raise ContractValidationError("compact span keys are duplicated")
+        if index and value.output_start < prior_end:
+            raise ContractValidationError("compact spans overlap")
+        keys.add(value.segment_key)
+        prior_end = value.output_end
+    return (
+        tuple(ordered),
+        tuple(material_segments),
+        tuple(presentation_segments),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousCompactSemanticValidatorDraftV1:
+    """Sparse turn-validation wire; historical Validator wires stay immutable."""
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.continuous_compact_semantic_validator_draft.v1"
+    )
+
+    schema_version: str
+    package_id: str
+    world_id: str
+    branch_id: str
+    decision: ProviderCompactSemanticDecisionDraftV1
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous compact Semantic Validator schema changed"
+            )
+
+    def compile(
+        self,
+        *,
+        writer_story_text: str | None,
+        expected_planner_beat_keys: tuple[str, ...],
+        accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
+    ) -> ContinuousSemanticValidatorResultV3:
+        decision = self.decision
+        if isinstance(decision, ProviderCompactRejectedTurnDecisionDraftV1):
+            if not isinstance(writer_story_text, str) or not writer_story_text:
+                raise ContractValidationError(
+                    "compact rejected Validator requires immutable Writer text"
+                )
+            return decision.compile(writer_story_text=writer_story_text)
+        if not isinstance(writer_story_text, str) or not writer_story_text:
+            raise ContractValidationError(
+                "compact turn Validator requires immutable Writer text"
+            )
+        if not expected_planner_beat_keys or len(set(expected_planner_beat_keys)) != len(
+            expected_planner_beat_keys
+        ):
+            raise ContractValidationError(
+                "compact Validator requires exact unique Planner beat keys"
+            )
+        all_segments, material_segments, presentation_segments = (
+            _compile_sparse_provider_realization_segments(
+                writer_story_text=writer_story_text,
+                material_values=decision.material_segments,
+                noncanonical_values=decision.noncanonical_spans,
+            )
+        )
+        material_keys = {value.segment_key for value in material_segments}
+        coverage_keys = tuple(value.beat_key for value in decision.beat_coverage)
+        if coverage_keys != expected_planner_beat_keys:
+            raise ContractValidationError(
+                "compact beat coverage changed Planner order or completeness"
+            )
+        cited_material_keys = {
+            segment_key
+            for coverage in decision.beat_coverage
+            for segment_key in coverage.material_segment_keys
+        }
+        if cited_material_keys != material_keys:
+            raise ContractValidationError(
+                "compact beat coverage must cite every and only material span"
+            )
+        all_adjudications, source_receipts = (
+            _compile_provider_protected_adjudications_v2(
+                writer_story_text=writer_story_text,
+                story_segments=all_segments,
+                adjudications=decision.protected_semantic_adjudications,
+                presentation_segments=presentation_segments,
+            )
+        )
+        if {value.segment_key for value in all_adjudications} != {
+            value.segment_key for value in all_segments
+        }:
+            raise ContractValidationError(
+                "compact Validator must adjudicate every listed span"
+            )
+        material_adjudications = tuple(
+            value
+            for value in all_adjudications
+            if value.segment_key in material_keys
+        )
+        presentation_adjudications = tuple(
+            value
+            for value in all_adjudications
+            if value.segment_key not in material_keys
+        )
+        canonical_sequence = decision.complete_final_sequence.compile(
+            material_segments=material_segments
+        )
+        if {
+            beat_key
+            for item in canonical_sequence.items
+            for beat_key in item.planner_beat_keys
+        } != set(expected_planner_beat_keys):
+            raise ContractValidationError(
+                "compact final sequence changed mandatory beat coverage"
+            )
+        historical_sequence = ProviderFinalSequenceDraftV2.from_final_sequence(
+            canonical_sequence
+        )
+        event_record = _python_derived_event_record(
+            decision.event_record,
+            historical_sequence,
+        )
+        if isinstance(decision, ProviderCompactAcceptedTurnDecisionDraftV1):
+            historical_decision: ProviderSemanticDecisionDraftV1 = (
+                ProviderAcceptedTurnDecisionDraftV1(
+                    schema_version=ProviderAcceptedTurnDecisionDraftV1.SCHEMA_VERSION,
+                    decision_kind=decision.decision_kind,
+                    story_segments=material_segments,
+                    complete_final_sequence=historical_sequence,
+                    creator_review=decision.creator_review,
+                    protected_semantic_adjudications=material_adjudications,
+                    event_record=event_record,
+                )
+            )
+        else:
+            historical_decision = ProviderConcernTurnDecisionDraftV1(
+                schema_version=ProviderConcernTurnDecisionDraftV1.SCHEMA_VERSION,
+                decision_kind=decision.decision_kind,
+                story_segments=material_segments,
+                complete_final_sequence=historical_sequence,
+                creator_review=decision.creator_review,
+                protected_semantic_adjudications=material_adjudications,
+                event_record=event_record,
+            )
+        historical_result = ContinuousSemanticValidatorResultV2.from_v1(
+            ContinuousSemanticValidatorDraftV5(
+                schema_version=ContinuousSemanticValidatorDraftV5.SCHEMA_VERSION,
+                package_id=self.package_id,
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                decision=historical_decision,
+            ).compile(accepted_pairs=accepted_pairs)
+        )
+        return ContinuousSemanticValidatorResultV3.from_v2(
+            historical_result,
+            presentation_realization_segments=presentation_segments,
+            presentation_protected_semantic_adjudications=(
+                presentation_adjudications
+            ),
+            source_grounded_public_state_receipts=source_receipts,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ContinuousSceneWriterDraftV1:
     """Active Writer wire: exact candidate prose and nothing semantic."""
 
@@ -4724,6 +5145,45 @@ def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
     return schema
 
 
+def continuous_compact_semantic_validator_draft_json_schema() -> dict[str, Any]:
+    """Closed sparse Validator projection used only by an explicit adapter."""
+
+    schema = _schema_for(ContinuousCompactSemanticValidatorDraftV1)
+    for branch in schema["properties"]["decision"]["anyOf"]:
+        properties = branch.get("properties", {})
+        material = properties.get("material_segments")
+        if material is not None:
+            material["minItems"] = 1
+        coverage = properties.get("beat_coverage")
+        if coverage is not None:
+            coverage["minItems"] = 1
+            coverage["items"]["properties"]["material_segment_keys"][
+                "minItems"
+            ] = 1
+        sequence = properties.get("complete_final_sequence")
+        if sequence is not None:
+            sequence["properties"]["items"]["minItems"] = 1
+        diagnostics = properties.get("diagnostic_story_segments")
+        if diagnostics is not None:
+            diagnostics["minItems"] = 1
+        offending = properties.get("offending_spans")
+        if offending is not None:
+            offending["minItems"] = 1
+        additional = properties.get("additional_reason_codes")
+        if additional is not None:
+            additional["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
+        violations = properties.get("writer_recall_violations")
+        if violations is not None:
+            violations["items"]["properties"]["prohibited_detail_classes"][
+                "items"
+            ]["enum"] = [
+                value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES
+            ]
+    _constrain_active_python_hash_constants(schema)
+    _constrain_nonempty_character_role_ledgers(schema)
+    return schema
+
+
 def continuous_scene_writer_draft_json_schema() -> dict[str, Any]:
     return _schema_for(ContinuousSceneWriterDraftV1)
 
@@ -5008,6 +5468,152 @@ class CodexContinuousValidatorPort:
         )
 
 
+class CodexContinuousCompactValidatorPort:
+    """Opt-in sparse Validator adapter; the exhaustive adapter is unchanged."""
+
+    uses_compact_turn_contract = True
+
+    def __init__(
+        self,
+        transport: CodexSDKTransport,
+        *,
+        world_bridge: Any = None,
+        call_ledger: ContinuousProviderCallLedger,
+        raw_result_observer: Callable[[dict[str, Any]], None] | None = None,
+    ) -> None:
+        route = transport.route
+        if (route.model_name, route.reasoning_effort) != (
+            "gpt-5.6-sol",
+            "medium",
+        ):
+            raise ContractValidationError(
+                "compact continuous Validator requires Sol medium"
+            )
+        self.transport = transport
+        self.world_bridge = world_bridge
+        self.call_ledger = call_ledger
+        self.raw_result_observer = raw_result_observer
+        self._operation_index = 0
+
+    @staticmethod
+    def _planner_beat_keys_from_prompt(prompt: str) -> tuple[str, ...]:
+        marker = "[COMPACT VALIDATOR REQUEST]"
+        if marker not in prompt:
+            raise ContractValidationError(
+                "compact Validator request marker is missing"
+            )
+        try:
+            request = json.loads(prompt.split(marker, 1)[1].strip())
+            beats = request["planner_sequence"]["beats"]
+            keys = tuple(value["beat_key"] for value in beats)
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise ContractValidationError(
+                "compact Validator Planner beat custody is invalid"
+            ) from exc
+        if not keys or any(
+            not isinstance(value, str) or not value for value in keys
+        ):
+            raise ContractValidationError(
+                "compact Validator Planner beat custody is empty"
+            )
+        return keys
+
+    def validate(
+        self,
+        prompt: str,
+        *,
+        writer_story_text: str | None,
+        accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
+        expected_package_id: str | None = None,
+        expected_world_id: str | None = None,
+        expected_branch_id: str | None = None,
+        expected_planner_beat_keys: tuple[str, ...] | None = None,
+    ) -> ContinuousProviderResultV1:
+        self._operation_index += 1
+        route = self.transport.route
+        output_schema = continuous_compact_semantic_validator_draft_json_schema()
+        expected_identities = {
+            "package_id": expected_package_id,
+            "world_id": expected_world_id,
+            "branch_id": expected_branch_id,
+        }
+        supplied = tuple(value is not None for value in expected_identities.values())
+        if any(supplied) and not all(supplied):
+            raise ContractValidationError(
+                "compact Validator expected identities are incomplete"
+            )
+        if all(supplied):
+            for field_name, expected_value in expected_identities.items():
+                if not isinstance(expected_value, str) or not expected_value.strip():
+                    raise ContractValidationError(
+                        "compact Validator expected identity is invalid"
+                    )
+                output_schema["properties"][field_name]["const"] = expected_value
+        beat_keys = (
+            expected_planner_beat_keys
+            if expected_planner_beat_keys is not None
+            else self._planner_beat_keys_from_prompt(prompt)
+        )
+        mcp_binding = (
+            self.world_bridge.runtime_binding if self.world_bridge is not None else None
+        )
+        stored_thread_sha256 = _transport_stored_thread_sha256(self.transport)
+
+        def dispatch(markers):
+            return self.transport.invoke(
+                prompt,
+                output_schema=output_schema,
+                mcp_binding=mcp_binding,
+                on_worker_started=markers.mark_worker_started,
+                on_worker_preflight=markers.mark_worker_preflight,
+                on_transport_invoke=markers.mark_transport_invoked,
+            )
+
+        def finalize(result):
+            raw_provider_json = result.parsed_json or {}
+            if self.raw_result_observer is not None:
+                self.raw_result_observer(deepcopy(raw_provider_json))
+            if all(supplied) and any(
+                raw_provider_json.get(field_name) != expected_value
+                for field_name, expected_value in expected_identities.items()
+            ):
+                raise ContractValidationError(
+                    "compact Validator provider identity changed"
+                )
+            world_tool_debug = (
+                self.world_bridge.finalize(result) if self.world_bridge is not None else None
+            )
+            draft = from_mapping(
+                ContinuousCompactSemanticValidatorDraftV1,
+                raw_provider_json,
+            )
+            value = draft.compile(
+                writer_story_text=writer_story_text,
+                expected_planner_beat_keys=beat_keys,
+                accepted_pairs=accepted_pairs,
+            )
+            return ContinuousProviderResultV1(
+                value=value,
+                provider_receipt=result.receipt,
+                operation_telemetry=result.operation_telemetry,
+                tool_call_count=result.tool_call_count,
+                failed_tool_call_count=result.failed_tool_call_count,
+                world_tool_debug=world_tool_debug,
+                physical_session_sha256=stored_thread_sha256,
+            )
+
+        return self.call_ledger.execute(
+            owner="validator",
+            operation=f"compact_validate_{self._operation_index:04d}",
+            route=route.route_id,
+            model=route.model_name,
+            effort=route.reasoning_effort,
+            dispatch_with_stage_markers=dispatch,
+            finalize=finalize,
+            stored_thread_sha256=stored_thread_sha256,
+        )
+
+
 class CodexContinuousReaderPort:
     """Candidate-specific Codex Reader with no rewrite or persistence channel."""
 
@@ -5164,6 +5770,16 @@ def continuous_validator_route(*, model: str, effort: str):
         prompt_version=CONTINUOUS_VALIDATOR_PROMPT_VERSION,
         timeout_seconds=480,
         maximum_output_tokens=32_768,
+    )
+
+
+def continuous_compact_validator_route(*, model: str, effort: str):
+    return replace(
+        codex_realization_verifier_candidate(model=model, effort=effort),
+        adapter_id=CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION,
+        prompt_version=CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION,
+        timeout_seconds=480,
+        maximum_output_tokens=16_384,
     )
 
 
