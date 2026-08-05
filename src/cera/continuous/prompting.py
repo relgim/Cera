@@ -34,6 +34,9 @@ CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION = (
 CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V2 = (
     "cera.continuous_compact_validator_prompt.v2"
 )
+CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V3 = (
+    "cera.continuous_compact_validator_prompt.v3"
+)
 WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION = (
     "cera.writer_beat_realization_constraints.v2"
 )
@@ -63,6 +66,22 @@ COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V2 = (
         "On rejected, inconclusive, or error results, return only exact offending diagnostic spans, exact protected adjudications for those spans, typed reason codes, recall eligibility, and typed violations. Do not return a gap-free diagnostic partition and do not enumerate harmless text. Writer-attributable hard violations may open recall; Python, contract, authority, transport, branch, or accounting faults never do. Python validates offsets, IDs, hashes, source keys, and structural references but performs no prose semantics.",
         "On a Writer-attributable rejected result, return only one or more exact violation receipts. Each receipt contains the offending offsets, one closed violation_class, predicate_owner_ids, implicated_character_ids, optional protected_user_id, protected_user_implication, and exact protected-user source claim keys when applicable. Do not also return canonical roles, diagnostic story segments, protected adjudications, reason codes, recall eligibility, recall violations, exact text, hashes, or persistence data for that span; Python derives exact text, hashes, normalized reasons, recall eligibility, and recall feedback. Use direct_assertion when Ted owns the predicate and is implicated. Use relational_entailment when an NPC owns a predicate that necessarily entails unsupplied Ted participation, such as `Mia caught Ted's eye`; Mia is the predicate owner and Ted is the implicated protected user. `Mia looked toward Ted` and `Mia addressed Ted` do not alone entail Ted participation and must not be rejected solely because Ted is referenced, observed, addressed, or affected. A protected_user_behavior violation is ungrounded and carries zero protected claim keys. On inconclusive or error results only, use the historical unresolved diagnostic branch with recall ineligible; never use that branch for a Writer-attributable rejection. Do not enumerate harmless text. Python validates offsets, IDs, hashes, source keys, and structural references but performs no prose semantics."
     )
+)
+
+
+COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V3 = (
+    COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V2
+    + "\n\nA generic, scene-local household furnishing or ambient light source is soft "
+    "noncanonical presentation when it is only descriptive atmosphere and is "
+    "not acquired, transferred, consumed, manipulated, inventoried, moved to a "
+    "durable location, causally required, or relied on later. A soft lamp, side "
+    "table, ordinary chair, wall decoration, or similar unused furnishing may "
+    "remain unlisted or may be listed as incidental_prop or "
+    "nonpersistent_atmosphere. Do not classify it as new_continuity_object "
+    "merely because a Planner physical-continuity preference said not to add "
+    "props or room features. Causal use, acquisition, transfer, inventory "
+    "change, durable relocation, or future reliance remains a hard object or "
+    "material-state violation."
 )
 
 
@@ -275,7 +294,12 @@ def build_validator_prompt(
     realization_boundary: WriterRealizationBoundaryV1 | None = None,
     contract_profile: str = "exhaustive_v13",
 ) -> tuple[str, tuple[PromptComponentUsageV1, ...]]:
-    if contract_profile not in {"exhaustive_v13", "compact_v1", "compact_v2"}:
+    if contract_profile not in {
+        "exhaustive_v13",
+        "compact_v1",
+        "compact_v2",
+        "compact_v3",
+    }:
         raise ValueError("Validator contract profile is unsupported")
     boundary = realization_boundary or WriterRealizationBoundaryV1.default()
     boundary_payload = to_primitive(boundary)
@@ -329,11 +353,13 @@ def build_validator_prompt(
         "exhaustive_v13": VALIDATOR_STABLE_INSTRUCTIONS,
         "compact_v1": COMPACT_VALIDATOR_STABLE_INSTRUCTIONS,
         "compact_v2": COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V2,
+        "compact_v3": COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V3,
     }[contract_profile]
     marker = {
         "exhaustive_v13": "[VALIDATOR REQUEST]",
         "compact_v1": "[COMPACT VALIDATOR REQUEST]",
         "compact_v2": "[COMPACT VALIDATOR V2 REQUEST]",
+        "compact_v3": "[COMPACT VALIDATOR V3 REQUEST]",
     }[contract_profile]
     prompt = (
         stable_instructions

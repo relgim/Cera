@@ -18,17 +18,21 @@ from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.prompting import (
     COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V2,
+    COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V3,
     CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V2,
+    CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V3,
     build_validator_prompt,
 )
 from cera.continuous.provider import (
     CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V2,
+    CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V3,
     CodexContinuousCompactValidatorPortV2,
     ContinuousCompactSemanticValidatorDraftV2,
     ProviderCompactRejectedTurnDecisionDraftV1,
     ProviderCompactRejectedTurnDecisionDraftV2,
     continuous_compact_semantic_validator_draft_v2_json_schema,
     continuous_compact_validator_v2_route,
+    continuous_compact_validator_v3_route,
 )
 from cera.providers import (
     ProviderSchemaDialect,
@@ -329,6 +333,53 @@ class CompactRejectedViolationReceiptV1Tests(unittest.TestCase):
         }
         self.assertNotIn("ted_silence_reference", final_keys)
 
+    def test_unused_household_lamp_is_soft_but_causal_use_remains_hard(self) -> None:
+        story = "Hana smiled. A soft lamp sat on the low side table near the door."
+        empty_roles = {
+            "action_owner_ids": [],
+            "state_owner_ids": [],
+            "speaker_ids": [],
+            "affected_ids": [],
+            "addressed_ids": [],
+            "observing_ids": [],
+            "referenced_ids": [],
+        }
+        accepted = self.compile(
+            accepted_noncanonical_payload(
+                story,
+                span_text="A soft lamp sat on the low side table near the door.",
+                span_key="ambient_lamp_and_table",
+                presentation_class="nonpersistent_atmosphere",
+                kind="narration",
+                roles=empty_roles,
+                relation="none",
+                npc_owner_ids=(),
+            ),
+            story,
+        )
+        self.assertIs(accepted.semantic_status, ValidatorSemanticStatus.ACCEPTED)
+        self.assertEqual(
+            accepted.presentation_realization_segments[0].exact_text,
+            "A soft lamp sat on the low side table near the door.",
+        )
+
+        causal_story = "Hana picked up the lamp and carried it upstairs."
+        hard_payload = violation_payload(
+            causal_story,
+            violation_key="causal_lamp_relocation",
+            predicate_owner_ids=("character:hana_hanezawa",),
+            implicated_character_ids=("character:hana_hanezawa",),
+            implication="none",
+        )
+        violation = hard_payload["decision"]["violations"][0]
+        violation["violation_class"] = "material_or_scene_state_change"
+        violation["protected_user_id"] = None
+        hard = self.compile(hard_payload, causal_story)
+        self.assertIs(hard.semantic_status, ValidatorSemanticStatus.REJECTED)
+        self.assertEqual(
+            hard.reason_codes, ("material_or_scene_state_change",)
+        )
+
     def test_direct_relational_and_claim_combinations_fail_closed(self) -> None:
         story = "Mia caught Ted's eye."
         cases = []
@@ -500,6 +551,43 @@ class CompactRejectedViolationReceiptV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             route.prompt_version, CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V2
+        )
+
+    def test_v3_prompt_clarifies_incidental_props_with_new_identity(self) -> None:
+        plan = planner_sequence()
+        prompt, _ = build_validator_prompt(
+            task_mode=ValidatorTaskMode.FINALIZE_TURN,
+            package_id="package:compact_v3_prompt",
+            world_id=plan.world_id,
+            branch_id=plan.branch_id,
+            candidate_id="candidate:compact_v3_prompt",
+            current_user_source="Continue the scene",
+            planner_sequence=plan,
+            writer_story_text="A soft lamp sat near the door.",
+            writer_mechanical_envelope={
+                "candidate_id": "candidate:compact_v3_prompt",
+                "story_text_sha256": "0" * 64,
+                "codepoint_count": 30,
+            },
+            accepted_turn_id="turn:compact_v3_prompt",
+            contract_profile="compact_v3",
+        )
+        self.assertTrue(prompt.startswith(COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V3))
+        self.assertIn("[COMPACT VALIDATOR V3 REQUEST]", prompt)
+        self.assertIn("soft lamp, side table", prompt)
+        self.assertIn("Causal use, acquisition, transfer", prompt)
+        self.assertNotEqual(
+            COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V3,
+            COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V2,
+        )
+        route = continuous_compact_validator_v3_route(
+            model="gpt-5.6-sol", effort="medium"
+        )
+        self.assertEqual(
+            route.adapter_id, CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V3
+        )
+        self.assertEqual(
+            route.prompt_version, CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V3
         )
 
     def test_v2_port_submits_and_compiles_only_the_v2_schema(self) -> None:
