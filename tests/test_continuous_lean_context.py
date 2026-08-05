@@ -951,7 +951,7 @@ class ContinuousLeanContextTests(unittest.TestCase):
         )
         self.assertEqual(
             validator_request["schema_version"],
-            "cera.continuous_validator_request.v13",
+            "cera.continuous_validator_request.v14",
         )
         self.assertEqual(validator_request["package_id"], "package:turn_002")
         self.assertEqual(validator_request["world_id"], "world:hanezawa_test")

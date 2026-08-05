@@ -37,7 +37,7 @@ from cera.continuous.provider import (
 )
 from cera.errors import ContractValidationError
 from cera.schema import from_mapping
-from cera.serialization import text_sha256
+from cera.serialization import text_sha256, to_primitive
 from cera.continuous.prompting import (
     CONTINUOUS_VALIDATOR_PROMPT_VERSION,
     VALIDATOR_STABLE_INSTRUCTIONS,
@@ -167,7 +167,7 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_use_single_authority_role_derivation(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v38",
+            "cera.continuous_validator_prompt.v39",
         )
         for required in (
             "Do not repeat segment roles, protected claims, persistence directives",
@@ -218,6 +218,44 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
             "only when the prose supplies or resolves the protected choice",
         ):
             self.assertIn(required, VALIDATOR_STABLE_INSTRUCTIONS)
+
+    def test_validator_receives_python_custody_without_paragraph_arithmetic(self) -> None:
+        story = "Mia offers a choice.\n\nHana leaves the answer open."
+        envelope = WriterMechanicalEnvelopeV1.from_story_text(
+            candidate_id="candidate:python_custody",
+            story_text=story,
+        )
+        prompt, _ = build_validator_prompt(
+            task_mode=ValidatorTaskMode.FINALIZE_TURN,
+            package_id="package:python_custody",
+            world_id="world:test",
+            branch_id="branch:main",
+            candidate_id=envelope.candidate_id,
+            current_user_source="Continue the scene",
+            planner_sequence=None,
+            writer_story_text=story,
+            writer_mechanical_envelope=to_primitive(envelope),
+            accepted_turn_id="turn:test",
+        )
+        request = json.loads(prompt.split("\n\n[VALIDATOR REQUEST]\n", 1)[1])
+        self.assertEqual(
+            request["schema_version"],
+            "cera.continuous_validator_request.v14",
+        )
+        self.assertNotIn("writer_mechanical_envelope", request)
+        custody = request["python_validated_writer_text_custody"]
+        self.assertEqual(
+            custody,
+            {
+                "schema_version": "cera.validator_writer_text_custody.v1",
+                "python_validated": True,
+                "candidate_id": envelope.candidate_id,
+                "story_text_sha256": envelope.story_text_sha256,
+                "codepoint_count": envelope.codepoint_count,
+            },
+        )
+        self.assertNotIn("paragraph_ranges", custody)
+        self.assertNotIn("utf8_byte_count", custody)
 
     def registry(self) -> RequestEvidenceBindingRegistry:
         return RequestEvidenceBindingRegistry(

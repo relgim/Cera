@@ -164,7 +164,7 @@ class PlannerParticipantReferenceTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v38",
+            "cera.continuous_validator_prompt.v39",
         )
         for required in (
             "active NPC participants only",
