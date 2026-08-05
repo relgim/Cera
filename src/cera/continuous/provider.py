@@ -33,6 +33,8 @@ from .contracts import (
     ACTIVE_VALIDATOR_WRITER_HARD_CLASSES,
     AcceptedTurnPairV1,
     CharacterRoleLedgerV1,
+    CompactProtectedUserImplication,
+    CompactRejectedViolationReceiptV1,
     COMPACT_WRITER_BRIEF_MAX_BEATS,
     CreatedFieldLogEntryV1,
     DiagnosticGroundingStatus,
@@ -79,6 +81,7 @@ from .call_ledger import ContinuousProviderCallLedger
 from .record_policy import PERSISTENCE_POLICY_SHA256
 from .prompting import (
     CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION,
+    CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V2,
     CONTINUOUS_PLANNER_PROMPT_VERSION,
     CONTINUOUS_READER_PROMPT_VERSION,
     CONTINUOUS_VALIDATOR_PROMPT_VERSION,
@@ -89,6 +92,9 @@ CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v14"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v30"
 CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION = (
     "cera.continuous_compact_validator_adapter.v1"
+)
+CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V2 = (
+    "cera.continuous_compact_validator_adapter.v2"
 )
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v6"
@@ -2923,6 +2929,139 @@ class ContinuousSemanticValidatorResultV3:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class ContinuousCompactRejectedValidatorResultV1:
+    """Rejected compact V2 result with no canonical or legacy diagnostic wire."""
+
+    semantic_status: ValidatorSemanticStatus
+    reason_codes: tuple[str, ...]
+    story_segments: tuple[StoryRealizationSegmentV1, ...]
+    protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ]
+    presentation_realization_segments: tuple[
+        PresentationRealizationSegmentV1, ...
+    ]
+    presentation_protected_semantic_adjudications: tuple[
+        ProtectedSemanticAdjudicationV1, ...
+    ]
+    diagnostic_story_segments: tuple[DiagnosticStorySegmentV1, ...]
+    diagnostic_protected_semantic_adjudications: tuple[
+        DiagnosticProtectedSemanticAdjudicationV1, ...
+    ]
+    finalization_package: ValidatorFinalizationPackageV1 | None
+    writer_recall_eligibility: ProviderWriterRecallEligibility
+    writer_recall_offending_spans: tuple[WriterRecallOffendingSpanV1, ...]
+    source_grounded_public_state_receipts: tuple[
+        SourceGroundedPublicStateReceiptV1, ...
+    ]
+    rejected_violation_receipts: tuple[
+        CompactRejectedViolationReceiptV1, ...
+    ]
+
+    def __post_init__(self) -> None:
+        if (
+            self.semantic_status is not ValidatorSemanticStatus.REJECTED
+            or self.story_segments
+            or self.protected_semantic_adjudications
+            or self.presentation_realization_segments
+            or self.presentation_protected_semantic_adjudications
+            or self.diagnostic_story_segments
+            or self.diagnostic_protected_semantic_adjudications
+            or self.finalization_package is not None
+            or self.source_grounded_public_state_receipts
+            or not self.rejected_violation_receipts
+        ):
+            raise ContractValidationError(
+                "compact rejected violation result mixed with story authority"
+            )
+        keys = tuple(
+            value.violation_key for value in self.rejected_violation_receipts
+        )
+        if len(keys) != len(set(keys)):
+            raise ContractValidationError(
+                "compact rejected violation receipt keys are duplicated"
+            )
+        cursor = 0
+        for index, value in enumerate(self.rejected_violation_receipts):
+            if index and value.output_start < cursor:
+                raise ContractValidationError(
+                    "compact rejected violation receipts overlap or are unordered"
+                )
+            cursor = value.output_end
+        derived_reasons = tuple(
+            dict.fromkeys(
+                value.violation_class.value
+                for value in self.rejected_violation_receipts
+            )
+        )
+        if self.reason_codes != derived_reasons:
+            raise ContractValidationError(
+                "compact rejected violation reasons were not Python-derived"
+            )
+        if (
+            self.writer_recall_eligibility
+            is not ProviderWriterRecallEligibility.ELIGIBLE
+        ):
+            raise ContractValidationError(
+                "compact rejected Writer violations must open bounded recall"
+            )
+        recall_by_key = {
+            value.segment_key: value
+            for value in self.writer_recall_offending_spans
+        }
+        if set(recall_by_key) != set(keys):
+            raise ContractValidationError(
+                "compact rejected violation recall spans changed receipt coverage"
+            )
+        for receipt in self.rejected_violation_receipts:
+            recall = recall_by_key[receipt.violation_key]
+            if (
+                recall.output_start != receipt.output_start
+                or recall.output_end != receipt.output_end
+                or recall.exact_text != receipt.exact_text
+                or recall.exact_text_sha256 != receipt.exact_text_sha256
+                or recall.prohibited_detail_classes
+                != (receipt.violation_class,)
+            ):
+                raise ContractValidationError(
+                    "compact rejected violation recall feedback changed receipt custody"
+                )
+
+    @property
+    def writer_candidate_disposition(self) -> WriterCandidateDisposition:
+        return WriterCandidateDisposition.HARD_WRITER_VIOLATION
+
+    def build_writer_recall_directive(
+        self,
+        *,
+        rejected_candidate_id: str,
+        rejected_story_text: str,
+        frozen_authority_package_sha256: str,
+        source_attempt_number: int,
+    ) -> WriterRecallDirectiveV1:
+        if any(
+            rejected_story_text[value.output_start : value.output_end]
+            != value.exact_text
+            for value in self.writer_recall_offending_spans
+        ):
+            raise ContractValidationError(
+                "Writer recall feedback changed rejected candidate bytes"
+            )
+        return WriterRecallDirectiveV1(
+            schema_version=WriterRecallDirectiveV1.SCHEMA_VERSION,
+            rejected_candidate_id=rejected_candidate_id,
+            rejected_story_text_sha256=text_sha256(rejected_story_text),
+            frozen_authority_package_sha256=frozen_authority_package_sha256,
+            source_attempt_number=source_attempt_number,
+            next_attempt_number=source_attempt_number + 1,
+            reason_codes=self.reason_codes,
+            offending_spans=self.writer_recall_offending_spans,
+            authoritative=False,
+            attempts_may_merge=False,
+        )
+
+
 ProviderSemanticDecisionDraftV4 = Union[
     ProviderAcceptedTurnDecisionDraftV3,
     ProviderConcernTurnDecisionDraftV3,
@@ -3807,6 +3946,140 @@ class ProviderCompactConcernTurnDecisionDraftV1:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderCompactViolationSpanDraftV1:
+    """One provider-authored semantic violation over Python-owned Writer bytes."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_compact_violation_span.v1"
+
+    schema_version: str
+    violation_key: str
+    output_start: int
+    output_end: int
+    violation_class: ProhibitedWriterDetailClass
+    predicate_owner_ids: tuple[str, ...]
+    implicated_character_ids: tuple[str, ...]
+    protected_user_id: str | None
+    protected_user_implication: CompactProtectedUserImplication
+    protected_user_source_claim_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider compact violation-span schema changed"
+            )
+        if not re.fullmatch(LOCAL_KEY_JSON_PATTERN, self.violation_key):
+            raise ContractValidationError("compact violation key is invalid")
+
+    def compile(
+        self, *, writer_story_text: str
+    ) -> CompactRejectedViolationReceiptV1:
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+            or self.output_end > len(writer_story_text)
+        ):
+            raise ContractValidationError(
+                "provider compact violation span is out of bounds"
+            )
+        exact_text = writer_story_text[self.output_start : self.output_end]
+        return CompactRejectedViolationReceiptV1(
+            schema_version=CompactRejectedViolationReceiptV1.SCHEMA_VERSION,
+            violation_key=self.violation_key,
+            output_start=self.output_start,
+            output_end=self.output_end,
+            exact_text=exact_text,
+            exact_text_sha256=text_sha256(exact_text),
+            violation_class=self.violation_class,
+            predicate_owner_ids=self.predicate_owner_ids,
+            implicated_character_ids=self.implicated_character_ids,
+            protected_user_id=self.protected_user_id,
+            protected_user_implication=self.protected_user_implication,
+            protected_user_source_claim_keys=(
+                self.protected_user_source_claim_keys
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderCompactRejectedTurnDecisionDraftV2:
+    """Rejected-only V2 wire with one authoritative sparse receipt family."""
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.provider_compact_rejected_turn_decision.v2"
+    )
+
+    schema_version: str
+    semantic_status: ProviderRejectedSemanticStatus
+    violations: tuple[ProviderCompactViolationSpanDraftV1, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "compact rejected-decision V2 schema changed"
+            )
+        if self.semantic_status is not ProviderRejectedSemanticStatus.REJECTED:
+            raise ContractValidationError(
+                "compact violation receipts are restricted to rejected results"
+            )
+        if not self.violations:
+            raise ContractValidationError(
+                "compact rejected decision omitted violation receipts"
+            )
+
+    def compile(
+        self, *, writer_story_text: str
+    ) -> ContinuousCompactRejectedValidatorResultV1:
+        receipts = tuple(
+            value.compile(writer_story_text=writer_story_text)
+            for value in self.violations
+        )
+        keys = tuple(value.violation_key for value in receipts)
+        if len(keys) != len(set(keys)):
+            raise ContractValidationError(
+                "compact rejected decision duplicated violation keys"
+            )
+        cursor = 0
+        for index, value in enumerate(receipts):
+            if index and value.output_start < cursor:
+                raise ContractValidationError(
+                    "compact rejected violation spans overlap or are unordered"
+                )
+            cursor = value.output_end
+        reason_codes = tuple(
+            dict.fromkeys(value.violation_class.value for value in receipts)
+        )
+        offending = tuple(
+            WriterRecallOffendingSpanV1(
+                schema_version=WriterRecallOffendingSpanV1.SCHEMA_VERSION,
+                segment_key=value.violation_key,
+                output_start=value.output_start,
+                output_end=value.output_end,
+                exact_text=value.exact_text,
+                exact_text_sha256=value.exact_text_sha256,
+                prohibited_detail_classes=(value.violation_class,),
+            )
+            for value in receipts
+        )
+        return ContinuousCompactRejectedValidatorResultV1(
+            semantic_status=ValidatorSemanticStatus.REJECTED,
+            reason_codes=reason_codes,
+            story_segments=(),
+            protected_semantic_adjudications=(),
+            presentation_realization_segments=(),
+            presentation_protected_semantic_adjudications=(),
+            diagnostic_story_segments=(),
+            diagnostic_protected_semantic_adjudications=(),
+            finalization_package=None,
+            writer_recall_eligibility=ProviderWriterRecallEligibility.ELIGIBLE,
+            writer_recall_offending_spans=offending,
+            source_grounded_public_state_receipts=(),
+            rejected_violation_receipts=receipts,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderCompactRejectedTurnDecisionDraftV1:
     """Sparse rejected branch containing only exact offending spans."""
 
@@ -3926,6 +4199,13 @@ class ProviderCompactRejectedTurnDecisionDraftV1:
 ProviderCompactSemanticDecisionDraftV1 = Union[
     ProviderCompactAcceptedTurnDecisionDraftV1,
     ProviderCompactConcernTurnDecisionDraftV1,
+    ProviderCompactRejectedTurnDecisionDraftV1,
+]
+
+ProviderCompactSemanticDecisionDraftV2 = Union[
+    ProviderCompactAcceptedTurnDecisionDraftV1,
+    ProviderCompactConcernTurnDecisionDraftV1,
+    ProviderCompactRejectedTurnDecisionDraftV2,
     ProviderCompactRejectedTurnDecisionDraftV1,
 ]
 
@@ -4138,6 +4418,63 @@ class ContinuousCompactSemanticValidatorDraftV1:
                 presentation_adjudications
             ),
             source_grounded_public_state_receipts=source_receipts,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousCompactSemanticValidatorDraftV2:
+    """V2 compact wire with a sparse rejected violation receipt branch."""
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.continuous_compact_semantic_validator_draft.v2"
+    )
+
+    schema_version: str
+    package_id: str
+    world_id: str
+    branch_id: str
+    decision: ProviderCompactSemanticDecisionDraftV2
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous compact Semantic Validator V2 schema changed"
+            )
+        if (
+            isinstance(self.decision, ProviderCompactRejectedTurnDecisionDraftV1)
+            and self.decision.semantic_status
+            is ProviderRejectedSemanticStatus.REJECTED
+        ):
+            raise ContractValidationError(
+                "compact V2 Writer rejection must use violation receipts"
+            )
+
+    def compile(
+        self,
+        *,
+        writer_story_text: str | None,
+        expected_planner_beat_keys: tuple[str, ...],
+        accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
+    ) -> (
+        ContinuousSemanticValidatorResultV3
+        | ContinuousCompactRejectedValidatorResultV1
+    ):
+        if not isinstance(writer_story_text, str) or not writer_story_text:
+            raise ContractValidationError(
+                "compact V2 Validator requires immutable Writer text"
+            )
+        if isinstance(self.decision, ProviderCompactRejectedTurnDecisionDraftV2):
+            return self.decision.compile(writer_story_text=writer_story_text)
+        return ContinuousCompactSemanticValidatorDraftV1(
+            schema_version=ContinuousCompactSemanticValidatorDraftV1.SCHEMA_VERSION,
+            package_id=self.package_id,
+            world_id=self.world_id,
+            branch_id=self.branch_id,
+            decision=self.decision,
+        ).compile(
+            writer_story_text=writer_story_text,
+            expected_planner_beat_keys=expected_planner_beat_keys,
+            accepted_pairs=accepted_pairs,
         )
 
 
@@ -5183,6 +5520,50 @@ def continuous_compact_semantic_validator_draft_json_schema() -> dict[str, Any]:
     return schema
 
 
+def continuous_compact_semantic_validator_draft_v2_json_schema() -> dict[str, Any]:
+    """V2 compact projection with one sparse rejected violation receipt wire."""
+
+    schema = _schema_for(ContinuousCompactSemanticValidatorDraftV2)
+    for branch in schema["properties"]["decision"]["anyOf"]:
+        properties = branch.get("properties", {})
+        material = properties.get("material_segments")
+        if material is not None:
+            material["minItems"] = 1
+        coverage = properties.get("beat_coverage")
+        if coverage is not None:
+            coverage["minItems"] = 1
+            coverage["items"]["properties"]["material_segment_keys"][
+                "minItems"
+            ] = 1
+        sequence = properties.get("complete_final_sequence")
+        if sequence is not None:
+            sequence["properties"]["items"]["minItems"] = 1
+        violations = properties.get("violations")
+        if violations is not None:
+            violations["minItems"] = 1
+            violations["items"]["properties"]["violation_class"]["enum"] = [
+                value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES
+            ]
+        offending = properties.get("offending_spans")
+        if offending is not None:
+            # Historical V1 diagnostics remain decodable only for unresolved
+            # compact outcomes.  A Writer-attributable rejection must use V2.
+            properties["semantic_status"]["enum"] = ["inconclusive", "error"]
+            offending["minItems"] = 1
+        additional = properties.get("additional_reason_codes")
+        if additional is not None:
+            additional["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
+        recall_violations = properties.get("writer_recall_violations")
+        if recall_violations is not None:
+            recall_violations["items"]["properties"][
+                "prohibited_detail_classes"
+            ]["items"]["enum"] = [
+                value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES
+            ]
+    _constrain_active_python_hash_constants(schema)
+    return schema
+
+
 def continuous_scene_writer_draft_json_schema() -> dict[str, Any]:
     return _schema_for(ContinuousSceneWriterDraftV1)
 
@@ -5471,6 +5852,13 @@ class CodexContinuousCompactValidatorPort:
     """Opt-in sparse Validator adapter; the exhaustive adapter is unchanged."""
 
     uses_compact_turn_contract = True
+    compact_contract_profile = "compact_v1"
+    request_marker = "[COMPACT VALIDATOR REQUEST]"
+    draft_type = ContinuousCompactSemanticValidatorDraftV1
+    output_schema_builder = staticmethod(
+        continuous_compact_semantic_validator_draft_json_schema
+    )
+    operation_prefix = "compact_validate"
 
     def __init__(
         self,
@@ -5496,7 +5884,7 @@ class CodexContinuousCompactValidatorPort:
 
     @staticmethod
     def _planner_beat_keys_from_prompt(prompt: str) -> tuple[str, ...]:
-        marker = "[COMPACT VALIDATOR REQUEST]"
+        marker = CodexContinuousCompactValidatorPort.request_marker
         if marker not in prompt:
             raise ContractValidationError(
                 "compact Validator request marker is missing"
@@ -5530,7 +5918,7 @@ class CodexContinuousCompactValidatorPort:
     ) -> ContinuousProviderResultV1:
         self._operation_index += 1
         route = self.transport.route
-        output_schema = continuous_compact_semantic_validator_draft_json_schema()
+        output_schema = self.output_schema_builder()
         expected_identities = {
             "package_id": expected_package_id,
             "world_id": expected_world_id,
@@ -5583,7 +5971,7 @@ class CodexContinuousCompactValidatorPort:
                 self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )
             draft = from_mapping(
-                ContinuousCompactSemanticValidatorDraftV1,
+                self.draft_type,
                 raw_provider_json,
             )
             value = draft.compile(
@@ -5603,7 +5991,7 @@ class CodexContinuousCompactValidatorPort:
 
         return self.call_ledger.execute(
             owner="validator",
-            operation=f"compact_validate_{self._operation_index:04d}",
+            operation=f"{self.operation_prefix}_{self._operation_index:04d}",
             route=route.route_id,
             model=route.model_name,
             effort=route.reasoning_effort,
@@ -5611,6 +5999,41 @@ class CodexContinuousCompactValidatorPort:
             finalize=finalize,
             stored_thread_sha256=stored_thread_sha256,
         )
+
+
+class CodexContinuousCompactValidatorPortV2(CodexContinuousCompactValidatorPort):
+    """Opt-in V2 adapter with rejected-only violation receipts."""
+
+    compact_contract_profile = "compact_v2"
+    request_marker = "[COMPACT VALIDATOR V2 REQUEST]"
+    draft_type = ContinuousCompactSemanticValidatorDraftV2
+    output_schema_builder = staticmethod(
+        continuous_compact_semantic_validator_draft_v2_json_schema
+    )
+    operation_prefix = "compact_v2_validate"
+
+    @classmethod
+    def _planner_beat_keys_from_prompt(cls, prompt: str) -> tuple[str, ...]:
+        marker = cls.request_marker
+        if marker not in prompt:
+            raise ContractValidationError(
+                "compact Validator V2 request marker is missing"
+            )
+        try:
+            request = json.loads(prompt.split(marker, 1)[1].strip())
+            beats = request["planner_sequence"]["beats"]
+            keys = tuple(value["beat_key"] for value in beats)
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+            raise ContractValidationError(
+                "compact Validator V2 Planner beat custody is invalid"
+            ) from exc
+        if not keys or any(
+            not isinstance(value, str) or not value for value in keys
+        ):
+            raise ContractValidationError(
+                "compact Validator V2 Planner beat custody is empty"
+            )
+        return keys
 
 
 class CodexContinuousReaderPort:
@@ -5777,6 +6200,16 @@ def continuous_compact_validator_route(*, model: str, effort: str):
         codex_realization_verifier_candidate(model=model, effort=effort),
         adapter_id=CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION,
         prompt_version=CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION,
+        timeout_seconds=480,
+        maximum_output_tokens=16_384,
+    )
+
+
+def continuous_compact_validator_v2_route(*, model: str, effort: str):
+    return replace(
+        codex_realization_verifier_candidate(model=model, effort=effort),
+        adapter_id=CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V2,
+        prompt_version=CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V2,
         timeout_seconds=480,
         maximum_output_tokens=16_384,
     )

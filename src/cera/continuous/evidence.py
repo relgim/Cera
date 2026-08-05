@@ -24,6 +24,7 @@ from .contracts import (
     AcceptedFinalSequenceEnvelopeV1,
     CharacterRoleLedgerV1,
     CharacterSummaryEnvelopeV1,
+    CompactRejectedViolationReceiptV1,
     DiagnosticGroundingStatus,
     DiagnosticProtectedSemanticAdjudicationV1,
     DiagnosticStorySegmentV1,
@@ -2395,6 +2396,69 @@ class RequestEvidenceBindingRegistry:
 
         # Deliberately do not assign ``self._story_segments``.  Diagnostic
         # evidence is rejected-candidate provenance, never accepted authority.
+
+    def validate_compact_violation_receipts(
+        self,
+        *,
+        story_text: str,
+        violation_receipts: tuple[CompactRejectedViolationReceiptV1, ...],
+        allowed_character_ids: tuple[str, ...],
+        reference_only_character_ids: tuple[str, ...] = (),
+    ) -> None:
+        """Validate sparse rejected receipts without creating story authority."""
+
+        if not violation_receipts:
+            raise PermissionError(
+                "Semantic Validator omitted compact rejected violation receipts"
+            )
+        active = set(allowed_character_ids)
+        active.add("character:ted")
+        reference_only = set(reference_only_character_ids)
+        if active & reference_only:
+            raise PermissionError(
+                "compact violation reference-only cast overlaps active cast"
+            )
+        keys: set[str] = set()
+        cursor = 0
+        for index, receipt in enumerate(violation_receipts):
+            if receipt.violation_key in keys:
+                raise PermissionError(
+                    "Semantic Validator compact violation key is duplicated"
+                )
+            if (
+                (index and receipt.output_start < cursor)
+                or receipt.output_end > len(story_text)
+            ):
+                raise PermissionError(
+                    "Semantic Validator compact violation spans overlap or are out of bounds"
+                )
+            if (
+                story_text[receipt.output_start : receipt.output_end]
+                != receipt.exact_text
+                or receipt.exact_text_sha256 != text_sha256(receipt.exact_text)
+            ):
+                raise PermissionError(
+                    "Semantic Validator compact violation changed exact Writer text"
+                )
+            if set(receipt.predicate_owner_ids) - active:
+                raise PermissionError(
+                    "Semantic Validator compact violation has an inactive predicate owner"
+                )
+            if set(receipt.implicated_character_ids) - active - reference_only:
+                raise PermissionError(
+                    "Semantic Validator compact violation implicated an unknown character"
+                )
+            for claim_key in receipt.protected_user_source_claim_keys:
+                if claim_key not in self._protected_user_claims:
+                    raise PermissionError(
+                        "Semantic Validator compact violation cited an unknown protected claim"
+                    )
+            keys.add(receipt.violation_key)
+            cursor = receipt.output_end
+
+        # Deliberately do not assign ``self._story_segments``.  Compact
+        # violation receipts are rejected diagnostics and can never satisfy
+        # finalization, traceability, event, memory, or persistence checks.
 
     def validate_traceability(
         self,

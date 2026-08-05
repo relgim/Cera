@@ -31,6 +31,9 @@ CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v39"
 CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION = (
     "cera.continuous_compact_validator_prompt.v1"
 )
+CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V2 = (
+    "cera.continuous_compact_validator_prompt.v2"
+)
 WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION = (
     "cera.writer_beat_realization_constraints.v2"
 )
@@ -53,6 +56,14 @@ Soft vague relational color is noncanonical unless it establishes a specific pri
 On rejected, inconclusive, or error results, return only exact offending diagnostic spans, exact protected adjudications for those spans, typed reason codes, recall eligibility, and typed violations. Do not return a gap-free diagnostic partition and do not enumerate harmless text. Writer-attributable hard violations may open recall; Python, contract, authority, transport, branch, or accounting faults never do. Python validates offsets, IDs, hashes, source keys, and structural references but performs no prose semantics.
 
 Use lower snake case local keys. Copy package_id, world_id, and branch_id exactly. No retry, fallback, Fast mode, hidden repair, persistence, or provider-conversation authority."""
+
+
+COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V2 = (
+    COMPACT_VALIDATOR_STABLE_INSTRUCTIONS.replace(
+        "On rejected, inconclusive, or error results, return only exact offending diagnostic spans, exact protected adjudications for those spans, typed reason codes, recall eligibility, and typed violations. Do not return a gap-free diagnostic partition and do not enumerate harmless text. Writer-attributable hard violations may open recall; Python, contract, authority, transport, branch, or accounting faults never do. Python validates offsets, IDs, hashes, source keys, and structural references but performs no prose semantics.",
+        "On a Writer-attributable rejected result, return only one or more exact violation receipts. Each receipt contains the offending offsets, one closed violation_class, predicate_owner_ids, implicated_character_ids, optional protected_user_id, protected_user_implication, and exact protected-user source claim keys when applicable. Do not also return canonical roles, diagnostic story segments, protected adjudications, reason codes, recall eligibility, recall violations, exact text, hashes, or persistence data for that span; Python derives exact text, hashes, normalized reasons, recall eligibility, and recall feedback. Use direct_assertion when Ted owns the predicate and is implicated. Use relational_entailment when an NPC owns a predicate that necessarily entails unsupplied Ted participation, such as `Mia caught Ted's eye`; Mia is the predicate owner and Ted is the implicated protected user. `Mia looked toward Ted` and `Mia addressed Ted` do not alone entail Ted participation and must not be rejected solely because Ted is referenced, observed, addressed, or affected. A protected_user_behavior violation is ungrounded and carries zero protected claim keys. On inconclusive or error results only, use the historical unresolved diagnostic branch with recall ineligible; never use that branch for a Writer-attributable rejection. Do not enumerate harmless text. Python validates offsets, IDs, hashes, source keys, and structural references but performs no prose semantics."
+    )
+)
 
 
 PLANNER_STABLE_INSTRUCTIONS = """You are CERA's continuous Scene Planner. You own causal and psychological logic, rational participant selection, current-scene continuity, and a rich sequence of materially distinct causal beats. Each beat must explain perception, goal, pressure, tactic, causality, observable direction, private-state ownership, material continuity, resulting state, evidence, protected-user allowance, and open realization space. Never prewrite final prose. DeepSeek owns exact wording, gestures, pacing, and imagery within that space. Provider conversation is not story authority. The newest Python packet and accepted-final-sequence envelopes supersede conflicting provisional plans. A receipt-bound lean_continuation_authority in the newest packet is exact only for its active_cast_ids and optional public_continuation_anchor; it never authorizes omitted prior plan fields, prose, private state, or another character. Obey the closed Python context mode: ordinary compatible turns are lean; projection assistance contains only its explicitly named keys; reconstruction occurs only while Python initializes a new physical thread. The current ingress receipt is immutable Python authority: never reinterpret its raw source, source spans, actor, speaker, world, branch, session, request, turn, protected-user, adapter, or classification identities. Python allocates every valid request-local evidence binding. Cite only exact binding_key values supplied in the current packet or returned by cera_world_read; arbitrary labels are invalid. Search/list only locate candidates and never create evidence. ACTIVE bindings are durable hard authority. Every beat with an NPC assertion owner must cite at least one exact ACTIVE world-record binding for that NPC; current ingress, mechanical allowance, DERIVED context, or another character's binding is not enough. Every private-state beat must cite the exact character-private ACTIVE binding whose knowledge_owner_id matches its sole NPC assertion owner. When one character has a visible action and another has a private reaction, emit separate beats and cite each owner's ACTIVE binding on that owner's beat. Python-resolved stable accepted-context references may support only their exact public visibility or exact private owner. Every accepted_turn_id inside the input packet is a prior/reference identity, never the identity of the current provisional result; the current output accepted_turn_id must be null and provisional must be true. A projection-assisted payload is advisory only for its named stable keys. Neither establishes older history, card traits, rules, or private facts absent from the accepted sequence. DERIVED bindings are navigation or retrieval context only and can never be the sole support for a hard character, rule, event, or memory decision; fetch and cite the relevant ACTIVE record. A character-private binding may appear only on a beat with exactly one NPC assertion owner, and that owner must match the private owner; split shared action into separate beats when characters use different private knowledge. Character summary envelopes are Python-derived hints bound only to exact ACTIVE record fields, remain incomplete, and do not replace cited authority. Python supplies a trusted receipt-bound source-unit ledger and exact protected-user source claims. On an ordinary Planner turn, treat exact protected-user ingress as immutable causal evidence already present in the visible scene and begin the rich sequence with the first NPC-controlled causal consequence. Do not emit a standalone Ted-owned rich beat whose only function is to replay supplied ingress; preserve its exact claim and binding as evidence for the NPC consequence instead. This is a generation rule, not permission to delete, normalize, or repair provider output after generation. Roles are closed and mutually exclusive within each beat: one character ID must appear in exactly one of the seven role arrays. action_owner_ids own actions; state_owner_ids own thought, emotion, bodily or consent/decision states; speaker_ids own utterances; affected, addressed, observing, and referenced roles never authorize an action or state. If one character both acts, changes state, or speaks, split those assertions into separate causally ordered beats so that character has exactly one role in each beat. Any assertion owned by character:ted requires one exact supplied claim. Put its claim_key in protected_user_allowance.source_claim_keys and cite its source binding. Do not paraphrase or extend Ted's action, dialogue, thought, state, emotion, decision, movement, or consent in beat free text: preserve an exact supplied span or refer to the claim key without restating it. The Python mechanical-connective binding permits only nonmeaningful syntax and never Ted action, dialogue, thought, decision, movement, consent, emotion, or a new fact. The 32-call transport ceiling is runaway protection; reaching it is terminal, so never repeat an unproductive lookup. Search only the authorized branch ACTIVE world view, labeled non-authoritative DERIVED views, and your Planner session context. Never inspect Validator context, rejected candidate directories, debug logs, unrelated files, or other sessions. Preserve creator, identity, privacy, character-knowledge, branch, consent/capacity, evidence, participant, and protected-user boundaries. No retry or fallback."""
@@ -264,7 +275,7 @@ def build_validator_prompt(
     realization_boundary: WriterRealizationBoundaryV1 | None = None,
     contract_profile: str = "exhaustive_v13",
 ) -> tuple[str, tuple[PromptComponentUsageV1, ...]]:
-    if contract_profile not in {"exhaustive_v13", "compact_v1"}:
+    if contract_profile not in {"exhaustive_v13", "compact_v1", "compact_v2"}:
         raise ValueError("Validator contract profile is unsupported")
     boundary = realization_boundary or WriterRealizationBoundaryV1.default()
     boundary_payload = to_primitive(boundary)
@@ -314,16 +325,16 @@ def build_validator_prompt(
         ),
     }
     request_bytes = canonical_bytes(request)
-    stable_instructions = (
-        COMPACT_VALIDATOR_STABLE_INSTRUCTIONS
-        if contract_profile == "compact_v1"
-        else VALIDATOR_STABLE_INSTRUCTIONS
-    )
-    marker = (
-        "[COMPACT VALIDATOR REQUEST]"
-        if contract_profile == "compact_v1"
-        else "[VALIDATOR REQUEST]"
-    )
+    stable_instructions = {
+        "exhaustive_v13": VALIDATOR_STABLE_INSTRUCTIONS,
+        "compact_v1": COMPACT_VALIDATOR_STABLE_INSTRUCTIONS,
+        "compact_v2": COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V2,
+    }[contract_profile]
+    marker = {
+        "exhaustive_v13": "[VALIDATOR REQUEST]",
+        "compact_v1": "[COMPACT VALIDATOR REQUEST]",
+        "compact_v2": "[COMPACT VALIDATOR V2 REQUEST]",
+    }[contract_profile]
     prompt = (
         stable_instructions
         + "\n\n"

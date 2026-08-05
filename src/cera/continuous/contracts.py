@@ -2148,6 +2148,120 @@ class DiagnosticViolationClassification(StrEnum):
     )
 
 
+class CompactProtectedUserImplication(StrEnum):
+    """Rejected-only relationship between a predicate and the protected user."""
+
+    NONE = "none"
+    DIRECT_ASSERTION = "direct_assertion"
+    RELATIONAL_ENTAILMENT = "relational_entailment"
+
+
+@dataclass(frozen=True, slots=True)
+class CompactRejectedViolationReceiptV1:
+    """Python-custodied proof of one exact rejected Writer violation.
+
+    Predicate and implicated IDs are diagnostic only.  They deliberately do
+    not use ``CharacterRoleLedgerV1`` and cannot authorize accepted story
+    state.
+    """
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.compact_rejected_violation_receipt.v1"
+
+    schema_version: str
+    violation_key: str
+    output_start: int
+    output_end: int
+    exact_text: str
+    exact_text_sha256: str
+    violation_class: ProhibitedWriterDetailClass
+    predicate_owner_ids: tuple[str, ...]
+    implicated_character_ids: tuple[str, ...]
+    protected_user_id: str | None
+    protected_user_implication: CompactProtectedUserImplication
+    protected_user_source_claim_keys: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "compact rejected violation receipt schema changed"
+            )
+        _key(self.violation_key, "compact_violation.violation_key")
+        if (
+            type(self.output_start) is not int
+            or type(self.output_end) is not int
+            or self.output_start < 0
+            or self.output_end <= self.output_start
+        ):
+            raise ContractValidationError("compact violation span is invalid")
+        _text(self.exact_text, "compact_violation.exact_text", maximum=64_000)
+        if (
+            self.output_end - self.output_start != len(self.exact_text)
+            or self.exact_text_sha256 != text_sha256(self.exact_text)
+        ):
+            raise ContractValidationError(
+                "compact violation exact-text custody changed"
+            )
+        if self.violation_class not in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES:
+            raise ContractValidationError(
+                "compact violation class is not an active Writer hard class"
+            )
+        for field_name in (
+            "predicate_owner_ids",
+            "implicated_character_ids",
+        ):
+            values = getattr(self, field_name)
+            for value in values:
+                _identity(value, f"compact_violation.{field_name}")
+            _unique(values, f"compact_violation.{field_name}")
+        for value in self.protected_user_source_claim_keys:
+            _key(value, "compact_violation.protected_user_source_claim_keys")
+        _unique(
+            self.protected_user_source_claim_keys,
+            "compact_violation.protected_user_source_claim_keys",
+        )
+
+        protected = self.protected_user_id
+        if self.protected_user_implication is CompactProtectedUserImplication.NONE:
+            if protected is not None or self.protected_user_source_claim_keys:
+                raise ContractValidationError(
+                    "non-protected compact violation cannot carry protected custody"
+                )
+            return
+        if protected != "character:ted":
+            raise ContractValidationError(
+                "compact protected violation changed the protected-user identity"
+            )
+        if protected not in self.implicated_character_ids:
+            raise ContractValidationError(
+                "compact protected violation omitted the implicated protected user"
+            )
+        if (
+            self.violation_class
+            is ProhibitedWriterDetailClass.PROTECTED_USER_BEHAVIOR
+            and self.protected_user_source_claim_keys
+        ):
+            raise ContractValidationError(
+                "ungrounded protected implication cannot cite a supporting claim"
+            )
+        if (
+            self.protected_user_implication
+            is CompactProtectedUserImplication.DIRECT_ASSERTION
+        ):
+            if protected not in self.predicate_owner_ids:
+                raise ContractValidationError(
+                    "direct protected implication requires protected predicate ownership"
+                )
+        elif (
+            protected in self.predicate_owner_ids
+            or not any(
+                value != protected for value in self.predicate_owner_ids
+            )
+        ):
+            raise ContractValidationError(
+                "relational protected implication requires a non-protected predicate owner"
+            )
+
+
 @dataclass(frozen=True, slots=True)
 class DiagnosticStorySegmentV1:
     """Exact Python-custodied span that can describe invalid Writer semantics.

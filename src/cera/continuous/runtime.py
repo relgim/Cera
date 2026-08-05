@@ -459,11 +459,19 @@ class ContinuousShadowTurnCoordinator:
         self.validator = validator
         self.reader = reader
         self.ingress_authority = ingress_authority
-        if validator_contract_profile not in {"exhaustive_v13", "compact_v1"}:
+        if validator_contract_profile not in {
+            "exhaustive_v13",
+            "compact_v1",
+            "compact_v2",
+        }:
             raise StateConflictError("continuous Validator contract profile changed")
         if (
-            validator_contract_profile == "compact_v1"
-            and not bool(getattr(validator, "uses_compact_turn_contract", False))
+            validator_contract_profile.startswith("compact_")
+            and (
+                not bool(getattr(validator, "uses_compact_turn_contract", False))
+                or getattr(validator, "compact_contract_profile", None)
+                != validator_contract_profile
+            )
         ):
             raise StateConflictError(
                 "compact Validator prompt requires the compact provider adapter"
@@ -1924,6 +1932,13 @@ class ContinuousShadowTurnCoordinator:
                     (),
                 )
             )
+            rejected_violation_receipts = tuple(
+                getattr(
+                    semantic_result,
+                    "rejected_violation_receipts",
+                    (),
+                )
+            )
             attempt_debug.write_json(
                 "validator_output.json",
                 to_primitive(semantic_result),
@@ -1943,18 +1958,36 @@ class ContinuousShadowTurnCoordinator:
                     raise StateConflictError(
                         "rejected Validator result carried canonical finalization authority"
                     )
-                evidence_registry.validate_validator_diagnostics(
-                    story_text=story_text,
-                    diagnostic_story_segments=diagnostic_story_segments,
-                    diagnostic_protected_semantic_adjudications=(
-                        diagnostic_adjudications
-                    ),
-                    allowed_character_ids=planner_sequence.selected_character_ids,
-                    reference_only_character_ids=reference_only_character_ids,
-                    require_gap_free=(
-                        self.validator_contract_profile != "compact_v1"
-                    ),
-                )
+                if rejected_violation_receipts:
+                    if diagnostic_story_segments or diagnostic_adjudications:
+                        raise StateConflictError(
+                            "compact rejected result duplicated violation authority"
+                        )
+                    evidence_registry.validate_compact_violation_receipts(
+                        story_text=story_text,
+                        violation_receipts=rejected_violation_receipts,
+                        allowed_character_ids=(
+                            planner_sequence.selected_character_ids
+                        ),
+                        reference_only_character_ids=(
+                            reference_only_character_ids
+                        ),
+                    )
+                else:
+                    evidence_registry.validate_validator_diagnostics(
+                        story_text=story_text,
+                        diagnostic_story_segments=diagnostic_story_segments,
+                        diagnostic_protected_semantic_adjudications=(
+                            diagnostic_adjudications
+                        ),
+                        allowed_character_ids=planner_sequence.selected_character_ids,
+                        reference_only_character_ids=reference_only_character_ids,
+                        require_gap_free=(
+                            not self.validator_contract_profile.startswith(
+                                "compact_"
+                            )
+                        ),
+                    )
                 reason_codes = tuple(
                     getattr(semantic_result, "reason_codes", ())
                 )
@@ -1996,7 +2029,11 @@ class ContinuousShadowTurnCoordinator:
                 )
                 attempt_debug.record_failure("validator_semantic_verdict", error)
                 raise error
-            if diagnostic_story_segments or diagnostic_adjudications:
+            if (
+                diagnostic_story_segments
+                or diagnostic_adjudications
+                or rejected_violation_receipts
+            ):
                 raise StateConflictError(
                     "accepted Validator result carried rejected diagnostic evidence"
                 )
@@ -2020,7 +2057,7 @@ class ContinuousShadowTurnCoordinator:
                         source_grounded_public_state_receipts
                     ),
                     require_gap_free=(
-                        self.validator_contract_profile != "compact_v1"
+                        not self.validator_contract_profile.startswith("compact_")
                     ),
                 )
             )
