@@ -733,11 +733,11 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v29",
+            "cera.continuous_validator_adapter.v30",
         )
         route = continuous_validator_route(model="gpt-5.6-sol", effort="medium")
         self.assertEqual(route.adapter_id, CONTINUOUS_VALIDATOR_ADAPTER_VERSION)
-        self.assertEqual(route.timeout_seconds, 300)
+        self.assertEqual(route.timeout_seconds, 480)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
 

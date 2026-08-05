@@ -84,7 +84,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v13"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v29"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v30"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v6"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v4"
@@ -5160,7 +5160,7 @@ def continuous_validator_route(*, model: str, effort: str):
         codex_realization_verifier_candidate(model=model, effort=effort),
         adapter_id=CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
         prompt_version=CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-        timeout_seconds=300,
+        timeout_seconds=480,
         maximum_output_tokens=32_768,
     )
 

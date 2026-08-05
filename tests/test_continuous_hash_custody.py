@@ -551,7 +551,7 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v29",
+            "cera.continuous_validator_adapter.v30",
         )
 
     def test_active_schema_rejects_provider_authored_prior_value_hash(self) -> None:
