@@ -167,7 +167,7 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v34",
+            "cera.continuous_validator_prompt.v35",
         )
         for required in (
             "applies independently to each final-sequence item",
@@ -206,6 +206,9 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
             "Kind narration requires no action_owner, state_owner, or speaker",
             "Never label a state-owned description as narration",
             "until every span satisfies exactly one row",
+            "the doorway remained Ted's to cross",
+            "does not itself assert that Ted makes a decision",
+            "only when the prose supplies or resolves the protected choice",
         ):
             self.assertIn(required, VALIDATOR_STABLE_INSTRUCTIONS)
 

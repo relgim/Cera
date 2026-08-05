@@ -359,6 +359,18 @@ class ValidatorSimplificationSourceGroundedStateTests(unittest.TestCase):
         ):
             self.assertIn(required, VALIDATOR_STABLE_INSTRUCTIONS)
 
+    def test_prompt_preserves_an_unresolved_protected_user_handoff(self) -> None:
+        for required in (
+            "the doorway remained Ted's to cross",
+            "does not itself assert that Ted makes a decision",
+            "Do not label that wording consent_or_decision",
+            "only when the prose supplies or resolves the protected choice",
+            "Ted crossed the doorway",
+            "Ted chose to enter",
+            "creates no accepted protected-user authority, event, memory, material state, summary, or persistence",
+        ):
+            self.assertIn(required, VALIDATOR_STABLE_INSTRUCTIONS)
+
 
 if __name__ == "__main__":
     unittest.main()
