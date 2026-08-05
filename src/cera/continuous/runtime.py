@@ -464,6 +464,7 @@ class ContinuousShadowTurnCoordinator:
             "compact_v1",
             "compact_v2",
             "compact_v3",
+            "compact_v4",
         }:
             raise StateConflictError("continuous Validator contract profile changed")
         if (

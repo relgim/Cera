@@ -37,6 +37,9 @@ CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V2 = (
 CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V3 = (
     "cera.continuous_compact_validator_prompt.v3"
 )
+CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V4 = (
+    "cera.continuous_compact_validator_prompt.v4"
+)
 WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION = (
     "cera.writer_beat_realization_constraints.v2"
 )
@@ -82,6 +85,23 @@ COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V3 = (
     "props or room features. Causal use, acquisition, transfer, inventory "
     "change, durable relocation, or future reliance remains a hard object or "
     "material-state violation."
+)
+
+
+COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V4 = (
+    COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V3
+    + "\n\nVague, nonidentifying family familiarity is soft noncanonical "
+    "low-stakes conversational color, not durable relationship memory. A phrase "
+    "such as `the quiet understanding of two people who had had this conversation "
+    "in other forms before` may remain unlisted when it only conveys a familiar "
+    "family cadence and does not identify a prior exchange, its content or outcome, "
+    "a learned fact, a changed relationship state, a causal dependency, or something "
+    "future turns must rely on. Do not classify that generic formulation as "
+    "relationship_memory_or_knowledge solely because it gestures vaguely toward "
+    "familiarity. A named or otherwise identifiable prior conversation, its specific "
+    "content or result, durable knowledge learned from it, a relationship change, a "
+    "causal explanation, or later reliance remains a hard "
+    "relationship_memory_or_knowledge violation without exact authority."
 )
 
 
@@ -299,6 +319,7 @@ def build_validator_prompt(
         "compact_v1",
         "compact_v2",
         "compact_v3",
+        "compact_v4",
     }:
         raise ValueError("Validator contract profile is unsupported")
     boundary = realization_boundary or WriterRealizationBoundaryV1.default()
@@ -354,12 +375,14 @@ def build_validator_prompt(
         "compact_v1": COMPACT_VALIDATOR_STABLE_INSTRUCTIONS,
         "compact_v2": COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V2,
         "compact_v3": COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V3,
+        "compact_v4": COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V4,
     }[contract_profile]
     marker = {
         "exhaustive_v13": "[VALIDATOR REQUEST]",
         "compact_v1": "[COMPACT VALIDATOR REQUEST]",
         "compact_v2": "[COMPACT VALIDATOR V2 REQUEST]",
         "compact_v3": "[COMPACT VALIDATOR V3 REQUEST]",
+        "compact_v4": "[COMPACT VALIDATOR V4 REQUEST]",
     }[contract_profile]
     prompt = (
         stable_instructions

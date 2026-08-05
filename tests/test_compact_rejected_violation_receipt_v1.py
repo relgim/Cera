@@ -19,13 +19,16 @@ from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.prompting import (
     COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V2,
     COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V3,
+    COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V4,
     CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V2,
     CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V3,
+    CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V4,
     build_validator_prompt,
 )
 from cera.continuous.provider import (
     CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V2,
     CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V3,
+    CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V4,
     CodexContinuousCompactValidatorPortV2,
     ContinuousCompactSemanticValidatorDraftV2,
     ProviderCompactRejectedTurnDecisionDraftV1,
@@ -33,6 +36,7 @@ from cera.continuous.provider import (
     continuous_compact_semantic_validator_draft_v2_json_schema,
     continuous_compact_validator_v2_route,
     continuous_compact_validator_v3_route,
+    continuous_compact_validator_v4_route,
 )
 from cera.providers import (
     ProviderSchemaDialect,
@@ -588,6 +592,51 @@ class CompactRejectedViolationReceiptV1Tests(unittest.TestCase):
         )
         self.assertEqual(
             route.prompt_version, CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V3
+        )
+
+    def test_v4_prompt_clarifies_vague_family_familiarity_with_new_identity(
+        self,
+    ) -> None:
+        plan = planner_sequence()
+        story = (
+            "The sisters shared the quiet understanding of two people who had had "
+            "this conversation in other forms before."
+        )
+        prompt, _ = build_validator_prompt(
+            task_mode=ValidatorTaskMode.FINALIZE_TURN,
+            package_id="package:compact_v4_prompt",
+            world_id=plan.world_id,
+            branch_id=plan.branch_id,
+            candidate_id="candidate:compact_v4_prompt",
+            current_user_source="Continue the scene",
+            planner_sequence=plan,
+            writer_story_text=story,
+            writer_mechanical_envelope={
+                "candidate_id": "candidate:compact_v4_prompt",
+                "story_text_sha256": "0" * 64,
+                "codepoint_count": len(story),
+            },
+            accepted_turn_id="turn:compact_v4_prompt",
+            contract_profile="compact_v4",
+        )
+        self.assertTrue(prompt.startswith(COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V4))
+        self.assertIn("[COMPACT VALIDATOR V4 REQUEST]", prompt)
+        self.assertIn("quiet understanding of two people", prompt)
+        self.assertIn("nonidentifying family familiarity", prompt)
+        self.assertIn("named or otherwise identifiable prior conversation", prompt)
+        self.assertIn("later reliance", prompt)
+        self.assertNotEqual(
+            COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V4,
+            COMPACT_VALIDATOR_STABLE_INSTRUCTIONS_V3,
+        )
+        route = continuous_compact_validator_v4_route(
+            model="gpt-5.6-sol", effort="medium"
+        )
+        self.assertEqual(
+            route.adapter_id, CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V4
+        )
+        self.assertEqual(
+            route.prompt_version, CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V4
         )
 
     def test_v2_port_submits_and_compiles_only_the_v2_schema(self) -> None:

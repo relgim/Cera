@@ -83,6 +83,7 @@ from .prompting import (
     CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION,
     CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V2,
     CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V3,
+    CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V4,
     CONTINUOUS_PLANNER_PROMPT_VERSION,
     CONTINUOUS_READER_PROMPT_VERSION,
     CONTINUOUS_VALIDATOR_PROMPT_VERSION,
@@ -99,6 +100,9 @@ CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V2 = (
 )
 CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V3 = (
     "cera.continuous_compact_validator_adapter.v3"
+)
+CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V4 = (
+    "cera.continuous_compact_validator_adapter.v4"
 )
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v6"
@@ -6048,6 +6052,14 @@ class CodexContinuousCompactValidatorPortV3(CodexContinuousCompactValidatorPortV
     operation_prefix = "compact_v3_validate"
 
 
+class CodexContinuousCompactValidatorPortV4(CodexContinuousCompactValidatorPortV3):
+    """Prompt-v4 adapter; compact V2 schema and receipt DTO remain unchanged."""
+
+    compact_contract_profile = "compact_v4"
+    request_marker = "[COMPACT VALIDATOR V4 REQUEST]"
+    operation_prefix = "compact_v4_validate"
+
+
 class CodexContinuousReaderPort:
     """Candidate-specific Codex Reader with no rewrite or persistence channel."""
 
@@ -6232,6 +6244,16 @@ def continuous_compact_validator_v3_route(*, model: str, effort: str):
         codex_realization_verifier_candidate(model=model, effort=effort),
         adapter_id=CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V3,
         prompt_version=CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V3,
+        timeout_seconds=480,
+        maximum_output_tokens=16_384,
+    )
+
+
+def continuous_compact_validator_v4_route(*, model: str, effort: str):
+    return replace(
+        codex_realization_verifier_candidate(model=model, effort=effort),
+        adapter_id=CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION_V4,
+        prompt_version=CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION_V4,
         timeout_seconds=480,
         maximum_output_tokens=16_384,
     )
