@@ -2156,7 +2156,7 @@ class ContinuousShadowTurnCoordinator:
             composer_prompt_sha256=text_sha256(composer_prompt),
             validator_prompt_sha256=text_sha256(validator_prompt),
             reader_prompt_sha256=text_sha256(reader_prompt),
-            debug_root=debug.root,
+            debug_root=attempt_debug.root,
             provider_calls=provider_calls,
             evidence_registry_sha256=evidence_registry.registry_sha256,
             protected_user_claim_ledger_sha256=canonical_sha256(

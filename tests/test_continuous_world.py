@@ -1842,6 +1842,7 @@ class ContinuousWorldTests(unittest.TestCase):
         debug = ContinuousDebugRecorder(self.root, "scene-001", "turn-001")
         attempt_two = debug.root / "WRITER_ATTEMPTS" / "attempt-002"
         self.assertTrue(attempt_two.is_dir())
+        self.assertEqual(candidate.debug_root, attempt_two)
         self.assertFalse(
             (debug.root / "WRITER_ATTEMPTS" / "attempt-003").exists()
         )
