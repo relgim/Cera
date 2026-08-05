@@ -523,6 +523,50 @@ class ContinuousEvidenceCorrectionTests(unittest.TestCase):
                 sequence, ownership_broken, branch_root=self.root
             )
 
+    def test_planner_protected_claim_allowance_does_not_require_unused_claim(
+        self,
+    ) -> None:
+        text = "Ted remains silent and still."
+        registry = RequestEvidenceBindingRegistry(
+            world_id="world-test", branch_id="main", turn_id="turn-001"
+        )
+        current = registry.allocate_current_source(
+            source_identity="current_user_source:turn-001",
+            source_text=text,
+            protected_user_allowance_scope="exact source only",
+            source_units=(
+                _owned_unit(text, kind=IngressSourceUnitKind.STATE),
+            ),
+        )
+        claim_key = registry.protected_user_claim_manifest()[0]["claim_key"]
+        base_sequence = rich_sequence()
+        sequence = replace(
+            base_sequence,
+            beats=(
+                replace(
+                    base_sequence.beats[0],
+                    source_evidence_bindings=(current.binding_key,),
+                    protected_user_allowance=ProtectedUserAllowanceV1(
+                        mode=ProtectedUserAllowanceMode.EXACT_SOURCE_ONLY,
+                        source_binding_keys=(current.binding_key,),
+                        source_claim_keys=(claim_key,),
+                        explanation=(
+                            "The exact supplied state may be preserved but need not "
+                            "be restated."
+                        ),
+                    ),
+                ),
+            ),
+        )
+        draft = composer_draft("Sakura requests proof.")
+        registry.validate_composer_realization(
+            story_text=draft.story_text,
+            realizations=draft.protected_user_realizations,
+            story_segments=draft.story_segments,
+        )
+
+        registry.validate_traceability(sequence, package(), branch_root=self.root)
+
     def _package_for_semantic_segment(
         self,
         segment: StoryRealizationSegmentV1,
@@ -2530,6 +2574,25 @@ class ContinuousAuthorityV5Tests(unittest.TestCase):
             ),
         )
         registry.validate_traceability(sequence, valid)
+
+        disallowed_sequence = replace(
+            sequence,
+            beats=(
+                replace(
+                    sequence.beats[0],
+                    protected_user_allowance=ProtectedUserAllowanceV1(
+                        mode=ProtectedUserAllowanceMode.EXACT_SOURCE_ONLY,
+                        source_binding_keys=(current.binding_key,),
+                        source_claim_keys=("claim_source_00000000000000000000",),
+                        explanation="Only a different exact claim is authorized.",
+                    ),
+                ),
+            ),
+        )
+        with self.assertRaisesRegex(
+            StateConflictError, "outside its Planner allowance"
+        ):
+            registry.validate_traceability(disallowed_sequence, valid)
 
         invented = text + " Ted steps inside."
         invented_item = replace(

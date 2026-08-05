@@ -2399,14 +2399,16 @@ class RequestEvidenceBindingRegistry:
             for beat_key in item.planner_beat_keys:
                 if beat_key not in beats:
                     raise StateConflictError("final sequence cites an unknown Planner beat")
-            expected_claim_keys = {
+            allowed_claim_keys = {
                 claim_key
                 for beat_key in item.planner_beat_keys
                 for claim_key in beats[beat_key].protected_user_allowance.source_claim_keys
             }
-            if set(item.protected_user_source_claim_keys) != expected_claim_keys:
+            if not set(item.protected_user_source_claim_keys).issubset(
+                allowed_claim_keys
+            ):
                 raise StateConflictError(
-                    "final sequence changed protected-user claim provenance"
+                    "final sequence used a protected-user claim outside its Planner allowance"
                 )
             for beat_key in item.planner_beat_keys:
                 if not beats[beat_key].source_evidence_bindings:
