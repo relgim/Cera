@@ -102,7 +102,7 @@ from cera.continuous.sessions import (
     continuous_branch_privacy_boundary_sha256,
     unavailable_thread_archive_evidence,
 )
-from cera.errors import StateConflictError
+from cera.errors import ContractValidationError, StateConflictError
 from cera.continuous.scripted_job4 import (
     SCRIPTED_JOB4_FIXTURE_ID,
     SCRIPTED_JOB4_FIXTURE_SHA256,
@@ -642,7 +642,23 @@ class _HarnessPlannerPort:
     def __init__(self, harness: "JobHarness") -> None:
         self.harness = harness
 
-    def plan(self, prompt: str):
+    def plan(
+        self,
+        prompt: str,
+        *,
+        protected_user_id: str | None = None,
+        protected_user_source_claim_keys: tuple[str, ...] = (),
+    ):
+        if protected_user_id is not None and not protected_user_id.startswith(
+            "character:"
+        ):
+            raise ContractValidationError(
+                "scripted Planner protected-user identity is invalid"
+            )
+        if protected_user_source_claim_keys and protected_user_id is None:
+            raise ContractValidationError(
+                "scripted Planner protected-user claims lack an identity"
+            )
         number = self.harness._active_turn_number
         turn_id = self.harness._active_turn_id
         return self.harness.provider_call(

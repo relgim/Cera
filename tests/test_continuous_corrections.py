@@ -170,6 +170,7 @@ class _QueueStage:
     def __init__(self, *values) -> None:
         self.values = list(values)
         self.prompts: list[str] = []
+        self.plan_authorities: list[dict[str, object]] = []
 
     def _next(self, prompt: str):
         self.prompts.append(prompt)
@@ -209,7 +210,8 @@ class _QueueStage:
             world_tool_debug=None,
         )
 
-    def plan(self, prompt: str):
+    def plan(self, prompt: str, **kwargs):
+        self.plan_authorities.append(dict(kwargs))
         return self._next(prompt)
 
     def compose(self, prompt: str):
@@ -889,6 +891,20 @@ class ContinuousProviderFreeIntegrationTests(unittest.TestCase):
                 prepared_candidates.append(candidate)
                 coordinator.apply_creator_action(turn_id, CreatorReviewAction.ACCEPT)
 
+            self.assertEqual(
+                planner.plan_authorities,
+                [
+                    {
+                        "protected_user_id": "character:ted",
+                        "protected_user_source_claim_keys": (),
+                    },
+                    {
+                        "protected_user_id": "character:ted",
+                        "protected_user_source_claim_keys": (),
+                    },
+                ],
+            )
+
             first_packet = json.loads(
                 (
                     prepared_candidates[0].debug_root
@@ -1435,6 +1451,56 @@ class ContinuousCallAccountingTests(unittest.TestCase):
                 for value in self.ledger.events
             )
         )
+
+    def test_planner_adapter_projects_zero_claim_protected_owner_constraint(self) -> None:
+        route = SimpleNamespace(
+            model_name="gpt-5.6-sol",
+            route_id="fake-sol",
+            reasoning_effort="medium",
+        )
+
+        class Transport:
+            def __init__(self) -> None:
+                self.route = route
+                self.runner = SimpleNamespace(provider_thread_id="stored-planner-2")
+                self.output_schema = None
+
+            def invoke(self, *_args, **kwargs):
+                self.output_schema = kwargs["output_schema"]
+                return SimpleNamespace(
+                    parsed_json={}, receipt={"calls": 1}, operation_telemetry=None
+                )
+
+        transport = Transport()
+        port = CodexContinuousPlannerPort(transport, call_ledger=self.ledger)
+        with self.assertRaises(ContractValidationError):
+            port.plan(
+                "Plan this zero-claim turn.",
+                protected_user_id="character:ted",
+                protected_user_source_claim_keys=(),
+            )
+        self.assertEqual(self.ledger.dispatched_call_count, 1)
+        roles = transport.output_schema["properties"]["beats"]["items"][
+            "properties"
+        ]["roles"]
+        for field in ("action_owner_ids", "state_owner_ids", "speaker_ids"):
+            self.assertIn("pattern", roles["properties"][field]["items"])
+        for field in ("affected_ids", "addressed_ids", "observing_ids", "referenced_ids"):
+            self.assertNotIn("pattern", roles["properties"][field]["items"])
+
+        empty_ledger = ContinuousProviderCallLedger(
+            Path(self.temp.name).resolve() / "invalid-schema-ledger.jsonl",
+            maximum_calls=1,
+        )
+        invalid_port = CodexContinuousPlannerPort(
+            Transport(), call_ledger=empty_ledger
+        )
+        with self.assertRaisesRegex(ContractValidationError, "claims lack"):
+            invalid_port.plan(
+                "Plan this invalid turn.",
+                protected_user_source_claim_keys=("claim_current_dialogue_0001",),
+            )
+        self.assertEqual(empty_ledger.dispatched_call_count, 0)
 
     def test_validator_adapter_postinvocation_decode_failure_counts_one(self) -> None:
         route = SimpleNamespace(

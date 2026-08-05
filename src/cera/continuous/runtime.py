@@ -96,7 +96,13 @@ from .world import (
 
 
 class PlannerPort(Protocol):
-    def plan(self, prompt: str): ...
+    def plan(
+        self,
+        prompt: str,
+        *,
+        protected_user_id: str | None = None,
+        protected_user_source_claim_keys: tuple[str, ...] = (),
+    ): ...
 
 
 class ComposerPort(Protocol):
@@ -1610,6 +1616,9 @@ class ContinuousShadowTurnCoordinator:
         stable_reference_keys = tuple(
             value["binding_key"] for value in stable_reference_bindings
         )
+        protected_user_claim_manifest = (
+            evidence_registry.protected_user_claim_manifest()
+        )
         planner_authority_packet = build_continuous_planner_turn_packet(
             world_id=request.world_id,
             branch_id=request.branch_id,
@@ -1622,9 +1631,7 @@ class ContinuousShadowTurnCoordinator:
             request_local_evidence_bindings=evidence_registry.prompt_manifest(),
             current_source_binding_key=current_source_binding.binding_key,
             mechanical_connective_binding_key=mechanical_binding.binding_key,
-            protected_user_source_claims=(
-                evidence_registry.protected_user_claim_manifest()
-            ),
+            protected_user_source_claims=protected_user_claim_manifest,
             ingress_source_units=tuple(
                 to_primitive(value) for value in source_units
             ),
@@ -1662,7 +1669,14 @@ class ContinuousShadowTurnCoordinator:
         )
         started = time.perf_counter_ns()
         try:
-            planner_result = self.planner.plan(planner_prompt)
+            planner_result = self.planner.plan(
+                planner_prompt,
+                protected_user_id=ingress_receipt.protected_user_id,
+                protected_user_source_claim_keys=tuple(
+                    value["claim_key"]
+                    for value in protected_user_claim_manifest
+                ),
+            )
         except BaseException as exc:
             debug.record_failure("planner", exc)
             raise
@@ -1722,9 +1736,7 @@ class ContinuousShadowTurnCoordinator:
                 ),
                 planner_sequence=planner_sequence,
                 character_summaries=request.character_summaries,
-                protected_user_claim_manifest=(
-                    evidence_registry.protected_user_claim_manifest()
-                ),
+                protected_user_claim_manifest=protected_user_claim_manifest,
                 accepted_session_projections=(),
                 realization_boundary=realization_boundary,
             )
@@ -1766,9 +1778,7 @@ class ContinuousShadowTurnCoordinator:
                 ),
                 planner_sequence=planner_sequence,
                 character_summaries=request.character_summaries,
-                protected_user_claim_manifest=(
-                    evidence_registry.protected_user_claim_manifest()
-                ),
+                protected_user_claim_manifest=protected_user_claim_manifest,
                 accepted_session_projections=(),
                 realization_boundary=realization_boundary,
                 writer_recall_directive=writer_recall_directive,
@@ -1837,9 +1847,7 @@ class ContinuousShadowTurnCoordinator:
                     request.world_id, request.branch_id
                 ),
                 evidence_binding_manifest=validator_binding_manifest,
-                protected_user_claim_manifest=(
-                    evidence_registry.protected_user_claim_manifest()
-                ),
+                protected_user_claim_manifest=protected_user_claim_manifest,
                 ingress_source_units=tuple(
                     to_primitive(value) for value in source_units
                 ),
@@ -2160,7 +2168,7 @@ class ContinuousShadowTurnCoordinator:
             provider_calls=provider_calls,
             evidence_registry_sha256=evidence_registry.registry_sha256,
             protected_user_claim_ledger_sha256=canonical_sha256(
-                evidence_registry.protected_user_claim_manifest()
+                protected_user_claim_manifest
             ),
             protected_user_realization_ledger_sha256=canonical_sha256(
                 to_primitive(protected_realizations)
@@ -2382,7 +2390,7 @@ class ContinuousShadowTurnCoordinator:
                 "composer_result": composer_payload,
                 "writer_mechanical_envelope": to_primitive(writer_envelope),
                 "evidence_registry_sha256": evidence_registry.registry_sha256,
-                "protected_user_claim_manifest": evidence_registry.protected_user_claim_manifest(),
+                "protected_user_claim_manifest": protected_user_claim_manifest,
                 "ingress_source_units": tuple(
                     to_primitive(value) for value in source_units
                 ),

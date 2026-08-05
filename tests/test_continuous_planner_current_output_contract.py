@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 import json
 from pathlib import Path
+import re
 from tempfile import TemporaryDirectory
 import unittest
 
@@ -164,6 +165,68 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
         ):
             from_mapping(RichPlannerSequenceV1, without_owner)
 
+    def test_zero_claim_schema_excludes_only_protected_assertion_ownership(self) -> None:
+        source_schema = rich_planner_sequence_json_schema(
+            protected_user_id="character:ted",
+            protected_user_source_claim_keys=(),
+        )
+        projected_schema = project_provider_output_schema(
+            source_schema,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        owner_fields = ("action_owner_ids", "state_owner_ids", "speaker_ids")
+
+        for schema in (source_schema, projected_schema):
+            role_schema = schema["properties"]["beats"]["items"]["properties"][
+                "roles"
+            ]
+            for field in owner_fields:
+                pattern = role_schema["properties"][field]["items"]["pattern"]
+                self.assertIsNone(re.fullmatch(pattern, "character:ted"))
+                self.assertIsNotNone(
+                    re.fullmatch(pattern, "character:hana_hanezawa")
+                )
+                for branch in role_schema["anyOf"]:
+                    self.assertEqual(
+                        branch["properties"][field]["items"]["pattern"],
+                        pattern,
+                    )
+            for field in (
+                "affected_ids",
+                "addressed_ids",
+                "observing_ids",
+                "referenced_ids",
+            ):
+                self.assertNotIn(
+                    "pattern", role_schema["properties"][field]["items"]
+                )
+            self.assertNotIn(
+                "pattern", schema["properties"]["selected_character_ids"]["items"]
+            )
+
+        ted_owned = deepcopy(self.payload)
+        ted_owned["accepted_turn_id"] = None
+        ted_owned["beats"][0]["roles"]["speaker_ids"] = ["character:ted"]
+        ted_owned["beats"][0]["roles"]["addressed_ids"] = []
+        self.assertTrue(
+            tuple(Draft202012Validator(projected_schema).iter_errors(ted_owned))
+        )
+
+        ted_addressed = deepcopy(self.payload)
+        ted_addressed["accepted_turn_id"] = None
+        self.assertFalse(
+            tuple(Draft202012Validator(projected_schema).iter_errors(ted_addressed))
+        )
+
+    def test_exact_claim_schema_retains_python_guarded_protected_owner_surface(self) -> None:
+        schema = rich_planner_sequence_json_schema(
+            protected_user_id="character:ted",
+            protected_user_source_claim_keys=("claim_current_dialogue_0001",),
+        )
+        roles = schema["properties"]["beats"]["items"]["properties"]["roles"]
+        for field in ("action_owner_ids", "state_owner_ids", "speaker_ids"):
+            self.assertNotIn("pattern", roles["properties"][field]["items"])
+
     def test_planner_schema_and_projection_constrain_every_local_key(self) -> None:
         schema = rich_planner_sequence_json_schema()
         projected = project_provider_output_schema(
@@ -189,7 +252,7 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
     def test_planner_schema_change_has_a_new_adapter_identity(self) -> None:
         self.assertEqual(
             CONTINUOUS_PLANNER_ADAPTER_VERSION,
-            "cera.continuous_planner_adapter.v11",
+            "cera.continuous_planner_adapter.v12",
         )
 
     def test_exact_cycle25_copied_prior_id_is_rejected_but_null_passes_unchanged(self) -> None:

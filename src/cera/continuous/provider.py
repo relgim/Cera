@@ -6,6 +6,7 @@ from copy import deepcopy
 from dataclasses import dataclass, fields, is_dataclass, replace
 from enum import Enum
 import json
+import re
 from types import UnionType
 from typing import Any, Callable, ClassVar, Union, get_args, get_origin, get_type_hints
 
@@ -81,7 +82,7 @@ from .prompting import (
 )
 
 
-CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v11"
+CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v12"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v29"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v6"
@@ -4336,7 +4337,53 @@ def _schema_for(annotation: Any, *, field_name: str | None = None, owner: type |
     raise ContractValidationError(f"unsupported continuous provider schema annotation {annotation!r}")
 
 
-def rich_planner_sequence_json_schema() -> dict[str, Any]:
+def _exclude_exact_string_pattern(value: str) -> str:
+    """Return a portable anchored pattern matching every string except value."""
+
+    if not isinstance(value, str) or not value:
+        raise ContractValidationError(
+            "provider schema exact-string exclusion requires a value"
+        )
+    length = len(value)
+    alternatives = [f".{{0,{length - 1}}}", f".{{{length + 1},}}"]
+    for index, character in enumerate(value):
+        prefix = re.escape(value[:index])
+        remaining = length - index - 1
+        alternatives.append(
+            f"{prefix}[^{re.escape(character)}].{{{remaining}}}"
+        )
+    return f"^({'|'.join(alternatives)})$"
+
+
+def rich_planner_sequence_json_schema(
+    *,
+    protected_user_id: str | None = None,
+    protected_user_source_claim_keys: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    if protected_user_id is not None and (
+        not isinstance(protected_user_id, str)
+        or not protected_user_id.startswith("character:")
+        or not protected_user_id.strip()
+    ):
+        raise ContractValidationError(
+            "Planner provider schema protected-user identity is invalid"
+        )
+    if protected_user_source_claim_keys and protected_user_id is None:
+        raise ContractValidationError(
+            "Planner provider schema claims lack a protected-user identity"
+        )
+    if (
+        not isinstance(protected_user_source_claim_keys, tuple)
+        or len(protected_user_source_claim_keys)
+        != len(set(protected_user_source_claim_keys))
+        or any(
+            not isinstance(value, str) or not value.strip()
+            for value in protected_user_source_claim_keys
+        )
+    ):
+        raise ContractValidationError(
+            "Planner provider schema protected-user claims are invalid"
+        )
     schema = _schema_for(RichPlannerSequenceV1)
     schema["properties"]["provisional"] = {"type": "boolean", "const": True}
     schema["properties"]["accepted_turn_id"] = {"type": "null", "const": None}
@@ -4346,8 +4393,13 @@ def rich_planner_sequence_json_schema() -> dict[str, Any]:
     beat["beat_key"]["pattern"] = LOCAL_KEY_JSON_PATTERN
     beat["source_evidence_bindings"]["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
     roles = beat["roles"]
+    owner_fields = ("action_owner_ids", "state_owner_ids", "speaker_ids")
+    if protected_user_id is not None and not protected_user_source_claim_keys:
+        owner_pattern = _exclude_exact_string_pattern(protected_user_id)
+        for field in owner_fields:
+            roles["properties"][field]["items"]["pattern"] = owner_pattern
     owner_branches = []
-    for field in ("action_owner_ids", "state_owner_ids", "speaker_ids"):
+    for field in owner_fields:
         branch = deepcopy(roles)
         branch["properties"][field]["minItems"] = 1
         owner_branches.append(branch)
@@ -4674,12 +4726,21 @@ class CodexContinuousPlannerPort:
         self.call_ledger = call_ledger
         self._operation_index = 0
 
-    def plan(self, prompt: str) -> ContinuousProviderResultV1:
+    def plan(
+        self,
+        prompt: str,
+        *,
+        protected_user_id: str | None = None,
+        protected_user_source_claim_keys: tuple[str, ...] = (),
+    ) -> ContinuousProviderResultV1:
         self._operation_index += 1
         route = self.transport.route
         # All local schema and MCP construction completes before the provider
         # ledger records a transport invocation.
-        output_schema = rich_planner_sequence_json_schema()
+        output_schema = rich_planner_sequence_json_schema(
+            protected_user_id=protected_user_id,
+            protected_user_source_claim_keys=protected_user_source_claim_keys,
+        )
         mcp_binding = (
             self.world_bridge.runtime_binding if self.world_bridge is not None else None
         )
