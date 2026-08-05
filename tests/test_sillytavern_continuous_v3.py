@@ -123,6 +123,15 @@ class ContinuousSillyTavernV3Tests(unittest.TestCase):
         self.server.server_close()
         self.thread.join(timeout=2)
 
+    def test_prepared_turn_accepts_supported_three_and_four_role_schedules(self) -> None:
+        prepared = self.adapter._prepare_turn(1)
+        self.assertEqual(replace(prepared, provider_calls=3).provider_calls, 3)
+        self.assertEqual(replace(prepared, provider_calls=4).provider_calls, 4)
+        for unsupported in (2, 5):
+            with self.subTest(provider_calls=unsupported):
+                with self.assertRaises(ContractValidationError):
+                    replace(prepared, provider_calls=unsupported)
+
     def request(self, method: str, path: str, body=None):
         data = None if body is None else json.dumps(body).encode("utf-8")
         request = Request(
