@@ -109,6 +109,50 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
             ):
                 from_mapping(RichPlannerSequenceV1, invalid)
 
+    def test_provider_schema_and_python_dto_require_an_assertion_owner_per_beat(self) -> None:
+        source_schema = rich_planner_sequence_json_schema()
+        projected_schema = project_provider_output_schema(
+            source_schema,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        owner_fields = ("action_owner_ids", "state_owner_ids", "speaker_ids")
+
+        for schema in (source_schema, projected_schema):
+            role_schema = schema["properties"]["beats"]["items"]["properties"][
+                "roles"
+            ]
+            self.assertEqual(
+                role_schema["anyOf"],
+                [
+                    {"properties": {field: {"minItems": 1}}}
+                    for field in owner_fields
+                ],
+            )
+
+            without_owner = deepcopy(self.payload)
+            without_owner["accepted_turn_id"] = None
+            for field in owner_fields:
+                without_owner["beats"][0]["roles"][field] = []
+            self.assertTrue(
+                tuple(Draft202012Validator(schema).iter_errors(without_owner))
+            )
+
+            for field in owner_fields:
+                with_owner = deepcopy(without_owner)
+                with_owner["beats"][0]["roles"][field] = [
+                    "character:hana_hanezawa"
+                ]
+                self.assertFalse(
+                    tuple(Draft202012Validator(schema).iter_errors(with_owner)),
+                    field,
+                )
+
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "rich sequence beat requires an action, state, or dialogue owner",
+        ):
+            from_mapping(RichPlannerSequenceV1, without_owner)
+
     def test_planner_schema_and_projection_constrain_every_local_key(self) -> None:
         schema = rich_planner_sequence_json_schema()
         projected = project_provider_output_schema(
@@ -134,7 +178,7 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
     def test_planner_schema_change_has_a_new_adapter_identity(self) -> None:
         self.assertEqual(
             CONTINUOUS_PLANNER_ADAPTER_VERSION,
-            "cera.continuous_planner_adapter.v9",
+            "cera.continuous_planner_adapter.v10",
         )
 
     def test_exact_cycle25_copied_prior_id_is_rejected_but_null_passes_unchanged(self) -> None:
