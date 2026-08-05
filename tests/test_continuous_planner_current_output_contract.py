@@ -121,13 +121,24 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
             role_schema = schema["properties"]["beats"]["items"]["properties"][
                 "roles"
             ]
-            self.assertEqual(
-                role_schema["anyOf"],
-                [
-                    {"properties": {field: {"minItems": 1}}}
-                    for field in owner_fields
-                ],
-            )
+            self.assertEqual(len(role_schema["anyOf"]), len(owner_fields))
+            for owner_field, branch in zip(owner_fields, role_schema["anyOf"]):
+                self.assertEqual(branch["type"], "object")
+                self.assertFalse(branch["additionalProperties"])
+                self.assertEqual(
+                    tuple(branch["required"]), tuple(role_schema["required"])
+                )
+                self.assertEqual(
+                    set(branch["properties"]), set(role_schema["properties"])
+                )
+                self.assertEqual(
+                    branch["properties"][owner_field]["minItems"], 1
+                )
+                for other_field in owner_fields:
+                    if other_field != owner_field:
+                        self.assertNotIn(
+                            "minItems", branch["properties"][other_field]
+                        )
 
             without_owner = deepcopy(self.payload)
             without_owner["accepted_turn_id"] = None
@@ -178,7 +189,7 @@ class ContinuousPlannerCurrentOutputContractTests(unittest.TestCase):
     def test_planner_schema_change_has_a_new_adapter_identity(self) -> None:
         self.assertEqual(
             CONTINUOUS_PLANNER_ADAPTER_VERSION,
-            "cera.continuous_planner_adapter.v10",
+            "cera.continuous_planner_adapter.v11",
         )
 
     def test_exact_cycle25_copied_prior_id_is_rejected_but_null_passes_unchanged(self) -> None:

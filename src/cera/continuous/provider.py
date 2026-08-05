@@ -81,7 +81,7 @@ from .prompting import (
 )
 
 
-CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v10"
+CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v11"
 CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v29"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v6"
@@ -4346,10 +4346,12 @@ def rich_planner_sequence_json_schema() -> dict[str, Any]:
     beat["beat_key"]["pattern"] = LOCAL_KEY_JSON_PATTERN
     beat["source_evidence_bindings"]["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
     roles = beat["roles"]
-    roles["anyOf"] = [
-        {"properties": {field: {"minItems": 1}}}
-        for field in ("action_owner_ids", "state_owner_ids", "speaker_ids")
-    ]
+    owner_branches = []
+    for field in ("action_owner_ids", "state_owner_ids", "speaker_ids"):
+        branch = deepcopy(roles)
+        branch["properties"][field]["minItems"] = 1
+        owner_branches.append(branch)
+    roles["anyOf"] = owner_branches
     allowance = beat["protected_user_allowance"]["properties"]
     allowance["source_binding_keys"]["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
     allowance["source_claim_keys"]["items"]["pattern"] = LOCAL_KEY_JSON_PATTERN
