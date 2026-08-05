@@ -164,15 +164,15 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
             ],
         )
 
-    def test_validator_final_items_repeat_the_mutually_exclusive_role_rule(self) -> None:
+    def test_validator_final_items_use_single_authority_role_derivation(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v36",
+            "cera.continuous_validator_prompt.v37",
         )
         for required in (
-            "applies independently to each final-sequence item",
-            "one character ID may occur in exactly one of its seven role arrays",
-            "split them into separate causally ordered final-sequence items",
+            "Do not repeat segment roles, protected claims, persistence directives",
+            "One character may occupy only one mutually exclusive role across all exact segments cited by one field or item",
+            "Split semantically incompatible material into separate causally ordered final-sequence items",
             "must match lower snake case `[a-z][a-z0-9_]{0,95}` with no colon",
             "story_segment_keys reference must copy one exact story_material_assertion segment key",
             "field_scopes must contain exactly realized_event and resulting_state",

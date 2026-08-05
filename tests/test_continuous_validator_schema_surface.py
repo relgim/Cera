@@ -42,6 +42,7 @@ from cera.continuous.provider import (
     ContinuousSemanticValidatorDraftV9,
     ContinuousSemanticValidatorDraftV10,
     ContinuousSemanticValidatorDraftV12,
+    ContinuousSemanticValidatorDraftV13,
     ProviderEventRecordDraftV1,
     ProviderEventRecordDraftV2,
     ProviderFinalSequenceDraftV2,
@@ -51,9 +52,11 @@ from cera.continuous.provider import (
     continuous_scene_writer_draft_json_schema,
     continuous_semantic_validator_draft_json_schema,
     historical_continuous_semantic_validator_draft_v11_json_schema,
+    historical_continuous_semantic_validator_draft_v12_json_schema,
     continuous_validator_draft_json_schema,
     continuous_validator_route,
 )
+from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.qualification_evidence import (
     QualificationRawProviderJsonCapture,
@@ -73,6 +76,7 @@ from cera.providers import (
 )
 from cera.schema import from_mapping
 from cera.serialization import bytes_sha256, canonical_sha256, text_sha256, to_primitive
+from tests.test_continuous_planner_validator import sequence as planner_sequence
 
 
 EXPECTED_FINAL_FIELD_NAMES = (
@@ -225,11 +229,345 @@ def _active_draft() -> ContinuousSemanticValidatorDraftV4:
     )
 
 
-def _active_wire() -> ContinuousSemanticValidatorDraftV12:
-    return ContinuousSemanticValidatorDraftV12.from_v4(_active_draft())
+def _active_wire() -> ContinuousSemanticValidatorDraftV13:
+    return ContinuousSemanticValidatorDraftV13.from_v4(_active_draft())
 
 
 class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
+    @staticmethod
+    def _role_rich_fixture() -> tuple[ContinuousSemanticValidatorDraftV4, str]:
+        story = '"Welcome," Mia said, mentioning Hana.'
+        roles = CharacterRoleLedgerV1(
+            speaker_ids=("character:mia_hanezawa",),
+            addressed_ids=("character:ted",),
+            referenced_ids=("character:hana_hanezawa",),
+        )
+        base = _active_draft()
+        segment = replace(
+            base.story_segments[0],
+            kind=StoryRealizationKind.DIALOGUE,
+            output_end=len(story),
+            exact_text=story,
+            roles=roles,
+        )
+        canonical = base.complete_final_sequence.compile()
+        item = canonical.items[0]
+        scopes = tuple(replace(scope, roles=roles) for scope in item.field_scopes)
+        item = replace(
+            item,
+            planner_beat_keys=("verify_arrival",),
+            roles=roles,
+            field_scopes=scopes,
+        )
+        canonical = replace(canonical, items=(item,))
+        plan = planner_sequence()
+        return (
+            replace(
+                base,
+                world_id=plan.world_id,
+                branch_id=plan.branch_id,
+                story_segments=(segment,),
+                complete_final_sequence=(
+                    ProviderFinalSequenceDraftV2.from_final_sequence(canonical)
+                ),
+                protected_semantic_adjudications=(
+                    replace(
+                        base.protected_semantic_adjudications[0],
+                        output_end=len(story),
+                        exact_text_sha256=text_sha256(story),
+                        relation=ProtectedSemanticRelationKind.ADDRESSED_BY_NPC,
+                        npc_assertion_owner_ids=("character:mia_hanezawa",),
+                    ),
+                ),
+            ),
+            story,
+        )
+
+    def test_active_wire_omits_repeated_finalization_bookkeeping(self) -> None:
+        payload = to_primitive(_active_wire())
+        item = payload["decision"]["complete_final_sequence"]["items"][0]
+        for forbidden in (
+            "story_segment_keys",
+            "roles",
+            "protected_user_source_claim_keys",
+            "private_state_owner_ids",
+        ):
+            self.assertNotIn(forbidden, item)
+        for scope in item["field_scopes"]:
+            for forbidden in (
+                "roles",
+                "protected_user_source_claim_keys",
+                "persistence_directives",
+            ):
+                self.assertNotIn(forbidden, scope)
+
+    def test_removed_bookkeeping_is_rejected_by_schema_and_decoder(self) -> None:
+        schema = continuous_semantic_validator_draft_json_schema()
+        injections = (
+            ("item", "story_segment_keys", ["segment_entire_story"]),
+            ("item", "roles", to_primitive(CharacterRoleLedgerV1(action_owner_ids=("character:hana_hanezawa",)))),
+            ("item", "protected_user_source_claim_keys", []),
+            ("item", "private_state_owner_ids", []),
+            ("scope", "roles", to_primitive(CharacterRoleLedgerV1(action_owner_ids=("character:hana_hanezawa",)))),
+            ("scope", "protected_user_source_claim_keys", []),
+            ("scope", "persistence_directives", []),
+        )
+        for location, field_name, value in injections:
+            with self.subTest(field_name=field_name):
+                payload = deepcopy(to_primitive(_active_wire()))
+                item = payload["decision"]["complete_final_sequence"]["items"][0]
+                target = item if location == "item" else item["field_scopes"][0]
+                target[field_name] = value
+                with self.assertRaises(ValidationError):
+                    Draft202012Validator(schema).validate(payload)
+                with self.assertRaises(ContractValidationError):
+                    from_mapping(ContinuousSemanticValidatorDraftV13, payload)
+
+    def test_v13_derives_exact_v13_missing_reference_from_segment_authority(self) -> None:
+        fixture, story = self._role_rich_fixture()
+        wire = ContinuousSemanticValidatorDraftV13.from_v4(fixture)
+        compiled = wire.compile(writer_story_text=story)
+        item = compiled.finalization_package.complete_final_sequence.items[0]
+        self.assertEqual(item.roles.referenced_ids, ("character:hana_hanezawa",))
+        self.assertTrue(
+            all(
+                scope.roles.referenced_ids == ("character:hana_hanezawa",)
+                for scope in item.field_scopes
+            )
+        )
+
+    def test_historical_v12_v13_mismatch_remains_traceability_invalid(self) -> None:
+        fixture, story = self._role_rich_fixture()
+        historical = ContinuousSemanticValidatorDraftV12.from_v4(fixture)
+        payload = to_primitive(historical)
+        item = payload["decision"]["complete_final_sequence"]["items"][0]
+        item["roles"]["referenced_ids"] = []
+        for scope in item["field_scopes"]:
+            scope["roles"]["referenced_ids"] = []
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV12, payload)
+        result = decoded.compile(writer_story_text=story)
+        registry = RequestEvidenceBindingRegistry(
+            world_id=fixture.world_id,
+            branch_id=fixture.branch_id,
+            turn_id="turn:validator_schema_surface",
+        )
+        registry.validate_validator_semantics(
+            story_text=story,
+            story_segments=result.story_segments,
+            allowed_character_ids=(
+                "character:mia_hanezawa",
+                "character:ted",
+                "character:hana_hanezawa",
+            ),
+        )
+        with self.assertRaisesRegex(
+            StateConflictError,
+            "final field changed Validator role or claim ownership",
+        ):
+            registry.validate_traceability(
+                planner_sequence(),
+                result.finalization_package,
+            )
+
+    def test_multi_segment_derivation_is_ordered_and_role_conflicts_fail_closed(self) -> None:
+        fixture, story = self._role_rich_fixture()
+        first_text = '"Welcome," Mia said'
+        second_text = ", mentioning Hana."
+        first = replace(
+            fixture.story_segments[0],
+            segment_key="mia_welcome_dialogue",
+            output_end=len(first_text),
+            exact_text=first_text,
+            roles=CharacterRoleLedgerV1(
+                speaker_ids=("character:mia_hanezawa",),
+                addressed_ids=("character:ted",),
+            ),
+        )
+        second = replace(
+            fixture.story_segments[0],
+            segment_key="hana_reference",
+            kind=StoryRealizationKind.NARRATION,
+            output_start=len(first_text),
+            exact_text=second_text,
+            roles=CharacterRoleLedgerV1(
+                referenced_ids=("character:hana_hanezawa",),
+            ),
+        )
+        historical_sequence = fixture.complete_final_sequence.compile()
+        historical_item = historical_sequence.items[0]
+        scopes = tuple(
+            replace(
+                scope,
+                story_segment_keys=(first.segment_key, second.segment_key),
+                roles=CharacterRoleLedgerV1(
+                    speaker_ids=("character:mia_hanezawa",),
+                    addressed_ids=("character:ted",),
+                    referenced_ids=("character:hana_hanezawa",),
+                ),
+            )
+            for scope in historical_item.field_scopes
+        )
+        historical_item = replace(
+            historical_item,
+            story_segment_keys=(first.segment_key, second.segment_key),
+            roles=scopes[0].roles,
+            field_scopes=scopes,
+        )
+        two_segment_fixture = replace(
+            fixture,
+            story_segments=(first, second),
+            protected_semantic_adjudications=(
+                replace(
+                    fixture.protected_semantic_adjudications[0],
+                    adjudication_key="adjudication_mia_welcome_dialogue",
+                    segment_key=first.segment_key,
+                    output_end=first.output_end,
+                    exact_text_sha256=text_sha256(first.exact_text),
+                ),
+                replace(
+                    fixture.protected_semantic_adjudications[0],
+                    adjudication_key="adjudication_hana_reference",
+                    segment_key=second.segment_key,
+                    output_start=second.output_start,
+                    output_end=second.output_end,
+                    exact_text_sha256=text_sha256(second.exact_text),
+                ),
+            ),
+            complete_final_sequence=ProviderFinalSequenceDraftV2.from_final_sequence(
+                replace(historical_sequence, items=(historical_item,))
+            ),
+        )
+        compiled = ContinuousSemanticValidatorDraftV13.from_v4(
+            two_segment_fixture
+        ).compile(writer_story_text=story)
+        item = compiled.finalization_package.complete_final_sequence.items[0]
+        self.assertEqual(
+            item.story_segment_keys,
+            ("mia_welcome_dialogue", "hana_reference"),
+        )
+        self.assertEqual(item.roles.referenced_ids, ("character:hana_hanezawa",))
+
+        payload = to_primitive(ContinuousSemanticValidatorDraftV13.from_v4(two_segment_fixture))
+        payload["decision"]["realization_segments"][1]["roles"] = to_primitive(
+            CharacterRoleLedgerV1(referenced_ids=("character:mia_hanezawa",))
+        )
+        conflicting = from_mapping(ContinuousSemanticValidatorDraftV13, payload)
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "one character cannot hold multiple roles",
+        ):
+            conflicting.compile(writer_story_text=story)
+
+    def test_private_owner_and_protected_claims_are_segment_derived(self) -> None:
+        payload = deepcopy(to_primitive(_active_wire()))
+        scope = payload["decision"]["complete_final_sequence"]["items"][0][
+            "field_scopes"
+        ][0]
+        scope["visibility"] = FinalInformationVisibility.CHARACTER_PRIVATE.value
+        scope["knowledge_owner_id"] = "character:hana_hanezawa"
+        compiled = from_mapping(ContinuousSemanticValidatorDraftV13, payload).compile(
+            writer_story_text="Hana set down the teacup."
+        )
+        item = compiled.finalization_package.complete_final_sequence.items[0]
+        self.assertEqual(
+            item.private_state_owner_ids,
+            ("character:hana_hanezawa",),
+        )
+
+        fixture, story = self._role_rich_fixture()
+        protected_roles = CharacterRoleLedgerV1(
+            speaker_ids=("character:ted",),
+        )
+        claim_key = "claim_exact_ted_dialogue"
+        segment = replace(
+            fixture.story_segments[0],
+            roles=protected_roles,
+            protected_user_source_claim_keys=(claim_key,),
+        )
+        canonical = fixture.complete_final_sequence.compile()
+        item = canonical.items[0]
+        scopes = tuple(
+            replace(
+                scope,
+                roles=protected_roles,
+                protected_user_source_claim_keys=(claim_key,),
+            )
+            for scope in item.field_scopes
+        )
+        item = replace(
+            item,
+            roles=protected_roles,
+            protected_user_source_claim_keys=(claim_key,),
+            field_scopes=scopes,
+        )
+        protected_fixture = replace(
+            fixture,
+            story_segments=(segment,),
+            complete_final_sequence=ProviderFinalSequenceDraftV2.from_final_sequence(
+                replace(canonical, items=(item,))
+            ),
+            event_record=replace(
+                fixture.event_record,
+                protected_user_source_claim_keys=(claim_key,),
+            ),
+        )
+        protected_compiled = ContinuousSemanticValidatorDraftV13.from_v4(
+            protected_fixture
+        ).compile(writer_story_text=story)
+        protected_item = (
+            protected_compiled.finalization_package.complete_final_sequence.items[0]
+        )
+        self.assertEqual(
+            protected_item.protected_user_source_claim_keys,
+            (claim_key,),
+        )
+        self.assertTrue(
+            all(
+                value.protected_user_source_claim_keys == (claim_key,)
+                for value in protected_item.field_scopes
+            )
+        )
+
+    def test_presentation_only_and_unknown_segments_cannot_enter_final_fields(self) -> None:
+        schema = continuous_semantic_validator_draft_json_schema()
+        payload = deepcopy(to_primitive(_active_wire()))
+        scope = payload["decision"]["complete_final_sequence"]["items"][0][
+            "field_scopes"
+        ][0]
+        scope["story_segment_keys"] = ["unknown_segment"]
+        Draft202012Validator(schema).validate(payload)
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "accepted prose requires at least one story/material assertion|unknown or ineligible story-material segment",
+        ):
+            from_mapping(ContinuousSemanticValidatorDraftV13, payload).compile(
+                writer_story_text="Hana set down the teacup."
+            )
+
+        payload = deepcopy(to_primitive(_active_wire()))
+        segment = payload["decision"]["realization_segments"][0]
+        segment["authority_disposition"] = "presentation_only"
+        segment["presentation_class"] = "micro_action"
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "accepted prose requires at least one story/material assertion|unknown or ineligible story-material segment",
+        ):
+            from_mapping(ContinuousSemanticValidatorDraftV13, payload).compile(
+                writer_story_text="Hana set down the teacup."
+            )
+
+    def test_historical_v12_schema_and_decoder_remain_available(self) -> None:
+        historical = ContinuousSemanticValidatorDraftV12.from_v4(_active_draft())
+        payload = to_primitive(historical)
+        Draft202012Validator(
+            historical_continuous_semantic_validator_draft_v12_json_schema()
+        ).validate(payload)
+        self.assertIsNotNone(
+            from_mapping(ContinuousSemanticValidatorDraftV12, payload).compile(
+                writer_story_text="Hana set down the teacup."
+            ).finalization_package
+        )
+
     def test_actorless_active_schema_supersedes_historical_blanket_rule(self) -> None:
         role_fields = (
             "action_owner_ids",
@@ -254,7 +592,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         )
         self.assertTrue(active)
         self.assertEqual(len(projected), len(active))
-        self.assertEqual(len(historical), len(active))
+        self.assertGreater(len(historical), len(active))
         expected = [
             {
                 "properties": {field_name: {"minItems": 1}},
@@ -293,7 +631,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         with self.assertRaisesRegex(
             ContractValidationError, "empty role ledger is restricted"
         ):
-            from_mapping(ContinuousSemanticValidatorDraftV12, payload)
+            from_mapping(ContinuousSemanticValidatorDraftV13, payload)
 
     def test_active_validator_recall_vocabulary_is_precise_and_projected(self) -> None:
         expected = [value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES]
@@ -349,7 +687,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
 
     def test_all_five_values_decode_and_compile(self) -> None:
         payload = to_primitive(_active_wire())
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV12, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV13, payload)
         scopes = decoded.decision.complete_final_sequence.items[0].field_scopes
         self.assertEqual(tuple(value.field_name.value for value in scopes), EXPECTED_FINAL_FIELD_NAMES)
         self.assertTrue(all(isinstance(value.field_name, FinalFieldName) for value in scopes))
@@ -368,7 +706,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 with self.assertRaises(ValidationError):
                     Draft202012Validator(schema).validate(payload)
                 with self.assertRaises(ContractValidationError):
-                    from_mapping(ContinuousSemanticValidatorDraftV12, payload)
+                    from_mapping(ContinuousSemanticValidatorDraftV13, payload)
                 with self.assertRaises(ContractValidationError):
                     FinalFieldScopeV1(
                         field_name=arbitrary,
@@ -390,12 +728,12 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
             ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
         )
         self.assertEqual(
-            ContinuousSemanticValidatorDraftV12.SCHEMA_VERSION,
-            "cera.continuous_semantic_validator_draft.v12",
+            ContinuousSemanticValidatorDraftV13.SCHEMA_VERSION,
+            "cera.continuous_semantic_validator_draft.v13",
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v27",
+            "cera.continuous_validator_adapter.v28",
         )
         self.assertEqual(
             continuous_validator_route(model="gpt-5.6-sol", effort="medium").adapter_id,
@@ -488,7 +826,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         Draft202012Validator(continuous_semantic_validator_draft_json_schema()).validate(
             payload
         )
-        decoded = from_mapping(ContinuousSemanticValidatorDraftV12, payload)
+        decoded = from_mapping(ContinuousSemanticValidatorDraftV13, payload)
         final_sequence = decoded.compile(
             writer_story_text="Hana set down the teacup."
         ).finalization_package.complete_final_sequence
@@ -509,7 +847,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 continuous_semantic_validator_draft_json_schema()
             ).validate(injected)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV12, injected)
+            from_mapping(ContinuousSemanticValidatorDraftV13, injected)
 
     def test_active_wire_omits_and_python_derives_event_summary(self) -> None:
         payload = to_primitive(_active_wire())
@@ -552,7 +890,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 continuous_semantic_validator_draft_json_schema()
             ).validate(injected)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV12, injected)
+            from_mapping(ContinuousSemanticValidatorDraftV13, injected)
 
     def test_failed_v2_cross_field_shape_is_reproduced_provider_free(self) -> None:
         payload = to_primitive(_active_draft())
@@ -584,7 +922,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
                 self.assertTrue(version_schema["const"].startswith("cera."))
         self.assertEqual(
             dict(versions)["$.properties.schema_version"]["const"],
-            ContinuousSemanticValidatorDraftV12.SCHEMA_VERSION,
+            ContinuousSemanticValidatorDraftV13.SCHEMA_VERSION,
         )
         decision_branches = schema["properties"]["decision"]["anyOf"]
         sequence_schemas = [
@@ -607,7 +945,7 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         for forbidden in ("reason_codes", "semantic_status"):
             self.assertNotIn(forbidden, payload)
         compiled = from_mapping(
-            ContinuousSemanticValidatorDraftV12, payload
+            ContinuousSemanticValidatorDraftV13, payload
         ).compile(
             writer_story_text="Hana set down the teacup."
         ).finalization_package

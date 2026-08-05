@@ -39,6 +39,9 @@ from .contracts import (
     DiagnosticViolationClassification,
     EventRecordCandidateV1,
     EventItemRoleLedgerV1,
+    FinalFieldName,
+    FinalFieldScopeV1,
+    FinalInformationVisibility,
     FinalSequenceItemV1,
     FinalSequenceV1,
     LOCAL_KEY_JSON_PATTERN,
@@ -79,7 +82,7 @@ from .prompting import (
 
 
 CONTINUOUS_PLANNER_ADAPTER_VERSION = "cera.continuous_planner_adapter.v9"
-CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v27"
+CONTINUOUS_VALIDATOR_ADAPTER_VERSION = "cera.continuous_validator_adapter.v28"
 CONTINUOUS_DEEPSEEK_ADAPTER_VERSION = "cera.continuous_deepseek_adapter.v10"
 CONTINUOUS_DEEPSEEK_PROMPT_VERSION = "cera.scene_writer_prompt.v6"
 CONTINUOUS_READER_ADAPTER_VERSION = "cera.continuous_reader_adapter.v4"
@@ -587,6 +590,240 @@ class ProviderFinalSequenceDraftV2:
             accepted_turn_id=self.accepted_turn_id,
             items=self.items,
             final_stop_state=self.items[-1].resulting_state,
+        )
+
+
+_FINAL_ROLE_FIELDS = (
+    "action_owner_ids",
+    "state_owner_ids",
+    "speaker_ids",
+    "affected_ids",
+    "addressed_ids",
+    "observing_ids",
+    "referenced_ids",
+)
+
+
+def _derived_role_ledger(
+    segments: tuple[StoryRealizationSegmentV1, ...],
+) -> CharacterRoleLedgerV1:
+    """Derive one canonical role ledger without interpreting prose."""
+
+    return CharacterRoleLedgerV1(
+        **{
+            field_name: tuple(
+                dict.fromkeys(
+                    identity
+                    for segment in segments
+                    for identity in getattr(segment.roles, field_name)
+                )
+            )
+            for field_name in _FINAL_ROLE_FIELDS
+        }
+    )
+
+
+def _derived_claim_keys(
+    segments: tuple[StoryRealizationSegmentV1, ...],
+) -> tuple[str, ...]:
+    return tuple(
+        dict.fromkeys(
+            claim_key
+            for segment in segments
+            for claim_key in segment.protected_user_source_claim_keys
+        )
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderFinalFieldScopeDraftV1:
+    """Active field wire; exact segment citations own repeated bookkeeping."""
+
+    field_name: FinalFieldName
+    visibility: FinalInformationVisibility
+    knowledge_owner_id: str | None
+    story_segment_keys: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        try:
+            object.__setattr__(self, "field_name", FinalFieldName(self.field_name))
+        except (TypeError, ValueError) as exc:
+            raise ContractValidationError("provider final field name is invalid") from exc
+        try:
+            object.__setattr__(
+                self,
+                "visibility",
+                FinalInformationVisibility(self.visibility),
+            )
+        except (TypeError, ValueError) as exc:
+            raise ContractValidationError(
+                "provider final field visibility is invalid"
+            ) from exc
+        if not self.story_segment_keys:
+            raise ContractValidationError(
+                "provider final field requires story-material segment citations"
+            )
+        if len(set(self.story_segment_keys)) != len(self.story_segment_keys):
+            raise ContractValidationError(
+                "provider final field segment citations are duplicated"
+            )
+        if self.visibility is FinalInformationVisibility.PUBLIC:
+            if self.knowledge_owner_id is not None:
+                raise ContractValidationError(
+                    "public provider final field cannot have a private owner"
+                )
+        elif self.knowledge_owner_id is None:
+            raise ContractValidationError(
+                "private provider final field requires one knowledge owner"
+            )
+
+    @classmethod
+    def from_canonical(
+        cls, value: FinalFieldScopeV1
+    ) -> "ProviderFinalFieldScopeDraftV1":
+        return cls(
+            field_name=value.field_name,
+            visibility=value.visibility,
+            knowledge_owner_id=value.knowledge_owner_id,
+            story_segment_keys=value.story_segment_keys,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderFinalSequenceItemDraftV1:
+    """Active final-item wire with Python-derived ownership and segment union."""
+
+    item_key: str
+    planner_beat_keys: tuple[str, ...]
+    realized_event: str
+    valid_deepseek_additions: tuple[str, ...]
+    omitted_or_contradicted_details: tuple[str, ...]
+    knowledge_changes: tuple[str, ...]
+    material_changes: tuple[str, ...]
+    resulting_state: str
+    field_scopes: tuple[ProviderFinalFieldScopeDraftV1, ...]
+
+    @classmethod
+    def from_canonical(
+        cls, value: FinalSequenceItemV1
+    ) -> "ProviderFinalSequenceItemDraftV1":
+        return cls(
+            item_key=value.item_key,
+            planner_beat_keys=value.planner_beat_keys,
+            realized_event=value.realized_event,
+            valid_deepseek_additions=value.valid_deepseek_additions,
+            omitted_or_contradicted_details=value.omitted_or_contradicted_details,
+            knowledge_changes=value.knowledge_changes,
+            material_changes=value.material_changes,
+            resulting_state=value.resulting_state,
+            field_scopes=tuple(
+                ProviderFinalFieldScopeDraftV1.from_canonical(scope)
+                for scope in value.field_scopes
+            ),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderFinalSequenceDraftV3:
+    """Single-authority finalization wire compiled from material segments."""
+
+    sequence_id: str
+    accepted_turn_id: str
+    items: tuple[ProviderFinalSequenceItemDraftV1, ...]
+
+    def __post_init__(self) -> None:
+        if not self.items:
+            raise ContractValidationError("final sequence requires at least one item")
+
+    @classmethod
+    def from_final_sequence(
+        cls, value: FinalSequenceV1
+    ) -> "ProviderFinalSequenceDraftV3":
+        return cls(
+            sequence_id=value.sequence_id,
+            accepted_turn_id=value.accepted_turn_id,
+            items=tuple(
+                ProviderFinalSequenceItemDraftV1.from_canonical(item)
+                for item in value.items
+            ),
+        )
+
+    def compile(
+        self,
+        *,
+        material_segments: tuple[StoryRealizationSegmentV1, ...],
+    ) -> FinalSequenceV1:
+        segment_by_key = {
+            segment.segment_key: segment for segment in material_segments
+        }
+        canonical_items: list[FinalSequenceItemV1] = []
+        for item in self.items:
+            canonical_scopes: list[FinalFieldScopeV1] = []
+            item_segments: list[StoryRealizationSegmentV1] = []
+            for scope in item.field_scopes:
+                cited: list[StoryRealizationSegmentV1] = []
+                for segment_key in scope.story_segment_keys:
+                    segment = segment_by_key.get(segment_key)
+                    if segment is None:
+                        raise ContractValidationError(
+                            "final field cited an unknown or ineligible story-material segment"
+                        )
+                    cited.append(segment)
+                    if segment not in item_segments:
+                        item_segments.append(segment)
+                cited_segments = tuple(cited)
+                canonical_scopes.append(
+                    FinalFieldScopeV1(
+                        field_name=scope.field_name,
+                        visibility=scope.visibility,
+                        knowledge_owner_id=scope.knowledge_owner_id,
+                        story_segment_keys=scope.story_segment_keys,
+                        roles=_derived_role_ledger(cited_segments),
+                        protected_user_source_claim_keys=(
+                            _derived_claim_keys(cited_segments)
+                        ),
+                        persistence_directives=(),
+                    )
+                )
+            item_segment_tuple = tuple(item_segments)
+            private_owner_ids = tuple(
+                dict.fromkeys(
+                    scope.knowledge_owner_id
+                    for scope in canonical_scopes
+                    if scope.visibility
+                    is FinalInformationVisibility.CHARACTER_PRIVATE
+                    and scope.knowledge_owner_id is not None
+                )
+            )
+            canonical_items.append(
+                FinalSequenceItemV1(
+                    item_key=item.item_key,
+                    planner_beat_keys=item.planner_beat_keys,
+                    story_segment_keys=tuple(
+                        segment.segment_key for segment in item_segment_tuple
+                    ),
+                    realized_event=item.realized_event,
+                    valid_deepseek_additions=item.valid_deepseek_additions,
+                    omitted_or_contradicted_details=(
+                        item.omitted_or_contradicted_details
+                    ),
+                    private_state_owner_ids=private_owner_ids,
+                    knowledge_changes=item.knowledge_changes,
+                    material_changes=item.material_changes,
+                    resulting_state=item.resulting_state,
+                    roles=_derived_role_ledger(item_segment_tuple),
+                    protected_user_source_claim_keys=(
+                        _derived_claim_keys(item_segment_tuple)
+                    ),
+                    field_scopes=tuple(canonical_scopes),
+                )
+            )
+        return FinalSequenceV1(
+            schema_version=FinalSequenceV1.SCHEMA_VERSION,
+            sequence_id=self.sequence_id,
+            accepted_turn_id=self.accepted_turn_id,
+            items=tuple(canonical_items),
+            final_stop_state=canonical_items[-1].resulting_state,
         )
 
 
@@ -3255,6 +3492,232 @@ class ContinuousSemanticValidatorDraftV12:
 
 
 @dataclass(frozen=True, slots=True)
+class ProviderAcceptedTurnDecisionDraftV6:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_accepted_turn_decision.v6"
+
+    schema_version: str
+    decision_kind: ProviderAcceptedDecisionKind
+    realization_segments: tuple[ProviderRealizationSegmentDraftV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV3
+    creator_review: ProviderGoodCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProviderProtectedSemanticAdjudicationDraftV2, ...
+    ]
+    event_record: ProviderEventRecordDraftV2
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider accepted-decision V6 schema changed"
+            )
+
+
+@dataclass(frozen=True, slots=True)
+class ProviderConcernTurnDecisionDraftV6:
+    SCHEMA_VERSION: ClassVar[str] = "cera.provider_concern_turn_decision.v6"
+
+    schema_version: str
+    decision_kind: ProviderConcernDecisionKind
+    realization_segments: tuple[ProviderRealizationSegmentDraftV1, ...]
+    complete_final_sequence: ProviderFinalSequenceDraftV3
+    creator_review: ProviderConcernCreatorReviewDraftV1
+    protected_semantic_adjudications: tuple[
+        ProviderProtectedSemanticAdjudicationDraftV2, ...
+    ]
+    event_record: ProviderEventRecordDraftV2
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "provider concern-decision V6 schema changed"
+            )
+
+
+ProviderSemanticDecisionDraftV7 = Union[
+    ProviderAcceptedTurnDecisionDraftV6,
+    ProviderConcernTurnDecisionDraftV6,
+    ProviderRejectedTurnDecisionDraftV4,
+    ProviderSceneSummaryDecisionDraftV1,
+]
+
+
+@dataclass(frozen=True, slots=True)
+class ContinuousSemanticValidatorDraftV13:
+    """Active single-authority finalization wire."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.continuous_semantic_validator_draft.v13"
+
+    schema_version: str
+    package_id: str
+    world_id: str
+    branch_id: str
+    decision: ProviderSemanticDecisionDraftV7
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError(
+                "continuous Semantic Validator V13 provider schema changed"
+            )
+
+    @classmethod
+    def from_v4(
+        cls,
+        value: ContinuousSemanticValidatorDraftV4,
+    ) -> "ContinuousSemanticValidatorDraftV13":
+        historical = ContinuousSemanticValidatorDraftV12.from_v4(value)
+        decision = historical.decision
+        if isinstance(decision, ProviderAcceptedTurnDecisionDraftV5):
+            active: ProviderSemanticDecisionDraftV7 = (
+                ProviderAcceptedTurnDecisionDraftV6(
+                    schema_version=ProviderAcceptedTurnDecisionDraftV6.SCHEMA_VERSION,
+                    decision_kind=decision.decision_kind,
+                    realization_segments=decision.realization_segments,
+                    complete_final_sequence=(
+                        ProviderFinalSequenceDraftV3.from_final_sequence(
+                            decision.complete_final_sequence.compile()
+                        )
+                    ),
+                    creator_review=decision.creator_review,
+                    protected_semantic_adjudications=(
+                        decision.protected_semantic_adjudications
+                    ),
+                    event_record=decision.event_record,
+                )
+            )
+        elif isinstance(decision, ProviderConcernTurnDecisionDraftV5):
+            active = ProviderConcernTurnDecisionDraftV6(
+                schema_version=ProviderConcernTurnDecisionDraftV6.SCHEMA_VERSION,
+                decision_kind=decision.decision_kind,
+                realization_segments=decision.realization_segments,
+                complete_final_sequence=(
+                    ProviderFinalSequenceDraftV3.from_final_sequence(
+                        decision.complete_final_sequence.compile()
+                    )
+                ),
+                creator_review=decision.creator_review,
+                protected_semantic_adjudications=(
+                    decision.protected_semantic_adjudications
+                ),
+                event_record=decision.event_record,
+            )
+        else:
+            active = decision
+        return cls(
+            schema_version=cls.SCHEMA_VERSION,
+            package_id=historical.package_id,
+            world_id=historical.world_id,
+            branch_id=historical.branch_id,
+            decision=active,
+        )
+
+    def compile(
+        self,
+        *,
+        writer_story_text: str | None,
+        accepted_pairs: tuple[AcceptedTurnPairV1, ...] = (),
+    ) -> ContinuousSemanticValidatorResultV3:
+        decision = self.decision
+        if isinstance(
+            decision,
+            (ProviderSceneSummaryDecisionDraftV1, ProviderRejectedTurnDecisionDraftV4),
+        ):
+            return ContinuousSemanticValidatorDraftV12(
+                schema_version=ContinuousSemanticValidatorDraftV12.SCHEMA_VERSION,
+                package_id=self.package_id,
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                decision=decision,
+            ).compile(
+                writer_story_text=writer_story_text,
+                accepted_pairs=accepted_pairs,
+            )
+        if not isinstance(writer_story_text, str) or not writer_story_text:
+            raise ContractValidationError(
+                "turn Validator requires typed immutable Writer text"
+            )
+        all_segments, material_segments, presentation_segments = (
+            _compile_provider_realization_segments(
+                writer_story_text=writer_story_text,
+                values=decision.realization_segments,
+            )
+        )
+        all_adjudications, source_receipts = (
+            _compile_provider_protected_adjudications_v2(
+                writer_story_text=writer_story_text,
+                story_segments=all_segments,
+                adjudications=decision.protected_semantic_adjudications,
+                presentation_segments=presentation_segments,
+            )
+        )
+        if {value.segment_key for value in all_adjudications} != {
+            value.segment_key for value in all_segments
+        }:
+            raise ContractValidationError(
+                "Validator did not adjudicate every realization span"
+            )
+        material_keys = {value.segment_key for value in material_segments}
+        material_adjudications = tuple(
+            value
+            for value in all_adjudications
+            if value.segment_key in material_keys
+        )
+        presentation_adjudications = tuple(
+            value
+            for value in all_adjudications
+            if value.segment_key not in material_keys
+        )
+        canonical_sequence = decision.complete_final_sequence.compile(
+            material_segments=material_segments
+        )
+        historical_sequence = ProviderFinalSequenceDraftV2.from_final_sequence(
+            canonical_sequence
+        )
+        event_record = _python_derived_event_record(
+            decision.event_record,
+            historical_sequence,
+        )
+        if isinstance(decision, ProviderAcceptedTurnDecisionDraftV6):
+            historical_decision: ProviderSemanticDecisionDraftV1 = (
+                ProviderAcceptedTurnDecisionDraftV1(
+                    schema_version=ProviderAcceptedTurnDecisionDraftV1.SCHEMA_VERSION,
+                    decision_kind=decision.decision_kind,
+                    story_segments=material_segments,
+                    complete_final_sequence=historical_sequence,
+                    creator_review=decision.creator_review,
+                    protected_semantic_adjudications=material_adjudications,
+                    event_record=event_record,
+                )
+            )
+        else:
+            historical_decision = ProviderConcernTurnDecisionDraftV1(
+                schema_version=ProviderConcernTurnDecisionDraftV1.SCHEMA_VERSION,
+                decision_kind=decision.decision_kind,
+                story_segments=material_segments,
+                complete_final_sequence=historical_sequence,
+                creator_review=decision.creator_review,
+                protected_semantic_adjudications=material_adjudications,
+                event_record=event_record,
+            )
+        historical_result = ContinuousSemanticValidatorResultV2.from_v1(
+            ContinuousSemanticValidatorDraftV5(
+                schema_version=ContinuousSemanticValidatorDraftV5.SCHEMA_VERSION,
+                package_id=self.package_id,
+                world_id=self.world_id,
+                branch_id=self.branch_id,
+                decision=historical_decision,
+            ).compile(accepted_pairs=accepted_pairs)
+        )
+        return ContinuousSemanticValidatorResultV3.from_v2(
+            historical_result,
+            presentation_realization_segments=presentation_segments,
+            presentation_protected_semantic_adjudications=(
+                presentation_adjudications
+            ),
+            source_grounded_public_state_receipts=source_receipts,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ContinuousSceneWriterDraftV1:
     """Active Writer wire: exact candidate prose and nothing semantic."""
 
@@ -4089,10 +4552,17 @@ def historical_continuous_semantic_validator_draft_v11_json_schema() -> dict[str
     return schema
 
 
-def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
-    """Active V12 projection with context-validated actorless presentation."""
+def historical_continuous_semantic_validator_draft_v12_json_schema() -> dict[str, Any]:
+    """Exact pre-Queue-0055 V12 projection retained for evidence replay."""
 
     schema = _schema_for(ContinuousSemanticValidatorDraftV12)
+    _constrain_active_validator_schema(schema)
+    return schema
+
+
+def _constrain_active_validator_schema(schema: dict[str, Any]) -> None:
+    """Apply shared strict projection constraints to one active-style wire."""
+
     for branch in schema["properties"]["decision"]["anyOf"]:
         properties = branch.get("properties", {})
         for collection in (
@@ -4128,6 +4598,13 @@ def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
                 value.value for value in ACTIVE_VALIDATOR_WRITER_HARD_CLASSES
             ]
     _constrain_active_python_hash_constants(schema)
+
+
+def continuous_semantic_validator_draft_json_schema() -> dict[str, Any]:
+    """Active V13 single-authority finalization projection."""
+
+    schema = _schema_for(ContinuousSemanticValidatorDraftV13)
+    _constrain_active_validator_schema(schema)
     return schema
 
 
@@ -4366,9 +4843,18 @@ class CodexContinuousValidatorPort:
                     writer_story_text=writer_story_text,
                     accepted_pairs=accepted_pairs,
                 )
-            else:
+            elif schema_version == ContinuousSemanticValidatorDraftV12.SCHEMA_VERSION:
                 draft = from_mapping(
                     ContinuousSemanticValidatorDraftV12,
+                    canonical_payload,
+                )
+                value = draft.compile(
+                    writer_story_text=writer_story_text,
+                    accepted_pairs=accepted_pairs,
+                )
+            else:
+                draft = from_mapping(
+                    ContinuousSemanticValidatorDraftV13,
                     canonical_payload,
                 )
                 value = draft.compile(

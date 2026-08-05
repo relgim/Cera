@@ -39,12 +39,15 @@ from cera.continuous.provider import (
     ContinuousSemanticValidatorDraftV6,
     ContinuousSemanticValidatorDraftV7,
     ContinuousSemanticValidatorDraftV12,
+    ContinuousSemanticValidatorDraftV13,
     ProviderAcceptedDecisionKind,
     ProviderAcceptedTurnDecisionDraftV5,
+    ProviderAcceptedTurnDecisionDraftV6,
     ProviderConcernCreatorReviewDraftV1,
     ProviderConcernDecisionKind,
     ProviderConcernReviewDisposition,
     ProviderConcernTurnDecisionDraftV5,
+    ProviderConcernTurnDecisionDraftV6,
     ProviderDiagnosticIssueOwner,
     ProviderDiagnosticProtectedSemanticAdjudicationDraftV1,
     ProviderDiagnosticStorySegmentDraftV1,
@@ -195,8 +198,8 @@ def _canonical_v4() -> ContinuousSemanticValidatorDraftV4:
     )
 
 
-def _accepted_wire() -> ContinuousSemanticValidatorDraftV12:
-    return ContinuousSemanticValidatorDraftV12.from_v4(_canonical_v4())
+def _accepted_wire() -> ContinuousSemanticValidatorDraftV13:
+    return ContinuousSemanticValidatorDraftV13.from_v4(_canonical_v4())
 
 
 def _walk_named_properties(value: object, name: str, path: str = "$"):
@@ -276,11 +279,11 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         with self.assertRaises(ValidationError):
             Draft202012Validator(schema).validate(payload)
         with self.assertRaises(ContractValidationError):
-            from_mapping(ContinuousSemanticValidatorDraftV12, payload)
+            from_mapping(ContinuousSemanticValidatorDraftV13, payload)
 
     def test_python_derives_canonical_adjudication_hash(self) -> None:
         wire = from_mapping(
-            ContinuousSemanticValidatorDraftV12,
+            ContinuousSemanticValidatorDraftV13,
             to_primitive(_accepted_wire()),
         )
         result = wire.compile(writer_story_text=STORY)
@@ -296,10 +299,10 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         accepted_decision = accepted.decision
         self.assertIsInstance(
             accepted_decision,
-            ProviderAcceptedTurnDecisionDraftV5,
+            ProviderAcceptedTurnDecisionDraftV6,
         )
-        concern = ProviderConcernTurnDecisionDraftV5(
-            schema_version=ProviderConcernTurnDecisionDraftV5.SCHEMA_VERSION,
+        concern = ProviderConcernTurnDecisionDraftV6(
+            schema_version=ProviderConcernTurnDecisionDraftV6.SCHEMA_VERSION,
             decision_kind=ProviderConcernDecisionKind.CONCERN,
             realization_segments=accepted_decision.realization_segments,
             complete_final_sequence=accepted_decision.complete_final_sequence,
@@ -393,7 +396,7 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
                 wire = replace(accepted, decision=decision)
                 payload = to_primitive(wire)
                 Draft202012Validator(schema).validate(payload)
-                decoded = from_mapping(ContinuousSemanticValidatorDraftV12, payload)
+                decoded = from_mapping(ContinuousSemanticValidatorDraftV13, payload)
                 compiled = decoded.compile(writer_story_text=STORY)
                 self.assertIs(compiled.semantic_status, expected_status)
                 self.assertEqual(
@@ -526,19 +529,7 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
                 for path, value in _all_property_paths(schema)
                 if path.endswith("_sha256")
             ]
-            self.assertTrue(hashes)
-            self.assertTrue(
-                all(path.endswith("persistence_policy_sha256") for path, _ in hashes)
-            )
-            self.assertTrue(
-                all(
-                    value == {
-                        "type": "string",
-                        "const": PERSISTENCE_POLICY_SHA256,
-                    }
-                    for _, value in hashes
-                )
-            )
+            self.assertFalse(hashes)
             versions = _walk_named_properties(schema, "schema_version")
             self.assertTrue(versions)
             self.assertTrue(
@@ -560,7 +551,7 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
         )
         self.assertEqual(
             CONTINUOUS_VALIDATOR_ADAPTER_VERSION,
-            "cera.continuous_validator_adapter.v27",
+            "cera.continuous_validator_adapter.v28",
         )
 
     def test_active_schema_rejects_provider_authored_prior_value_hash(self) -> None:
@@ -583,10 +574,10 @@ class RuntimeModelV3ValidatorHashCustodyTests(unittest.TestCase):
             "field_scopes"
         ][0]
         scope["persistence_directives"] = [directive]
-        Draft202012Validator(schema).validate(payload)
-        directive["expected_prior_value_sha256"] = text_sha256("invented")
         with self.assertRaises(ValidationError):
             Draft202012Validator(schema).validate(payload)
+        with self.assertRaises(ContractValidationError):
+            from_mapping(ContinuousSemanticValidatorDraftV13, payload)
 
     def test_python_injects_add_and_exact_replace_prior_hashes(self) -> None:
         base_directive = {
