@@ -26,7 +26,7 @@ from .packets import (
 
 
 CONTINUOUS_PLANNER_PROMPT_VERSION = "cera.continuous_planner_prompt.v17"
-CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v37"
+CONTINUOUS_VALIDATOR_PROMPT_VERSION = "cera.continuous_validator_prompt.v38"
 WRITER_BEAT_REALIZATION_CONSTRAINTS_VERSION = (
     "cera.writer_beat_realization_constraints.v2"
 )
@@ -68,6 +68,10 @@ All canonical and diagnostic offsets are zero-based Python Unicode-codepoint ind
 VALIDATOR_STABLE_INSTRUCTIONS += """
 
 Every canonical realization span and every diagnostic span must cover at least one non-whitespace character of the immutable writer_story_text. Never return a standalone span containing only spaces, tabs, line breaks, or other formatting separators. Preserve ordered, non-overlapping, gap-free coverage by attaching each separator to the immediately preceding or following substantive semantic span; do not discard, normalize, or invent characters."""
+
+VALIDATOR_STABLE_INSTRUCTIONS += """
+
+On every rejected, inconclusive, or error branch, diagnostic_story_segments are a complete semantic partition of the entire immutable writer_story_text, not an issue list. The first diagnostic output_start must be 0, every later output_start must equal the preceding output_end, and the final output_end must equal the exact Writer codepoint length. Include grounded non-violating diagnostic spans for all compatible text before, between, and after offending spans. Returning only the offending spans, or omitting ordinary text because it has no violation, is invalid."""
 
 VALIDATOR_STABLE_INSTRUCTIONS += """
 

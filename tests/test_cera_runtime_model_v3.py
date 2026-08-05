@@ -167,7 +167,7 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
     def test_validator_final_items_use_single_authority_role_derivation(self) -> None:
         self.assertEqual(
             CONTINUOUS_VALIDATOR_PROMPT_VERSION,
-            "cera.continuous_validator_prompt.v37",
+            "cera.continuous_validator_prompt.v38",
         )
         for required in (
             "Do not repeat segment roles, protected claims, persistence directives",
@@ -205,6 +205,10 @@ class RuntimeModelV3SemanticBoundaryTests(unittest.TestCase):
             "must cover at least one non-whitespace character",
             "Never return a standalone span containing only spaces, tabs, line breaks",
             "attaching each separator to the immediately preceding or following substantive semantic span",
+            "diagnostic_story_segments are a complete semantic partition",
+            "not an issue list",
+            "Include grounded non-violating diagnostic spans",
+            "Returning only the offending spans",
             "semantic kind and assertion-owner roles must satisfy the exact closed matrix",
             "Kind narration requires no action_owner, state_owner, or speaker",
             "Never label a state-owned description as narration",
