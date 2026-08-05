@@ -11,6 +11,7 @@ from cera.continuous.prompting import (
     CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION,
     build_validator_prompt,
 )
+from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.provider import (
     CONTINUOUS_COMPACT_VALIDATOR_ADAPTER_VERSION,
     ContinuousCompactSemanticValidatorDraftV1,
@@ -78,6 +79,38 @@ class CompactValidatorV1Tests(unittest.TestCase):
             result.finalization_package.complete_final_sequence.items[0].story_segment_keys,
             ("segment_entire_story",),
         )
+        registry = RequestEvidenceBindingRegistry(
+            world_id=decoded.world_id,
+            branch_id=decoded.branch_id,
+            turn_id="turn:validator_schema_surface",
+        )
+        with self.assertRaisesRegex(PermissionError, "not gap-free"):
+            registry.validate_validator_realization_boundary(
+                story_text=story,
+                story_segments=result.story_segments,
+                presentation_segments=result.presentation_realization_segments,
+                package=result.finalization_package,
+                presentation_adjudications=(
+                    result.presentation_protected_semantic_adjudications
+                ),
+                allowed_character_ids=("character:hana_hanezawa", "character:ted"),
+            )
+        registry = RequestEvidenceBindingRegistry(
+            world_id=decoded.world_id,
+            branch_id=decoded.branch_id,
+            turn_id="turn:validator_schema_surface",
+        )
+        registry.validate_validator_realization_boundary(
+            story_text=story,
+            story_segments=result.story_segments,
+            presentation_segments=result.presentation_realization_segments,
+            package=result.finalization_package,
+            presentation_adjudications=(
+                result.presentation_protected_semantic_adjudications
+            ),
+            allowed_character_ids=("character:hana_hanezawa", "character:ted"),
+            require_gap_free=False,
+        )
 
     def test_sparse_rejection_needs_only_the_exact_offending_span(self) -> None:
         historical = _diagnostic_decision()
@@ -124,6 +157,20 @@ class CompactValidatorV1Tests(unittest.TestCase):
         self.assertIs(
             result.writer_recall_eligibility,
             ProviderWriterRecallEligibility.ELIGIBLE,
+        )
+        registry = RequestEvidenceBindingRegistry(
+            world_id="world:compact_rejection",
+            branch_id="branch:main",
+            turn_id="turn:compact_rejection",
+        )
+        registry.validate_validator_diagnostics(
+            story_text=REJECTED_STORY,
+            diagnostic_story_segments=result.diagnostic_story_segments,
+            diagnostic_protected_semantic_adjudications=(
+                result.diagnostic_protected_semantic_adjudications
+            ),
+            allowed_character_ids=("character:hana_hanezawa", "character:ted"),
+            require_gap_free=False,
         )
 
     def test_source_grounded_public_state_is_sparse_and_noncanonical(self) -> None:

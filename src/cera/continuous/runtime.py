@@ -1951,6 +1951,9 @@ class ContinuousShadowTurnCoordinator:
                     ),
                     allowed_character_ids=planner_sequence.selected_character_ids,
                     reference_only_character_ids=reference_only_character_ids,
+                    require_gap_free=(
+                        self.validator_contract_profile != "compact_v1"
+                    ),
                 )
                 reason_codes = tuple(
                     getattr(semantic_result, "reason_codes", ())
@@ -2015,6 +2018,9 @@ class ContinuousShadowTurnCoordinator:
                     reference_only_character_ids=reference_only_character_ids,
                     source_grounded_public_state_receipts=(
                         source_grounded_public_state_receipts
+                    ),
+                    require_gap_free=(
+                        self.validator_contract_profile != "compact_v1"
                     ),
                 )
             )

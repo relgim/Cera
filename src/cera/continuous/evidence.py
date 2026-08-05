@@ -2038,6 +2038,7 @@ class RequestEvidenceBindingRegistry:
         story_segments: tuple[StoryRealizationSegmentV1, ...],
         allowed_character_ids: tuple[str, ...],
         reference_only_character_ids: tuple[str, ...] = (),
+        require_gap_free: bool = True,
     ) -> tuple[ProtectedUserRealizationSpanV1, ...]:
         """Mechanically verify Validator semantics against immutable Writer text.
 
@@ -2057,9 +2058,14 @@ class RequestEvidenceBindingRegistry:
                 raise PermissionError(
                     "Semantic Validator story span key is duplicated"
                 )
-            if segment.output_start != cursor or segment.output_end > len(story_text):
+            invalid_start = (
+                segment.output_start != cursor
+                if require_gap_free
+                else segment.output_start < cursor
+            )
+            if invalid_start or segment.output_end > len(story_text):
                 raise PermissionError(
-                    "Semantic Validator story spans are not gap-free"
+                    "Semantic Validator story spans are unordered, overlapping, or not gap-free"
                 )
             if story_text[segment.output_start : segment.output_end] != segment.exact_text:
                 raise PermissionError(
@@ -2106,7 +2112,7 @@ class RequestEvidenceBindingRegistry:
                 raise PermissionError(
                     "non-protected Validator span carried protected-user claims"
                 )
-        if cursor != len(story_text):
+        if require_gap_free and cursor != len(story_text):
             raise PermissionError(
                 "Semantic Validator story spans do not cover complete Writer text"
             )
@@ -2132,6 +2138,7 @@ class RequestEvidenceBindingRegistry:
         source_grounded_public_state_receipts: tuple[
             SourceGroundedPublicStateReceiptV1, ...
         ] = (),
+        require_gap_free: bool = True,
     ) -> tuple[ProtectedUserRealizationSpanV1, ...]:
         """Validate complete bytes, then retain only story/material authority."""
 
@@ -2178,6 +2185,7 @@ class RequestEvidenceBindingRegistry:
             story_segments=complete_segments,
             allowed_character_ids=allowed_character_ids,
             reference_only_character_ids=reference_only_character_ids,
+            require_gap_free=require_gap_free,
         )
         complete_package = replace(
             package,
@@ -2212,6 +2220,7 @@ class RequestEvidenceBindingRegistry:
         ],
         allowed_character_ids: tuple[str, ...],
         reference_only_character_ids: tuple[str, ...] = (),
+        require_gap_free: bool = True,
     ) -> None:
         """Validate rejected-only evidence without adding it to authority state."""
 
@@ -2226,9 +2235,14 @@ class RequestEvidenceBindingRegistry:
                 raise PermissionError(
                     "Semantic Validator diagnostic story span key is duplicated"
                 )
-            if segment.output_start != cursor or segment.output_end > len(story_text):
+            invalid_start = (
+                segment.output_start != cursor
+                if require_gap_free
+                else segment.output_start < cursor
+            )
+            if invalid_start or segment.output_end > len(story_text):
                 raise PermissionError(
-                    "Semantic Validator diagnostic spans are not gap-free"
+                    "Semantic Validator diagnostic spans are unordered, overlapping, or not gap-free"
                 )
             if (
                 story_text[segment.output_start : segment.output_end]
@@ -2273,7 +2287,7 @@ class RequestEvidenceBindingRegistry:
                     )
             cursor = segment.output_end
             segments[segment.segment_key] = segment
-        if cursor != len(story_text):
+        if require_gap_free and cursor != len(story_text):
             raise PermissionError(
                 "Semantic Validator diagnostic spans do not cover complete Writer text"
             )
