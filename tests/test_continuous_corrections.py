@@ -308,6 +308,75 @@ class ContinuousEvidenceCorrectionTests(unittest.TestCase):
         self.assertEqual(record.knowledge_owner_id, "character:sakura_hanezawa")
         self.assertEqual(record.visibility, EvidenceVisibility.CHARACTER_PRIVATE)
 
+    def test_repeated_unchanged_exact_read_returns_one_authoritative_binding(self) -> None:
+        registry = RequestEvidenceBindingRegistry(
+            world_id="world-test", branch_id="main", turn_id="turn-001"
+        )
+        dispatcher = ContinuousWorldToolDispatcher(
+            self.root,
+            ContinuousSessionRole.PLANNER,
+            current_turn_id="turn-001",
+            evidence_registry=registry,
+        )
+        arguments = {"path": "ACTIVE/Characters/Sakura.json"}
+
+        first = dispatcher.invoke("cera_world_read", arguments)
+        second = dispatcher.invoke("cera_world_read", arguments)
+
+        self.assertEqual(first["evidence_binding"], second["evidence_binding"])
+        self.assertEqual(len(registry.bindings), 1)
+        self.assertEqual(len(dispatcher.calls), 2)
+        self.assertTrue(all(value.success for value in dispatcher.calls))
+        self.assertEqual(len(dispatcher.local_debug_calls), 2)
+        self.assertEqual(
+            tuple(value["evidence_binding"]["binding_key"] for value in dispatcher.local_debug_calls),
+            (first["evidence_binding"]["binding_key"],) * 2,
+        )
+
+    def test_world_record_replay_still_rejects_every_semantic_mismatch(self) -> None:
+        base = {
+            "relative_path": "ACTIVE/Characters/Sakura.json",
+            "source_sha256": text_sha256("same immutable content"),
+            "record_revision": 1,
+            "record_type": "characters",
+            "visibility": EvidenceVisibility.CHARACTER_PRIVATE,
+            "knowledge_owner_id": "character:sakura_hanezawa",
+        }
+        mismatches = {
+            "record_revision": {"record_revision": 2},
+            "record_type": {"record_type": "memories"},
+            "visibility_and_owner": {
+                "visibility": EvidenceVisibility.PUBLIC,
+                "knowledge_owner_id": None,
+            },
+            "knowledge_owner_id": {
+                "knowledge_owner_id": "character:hana_hanezawa"
+            },
+        }
+        for case_name, changed_fields in mismatches.items():
+            with self.subTest(case_name=case_name):
+                registry = RequestEvidenceBindingRegistry(
+                    world_id="world-test", branch_id="main", turn_id="turn-001"
+                )
+                first = registry.allocate_world_record(
+                    **base,
+                    exact_read_operation_sha256=text_sha256("read operation one"),
+                )
+                replay = registry.allocate_world_record(
+                    **base,
+                    exact_read_operation_sha256=text_sha256("read operation two"),
+                )
+                self.assertIs(replay, first)
+                with self.assertRaisesRegex(
+                    StateConflictError, "evidence binding key collision"
+                ):
+                    registry.allocate_world_record(
+                        **{**base, **changed_fields},
+                        exact_read_operation_sha256=text_sha256(
+                            f"mismatched read operation {case_name}"
+                        ),
+                    )
+
     def test_character_record_without_legacy_visibility_defaults_to_its_owner(self) -> None:
         character = self.root / "ACTIVE" / "Characters" / "Sakura.json"
         payload = json.loads(character.read_text(encoding="utf-8"))

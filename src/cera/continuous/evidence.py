@@ -1168,7 +1168,7 @@ class RequestEvidenceBindingV1:
 class RequestEvidenceBindingRegistry:
     """Mutable request ledger whose exported bindings are immutable records."""
 
-    SCHEMA_VERSION = "cera.request_evidence_binding_registry.v9"
+    SCHEMA_VERSION = "cera.request_evidence_binding_registry.v10"
 
     def __init__(self, *, world_id: str, branch_id: str, turn_id: str) -> None:
         if not all(isinstance(value, str) and value.strip() for value in (world_id, branch_id, turn_id)):
@@ -1364,6 +1364,12 @@ class RequestEvidenceBindingRegistry:
             knowledge_owner_id=knowledge_owner_id,
             exact_read_operation_sha256=exact_read_operation_sha256,
         )
+        prior = self._bindings.get(binding.binding_key)
+        if prior is not None and replace(
+            binding,
+            exact_read_operation_sha256=prior.exact_read_operation_sha256,
+        ) == prior:
+            return prior
         return self._add(binding)
 
     def allocate_accepted_session_envelope(
