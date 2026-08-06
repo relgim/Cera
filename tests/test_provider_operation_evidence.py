@@ -9,6 +9,7 @@ import unittest
 from cera.continuous.call_ledger import ContinuousProviderCallLedger, ProviderCallState
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.continuous.provider import DeepSeekContinuousComposerPort
+from cera.errors import StateConflictError
 from cera.sequence_first.provider import sequence_first_writer_route
 
 
@@ -166,6 +167,113 @@ class ProviderOperationEvidenceTests(unittest.TestCase):
             failed_terminal = json.loads((failed_root / "TERMINAL.json").read_text())
             self.assertEqual(failed_terminal["ledger_event"]["state"], ProviderCallState.POST_VALIDATION_FAILED.value)
             self.assertEqual(ledger.dispatched_call_count, 2)
+
+    def test_unbound_thread_archival_does_not_create_a_provider_call(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            store = ProviderOperationEvidenceStoreV1(root / "calls", stage="fake-stage")
+            store.begin_turn("turn-0001")
+            thread_identity = "a" * 64
+
+            store.record_archival(
+                role="validator",
+                archived=True,
+                resumable=False,
+                disposition="archived_before_provider_dispatch",
+                thread_identity_sha256=thread_identity,
+            )
+
+            snapshot = store.snapshot()
+            self.assertEqual(snapshot["calls"], [])
+            self.assertEqual(len(snapshot["thread_lifecycles"]), 1)
+            archival = snapshot["thread_lifecycles"][0]["value"]
+            self.assertIsNone(archival["call_id"])
+            self.assertEqual(archival["role"], "validator")
+            self.assertTrue(archival["archived"])
+            self.assertFalse(archival["resumable"])
+            self.assertFalse(archival["provider_dispatched"])
+            self.assertEqual(archival["thread_identity_sha256"], thread_identity)
+            self.assertIn(thread_identity, snapshot["thread_lifecycles"][0]["relative_path"])
+
+    def test_unbound_thread_archival_rejects_unclosed_role(self) -> None:
+        with TemporaryDirectory() as temporary:
+            store = ProviderOperationEvidenceStoreV1(
+                Path(temporary).resolve() / "calls",
+                stage="fake-stage",
+            )
+            store.begin_turn("turn-0001")
+            with self.assertRaisesRegex(StateConflictError, "role is not closed"):
+                store.record_archival(
+                    role="../../unchecked",
+                    archived=True,
+                    resumable=False,
+                    disposition="archived_before_provider_dispatch",
+                    thread_identity_sha256="a" * 64,
+                )
+
+    def test_new_thread_does_not_attach_to_prior_role_call(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            ledger = ContinuousProviderCallLedger(root / "provider_calls.jsonl", maximum_calls=2)
+            store = ProviderOperationEvidenceStoreV1(root / "calls", stage="fake-stage")
+            store.begin_turn("turn-0001")
+            request = store.request(
+                request_bytes=b"request",
+                structured_output_schema={"type": "object"},
+                prompt_version="prompt-v1",
+                schema_version="schema-v1",
+                operation_workspace=str(root / "operation"),
+                role="validator",
+                archival_policy="fresh_then_archive",
+            )
+            first_thread = "a" * 64
+            raw = SimpleNamespace(
+                output_text='{"accepted":true}',
+                parsed_json={"accepted": True},
+                receipt={},
+                operation_telemetry=None,
+                tool_call_count=0,
+                failed_tool_call_count=0,
+                tool_names=(),
+                tool_server_names=(),
+            )
+
+            def dispatch(mark_invoked):
+                mark_invoked()
+                return raw
+
+            ledger.execute(
+                owner="validator",
+                operation="validate",
+                route="fake-route",
+                model="fake-model",
+                effort="medium",
+                dispatch_with_invocation_marker=dispatch,
+                finalize=lambda value: SimpleNamespace(value=value.parsed_json),
+                stored_thread_sha256=first_thread,
+                operation_evidence=request,
+            )
+            second_thread = "b" * 64
+
+            store.record_archival(
+                role="validator",
+                archived=True,
+                resumable=False,
+                disposition="archived_before_provider_dispatch",
+                thread_identity_sha256=second_thread,
+            )
+
+            snapshot = store.snapshot()
+            self.assertEqual(len(snapshot["calls"]), 1)
+            self.assertNotIn(
+                "ARCHIVAL.json",
+                snapshot["calls"][0]["artifact_sha256_by_name"],
+            )
+            self.assertEqual(len(snapshot["thread_lifecycles"]), 1)
+            self.assertEqual(
+                snapshot["thread_lifecycles"][0]["value"]["thread_identity_sha256"],
+                second_thread,
+            )
 
 
 if __name__ == "__main__":

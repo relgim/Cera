@@ -525,11 +525,21 @@ class SequenceFirstValidatorCodexBackend:
     def is_resumable(self, thread_id: str) -> bool:
         resumable = self.lifecycle.stored_thread_is_selectable(thread_id)
         if self.operation_evidence is not None:
+            thread_identity_sha256 = text_sha256(thread_id)
+            provider_dispatched = self.operation_evidence.has_provider_call_for_thread(
+                role="validator",
+                thread_identity_sha256=thread_identity_sha256,
+            )
             self.operation_evidence.record_archival(
                 role="validator",
                 archived=True,
                 resumable=resumable,
-                disposition="archived_after_candidate",
+                disposition=(
+                    "archived_after_candidate"
+                    if provider_dispatched
+                    else "archived_before_provider_dispatch"
+                ),
+                thread_identity_sha256=thread_identity_sha256,
             )
         return resumable
 
@@ -619,21 +629,45 @@ class SequenceFirstReaderCodexPort:
                     )
                 ),
             )
-            self.last_provider_result = provider_result
-            return provider_result.value
-        finally:
-            self.lifecycle.archive_stored_thread(thread_id)
-            if self.lifecycle.stored_thread_is_selectable(thread_id):
-                raise ContractValidationError(
-                    "archived sequence-first Reader remains resumable"
+        except BaseException as primary:
+            try:
+                self._archive_and_record(thread_id, stored_thread_sha256)
+            except BaseException as cleanup:
+                primary.add_note(
+                    f"Reader terminalization also failed: {type(cleanup).__name__}: {cleanup}"
                 )
-            if self.operation_evidence is not None:
-                self.operation_evidence.record_archival(
-                    role="reader",
-                    archived=True,
-                    resumable=False,
-                    disposition="archived_after_candidate",
-                )
+                raise primary from cleanup
+            raise
+        self.last_provider_result = provider_result
+        self._archive_and_record(thread_id, stored_thread_sha256)
+        return provider_result.value
+
+    def _archive_and_record(
+        self,
+        thread_id: str,
+        stored_thread_sha256: str,
+    ) -> None:
+        self.lifecycle.archive_stored_thread(thread_id)
+        if self.lifecycle.stored_thread_is_selectable(thread_id):
+            raise ContractValidationError(
+                "archived sequence-first Reader remains resumable"
+            )
+        if self.operation_evidence is not None:
+            provider_dispatched = self.operation_evidence.has_provider_call_for_thread(
+                role="reader",
+                thread_identity_sha256=stored_thread_sha256,
+            )
+            self.operation_evidence.record_archival(
+                role="reader",
+                archived=True,
+                resumable=False,
+                disposition=(
+                    "archived_after_candidate"
+                    if provider_dispatched
+                    else "archived_before_provider_dispatch"
+                ),
+                thread_identity_sha256=stored_thread_sha256,
+            )
 
 
 class SequenceFirstDeepSeekWriterPort:

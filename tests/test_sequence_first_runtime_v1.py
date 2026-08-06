@@ -37,6 +37,7 @@ from cera.sequence_first import (
     SequenceDraftV1,
     SequenceFirstCoordinator,
     SequenceFirstAcceptedAuthorityV1,
+    SequenceFirstReaderInputV1,
     SequenceFirstTurnRequestV1,
     SequenceFirstTurnSemanticInputV1,
     SequenceItemV1,
@@ -334,6 +335,30 @@ class ValidatorFactoryFake:
 
     def create_sequence_first_validator(self) -> ValidatorSessionFake:
         session = ValidatorSessionFake(self.decisions[len(self.sessions)])
+        self.sessions.append(session)
+        return session
+
+
+class FailingValidatorSessionFake:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.archive_calls = 0
+
+    def validate(self, validator_request) -> ValidatorDecisionV1:
+        self.calls += 1
+        raise RuntimeError("manager authority changed before provider operation")
+
+    def archive_and_prove_nonresumable(self) -> None:
+        self.archive_calls += 1
+        raise StateConflictError("provider evidence role has no completed call")
+
+
+class FailingValidatorFactoryFake:
+    def __init__(self) -> None:
+        self.sessions: list[FailingValidatorSessionFake] = []
+
+    def create_sequence_first_validator(self) -> FailingValidatorSessionFake:
+        session = FailingValidatorSessionFake()
         self.sessions.append(session)
         return session
 
@@ -936,6 +961,34 @@ class SequenceFirstPipelineTests(unittest.TestCase):
         self.assertTrue(factory.sessions[0].archived)
         self.assertEqual(result.candidate.accepted_attempt_number, 1)
 
+    def test_validator_cleanup_failure_does_not_mask_primary_failure(self) -> None:
+        writer = WriterFake(["Hana asks what Ted wants to do next."])
+        factory = FailingValidatorFactoryFake()
+        runtime = SequenceFirstCoordinator(
+            planner=PlannerFake(intended()),
+            writer=writer,
+            validator_factory=factory,
+            reader=ReaderFake([accepted_reader()]),
+            voice_cue_resolver=VoiceCueResolverFake(),
+        )
+
+        with self.assertRaisesRegex(
+            RuntimeError,
+            "manager authority changed before provider operation",
+        ) as captured:
+            runtime.generate(request())
+
+        self.assertIsInstance(captured.exception.__cause__, StateConflictError)
+        self.assertEqual(len(factory.sessions), 1)
+        self.assertEqual(factory.sessions[0].calls, 1)
+        self.assertEqual(factory.sessions[0].archive_calls, 1)
+        self.assertTrue(
+            any(
+                "Validator terminalization also failed" in note
+                for note in getattr(captured.exception, "__notes__", ())
+            )
+        )
+
     def test_three_writer_attempts_are_independent_and_never_merged(self) -> None:
         value, writer, factory = coordinator(
             writer_outputs=["Ted nodded.", "Ted nodded again.", "Hana asks a question."],
@@ -1225,6 +1278,51 @@ class SequenceFirstSessionTests(unittest.TestCase):
                 tool_server_names=(),
             )
 
+    def test_reader_cleanup_failure_does_not_mask_primary_failure(self) -> None:
+        class FailingLedger:
+            def execute(self, **kwargs):
+                raise RuntimeError("manager authority changed before provider operation")
+
+        class CleanupFailingLifecycle(self.StoredLifecycleFake):
+            def archive_stored_thread(self, thread_id: str) -> None:
+                super().archive_stored_thread(thread_id)
+                raise StateConflictError("reader archival receipt failed")
+
+        reader_base = __import__(
+            "cera.sequence_first.prompting",
+            fromlist=["READER_BASE_INSTRUCTIONS"],
+        ).READER_BASE_INSTRUCTIONS
+        lifecycle = CleanupFailingLifecycle(reader_base, "reader")
+        with TemporaryDirectory() as temporary:
+            reader = SequenceFirstReaderCodexPort(
+                lifecycle=lifecycle,
+                workspace=Path(temporary).resolve(),
+                model="gpt-5.6-terra",
+                effort="high",
+                call_ledger=FailingLedger(),
+            )
+            reader_input = SequenceFirstReaderInputV1(
+                exact_writer_prose="Hana asks what Ted wants to do next.",
+                intended_sequence=intended(),
+                realized_sequence=realized(),
+            )
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "manager authority changed before provider operation",
+            ) as captured:
+                reader.read(reader_input)
+
+        self.assertIsInstance(captured.exception.__cause__, StateConflictError)
+        self.assertEqual(lifecycle.started, ["reader-1"])
+        self.assertEqual(lifecycle.archived, {"reader-1"})
+        self.assertTrue(
+            any(
+                "Reader terminalization also failed" in note
+                for note in getattr(captured.exception, "__notes__", ())
+            )
+        )
+
     class PlannerBackend:
         def __init__(self) -> None:
             self.starts = []
@@ -1306,6 +1404,53 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(backend.archived, {"validator-1", "validator-2"})
         self.assertNotIn("exhaustive", VALIDATOR_PROFILE)
+
+    def test_validator_pre_dispatch_thread_is_archived_without_fake_call(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            lifecycle = self.StoredLifecycleFake(
+                VALIDATOR_BASE_INSTRUCTIONS,
+                "validator",
+            )
+            evidence = ProviderOperationEvidenceStoreV1(
+                root / "operation_evidence",
+                stage="validator-pre-dispatch-cleanup",
+            )
+            evidence.begin_turn("turn-0001")
+            backend = SequenceFirstValidatorCodexBackend(
+                lifecycle=lifecycle,
+                workspace=root,
+                model="gpt-5.6-terra",
+                effort="medium",
+                call_ledger=ContinuousProviderCallLedger(
+                    root / "provider_calls.jsonl",
+                    maximum_calls=1,
+                ),
+                operation_evidence=evidence,
+            )
+            session = FreshCandidateValidatorFactory(
+                backend
+            ).create_sequence_first_validator()
+
+            session.archive_and_prove_nonresumable()
+
+            snapshot = evidence.snapshot()
+            self.assertEqual(snapshot["calls"], [])
+            self.assertEqual(len(snapshot["thread_lifecycles"]), 1)
+            self.assertEqual(lifecycle.archived, {"validator-1"})
+            self.assertEqual(
+                snapshot["thread_lifecycles"][0]["value"]["role"],
+                "validator",
+            )
+            self.assertFalse(
+                snapshot["thread_lifecycles"][0]["value"]["provider_dispatched"]
+            )
+            self.assertEqual(
+                snapshot["thread_lifecycles"][0]["value"]["disposition"],
+                "archived_before_provider_dispatch",
+            )
+            self.assertFalse((root / "validator_operation_0001").exists())
+            self.assertEqual(backend.call_ledger.dispatched_call_count, 0)
 
     def test_provider_schemas_expose_semantics_only(self) -> None:
         rendered = json.dumps(

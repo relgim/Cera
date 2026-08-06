@@ -172,7 +172,17 @@ class SequenceFirstCoordinator:
             validator = self._validator_factory.create_sequence_first_validator()
             try:
                 decision = validator.validate(validator_input)
-            finally:
+            except BaseException as primary:
+                try:
+                    validator.archive_and_prove_nonresumable()
+                except BaseException as cleanup:
+                    primary.add_note(
+                        "Validator terminalization also failed: "
+                        f"{type(cleanup).__name__}: {cleanup}"
+                    )
+                    raise primary from cleanup
+                raise
+            else:
                 validator.archive_and_prove_nonresumable()
 
             if decision.verdict is ValidatorVerdict.REJECT:

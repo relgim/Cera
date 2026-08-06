@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
+import json
 import os
 from pathlib import Path
 from threading import RLock
@@ -74,6 +75,7 @@ class ProviderOperationEvidenceStoreV1:
     """Add-only call directories whose terminal manifests bind ledger evidence."""
 
     SCHEMA_VERSION = "cera.provider_operation_evidence.v1"
+    THREAD_LIFECYCLE_ROLES = frozenset({"planner", "validator", "reader"})
 
     def __init__(self, root: Path, *, stage: str) -> None:
         if not root.is_absolute() or not stage.strip():
@@ -83,7 +85,7 @@ class ProviderOperationEvidenceStoreV1:
         self.stage = stage
         self._turn: str | None = None
         self._attempt = 1
-        self._latest_by_role: dict[str, str] = {}
+        self._latest_by_role: dict[str, tuple[str, str | None]] = {}
         self._lock = RLock()
 
     def begin_turn(self, turn: str) -> None:
@@ -104,6 +106,28 @@ class ProviderOperationEvidenceStoreV1:
     @property
     def attempt(self) -> int:
         return self._attempt
+
+    def has_provider_call_for_thread(
+        self,
+        *,
+        role: str,
+        thread_identity_sha256: str,
+    ) -> bool:
+        if role not in self.THREAD_LIFECYCLE_ROLES:
+            raise StateConflictError("provider evidence lifecycle role is not closed")
+        with self._lock:
+            for call_root in self.root.iterdir():
+                manifest_path = call_root / "PRE_DISPATCH.json"
+                if not call_root.is_dir() or not manifest_path.is_file():
+                    continue
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if (
+                    manifest.get("role") == role
+                    and manifest.get("thread_identity_sha256")
+                    == thread_identity_sha256
+                ):
+                    return True
+        return False
 
     def request(
         self,
@@ -173,7 +197,7 @@ class ProviderOperationEvidenceStoreV1:
                 "structured_output_schema_sha256": _sha256_bytes(schema_bytes),
             }
             _atomic_new_file(call_root / "PRE_DISPATCH.json", canonical_bytes(manifest))
-            self._latest_by_role[request.role] = call_id
+            self._latest_by_role[request.role] = (call_id, stored_thread_sha256)
 
     def terminal(
         self,
@@ -253,22 +277,49 @@ class ProviderOperationEvidenceStoreV1:
         archived: bool,
         resumable: bool | None,
         disposition: str,
+        thread_identity_sha256: str | None = None,
     ) -> None:
         with self._lock:
-            call_id = self._latest_by_role.get(role)
+            if role not in self.THREAD_LIFECYCLE_ROLES:
+                raise StateConflictError("provider evidence lifecycle role is not closed")
+            latest = self._latest_by_role.get(role)
+            call_id = None if latest is None else latest[0]
+            call_thread_sha256 = None if latest is None else latest[1]
+            if (
+                thread_identity_sha256 is not None
+                and thread_identity_sha256 != call_thread_sha256
+            ):
+                call_id = None
             if call_id is None:
-                raise StateConflictError("provider evidence role has no completed call")
-            payload = canonical_bytes(
-                {
-                    "schema_version": self.SCHEMA_VERSION,
-                    "call_id": call_id,
-                    "role": role,
-                    "archived": archived,
-                    "resumable": resumable,
-                    "disposition": disposition,
-                }
-            )
-            path = self.root / call_id / "ARCHIVAL.json"
+                if (
+                    thread_identity_sha256 is None
+                    or len(thread_identity_sha256) != 64
+                    or any(
+                        value not in "0123456789abcdef"
+                        for value in thread_identity_sha256
+                    )
+                ):
+                    raise StateConflictError(
+                        "provider evidence unbound archival lacks thread identity"
+                    )
+                path = self.root / (
+                    f"THREAD_LIFECYCLE_{role}_{thread_identity_sha256}.json"
+                )
+            else:
+                path = self.root / call_id / "ARCHIVAL.json"
+            value = {
+                "schema_version": self.SCHEMA_VERSION,
+                "call_id": call_id,
+                "role": role,
+                "archived": archived,
+                "resumable": resumable,
+                "disposition": disposition,
+                "provider_dispatched": call_id is not None,
+            }
+            effective_thread_sha256 = thread_identity_sha256 or call_thread_sha256
+            if effective_thread_sha256 is not None:
+                value["thread_identity_sha256"] = effective_thread_sha256
+            payload = canonical_bytes(value)
             if path.exists():
                 if path.read_bytes() != payload:
                     raise StateConflictError("provider evidence archival result changed")
@@ -292,9 +343,19 @@ class ProviderOperationEvidenceStoreV1:
                     "terminal": "TERMINAL.json" in files,
                 }
             )
+        thread_lifecycles = []
+        for path in sorted(self.root.glob("THREAD_LIFECYCLE_*.json")):
+            thread_lifecycles.append(
+                {
+                    "relative_path": path.name,
+                    "sha256": _sha256_bytes(path.read_bytes()),
+                    "value": json.loads(path.read_text(encoding="utf-8")),
+                }
+            )
         return {
             "schema_version": "cera.provider_operation_evidence_snapshot.v1",
             "stage": self.stage,
             "root": str(self.root),
             "calls": calls,
+            "thread_lifecycles": thread_lifecycles,
         }
