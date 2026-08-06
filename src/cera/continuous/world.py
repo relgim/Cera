@@ -2347,6 +2347,20 @@ class ContinuousWorldStore:
                     }
                 ):
                     self._finish_local_acceptance(root, transaction_root)
+                elif (
+                    terminal == "active_installed"
+                    and payload.get("schema_version")
+                    == "cera.sequence_first.acceptance_journal.v1"
+                ):
+                    from cera.sequence_first.world import (
+                        finish_sequence_first_acceptance,
+                    )
+
+                    finish_sequence_first_acceptance(
+                        self,
+                        root,
+                        transaction_root,
+                    )
                 recovered.append(
                     str(payload.get("turn_id", transaction_root.name))
                 )
