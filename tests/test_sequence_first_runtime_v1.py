@@ -64,6 +64,7 @@ from cera.sequence_first.provider import (
     SEQUENCE_FIRST_PLANNER_ADAPTER,
     SEQUENCE_FIRST_READER_ADAPTER,
     SEQUENCE_FIRST_VALIDATOR_ADAPTER,
+    SEQUENCE_FIRST_VALIDATOR_PROMPT,
     SEQUENCE_FIRST_WRITER_ADAPTER,
     SEQUENCE_FIRST_WRITER_PROMPT,
     SequenceFirstDeepSeekWriterPort,
@@ -1059,6 +1060,14 @@ class SequenceFirstPipelineTests(unittest.TestCase):
         self.assertIn("backgrounded_character_ids", WRITER_INSTRUCTIONS)
         self.assertIn("Compatible static presentation", WRITER_INSTRUCTIONS)
         self.assertIn("omit it from the realized sequence", VALIDATOR_BASE_INSTRUCTIONS)
+        self.assertIn(
+            "static positional refinement inside an already accepted location",
+            VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "unless it changes the accepted location",
+            VALIDATOR_BASE_INSTRUCTIONS,
+        )
         self.assertIn("present nonresponding NPCs", VALIDATOR_BASE_INSTRUCTIONS)
         for forbidden_phrase in (
             "stood just inside the door",
@@ -1461,6 +1470,19 @@ class SequenceFirstSessionTests(unittest.TestCase):
             validator_route.adapter_id,
             SEQUENCE_FIRST_VALIDATOR_ADAPTER,
         )
+        self.assertEqual(
+            SEQUENCE_FIRST_VALIDATOR_ADAPTER,
+            "cera.sequence_first.validator_adapter.v6",
+        )
+        self.assertEqual(
+            validator_route.prompt_version,
+            SEQUENCE_FIRST_VALIDATOR_PROMPT,
+        )
+        self.assertEqual(
+            SEQUENCE_FIRST_VALIDATOR_PROMPT,
+            "cera.sequence_first.validator_prompt.v5",
+        )
+        self.assertTrue(validator_route.route_id.endswith("_v6"))
         self.assertEqual(reader_route.adapter_id, SEQUENCE_FIRST_READER_ADAPTER)
         self.assertEqual(writer_route.adapter_id, SEQUENCE_FIRST_WRITER_ADAPTER)
         self.assertEqual(writer_route.prompt_version, SEQUENCE_FIRST_WRITER_PROMPT)
