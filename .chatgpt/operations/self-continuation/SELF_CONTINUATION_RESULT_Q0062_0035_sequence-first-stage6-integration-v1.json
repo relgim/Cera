@@ -1,0 +1,64 @@
+{
+  "schema_version": "cera.codex_self_continuation_result.v1",
+  "queue_revision": "0062",
+  "plan_id": "self-continuation:q0062:0035:sequence-first-stage6-integration-v1",
+  "plan_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0062_0035_sequence-first-stage6-integration-v1.md",
+  "plan_sha256": "bd40321d408160d8e6ef5f29cfd3cd7a9ed190ac43941aba704ced0748d239fd",
+  "status": "completed",
+  "checkpoint_identity": "2026-08-06-cera-sequence-first-stage6-integration-v1-001",
+  "source_git_sha": "2bd12f2c97f66f2f35df406bc0ee3704192924da",
+  "source_tree_sha": "441809b42e0bf592418beb25cedb0a0f18aea3fa",
+  "tests": [
+    {
+      "kind": "focused",
+      "command": ".venv/Scripts/python.exe -m unittest tests.test_sequence_first_runtime_v1 tests.test_sequence_first_stage6_bridge_v1 tests.test_continuous_world tests.test_sillytavern_server",
+      "passed": 95,
+      "failed": 0,
+      "errors": 0,
+      "duration_seconds": 12.327
+    },
+    {
+      "kind": "complete_repository_suite_at_source_freeze",
+      "command": ".venv/Scripts/python.exe -m unittest discover -s tests",
+      "passed": 1187,
+      "skipped": 3,
+      "failed": 0,
+      "errors": 0,
+      "total": 1190,
+      "duration_seconds": 775.931
+    }
+  ],
+  "provider_counts": {
+    "external_codex_sol_family": 0,
+    "external_deepseek_family": 0,
+    "external_reader": 0,
+    "note": "Provider-labelled unittest fixtures were local mocks and did not dispatch external calls."
+  },
+  "fresh_identities": [
+    "cera.sequence_first.stage6.v1",
+    "cera-sequence-first-stage6",
+    "cera_sequence_first_planner_sol_medium_v2",
+    "cera.sequence_first.planner_adapter.v2",
+    "cera.sequence_first.validator_adapter.v2"
+  ],
+  "protected_effects": {
+    "production_route_changed": false,
+    "installed_sillytavern_changed": false,
+    "live_story_database_changed": false,
+    "provider_dispatched": false,
+    "remote_operation_performed": false
+  },
+  "completed_requirements": [
+    "post-plan responder-scoped voice cue resolution",
+    "accepted authority supersession of provisional planner history",
+    "accepted-world evidence and target authority assembler",
+    "exact protected-user source policy",
+    "duplicate semantic field removal and derivation",
+    "closed persistence target policy and canonical relationship ordering",
+    "loopback HTTP review accept decline restart route",
+    "provider and effect observability",
+    "explicit non-authorizing sequence-first virtual model profile"
+  ],
+  "next_unfinished_queue_step": "Reconcile the exact remaining creator provider balance from immutable ledgers, then run Stage 3 bounded live two-turn canary only if accounting is exact.",
+  "completed_at_utc": "2026-08-06T05:50:06.9044904Z"
+}
