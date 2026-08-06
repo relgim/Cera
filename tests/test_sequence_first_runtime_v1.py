@@ -8,6 +8,8 @@ from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
+from jsonschema import Draft202012Validator
+
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.continuous.world import ContinuousWorldStore
@@ -80,7 +82,11 @@ from cera.sequence_first.provider import (
     sequence_first_writer_route,
     validator_decision_json_schema,
 )
-from cera.sequence_first.contracts import LOCAL_KEY_JSON_PATTERN
+from cera.sequence_first.contracts import (
+    CHARACTER_ID_JSON_PATTERN,
+    LOCAL_KEY_JSON_PATTERN,
+    STABLE_IDENTITY_JSON_PATTERN,
+)
 from cera.sequence_first.world import SequenceFirstWorldTransaction
 from cera.sillytavern.sequence_first_adapter import (
     AcceptedSceneStateV1,
@@ -1544,6 +1550,148 @@ class SequenceFirstSessionTests(unittest.TestCase):
         with self.assertRaises(ContractValidationError):
             item(key="item:hana_answers")
 
+    def test_provider_character_id_schema_matches_closed_python_grammar(self) -> None:
+        self.assertEqual(
+            item(owner="character:hana_hanezawa").owner_id,
+            "character:hana_hanezawa",
+        )
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "owner_id is not a character identity",
+        ):
+            item(owner="character_hana_hanezawa")
+
+        sequence_schema = sequence_draft_json_schema()
+        properties = sequence_schema["properties"]
+        item_properties = properties["items"]["items"]["properties"]
+        durable_properties = properties["durable_changes"]["items"]["properties"]
+        presence_properties = properties["presence_changes"]["items"]["properties"]
+        self.assertFalse(
+            tuple(
+                Draft202012Validator(item_properties["owner_id"]).iter_errors(None)
+            )
+        )
+        self.assertFalse(
+            tuple(
+                Draft202012Validator(
+                    durable_properties["knowledge_owner_id"]
+                ).iter_errors(None)
+            )
+        )
+        self.assertTrue(
+            tuple(
+                Draft202012Validator(presence_properties["character_id"]).iter_errors(
+                    None
+                )
+            )
+        )
+        self.assertTrue(
+            tuple(
+                Draft202012Validator(
+                    durable_properties["subject_ids"]["items"]
+                ).iter_errors(None)
+            )
+        )
+        character_schemas = (
+            item_properties["owner_id"]["anyOf"][0],
+            durable_properties["subject_ids"]["items"],
+            durable_properties["knowledge_owner_id"]["anyOf"][0],
+            presence_properties["character_id"],
+        )
+        for character_schema in character_schemas:
+            self.assertEqual(
+                character_schema["pattern"],
+                CHARACTER_ID_JSON_PATTERN,
+            )
+            validator = Draft202012Validator(character_schema)
+            self.assertFalse(
+                tuple(validator.iter_errors("character:hana_hanezawa"))
+            )
+            self.assertTrue(
+                tuple(validator.iter_errors("character_hana_hanezawa"))
+            )
+            self.assertTrue(tuple(validator.iter_errors("evidence:hana")))
+
+        projected_sequence_schemas = (
+            project_provider_output_schema(
+                sequence_schema,
+                ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+            ).provider_schema,
+            project_provider_output_schema(
+                validator_decision_json_schema(),
+                ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+            ).provider_schema["properties"]["realized_sequence"]["anyOf"][0],
+        )
+        for projected_sequence in projected_sequence_schemas:
+            projected_properties = projected_sequence["properties"]
+            projected_character_schemas = (
+                projected_properties["items"]["items"]["properties"][
+                    "owner_id"
+                ]["anyOf"][0],
+                projected_properties["durable_changes"]["items"]["properties"][
+                    "subject_ids"
+                ]["items"],
+                projected_properties["durable_changes"]["items"]["properties"][
+                    "knowledge_owner_id"
+                ]["anyOf"][0],
+                projected_properties["presence_changes"]["items"]["properties"][
+                    "character_id"
+                ],
+            )
+            for character_schema in projected_character_schemas:
+                self.assertEqual(
+                    character_schema["pattern"],
+                    CHARACTER_ID_JSON_PATTERN,
+                )
+                self.assertTrue(
+                    tuple(
+                        Draft202012Validator(character_schema).iter_errors(
+                            "character_hana_hanezawa"
+                        )
+                    )
+                )
+
+    def test_provider_stable_identity_schema_matches_closed_python_grammar(self) -> None:
+        sequence_schema = sequence_draft_json_schema()
+        properties = sequence_schema["properties"]
+        item_properties = properties["items"]["items"]["properties"]
+        durable_properties = properties["durable_changes"]["items"]["properties"]
+        stable_schemas = (
+            item_properties["evidence_keys"]["items"],
+            durable_properties["target_key"],
+        )
+        for stable_schema in stable_schemas:
+            self.assertEqual(
+                stable_schema["pattern"],
+                STABLE_IDENTITY_JSON_PATTERN,
+            )
+            validator = Draft202012Validator(stable_schema)
+            for accepted in ("source:current", "evidence:hana", "target.scene-1"):
+                self.assertFalse(tuple(validator.iter_errors(accepted)))
+            for rejected in ("Source:current", "source current", "_source"):
+                self.assertTrue(tuple(validator.iter_errors(rejected)))
+
+        projected = project_provider_output_schema(
+            validator_decision_json_schema(),
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        realized_properties = projected["properties"]["realized_sequence"][
+            "anyOf"
+        ][0]["properties"]
+        projected_stable_schemas = (
+            realized_properties["items"]["items"]["properties"][
+                "evidence_keys"
+            ]["items"],
+            realized_properties["durable_changes"]["items"]["properties"][
+                "target_key"
+            ],
+        )
+        for stable_schema in projected_stable_schemas:
+            self.assertEqual(
+                stable_schema["pattern"],
+                STABLE_IDENTITY_JSON_PATTERN,
+            )
+
     def test_validator_schema_is_strict_complete_and_closed(self) -> None:
         schema = validator_decision_json_schema()
         self.assertIsInstance(schema, dict)
@@ -1617,7 +1765,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_ADAPTER,
-            "cera.sequence_first.validator_adapter.v6",
+            "cera.sequence_first.validator_adapter.v7",
         )
         self.assertEqual(
             validator_route.prompt_version,
@@ -1627,7 +1775,12 @@ class SequenceFirstSessionTests(unittest.TestCase):
             SEQUENCE_FIRST_VALIDATOR_PROMPT,
             "cera.sequence_first.validator_prompt.v5",
         )
-        self.assertTrue(validator_route.route_id.endswith("_v6"))
+        self.assertTrue(validator_route.route_id.endswith("_v7"))
+        self.assertEqual(
+            SEQUENCE_FIRST_PLANNER_ADAPTER,
+            "cera.sequence_first.planner_adapter.v6",
+        )
+        self.assertTrue(planner_route.route_id.endswith("_v6"))
         self.assertEqual(reader_route.adapter_id, SEQUENCE_FIRST_READER_ADAPTER)
         self.assertEqual(writer_route.adapter_id, SEQUENCE_FIRST_WRITER_ADAPTER)
         self.assertEqual(writer_route.prompt_version, SEQUENCE_FIRST_WRITER_PROMPT)
@@ -1763,6 +1916,23 @@ class SequenceFirstSessionTests(unittest.TestCase):
             self.assertEqual(
                 validator_schemas,
                 [validator_decision_json_schema(), validator_decision_json_schema()],
+            )
+            planner_schemas = [
+                schema
+                for adapter_id, schema in self.CodexTransportFake.captured_schemas
+                if adapter_id == SEQUENCE_FIRST_PLANNER_ADAPTER
+            ]
+            self.assertEqual(
+                planner_schemas,
+                [sequence_draft_json_schema(), sequence_draft_json_schema()],
+            )
+            self.assertEqual(
+                {canonical_sha256(schema) for schema in planner_schemas},
+                {canonical_sha256(sequence_draft_json_schema())},
+            )
+            self.assertEqual(
+                {canonical_sha256(schema) for schema in validator_schemas},
+                {canonical_sha256(validator_decision_json_schema())},
             )
             self.assertIsNotNone(validator_schemas[0])
 

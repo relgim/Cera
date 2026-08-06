@@ -28,7 +28,9 @@ from cera.continuous.provider import (
 )
 
 from .contracts import (
+    CHARACTER_ID_JSON_PATTERN,
     LOCAL_KEY_JSON_PATTERN,
+    STABLE_IDENTITY_JSON_PATTERN,
     SequenceDraftV1,
     ReaderVerdictV1,
     SequenceFirstReaderInputV1,
@@ -48,9 +50,9 @@ from .prompting import (
 )
 
 
-SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v5"
+SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v6"
 SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v4"
-SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v6"
+SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v7"
 SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v5"
 SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v3"
 SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v2"
@@ -61,7 +63,7 @@ SEQUENCE_FIRST_WRITER_PROMPT = "cera.sequence_first.writer_prompt.v1"
 def sequence_first_planner_route():
     return replace(
         codex_reasoner_candidate(model="gpt-5.6-sol", effort="medium"),
-        route_id="cera_sequence_first_planner_sol_medium_v5",
+        route_id="cera_sequence_first_planner_sol_medium_v6",
         adapter_id=SEQUENCE_FIRST_PLANNER_ADAPTER,
         prompt_version=SEQUENCE_FIRST_PLANNER_PROMPT,
         maximum_output_tokens=8_192,
@@ -74,7 +76,7 @@ def sequence_first_planner_route():
 def sequence_first_validator_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_validator_{model}_{effort}_v6",
+        route_id=f"cera_sequence_first_validator_{model}_{effort}_v7",
         adapter_id=SEQUENCE_FIRST_VALIDATOR_ADAPTER,
         prompt_version=SEQUENCE_FIRST_VALIDATOR_PROMPT,
         maximum_output_tokens=8_192,
@@ -125,12 +127,28 @@ def _string_array() -> dict:
     return {"type": "array", "items": {"type": "string"}}
 
 
+def _stable_identity() -> dict:
+    return {"type": "string", "pattern": STABLE_IDENTITY_JSON_PATTERN}
+
+
+def _stable_identity_array() -> dict:
+    return {"type": "array", "items": _stable_identity()}
+
+
 def _local_key() -> dict:
     return {"type": "string", "pattern": LOCAL_KEY_JSON_PATTERN}
 
 
 def _local_key_array() -> dict:
     return {"type": "array", "items": _local_key()}
+
+
+def _character_id() -> dict:
+    return {"type": "string", "pattern": CHARACTER_ID_JSON_PATTERN}
+
+
+def _character_id_array() -> dict:
+    return {"type": "array", "items": _character_id()}
 
 
 def _operation_workspace(root: Path, *, role: str, index: int) -> Path:
@@ -173,9 +191,9 @@ def _sequence_item_schema(*, allow_planner_item_keys: bool) -> dict:
                 ],
             },
             "concise_meaning": {"type": "string"},
-            "owner_id": _nullable({"type": "string"}),
+            "owner_id": _nullable(_character_id()),
             "causal_parent_item_key": _nullable(_local_key()),
-            "evidence_keys": _string_array(),
+            "evidence_keys": _stable_identity_array(),
             "protected_user_claim_keys": _local_key_array(),
             "protected_user_exact_quotes": _string_array(),
             "durable_change_keys": _local_key_array(),
@@ -197,14 +215,14 @@ def _durable_change_schema() -> dict:
                     "character_development",
                 ],
             },
-            "subject_ids": _string_array(),
+            "subject_ids": _character_id_array(),
             "concise_change": {"type": "string"},
-            "target_key": {"type": "string"},
+            "target_key": _stable_identity(),
             "visibility": {
                 "type": "string",
                 "enum": ["public", "character_private"],
             },
-            "knowledge_owner_id": _nullable({"type": "string"}),
+            "knowledge_owner_id": _nullable(_character_id()),
         }
     )
 
@@ -212,7 +230,7 @@ def _durable_change_schema() -> dict:
 def _presence_change_schema() -> dict:
     return _strict_object(
         {
-            "character_id": {"type": "string"},
+            "character_id": _character_id(),
             "direction": {"type": "string", "enum": ["enter", "leave"]},
             "effective_after_item_key": _local_key(),
         }

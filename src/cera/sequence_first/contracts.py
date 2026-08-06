@@ -19,7 +19,14 @@ from cera.serialization import canonical_sha256, text_sha256
 LOCAL_KEY_PATTERN = r"[a-z][a-z0-9_]{0,95}"
 LOCAL_KEY_JSON_PATTERN = rf"^{LOCAL_KEY_PATTERN}$"
 _LOCAL_KEY = re.compile(rf"{LOCAL_KEY_PATTERN}\Z")
-_IDENTITY = re.compile(r"[a-z][a-z0-9_.:-]{0,191}\Z")
+STABLE_IDENTITY_PATTERN = r"[a-z][a-z0-9_.:-]{0,191}"
+STABLE_IDENTITY_JSON_PATTERN = rf"^{STABLE_IDENTITY_PATTERN}$"
+_IDENTITY = re.compile(rf"{STABLE_IDENTITY_PATTERN}\Z")
+# This is exactly the stable-identity subset whose bytes begin with the
+# character namespace. Keep both JSON forms beside the authoritative Python
+# validator so provider schemas cannot admit values the DTO must reject.
+CHARACTER_ID_PATTERN = r"character:[a-z0-9_.:-]{0,182}"
+CHARACTER_ID_JSON_PATTERN = rf"^{CHARACTER_ID_PATTERN}$"
 PROTECTED_USER_ID = "character:ted"
 
 
