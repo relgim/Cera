@@ -1,0 +1,71 @@
+{
+  "schema_version": "cera.codex_self_continuation_result.v1",
+  "queue_revision": "0062",
+  "plan_id": "self-continuation:q0062:0038:sequence-first-intended-reference-and-protected-source-closure-v1",
+  "plan_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0062_0038_sequence-first-intended-reference-and-protected-source-closure-v1.md",
+  "plan_sha256": "813bcc10dbacad235ba059ad4ad7170b2b958dae0d3fdb065c53b56798e9206e",
+  "status": "completed",
+  "checkpoint_identity": "2026-08-06-cera-sequence-first-intended-reference-and-protected-source-closure-v1-001",
+  "source_git_sha": "93d5cf5bb69526625da3e7a5429fc0645d43cb43",
+  "source_tree_sha": "5c9980aed1c47c8b960e2e299f2b1a5b9c59149c",
+  "failed_predecessor": {
+    "identity": "2026-08-06-cera-sequence-first-stage3-live-v2",
+    "result_path": ".chatgpt/pf/q0062_sequence_first_stage3_live_v2/STAGE3_RESULT.json",
+    "result_sha256": "b71732c434a8231559800dbb1aa7ad41137bdaf6e521ffb1a6ce3cfd9111c61e",
+    "provider_ledger_path": ".chatgpt/pf/q0062_sequence_first_stage3_live_v2/PROVIDER_CALL_LEDGER.jsonl",
+    "provider_ledger_sha256": "6876ac0d81f0b87f7420247252d7316072c326a73e0ae14165e35eaaf6bd2f5e",
+    "archived_planner_rollout_sha256": "186d90b2e02e53fc8c3b3e8eb26e25298732f9de9bb5ac2123804a5f9a18fc3f",
+    "submitted_calls": {
+      "codex_sol_family": 1,
+      "deepseek_family": 0
+    },
+    "accepted_turns": 0,
+    "planner_thread_terminalized": true
+  },
+  "correction": {
+    "provider_calls": 0,
+    "intended_planner_item_keys_max_items": 0,
+    "projected_schema_retains_max_items": true,
+    "realized_planner_item_keys_remain_available": true,
+    "protected_source_requires_ted_owner": true,
+    "planner_route": "cera_sequence_first_planner_sol_medium_v4",
+    "output_repair_added": false,
+    "python_validation_broadened": false
+  },
+  "tests": [
+    {
+      "kind": "focused_sequence_first",
+      "command": ".venv/Scripts/python.exe -m unittest tests.test_sequence_first_runtime_v1 tests.test_sequence_first_stage6_bridge_v1",
+      "passed": 66,
+      "failed": 0,
+      "errors": 0,
+      "duration_seconds": 4.856
+    },
+    {
+      "kind": "complete_repository_suite_at_corrected_source_freeze",
+      "command": ".venv/Scripts/python.exe -m unittest discover -s tests",
+      "passed": 1190,
+      "skipped": 3,
+      "failed": 0,
+      "errors": 0,
+      "total": 1193,
+      "duration_seconds": 771.683
+    }
+  ],
+  "remaining_creator_balance": {
+    "codex_sol_family": 600,
+    "deepseek_family": 719
+  },
+  "remaining_stage3_ceiling": {
+    "codex_sol_family": 8,
+    "deepseek_family": 6
+  },
+  "protected_effects": {
+    "production_route_changed": false,
+    "installed_sillytavern_changed": false,
+    "live_story_database_changed": false,
+    "remote_operation_performed": false
+  },
+  "next_unfinished_queue_step": "Run fresh Stage 3 V3 two-turn canary with at most two independent Writer attempts per turn.",
+  "completed_at_utc": "2026-08-06T07:09:38.4707609Z"
+}
