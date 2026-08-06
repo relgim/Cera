@@ -1,0 +1,20 @@
+{
+  "schema_version": "cera.codex_self_continuation_result.v1",
+  "plan_id": "self-continuation:q0063:0043:goal2-roadmap0003-http-proof-v1",
+  "queue_revision": "0063",
+  "status": "completed",
+  "completed_at_utc": "2026-08-06T10:23:21.0896357Z",
+  "source_commit": "dbf70e433352180aebe78c7a80a90d37010ea9c8",
+  "source_tree": "f8b7b2e0e982d1344aaca9c20c1aba9b86c4c3b4",
+  "provider_calls": {"codex_sol_family": 0, "deepseek_family": 0},
+  "focused_tests": {"tests_run": 83, "failures": 0, "errors": 0},
+  "complete_suite": {"tests_run": 1202, "skipped": 3, "failures": 0, "errors": 0, "elapsed_seconds": 746.086},
+  "roadmap_0003_http_proofs": {
+    "model_substitution_rejected": true,
+    "profile_substitution_rejected": true,
+    "session_substitution_rejected": true,
+    "unresolved_review_rejected": true,
+    "non_loopback_binding_rejected": true
+  },
+  "goal_result_path": ".chatgpt/operations/overnight/GOAL_2_RESULT_ROADMAP_0003.json"
+}

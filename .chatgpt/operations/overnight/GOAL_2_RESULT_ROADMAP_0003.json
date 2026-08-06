@@ -1,0 +1,169 @@
+{
+  "schema_version": "cera.overnight_goal_result.roadmap_0003.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0003",
+  "goal": 2,
+  "status": "passed",
+  "completed_at_utc": "2026-08-06T10:23:21.0896357Z",
+  "immutable_parent": {
+    "path": ".chatgpt/operations/overnight/GOAL_2_RESULT.json",
+    "sha256": "f68cc7d018d98b34a517552f5813f4834b0cb3b25d59e4b6b967b5ac89b57eae",
+    "disposition": "preserved; this successor adds Roadmap 0003 closed metadata and HTTP proofs"
+  },
+  "source": {
+    "repository": "D:\\CP25\\source",
+    "branch": "review/cera-sequence-first-runtime-v1-20260805",
+    "commit": "dbf70e433352180aebe78c7a80a90d37010ea9c8",
+    "tree": "f8b7b2e0e982d1344aaca9c20c1aba9b86c4c3b4",
+    "pushed": false,
+    "changed_paths": [
+      ".chatgpt/operations/overnight/GOAL_0_MANAGER_NOTIFICATION.json",
+      ".chatgpt/operations/overnight/GOAL_0_RESULT.json",
+      ".chatgpt/operations/overnight/GOAL_1_MANAGER_NOTIFICATION.json",
+      ".chatgpt/operations/overnight/GOAL_1_RESULT.json",
+      ".chatgpt/operations/overnight/GOAL_2_MANAGER_NOTIFICATION.json",
+      ".chatgpt/operations/overnight/GOAL_2_RESULT.json",
+      ".chatgpt/operations/self-continuation/LATEST.json",
+      ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0063_0041_sequence-first-writer-background-guidance-v1.md",
+      ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0063_0042_sequence-first-evidence-and-http-freeze-v1.md",
+      ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0063_0043_goal2-roadmap0003-http-proof-v1.md",
+      ".chatgpt/operations/self-continuation/SELF_CONTINUATION_RESULT_Q0063_0041_sequence-first-writer-background-guidance-v1.json",
+      ".chatgpt/operations/self-continuation/SELF_CONTINUATION_RESULT_Q0063_0042_sequence-first-evidence-and-http-freeze-v1.json",
+      "src/cera/continuous/call_ledger.py",
+      "src/cera/continuous/operation_evidence.py",
+      "src/cera/continuous/provider.py",
+      "src/cera/sequence_first/contracts.py",
+      "src/cera/sequence_first/prompting.py",
+      "src/cera/sequence_first/provider.py",
+      "src/cera/sequence_first/runtime.py",
+      "src/cera/sillytavern/sequence_first_http.py",
+      "src/cera/sillytavern/server.py",
+      "tests/test_provider_operation_evidence.py",
+      "tests/test_sequence_first_runtime_v1.py",
+      "tests/test_sequence_first_stage6_bridge_v1.py"
+    ]
+  },
+  "tests": {
+    "focused": {"tests_run": 83, "failures": 0, "errors": 0},
+    "named_presence_restart_test": "passed",
+    "compile_import": "passed",
+    "complete_suite": {
+      "tests_run": 1202,
+      "skipped": 3,
+      "failures": 0,
+      "errors": 0,
+      "elapsed_seconds": 746.086
+    }
+  },
+  "evidence_fixtures": {
+    "atomic_success_then_post_dispatch_decode_failure": "passed",
+    "prior_call_directory_hash_preserved": true,
+    "exact_request_schema_raw_result_parsed_output_receipt_telemetry_tokens_cache_latency_tools_ledger": true,
+    "planner_validator_reader_workspace_isolation": true,
+    "terminalization_evidence": true
+  },
+  "http_checks": {
+    "health": "passed",
+    "models": "passed",
+    "chat_completion": "passed",
+    "review_lookup": "passed",
+    "accept": "passed",
+    "decline": "passed",
+    "model_substitution_rejected": true,
+    "profile_substitution_rejected": true,
+    "session_substitution_rejected": true,
+    "unresolved_review_rejected": true,
+    "non_loopback_binding_rejected": true,
+    "accept_atomic_commit": true,
+    "decline_no_mutation": true,
+    "restart_and_branch_reload": true,
+    "old_route_fallback_reachable": false,
+    "ordinary_full_character_record_reread": false,
+    "endpoint": "http://127.0.0.1:5116/v1",
+    "shared_server_default_changed": false
+  },
+  "provider_accounting": {
+    "goal_2_calls": {"codex_sol_family": 0, "deepseek_family": 0},
+    "balance": {"codex_sol_family": 595, "deepseek_family": 715},
+    "v3_ledger_sha256": "600ce4ea8b52e9b705a76888c9ecc812a831b25dbf514bd30e7128e12196c00b",
+    "v4_ledger_sha256": "d010d56e44de6bfe4f190ee3e2d75add4bc665960c8b85bf6309a2ac6f6ab645",
+    "ambiguity": false
+  },
+  "review_gate": {
+    "review_flags": [],
+    "authority_ambiguity": false,
+    "accounting_ambiguity": false,
+    "recurrence_signature": null,
+    "protected_effect_change": false
+  },
+  "first_authorized_goal_3_identity_inputs": {
+    "run_id": "2026-08-06-cera-sequence-first-stage3-live-v5",
+    "result_path": ".chatgpt/operations/overnight/GOAL_3_STAGE3_V5_RESULT.json",
+    "evidence_root": ".chatgpt/pf/q0063_sequence_first_stage3_live_v5",
+    "provider_ledger": ".chatgpt/pf/q0063_sequence_first_stage3_live_v5/PROVIDER_CALL_LEDGER.jsonl",
+    "operation_evidence_root": ".chatgpt/pf/q0063_sequence_first_stage3_live_v5/operation_evidence",
+    "workspace_root": ".chatgpt/pf/q0063_sequence_first_stage3_live_v5/provider_workspaces",
+    "world_id": "world-q0063-stage3-v5",
+    "branch_id": "branch-main",
+    "session_id": "q0063-stage3-v5",
+    "planner_thread_policy": "fresh_at_stage_start_persistent_only_across_accepted_turns",
+    "source_commit": "dbf70e433352180aebe78c7a80a90d37010ea9c8",
+    "source_tree": "f8b7b2e0e982d1344aaca9c20c1aba9b86c4c3b4",
+    "profile_sha256": "54cf8782acc7b4fec89f6f75fc2962d6b0193aa750a143d13070311d62417656",
+    "turn_sources": [
+      "Ted steps into the entryway, greets Hana, and asks how dinner went. He mentions that Sakura is away.",
+      "Continue the scene"
+    ],
+    "initial_scene": {
+      "scene_id": "scene-entry",
+      "accepted_present_character_ids": ["character:ted", "character:hana_hanezawa", "character:mia_hanezawa"],
+      "current_public_scene_state": "Ted, Hana, and Mia are together in the Hanezawa entryway after Ted arrives."
+    },
+    "maximum_writer_attempts_per_turn": 3,
+    "call_ceiling": {"codex_sol_family": 14, "deepseek_family": 6},
+    "planner": {
+      "model": "gpt-5.6-sol", "effort": "medium", "fast_mode": false,
+      "route": "cera_sequence_first_planner_sol_medium_v5",
+      "adapter": "cera.sequence_first.planner_adapter.v5",
+      "prompt": "cera.sequence_first.planner_prompt.v4",
+      "base_sha256": "325b24a264163912dd082daab366d45c9e02c449a73f85e2a26bc8a125a46380",
+      "schema_sha256": "2f5f6949d8b6e481d7c049a0c3cc9ac836bc8113ceb7b9032c14327da855fd8b"
+    },
+    "writer": {
+      "model": "deepseek-v4-flash", "thinking": false,
+      "route": "deepseek_composer_deepseek-v4-flash",
+      "adapter": "cera.sequence_first.writer_adapter.v1",
+      "prompt": "cera.sequence_first.writer_prompt.v1",
+      "instructions_sha256": "32d9c28aa46221c974eb2f3852b79fde95d5de02ccbbac7bc61db82b8be8ffdf",
+      "schema_sha256": "dec9386e5a4b0fd3c9c9f48cd4826a14daf17009970c2be0d5bfa336ba8a717d"
+    },
+    "validator": {
+      "model": "gpt-5.6-sol", "effort": "medium", "fast_mode": false,
+      "route": "cera_sequence_first_validator_gpt-5.6-sol_medium_v5",
+      "adapter": "cera.sequence_first.validator_adapter.v5",
+      "prompt": "cera.sequence_first.validator_prompt.v4",
+      "base_sha256": "9d3fb909931f19a4b51a495c8db71c5b3fa3f3c90435dac6d7d8b2e5b8066e0b",
+      "schema_sha256": "bc9709b30993d7611e5e4aafacdb4c75408778ae0d716cbdd5ed2038d343a7ac"
+    },
+    "reader": {
+      "model": "gpt-5.6-sol", "effort": "medium", "fast_mode": false,
+      "route": "cera_sequence_first_reader_gpt-5.6-sol_medium_v3",
+      "adapter": "cera.sequence_first.reader_adapter.v3",
+      "prompt": "cera.sequence_first.reader_prompt.v2",
+      "base_sha256": "f2f3ee609b0226a2de2b0f2abea319857ebafe904369f52e8d3afe8272db3943",
+      "schema_sha256": "b8aa054339491cddee950b94dcdf7a37fa265397b94863cbec31c77f80077c5a"
+    },
+    "automatic_retry": false,
+    "fallback": false,
+    "model_substitution": false,
+    "writer_merge": false,
+    "hidden_repair": false
+  },
+  "protected_effects": {
+    "production_route_changed": false,
+    "installed_sillytavern_changed": false,
+    "story_database_changed": false,
+    "remote_operation_performed": false,
+    "provider_called": false
+  }
+}

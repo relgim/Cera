@@ -1,0 +1,13 @@
+{
+  "schema_version": "cera.overnight_manager_notification.roadmap_0003.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0003",
+  "goal": 2,
+  "status": "passed",
+  "created_at_utc": "2026-08-06T10:23:21.0896357Z",
+  "source_commit": "dbf70e433352180aebe78c7a80a90d37010ea9c8",
+  "source_tree": "f8b7b2e0e982d1344aaca9c20c1aba9b86c4c3b4",
+  "provider_calls": {"codex_sol_family": 0, "deepseek_family": 0},
+  "summary": "Goal 2 passed under Roadmap 0003, including actual HTTP substitution/review gates, immutable call evidence, 1202 passing repository tests, changed-path custody, and frozen Goal 3 V5 identity inputs.",
+  "transition_window": "ten_minutes_no_provider_then_pointer_recheck"
+}
