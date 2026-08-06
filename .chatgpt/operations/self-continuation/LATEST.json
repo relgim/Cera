@@ -1,11 +1,11 @@
 {
   "schema_version": "cera.codex_self_continuation_pointer.v1",
   "queue_revision": "0062",
-  "plan_id": "self-continuation:q0062:0035:sequence-first-stage6-integration-v1",
-  "plan_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0062_0035_sequence-first-stage6-integration-v1.md",
-  "plan_sha256": "bd40321d408160d8e6ef5f29cfd3cd7a9ed190ac43941aba704ced0748d239fd",
-  "status": "completed",
-  "result_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_RESULT_Q0062_0035_sequence-first-stage6-integration-v1.json",
-  "result_sha256": "9acdc1c6e62fa5ab9f27189413eae13e7865a02d8703186acc6ea97ffc0d594c",
-  "updated_at_utc": "2026-08-06T05:50:06.9044904Z"
+  "plan_id": "self-continuation:q0062:0036:sequence-first-local-key-schema-surface-v1",
+  "plan_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0062_0036_sequence-first-local-key-schema-surface-v1.md",
+  "plan_sha256": "5d36967012e0836ca565f408988b800967105b19a0ce3540f936c2b12a723b03",
+  "status": "plan_written_proceeding",
+  "result_path": null,
+  "result_sha256": null,
+  "updated_at_utc": "2026-08-06T06:05:46.4815419Z"
 }

@@ -16,7 +16,9 @@ from cera.errors import ContractValidationError
 from cera.serialization import canonical_sha256, text_sha256
 
 
-_LOCAL_KEY = re.compile(r"[a-z][a-z0-9_]{0,95}\Z")
+LOCAL_KEY_PATTERN = r"[a-z][a-z0-9_]{0,95}"
+LOCAL_KEY_JSON_PATTERN = rf"^{LOCAL_KEY_PATTERN}$"
+_LOCAL_KEY = re.compile(rf"{LOCAL_KEY_PATTERN}\Z")
 _IDENTITY = re.compile(r"[a-z][a-z0-9_.:-]{0,191}\Z")
 PROTECTED_USER_ID = "character:ted"
 

@@ -70,6 +70,7 @@ from cera.sequence_first.provider import (
     sequence_first_validator_route,
     validator_decision_json_schema,
 )
+from cera.sequence_first.contracts import LOCAL_KEY_JSON_PATTERN
 from cera.sequence_first.world import SequenceFirstWorldTransaction
 from cera.sillytavern.sequence_first_adapter import (
     AcceptedSceneStateV1,
@@ -1097,6 +1098,55 @@ class SequenceFirstSessionTests(unittest.TestCase):
             "output_end",
         ):
             self.assertNotIn(f'"{forbidden}"', rendered)
+
+    def test_provider_local_key_schema_matches_closed_python_grammar(self) -> None:
+        sequence_schema = sequence_draft_json_schema()
+        item_schema = sequence_schema["properties"]["items"]["items"]["properties"]
+        durable_schema = sequence_schema["properties"]["durable_changes"]["items"]["properties"]
+        presence_schema = sequence_schema["properties"]["presence_changes"]["items"]["properties"]
+        self.assertEqual(item_schema["item_key"]["pattern"], LOCAL_KEY_JSON_PATTERN)
+        self.assertEqual(
+            item_schema["causal_parent_item_key"]["anyOf"][0]["pattern"],
+            LOCAL_KEY_JSON_PATTERN,
+        )
+        for name in (
+            "protected_user_claim_keys",
+            "durable_change_keys",
+            "planner_item_keys",
+        ):
+            self.assertEqual(
+                item_schema[name]["items"]["pattern"], LOCAL_KEY_JSON_PATTERN
+            )
+        self.assertEqual(
+            durable_schema["change_key"]["pattern"], LOCAL_KEY_JSON_PATTERN
+        )
+        self.assertEqual(
+            presence_schema["effective_after_item_key"]["pattern"],
+            LOCAL_KEY_JSON_PATTERN,
+        )
+
+        validator = validator_decision_json_schema()["properties"]
+        review_flag = validator["review_flags"]["items"]["properties"]
+        conflict = validator["conflict"]["anyOf"][0]["properties"]
+        realized = validator["realized_sequence"]["anyOf"][0]
+        self.assertEqual(
+            review_flag["flag_code"]["pattern"], LOCAL_KEY_JSON_PATTERN
+        )
+        self.assertEqual(
+            conflict["omitted_planner_item_key"]["anyOf"][0]["pattern"],
+            LOCAL_KEY_JSON_PATTERN,
+        )
+        self.assertEqual(
+            realized["properties"]["items"]["items"]["properties"]["item_key"]["pattern"],
+            LOCAL_KEY_JSON_PATTERN,
+        )
+        reader_issue = reader_verdict_json_schema()["properties"]["issues"]["items"]["properties"]
+        self.assertEqual(
+            reader_issue["issue_code"]["pattern"], LOCAL_KEY_JSON_PATTERN
+        )
+
+        with self.assertRaises(ContractValidationError):
+            item(key="item:hana_answers")
 
     def test_validator_schema_is_strict_complete_and_closed(self) -> None:
         schema = validator_decision_json_schema()

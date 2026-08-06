@@ -26,6 +26,7 @@ from cera.continuous.provider import (
 )
 
 from .contracts import (
+    LOCAL_KEY_JSON_PATTERN,
     SequenceDraftV1,
     ReaderVerdictV1,
     SequenceFirstReaderInputV1,
@@ -45,18 +46,18 @@ from .prompting import (
 )
 
 
-SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v2"
-SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v2"
-SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v2"
-SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v2"
-SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v1"
-SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v1"
+SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v3"
+SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v3"
+SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v3"
+SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v3"
+SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v2"
+SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v2"
 
 
 def sequence_first_planner_route():
     return replace(
         codex_reasoner_candidate(model="gpt-5.6-sol", effort="medium"),
-        route_id="cera_sequence_first_planner_sol_medium_v2",
+        route_id="cera_sequence_first_planner_sol_medium_v3",
         adapter_id=SEQUENCE_FIRST_PLANNER_ADAPTER,
         prompt_version=SEQUENCE_FIRST_PLANNER_PROMPT,
         maximum_output_tokens=8_192,
@@ -69,7 +70,7 @@ def sequence_first_planner_route():
 def sequence_first_validator_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_validator_{model}_{effort}_v2",
+        route_id=f"cera_sequence_first_validator_{model}_{effort}_v3",
         adapter_id=SEQUENCE_FIRST_VALIDATOR_ADAPTER,
         prompt_version=SEQUENCE_FIRST_VALIDATOR_PROMPT,
         maximum_output_tokens=8_192,
@@ -82,7 +83,7 @@ def sequence_first_validator_route(*, model: str, effort: str):
 def sequence_first_reader_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_reader_{model}_{effort}_v1",
+        route_id=f"cera_sequence_first_reader_{model}_{effort}_v2",
         adapter_id=SEQUENCE_FIRST_READER_ADAPTER,
         prompt_version=SEQUENCE_FIRST_READER_PROMPT,
         maximum_output_tokens=4_096,
@@ -109,10 +110,18 @@ def _string_array() -> dict:
     return {"type": "array", "items": {"type": "string"}}
 
 
+def _local_key() -> dict:
+    return {"type": "string", "pattern": LOCAL_KEY_JSON_PATTERN}
+
+
+def _local_key_array() -> dict:
+    return {"type": "array", "items": _local_key()}
+
+
 def _sequence_item_schema() -> dict:
     return _strict_object(
         {
-            "item_key": {"type": "string"},
+            "item_key": _local_key(),
             "kind": {
                 "type": "string",
                 "enum": [
@@ -130,12 +139,12 @@ def _sequence_item_schema() -> dict:
             },
             "concise_meaning": {"type": "string"},
             "owner_id": _nullable({"type": "string"}),
-            "causal_parent_item_key": _nullable({"type": "string"}),
+            "causal_parent_item_key": _nullable(_local_key()),
             "evidence_keys": _string_array(),
-            "protected_user_claim_keys": _string_array(),
+            "protected_user_claim_keys": _local_key_array(),
             "protected_user_exact_quotes": _string_array(),
-            "durable_change_keys": _string_array(),
-            "planner_item_keys": _string_array(),
+            "durable_change_keys": _local_key_array(),
+            "planner_item_keys": _local_key_array(),
         }
     )
 
@@ -143,7 +152,7 @@ def _sequence_item_schema() -> dict:
 def _durable_change_schema() -> dict:
     return _strict_object(
         {
-            "change_key": {"type": "string"},
+            "change_key": _local_key(),
             "kind": {
                 "type": "string",
                 "enum": [
@@ -170,7 +179,7 @@ def _presence_change_schema() -> dict:
         {
             "character_id": {"type": "string"},
             "direction": {"type": "string", "enum": ["enter", "leave"]},
-            "effective_after_item_key": {"type": "string"},
+            "effective_after_item_key": _local_key(),
         }
     )
 
@@ -197,7 +206,7 @@ def sequence_draft_json_schema() -> dict:
 def validator_decision_json_schema() -> dict:
     review_flag = _strict_object(
         {
-            "flag_code": {"type": "string"},
+            "flag_code": _local_key(),
             "severity": {
                 "type": "string",
                 "enum": ["notice", "important", "creator_decision"],
@@ -225,7 +234,7 @@ def validator_decision_json_schema() -> dict:
             },
             "concise_explanation": {"type": "string"},
             "exact_quote": _nullable({"type": "string"}),
-            "omitted_planner_item_key": _nullable({"type": "string"}),
+            "omitted_planner_item_key": _nullable(_local_key()),
         }
     )
     return _strict_object(
@@ -241,7 +250,7 @@ def validator_decision_json_schema() -> dict:
 def reader_verdict_json_schema() -> dict:
     issue = _strict_object(
         {
-            "issue_code": {"type": "string"},
+            "issue_code": _local_key(),
             "concise_explanation": {"type": "string"},
             "exact_quote": _nullable({"type": "string"}),
         }
