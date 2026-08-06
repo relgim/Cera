@@ -770,12 +770,13 @@ class VoiceCueV1:
 class SequenceFirstWriterBriefV1:
     """Model-visible semantic Writer input with no persistence authority."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.writer_brief.v3"
+    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.writer_brief.v4"
 
     intended_sequence: SequenceDraftV1
     current_public_scene_state: str
     protected_source_claims: tuple[ProtectedSourceClaimV1, ...]
     voice_cues: tuple[VoiceCueV1, ...]
+    backgrounded_character_ids: tuple[str, ...]
     hard_boundaries: tuple[str, ...]
 
     def __post_init__(self) -> None:
@@ -784,6 +785,20 @@ class SequenceFirstWriterBriefV1:
         _unique(cue_ids, "writer_brief.voice_cues")
         if not set(cue_ids).issubset(self.intended_sequence.responding_character_ids):
             raise ContractValidationError("Writer voice cue belongs to a non-responder")
+        for character_id in self.backgrounded_character_ids:
+            _character(character_id, "writer_brief.backgrounded_character_ids")
+        _unique(
+            self.backgrounded_character_ids,
+            "writer_brief.backgrounded_character_ids",
+        )
+        if PROTECTED_USER_ID in self.backgrounded_character_ids:
+            raise ContractValidationError("protected user cannot be a backgrounded NPC")
+        if set(self.backgrounded_character_ids).intersection(
+            self.intended_sequence.responding_character_ids
+        ):
+            raise ContractValidationError(
+                "Writer backgrounded NPC also owns a behavioral item"
+            )
         _unique(self.hard_boundaries, "writer_brief.hard_boundaries")
         for value in self.hard_boundaries:
             _text(value, "writer_brief.hard_boundaries", maximum=2_000)

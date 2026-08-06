@@ -20,6 +20,8 @@ from cera.serialization import (
     to_primitive,
 )
 
+from .operation_evidence import ProviderOperationEvidenceRequestV1
+
 
 class ProviderCallState(StrEnum):
     PREPARED = "prepared_not_invoked"
@@ -123,6 +125,7 @@ class ContinuousProviderCallLedger:
         receipt_of: Callable[[T], Any] = lambda value: getattr(value, "receipt", None),
         telemetry_of: Callable[[T], Any] = lambda value: getattr(value, "operation_telemetry", None),
         stored_thread_sha256: str | None = None,
+        operation_evidence: ProviderOperationEvidenceRequestV1 | None = None,
     ) -> R:
         selected_dispatches = sum(
             value is not None
@@ -151,6 +154,17 @@ class ContinuousProviderCallLedger:
                 "next": self.event_count + 1,
             }
         )[:24]
+        if operation_evidence is not None:
+            operation_evidence.capture.prepare(
+                operation_evidence,
+                call_id=call_id,
+                owner=owner,
+                operation=operation,
+                route=route,
+                model=model,
+                effort=effort,
+                stored_thread_sha256=stored_thread_sha256,
+            )
         self._record(call_id, owner, operation, ProviderCallState.PREPARED, route, model, effort, stored_thread_sha256=stored_thread_sha256)
         invocation_marked = False
         worker_started_marked = False
@@ -250,6 +264,12 @@ class ContinuousProviderCallLedger:
                     failure_type=type(exc).__name__,
                     stored_thread_sha256=stored_thread_sha256,
                 )
+                if operation_evidence is not None:
+                    operation_evidence.capture.terminal(
+                        call_id=call_id,
+                        ledger_event=self.events[-1],
+                        failure=exc,
+                    )
                 raise
             mark_transport_invoked()
             self._record(
@@ -265,6 +285,12 @@ class ContinuousProviderCallLedger:
                 failure_type=type(exc).__name__,
                 stored_thread_sha256=stored_thread_sha256,
             )
+            if operation_evidence is not None:
+                operation_evidence.capture.terminal(
+                    call_id=call_id,
+                    ledger_event=self.events[-1],
+                    failure=exc,
+                )
             raise
         mark_transport_invoked()
         receipt = receipt_of(raw)
@@ -288,8 +314,22 @@ class ContinuousProviderCallLedger:
                 telemetry=telemetry,
             )
             self._record(call_id, owner, operation, ProviderCallState.POST_VALIDATION_FAILED, route, model, effort, provider_receipt_sha256=receipt_hash, operation_telemetry_sha256=telemetry_hash, tool_sequence_sha256=tool_sequence_hash, stored_thread_sha256=stored_thread_sha256, failure_type=type(exc).__name__)
+            if operation_evidence is not None:
+                operation_evidence.capture.terminal(
+                    call_id=call_id,
+                    ledger_event=self.events[-1],
+                    raw_result=raw,
+                    failure=exc,
+                )
             raise
         self._record(call_id, owner, operation, ProviderCallState.ACCEPTED, route, model, effort, provider_receipt_sha256=receipt_hash, operation_telemetry_sha256=telemetry_hash, tool_sequence_sha256=tool_sequence_hash, stored_thread_sha256=stored_thread_sha256)
+        if operation_evidence is not None:
+            operation_evidence.capture.terminal(
+                call_id=call_id,
+                ledger_event=self.events[-1],
+                raw_result=raw,
+                finalized_result=result,
+            )
         return result
 
     def _record(

@@ -1,0 +1,11 @@
+{
+  "schema_version": "cera.overnight_manager_notification.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0002",
+  "goal": 0,
+  "status": "passed",
+  "result_path": ".chatgpt/operations/overnight/GOAL_0_RESULT.json",
+  "completed_at_utc": "2026-08-06T09:13:37.3394827Z",
+  "summary": "Exact Queue 0062 source, V3/V4 ledgers/results, completed plan 0039, unstarted plan 0040, pointers, tracked state, and 595/715 provider balances reconciled. Plan 0040 remains unmodified and is superseded rather than activated. Provider calls remain zero.",
+  "next_goal": 1
+}

@@ -9,11 +9,12 @@ import unittest
 from unittest.mock import patch
 
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
+from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.continuous.world import ContinuousWorldStore
 from cera.errors import ContractValidationError, StateConflictError
 from cera.providers import ProviderSchemaDialect, project_provider_output_schema
 from cera.schema import from_mapping
-from cera.serialization import canonical_sha256, text_sha256, to_primitive
+from cera.serialization import canonical_json, canonical_sha256, text_sha256, to_primitive
 from cera.sequence_first import (
     ActiveWorldAuthorityAssembler,
     ApprovedTargetV1,
@@ -55,12 +56,16 @@ from cera.sequence_first.prompting import (
     PLANNER_PROFILE,
     VALIDATOR_BASE_INSTRUCTIONS,
     VALIDATOR_PROFILE,
+    WRITER_INSTRUCTIONS,
     planner_turn_prompt,
+    writer_prompt,
 )
 from cera.sequence_first.provider import (
     SEQUENCE_FIRST_PLANNER_ADAPTER,
     SEQUENCE_FIRST_READER_ADAPTER,
     SEQUENCE_FIRST_VALIDATOR_ADAPTER,
+    SEQUENCE_FIRST_WRITER_ADAPTER,
+    SEQUENCE_FIRST_WRITER_PROMPT,
     SequenceFirstPlannerCodexBackend,
     SequenceFirstReaderCodexPort,
     SequenceFirstValidatorCodexBackend,
@@ -69,6 +74,7 @@ from cera.sequence_first.provider import (
     sequence_first_planner_route,
     sequence_first_reader_route,
     sequence_first_validator_route,
+    sequence_first_writer_route,
     validator_decision_json_schema,
 )
 from cera.sequence_first.contracts import LOCAL_KEY_JSON_PATTERN
@@ -365,6 +371,7 @@ def coordinator(
     writer_outputs: list[str | Exception] | None = None,
     validator_outputs: list[ValidatorDecisionV1] | None = None,
     reader_outputs: list[ReaderVerdictV1] | None = None,
+    maximum_writer_attempts: int = 3,
 ):
     writer = WriterFake(writer_outputs or ["Hana asked what Ted wanted to do next."])
     factory = ValidatorFactoryFake(validator_outputs or [accepted_decision()])
@@ -374,6 +381,7 @@ def coordinator(
         validator_factory=factory,
         reader=ReaderFake(reader_outputs or [accepted_reader()]),
         voice_cue_resolver=VoiceCueResolverFake(),
+        maximum_writer_attempts=maximum_writer_attempts,
     )
     return value, writer, factory
 
@@ -413,9 +421,21 @@ class SequenceFirstSemanticBoundaryTests(unittest.TestCase):
             )
             published = assembler.publish_initial_projection(authority)
             self.assertEqual(published, active / assembler.RELATIVE_PATH)
-            self.assertEqual(
-                assembler.assemble(world_id="world-test", branch_id="branch-main"),
-                authority,
+            read_paths = []
+            original_read_text = Path.read_text
+
+            def tracked_read_text(path, *args, **kwargs):
+                read_paths.append(path.resolve())
+                return original_read_text(path, *args, **kwargs)
+
+            with patch.object(Path, "read_text", tracked_read_text):
+                self.assertEqual(
+                    assembler.assemble(world_id="world-test", branch_id="branch-main"),
+                    authority,
+                )
+            self.assertFalse(
+                any(path.parent.name == "Characters" for path in read_paths),
+                "ordinary authority assembly reread a full character record",
             )
             other_active = store.initialize("world-test", "other") / "ACTIVE"
             for path in (active / "Characters").glob("*.json"):
@@ -500,6 +520,26 @@ class SequenceFirstSemanticBoundaryTests(unittest.TestCase):
         self.assertEqual(
             semantics.derived_backgrounded_character_ids(plan),
             ("character:mia",),
+        )
+
+    def test_writer_background_context_is_python_derived_and_read_only(self) -> None:
+        value, writer, _ = coordinator()
+        result = value.generate(request())
+        self.assertTrue(result.accepted)
+        brief = writer.briefs[0]
+        self.assertEqual(
+            brief.backgrounded_character_ids,
+            ("character:mia",),
+        )
+        self.assertEqual(
+            to_primitive(brief)["backgrounded_character_ids"],
+            ["character:mia"],
+        )
+        with self.assertRaises(FrozenInstanceError):
+            brief.backgrounded_character_ids = ()
+        self.assertNotIn(
+            "backgrounded_character_ids",
+            {field.name for field in fields(WriterResponseV1)},
         )
 
     def test_protected_user_exact_quote_is_python_verified(self) -> None:
@@ -885,6 +925,113 @@ class SequenceFirstPipelineTests(unittest.TestCase):
                 WriterAttemptStatus.ACCEPTED,
             ),
         )
+        frozen_prompts = tuple(writer_prompt(brief) for brief in writer.briefs)
+        self.assertEqual(len(set(frozen_prompts)), 1)
+        self.assertEqual(
+            len({canonical_json(brief) for brief in writer.briefs}),
+            1,
+        )
+        self.assertNotIn("Ted nodded.", frozen_prompts[0])
+        self.assertNotIn("Ted nodded again.", frozen_prompts[0])
+
+    def test_compatible_presentation_fixture_matrix_is_noncanonical(self) -> None:
+        fixtures = (
+            "Ted remains in the established entryway as Hana speaks.",
+            "Near the doorway, Hana asks what Ted wants to do next.",
+            "Mia remains in the accepted background while Hana answers.",
+            "Hana asks what Ted wants to do next.",
+            "Hana looks toward Ted and asks what he wants to do next.",
+        )
+        for prose in fixtures:
+            with self.subTest(prose=prose):
+                value, _, _ = coordinator(writer_outputs=[prose])
+                result = value.generate(request())
+                self.assertTrue(result.accepted)
+                realized = result.candidate.realized_sequence.semantic
+                realized_payload = to_primitive(realized)
+                self.assertNotIn("character:ted", canonical_json(realized_payload))
+                self.assertNotIn("character:mia", canonical_json(realized_payload))
+                self.assertEqual(realized.durable_changes, ())
+
+    def test_unauthorized_protected_response_is_rejected_without_candidate(self) -> None:
+        prose = "Ted nodded before Hana asked what he wanted to do next."
+        value, _, _ = coordinator(
+            writer_outputs=[prose],
+            validator_outputs=[
+                rejected_decision(
+                    conflict_class=ConflictClass.PROTECTED_USER_INVENTION,
+                    quote="Ted nodded",
+                )
+            ],
+            maximum_writer_attempts=1,
+        )
+        result = value.generate(request())
+        self.assertFalse(result.accepted)
+        self.assertEqual(len(result.attempt_receipts), 1)
+
+    def test_backgrounded_relocation_is_rejected_without_candidate(self) -> None:
+        prose = "Mia moved into the living room while Hana answered."
+        value, _, _ = coordinator(
+            writer_outputs=[prose],
+            validator_outputs=[
+                rejected_decision(
+                    conflict_class=ConflictClass.PRESENCE_CONTRADICTION,
+                    quote="Mia moved into the living room",
+                )
+            ],
+            maximum_writer_attempts=1,
+        )
+        result = value.generate(request())
+        self.assertFalse(result.accepted)
+        self.assertEqual(len(result.attempt_receipts), 1)
+
+    def test_protected_and_background_violation_fixture_matrix_rejects(self) -> None:
+        fixtures = (
+            ("Ted steps farther inside.", ConflictClass.PROTECTED_USER_INVENTION),
+            ("Ted answers with a nod.", ConflictClass.PROTECTED_USER_INVENTION),
+            ("Ted smiles with relief.", ConflictClass.PROTECTED_USER_INVENTION),
+            ("Ted feels worried.", ConflictClass.PROTECTED_USER_INVENTION),
+            ("Ted decides to stay.", ConflictClass.PROTECTED_USER_INVENTION),
+            ("Ted silently consents.", ConflictClass.PROTECTED_USER_INVENTION),
+            ("Mia walks into the living room.", ConflictClass.PRESENCE_CONTRADICTION),
+            ("Mia answers from behind Hana.", ConflictClass.PRESENCE_CONTRADICTION),
+            (
+                "Mia privately resents the exchange.",
+                ConflictClass.KNOWLEDGE_OR_PRIVACY_BREACH,
+            ),
+            ("Mia leaves the entryway.", ConflictClass.PRESENCE_CONTRADICTION),
+            (
+                "Everyone waits on Mia's reaction.",
+                ConflictClass.CHARACTER_LOGIC_CONTRADICTION,
+            ),
+        )
+        for prose, conflict_class in fixtures:
+            with self.subTest(prose=prose):
+                value, _, _ = coordinator(
+                    writer_outputs=[prose],
+                    validator_outputs=[
+                        rejected_decision(
+                            conflict_class=conflict_class,
+                            quote=prose,
+                        )
+                    ],
+                    maximum_writer_attempts=1,
+                )
+                result = value.generate(request())
+                self.assertFalse(result.accepted)
+                self.assertEqual(len(result.attempt_receipts), 1)
+
+    def test_writer_and_validator_guidance_is_general_not_phrase_specific(self) -> None:
+        self.assertIn("backgrounded_character_ids", WRITER_INSTRUCTIONS)
+        self.assertIn("Compatible static presentation", WRITER_INSTRUCTIONS)
+        self.assertIn("omit it from the realized sequence", VALIDATOR_BASE_INSTRUCTIONS)
+        self.assertIn("present nonresponding NPCs", VALIDATOR_BASE_INSTRUCTIONS)
+        for forbidden_phrase in (
+            "stood just inside the door",
+            "in the living room, Mia sits",
+        ):
+            self.assertNotIn(forbidden_phrase, WRITER_INSTRUCTIONS)
+            self.assertNotIn(forbidden_phrase, VALIDATOR_BASE_INSTRUCTIONS)
 
     def test_transport_failure_never_opens_writer_retry(self) -> None:
         value, writer, _ = coordinator(
@@ -1025,6 +1172,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
             else:
                 raise AssertionError("unexpected fake provider route")
             return SimpleNamespace(
+                output_text=canonical_json(payload),
                 parsed_json=payload,
                 receipt={"route": self.route.route_id},
                 operation_telemetry=None,
@@ -1273,13 +1421,17 @@ class SequenceFirstSessionTests(unittest.TestCase):
             model="gpt-5.6-terra",
             effort="high",
         )
+        writer_route = sequence_first_writer_route()
         self.assertEqual(planner_route.adapter_id, SEQUENCE_FIRST_PLANNER_ADAPTER)
         self.assertEqual(
             validator_route.adapter_id,
             SEQUENCE_FIRST_VALIDATOR_ADAPTER,
         )
         self.assertEqual(reader_route.adapter_id, SEQUENCE_FIRST_READER_ADAPTER)
-        for route in (planner_route, validator_route, reader_route):
+        self.assertEqual(writer_route.adapter_id, SEQUENCE_FIRST_WRITER_ADAPTER)
+        self.assertEqual(writer_route.prompt_version, SEQUENCE_FIRST_WRITER_PROMPT)
+        self.assertEqual(writer_route.model_name, "deepseek-v4-flash")
+        for route in (planner_route, validator_route, reader_route, writer_route):
             self.assertFalse(route.fallback_enabled)
             self.assertFalse(route.production_enabled)
             self.assertEqual(route.automatic_retry_count, 0)
@@ -1291,6 +1443,10 @@ class SequenceFirstSessionTests(unittest.TestCase):
             ledger = ContinuousProviderCallLedger(
                 root / "provider_calls.jsonl",
                 maximum_calls=6,
+            )
+            evidence = ProviderOperationEvidenceStoreV1(
+                root / "operation_evidence",
+                stage="provider-free-adapter-integration",
             )
             planner_lifecycle = self.StoredLifecycleFake(
                 PLANNER_BASE_INSTRUCTIONS,
@@ -1312,6 +1468,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
                     lifecycle=planner_lifecycle,
                     workspace=root,
                     call_ledger=ledger,
+                    operation_evidence=evidence,
                 )
             )
             validator = FreshCandidateValidatorFactory(
@@ -1321,6 +1478,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
                     model="gpt-5.6-terra",
                     effort="medium",
                     call_ledger=ledger,
+                    operation_evidence=evidence,
                 )
             )
             reader = SequenceFirstReaderCodexPort(
@@ -1329,6 +1487,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
                 model="gpt-5.6-terra",
                 effort="high",
                 call_ledger=ledger,
+                operation_evidence=evidence,
             )
             runtime = SequenceFirstCoordinator(
                 planner=planner,
@@ -1341,6 +1500,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
                 validator_factory=validator,
                 reader=reader,
                 voice_cue_resolver=VoiceCueResolverFake(),
+                operation_evidence=evidence,
             )
             self.CodexTransportFake.captured_schemas = []
             self.CodexTransportFake.captured_workspaces = []
@@ -1361,6 +1521,12 @@ class SequenceFirstSessionTests(unittest.TestCase):
             self.assertTrue(result.accepted)
             self.assertTrue(second.accepted)
             self.assertEqual(ledger.dispatched_call_count, 6)
+            evidence_calls = evidence.snapshot()["calls"]
+            self.assertEqual(len(evidence_calls), 6)
+            self.assertTrue(all(call["terminal"] for call in evidence_calls))
+            self.assertTrue(
+                all("ARCHIVAL.json" in call["artifact_sha256_by_name"] for call in evidence_calls)
+            )
             self.assertEqual(planner_lifecycle.archived, set())
             self.assertEqual(
                 validator_lifecycle.archived,

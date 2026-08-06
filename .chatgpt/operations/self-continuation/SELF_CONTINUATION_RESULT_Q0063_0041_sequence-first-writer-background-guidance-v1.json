@@ -1,0 +1,29 @@
+{
+  "schema_version": "cera.codex_self_continuation_result.v1",
+  "queue_revision": "0063",
+  "plan_id": "self-continuation:q0063:0041:sequence-first-writer-background-guidance-v1",
+  "plan_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0063_0041_sequence-first-writer-background-guidance-v1.md",
+  "plan_sha256": "7e246aef8514145047a4568f091d1e209d5b3d1de9abbd85ac5f8953a5b6a846",
+  "status": "completed",
+  "source_git_sha": "1320c52b682224446e6f887e5665d50c57e928e4",
+  "source_tree_sha": "52476cea11b6e8254c7637da88103beb198b021b",
+  "working_source_diff_git_blob_sha1": "3809cb671ad746a39d186696da6d5191e44f888d",
+  "goal_result_path": ".chatgpt/operations/overnight/GOAL_1_RESULT.json",
+  "tests": {
+    "focused_passed": 72,
+    "failed": 0,
+    "errors": 0
+  },
+  "provider_calls": {
+    "codex_sol_family": 0,
+    "deepseek_family": 0
+  },
+  "protected_effects": {
+    "production_route_changed": false,
+    "installed_sillytavern_changed": false,
+    "live_story_database_changed": false,
+    "remote_operation_performed": false
+  },
+  "next_unfinished_queue_step": "Goal 2 atomic evidence capture and actual Stage 6 HTTP source freeze",
+  "completed_at_utc": "2026-08-06T09:21:53.6785550Z"
+}

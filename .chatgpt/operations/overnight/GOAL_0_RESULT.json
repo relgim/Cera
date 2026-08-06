@@ -1,0 +1,97 @@
+{
+  "schema_version": "cera.overnight_goal_result.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0002",
+  "goal": 0,
+  "status": "passed",
+  "completed_at_utc": "2026-08-06T09:13:37.3394827Z",
+  "execution_repository": "D:\\CP25\\source",
+  "git": {
+    "branch": "review/cera-sequence-first-runtime-v1-20260805",
+    "head": "1320c52b682224446e6f887e5665d50c57e928e4",
+    "tree": "52476cea11b6e8254c7637da88103beb198b021b",
+    "upstream_commit": "1320c52b682224446e6f887e5665d50c57e928e4",
+    "latest_source_correction_ancestor": "b00e8525861d461a4b36f2167f833505486fb0a8",
+    "tracked_change_count_before_goal_result": 0,
+    "untracked_file_count_before_goal_result": 6029,
+    "ignored_file_count_before_goal_result": 6364
+  },
+  "authority": {
+    "manager_current_sha256": "1a518f04bd73a2bde0e70f7245227ddc68f583ae8e8d6a235a01bc921b67f3e0",
+    "queue_0063_sha256": "97ca079a0e18b28977e534a78c546ca85e8b5b90f99d6792c7ba419bb022857e",
+    "overnight_pointer_sha256": "565f5d96d687dbadba54994c1b438bd8b562b3f946cb0a3f48614141fa51fed2",
+    "overnight_roadmap_0002_sha256": "ea423b413258cb6b5ef40232b490430cb7b3f9bd43023066eeeb0330e2255af5",
+    "manager_command_0063_sha256": "3e3762be995217211023812f3f173b79ef40a1d01a219926b0d49afb46aeb0e7",
+    "manager_review_0063_sha256": "edd7432ab6d76e8abb71c91ab8684bb1f1d8146e592a5a353fd46ae54bee54d0",
+    "controlling_queue": "0063",
+    "controlling_roadmap": "0002",
+    "pause_lift_scope": "queue_0063_roadmap_0002_only"
+  },
+  "execution_pointer_reconciliation": {
+    "latest_pointer_sha256_before_goal_result": "fba1006fe1c7c152e2a2b361a280f5179cae647670328d646cc601dd2e784f34",
+    "latest_pointer_queue": "0062",
+    "latest_pointer_plan": "self-continuation:q0062:0039:sequence-first-operation-workspace-isolation-v1",
+    "latest_pointer_status": "completed",
+    "classification": "expected_stale_non_authoritative_execution_pointer",
+    "resolution": "preserve_plan_0039_and_create_a_fresh_queue_0063_plan_before_goal_1_source_edits"
+  },
+  "queue_0062_evidence": {
+    "plan_0039_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0062_0039_sequence-first-operation-workspace-isolation-v1.md",
+    "plan_0039_sha256": "74c2c2f60db9717a57c6317fa9aa8864766d448612775b6bcf35c2cd96ef6884",
+    "result_0039_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_RESULT_Q0062_0039_sequence-first-operation-workspace-isolation-v1.json",
+    "result_0039_sha256": "47a9079eb36d830d1a9d59a7c8bb18b24dce2e2f240f94b2714af348de8cea9b",
+    "unstarted_plan_0040_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0062_0040_sequence-first-writer-protected-and-background-authority-v1.md",
+    "unstarted_plan_0040_sha256": "8841b17d979a1261b58063cd1c2ae0276a9f61050731bb519ae6a32ee80e4a29",
+    "unstarted_plan_0040_disposition": "preserved_unmodified_and_superseded_by_queue_0063_not_activated",
+    "v3_result_path": ".chatgpt/pf/q0062_sequence_first_stage3_live_v3/STAGE3_RESULT.json",
+    "v3_result_sha256": "221d56e02572c69a8b7b5b3aa056432f410b16f9de96e5e520a889b56739384e",
+    "v3_ledger_path": ".chatgpt/pf/q0062_sequence_first_stage3_live_v3/PROVIDER_CALL_LEDGER.jsonl",
+    "v3_ledger_sha256": "600ce4ea8b52e9b705a76888c9ecc812a831b25dbf514bd30e7128e12196c00b",
+    "v4_result_path": ".chatgpt/pf/q0062_sequence_first_stage3_live_v4/STAGE3_RESULT.json",
+    "v4_result_sha256": "be5408996477534a6dd3b1ec3fd508733f89cef5f03e0d73fedb43771c983fd7",
+    "v4_ledger_path": ".chatgpt/pf/q0062_sequence_first_stage3_live_v4/PROVIDER_CALL_LEDGER.jsonl",
+    "v4_ledger_sha256": "d010d56e44de6bfe4f190ee3e2d75add4bc665960c8b85bf6309a2ac6f6ab645",
+    "v3_terminal_status": "failed_workspace_nonempty_after_two_codex_and_two_deepseek_calls",
+    "v4_terminal_status": "failed_after_three_codex_and_two_deepseek_calls_with_two_validator_rejections",
+    "accepted_turns": 0,
+    "failed_planner_threads_terminalized": true
+  },
+  "provider_accounting": {
+    "queue_0062_live_v1_to_v4_debit": {
+      "codex_sol_family": 7,
+      "deepseek_family": 4
+    },
+    "pre_overnight_creator_balance": {
+      "codex_sol_family": 595,
+      "deepseek_family": 715
+    },
+    "goal_0_provider_calls": {
+      "codex_sol_family": 0,
+      "deepseek_family": 0
+    },
+    "accounting_status": "reconciled"
+  },
+  "review_inventory": {
+    "classification": "local_hash_bound_private_evidence_inventory",
+    "raw_provider_or_story_publication_authorized": false,
+    "safe_public_review_surface": [
+      "committed source and tests",
+      "hashes",
+      "call counts",
+      "sanitized diagnostics"
+    ],
+    "private_local_evidence_preserved": true
+  },
+  "protected_effects": {
+    "source_code_edited": false,
+    "provider_called": false,
+    "production_route_changed": false,
+    "installed_sillytavern_changed": false,
+    "live_story_database_changed": false,
+    "deployment_performed": false,
+    "remote_operation_performed": false,
+    "merge_performed": false,
+    "force_push_performed": false
+  },
+  "next_goal": "Goal 1 general Writer/Validator authority correction under a fresh Queue 0063 self-continuation plan"
+}

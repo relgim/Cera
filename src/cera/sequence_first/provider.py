@@ -20,9 +20,11 @@ from cera.providers.routes import (
 )
 from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
+from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.continuous.provider import (
     ContinuousProviderResultV1,
     DeepSeekContinuousComposerPort,
+    continuous_deepseek_route,
 )
 
 from .contracts import (
@@ -48,10 +50,12 @@ from .prompting import (
 
 SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v5"
 SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v4"
-SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v4"
-SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v3"
+SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v5"
+SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v4"
 SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v3"
 SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v2"
+SEQUENCE_FIRST_WRITER_ADAPTER = "cera.sequence_first.writer_adapter.v1"
+SEQUENCE_FIRST_WRITER_PROMPT = "cera.sequence_first.writer_prompt.v1"
 
 
 def sequence_first_planner_route():
@@ -70,7 +74,7 @@ def sequence_first_planner_route():
 def sequence_first_validator_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_validator_{model}_{effort}_v4",
+        route_id=f"cera_sequence_first_validator_{model}_{effort}_v5",
         adapter_id=SEQUENCE_FIRST_VALIDATOR_ADAPTER,
         prompt_version=SEQUENCE_FIRST_VALIDATOR_PROMPT,
         maximum_output_tokens=8_192,
@@ -87,6 +91,17 @@ def sequence_first_reader_route(*, model: str, effort: str):
         adapter_id=SEQUENCE_FIRST_READER_ADAPTER,
         prompt_version=SEQUENCE_FIRST_READER_PROMPT,
         maximum_output_tokens=4_096,
+        automatic_retry_count=0,
+        fallback_enabled=False,
+        production_enabled=False,
+    )
+
+
+def sequence_first_writer_route(*, model: str = "deepseek-v4-flash"):
+    return replace(
+        continuous_deepseek_route(model=model),
+        adapter_id=SEQUENCE_FIRST_WRITER_ADAPTER,
+        prompt_version=SEQUENCE_FIRST_WRITER_PROMPT,
         automatic_retry_count=0,
         fallback_enabled=False,
         production_enabled=False,
@@ -303,11 +318,13 @@ class SequenceFirstPlannerCodexBackend:
         workspace: Path,
         call_ledger: ContinuousProviderCallLedger,
         world_bridge=None,
+        operation_evidence: ProviderOperationEvidenceStoreV1 | None = None,
     ) -> None:
         self.lifecycle = lifecycle
         self.workspace = workspace
         self.call_ledger = call_ledger
         self.world_bridge = world_bridge
+        self.operation_evidence = operation_evidence
         self.route = sequence_first_planner_route()
         self._operation_index = 0
         self.last_provider_result: ContinuousProviderResultV1 | None = None
@@ -323,13 +340,14 @@ class SequenceFirstPlannerCodexBackend:
 
     def run_planner_turn(self, *, thread_id: str, prompt: str) -> SequenceDraftV1:
         self._operation_index += 1
+        operation_workspace = _operation_workspace(
+            self.workspace,
+            role="planner",
+            index=self._operation_index,
+        )
         transport = CodexSDKTransport(
             self.route,
-            workspace=_operation_workspace(
-                self.workspace,
-                role="planner",
-                index=self._operation_index,
-            ),
+            workspace=operation_workspace,
             runner=StoredCodexThreadRunner(thread_id),
         )
         stored_thread_sha256 = text_sha256(thread_id)
@@ -374,8 +392,28 @@ class SequenceFirstPlannerCodexBackend:
             dispatch_with_stage_markers=dispatch,
             finalize=finalize,
             stored_thread_sha256=stored_thread_sha256,
+            operation_evidence=(
+                None
+                if self.operation_evidence is None
+                else self.operation_evidence.request(
+                    request_bytes=prompt.encode("utf-8"),
+                    structured_output_schema=sequence_draft_json_schema(),
+                    prompt_version=self.route.prompt_version,
+                    schema_version=SequenceDraftV1.SCHEMA_VERSION,
+                    operation_workspace=str(operation_workspace),
+                    role="planner",
+                    archival_policy="persistent_per_accepted_branch",
+                )
+            ),
         )
         self.last_provider_result = provider_result
+        if self.operation_evidence is not None:
+            self.operation_evidence.record_archival(
+                role="planner",
+                archived=False,
+                resumable=self.lifecycle.resume_stored_thread(thread_id),
+                disposition="retained_for_accepted_branch",
+            )
         return provider_result.value
 
     def is_resumable(self, thread_id: str) -> bool:
@@ -393,10 +431,12 @@ class SequenceFirstValidatorCodexBackend:
         model: str,
         effort: str,
         call_ledger: ContinuousProviderCallLedger,
+        operation_evidence: ProviderOperationEvidenceStoreV1 | None = None,
     ) -> None:
         self.lifecycle = lifecycle
         self.workspace = workspace
         self.call_ledger = call_ledger
+        self.operation_evidence = operation_evidence
         self.route = sequence_first_validator_route(model=model, effort=effort)
         self._operation_index = 0
         self.last_provider_result: ContinuousProviderResultV1 | None = None
@@ -417,13 +457,14 @@ class SequenceFirstValidatorCodexBackend:
         prompt: str,
     ) -> ValidatorDecisionV1:
         self._operation_index += 1
+        operation_workspace = _operation_workspace(
+            self.workspace,
+            role="validator",
+            index=self._operation_index,
+        )
         transport = CodexSDKTransport(
             self.route,
-            workspace=_operation_workspace(
-                self.workspace,
-                role="validator",
-                index=self._operation_index,
-            ),
+            workspace=operation_workspace,
             runner=StoredCodexThreadRunner(thread_id),
         )
         stored_thread_sha256 = text_sha256(thread_id)
@@ -461,6 +502,19 @@ class SequenceFirstValidatorCodexBackend:
             dispatch_with_stage_markers=dispatch,
             finalize=finalize,
             stored_thread_sha256=stored_thread_sha256,
+            operation_evidence=(
+                None
+                if self.operation_evidence is None
+                else self.operation_evidence.request(
+                    request_bytes=prompt.encode("utf-8"),
+                    structured_output_schema=validator_decision_json_schema(),
+                    prompt_version=self.route.prompt_version,
+                    schema_version=ValidatorDecisionV1.SCHEMA_VERSION,
+                    operation_workspace=str(operation_workspace),
+                    role="validator",
+                    archival_policy="fresh_per_candidate_then_archive",
+                )
+            ),
         )
         self.last_provider_result = provider_result
         return provider_result.value
@@ -469,7 +523,15 @@ class SequenceFirstValidatorCodexBackend:
         self.lifecycle.archive_stored_thread(thread_id)
 
     def is_resumable(self, thread_id: str) -> bool:
-        return self.lifecycle.stored_thread_is_selectable(thread_id)
+        resumable = self.lifecycle.stored_thread_is_selectable(thread_id)
+        if self.operation_evidence is not None:
+            self.operation_evidence.record_archival(
+                role="validator",
+                archived=True,
+                resumable=resumable,
+                disposition="archived_after_candidate",
+            )
+        return resumable
 
 
 class SequenceFirstReaderCodexPort:
@@ -483,6 +545,7 @@ class SequenceFirstReaderCodexPort:
         model: str,
         effort: str,
         call_ledger: ContinuousProviderCallLedger,
+        operation_evidence: ProviderOperationEvidenceStoreV1 | None = None,
     ) -> None:
         if READER_BASE_INSTRUCTIONS not in lifecycle.base_instructions:
             raise ContractValidationError(
@@ -491,6 +554,7 @@ class SequenceFirstReaderCodexPort:
         self.lifecycle = lifecycle
         self.workspace = workspace
         self.call_ledger = call_ledger
+        self.operation_evidence = operation_evidence
         self.route = sequence_first_reader_route(model=model, effort=effort)
         self._operation_index = 0
         self.last_provider_result: ContinuousProviderResultV1 | None = None
@@ -499,13 +563,14 @@ class SequenceFirstReaderCodexPort:
         thread_id = self.lifecycle.start_stored_thread()
         stored_thread_sha256 = text_sha256(thread_id)
         self._operation_index += 1
+        operation_workspace = _operation_workspace(
+            self.workspace,
+            role="reader",
+            index=self._operation_index,
+        )
         transport = CodexSDKTransport(
             self.route,
-            workspace=_operation_workspace(
-                self.workspace,
-                role="reader",
-                index=self._operation_index,
-            ),
+            workspace=operation_workspace,
             runner=StoredCodexThreadRunner(thread_id),
         )
 
@@ -540,6 +605,19 @@ class SequenceFirstReaderCodexPort:
                 dispatch_with_stage_markers=dispatch,
                 finalize=finalize,
                 stored_thread_sha256=stored_thread_sha256,
+                operation_evidence=(
+                    None
+                    if self.operation_evidence is None
+                    else self.operation_evidence.request(
+                        request_bytes=reader_prompt(request).encode("utf-8"),
+                        structured_output_schema=reader_verdict_json_schema(),
+                        prompt_version=self.route.prompt_version,
+                        schema_version=ReaderVerdictV1.SCHEMA_VERSION,
+                        operation_workspace=str(operation_workspace),
+                        role="reader",
+                        archival_policy="fresh_per_candidate_then_archive",
+                    )
+                ),
             )
             self.last_provider_result = provider_result
             return provider_result.value
@@ -549,13 +627,26 @@ class SequenceFirstReaderCodexPort:
                 raise ContractValidationError(
                     "archived sequence-first Reader remains resumable"
                 )
+            if self.operation_evidence is not None:
+                self.operation_evidence.record_archival(
+                    role="reader",
+                    archived=True,
+                    resumable=False,
+                    disposition="archived_after_candidate",
+                )
 
 
 class SequenceFirstDeepSeekWriterPort:
     """Reuse the qualified two-field DeepSeek wire; add no semantic metadata."""
 
-    def __init__(self, composer: DeepSeekContinuousComposerPort) -> None:
+    def __init__(
+        self,
+        composer: DeepSeekContinuousComposerPort,
+        *,
+        operation_evidence: ProviderOperationEvidenceStoreV1 | None = None,
+    ) -> None:
         self.composer = composer
+        self.operation_evidence = operation_evidence
 
     def write(
         self,
@@ -564,7 +655,13 @@ class SequenceFirstDeepSeekWriterPort:
     ) -> WriterResponseV1:
         if not 1 <= attempt_number <= 3:
             raise ContractValidationError("DeepSeek Writer attempt is outside its bound")
-        result = self.composer.compose(writer_prompt(brief))
+        result = self.composer.compose(
+            writer_prompt(brief),
+            operation_evidence=self.operation_evidence,
+            operation_evidence_attempt=attempt_number,
+            operation_evidence_prompt_version=SEQUENCE_FIRST_WRITER_PROMPT,
+            operation_evidence_schema_version=WriterResponseV1.SCHEMA_VERSION,
+        )
         draft = result.value
         return WriterResponseV1(
             schema_version=draft.schema_version,

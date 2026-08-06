@@ -18,6 +18,7 @@ from .models import (
     SillyTavernChatRequest,
     SillyTavernTurnReply,
 )
+from .server import CeraSillyTavernServerConfig, build_server
 from .sequence_first_stage6 import (
     ExplicitSceneInitializationV1,
     SequenceFirstPreparedStage6TurnV1,
@@ -90,6 +91,23 @@ def sequence_first_stage6_profile_path(project_root: Path) -> Path:
     return (project_root / SEQUENCE_FIRST_STAGE6_PROFILE_RELATIVE_PATH).resolve()
 
 
+def sequence_first_stage6_server_config() -> CeraSillyTavernServerConfig:
+    """Explicit loopback binding; the shared development default stays unchanged."""
+
+    return CeraSillyTavernServerConfig(
+        host="127.0.0.1",
+        port=5116,
+        model=CERA_SEQUENCE_FIRST_STAGE6_MODEL,
+        service="cera-sequence-first-stage6-shadow",
+    )
+
+
+def build_sequence_first_stage6_server(
+    adapter: "SequenceFirstStage6HttpAdapter",
+):
+    return build_server(adapter, sequence_first_stage6_server_config())
+
+
 @dataclass(frozen=True, slots=True)
 class SequenceFirstReviewRecordV1:
     review_id: TypedId
@@ -149,6 +167,37 @@ class SequenceFirstStage6HttpAdapter:
     @property
     def virtual_model(self) -> str:
         return CERA_SEQUENCE_FIRST_STAGE6_MODEL
+
+    @property
+    def reasoner_session_status(self) -> dict[str, object]:
+        """Privacy-safe status contract consumed by the shared `/health` route."""
+
+        with self._lock:
+            return {
+                "mode": "sequence_first_stage6",
+                "active": True,
+                "profile_id": SEQUENCE_FIRST_STAGE6_PROFILE,
+                "route": "sequence_first_stage6",
+                "model": self.virtual_model,
+                "planner_session": "persistent_per_accepted_branch",
+                "validator_session": "fresh_per_candidate",
+                "reader_session": "fresh_per_candidate",
+                "accepted_generation": self._accepted_generation,
+                "creator_review_unresolved": self._unresolved_review_id is not None,
+                "automatic_retry": False,
+                "fallback": False,
+            }
+
+    @property
+    def active_runtime_status(self) -> dict[str, object]:
+        return {
+            "valid": True,
+            "profile_id": SEQUENCE_FIRST_STAGE6_PROFILE,
+            "route": "sequence_first_stage6",
+            "model": self.virtual_model,
+            "production": False,
+            "provider_activation_required": True,
+        }
 
     def complete(self, request: SillyTavernChatRequest) -> SillyTavernTurnReply:
         with self._lock:

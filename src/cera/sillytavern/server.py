@@ -62,6 +62,11 @@ def build_server(
 
         def do_GET(self) -> None:
             if self.path in {"/health", "/v1/health"}:
+                adapter_runtime_status = getattr(
+                    adapter,
+                    "active_runtime_status",
+                    None,
+                )
                 self._json(
                     HTTPStatus.OK,
                     {
@@ -69,7 +74,11 @@ def build_server(
                         "service": config.service,
                         "model": config.model,
                         "production": False,
-                        "active_runtime": active_runtime_status(),
+                        "active_runtime": (
+                            adapter_runtime_status
+                            if adapter_runtime_status is not None
+                            else active_runtime_status()
+                        ),
                         "reasoner_session": adapter.reasoner_session_status,
                     },
                 )

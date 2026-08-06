@@ -27,7 +27,13 @@ from cera.providers import (
     deepseek_composer_candidate,
 )
 from cera.schema import from_mapping
-from cera.serialization import canonical_sha256, re_is_sha256, text_sha256
+from cera.serialization import (
+    canonical_bytes,
+    canonical_sha256,
+    re_is_sha256,
+    text_sha256,
+    to_primitive,
+)
 
 from .contracts import (
     ACTIVE_VALIDATOR_WRITER_HARD_CLASSES,
@@ -78,6 +84,7 @@ from .contracts import (
     json_value_type,
 )
 from .call_ledger import ContinuousProviderCallLedger
+from .operation_evidence import ProviderOperationEvidenceStoreV1
 from .record_policy import PERSISTENCE_POLICY_SHA256
 from .prompting import (
     CONTINUOUS_COMPACT_VALIDATOR_PROMPT_VERSION,
@@ -6149,7 +6156,15 @@ class DeepSeekContinuousComposerPort:
         self.call_ledger = call_ledger
         self._operation_index = 0
 
-    def compose(self, prompt: str) -> ContinuousProviderResultV1:
+    def compose(
+        self,
+        prompt: str,
+        *,
+        operation_evidence: ProviderOperationEvidenceStoreV1 | None = None,
+        operation_evidence_attempt: int = 1,
+        operation_evidence_prompt_version: str | None = None,
+        operation_evidence_schema_version: str | None = None,
+    ) -> ContinuousProviderResultV1:
         schema = continuous_scene_writer_draft_json_schema()
         messages = (
             DeepSeekMessage(
@@ -6197,6 +6212,23 @@ class DeepSeekContinuousComposerPort:
             effort=route.reasoning_effort,
             dispatch_with_invocation_marker=dispatch,
             finalize=finalize,
+            operation_evidence=(
+                None
+                if operation_evidence is None
+                else operation_evidence.request(
+                    request_bytes=canonical_bytes(to_primitive(messages)),
+                    structured_output_schema=schema,
+                    prompt_version=(
+                        operation_evidence_prompt_version
+                        or route.prompt_version
+                    ),
+                    schema_version=operation_evidence_schema_version,
+                    operation_workspace="not_applicable:stateless_https",
+                    role="writer",
+                    attempt=operation_evidence_attempt,
+                    archival_policy="not_applicable_stateless",
+                )
+            ),
         )
 
 

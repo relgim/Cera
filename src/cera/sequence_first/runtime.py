@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Protocol
 
 from cera.errors import ContractValidationError
+from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.serialization import text_sha256
 
 from .contracts import (
@@ -111,6 +112,7 @@ class SequenceFirstCoordinator:
         reader: ReaderPort,
         voice_cue_resolver: VoiceCueResolverPort,
         maximum_writer_attempts: int = 3,
+        operation_evidence: ProviderOperationEvidenceStoreV1 | None = None,
     ) -> None:
         if maximum_writer_attempts not in {1, 2, 3}:
             raise ContractValidationError("Writer attempt bound must be between one and three")
@@ -120,12 +122,15 @@ class SequenceFirstCoordinator:
         self._reader = reader
         self._voice_cue_resolver = voice_cue_resolver
         self._maximum_writer_attempts = maximum_writer_attempts
+        self._operation_evidence = operation_evidence
 
     def generate(
         self,
         request: SequenceFirstTurnRequestV1,
     ) -> SequenceFirstRunResultV1:
         semantics = request.semantic_input
+        if self._operation_evidence is not None:
+            self._operation_evidence.begin_turn(request.custody.turn_id)
         intended = self._planner.plan(semantics)
         semantics.validate_intended(intended)
         voice_cues = self._voice_cue_resolver.resolve(
@@ -142,11 +147,16 @@ class SequenceFirstCoordinator:
             current_public_scene_state=semantics.current_public_scene_state,
             protected_source_claims=semantics.protected_source_claims,
             voice_cues=voice_cues,
+            backgrounded_character_ids=(
+                semantics.derived_backgrounded_character_ids(intended)
+            ),
             hard_boundaries=semantics.hard_boundaries,
         )
         receipts: list[WriterAttemptReceiptV1] = []
 
         for attempt_number in range(1, self._maximum_writer_attempts + 1):
+            if self._operation_evidence is not None:
+                self._operation_evidence.set_attempt(attempt_number)
             writer_response = self._writer.write(brief, attempt_number)
             validator_input = SequenceFirstValidatorInputV1(
                 intended_sequence=intended,

@@ -1,0 +1,11 @@
+{
+  "schema_version": "cera.overnight_manager_notification.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0002",
+  "goal": 1,
+  "status": "passed",
+  "result_path": ".chatgpt/operations/overnight/GOAL_1_RESULT.json",
+  "completed_at_utc": "2026-08-06T09:21:53.6785550Z",
+  "summary": "General Writer/Validator authority correction passed 72 focused tests. Python now derives a read-only backgrounded NPC list for the Writer brief; compatible static presentation remains noncanonical; protected-user agency and background-NPC activity remain rejection guidance. The Writer response is still exactly two fields, attempts remain byte-identical/no-feedback/no-merge, and provider calls remain zero.",
+  "next_goal": 2
+}

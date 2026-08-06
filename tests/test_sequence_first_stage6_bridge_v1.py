@@ -36,6 +36,7 @@ from cera.sillytavern.models import CERA_SEQUENCE_FIRST_STAGE6_MODEL
 from cera.sillytavern.sequence_first_adapter import SequenceFirstSillyTavernAdapter
 from cera.sillytavern.sequence_first_http import (
     SEQUENCE_FIRST_STAGE6_PROFILE,
+    sequence_first_stage6_server_config,
     sequence_first_stage6_profile_path,
     SequenceFirstStage6HttpAdapter,
     validate_sequence_first_stage6_profile,
@@ -479,6 +480,14 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
             worker = Thread(target=server.serve_forever, daemon=True)
             worker.start()
             try:
+                health = self._get_json(f"http://127.0.0.1:{port}/health")
+                self.assertEqual(health["reasoner_session"]["mode"], "sequence_first_stage6")
+                self.assertEqual(
+                    health["active_runtime"]["profile_id"],
+                    SEQUENCE_FIRST_STAGE6_PROFILE,
+                )
+                models = self._get_json(f"http://127.0.0.1:{port}/v1/models")
+                self.assertEqual(models["data"][0]["id"], CERA_SEQUENCE_FIRST_STAGE6_MODEL)
                 active = store.initialize("world-test", "branch-main") / "ACTIVE"
                 before = store.tree_sha256(active)
                 response = self._post_json(
@@ -517,6 +526,12 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 server.shutdown()
                 server.server_close()
                 worker.join(timeout=5)
+
+    def test_sequence_first_launcher_config_is_explicit_loopback_5116(self) -> None:
+        config = sequence_first_stage6_server_config()
+        self.assertEqual(config.host, "127.0.0.1")
+        self.assertEqual(config.port, 5116)
+        self.assertEqual(config.model, CERA_SEQUENCE_FIRST_STAGE6_MODEL)
 
     def test_actual_loopback_http_decline_has_no_world_mutation(self) -> None:
         with TemporaryDirectory() as temporary:

@@ -1,0 +1,106 @@
+{
+  "schema_version": "cera.overnight_goal_result.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0002",
+  "goal": 1,
+  "status": "passed",
+  "completed_at_utc": "2026-08-06T09:21:53.6785550Z",
+  "source_base_git_sha": "1320c52b682224446e6f887e5665d50c57e928e4",
+  "source_base_tree_sha": "52476cea11b6e8254c7637da88103beb198b021b",
+  "source_diff_git_blob_sha1": "3809cb671ad746a39d186696da6d5191e44f888d",
+  "plan": {
+    "path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0063_0041_sequence-first-writer-background-guidance-v1.md",
+    "sha256": "7e246aef8514145047a4568f091d1e209d5b3d1de9abbd85ac5f8953a5b6a846",
+    "supersedes_unstarted_plan": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0062_0040_sequence-first-writer-protected-and-background-authority-v1.md"
+  },
+  "implementation": {
+    "writer_brief_schema": "cera.sequence_first.writer_brief.v4",
+    "validator_adapter": "cera.sequence_first.validator_adapter.v5",
+    "validator_prompt": "cera.sequence_first.validator_prompt.v4",
+    "writer_adapter": "cera.sequence_first.writer_adapter.v1",
+    "writer_prompt": "cera.sequence_first.writer_prompt.v1",
+    "background_context": "Python-derived read-only accepted-present-NPCs minus behavioral Planner owners",
+    "writer_response_fields": [
+      "schema_version",
+      "story_text"
+    ],
+    "model_authored_background_metadata_added": false,
+    "validator_output_fields_added": false,
+    "phrase_specific_rules_added": false,
+    "compatible_static_presentation": "visible_noncanonical_and_omitted_from_realized_or_durable_authority"
+  },
+  "changed_files": [
+    {
+      "path": "src/cera/sequence_first/contracts.py",
+      "sha256": "b7ce435cc6814c4db3cc24f9239f24cdb5a1f0f4a65b37d107fb3762f39df922"
+    },
+    {
+      "path": "src/cera/sequence_first/runtime.py",
+      "sha256": "777a56ff42818ea490386f54a3b5c56116b4051f66682ad56749ed641019d50d"
+    },
+    {
+      "path": "src/cera/sequence_first/prompting.py",
+      "sha256": "893b024cff7252a77acf9e7846be5fc84dc74030262cda324d929d354b572bcf"
+    },
+    {
+      "path": "src/cera/sequence_first/provider.py",
+      "sha256": "2ebbef15efc4b1290ee71ce9f9eeff9f078190045c0b522ab0439874d38c8a39"
+    },
+    {
+      "path": "tests/test_sequence_first_runtime_v1.py",
+      "sha256": "94d30fcbd02ce11eb2f0727002361a7935cfe72aad4556bed9f68c4a8910b1ce"
+    }
+  ],
+  "tests": [
+    {
+      "command": ".venv/Scripts/python.exe -m py_compile src/cera/sequence_first/contracts.py src/cera/sequence_first/runtime.py src/cera/sequence_first/prompting.py src/cera/sequence_first/provider.py tests/test_sequence_first_runtime_v1.py",
+      "status": "passed"
+    },
+    {
+      "command": ".venv/Scripts/python.exe -m unittest tests.test_sequence_first_runtime_v1 tests.test_sequence_first_stage6_bridge_v1",
+      "passed": 72,
+      "failed": 0,
+      "errors": 0,
+      "duration_seconds": 5.407
+    }
+  ],
+  "verified_fixtures": {
+    "accepted_noncanonical_presentation": [
+      "Ted remains in creator-established entryway",
+      "compatible static doorway framing",
+      "Mia remains in accepted background",
+      "Mia omitted",
+      "NPC looks toward or addresses Ted without reciprocal Ted behavior"
+    ],
+    "rejected_without_candidate_authority": [
+      "new Ted movement",
+      "new Ted response",
+      "new Ted expression or emotion",
+      "new Ted private state",
+      "new Ted decision or consent state",
+      "backgrounded Mia relocation",
+      "backgrounded Mia dialogue",
+      "backgrounded Mia private reaction",
+      "backgrounded Mia exit",
+      "backgrounded Mia causal foregrounding"
+    ],
+    "attempt_custody": "byte-identical frozen brief and prompt across attempts with no rejected-output feedback and no merging"
+  },
+  "provider_calls": {
+    "codex_sol_family": 0,
+    "deepseek_family": 0
+  },
+  "remaining_creator_balance": {
+    "codex_sol_family": 595,
+    "deepseek_family": 715
+  },
+  "protected_effects": {
+    "production_route_changed": false,
+    "installed_sillytavern_changed": false,
+    "live_story_database_changed": false,
+    "deployment_performed": false,
+    "remote_operation_performed": false,
+    "merge_performed": false
+  },
+  "next_goal": "Goal 2 atomic per-call evidence capture and actual Stage 6 HTTP source freeze"
+}
