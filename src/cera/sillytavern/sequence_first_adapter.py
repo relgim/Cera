@@ -19,7 +19,6 @@ from cera.sequence_first.contracts import (
     SequenceDraftV1,
     SequenceFirstTurnRequestV1,
     SequenceFirstTurnSemanticInputV1,
-    VoiceCueV1,
 )
 from cera.sequence_first.runtime import SequenceFirstCoordinator, SequenceFirstRunResultV1
 
@@ -114,10 +113,9 @@ class SequenceFirstSillyTavernAdapter:
         *,
         ingress: FrozenSillyTavernIngressV1,
         accepted_state: AcceptedSceneStateV1,
-        voice_cues: tuple[VoiceCueV1, ...],
     ) -> SequenceFirstRunResultV1:
         request = self.prepare_request(
             ingress=ingress,
             accepted_state=accepted_state,
         )
-        return self._coordinator.generate(request, voice_cues=voice_cues)
+        return self._coordinator.generate(request)

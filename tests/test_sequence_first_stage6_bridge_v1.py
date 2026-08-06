@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+import json
+import socket
+from threading import Thread
 import unittest
+from urllib.request import Request, urlopen
 
 from cera.continuous.world import ContinuousWorldStore
 from cera.errors import ContractValidationError
@@ -13,11 +17,12 @@ from cera.sequence_first import (
     ItemKind,
     PresenceChangeV1,
     PresenceDirection,
-    ProtectedSourceClaimV1,
     ReaderStatus,
     ReaderVerdictV1,
     SequenceDraftV1,
     SequenceFirstCoordinator,
+    SequenceFirstAcceptedAuthorityV1,
+    StaticAcceptedWorldAuthorityAssembler,
     SequenceItemV1,
     ValidationConflictV1,
     ValidatorDecisionV1,
@@ -27,13 +32,19 @@ from cera.sequence_first import (
     WriterResponseV1,
 )
 from cera.sequence_first.world import SequenceFirstWorldTransaction
-from cera.sillytavern.models import CERA_CONTINUOUS_V3_PROVIDER_MANUAL_MODEL
+from cera.sillytavern.models import CERA_SEQUENCE_FIRST_STAGE6_MODEL
 from cera.sillytavern.sequence_first_adapter import SequenceFirstSillyTavernAdapter
+from cera.sillytavern.sequence_first_http import (
+    SEQUENCE_FIRST_STAGE6_PROFILE,
+    sequence_first_stage6_profile_path,
+    SequenceFirstStage6HttpAdapter,
+    validate_sequence_first_stage6_profile,
+)
+from cera.sillytavern.server import CeraSillyTavernServerConfig, build_server
 from cera.sillytavern.sequence_first_stage6 import (
     ExplicitSceneInitializationV1,
     SequenceFirstPresenceAuthorityError,
     SequenceFirstStage6Bridge,
-    SequenceFirstStage6StateProjectionV1,
     SequenceFirstStage6TurnCustodyV1,
 )
 
@@ -167,12 +178,24 @@ class ReaderFake:
 
 
 class SequenceFirstStage6BridgeTests(unittest.TestCase):
+    def test_stage6_route_profile_is_explicit_and_non_authorizing(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        profile_path = sequence_first_stage6_profile_path(project_root)
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(validate_sequence_first_stage6_profile(profile), profile)
+        self.assertEqual(profile["external_provider_calls_authorized_by_profile"], 0)
+        self.assertFalse(profile["production"])
+        self.assertTrue(profile["loopback_only"])
+        self.assertEqual(profile["validator"]["model"], "gpt-5.6-sol")
+        self.assertEqual(profile["reader"]["model"], "gpt-5.6-sol")
+
     def setUp(self) -> None:
         self._identity = 0
 
     def raw(self, source: str, *, scene_change: bool = False) -> dict:
         return {
-            "model": CERA_CONTINUOUS_V3_PROVIDER_MANUAL_MODEL,
+            "model": CERA_SEQUENCE_FIRST_STAGE6_MODEL,
             "messages": [
                 {"role": "system", "content": "SillyTavern fixture."},
                 {"role": "user", "content": source},
@@ -180,6 +203,28 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
             "stream": False,
             "cera_scene_change": scene_change,
         }
+
+    @staticmethod
+    def _post_json(url: str, payload: dict) -> dict:
+        request = Request(
+            url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urlopen(request, timeout=5) as response:
+            return json.loads(response.read().decode("utf-8"))
+
+    @staticmethod
+    def _free_port() -> int:
+        with socket.socket() as value:
+            value.bind(("127.0.0.1", 0))
+            return int(value.getsockname()[1])
+
+    @staticmethod
+    def _get_json(url: str) -> dict:
+        with urlopen(url, timeout=5) as response:
+            return json.loads(response.read().decode("utf-8"))
 
     def custody(self, source: str) -> SequenceFirstStage6TurnCustodyV1:
         self._identity += 1
@@ -190,10 +235,6 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
             turn_id=f"turn-{suffix}",
             transaction_id=f"transaction-{suffix}",
             current_source_key="source:current",
-            protected_source_claims=(
-                ProtectedSourceClaimV1("current_request", source),
-            ),
-            hard_boundaries=("Do not invent Ted's response.",),
         )
 
     def projection(
@@ -201,7 +242,8 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
         *,
         remote: tuple[str, ...] = (),
         include_mia_evidence: bool = False,
-    ) -> SequenceFirstStage6StateProjectionV1:
+        branch_id: str = "branch-main",
+    ) -> SequenceFirstAcceptedAuthorityV1:
         evidence = [
             EvidenceRecordV1(
                 "evidence:hana_voice",
@@ -219,7 +261,10 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                     "Mia is elsewhere in the house.",
                 )
             )
-        return SequenceFirstStage6StateProjectionV1(
+        return SequenceFirstAcceptedAuthorityV1(
+            schema_version=SequenceFirstAcceptedAuthorityV1.SCHEMA_VERSION,
+            world_id="world-test",
+            branch_id=branch_id,
             known_character_ids=(
                 "character:ted",
                 "character:hana",
@@ -227,6 +272,11 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
             ),
             explicitly_authorized_remote_character_ids=remote,
             evidence_records=tuple(evidence),
+            voice_cues=(
+                VoiceCueV1("character:hana", "Warm and direct."),
+                VoiceCueV1("character:mia", "Bright and concise."),
+            ),
+            hard_boundaries=("Do not invent Ted's response.",),
         )
 
     def runtime(
@@ -236,21 +286,27 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
         *,
         reject: bool = False,
         prose: str = "Hana asks Ted what he would like to do next.",
+        authority: SequenceFirstAcceptedAuthorityV1 | None = None,
     ):
         planner = PlannerFake(plans)
         writer = WriterFake(prose)
         validator = ValidatorFactoryFake(reject=reject, quote=prose if reject else None)
         reader = ReaderFake()
+        assembler = StaticAcceptedWorldAuthorityAssembler(
+            authority or self.projection()
+        )
         coordinator = SequenceFirstCoordinator(
             planner=planner,
             writer=writer,
             validator_factory=validator,
             reader=reader,
+            voice_cue_resolver=assembler,
         )
         transaction = SequenceFirstWorldTransaction(store)
         bridge = SequenceFirstStage6Bridge(
             adapter=SequenceFirstSillyTavernAdapter(coordinator),
             transaction=transaction,
+            authority_assembler=assembler,
         )
         return bridge, planner, writer, validator, reader
 
@@ -263,13 +319,16 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
         scene_id: str = "scene-entry",
     ):
         source = "Begin the explicitly initialized scene."
-        bridge, *_ = self.runtime(store, [sequence()])
+        bridge, *_ = self.runtime(
+            store,
+            [sequence()],
+            authority=self.projection(branch_id=branch_id),
+        )
         prepared = bridge.prepare(
             raw_request=self.raw(source),
             world_id="world-test",
             branch_id=branch_id,
             custody=self.custody(source),
-            state_projection=self.projection(),
             scene_initialization=ExplicitSceneInitializationV1(
                 scene_id=scene_id,
                 accepted_present_character_ids=present,
@@ -277,10 +336,7 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 unresolved_threads=("Ted retains the next choice.",),
             ),
         )
-        result = bridge.generate(
-            prepared,
-            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-        )
+        result = bridge.generate(prepared)
         return bridge.accept_and_reload(prepared, result, creator_accepted=True)
 
     def test_uninitialized_branch_fails_closed_without_explicit_authority(self) -> None:
@@ -294,7 +350,6 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                     world_id="world-test",
                     branch_id="branch-main",
                     custody=self.custody(source),
-                    state_projection=self.projection(),
                 )
 
     def test_raw_scene_change_control_cannot_create_presence_authority(self) -> None:
@@ -309,26 +364,25 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                     world_id="world-test",
                     branch_id="branch-main",
                     custody=self.custody(source),
-                    state_projection=self.projection(),
                 )
 
     def test_absent_mia_mention_and_retrieval_do_not_change_presence(self) -> None:
         with TemporaryDirectory() as temporary:
             store = ContinuousWorldStore(Path(temporary).resolve())
             self.initialize_and_accept(store=store)
-            bridge, planner, *_ = self.runtime(store, [sequence()])
+            bridge, planner, *_ = self.runtime(
+                store,
+                [sequence()],
+                authority=self.projection(include_mia_evidence=True),
+            )
             source = "Ted asks Hana whether Mia is upstairs."
             prepared = bridge.prepare(
                 raw_request=self.raw(source),
                 world_id="world-test",
                 branch_id="branch-main",
                 custody=self.custody(source),
-                state_projection=self.projection(include_mia_evidence=True),
             )
-            result = bridge.generate(
-                prepared,
-                voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-            )
+            result = bridge.generate(prepared)
             self.assertTrue(result.accepted)
             self.assertEqual(
                 planner.inputs[0].accepted_present_character_ids,
@@ -354,17 +408,226 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 world_id="world-test",
                 branch_id="branch-main",
                 custody=self.custody(source),
-                state_projection=self.projection(),
             )
+            self.assertEqual(prepared.ingress.protected_source_claims, ())
             self.assertEqual(
                 prepared.request.semantic_input.derived_backgrounded_character_ids(plan),
                 ("character:mia",),
             )
-            result = bridge.generate(
-                prepared,
-                voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-            )
+            result = bridge.generate(prepared)
             self.assertTrue(result.accepted)
+
+    def test_failed_provisional_plan_cannot_override_next_accepted_packet(self) -> None:
+        with TemporaryDirectory() as temporary:
+            store = ContinuousWorldStore(Path(temporary).resolve())
+            accepted = self.initialize_and_accept(store=store)
+            invalid = sequence(owner="character:mia")
+            valid = sequence(owner="character:hana")
+            bridge, planner, *_ = self.runtime(store, [invalid, valid])
+            first_source = "Continue while Mia remains absent."
+            first = bridge.prepare(
+                raw_request=self.raw(first_source),
+                world_id="world-test",
+                branch_id="branch-main",
+                custody=self.custody(first_source),
+            )
+            with self.assertRaisesRegex(ContractValidationError, "absent item owner"):
+                bridge.generate(first)
+            second_source = "Continue the scene."
+            second = bridge.prepare(
+                raw_request=self.raw(second_source),
+                world_id="world-test",
+                branch_id="branch-main",
+                custody=self.custody(second_source),
+            )
+            result = bridge.generate(second)
+            self.assertTrue(result.accepted)
+            self.assertEqual(
+                planner.inputs[1].prior_realized_sequence,
+                accepted.prior_realized_sequence,
+            )
+            self.assertEqual(
+                planner.inputs[1].accepted_present_character_ids,
+                accepted.accepted_present_character_ids,
+            )
+
+    def test_actual_loopback_http_review_accept_is_atomic(self) -> None:
+        with TemporaryDirectory() as temporary:
+            store = ContinuousWorldStore(Path(temporary).resolve())
+            bridge, *_ = self.runtime(store, [sequence()])
+            adapter = SequenceFirstStage6HttpAdapter(
+                bridge=bridge,
+                world_id="world-test",
+                branch_id="branch-main",
+                session_id="sequence-test",
+                initial_scene=ExplicitSceneInitializationV1(
+                    scene_id="scene-entry",
+                    accepted_present_character_ids=("character:ted", "character:hana"),
+                    current_public_scene_state="Ted and Hana are in the entry room.",
+                ),
+            )
+            port = self._free_port()
+            server = build_server(
+                adapter,
+                CeraSillyTavernServerConfig(
+                    host="127.0.0.1",
+                    port=port,
+                    model=CERA_SEQUENCE_FIRST_STAGE6_MODEL,
+                    service="sequence-first-stage6-test",
+                ),
+            )
+            worker = Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+            try:
+                active = store.initialize("world-test", "branch-main") / "ACTIVE"
+                before = store.tree_sha256(active)
+                response = self._post_json(
+                    f"http://127.0.0.1:{port}/v1/chat/completions",
+                    {
+                        "model": CERA_SEQUENCE_FIRST_STAGE6_MODEL,
+                        "messages": [{"role": "user", "content": "Continue the scene."}],
+                        "stream": False,
+                        "cera_session_id": "sequence-test",
+                        "cera_profile_id": SEQUENCE_FIRST_STAGE6_PROFILE,
+                    },
+                )
+                review_id = response["cera"]["provisional_review_id"]
+                self.assertEqual(store.tree_sha256(active), before)
+                review = self._get_json(
+                    f"http://127.0.0.1:{port}/v1/cera/reviews/{review_id}"
+                )
+                evidence = review["operation_evidence"]
+                self.assertEqual(evidence["virtual_model"], CERA_SEQUENCE_FIRST_STAGE6_MODEL)
+                self.assertEqual(evidence["protected_source_claim_count"], 0)
+                self.assertEqual(evidence["provider_calls"], 0)
+                self.assertEqual(len(evidence["writer_prose_sha256"]), 64)
+                decision = self._post_json(
+                    f"http://127.0.0.1:{port}/v1/cera/reviews/{review_id}/decision",
+                    {"action": "accept"},
+                )
+                self.assertEqual(decision["status"], "accepted")
+                self.assertNotEqual(store.tree_sha256(active), before)
+                self.assertEqual(
+                    store.initialize("world-test", "branch-main").joinpath(
+                        "ACTIVE", "WORLD_STATE.json"
+                    ).is_file(),
+                    True,
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+                worker.join(timeout=5)
+
+    def test_actual_loopback_http_decline_has_no_world_mutation(self) -> None:
+        with TemporaryDirectory() as temporary:
+            store = ContinuousWorldStore(Path(temporary).resolve())
+            bridge, *_ = self.runtime(store, [sequence()])
+            adapter = SequenceFirstStage6HttpAdapter(
+                bridge=bridge,
+                world_id="world-test",
+                branch_id="branch-main",
+                session_id="sequence-decline",
+                initial_scene=ExplicitSceneInitializationV1(
+                    scene_id="scene-entry",
+                    accepted_present_character_ids=("character:ted", "character:hana"),
+                    current_public_scene_state="Ted and Hana are in the entry room.",
+                ),
+            )
+            port = self._free_port()
+            server = build_server(
+                adapter,
+                CeraSillyTavernServerConfig(
+                    host="127.0.0.1",
+                    port=port,
+                    model=CERA_SEQUENCE_FIRST_STAGE6_MODEL,
+                    service="sequence-first-stage6-decline-test",
+                ),
+            )
+            worker = Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+            try:
+                active = store.initialize("world-test", "branch-main") / "ACTIVE"
+                before = store.tree_sha256(active)
+                response = self._post_json(
+                    f"http://127.0.0.1:{port}/v1/chat/completions",
+                    {
+                        "model": CERA_SEQUENCE_FIRST_STAGE6_MODEL,
+                        "messages": [{"role": "user", "content": "Continue the scene."}],
+                        "stream": False,
+                        "cera_session_id": "sequence-decline",
+                        "cera_profile_id": SEQUENCE_FIRST_STAGE6_PROFILE,
+                    },
+                )
+                review_id = response["cera"]["provisional_review_id"]
+                decision = self._post_json(
+                    f"http://127.0.0.1:{port}/v1/cera/reviews/{review_id}/decision",
+                    {"action": "decline"},
+                )
+                self.assertEqual(decision["status"], "rejected")
+                self.assertEqual(store.tree_sha256(active), before)
+            finally:
+                server.shutdown()
+                server.server_close()
+                worker.join(timeout=5)
+
+    def test_actual_loopback_http_restart_reloads_accepted_lineage(self) -> None:
+        with TemporaryDirectory() as temporary:
+            store = ContinuousWorldStore(Path(temporary).resolve())
+            self.initialize_and_accept(store=store)
+            bridge, *_ = self.runtime(store, [sequence()])
+            adapter = SequenceFirstStage6HttpAdapter(
+                bridge=bridge,
+                world_id="world-test",
+                branch_id="branch-main",
+                session_id="sequence-restart",
+            )
+            port = self._free_port()
+            server = build_server(
+                adapter,
+                CeraSillyTavernServerConfig(
+                    host="127.0.0.1",
+                    port=port,
+                    model=CERA_SEQUENCE_FIRST_STAGE6_MODEL,
+                    service="sequence-first-stage6-restart-test",
+                ),
+            )
+            worker = Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+            try:
+                response = self._post_json(
+                    f"http://127.0.0.1:{port}/v1/chat/completions",
+                    {
+                        "model": CERA_SEQUENCE_FIRST_STAGE6_MODEL,
+                        "messages": [{"role": "user", "content": "Continue the scene."}],
+                        "stream": False,
+                        "cera_session_id": "sequence-restart",
+                        "cera_profile_id": SEQUENCE_FIRST_STAGE6_PROFILE,
+                    },
+                )
+                self.assertEqual(response["cera"]["generation"], 2)
+                decision = self._post_json(
+                    "http://127.0.0.1:"
+                    f"{port}/v1/cera/reviews/"
+                    f"{response['cera']['provisional_review_id']}/decision",
+                    {"action": "accept"},
+                )
+                self.assertEqual(decision["generation"], 2)
+                self.assertEqual(
+                    len(
+                        json.loads(
+                            (
+                                store.initialize("world-test", "branch-main")
+                                / "ACTIVE"
+                                / "WORLD_STATE.json"
+                            ).read_text(encoding="utf-8")
+                        )["accepted_turn_ids"]
+                    ),
+                    2,
+                )
+            finally:
+                server.shutdown()
+                server.server_close()
+                worker.join(timeout=5)
 
     def test_ordered_entry_then_exit_updates_only_after_acceptance(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -389,12 +652,8 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 world_id="world-test",
                 branch_id="branch-main",
                 custody=self.custody(source),
-                state_projection=self.projection(),
             )
-            result = bridge.generate(
-                prepared,
-                voice_cues=(VoiceCueV1("character:mia", "Bright and concise."),),
-            )
+            result = bridge.generate(prepared)
             self.assertEqual(
                 baseline.accepted_present_character_ids,
                 ("character:ted", "character:hana"),
@@ -421,12 +680,8 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 world_id="world-test",
                 branch_id="branch-main",
                 custody=self.custody(source),
-                state_projection=self.projection(),
             )
-            result = bridge.generate(
-                prepared,
-                voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-            )
+            result = bridge.generate(prepared)
             left = bridge.accept_and_reload(prepared, result, creator_accepted=True)
             self.assertEqual(
                 left.accepted_present_character_ids,
@@ -442,19 +697,19 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 kind=ItemKind.REMOTE_COMMUNICATION,
                 item_key="mia_phone_reply",
             )
-            bridge, *_ = self.runtime(store, [remote_plan])
+            bridge, *_ = self.runtime(
+                store,
+                [remote_plan],
+                authority=self.projection(remote=("character:mia",)),
+            )
             source = "Mia replies over the phone."
             prepared = bridge.prepare(
                 raw_request=self.raw(source),
                 world_id="world-test",
                 branch_id="branch-main",
                 custody=self.custody(source),
-                state_projection=self.projection(remote=("character:mia",)),
             )
-            result = bridge.generate(
-                prepared,
-                voice_cues=(VoiceCueV1("character:mia", "Bright and concise."),),
-            )
+            result = bridge.generate(prepared)
             head = bridge.accept_and_reload(prepared, result, creator_accepted=True)
             self.assertEqual(
                 head.accepted_present_character_ids,
@@ -472,12 +727,8 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 world_id="world-test",
                 branch_id="branch-main",
                 custody=self.custody(source),
-                state_projection=self.projection(),
             )
-            result = bridge.generate(
-                prepared,
-                voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-            )
+            result = bridge.generate(prepared)
             head = bridge.accept_and_reload(prepared, result, creator_accepted=True)
             self.assertEqual(
                 head.accepted_present_character_ids,
@@ -498,7 +749,6 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 world_id="world-test",
                 branch_id="branch-main",
                 custody=self.custody(source),
-                state_projection=self.projection(),
                 scene_initialization=ExplicitSceneInitializationV1(
                     scene_id="scene-kitchen",
                     accepted_present_character_ids=(
@@ -514,10 +764,7 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 prepared.request.semantic_input.accepted_present_character_ids,
                 ("character:ted", "character:hana"),
             )
-            result = bridge.generate(
-                prepared,
-                voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-            )
+            result = bridge.generate(prepared)
             head = bridge.accept_and_reload(prepared, result, creator_accepted=True)
             self.assertEqual(head.scene_id, "scene-kitchen")
             self.assertNotIn("character:mia", head.accepted_present_character_ids)
@@ -534,12 +781,8 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 world_id="world-test",
                 branch_id="branch-main",
                 custody=self.custody(source),
-                state_projection=self.projection(),
             )
-            result = bridge.generate(
-                prepared,
-                voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-            )
+            result = bridge.generate(prepared)
             self.assertFalse(result.accepted)
             after = SequenceFirstWorldTransaction(store).load_accepted_head(
                 world_id="world-test",
@@ -611,12 +854,8 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 world_id="world-test",
                 branch_id="branch-main",
                 custody=self.custody(source),
-                state_projection=self.projection(),
             )
-            result = bridge.generate(
-                prepared,
-                voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-            )
+            result = bridge.generate(prepared)
             fail["enabled"] = True
             with self.assertRaisesRegex(RuntimeError, "pre-swap failure"):
                 bridge.accept_and_reload(prepared, result, creator_accepted=True)

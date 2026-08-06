@@ -10,10 +10,11 @@ from unittest.mock import patch
 
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.world import ContinuousWorldStore
-from cera.errors import ContractValidationError
+from cera.errors import ContractValidationError, StateConflictError
 from cera.schema import from_mapping
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 from cera.sequence_first import (
+    ActiveWorldAuthorityAssembler,
     ApprovedTargetV1,
     ConflictClass,
     ControllerFailureType,
@@ -33,6 +34,7 @@ from cera.sequence_first import (
     SequenceCustodyEnvelopeV1,
     SequenceDraftV1,
     SequenceFirstCoordinator,
+    SequenceFirstAcceptedAuthorityV1,
     SequenceFirstTurnRequestV1,
     SequenceFirstTurnSemanticInputV1,
     SequenceItemV1,
@@ -52,6 +54,7 @@ from cera.sequence_first.prompting import (
     PLANNER_PROFILE,
     VALIDATOR_BASE_INSTRUCTIONS,
     VALIDATOR_PROFILE,
+    planner_turn_prompt,
 )
 from cera.sequence_first.provider import (
     SEQUENCE_FIRST_PLANNER_ADAPTER,
@@ -336,6 +339,24 @@ class ReaderFake:
         return output
 
 
+class VoiceCueResolverFake:
+    def __init__(self) -> None:
+        self.calls = []
+
+    def resolve(self, *, responder_ids, request):
+        self.calls.append((responder_ids, request))
+        return tuple(
+            VoiceCueV1(
+                character_id,
+                {
+                    "character:hana": "Warm and direct.",
+                    "character:mia": "Bright and concise.",
+                }.get(character_id, "Concise and character-faithful."),
+            )
+            for character_id in responder_ids
+        )
+
+
 def coordinator(
     *,
     plan: SequenceDraftV1 | None = None,
@@ -350,11 +371,85 @@ def coordinator(
         writer=writer,
         validator_factory=factory,
         reader=ReaderFake(reader_outputs or [accepted_reader()]),
+        voice_cue_resolver=VoiceCueResolverFake(),
     )
     return value, writer, factory
 
 
 class SequenceFirstSemanticBoundaryTests(unittest.TestCase):
+    def test_active_world_authority_is_accepted_scope_bound(self) -> None:
+        with TemporaryDirectory() as temporary:
+            store = ContinuousWorldStore(Path(temporary).resolve())
+            active = store.initialize("world-test", "branch-main") / "ACTIVE"
+            assembler = ActiveWorldAuthorityAssembler(store)
+            for name, character_id in (
+                ("Ted", "character:ted"),
+                ("Hana", "character:hana"),
+            ):
+                (active / "Characters" / f"{name}.json").write_text(
+                    json.dumps(
+                        {
+                            "schema_version": "cera.continuous_character.v1",
+                            "_cera_revision": 1,
+                            "character_id": character_id,
+                            "reasoning_summary": f"{name} accepted summary.",
+                            "latest_accepted_changes": [],
+                            "turn_claims": {},
+                        },
+                        sort_keys=True,
+                    ),
+                    encoding="utf-8",
+                )
+            store._rebuild_index(active)
+            authority = SequenceFirstAcceptedAuthorityV1(
+                schema_version=SequenceFirstAcceptedAuthorityV1.SCHEMA_VERSION,
+                world_id="world-test",
+                branch_id="branch-main",
+                known_character_ids=("character:ted", "character:hana"),
+                voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
+                hard_boundaries=("Do not invent Ted's response.",),
+            )
+            published = assembler.publish_initial_projection(authority)
+            self.assertEqual(published, active / assembler.RELATIVE_PATH)
+            self.assertEqual(
+                assembler.assemble(world_id="world-test", branch_id="branch-main"),
+                authority,
+            )
+            other_active = store.initialize("world-test", "other") / "ACTIVE"
+            for path in (active / "Characters").glob("*.json"):
+                (other_active / "Characters" / path.name).write_bytes(path.read_bytes())
+            store._rebuild_index(other_active)
+            (other_active / assembler.RELATIVE_PATH).write_text(
+                json.dumps(to_primitive(authority), sort_keys=True),
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(StateConflictError, "changed scope"):
+                assembler.assemble(world_id="world-test", branch_id="other")
+
+    def test_persistence_surface_is_character_or_canonical_relationship_only(self) -> None:
+        with self.assertRaisesRegex(ContractValidationError, "outside ACTIVE policy"):
+            PersistenceTargetCustodyV1(
+                target_key="target:rule",
+                target_file="Rules/rule.json",
+                record_class="rule",
+                target_record_id="rule:test",
+                target_subject_ids=("character:hana",),
+                expected_file_revision=1,
+                operation=TargetOperationKind.ADD,
+                field_path="/observations/turn_001",
+            )
+        with self.assertRaisesRegex(ContractValidationError, "canonical order"):
+            PersistenceTargetCustodyV1(
+                target_key="target:relationship",
+                target_file="Relationships/Ted_Hana.json",
+                record_class="relationship",
+                target_record_id="relationship:ted_hana",
+                target_subject_ids=("character:ted", "character:hana"),
+                expected_file_revision=1,
+                operation=TargetOperationKind.ADD,
+                field_path="/observations/turn_001",
+            )
+
     def test_model_authored_objects_have_no_python_custody_fields(self) -> None:
         objects = (
             semantic_input(),
@@ -384,10 +479,7 @@ class SequenceFirstSemanticBoundaryTests(unittest.TestCase):
     def test_python_binds_semantics_after_decode(self) -> None:
         turn = request()
         result, _, _ = coordinator()
-        generated = result.generate(
-            turn,
-            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-        )
+        generated = result.generate(turn)
         self.assertEqual(generated.candidate.custody, turn.custody)
         self.assertNotIn("world-test", json.dumps(to_primitive(intended())))
 
@@ -407,6 +499,41 @@ class SequenceFirstSemanticBoundaryTests(unittest.TestCase):
             semantics.derived_backgrounded_character_ids(plan),
             ("character:mia",),
         )
+
+    def test_protected_user_exact_quote_is_python_verified(self) -> None:
+        semantics = semantic_input(source='Ted says, "Please continue."')
+        exact = intended(
+            items=(
+                SequenceItemV1(
+                    item_key="ted_supplied_words",
+                    kind=ItemKind.DIALOGUE_INTENT,
+                    concise_meaning="Use only Ted's supplied words.",
+                    owner_id="character:ted",
+                    protected_user_exact_quotes=('"Please continue."',),
+                ),
+            )
+        )
+        semantics.validate_intended(exact)
+        invalid = replace(
+            exact,
+            items=(
+                replace(
+                    exact.items[0],
+                    protected_user_exact_quotes=('"Invented permission."',),
+                ),
+            ),
+        )
+        with self.assertRaisesRegex(ContractValidationError, "absent from current source"):
+            semantics.validate_intended(invalid)
+
+    def test_prior_sequence_is_the_only_model_visible_public_state_copy(self) -> None:
+        semantics = replace(semantic_input(), prior_realized_sequence=realized())
+        prompt = planner_turn_prompt(semantics)
+        self.assertIn('"prior_realized_sequence"', prompt)
+        self.assertNotIn('"current_public_scene_state"', prompt)
+        self.assertNotIn('"unresolved_threads"', prompt.split('"prior_realized_sequence"', 1)[0])
+        self.assertIn("newest current-turn packet", PLANNER_BASE_INSTRUCTIONS)
+        self.assertIn("supersede", PLANNER_BASE_INSTRUCTIONS)
 
     def test_affected_and_observing_mini_ledgers_do_not_exist(self) -> None:
         item_fields = {field.name for field in fields(SequenceItemV1)}
@@ -666,12 +793,31 @@ class SequenceFirstPresenceTests(unittest.TestCase):
 
 
 class SequenceFirstPipelineTests(unittest.TestCase):
+    def test_voice_cues_resolve_only_after_planner_owner_selection(self) -> None:
+        resolver = VoiceCueResolverFake()
+        plan = intended(
+            items=(
+                item(key="mia_answers", owner="character:mia"),
+            )
+        )
+        writer = WriterFake(["Mia answers Ted."])
+        runtime = SequenceFirstCoordinator(
+            planner=PlannerFake(plan),
+            writer=writer,
+            validator_factory=ValidatorFactoryFake([accepted_decision(realized(items=(item(key="mia_realized", owner="character:mia", planner_keys=("mia_answers",)),)))]),
+            reader=ReaderFake([accepted_reader()]),
+            voice_cue_resolver=resolver,
+        )
+        runtime.generate(request())
+        self.assertEqual(resolver.calls[0][0], ("character:mia",))
+        self.assertEqual(
+            writer.briefs[0].voice_cues,
+            (VoiceCueV1("character:mia", "Bright and concise."),),
+        )
+        self.assertNotIn("stopping_boundary", {field.name for field in fields(type(writer.briefs[0]))})
     def test_complete_fake_pipeline_accepts_and_binds(self) -> None:
         value, writer, factory = coordinator()
-        result = value.generate(
-            request(),
-            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-        )
+        result = value.generate(request())
         self.assertTrue(result.accepted)
         self.assertEqual(writer.calls, 1)
         self.assertEqual(len(factory.sessions), 1)
@@ -688,10 +834,7 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             ],
             reader_outputs=[accepted_reader()],
         )
-        result = value.generate(
-            request(),
-            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-        )
+        result = value.generate(request())
         self.assertTrue(result.accepted)
         self.assertEqual(writer.calls, 3)
         self.assertEqual(result.candidate.writer_response.story_text, writer.outputs[2])
@@ -711,10 +854,7 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             writer_outputs=[RuntimeError("transport failed"), "must not run"],
         )
         with self.assertRaisesRegex(RuntimeError, "transport failed"):
-            value.generate(
-                request(),
-                voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-            )
+            value.generate(request())
         self.assertEqual(writer.calls, 1)
 
     def test_capability_rejection_does_not_retry(self) -> None:
@@ -727,10 +867,7 @@ class SequenceFirstPipelineTests(unittest.TestCase):
                 )
             ],
         )
-        result = value.generate(
-            request(),
-            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-        )
+        result = value.generate(request())
         self.assertFalse(result.accepted)
         self.assertEqual(writer.calls, 1)
 
@@ -740,10 +877,7 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             validator_outputs=[rejected_decision(quote="Ted nodded.")],
         )
         with self.assertRaisesRegex(ContractValidationError, "absent from frozen"):
-            value.generate(
-                request(),
-                voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-            )
+            value.generate(request())
 
     def test_reader_rejection_cannot_commit_and_opens_fresh_attempt(self) -> None:
         value, writer, factory = coordinator(
@@ -751,10 +885,7 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             validator_outputs=[accepted_decision(), accepted_decision()],
             reader_outputs=[rejected_reader(), accepted_reader()],
         )
-        result = value.generate(
-            request(),
-            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-        )
+        result = value.generate(request())
         self.assertTrue(result.accepted)
         self.assertEqual(result.candidate.writer_response.story_text, writer.outputs[1])
         self.assertEqual(len(factory.sessions), 2)
@@ -765,10 +896,7 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             validator_outputs=[accepted_decision()],
             reader_outputs=[inconclusive_reader()],
         )
-        result = value.generate(
-            request(),
-            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-        )
+        result = value.generate(request())
         self.assertFalse(result.accepted)
         self.assertEqual(writer.calls, 1)
         self.assertEqual(len(factory.sessions), 1)
@@ -783,12 +911,10 @@ class SequenceFirstPipelineTests(unittest.TestCase):
         first_request = request(private_custody=custody(candidate_id="candidate-first"))
         second_request = request(private_custody=custody(candidate_id="candidate-second"))
         first = coordinator(writer_outputs=["First prose."])[0].generate(
-            first_request,
-            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
+            first_request
         ).candidate
         second = coordinator(writer_outputs=["Second prose."])[0].generate(
-            second_request,
-            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
+            second_request
         ).candidate
         self.assertNotEqual(first.custody.candidate_id, second.custody.candidate_id)
         self.assertEqual(
@@ -1099,18 +1225,14 @@ class SequenceFirstSessionTests(unittest.TestCase):
                 writer=WriterFake(["Hana asks what Ted wants to do next."]),
                 validator_factory=validator,
                 reader=reader,
+                voice_cue_resolver=VoiceCueResolverFake(),
             )
             self.CodexTransportFake.captured_schemas = []
             with patch(
                 "cera.sequence_first.provider.CodexSDKTransport",
                 self.CodexTransportFake,
             ):
-                result = runtime.generate(
-                    request(),
-                    voice_cues=(
-                        VoiceCueV1("character:hana", "Warm and direct."),
-                    ),
-                )
+                result = runtime.generate(request())
 
             self.assertTrue(result.accepted)
             self.assertEqual(ledger.dispatched_call_count, 3)
@@ -1214,7 +1336,6 @@ class SequenceFirstStage6AdapterTests(unittest.TestCase):
             accepted_state=self.state(
                 present=("character:ted", "character:hana", "character:mia")
             ),
-            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
         )
         self.assertTrue(result.accepted)
 
@@ -1298,10 +1419,7 @@ class SequenceFirstWorldTransactionTests(unittest.TestCase):
             plan=plan,
             validator_outputs=[accepted_decision(final)],
         )
-        result = value.generate(
-            request(semantics=semantics, private_custody=private),
-            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-        )
+        result = value.generate(request(semantics=semantics, private_custody=private))
         return result, before
 
     def test_target_key_reaches_existing_revisioned_atomic_store(self) -> None:

@@ -16,12 +16,14 @@ CERA_CONTINUOUS_V3_MANUAL_MODEL = "cera-continuous-v3-manual"
 CERA_CONTINUOUS_V3_PROVIDER_MANUAL_MODEL = (
     "cera-continuous-v3-manual-provider-backed"
 )
+CERA_SEQUENCE_FIRST_STAGE6_MODEL = "cera-sequence-first-stage6"
 SUPPORTED_CERA_VIRTUAL_MODELS = frozenset(
     {
         CERA_VIRTUAL_MODEL,
         CERA_CONTINUOUS_V3_TEST_MODEL,
         CERA_CONTINUOUS_V3_MANUAL_MODEL,
         CERA_CONTINUOUS_V3_PROVIDER_MANUAL_MODEL,
+        CERA_SEQUENCE_FIRST_STAGE6_MODEL,
     }
 )
 
@@ -224,17 +226,29 @@ class SillyTavernTurnReply:
             "ordinary",
             "continuous_v3_test",
             "continuous_v3_manual",
+            "sequence_first_stage6",
         }:
             raise ContractValidationError("unknown SillyTavern reply route")
         provisional = self.provisional_review_id is not None
-        if self.route_kind in {"continuous_v3_test", "continuous_v3_manual"}:
+        if self.route_kind in {
+            "continuous_v3_test",
+            "continuous_v3_manual",
+            "sequence_first_stage6",
+        }:
             if (
                 not provisional
                 or self.artifact_id is not None
                 or self.candidate_id is None
                 or self.review_status != "review_ready"
                 or self.generation < 1
-                or self.provider_calls not in {3, 4}
+                or (
+                    self.route_kind != "sequence_first_stage6"
+                    and self.provider_calls not in {3, 4}
+                )
+                or (
+                    self.route_kind == "sequence_first_stage6"
+                    and self.provider_calls < 0
+                )
                 or self.exact_replay
             ):
                 raise ContractValidationError(

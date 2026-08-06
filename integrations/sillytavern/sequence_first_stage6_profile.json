@@ -1,0 +1,41 @@
+{
+  "profile_id": "cera.sequence_first.stage6.v1",
+  "production": false,
+  "endpoint": "http://127.0.0.1:5116/v1",
+  "model": "cera-sequence-first-stage6",
+  "stream": false,
+  "route": "sequence_first_stage6",
+  "provider_mode": "authority_bound_provider",
+  "provider_activation_required": true,
+  "external_provider_calls_authorized_by_profile": 0,
+  "planner": {
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "fast_mode": false,
+    "session": "persistent_per_branch"
+  },
+  "writer": {
+    "model": "deepseek-v4-flash",
+    "thinking": false,
+    "maximum_fresh_attempts": 3,
+    "merge_attempts": false
+  },
+  "validator": {
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "fast_mode": false,
+    "session": "fresh_per_candidate"
+  },
+  "reader": {
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "fast_mode": false,
+    "session": "fresh_per_candidate"
+  },
+  "creator_review_required": true,
+  "automatic_accept": false,
+  "automatic_retry": false,
+  "fallback": false,
+  "database_policy": "isolated_copied_sequence_first_world",
+  "loopback_only": true
+}

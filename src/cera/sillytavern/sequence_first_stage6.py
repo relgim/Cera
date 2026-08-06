@@ -12,15 +12,8 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from cera.errors import ContractValidationError
-from cera.sequence_first.contracts import (
-    ApprovedTargetV1,
-    CharacterDeltaV1,
-    EvidenceRecordV1,
-    PersistenceTargetCustodyV1,
-    ProtectedSourceClaimV1,
-    SequenceFirstTurnRequestV1,
-    VoiceCueV1,
-)
+from cera.sequence_first.accepted_world import AcceptedWorldAuthorityAssemblerPort
+from cera.sequence_first.contracts import SequenceFirstTurnRequestV1
 from cera.sequence_first.runtime import (
     SequenceFirstCoordinator,
     SequenceFirstRunResultV1,
@@ -67,18 +60,6 @@ class ExplicitSceneInitializationV1:
 
 
 @dataclass(frozen=True, slots=True)
-class SequenceFirstStage6StateProjectionV1:
-    """Accepted repository projections that do not decide physical presence."""
-
-    known_character_ids: tuple[str, ...]
-    explicitly_authorized_remote_character_ids: tuple[str, ...] = ()
-    character_deltas: tuple[CharacterDeltaV1, ...] = ()
-    evidence_records: tuple[EvidenceRecordV1, ...] = ()
-    approved_targets: tuple[ApprovedTargetV1, ...] = ()
-    persistence_targets: tuple[PersistenceTargetCustodyV1, ...] = ()
-
-
-@dataclass(frozen=True, slots=True)
 class SequenceFirstStage6TurnCustodyV1:
     """Python-issued identities and exact-source policy for one raw request."""
 
@@ -87,8 +68,6 @@ class SequenceFirstStage6TurnCustodyV1:
     turn_id: str
     transaction_id: str
     current_source_key: str
-    protected_source_claims: tuple[ProtectedSourceClaimV1, ...]
-    hard_boundaries: tuple[str, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,9 +87,17 @@ class SequenceFirstStage6Bridge:
         *,
         adapter: SequenceFirstSillyTavernAdapter,
         transaction: SequenceFirstWorldTransaction,
+        authority_assembler: AcceptedWorldAuthorityAssemblerPort,
     ) -> None:
         self._adapter = adapter
         self._transaction = transaction
+        self._authority_assembler = authority_assembler
+
+    def accepted_generation(self, *, world_id: str, branch_id: str) -> int:
+        return self._transaction.accepted_generation(
+            world_id=world_id,
+            branch_id=branch_id,
+        )
 
     def prepare(
         self,
@@ -119,10 +106,13 @@ class SequenceFirstStage6Bridge:
         world_id: str,
         branch_id: str,
         custody: SequenceFirstStage6TurnCustodyV1,
-        state_projection: SequenceFirstStage6StateProjectionV1,
         scene_initialization: ExplicitSceneInitializationV1 | None = None,
     ) -> SequenceFirstPreparedStage6TurnV1:
         parsed = SillyTavernChatRequest.from_mapping(raw_request)
+        authority = self._authority_assembler.assemble(
+            world_id=world_id,
+            branch_id=branch_id,
+        )
         accepted_head = self._transaction.load_accepted_head(
             world_id=world_id,
             branch_id=branch_id,
@@ -158,8 +148,11 @@ class SequenceFirstStage6Bridge:
             transaction_id=custody.transaction_id,
             exact_current_source=exact_source,
             current_source_key=custody.current_source_key,
-            protected_source_claims=custody.protected_source_claims,
-            hard_boundaries=custody.hard_boundaries,
+            # Stage 6 never wraps a whole raw message as protected authority.
+            # Ted-owned Planner items must cite exact source quotes, which the
+            # semantic contract verifies as bounded substrings.
+            protected_source_claims=(),
+            hard_boundaries=authority.hard_boundaries,
             scene_reinitialization=scene_reinitialization,
         )
         accepted_state = AcceptedSceneStateV1(
@@ -168,17 +161,17 @@ class SequenceFirstStage6Bridge:
             scene_id=scene_id,
             parent_accepted_turn_id=accepted_head.accepted_turn_id,
             accepted_head_sha256=accepted_head.active_head_sha256,
-            known_character_ids=state_projection.known_character_ids,
+            known_character_ids=authority.known_character_ids,
             accepted_present_character_ids=present,
             explicitly_authorized_remote_character_ids=(
-                state_projection.explicitly_authorized_remote_character_ids
+                authority.explicitly_authorized_remote_character_ids
             ),
             current_public_scene_state=public_state,
             prior_realized_sequence=prior_sequence,
-            character_deltas=state_projection.character_deltas,
-            evidence_records=state_projection.evidence_records,
-            approved_targets=state_projection.approved_targets,
-            persistence_targets=state_projection.persistence_targets,
+            character_deltas=authority.character_deltas,
+            evidence_records=authority.evidence_records,
+            approved_targets=authority.approved_targets,
+            persistence_targets=authority.persistence_targets,
             unresolved_threads=unresolved_threads,
         )
         request = self._adapter.prepare_request(
@@ -196,13 +189,10 @@ class SequenceFirstStage6Bridge:
     def generate(
         self,
         prepared: SequenceFirstPreparedStage6TurnV1,
-        *,
-        voice_cues: tuple[VoiceCueV1, ...],
     ) -> SequenceFirstRunResultV1:
         return self._adapter.generate(
             ingress=prepared.ingress,
             accepted_state=prepared.accepted_state,
-            voice_cues=voice_cues,
         )
 
     def accept_and_reload(

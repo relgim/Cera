@@ -66,7 +66,6 @@ class ItemKind(StrEnum):
     MATERIAL_CONTINUITY = "material_continuity"
     KNOWLEDGE_CHANGE = "knowledge_change"
     RELATIONSHIP_CHANGE = "relationship_change"
-    PRESENCE_CHANGE = "presence_change"
     REMOTE_COMMUNICATION = "remote_communication"
     SCENE_TRANSITION = "scene_transition"
     STOPPING_BOUNDARY = "stopping_boundary"
@@ -76,7 +75,6 @@ class DurableChangeKind(StrEnum):
     MATERIAL = "material"
     KNOWLEDGE = "knowledge"
     RELATIONSHIP = "relationship"
-    PRESENCE = "presence"
     CHARACTER_DEVELOPMENT = "character_development"
 
 
@@ -247,6 +245,7 @@ class SequenceItemV1:
     causal_parent_item_key: str | None = None
     evidence_keys: tuple[str, ...] = ()
     protected_user_claim_keys: tuple[str, ...] = ()
+    protected_user_exact_quotes: tuple[str, ...] = ()
     durable_change_keys: tuple[str, ...] = ()
     planner_item_keys: tuple[str, ...] = ()
 
@@ -278,9 +277,17 @@ class SequenceItemV1:
             _unique(values, f"sequence_item.{field}")
             for value in values:
                 validator(value, f"sequence_item.{field}")
-        if self.owner_id == PROTECTED_USER_ID and not self.protected_user_claim_keys:
+        _unique(
+            self.protected_user_exact_quotes,
+            "sequence_item.protected_user_exact_quotes",
+        )
+        for quote in self.protected_user_exact_quotes:
+            _text(quote, "sequence_item.protected_user_exact_quotes", maximum=4_000)
+        if self.owner_id == PROTECTED_USER_ID and not (
+            self.protected_user_claim_keys or self.protected_user_exact_quotes
+        ):
             raise ContractValidationError(
-                "protected-user-owned item requires an exact current source claim"
+                "protected-user-owned item requires exact current source authority"
             )
 
 
@@ -299,7 +306,7 @@ class PresenceChangeV1:
 class SequenceDraftV1:
     """Provider-authored semantic sequence with no Python custody fields."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.sequence_draft.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.sequence_draft.v3"
 
     items: tuple[SequenceItemV1, ...]
     durable_changes: tuple[DurableChangeV1, ...]
@@ -372,7 +379,7 @@ class SequenceDraftV1:
 class SequenceFirstTurnSemanticInputV1:
     """Entire model-visible Planner request; deliberately custody-free."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.turn_semantics.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.turn_semantics.v3"
 
     exact_current_source: str
     current_source_key: str
@@ -543,6 +550,11 @@ class SequenceFirstTurnSemanticInputV1:
                 protected_claim_keys
             ):
                 raise ContractValidationError("item cites unavailable protected source")
+            for quote in item.protected_user_exact_quotes:
+                if quote not in self.exact_current_source:
+                    raise ContractValidationError(
+                        "protected-user exact quote is absent from current source"
+                    )
             for evidence_key in item.evidence_keys:
                 if evidence_key == self.current_source_key:
                     continue
@@ -655,17 +667,10 @@ class PersistenceTargetCustodyV1:
             or ".." in normalized.split("/")
             or not normalized.casefold().endswith(".json")
             or normalized.split("/", 1)[0]
-            not in {"Characters", "Relationships", "Rules", "Locations", "Events", "Scenes"}
+            not in {"Characters", "Relationships"}
         ):
             raise ContractValidationError("target custody file is outside ACTIVE policy")
-        if self.record_class not in {
-            "character",
-            "relationship",
-            "rule",
-            "location",
-            "event",
-            "scene",
-        }:
+        if self.record_class not in {"character", "relationship"}:
             raise ContractValidationError("target custody record class is invalid")
         _identity(self.target_record_id, "target_custody.target_record_id")
         if not self.target_subject_ids:
@@ -673,6 +678,12 @@ class PersistenceTargetCustodyV1:
         _unique(self.target_subject_ids, "target_custody.target_subject_ids")
         for subject_id in self.target_subject_ids:
             _identity(subject_id, "target_custody.target_subject_ids")
+        if self.record_class == "relationship" and self.target_subject_ids != tuple(
+            sorted(self.target_subject_ids)
+        ):
+            raise ContractValidationError(
+                "relationship target subjects must use canonical order"
+            )
         if type(self.expected_file_revision) is not int or self.expected_file_revision < 1:
             raise ContractValidationError("target custody revision is invalid")
         if not self.field_path.startswith("/") or self.field_path in {
@@ -744,14 +755,13 @@ class VoiceCueV1:
 class SequenceFirstWriterBriefV1:
     """Model-visible semantic Writer input with no persistence authority."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.writer_brief.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.writer_brief.v3"
 
     intended_sequence: SequenceDraftV1
     current_public_scene_state: str
     protected_source_claims: tuple[ProtectedSourceClaimV1, ...]
     voice_cues: tuple[VoiceCueV1, ...]
     hard_boundaries: tuple[str, ...]
-    stopping_boundary: str
 
     def __post_init__(self) -> None:
         _text(self.current_public_scene_state, "writer_brief.current_public_scene_state")
@@ -762,9 +772,12 @@ class SequenceFirstWriterBriefV1:
         _unique(self.hard_boundaries, "writer_brief.hard_boundaries")
         for value in self.hard_boundaries:
             _text(value, "writer_brief.hard_boundaries", maximum=2_000)
-        _text(self.stopping_boundary, "writer_brief.stopping_boundary", maximum=2_000)
-        if self.stopping_boundary != self.intended_sequence.stopping_boundary:
-            raise ContractValidationError("Writer stopping boundary changed")
+
+    @property
+    def stopping_boundary(self) -> str:
+        """Derived compatibility view; never serialized as duplicate authority."""
+
+        return self.intended_sequence.stopping_boundary
 
 
 @dataclass(frozen=True, slots=True)

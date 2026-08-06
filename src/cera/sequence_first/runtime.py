@@ -66,6 +66,17 @@ class ReaderPort(Protocol):
     def read(self, request: SequenceFirstReaderInputV1) -> ReaderVerdictV1: ...
 
 
+class VoiceCueResolverPort(Protocol):
+    """Fetch compact cues for Planner-selected owners without selecting them."""
+
+    def resolve(
+        self,
+        *,
+        responder_ids: tuple[str, ...],
+        request: SequenceFirstTurnRequestV1,
+    ) -> tuple[VoiceCueV1, ...]: ...
+
+
 class SequenceFirstTransactionPort(Protocol):
     def commit(
         self,
@@ -98,6 +109,7 @@ class SequenceFirstCoordinator:
         writer: WriterPort,
         validator_factory: CandidateValidatorFactoryPort,
         reader: ReaderPort,
+        voice_cue_resolver: VoiceCueResolverPort,
         maximum_writer_attempts: int = 3,
     ) -> None:
         if maximum_writer_attempts not in {1, 2, 3}:
@@ -106,17 +118,20 @@ class SequenceFirstCoordinator:
         self._writer = writer
         self._validator_factory = validator_factory
         self._reader = reader
+        self._voice_cue_resolver = voice_cue_resolver
         self._maximum_writer_attempts = maximum_writer_attempts
 
     def generate(
         self,
         request: SequenceFirstTurnRequestV1,
-        *,
-        voice_cues: tuple[VoiceCueV1, ...],
     ) -> SequenceFirstRunResultV1:
         semantics = request.semantic_input
         intended = self._planner.plan(semantics)
         semantics.validate_intended(intended)
+        voice_cues = self._voice_cue_resolver.resolve(
+            responder_ids=intended.responding_character_ids,
+            request=request,
+        )
         bound_intended = BoundSequenceV1(
             role=SequenceRole.INTENDED,
             semantic=intended,
@@ -128,7 +143,6 @@ class SequenceFirstCoordinator:
             protected_source_claims=semantics.protected_source_claims,
             voice_cues=voice_cues,
             hard_boundaries=semantics.hard_boundaries,
-            stopping_boundary=intended.stopping_boundary,
         )
         receipts: list[WriterAttemptReceiptV1] = []
 

@@ -45,10 +45,10 @@ from .prompting import (
 )
 
 
-SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v1"
-SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v1"
-SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v1"
-SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v1"
+SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v2"
+SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v2"
+SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v2"
+SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v2"
 SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v1"
 SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v1"
 
@@ -56,7 +56,7 @@ SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v1"
 def sequence_first_planner_route():
     return replace(
         codex_reasoner_candidate(model="gpt-5.6-sol", effort="medium"),
-        route_id="cera_sequence_first_planner_sol_medium_v1",
+        route_id="cera_sequence_first_planner_sol_medium_v2",
         adapter_id=SEQUENCE_FIRST_PLANNER_ADAPTER,
         prompt_version=SEQUENCE_FIRST_PLANNER_PROMPT,
         maximum_output_tokens=8_192,
@@ -69,7 +69,7 @@ def sequence_first_planner_route():
 def sequence_first_validator_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_validator_{model}_{effort}_v1",
+        route_id=f"cera_sequence_first_validator_{model}_{effort}_v2",
         adapter_id=SEQUENCE_FIRST_VALIDATOR_ADAPTER,
         prompt_version=SEQUENCE_FIRST_VALIDATOR_PROMPT,
         maximum_output_tokens=8_192,
@@ -123,7 +123,6 @@ def _sequence_item_schema() -> dict:
                     "material_continuity",
                     "knowledge_change",
                     "relationship_change",
-                    "presence_change",
                     "remote_communication",
                     "scene_transition",
                     "stopping_boundary",
@@ -134,6 +133,7 @@ def _sequence_item_schema() -> dict:
             "causal_parent_item_key": _nullable({"type": "string"}),
             "evidence_keys": _string_array(),
             "protected_user_claim_keys": _string_array(),
+            "protected_user_exact_quotes": _string_array(),
             "durable_change_keys": _string_array(),
             "planner_item_keys": _string_array(),
         }
@@ -150,7 +150,6 @@ def _durable_change_schema() -> dict:
                     "material",
                     "knowledge",
                     "relationship",
-                    "presence",
                     "character_development",
                 ],
             },

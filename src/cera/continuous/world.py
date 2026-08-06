@@ -2159,6 +2159,9 @@ class ContinuousWorldStore:
                 if isinstance(payload, dict):
                     revision = payload.get("_cera_revision")
                     subjects = [str(value) for value in payload.get("participant_ids", [])]
+                    character_id = payload.get("character_id")
+                    if isinstance(character_id, str) and character_id not in subjects:
+                        subjects.append(character_id)
                     tags = [str(value) for value in payload.get("tags", [])]
             rows.append(
                 {

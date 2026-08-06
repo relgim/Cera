@@ -92,6 +92,18 @@ class SequenceFirstWorldTransaction:
     def __init__(self, store: ContinuousWorldStore) -> None:
         self.store = store
 
+    def accepted_generation(self, *, world_id: str, branch_id: str) -> int:
+        root = self.store.initialize(world_id, branch_id)
+        state = json.loads(
+            (root / "ACTIVE" / "WORLD_STATE.json").read_text(encoding="utf-8")
+        )
+        accepted = state.get("accepted_turn_ids", ())
+        if not isinstance(accepted, list) or any(
+            not isinstance(value, str) for value in accepted
+        ):
+            raise StateConflictError("accepted turn lineage is invalid")
+        return len(accepted)
+
     def commit(
         self,
         candidate: SequenceFirstCandidateV1,
@@ -131,7 +143,12 @@ class SequenceFirstWorldTransaction:
             target = target_by_key.get(change.target_key)
             if target is None:
                 raise StateConflictError("realized change lacks private target custody")
-            if tuple(change.subject_ids) != tuple(target.target_subject_ids):
+            change_subjects = tuple(change.subject_ids)
+            target_subjects = tuple(target.target_subject_ids)
+            if target.record_class == "relationship":
+                change_subjects = tuple(sorted(change_subjects))
+                target_subjects = tuple(sorted(target_subjects))
+            if change_subjects != target_subjects:
                 raise StateConflictError("durable change subjects changed target custody")
             record_class = PersistenceRecordClass(target.record_class)
             validate_persistence_field_path(record_class, target.field_path)
