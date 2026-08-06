@@ -1047,6 +1047,104 @@ class SequenceFirstPipelineTests(unittest.TestCase):
                 self.assertNotIn("character:mia", canonical_json(realized_payload))
                 self.assertEqual(realized.durable_changes, ())
 
+    def test_actorless_incidental_v10_fixture_accepts_without_authority(self) -> None:
+        plan = intended(
+            items=(
+                item(
+                    key="hana_answers_dinner",
+                    meaning="Hana warmly answers Ted's dinner question.",
+                    evidence=("source:current", "evidence:hana_voice"),
+                ),
+                item(
+                    key="await_ted_response",
+                    owner=None,
+                    kind=ItemKind.STOPPING_BOUNDARY,
+                    meaning="Stop before inventing Ted's response.",
+                    evidence=(),
+                    parent="hana_answers_dinner",
+                ),
+            ),
+        )
+        accepted_realization = realized(
+            items=(
+                item(
+                    key="hana_answer_realized",
+                    meaning="Hana warmly answers Ted's dinner question.",
+                    evidence=("source:current", "evidence:hana_voice"),
+                    planner_keys=("hana_answers_dinner",),
+                ),
+                item(
+                    key="await_ted_realized",
+                    owner=None,
+                    kind=ItemKind.STOPPING_BOUNDARY,
+                    meaning="The reply stops before Ted's response.",
+                    evidence=(),
+                    planner_keys=("await_ted_response",),
+                    parent="hana_answer_realized",
+                ),
+            ),
+        )
+        prose = (
+            "The entryway was quiet save for the soft rustle of coats being "
+            "settled. Hana warmly answered the dinner question and left the "
+            "next response to Ted."
+        )
+        value, _, factory = coordinator(
+            plan=plan,
+            writer_outputs=[prose],
+            validator_outputs=[accepted_decision(accepted_realization)],
+        )
+
+        result = value.generate(request())
+
+        self.assertTrue(result.accepted)
+        decision = factory.sessions[0].decision
+        self.assertEqual(decision.review_flags, ())
+        realized_value = result.candidate.realized_sequence.semantic
+        self.assertEqual(
+            realized_value.covered_planner_item_keys,
+            ("hana_answers_dinner", "await_ted_response"),
+        )
+        self.assertFalse(
+            any(
+                value.owner_id in {"character:ted", "character:mia"}
+                for value in realized_value.items
+            )
+        )
+        self.assertEqual(realized_value.presence_changes, ())
+        self.assertEqual(realized_value.durable_changes, ())
+
+    def test_consequential_actorless_fixture_matrix_remains_rejected(self) -> None:
+        fixtures = (
+            (
+                "The front door was closed and locked behind them.",
+                ConflictClass.MATERIAL_ADDITION,
+            ),
+            (
+                "The group was moved from the entryway into the kitchen.",
+                ConflictClass.PRESENCE_CONTRADICTION,
+            ),
+            (
+                "A place was set at the table for a newly arrived guest.",
+                ConflictClass.PRESENCE_CONTRADICTION,
+            ),
+        )
+        for prose, conflict_class in fixtures:
+            with self.subTest(prose=prose):
+                value, _, _ = coordinator(
+                    writer_outputs=[prose],
+                    validator_outputs=[
+                        rejected_decision(
+                            conflict_class=conflict_class,
+                            quote=prose,
+                        )
+                    ],
+                    maximum_writer_attempts=1,
+                )
+                result = value.generate(request())
+                self.assertFalse(result.accepted)
+                self.assertEqual(len(result.attempt_receipts), 1)
+
     def test_unauthorized_protected_response_is_rejected_without_candidate(self) -> None:
         prose = "Ted nodded before Hana asked what he wanted to do next."
         value, _, _ = coordinator(
@@ -1128,6 +1226,18 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             VALIDATOR_BASE_INSTRUCTIONS,
         )
         self.assertIn("present nonresponding NPCs", VALIDATOR_BASE_INSTRUCTIONS)
+        self.assertIn(
+            "Actorless or passive incidental presentation",
+            VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "Do not infer a sensitive actor",
+            VALIDATOR_BASE_INSTRUCTIONS,
+        )
+        self.assertIn(
+            "necessarily establishes a consequential material",
+            VALIDATOR_BASE_INSTRUCTIONS,
+        )
         for forbidden_phrase in (
             "stood just inside the door",
             "in the living room, Mia sits",
@@ -1765,7 +1875,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_ADAPTER,
-            "cera.sequence_first.validator_adapter.v7",
+            "cera.sequence_first.validator_adapter.v8",
         )
         self.assertEqual(
             validator_route.prompt_version,
@@ -1773,9 +1883,9 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_PROMPT,
-            "cera.sequence_first.validator_prompt.v5",
+            "cera.sequence_first.validator_prompt.v6",
         )
-        self.assertTrue(validator_route.route_id.endswith("_v7"))
+        self.assertTrue(validator_route.route_id.endswith("_v8"))
         self.assertEqual(
             SEQUENCE_FIRST_PLANNER_ADAPTER,
             "cera.sequence_first.planner_adapter.v6",
@@ -1784,6 +1894,10 @@ class SequenceFirstSessionTests(unittest.TestCase):
         self.assertEqual(reader_route.adapter_id, SEQUENCE_FIRST_READER_ADAPTER)
         self.assertEqual(writer_route.adapter_id, SEQUENCE_FIRST_WRITER_ADAPTER)
         self.assertEqual(writer_route.prompt_version, SEQUENCE_FIRST_WRITER_PROMPT)
+        self.assertEqual(
+            SEQUENCE_FIRST_WRITER_PROMPT,
+            "cera.sequence_first.writer_prompt.v1",
+        )
         self.assertEqual(writer_route.model_name, "deepseek-v4-flash")
         for route in (planner_route, validator_route, reader_route, writer_route):
             self.assertFalse(route.fallback_enabled)
