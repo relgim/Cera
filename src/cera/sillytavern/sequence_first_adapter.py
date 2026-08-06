@@ -68,11 +68,7 @@ class SequenceFirstSillyTavernAdapter:
         ingress: FrozenSillyTavernIngressV1,
         accepted_state: AcceptedSceneStateV1,
     ) -> SequenceFirstTurnRequestV1:
-        accepted_presence = (
-            ()
-            if ingress.scene_reinitialization
-            else accepted_state.accepted_present_character_ids
-        )
+        accepted_presence = accepted_state.accepted_present_character_ids
         semantics = SequenceFirstTurnSemanticInputV1(
             exact_current_source=ingress.exact_current_source,
             current_source_key=ingress.current_source_key,

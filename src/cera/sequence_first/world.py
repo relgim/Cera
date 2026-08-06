@@ -21,6 +21,7 @@ from cera.continuous.record_policy import (
     validate_post_edit_record,
 )
 from cera.continuous.world import (
+    ContinuousBranchMaterializationReceiptV2,
     ContinuousWorldStore,
     _apply_json_operation,
     _identity_filename,
@@ -324,10 +325,18 @@ class SequenceFirstWorldTransaction:
         event = json.loads(event_path.read_text(encoding="utf-8"))
         if (
             event.get("world_id") != world_id
-            or event.get("branch_id") != branch_id
             or event.get("accepted_turn_id") != turn_id
         ):
             raise StateConflictError("accepted sequence-first artifact changed scope")
+        event_branch_id = str(event.get("branch_id", ""))
+        if event_branch_id != branch_id and not _materialization_authorizes_event(
+            root=root,
+            world_id=world_id,
+            parent_branch_id=event_branch_id,
+            child_branch_id=branch_id,
+            accepted_turn_id=turn_id,
+        ):
+            raise StateConflictError("accepted sequence-first artifact changed branch scope")
         realized = from_mapping(SequenceDraftV1, event["realized_sequence"])
         event_presence = tuple(
             str(value) for value in event.get("resulting_present_character_ids", ())
@@ -348,6 +357,38 @@ class SequenceFirstWorldTransaction:
             prior_realized_sequence=realized,
             unresolved_threads=realized.unresolved_threads,
         )
+
+
+def _materialization_authorizes_event(
+    *,
+    root: Path,
+    world_id: str,
+    parent_branch_id: str,
+    child_branch_id: str,
+    accepted_turn_id: str,
+) -> bool:
+    """Verify immutable fork custody before accepting a parent-scoped artifact."""
+
+    from cera.schema import from_mapping
+
+    receipt_root = root / "BRANCH_MATERIALIZATION"
+    if not receipt_root.is_dir():
+        return False
+    for path in sorted(receipt_root.glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            receipt = from_mapping(ContinuousBranchMaterializationReceiptV2, payload)
+        except (ContractValidationError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if (
+            receipt.world_id == world_id
+            and receipt.parent_branch_id == parent_branch_id
+            and receipt.child_branch_id == child_branch_id
+            and receipt.accepted_checkpoint_turn_id == accepted_turn_id
+            and accepted_turn_id in receipt.ordered_accepted_turn_ids
+        ):
+            return True
+    return False
 
 
 def finish_sequence_first_acceptance(

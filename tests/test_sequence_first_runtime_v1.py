@@ -11,6 +11,7 @@ from unittest.mock import patch
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.world import ContinuousWorldStore
 from cera.errors import ContractValidationError
+from cera.schema import from_mapping
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 from cera.sequence_first import (
     ApprovedTargetV1,
@@ -255,6 +256,18 @@ def rejected_reader() -> ReaderVerdictV1:
                 issue_code="severe_repetition",
                 concise_explanation="The prose repeats one line throughout.",
                 exact_quote="Again. Again. Again.",
+            ),
+        ),
+    )
+
+
+def inconclusive_reader() -> ReaderVerdictV1:
+    return ReaderVerdictV1(
+        status=ReaderStatus.INCONCLUSIVE,
+        issues=(
+            ReaderIssueV1(
+                issue_code="review_package_ambiguous",
+                concise_explanation="The review package is not sufficient to judge prose quality.",
             ),
         ),
     )
@@ -746,6 +759,26 @@ class SequenceFirstPipelineTests(unittest.TestCase):
         self.assertEqual(result.candidate.writer_response.story_text, writer.outputs[1])
         self.assertEqual(len(factory.sessions), 2)
 
+    def test_reader_inconclusive_terminates_without_any_retry_or_repair(self) -> None:
+        value, writer, factory = coordinator(
+            writer_outputs=["Hana asks a clear question.", "must not run"],
+            validator_outputs=[accepted_decision()],
+            reader_outputs=[inconclusive_reader()],
+        )
+        result = value.generate(
+            request(),
+            voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
+        )
+        self.assertFalse(result.accepted)
+        self.assertEqual(writer.calls, 1)
+        self.assertEqual(len(factory.sessions), 1)
+        self.assertTrue(factory.sessions[0].archived)
+        self.assertEqual(result.attempt_receipts, ())
+        self.assertEqual(
+            result.terminal_reader_verdict.status,
+            ReaderStatus.INCONCLUSIVE,
+        )
+
     def test_regeneration_candidates_are_immutable_siblings(self) -> None:
         first_request = request(private_custody=custody(candidate_id="candidate-first"))
         second_request = request(private_custody=custody(candidate_id="candidate-second"))
@@ -789,6 +822,8 @@ class SequenceFirstSessionTests(unittest.TestCase):
             return thread_id in self.started and thread_id not in self.archived
 
     class CodexTransportFake:
+        captured_schemas = []
+
         def __init__(self, route, *, workspace: Path, runner) -> None:
             self.route = route
             self.workspace = workspace
@@ -804,6 +839,9 @@ class SequenceFirstSessionTests(unittest.TestCase):
             on_worker_preflight,
             on_transport_invoke,
         ):
+            self.__class__.captured_schemas.append(
+                (self.route.adapter_id, output_schema)
+            )
             on_worker_started()
             on_worker_preflight()
             on_transport_invoke()
@@ -934,6 +972,61 @@ class SequenceFirstSessionTests(unittest.TestCase):
         ):
             self.assertNotIn(f'"{forbidden}"', rendered)
 
+    def test_validator_schema_is_strict_complete_and_closed(self) -> None:
+        schema = validator_decision_json_schema()
+        self.assertIsInstance(schema, dict)
+        self.assertEqual(schema["type"], "object")
+        self.assertFalse(schema["additionalProperties"])
+        self.assertEqual(
+            schema["required"],
+            ["verdict", "realized_sequence", "review_flags", "conflict"],
+        )
+        properties = schema["properties"]
+        self.assertEqual(properties["verdict"]["enum"], ["accept", "reject"])
+        self.assertEqual(
+            properties["realized_sequence"]["anyOf"][1],
+            {"type": "null"},
+        )
+        self.assertEqual(properties["review_flags"]["type"], "array")
+        conflict = properties["conflict"]["anyOf"][0]
+        self.assertEqual(conflict["type"], "object")
+        self.assertFalse(conflict["additionalProperties"])
+        self.assertEqual(
+            conflict["properties"]["conflict_class"]["enum"],
+            [value.value for value in ConflictClass],
+        )
+
+    def test_validator_provider_payloads_decode_both_closed_branches(self) -> None:
+        accepted = from_mapping(
+            ValidatorDecisionV1,
+            to_primitive(accepted_decision()),
+        )
+        rejected = from_mapping(
+            ValidatorDecisionV1,
+            to_primitive(rejected_decision()),
+        )
+        self.assertIs(accepted.verdict, ValidatorVerdict.ACCEPT)
+        self.assertIs(rejected.verdict, ValidatorVerdict.REJECT)
+
+    def test_validator_provider_payload_rejects_mixed_branches(self) -> None:
+        accepted_with_conflict = to_primitive(accepted_decision())
+        accepted_with_conflict["conflict"] = to_primitive(
+            rejected_decision().conflict
+        )
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "accepted Validator branch is invalid",
+        ):
+            from_mapping(ValidatorDecisionV1, accepted_with_conflict)
+
+        rejected_with_realization = to_primitive(rejected_decision())
+        rejected_with_realization["realized_sequence"] = to_primitive(realized())
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "rejected Validator branch is invalid",
+        ):
+            from_mapping(ValidatorDecisionV1, rejected_with_realization)
+
     def test_new_routes_are_explicit_unpromoted_and_have_no_fallback(self) -> None:
         planner_route = sequence_first_planner_route()
         validator_route = sequence_first_validator_route(
@@ -1007,6 +1100,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
                 validator_factory=validator,
                 reader=reader,
             )
+            self.CodexTransportFake.captured_schemas = []
             with patch(
                 "cera.sequence_first.provider.CodexSDKTransport",
                 self.CodexTransportFake,
@@ -1032,6 +1126,13 @@ class SequenceFirstSessionTests(unittest.TestCase):
                 accepted_owners,
                 {"planner", "validator", "reader"},
             )
+            validator_schemas = [
+                schema
+                for adapter_id, schema in self.CodexTransportFake.captured_schemas
+                if adapter_id == SEQUENCE_FIRST_VALIDATOR_ADAPTER
+            ]
+            self.assertEqual(validator_schemas, [validator_decision_json_schema()])
+            self.assertIsNotNone(validator_schemas[0])
 
 
 class SequenceFirstStage6AdapterTests(unittest.TestCase):
@@ -1090,7 +1191,7 @@ class SequenceFirstStage6AdapterTests(unittest.TestCase):
             prepared.semantic_input.accepted_present_character_ids,
         )
 
-    def test_scene_reinitialization_drops_prior_presence_and_sequence(self) -> None:
+    def test_scene_reinitialization_keeps_authorized_presence_not_prior_sequence(self) -> None:
         state = replace(
             self.state(present=("character:ted", "character:hana", "character:mia")),
             prior_realized_sequence=realized(),
@@ -1099,7 +1200,10 @@ class SequenceFirstStage6AdapterTests(unittest.TestCase):
             ingress=self.ingress(source="The scene changes to the kitchen.", scene=True),
             accepted_state=state,
         )
-        self.assertEqual(prepared.semantic_input.accepted_present_character_ids, ())
+        self.assertEqual(
+            prepared.semantic_input.accepted_present_character_ids,
+            ("character:ted", "character:hana", "character:mia"),
+        )
         self.assertIsNone(prepared.semantic_input.prior_realized_sequence)
 
     def test_stage6_adapter_reaches_sequence_first_coordinator_provider_free(self) -> None:

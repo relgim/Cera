@@ -198,6 +198,9 @@ class SequenceFirstCoordinator:
             )
             reader_verdict = self._reader.read(reader_input)
             if reader_verdict.status is ReaderStatus.INCONCLUSIVE:
+                # INCONCLUSIVE is a review/setup ambiguity, not evidence that the
+                # frozen Writer candidate is defective.  It terminates this run
+                # identity without Writer/Reader retry, fallback, or hidden repair.
                 return SequenceFirstRunResultV1(
                     candidate=None,
                     attempt_receipts=tuple(receipts),
@@ -205,6 +208,8 @@ class SequenceFirstCoordinator:
                     terminal_reader_verdict=reader_verdict,
                 )
             if reader_verdict.status is ReaderStatus.REJECTED:
+                # REJECTED is attributable to visible candidate quality and may
+                # therefore open one fresh Writer attempt inside the fixed bound.
                 receipts.append(
                     WriterAttemptReceiptV1(
                         attempt_number=attempt_number,

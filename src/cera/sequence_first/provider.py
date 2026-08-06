@@ -206,25 +206,6 @@ def validator_decision_json_schema() -> dict:
             "concise_explanation": {"type": "string"},
         }
     )
-
-
-def reader_verdict_json_schema() -> dict:
-    issue = _strict_object(
-        {
-            "issue_code": {"type": "string"},
-            "concise_explanation": {"type": "string"},
-            "exact_quote": _nullable({"type": "string"}),
-        }
-    )
-    return _strict_object(
-        {
-            "status": {
-                "type": "string",
-                "enum": ["accepted", "rejected", "inconclusive"],
-            },
-            "issues": {"type": "array", "items": issue},
-        }
-    )
     conflict = _strict_object(
         {
             "conflict_class": {
@@ -254,6 +235,25 @@ def reader_verdict_json_schema() -> dict:
             "realized_sequence": _nullable(sequence_draft_json_schema()),
             "review_flags": {"type": "array", "items": review_flag},
             "conflict": _nullable(conflict),
+        }
+    )
+
+
+def reader_verdict_json_schema() -> dict:
+    issue = _strict_object(
+        {
+            "issue_code": {"type": "string"},
+            "concise_explanation": {"type": "string"},
+            "exact_quote": _nullable({"type": "string"}),
+        }
+    )
+    return _strict_object(
+        {
+            "status": {
+                "type": "string",
+                "enum": ["accepted", "rejected", "inconclusive"],
+            },
+            "issues": {"type": "array", "items": issue},
         }
     )
 

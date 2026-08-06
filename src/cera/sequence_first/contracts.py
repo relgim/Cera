@@ -419,10 +419,10 @@ class SequenceFirstTurnSemanticInputV1:
             self.explicitly_authorized_remote_character_ids
         ):
             raise ContractValidationError("present and remote-authorized characters overlap")
-        if self.scene_reinitialization and self.accepted_present_character_ids:
-            raise ContractValidationError(
-                "scene reinitialization must re-establish presence from an empty set"
-            )
+        # A Stage 6 scene reinitialization may carry a non-empty presence set only
+        # after the Python bridge has bound explicit initialization authority.
+        # This semantic DTO cannot create that authority; it merely preserves the
+        # bridge-established set and prevents inheritance of prior scene sequence.
         _text(
             self.current_public_scene_state,
             "turn_semantics.current_public_scene_state",
