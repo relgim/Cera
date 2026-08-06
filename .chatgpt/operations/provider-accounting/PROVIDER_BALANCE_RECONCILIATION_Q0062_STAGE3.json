@@ -1,0 +1,105 @@
+{
+  "schema_version": "cera.provider_balance_reconciliation.v1",
+  "queue_revision": "0062",
+  "stage": "stage3_bounded_live_two_turn_canary",
+  "frozen_source_commit": "2bd12f2c97f66f2f35df406bc0ee3704192924da",
+  "frozen_source_tree": "441809b42e0bf592418beb25cedb0a0f18aea3fa",
+  "checkpoint_evidence_commit": "37c14152038e44f8858e879b0979d23326fa790f",
+  "baseline": {
+    "queue": "0057",
+    "queue_sha256": "0efd8372f1ed9beca2c1ab029e04c27bd488c6546a26ffa19340cba3aff1ab4c",
+    "codex_sol_family_remaining": 614,
+    "deepseek_family_remaining": 722
+  },
+  "debited_ledgers": [
+    {
+      "path": ".chatgpt/pf/q0057_compact_violation_receipt_canary_v1/PROVIDER_CALL_LEDGER.jsonl",
+      "sha256": "ba40cb2d196c5ea055046b4045e48158652ba8f06d991e64146744c626b36a6b",
+      "codex_sol_family": 1,
+      "deepseek_family": 0
+    },
+    {
+      "path": ".chatgpt/pf/q0057_compact_violation_receipt_matrix_v1/PROVIDER_CALL_LEDGER.jsonl",
+      "sha256": "6c3efecc7d8d033101774cdbbf7905db16d5929777783a2f4a3d1f2936e16cf9",
+      "codex_sol_family": 1,
+      "deepseek_family": 0
+    },
+    {
+      "path": ".chatgpt/pf/q0057_compact_incidental_prop_recheck_v1/PROVIDER_CALL_LEDGER.jsonl",
+      "sha256": "f9724bdd83310141e63c6f0c4c393d357e1901dd023bb42b3062847cac6d30c3",
+      "codex_sol_family": 1,
+      "deepseek_family": 0
+    },
+    {
+      "path": ".chatgpt/pf/q0057_compact_vague_family_recheck_v1/PROVIDER_CALL_LEDGER.jsonl",
+      "sha256": "3111bf137c9c2fc791e143b83496efb132ca9d2f23bcf21fef5820edf41979c9",
+      "codex_sol_family": 1,
+      "deepseek_family": 0
+    },
+    {
+      "path": ".chatgpt/pf/q0057_compact_remaining_matrix_v1/PROVIDER_CALL_LEDGER.jsonl",
+      "sha256": "f0127320fae980911a224741c14be1e768255facce433c82d433566baff200bc",
+      "codex_sol_family": 4,
+      "deepseek_family": 0
+    },
+    {
+      "path": ".chatgpt/pf/q57_s6_v2/runs/q57-s6-v2-run-001/PROVIDER_CALL_LEDGER.jsonl",
+      "sha256": "13f296dc15fc4c177c9b1c6b0b34da45127c3b3477f4c5dd72f7bf5a3ee0a007",
+      "codex_sol_family": 4,
+      "deepseek_family": 3
+    }
+  ],
+  "debits_after_baseline": {
+    "codex_sol_family": 12,
+    "deepseek_family": 3
+  },
+  "zero_call_successors": [
+    "0058",
+    "0059",
+    "0060",
+    "0061",
+    "0062_provider_free_checkpoint"
+  ],
+  "remaining_before_stage3": {
+    "codex_sol_family": 602,
+    "deepseek_family": 719
+  },
+  "stage3_ceiling": {
+    "codex_sol_family": 10,
+    "deepseek_family": 6
+  },
+  "frozen_routes": {
+    "planner": {
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "fast_mode": false,
+      "session": "persistent_branch_bound",
+      "automatic_retry_count": 0,
+      "fallback": false
+    },
+    "writer": {
+      "model": "deepseek-v4-flash",
+      "thinking": false,
+      "maximum_independent_fresh_attempts_per_frozen_brief": 3,
+      "merge_outputs": false
+    },
+    "validator": {
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "fast_mode": false,
+      "session": "fresh_candidate_specific",
+      "automatic_retry_count": 0,
+      "fallback": false
+    },
+    "reader": {
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "fast_mode": false,
+      "session": "fresh_candidate_specific",
+      "automatic_retry_count": 0,
+      "fallback": false
+    }
+  },
+  "turn_2_exact_source": "Continue the scene",
+  "reconciled_at_utc": "2026-08-06T05:54:17.9809359Z"
+}
