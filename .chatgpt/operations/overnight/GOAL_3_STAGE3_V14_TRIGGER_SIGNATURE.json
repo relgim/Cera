@@ -1,0 +1,80 @@
+{
+  "schema_version": "cera.overnight_trigger_signature.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0015",
+  "goal": 3,
+  "run_id": "2026-08-06-cera-sequence-first-stage3-live-v14",
+  "result_path": ".chatgpt/operations/overnight/GOAL_3_STAGE3_V14_RESULT.json",
+  "result_sha256": "76fef26332a76e849cc195f120d42dba01b444db199809d72c59985e35a3c7a8",
+  "diagnosis_path": ".chatgpt/operations/overnight/GOAL_3_STAGE3_V14_PROVIDER_FREE_DIAGNOSIS.json",
+  "diagnosis_sha256": "1e09e5fb27ffc2bab7d6ad27a54f82aca457527ad39fa9e0c03e3913f3fa1c50",
+  "provider_ledger_path": ".chatgpt/pf/q0063_sequence_first_stage3_live_v14/PROVIDER_CALL_LEDGER.jsonl",
+  "provider_ledger_sha256": "985f65bf5d8b86ea72ef14bb0546afbe72271c5ca9e26847eda8f28c0d36c5c3",
+  "failing_stage": "turn_1_writer_candidate_qualification",
+  "provider_outcome_class": "three_independent_writer_candidates_correctly_rejected_for_backgrounded_npc_or_protected_user_invention",
+  "failure_code": "writer_attempts_exhausted",
+  "failure_exception_type": "RuntimeError",
+  "accepted_turns": 0,
+  "writer_request_sha256": "1562f015867a2ba4d1f7ef67f350f41f8047859a29ec238580e0e849de8c1b60",
+  "writer_requests_byte_identical": true,
+  "writer_feedback_contamination": false,
+  "writer_outputs_merged": false,
+  "attempts": [
+    {
+      "attempt": 1,
+      "writer_call_id": "call_216c8a93e8bf66caa001d531",
+      "validator_call_id": "call_a48162eb287c22200c818f97",
+      "verdict": "reject",
+      "conflict_class": "material_addition",
+      "omitted_planner_item_key": null,
+      "exact_quote": "Mia leaned quietly against the archway, her arms folded, her gaze soft and patient",
+      "writer_output_sha256": "ee3cd7a271036fab2cc2b6413b2c22588b52ffb5fb4641d74b8568a93e457e41"
+    },
+    {
+      "attempt": 2,
+      "writer_call_id": "call_d03782b1e2bc8624f3f2cf6f",
+      "validator_call_id": "call_a3e9b396c66241365669ce99",
+      "verdict": "reject",
+      "conflict_class": "material_addition",
+      "omitted_planner_item_key": null,
+      "exact_quote": "watching the exchange",
+      "writer_output_sha256": "1e7b7da99e83982f4855947858f5a68baa01990835976eecc3e2f3f6d09c968e"
+    },
+    {
+      "attempt": 3,
+      "writer_call_id": "call_bf3de74ecc84a8688c8524fa",
+      "validator_call_id": "call_3333e6ec2d6a9836cabd2fe8",
+      "verdict": "reject",
+      "conflict_class": "protected_user_invention",
+      "omitted_planner_item_key": null,
+      "exact_quote": "Ted shut the door behind him",
+      "writer_output_sha256": "7e3d9801102cf89ef2d7216d13e08d4db0aacf306aeb277e3fe4a965cc18d5c0"
+    }
+  ],
+  "roadmap_0015_live_proof": {
+    "planner_schema_sha256": "37d8f47de90d246203e7013b060b8c7dd0a5a2ab5adac5f23204b97dae6f7a9f",
+    "validator_schema_sha256": "6e23c94df1f267e43e5aa469f3fccce82a708864f4ebced07bac5e9d2ec845a9",
+    "planner_proposition_semantically_complete": true,
+    "v13_semantic_incompleteness_recurred": false,
+    "all_three_rejections_boundary_grounded": true,
+    "reader_calls": 0
+  },
+  "provider_calls": {
+    "codex_sol_family": 4,
+    "deepseek_family": 3
+  },
+  "creator_balance_after_run": {
+    "codex_sol_family": 563,
+    "deepseek_family": 693
+  },
+  "terminalization": {
+    "all_seven_operation_directories_terminal": true,
+    "three_validator_threads_archived_nonresumable": true,
+    "planner_thread_archived_nonresumable": true,
+    "promotion_receipt_present": false,
+    "story_authority_write": false
+  },
+  "first_occurrence": true,
+  "provider_recheck_consumed": false,
+  "further_provider_calls_under_v14_prohibited": true
+}

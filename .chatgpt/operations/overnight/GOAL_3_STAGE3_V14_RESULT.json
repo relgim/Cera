@@ -1,0 +1,317 @@
+{
+  "call_authority": {
+    "codex_sol_family": 14,
+    "deepseek_family": 6
+  },
+  "completed_at_utc": "2026-08-06T16:24:08Z",
+  "error": "HTTP 400: {\"error\":{\"message\":\"sequence-first candidate failed qualification\",\"type\":\"cera_error\",\"code\":\"cera_turn_failed\",\"stage\":\"sillytavern_adapter\",\"diagnostics\":[],\"retryable\":false,\"fallback_used\":false}}\n",
+  "error_type": "RuntimeError",
+  "maximum_writer_attempts_per_turn": 3,
+  "operation_evidence": {
+    "calls": [
+      {
+        "artifact_sha256_by_name": {
+          "PARSED_OUTPUT.json": "ee3cd7a271036fab2cc2b6413b2c22588b52ffb5fb4641d74b8568a93e457e41",
+          "PRE_DISPATCH.json": "c1dcbf8c0538bb9b91c396fd5e6696e42521614c9f577f3f2fb897e7fd49d6f5",
+          "RAW_PROVIDER_RESULT.bin": "ee3cd7a271036fab2cc2b6413b2c22588b52ffb5fb4641d74b8568a93e457e41",
+          "REQUEST.bin": "1562f015867a2ba4d1f7ef67f350f41f8047859a29ec238580e0e849de8c1b60",
+          "STRUCTURED_OUTPUT_SCHEMA.json": "dec9386e5a4b0fd3c9c9f48cd4826a14daf17009970c2be0d5bfa336ba8a717d",
+          "TERMINAL.json": "aa83797e1ea6328e2e0f200fcfa826efe2768d6ee248f593ebc26d3a196a62b7"
+        },
+        "call_id": "call_216c8a93e8bf66caa001d531",
+        "directory_sha256": "29ededb9dfa827a60b531cd0c1c4b7cbf3609dd4b926f157e2b6e31019183114",
+        "relative_path": "call_216c8a93e8bf66caa001d531",
+        "terminal": true
+      },
+      {
+        "artifact_sha256_by_name": {
+          "ARCHIVAL.json": "3965148c0c30b95ad7e5b572eaeb061dede3b0649497959f38b605dfcb447b97",
+          "PARSED_OUTPUT.json": "b4fba0435ee9ad885015556f6b027418440b310cebab3289dc331f398cd2f75f",
+          "PRE_DISPATCH.json": "c9484be276fbc66cf90b5fc99c3543afd69c1e299c5021d0d532fab75cd0820c",
+          "RAW_PROVIDER_RESULT.bin": "b4fba0435ee9ad885015556f6b027418440b310cebab3289dc331f398cd2f75f",
+          "REQUEST.bin": "4e7f479eb9c5e951d8188bd943d984fb786a4ec92efb345ba5d5b346bab1a639",
+          "STRUCTURED_OUTPUT_SCHEMA.json": "6e23c94df1f267e43e5aa469f3fccce82a708864f4ebced07bac5e9d2ec845a9",
+          "TERMINAL.json": "8f03a6c42d63422a9b9a6443dd865874f7479e9d43d44d46e5889045cc22ef87"
+        },
+        "call_id": "call_3333e6ec2d6a9836cabd2fe8",
+        "directory_sha256": "e3985c59e27ffff7b9aebf5026abf368bff44b74c707f3d11dbf8c65fdc20aca",
+        "relative_path": "call_3333e6ec2d6a9836cabd2fe8",
+        "terminal": true
+      },
+      {
+        "artifact_sha256_by_name": {
+          "ARCHIVAL.json": "197f61a161b292b87cf99f6510b6a23797e292216adc1edbd5f9553dbe003d8c",
+          "PARSED_OUTPUT.json": "20966d51865f02e1cb517f996a61fffa27bd0aaad99747b9cf6f0814f1fd6f7c",
+          "PRE_DISPATCH.json": "b0394cac9c75b052032d920d75ec7f8d3bcaf26fc79b43481213bb41743130ed",
+          "RAW_PROVIDER_RESULT.bin": "20966d51865f02e1cb517f996a61fffa27bd0aaad99747b9cf6f0814f1fd6f7c",
+          "REQUEST.bin": "f3061149b3fea6a0f8bfb25a0c108a5d82115471cd4a1b589b5c429fa52b2421",
+          "STRUCTURED_OUTPUT_SCHEMA.json": "6e23c94df1f267e43e5aa469f3fccce82a708864f4ebced07bac5e9d2ec845a9",
+          "TERMINAL.json": "023bf8b39950c9454392daa5d7a1300dc5371f4062935cce81dab516efd93ad2"
+        },
+        "call_id": "call_a3e9b396c66241365669ce99",
+        "directory_sha256": "d1d87d75c9464f96889e49457f623d7a757fac72f5d32c3ea8d30519e3d0461b",
+        "relative_path": "call_a3e9b396c66241365669ce99",
+        "terminal": true
+      },
+      {
+        "artifact_sha256_by_name": {
+          "ARCHIVAL.json": "6eb586ef6f8e502783908cbd2bf5bc59ea370ad218532481acabfd11a3dc180e",
+          "PARSED_OUTPUT.json": "38dace239b2e332a92c790dbbfa8554d1a18ad03d7ad83a48d2870a4099cddd0",
+          "PRE_DISPATCH.json": "edef1a113976d2a26f6d3b5a2ad21f5c89bf84a62a53212c66b0e5c7129743c4",
+          "RAW_PROVIDER_RESULT.bin": "38dace239b2e332a92c790dbbfa8554d1a18ad03d7ad83a48d2870a4099cddd0",
+          "REQUEST.bin": "16221acaf7f32d5d85f157276ad2333a51ed96f094fccf440382066b5767bf0d",
+          "STRUCTURED_OUTPUT_SCHEMA.json": "6e23c94df1f267e43e5aa469f3fccce82a708864f4ebced07bac5e9d2ec845a9",
+          "TERMINAL.json": "908c7a5a7191c7ce42d64c8b559d7c5013da4f4c9dad4573ddd6c1c9ada1207f"
+        },
+        "call_id": "call_a48162eb287c22200c818f97",
+        "directory_sha256": "908d1cd9447e31e38c5d6d5e7f22ead8a1d89436a285f227dba683e30be41400",
+        "relative_path": "call_a48162eb287c22200c818f97",
+        "terminal": true
+      },
+      {
+        "artifact_sha256_by_name": {
+          "PARSED_OUTPUT.json": "7e3d9801102cf89ef2d7216d13e08d4db0aacf306aeb277e3fe4a965cc18d5c0",
+          "PRE_DISPATCH.json": "4da8520c4fd7a637f2c307b7227141cedd0dd1dc729c090b1a15a3f86b8d44ed",
+          "RAW_PROVIDER_RESULT.bin": "7e3d9801102cf89ef2d7216d13e08d4db0aacf306aeb277e3fe4a965cc18d5c0",
+          "REQUEST.bin": "1562f015867a2ba4d1f7ef67f350f41f8047859a29ec238580e0e849de8c1b60",
+          "STRUCTURED_OUTPUT_SCHEMA.json": "dec9386e5a4b0fd3c9c9f48cd4826a14daf17009970c2be0d5bfa336ba8a717d",
+          "TERMINAL.json": "aebf1dd4ebee81a868ac90b612677f4e84bb1e0afc6608712ce023ae6aa759a5"
+        },
+        "call_id": "call_bf3de74ecc84a8688c8524fa",
+        "directory_sha256": "11e0892f1e07726ca494e7a2f0178972f8e5e4dd92a38fe5a997b9ff72e24b2c",
+        "relative_path": "call_bf3de74ecc84a8688c8524fa",
+        "terminal": true
+      },
+      {
+        "artifact_sha256_by_name": {
+          "ARCHIVAL.json": "43efdf77148384ee71a4d6442c902e7253743af15b336329042ab8a287f8cca0",
+          "PARSED_OUTPUT.json": "c2c1f48fe530d7ec3735c59fe11aae60cd3e423cf35446d2c84630797642f2a0",
+          "PRE_DISPATCH.json": "aaf8dd0413d43d0c1e3386bedd6b8708f2d31c6c20a9721f64fbc4bcf5ab6633",
+          "RAW_PROVIDER_RESULT.bin": "c2c1f48fe530d7ec3735c59fe11aae60cd3e423cf35446d2c84630797642f2a0",
+          "REQUEST.bin": "ec951dac35470a259cb2e46e3f34a5cc386b901966050334da86d0cd5f704abb",
+          "STRUCTURED_OUTPUT_SCHEMA.json": "37d8f47de90d246203e7013b060b8c7dd0a5a2ab5adac5f23204b97dae6f7a9f",
+          "TERMINAL.json": "1c0b37c00af61ef2c4609656f9f5ad0c17fcd96df1836d7060c0656c92c9f412"
+        },
+        "call_id": "call_c0383c81be60356c2873bcba",
+        "directory_sha256": "f1889bd26e46debd277abc55f1aa3f68678cd86e448ba20392cfc0b32763cf5e",
+        "relative_path": "call_c0383c81be60356c2873bcba",
+        "terminal": true
+      },
+      {
+        "artifact_sha256_by_name": {
+          "PARSED_OUTPUT.json": "1e7b7da99e83982f4855947858f5a68baa01990835976eecc3e2f3f6d09c968e",
+          "PRE_DISPATCH.json": "2e1c9595197d98475e60c9e5840a5e7b5ae86db51608d45d96d796650bbef1fa",
+          "RAW_PROVIDER_RESULT.bin": "1e7b7da99e83982f4855947858f5a68baa01990835976eecc3e2f3f6d09c968e",
+          "REQUEST.bin": "1562f015867a2ba4d1f7ef67f350f41f8047859a29ec238580e0e849de8c1b60",
+          "STRUCTURED_OUTPUT_SCHEMA.json": "dec9386e5a4b0fd3c9c9f48cd4826a14daf17009970c2be0d5bfa336ba8a717d",
+          "TERMINAL.json": "08f722fa86c415041275b1dbaa65f9833a3795fdae6ab8567ab0b7ffa56fc2b6"
+        },
+        "call_id": "call_d03782b1e2bc8624f3f2cf6f",
+        "directory_sha256": "92f45e681b9eeec0129b22a856526a7204aa6fffa7c7de433a86a5533596b763",
+        "relative_path": "call_d03782b1e2bc8624f3f2cf6f",
+        "terminal": true
+      }
+    ],
+    "root": "D:\\CP25\\source\\.chatgpt\\pf\\q0063_sequence_first_stage3_live_v14\\operation_evidence",
+    "schema_version": "cera.provider_operation_evidence_snapshot.v1",
+    "stage": "2026-08-06-cera-sequence-first-stage3-live-v14",
+    "thread_lifecycles": []
+  },
+  "planner_terminalization": {
+    "archived": true,
+    "resumable_after_archive": false,
+    "thread_created": true,
+    "thread_id_sha256": "9c7fcdae797f5452bf6eb7dc1090d262c9fb373451d18cf75f666b39b536d2b1"
+  },
+  "profile": {
+    "path": "integrations/sillytavern/sequence_first_stage6_profile.json",
+    "sha256": "54cf8782acc7b4fec89f6f75fc2962d6b0193aa750a143d13070311d62417656",
+    "value": {
+      "automatic_accept": false,
+      "automatic_retry": false,
+      "creator_review_required": true,
+      "database_policy": "isolated_copied_sequence_first_world",
+      "endpoint": "http://127.0.0.1:5116/v1",
+      "external_provider_calls_authorized_by_profile": 0,
+      "fallback": false,
+      "loopback_only": true,
+      "model": "cera-sequence-first-stage6",
+      "planner": {
+        "fast_mode": false,
+        "model": "gpt-5.6-sol",
+        "reasoning_effort": "medium",
+        "session": "persistent_per_branch"
+      },
+      "production": false,
+      "profile_id": "cera.sequence_first.stage6.v1",
+      "provider_activation_required": true,
+      "provider_mode": "authority_bound_provider",
+      "reader": {
+        "fast_mode": false,
+        "model": "gpt-5.6-sol",
+        "reasoning_effort": "medium",
+        "session": "fresh_per_candidate"
+      },
+      "route": "sequence_first_stage6",
+      "stream": false,
+      "validator": {
+        "fast_mode": false,
+        "model": "gpt-5.6-sol",
+        "reasoning_effort": "medium",
+        "session": "fresh_per_candidate"
+      },
+      "writer": {
+        "maximum_fresh_attempts": 3,
+        "merge_attempts": false,
+        "model": "deepseek-v4-flash",
+        "thinking": false
+      }
+    }
+  },
+  "protected_effects": {
+    "installed_sillytavern_changed": false,
+    "production_route_changed": false,
+    "remote_operation_performed": false,
+    "source_database_changed": false
+  },
+  "provider_calls": [
+    {
+      "call_id": "call_c0383c81be60356c2873bcba",
+      "effort": "medium",
+      "event_index": 4,
+      "failure_receipt_sha256": null,
+      "failure_type": null,
+      "model": "gpt-5.6-sol",
+      "operation": "sequence_first_plan_0001",
+      "operation_telemetry_sha256": null,
+      "owner": "planner",
+      "provider_receipt_sha256": null,
+      "recorded_at_utc": "2026-08-06T16:22:24.787396+00:00",
+      "route": "cera_sequence_first_planner_sol_medium_v8",
+      "schema_version": "cera.continuous_provider_call_ledger_event.v3",
+      "state": "transport_invoked",
+      "stored_thread_sha256": "9c7fcdae797f5452bf6eb7dc1090d262c9fb373451d18cf75f666b39b536d2b1",
+      "tool_sequence_sha256": null
+    },
+    {
+      "call_id": "call_216c8a93e8bf66caa001d531",
+      "effort": null,
+      "event_index": 8,
+      "failure_receipt_sha256": null,
+      "failure_type": null,
+      "model": "deepseek-v4-flash",
+      "operation": "compose_0001",
+      "operation_telemetry_sha256": null,
+      "owner": "composer",
+      "provider_receipt_sha256": null,
+      "recorded_at_utc": "2026-08-06T16:22:42.874411+00:00",
+      "route": "deepseek_composer_deepseek-v4-flash",
+      "schema_version": "cera.continuous_provider_call_ledger_event.v3",
+      "state": "transport_invoked",
+      "stored_thread_sha256": null,
+      "tool_sequence_sha256": null
+    },
+    {
+      "call_id": "call_a48162eb287c22200c818f97",
+      "effort": "medium",
+      "event_index": 14,
+      "failure_receipt_sha256": null,
+      "failure_type": null,
+      "model": "gpt-5.6-sol",
+      "operation": "sequence_first_validate_0001",
+      "operation_telemetry_sha256": null,
+      "owner": "validator",
+      "provider_receipt_sha256": null,
+      "recorded_at_utc": "2026-08-06T16:22:59.743077+00:00",
+      "route": "cera_sequence_first_validator_gpt-5.6-sol_medium_v11",
+      "schema_version": "cera.continuous_provider_call_ledger_event.v3",
+      "state": "transport_invoked",
+      "stored_thread_sha256": "c87fceaabcccad64f8b667a7f4b01abe05f852803f01bfeaa35e923a0a6dc19a",
+      "tool_sequence_sha256": null
+    },
+    {
+      "call_id": "call_d03782b1e2bc8624f3f2cf6f",
+      "effort": null,
+      "event_index": 18,
+      "failure_receipt_sha256": null,
+      "failure_type": null,
+      "model": "deepseek-v4-flash",
+      "operation": "compose_0002",
+      "operation_telemetry_sha256": null,
+      "owner": "composer",
+      "provider_receipt_sha256": null,
+      "recorded_at_utc": "2026-08-06T16:23:17.795775+00:00",
+      "route": "deepseek_composer_deepseek-v4-flash",
+      "schema_version": "cera.continuous_provider_call_ledger_event.v3",
+      "state": "transport_invoked",
+      "stored_thread_sha256": null,
+      "tool_sequence_sha256": null
+    },
+    {
+      "call_id": "call_a3e9b396c66241365669ce99",
+      "effort": "medium",
+      "event_index": 24,
+      "failure_receipt_sha256": null,
+      "failure_type": null,
+      "model": "gpt-5.6-sol",
+      "operation": "sequence_first_validate_0002",
+      "operation_telemetry_sha256": null,
+      "owner": "validator",
+      "provider_receipt_sha256": null,
+      "recorded_at_utc": "2026-08-06T16:23:33.625706+00:00",
+      "route": "cera_sequence_first_validator_gpt-5.6-sol_medium_v11",
+      "schema_version": "cera.continuous_provider_call_ledger_event.v3",
+      "state": "transport_invoked",
+      "stored_thread_sha256": "1c267b529969a62fcc22339fa38459b74b47f062a9bf6b1eef6bf94975365450",
+      "tool_sequence_sha256": null
+    },
+    {
+      "call_id": "call_bf3de74ecc84a8688c8524fa",
+      "effort": null,
+      "event_index": 28,
+      "failure_receipt_sha256": null,
+      "failure_type": null,
+      "model": "deepseek-v4-flash",
+      "operation": "compose_0003",
+      "operation_telemetry_sha256": null,
+      "owner": "composer",
+      "provider_receipt_sha256": null,
+      "recorded_at_utc": "2026-08-06T16:23:45.098435+00:00",
+      "route": "deepseek_composer_deepseek-v4-flash",
+      "schema_version": "cera.continuous_provider_call_ledger_event.v3",
+      "state": "transport_invoked",
+      "stored_thread_sha256": null,
+      "tool_sequence_sha256": null
+    },
+    {
+      "call_id": "call_3333e6ec2d6a9836cabd2fe8",
+      "effort": "medium",
+      "event_index": 34,
+      "failure_receipt_sha256": null,
+      "failure_type": null,
+      "model": "gpt-5.6-sol",
+      "operation": "sequence_first_validate_0003",
+      "operation_telemetry_sha256": null,
+      "owner": "validator",
+      "provider_receipt_sha256": null,
+      "recorded_at_utc": "2026-08-06T16:24:01.188821+00:00",
+      "route": "cera_sequence_first_validator_gpt-5.6-sol_medium_v11",
+      "schema_version": "cera.continuous_provider_call_ledger_event.v3",
+      "state": "transport_invoked",
+      "stored_thread_sha256": "51ef7bb2c8f051216da0cc0be93bee1a702dc38d1370330244e388b2fc8c74d1",
+      "tool_sequence_sha256": null
+    }
+  ],
+  "provider_ledger_sha256": "985f65bf5d8b86ea72ef14bb0546afbe72271c5ca9e26847eda8f28c0d36c5c3",
+  "run_id": "2026-08-06-cera-sequence-first-stage3-live-v14",
+  "runner_sha256": "b9154142bd91e3464d5bf25d81296b083a99208882841e8107d571e100da1002",
+  "schema_version": "cera.sequence_first.stage3_live_result.v2",
+  "source_git_sha": "471a849fd00d59164b3a440d9aadf052bc3e2b67",
+  "source_tree_sha": "a500ccbd44324d329e4b344ff30471a69974a72e",
+  "status": "failed",
+  "turn_sources": [
+    "Ted steps into the entryway, greets Hana, and asks how dinner went. He mentions that Sakura is away.",
+    "Continue the scene"
+  ],
+  "turns": []
+}

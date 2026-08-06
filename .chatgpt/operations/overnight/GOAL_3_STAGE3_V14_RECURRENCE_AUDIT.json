@@ -1,0 +1,82 @@
+{
+  "schema_version": "cera.overnight_recurrence_audit.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0015",
+  "goal": 3,
+  "run_id": "2026-08-06-cera-sequence-first-stage3-live-v14",
+  "result_sha256": "76fef26332a76e849cc195f120d42dba01b444db199809d72c59985e35a3c7a8",
+  "trigger_signature_sha256": "3a5175bab53edeb0242b96b61231ad7578267305d73bfc97456536c46e0dad50",
+  "diagnosis_sha256": "1e09e5fb27ffc2bab7d6ad27a54f82aca457527ad39fa9e0c03e3913f3fa1c50",
+  "audit_classification": "recurrent_writer_boundary_noncompliance_after_explicit_corrected_brief",
+  "trigger_first_occurrence_field_disposition": "The V14 trigger's first_occurrence field is not valid for the mechanically derived root across prior live identities. It means only first occurrence under the V14 identity and grants no recheck authority.",
+  "frozen_writer_request": {
+    "sha256": "1562f015867a2ba4d1f7ef67f350f41f8047859a29ec238580e0e849de8c1b60",
+    "attempts": 3,
+    "byte_identical": true,
+    "feedback_contamination": false,
+    "merging": false,
+    "explicit_controls": [
+      "backgrounded NPC may be omitted",
+      "no new backgrounded-NPC action, dialogue, movement, relocation, private state, causal importance, or foreground focus",
+      "no new protected-user action, movement, dialogue, expression, thought, emotion, decision, consent state, transition, causal consequence, or future-relevant position"
+    ]
+  },
+  "historical_live_evidence": {
+    "versions_audited": [6, 7, 8, 9, 10, 12, 13, 14],
+    "writer_candidates_audited": 22,
+    "writer_candidates_mentioning_backgrounded_mia": 22,
+    "validator_cited_backgrounded_npc_boundary_rejections": [
+      {
+        "version": 8,
+        "quote": "one hand resting on the banister",
+        "conflict_class": "material_addition"
+      },
+      {
+        "version": 9,
+        "quote": "Mia shifted her weight",
+        "conflict_class": "material_addition"
+      },
+      {
+        "version": 10,
+        "quote": "letting the moment belong to the two of them",
+        "conflict_class": "material_addition"
+      },
+      {
+        "version": 14,
+        "quote": "Mia leaned quietly against the archway, her arms folded, her gaze soft and patient",
+        "conflict_class": "material_addition"
+      },
+      {
+        "version": 14,
+        "quote": "watching the exchange",
+        "conflict_class": "material_addition"
+      }
+    ],
+    "validator_cited_protected_user_boundary_rejections": {
+      "count": 8,
+      "versions": [6, 9, 10, 12, 14],
+      "v14_quote": "Ted shut the door behind him"
+    }
+  },
+  "mixed_cue_observation": {
+    "system_allows": "compatible transient gesture and staging",
+    "brief_repeats_presence": true,
+    "brief_names_backgrounded_mia": true,
+    "planner_resulting_public_state_mentions_mia_quietly_in_background": true,
+    "boundary_instruction_forbids_new_mia_staging": true,
+    "inference": "The frozen request contains a clear prohibition but also repeatedly foregrounds Mia's presence and permits compatible staging generally. Across live runs DeepSeek consistently renders the named backgrounded character rather than omitting her. This is a recurrent instruction-adherence/interface-cue problem, not evidence that another identical retry is warranted."
+  },
+  "recurrence_rule": {
+    "same_corrected_signature_recurred_more_than_once": true,
+    "further_provider_calls_for_this_root_authorized": false,
+    "manager_classification_required": true
+  },
+  "protected_effects": {
+    "accepted_turns": 0,
+    "story_authority_write": false,
+    "source_database_changed": false,
+    "installed_sillytavern_changed": false,
+    "production_route_changed": false,
+    "remote_operation_performed": false
+  }
+}

@@ -1,0 +1,103 @@
+{
+  "schema_version": "cera.overnight_live_run_authority_receipt.v2",
+  "queue_revision": "0063",
+  "roadmap_revision": "0015",
+  "goal": 3,
+  "run_id": "2026-08-06-cera-sequence-first-stage3-live-v14",
+  "status": "authorized_after_provider_free_gates",
+  "source_commit": "471a849fd00d59164b3a440d9aadf052bc3e2b67",
+  "source_tree": "a500ccbd44324d329e4b344ff30471a69974a72e",
+  "correction_result_path": ".chatgpt/operations/overnight/GOAL_3_V13_SEMANTIC_COMPLETENESS_CORRECTION_RESULT.json",
+  "correction_result_sha256": "0199c79a3ec95cc72785d822e8e467e5a1155d8c6e19c9ac6a7f7c289d711334",
+  "run_authority_sha256": "feac3d49fafda0523eaa181561f692c4e66060f675dc7caf1ebd2229e3630ce7",
+  "world_id": "world-q0063-stage3-v14",
+  "branch_id": "branch-main",
+  "session_id": "q0063-stage3-v14",
+  "turn_source_sha256": "15dd7458b2a87eb562841d94820abef75f1c6ae9e2aef52fe756eb3461be722a",
+  "profile_sha256": "54cf8782acc7b4fec89f6f75fc2962d6b0193aa750a143d13070311d62417656",
+  "runner_path": ".chatgpt/pf/q0063_sequence_first_stage3_live_v14/run_stage3_v14.py",
+  "runner_sha256": "b9154142bd91e3464d5bf25d81296b083a99208882841e8107d571e100da1002",
+  "builder_path": ".chatgpt/pf/q0063_sequence_first_stage3_live_v14/governed_runner_builder_v14.py",
+  "builder_sha256": "38a0aa2e1891947e168dc8bbae66736ec1696e4a0df79cf92e519c19fe4179f1",
+  "roles": {
+    "planner": {
+      "route": "cera_sequence_first_planner_sol_medium_v8",
+      "model": "gpt-5.6-sol",
+      "effort": "medium",
+      "adapter": "cera.sequence_first.planner_adapter.v8",
+      "prompt": "cera.sequence_first.planner_prompt.v6",
+      "schema": "cera.sequence_first.sequence_draft.v4",
+      "instructions_sha256": "5d5610248aa77223fac8435c257b61ff1843efd4ac192e3576a87c19ce384fd1"
+    },
+    "writer": {
+      "route": "deepseek_composer_deepseek-v4-flash",
+      "model": "deepseek-v4-flash",
+      "effort": "non-thinking",
+      "adapter": "cera.sequence_first.writer_adapter.v1",
+      "prompt": "cera.sequence_first.writer_prompt.v1",
+      "schema": "cera.scene_writer_draft.v1",
+      "schema_sha256": "dec9386e5a4b0fd3c9c9f48cd4826a14daf17009970c2be0d5bfa336ba8a717d",
+      "instructions_sha256": "32d9c28aa46221c974eb2f3852b79fde95d5de02ccbbac7bc61db82b8be8ffdf"
+    },
+    "validator": {
+      "route": "cera_sequence_first_validator_gpt-5.6-sol_medium_v11",
+      "model": "gpt-5.6-sol",
+      "effort": "medium",
+      "adapter": "cera.sequence_first.validator_adapter.v11",
+      "prompt": "cera.sequence_first.validator_prompt.v9",
+      "schema": "cera.sequence_first.validator_decision.v3",
+      "instructions_sha256": "1e16700fe2c77045c49aa9e54dfdfd414af81eddbe1f3417f2c075d77e92c73b"
+    },
+    "reader": {
+      "route": "cera_sequence_first_reader_gpt-5.6-sol_medium_v3",
+      "model": "gpt-5.6-sol",
+      "effort": "medium",
+      "adapter": "cera.sequence_first.reader_adapter.v3",
+      "prompt": "cera.sequence_first.reader_prompt.v2",
+      "schema": "cera.sequence_first.reader_verdict.v1",
+      "schema_sha256": "b8aa054339491cddee950b94dcdf7a37fa265397b94863cbec31c77f80077c5a",
+      "instructions_sha256": "f2f3ee609b0226a2de2b0f2abea319857ebafe904369f52e8d3afe8272db3943"
+    }
+  },
+  "request_specific_schema_authority": {
+    "scope_type": "ProviderReferenceScopeV1",
+    "planner_turn_1_native_sha256": "37d8f47de90d246203e7013b060b8c7dd0a5a2ab5adac5f23204b97dae6f7a9f",
+    "planner_turn_1_openai_projected_sha256": "37d8f47de90d246203e7013b060b8c7dd0a5a2ab5adac5f23204b97dae6f7a9f",
+    "validator_schema_binding": "derive from the same turn scope plus exact decoded intended Planner item keys and capture before each dispatch",
+    "normalization_or_repair_allowed": false
+  },
+  "exact_regression_fixture": {
+    "path": ".chatgpt/pf/q0063_goal3_v13_planner_dialogue_semantic_completeness/test_exact_v13_planner_dialogue_semantic_completeness.py",
+    "sha256": "b0c19fa0a7bb6851ef553f5f3a84942808941f1e12188cecdb2ceedcf1e054da",
+    "status": "passed_provider_free"
+  },
+  "maximum_writer_attempts": 3,
+  "call_ceilings": {
+    "codex_sol_family": 14,
+    "deepseek_family": 6
+  },
+  "creator_balance_before_run": {
+    "codex_sol_family": 567,
+    "deepseek_family": 696
+  },
+  "terminal_capture": {
+    "launcher_path": "scripts/run_cera_stage_with_terminal_capture.ps1",
+    "launcher_sha256": "9fee269f67586fc458a0b3b2b1288ca550bb2eb46c7fbf6becb6c0f753d6e295",
+    "result_path": ".chatgpt/operations/overnight/GOAL_3_STAGE3_V14_RESULT.json"
+  },
+  "excluded_effects": [
+    "production_route_change",
+    "installed_sillytavern_change",
+    "source_database_change",
+    "remote_operation",
+    "deployment",
+    "merge",
+    "push",
+    "public_or_lan_exposure"
+  ],
+  "provider_calls_before_dispatch": {
+    "codex_sol_family": 0,
+    "deepseek_family": 0
+  },
+  "offline_authority_gate": "passed"
+}

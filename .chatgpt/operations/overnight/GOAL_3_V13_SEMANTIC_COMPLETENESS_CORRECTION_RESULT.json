@@ -1,0 +1,109 @@
+{
+  "schema_version": "cera.overnight_provider_free_correction_result.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0015",
+  "goal": 3,
+  "status": "passed_provider_free",
+  "completed_at_utc": "2026-08-06T16:09:39Z",
+  "failed_identity": "2026-08-06-cera-sequence-first-stage3-live-v13",
+  "failed_result_sha256": "e0420ba9284fa8da1fca08f54d5d99ff6af589b743ba8dc48bd0eaa18e6c8687",
+  "failed_trigger_sha256": "5068597a2c87776a4f96305040cae3f58f62b2e365fc758c8ba03a968ecd01d6",
+  "manager_classification_sha256": "69fee7a4e59ebd4a305b9d80d633c0cd6d7d135ca27867187d198e2296f1dc9b",
+  "source_commit": "471a849fd00d59164b3a440d9aadf052bc3e2b67",
+  "source_tree": "a500ccbd44324d329e4b344ff30471a69974a72e",
+  "changed_paths": [
+    ".chatgpt/operations/self-continuation/LATEST.json",
+    "src/cera/sequence_first/prompting.py",
+    "src/cera/sequence_first/provider.py",
+    "tests/test_sequence_first_runtime_v1.py"
+  ],
+  "correction": {
+    "planner": "Content-bearing dialogue items must state the communicative proposition. When evidence does not determine it, Planner may author the smallest compatible scene-local NPC-owned subjective or noncommittal proposition without creating an unplanned future-relevant fact.",
+    "validator": "A semantically complete intended item is creative authority for its exact NPC-owned proposition. Faithful paraphrase is acceptable; substitute or expanded propositions and implicit non-answers remain rejectable.",
+    "writer_changed": false,
+    "reader_changed": false,
+    "schema_or_dto_changed": false,
+    "python_semantic_classifier_added": false,
+    "phrase_specific_production_rule_added": false
+  },
+  "exact_v13_fixture_proof": {
+    "test_path": ".chatgpt/pf/q0063_goal3_v13_planner_dialogue_semantic_completeness/test_exact_v13_planner_dialogue_semantic_completeness.py",
+    "test_sha256": "b0c19fa0a7bb6851ef553f5f3a84942808941f1e12188cecdb2ceedcf1e054da",
+    "frozen_v13_pairs_rejected": 3,
+    "corrected_planner_proposition_paraphrase_accepted": true,
+    "accepted_realized_sequence_cites_planner_items": true,
+    "unplanned_durable_changes": 0,
+    "unplanned_presence_changes": 0,
+    "unplanned_material_expansion_rejected": true,
+    "required_answer_non_answer_rejected": true,
+    "explicitly_planned_non_answer_accepted": true,
+    "protected_and_background_controls_rejected": 4,
+    "provider_output_schema_unchanged": true
+  },
+  "tests": {
+    "compile_import": "passed",
+    "focused": {
+      "passed": 96,
+      "failed": 0
+    },
+    "exact_frozen_regression": "passed",
+    "complete_suite": {
+      "passed": 1223,
+      "skipped": 3,
+      "failures": 0,
+      "errors": 0,
+      "duration_seconds": 758.774
+    }
+  },
+  "role_identities": {
+    "planner": {
+      "route": "cera_sequence_first_planner_sol_medium_v8",
+      "adapter": "cera.sequence_first.planner_adapter.v8",
+      "prompt": "cera.sequence_first.planner_prompt.v6",
+      "instructions_sha256": "5d5610248aa77223fac8435c257b61ff1843efd4ac192e3576a87c19ce384fd1",
+      "changed": true
+    },
+    "validator": {
+      "route": "cera_sequence_first_validator_gpt-5.6-sol_medium_v11",
+      "adapter": "cera.sequence_first.validator_adapter.v11",
+      "prompt": "cera.sequence_first.validator_prompt.v9",
+      "instructions_sha256": "1e16700fe2c77045c49aa9e54dfdfd414af81eddbe1f3417f2c075d77e92c73b",
+      "changed": true
+    },
+    "writer": {
+      "route": "deepseek_composer_deepseek-v4-flash",
+      "adapter": "cera.sequence_first.writer_adapter.v1",
+      "prompt": "cera.sequence_first.writer_prompt.v1",
+      "instructions_sha256": "32d9c28aa46221c974eb2f3852b79fde95d5de02ccbbac7bc61db82b8be8ffdf",
+      "changed": false
+    },
+    "reader": {
+      "route": "cera_sequence_first_reader_gpt-5.6-sol_medium_v3",
+      "adapter": "cera.sequence_first.reader_adapter.v3",
+      "prompt": "cera.sequence_first.reader_prompt.v2",
+      "instructions_sha256": "f2f3ee609b0226a2de2b0f2abea319857ebafe904369f52e8d3afe8272db3943",
+      "changed": false
+    }
+  },
+  "self_continuation_plan": {
+    "path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0063_0062_goal3-planner-dialogue-semantic-completeness-v1.md",
+    "sha256": "fcfeb27413597c5a80eb58266c46778f7ca99f01ee1dc4302615fc8a51e0b2bf"
+  },
+  "provider_calls_during_correction": {
+    "codex_sol_family": 0,
+    "deepseek_family": 0
+  },
+  "creator_balance_before_v14": {
+    "codex_sol_family": 567,
+    "deepseek_family": 696
+  },
+  "protected_effects": {
+    "story_authority_write": false,
+    "source_database_changed": false,
+    "installed_sillytavern_changed": false,
+    "production_route_changed": false,
+    "deployment_performed": false,
+    "merge_or_push_performed": false,
+    "remote_operation_performed": false
+  }
+}

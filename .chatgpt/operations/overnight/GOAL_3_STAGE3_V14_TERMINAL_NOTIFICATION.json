@@ -1,0 +1,52 @@
+{
+  "schema_version": "cera.overnight_goal_terminal_notification.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0015",
+  "goal": 3,
+  "status": "terminal_distinct_writer_boundary_noncompliance",
+  "run_id": "2026-08-06-cera-sequence-first-stage3-live-v14",
+  "completed_at_utc": "2026-08-06T16:24:08Z",
+  "run_authority_path": ".chatgpt/operations/overnight/GOAL_3_STAGE3_V14_RUN_AUTHORITY.json",
+  "run_authority_receipt_sha256": "27e1edcb292516cadd052acb6e4146f63f119675c3fbacdc0760c8b44dcfaef6",
+  "result_path": ".chatgpt/operations/overnight/GOAL_3_STAGE3_V14_RESULT.json",
+  "result_sha256": "76fef26332a76e849cc195f120d42dba01b444db199809d72c59985e35a3c7a8",
+  "trigger_signature_path": ".chatgpt/operations/overnight/GOAL_3_STAGE3_V14_TRIGGER_SIGNATURE.json",
+  "trigger_signature_sha256": "3a5175bab53edeb0242b96b61231ad7578267305d73bfc97456536c46e0dad50",
+  "diagnosis_path": ".chatgpt/operations/overnight/GOAL_3_STAGE3_V14_PROVIDER_FREE_DIAGNOSIS.json",
+  "diagnosis_sha256": "1e09e5fb27ffc2bab7d6ad27a54f82aca457527ad39fa9e0c03e3913f3fa1c50",
+  "provider_ledger_path": ".chatgpt/pf/q0063_sequence_first_stage3_live_v14/PROVIDER_CALL_LEDGER.jsonl",
+  "provider_ledger_sha256": "985f65bf5d8b86ea72ef14bb0546afbe72271c5ca9e26847eda8f28c0d36c5c3",
+  "provider_calls": {
+    "codex_sol_family": 4,
+    "deepseek_family": 3
+  },
+  "combined_remaining_creator_balance": {
+    "codex_sol_family": 563,
+    "deepseek_family": 693
+  },
+  "call_roles": {
+    "planner": 1,
+    "writer": 3,
+    "validator": 3,
+    "reader": 0
+  },
+  "writer_request_sha256": "1562f015867a2ba4d1f7ef67f350f41f8047859a29ec238580e0e849de8c1b60",
+  "writer_requests_byte_identical": true,
+  "terminalization": {
+    "planner_thread_archived": true,
+    "planner_thread_resumable": false,
+    "validator_threads_archived_and_nonresumable": 3,
+    "all_operation_evidence_terminal": true
+  },
+  "failure": {
+    "stage": "sequence_first_validator",
+    "role": "writer",
+    "code": "writer_background_or_protected_boundary_noncompliance",
+    "three_writer_attempts_exhausted": true,
+    "reader_dispatched": false,
+    "v13_semantic_incompleteness_recurred": false
+  },
+  "protected_effect_change": false,
+  "failed_identity_reusable": false,
+  "next_action": "manager classification of distinct Writer instruction-adherence root; no further provider call under V14"
+}

@@ -1,0 +1,1 @@
+{"event":"cera_sillytavern_error","http_status":400,"code":"cera_turn_failed","stage":"sillytavern_adapter","message":"sequence-first candidate failed qualification","diagnostics":[]}

@@ -1,0 +1,1 @@
+{"additionalProperties":false,"properties":{"schema_version":{"const":"cera.scene_writer_draft.v1","type":"string"},"story_text":{"type":"string"}},"required":["schema_version","story_text"],"type":"object"}

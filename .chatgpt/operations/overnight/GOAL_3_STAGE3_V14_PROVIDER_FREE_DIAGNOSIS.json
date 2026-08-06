@@ -1,0 +1,77 @@
+{
+  "schema_version": "cera.overnight_provider_free_diagnosis.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0015",
+  "goal": 3,
+  "run_id": "2026-08-06-cera-sequence-first-stage3-live-v14",
+  "result_path": ".chatgpt/operations/overnight/GOAL_3_STAGE3_V14_RESULT.json",
+  "result_sha256": "76fef26332a76e849cc195f120d42dba01b444db199809d72c59985e35a3c7a8",
+  "provider_ledger_path": ".chatgpt/pf/q0063_sequence_first_stage3_live_v14/PROVIDER_CALL_LEDGER.jsonl",
+  "provider_ledger_sha256": "985f65bf5d8b86ea72ef14bb0546afbe72271c5ca9e26847eda8f28c0d36c5c3",
+  "classification": "distinct_writer_background_and_protected_boundary_noncompliance",
+  "v13_semantic_incompleteness_recurred": false,
+  "corrected_validator_root_recurred": false,
+  "request_reference_root_recurred": false,
+  "proposition_attribution_root_recurred": false,
+  "analysis": {
+    "planner_proposition": "Hana warmly conveys that dinner went well from her perspective, without adding unprovided details.",
+    "planner_supplied_authoritative_answer_content": true,
+    "writer_request_sha256": "1562f015867a2ba4d1f7ef67f350f41f8047859a29ec238580e0e849de8c1b60",
+    "writer_requests_byte_identical": true,
+    "writer_feedback_contamination": false,
+    "writer_outputs_merged": false,
+    "writer_attempts": [
+      {
+        "attempt": 1,
+        "outcome": "correct_reject_material_addition",
+        "conflict_class": "material_addition",
+        "exact_quote": "Mia leaned quietly against the archway, her arms folded, her gaze soft and patient",
+        "reason": "The candidate assigned the Python-derived backgrounded NPC a new posture and expressive/private state without a Mia-owned intended item."
+      },
+      {
+        "attempt": 2,
+        "outcome": "correct_reject_material_addition",
+        "conflict_class": "material_addition",
+        "exact_quote": "watching the exchange",
+        "reason": "The candidate assigned the backgrounded NPC active attention without a Mia-owned intended item; it also added Hana's unplanned statement that she was glad Ted came."
+      },
+      {
+        "attempt": 3,
+        "outcome": "correct_reject_protected_user_invention",
+        "conflict_class": "protected_user_invention",
+        "exact_quote": "Ted shut the door behind him",
+        "reason": "The candidate invented a protected-user action beyond the exact current source and also supplied new backgrounded-NPC staging."
+      }
+    ],
+    "root_observation": "The Planner correction worked and selected a complete low-consequence NPC-owned proposition. The frozen two-field Writer request explicitly allowed omission of backgrounded Mia and prohibited new backgrounded activity and protected-user behavior, yet all three independent DeepSeek candidates introduced at least one forbidden boundary-crossing detail. The fresh Validator correctly rejected each candidate.",
+    "manager_decision_required": "Classify this distinct Writer instruction-adherence failure. Do not weaken the Validator, activate a retry beyond the exhausted three-attempt bound, add feedback contamination, merge candidates, or rename it as the resolved V13 semantic-completeness root."
+  },
+  "provider_calls": {
+    "codex_sol_family": 4,
+    "deepseek_family": 3
+  },
+  "creator_balance_after_run": {
+    "codex_sol_family": 563,
+    "deepseek_family": 693
+  },
+  "protected_effects": {
+    "accepted_turns": 0,
+    "promotion_receipt_present": false,
+    "story_authority_write": false,
+    "source_database_changed": false,
+    "installed_sillytavern_changed": false,
+    "production_route_changed": false,
+    "remote_operation_performed": false
+  },
+  "terminalization": {
+    "all_seven_operation_directories_terminal": true,
+    "three_validator_threads_archived_nonresumable": true,
+    "planner_thread_archived_nonresumable": true,
+    "reader_calls": 0
+  },
+  "pointer_after_terminal": {
+    "roadmap_revision": "0015",
+    "sha256": "b7b2cd9571d98ded04a7c3fb91ac7b2520ca4ed2efcc20622029be04f48d8840"
+  },
+  "provider_disposition": "stopped_for_manager_classification"
+}
