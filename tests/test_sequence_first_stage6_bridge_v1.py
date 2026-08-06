@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from dataclasses import replace
 import json
 import socket
 from threading import Thread
@@ -10,7 +11,7 @@ from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
 from cera.continuous.world import ContinuousWorldStore
-from cera.errors import ContractValidationError
+from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import text_sha256
 from cera.sequence_first import (
     ConflictClass,
@@ -170,6 +171,35 @@ class ValidatorFactoryFake:
         return session
 
 
+class RetryingValidatorSessionFake:
+    def __init__(self) -> None:
+        self.archived = False
+
+    def validate(self, request):
+        return ValidatorDecisionV1(
+            verdict=ValidatorVerdict.REJECT,
+            realized_sequence=None,
+            conflict=ValidationConflictV1(
+                conflict_class=ConflictClass.MATERIAL_ADDITION,
+                concise_explanation="The candidate adds an unauthorized consequence.",
+                exact_quote=request.exact_writer_prose,
+            ),
+        )
+
+    def archive_and_prove_nonresumable(self) -> None:
+        self.archived = True
+
+
+class RetryingValidatorFactoryFake:
+    def __init__(self) -> None:
+        self.sessions = []
+
+    def create_sequence_first_validator(self):
+        session = RetryingValidatorSessionFake()
+        self.sessions.append(session)
+        return session
+
+
 class ReaderFake:
     def __init__(self) -> None:
         self.calls = 0
@@ -278,7 +308,10 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 VoiceCueV1("character:hana", "Warm and direct."),
                 VoiceCueV1("character:mia", "Bright and concise."),
             ),
-            hard_boundaries=("Do not invent Ted's response.",),
+            hard_boundaries=(
+                "Do not invent Ted speech or dialogue.",
+                "Do not invent Ted thoughts or feelings.",
+            ),
         )
 
     def runtime(
@@ -289,10 +322,14 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
         reject: bool = False,
         prose: str = "Hana asks Ted what he would like to do next.",
         authority: SequenceFirstAcceptedAuthorityV1 | None = None,
+        validator_factory=None,
     ):
         planner = PlannerFake(plans)
         writer = WriterFake(prose)
-        validator = ValidatorFactoryFake(reject=reject, quote=prose if reject else None)
+        validator = validator_factory or ValidatorFactoryFake(
+            reject=reject,
+            quote=prose if reject else None,
+        )
         reader = ReaderFake()
         assembler = StaticAcceptedWorldAuthorityAssembler(
             authority or self.projection()
@@ -605,6 +642,112 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 )
                 self.assertEqual(decision["status"], "rejected")
                 self.assertEqual(store.tree_sha256(active), before)
+            finally:
+                server.shutdown()
+                server.server_close()
+                worker.join(timeout=5)
+
+    def test_exhausted_http_run_retains_restart_readable_planned_terminal_only(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            store = ContinuousWorldStore(root)
+            validator = RetryingValidatorFactoryFake()
+            bridge, _, writer, _, reader = self.runtime(
+                store,
+                [sequence()],
+                prose="The candidate adds an unauthorized consequence.",
+                validator_factory=validator,
+            )
+            adapter = SequenceFirstStage6HttpAdapter(
+                bridge=bridge,
+                world_id="world-test",
+                branch_id="branch-main",
+                session_id="sequence-exhausted",
+                initial_scene=ExplicitSceneInitializationV1(
+                    scene_id="scene-entry",
+                    accepted_present_character_ids=("character:ted", "character:hana"),
+                    current_public_scene_state="Ted and Hana are in the entry room.",
+                ),
+            )
+            port = self._free_port()
+            server = build_server(
+                adapter,
+                CeraSillyTavernServerConfig(
+                    host="127.0.0.1",
+                    port=port,
+                    model=CERA_SEQUENCE_FIRST_STAGE6_MODEL,
+                    service="sequence-first-stage6-exhausted-test",
+                ),
+            )
+            worker = Thread(target=server.serve_forever, daemon=True)
+            worker.start()
+            source = "Continue the scene."
+            try:
+                branch_root = store.initialize("world-test", "branch-main")
+                active = branch_root / "ACTIVE"
+                active_before = store.tree_sha256(active)
+                with self.assertRaises(HTTPError) as failure:
+                    self._post_json(
+                        f"http://127.0.0.1:{port}/v1/chat/completions",
+                        {
+                            "model": CERA_SEQUENCE_FIRST_STAGE6_MODEL,
+                            "messages": [{"role": "user", "content": source}],
+                            "stream": False,
+                            "cera_session_id": "sequence-exhausted",
+                            "cera_profile_id": SEQUENCE_FIRST_STAGE6_PROFILE,
+                        },
+                    )
+                self.assertEqual(failure.exception.code, 400)
+                self.assertEqual(writer.calls, 3)
+                self.assertEqual(len(validator.sessions), 3)
+                self.assertTrue(all(value.archived for value in validator.sessions))
+                self.assertEqual(reader.calls, 0)
+                self.assertEqual(store.tree_sha256(active), active_before)
+                self.assertFalse(adapter.reasoner_session_status["creator_review_unresolved"])
+
+                turn_id = f"turn-0001-{text_sha256(source)[:12]}"
+                restarted = SequenceFirstWorldTransaction(
+                    ContinuousWorldStore(root)
+                )
+                artifact = restarted.load_planned_terminal(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                    turn_id=turn_id,
+                )
+                self.assertEqual(artifact.primary_sequence_status.value, "planned")
+                self.assertEqual(artifact.request.custody.turn_id, turn_id)
+                self.assertEqual(
+                    artifact.request.custody.exact_source_sha256,
+                    text_sha256(source),
+                )
+                self.assertEqual(len(artifact.attempt_receipts), 3)
+                self.assertIsNotNone(artifact.terminal_validator_decision)
+                self.assertIsNone(artifact.terminal_reader_verdict)
+                self.assertEqual(artifact.applied_story_effect_ids, ())
+                self.assertEqual(artifact.applied_presence_effect_ids, ())
+                self.assertEqual(artifact.applied_durable_effect_ids, ())
+                self.assertFalse(artifact.promotion_receipt_created)
+                self.assertFalse(artifact.unresolved_creator_review_created)
+                self.assertEqual(tuple((active / "Events").glob("*.json")), ())
+                self.assertFalse(
+                    (
+                        branch_root
+                        / "CANDIDATES"
+                        / turn_id
+                        / "PROMOTION_RECEIPT.json"
+                    ).exists()
+                )
+
+                # Identical bytes are idempotent; conflicting replay fails closed.
+                restarted.write_planned_terminal(artifact)
+                with self.assertRaisesRegex(
+                    StateConflictError,
+                    "planned terminal artifact changed during acceptance recovery",
+                ):
+                    restarted.write_planned_terminal(
+                        replace(artifact, provider_calls=artifact.provider_calls + 1)
+                    )
+                self.assertEqual(store.tree_sha256(active), active_before)
             finally:
                 server.shutdown()
                 server.server_close()

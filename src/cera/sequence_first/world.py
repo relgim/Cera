@@ -20,6 +20,7 @@ from cera.continuous.record_policy import (
     validate_persistence_field_path,
     validate_post_edit_record,
 )
+from cera.continuous.path_custody import ensure_parent_chain
 from cera.continuous.world import (
     ContinuousBranchMaterializationReceiptV2,
     ContinuousWorldStore,
@@ -30,6 +31,7 @@ from cera.continuous.world import (
 from .contracts import (
     SequenceDraftV1,
     SequenceFirstCandidateV1,
+    SequenceFirstPlannedTerminalArtifactV1,
     TargetOperationKind,
     apply_presence_changes,
 )
@@ -38,6 +40,7 @@ from .contracts import (
 SEQUENCE_FIRST_ACCEPTANCE_JOURNAL = "cera.sequence_first.acceptance_journal.v1"
 SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V1 = "cera.sequence_first.accepted_story_artifact.v1"
 SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V2 = "cera.sequence_first.accepted_story_artifact.v2"
+SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V3 = "cera.sequence_first.accepted_story_artifact.v3"
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,6 +109,75 @@ class SequenceFirstWorldTransaction:
         ):
             raise StateConflictError("accepted turn lineage is invalid")
         return len(accepted)
+
+    def write_planned_terminal(
+        self,
+        artifact: SequenceFirstPlannedTerminalArtifactV1,
+    ) -> Path:
+        """Write immutable failed-run custody without changing accepted ACTIVE."""
+
+        custody = artifact.request.custody
+        root = self.store.initialize(custody.world_id, custody.branch_id)
+        active = root / "ACTIVE"
+        active_before = self.store.tree_sha256(active)
+        if (
+            custody.accepted_head_sha256 is not None
+            and active_before != custody.accepted_head_sha256
+        ):
+            raise StateConflictError(
+                "accepted ACTIVE head changed before planned terminal write"
+            )
+        path = (
+            root
+            / "TERMINAL"
+            / "SEQUENCE_FIRST"
+            / _identity_filename(custody.turn_id, ".planned.json")
+        )
+        ensure_parent_chain(
+            self.store.runtime_root,
+            path.relative_to(self.store.runtime_root).as_posix(),
+        )
+        self.store._write_idempotent_json(
+            path,
+            to_primitive(artifact),
+            "sequence-first planned terminal artifact",
+        )
+        if self.store.tree_sha256(active) != active_before:
+            raise StateConflictError("planned terminal write changed accepted ACTIVE")
+        return path
+
+    def load_planned_terminal(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+        turn_id: str,
+    ) -> SequenceFirstPlannedTerminalArtifactV1:
+        """Restart-read one exact branch-local planned terminal artifact."""
+
+        from cera.schema import from_mapping
+
+        root = self.store.initialize(world_id, branch_id)
+        path = (
+            root
+            / "TERMINAL"
+            / "SEQUENCE_FIRST"
+            / _identity_filename(turn_id, ".planned.json")
+        )
+        if not path.is_file():
+            raise StateConflictError("planned terminal artifact is unavailable")
+        artifact = from_mapping(
+            SequenceFirstPlannedTerminalArtifactV1,
+            json.loads(path.read_text(encoding="utf-8")),
+        )
+        custody = artifact.request.custody
+        if (
+            custody.world_id != world_id
+            or custody.branch_id != branch_id
+            or custody.turn_id != turn_id
+        ):
+            raise StateConflictError("planned terminal artifact changed scope")
+        return artifact
 
     def commit(
         self,
@@ -244,7 +316,7 @@ class SequenceFirstWorldTransaction:
         self.store._write_json(
             event_path,
             {
-                "schema_version": SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V2,
+                "schema_version": SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V3,
                 "_cera_revision": 1,
                 "world_id": custody.world_id,
                 "branch_id": custody.branch_id,
@@ -257,7 +329,8 @@ class SequenceFirstWorldTransaction:
                 "realized_sequence": to_primitive(candidate.realized_sequence.semantic),
                 "realized_sequence_binding_sha256": candidate.realized_sequence.semantic.semantic_sha256,
                 "primary_sequence_status": "realized",
-                "acceptance_basis": "automatic_qualification",
+                "qualification_basis": "validator_and_reader_qualified",
+                "creator_acceptance_basis": "explicit_creator_acceptance",
                 "resulting_present_character_ids": resulting_presence,
                 "candidate_sha256": candidate.candidate_sha256,
             },
@@ -354,6 +427,23 @@ class SequenceFirstWorldTransaction:
             or event.get("accepted_turn_id") != turn_id
         ):
             raise StateConflictError("accepted sequence-first artifact changed scope")
+        schema_version = event.get("schema_version")
+        if schema_version == SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V3:
+            if (
+                event.get("qualification_basis")
+                != "validator_and_reader_qualified"
+                or event.get("creator_acceptance_basis")
+                != "explicit_creator_acceptance"
+                or "acceptance_basis" in event
+            ):
+                raise StateConflictError(
+                    "accepted sequence-first artifact changed acceptance provenance"
+                )
+        elif schema_version not in {
+            SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V1,
+            SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V2,
+        }:
+            raise StateConflictError("accepted sequence-first artifact schema changed")
         event_branch_id = str(event.get("branch_id", ""))
         if event_branch_id != branch_id and not _materialization_authorizes_event(
             root=root,

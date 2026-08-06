@@ -9,11 +9,17 @@ name, alias, mention, retrieval, cast, responder, or salience inference.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
 from typing import Any, Mapping
 
 from cera.errors import ContractValidationError
 from cera.sequence_first.accepted_world import AcceptedWorldAuthorityAssemblerPort
-from cera.sequence_first.contracts import SequenceFirstTurnRequestV1
+from cera.sequence_first.contracts import (
+    PrimarySequenceStatus,
+    SequenceFirstPlannedTerminalArtifactV1,
+    SequenceFirstTurnRequestV1,
+)
+from cera.serialization import canonical_json, canonical_sha256, text_sha256
 from cera.sequence_first.runtime import (
     SequenceFirstCoordinator,
     SequenceFirstRunResultV1,
@@ -193,6 +199,60 @@ class SequenceFirstStage6Bridge:
         return self._adapter.generate(
             ingress=prepared.ingress,
             accepted_state=prepared.accepted_state,
+        )
+
+    def retain_planned_terminal(
+        self,
+        prepared: SequenceFirstPreparedStage6TurnV1,
+        result: SequenceFirstRunResultV1,
+        *,
+        provider_calls: int,
+        provider_evidence_json: str,
+    ) -> SequenceFirstPlannedTerminalArtifactV1:
+        if result.candidate is not None:
+            raise ContractValidationError(
+                "qualified Stage 6 result cannot become a planned terminal"
+            )
+        if result.intended_sequence.custody != prepared.request.custody:
+            raise ContractValidationError(
+                "planned Stage 6 result changed prepared request custody"
+            )
+        # Parse and canonicalize once so the retained hash binds JSON rather
+        # than caller formatting.
+        canonical_provider_evidence = canonical_json(
+            json.loads(provider_evidence_json)
+        )
+        artifact = SequenceFirstPlannedTerminalArtifactV1(
+            schema_version=SequenceFirstPlannedTerminalArtifactV1.SCHEMA_VERSION,
+            request=prepared.request,
+            request_binding_sha256=canonical_sha256(prepared.request),
+            intended_sequence=result.intended_sequence,
+            intended_sequence_binding_sha256=(
+                result.intended_sequence.binding_sha256
+            ),
+            primary_sequence_status=PrimarySequenceStatus.PLANNED,
+            attempt_receipts=result.attempt_receipts,
+            terminal_validator_decision=result.terminal_validator_decision,
+            terminal_reader_verdict=result.terminal_reader_verdict,
+            provider_calls=provider_calls,
+            provider_evidence_json_sha256=text_sha256(
+                canonical_provider_evidence
+            ),
+        )
+        self._transaction.write_planned_terminal(artifact)
+        return artifact
+
+    def load_planned_terminal(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+        turn_id: str,
+    ) -> SequenceFirstPlannedTerminalArtifactV1:
+        return self._transaction.load_planned_terminal(
+            world_id=world_id,
+            branch_id=branch_id,
+            turn_id=turn_id,
         )
 
     def accept_and_reload(

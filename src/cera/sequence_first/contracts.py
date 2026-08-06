@@ -149,6 +149,12 @@ class ReaderStatus(StrEnum):
     INCONCLUSIVE = "inconclusive"
 
 
+class RetryFeedbackScope(StrEnum):
+    EXACT_QUOTE = "exact_quote"
+    OMITTED_PLANNER_ITEM = "omitted_planner_item"
+    WHOLE_CANDIDATE_QUALITY = "whole_candidate_quality"
+
+
 class WriterAttemptStatus(StrEnum):
     VALIDATOR_REJECTED = "validator_rejected"
     READER_REJECTED = "reader_rejected"
@@ -1027,16 +1033,38 @@ class ReaderIssueV1:
     issue_code: str
     concise_explanation: str
     exact_quote: str | None = None
+    omitted_planner_item_key: str | None = None
+    feedback_scope: RetryFeedbackScope | None = None
 
     def __post_init__(self) -> None:
         _key(self.issue_code, "reader_issue.issue_code")
         _text(self.concise_explanation, "reader_issue.concise_explanation", maximum=1_000)
         _optional_text(self.exact_quote, "reader_issue.exact_quote", maximum=1_000)
+        if self.omitted_planner_item_key is not None:
+            _key(self.omitted_planner_item_key, "reader_issue.omitted_planner_item_key")
+        scope = self.feedback_scope
+        if scope is None:
+            scope = (
+                RetryFeedbackScope.EXACT_QUOTE
+                if self.exact_quote is not None
+                else RetryFeedbackScope.OMITTED_PLANNER_ITEM
+                if self.omitted_planner_item_key is not None
+                else RetryFeedbackScope.WHOLE_CANDIDATE_QUALITY
+            )
+            object.__setattr__(self, "feedback_scope", scope)
+        if scope is RetryFeedbackScope.EXACT_QUOTE:
+            valid = self.exact_quote is not None and self.omitted_planner_item_key is None
+        elif scope is RetryFeedbackScope.OMITTED_PLANNER_ITEM:
+            valid = self.exact_quote is None and self.omitted_planner_item_key is not None
+        else:
+            valid = self.exact_quote is None and self.omitted_planner_item_key is None
+        if not valid:
+            raise ContractValidationError("Reader issue feedback scope is inconsistent")
 
 
 @dataclass(frozen=True, slots=True)
 class ReaderVerdictV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.reader_verdict.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.reader_verdict.v2"
 
     status: ReaderStatus
     issues: tuple[ReaderIssueV1, ...] = ()
@@ -1069,6 +1097,7 @@ class WriterRetryFeedbackV1:
     required_correction: str
     exact_quote: str | None = None
     omitted_planner_item_key: str | None = None
+    feedback_scope: RetryFeedbackScope | None = None
 
     def __post_init__(self) -> None:
         if self.owner not in {"validator", "reader"}:
@@ -1080,10 +1109,28 @@ class WriterRetryFeedbackV1:
         _optional_text(self.exact_quote, "retry_feedback.exact_quote", maximum=1_000)
         if self.omitted_planner_item_key is not None:
             _key(self.omitted_planner_item_key, "retry_feedback.omitted_planner_item_key")
-        if (self.exact_quote is None) == (self.omitted_planner_item_key is None):
-            raise ContractValidationError(
-                "retry feedback requires exactly one quote or omitted Planner item"
+        scope = self.feedback_scope
+        if scope is None:
+            scope = (
+                RetryFeedbackScope.EXACT_QUOTE
+                if self.exact_quote is not None
+                else RetryFeedbackScope.OMITTED_PLANNER_ITEM
+                if self.omitted_planner_item_key is not None
+                else RetryFeedbackScope.WHOLE_CANDIDATE_QUALITY
             )
+            object.__setattr__(self, "feedback_scope", scope)
+        if scope is RetryFeedbackScope.EXACT_QUOTE:
+            valid = self.exact_quote is not None and self.omitted_planner_item_key is None
+        elif scope is RetryFeedbackScope.OMITTED_PLANNER_ITEM:
+            valid = self.exact_quote is None and self.omitted_planner_item_key is not None
+        else:
+            valid = (
+                self.owner == "reader"
+                and self.exact_quote is None
+                and self.omitted_planner_item_key is None
+            )
+        if not valid:
+            raise ContractValidationError("retry feedback scope is inconsistent")
 
 
 @dataclass(frozen=True, slots=True)
@@ -1109,6 +1156,65 @@ class WriterAttemptReceiptV1:
             raise ContractValidationError("Writer retry feedback hash is invalid")
         if self.status is WriterAttemptStatus.ACCEPTED and self.concise_reason is not None:
             raise ContractValidationError("accepted Writer attempt cannot have a rejection reason")
+
+
+@dataclass(frozen=True, slots=True)
+class SequenceFirstPlannedTerminalArtifactV1:
+    """Immutable failed-qualification custody outside accepted story authority."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.planned_terminal.v1"
+
+    schema_version: str
+    request: SequenceFirstTurnRequestV1
+    request_binding_sha256: str
+    intended_sequence: BoundSequenceV1
+    intended_sequence_binding_sha256: str
+    primary_sequence_status: PrimarySequenceStatus
+    attempt_receipts: tuple[WriterAttemptReceiptV1, ...]
+    terminal_validator_decision: ValidatorDecisionV1 | None
+    terminal_reader_verdict: ReaderVerdictV1 | None
+    provider_calls: int
+    provider_evidence_json_sha256: str
+    applied_story_effect_ids: tuple[str, ...] = ()
+    applied_presence_effect_ids: tuple[str, ...] = ()
+    applied_durable_effect_ids: tuple[str, ...] = ()
+    promotion_receipt_created: bool = False
+    unresolved_creator_review_created: bool = False
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("planned terminal schema changed")
+        if self.primary_sequence_status is not PrimarySequenceStatus.PLANNED:
+            raise ContractValidationError("planned terminal has non-planned status")
+        if self.request.custody != self.intended_sequence.custody:
+            raise ContractValidationError("planned terminal request custody changed")
+        if self.intended_sequence.role is not SequenceRole.INTENDED:
+            raise ContractValidationError("planned terminal lacks intended sequence")
+        if self.request_binding_sha256 != canonical_sha256(self.request):
+            raise ContractValidationError("planned terminal request binding changed")
+        if self.intended_sequence_binding_sha256 != self.intended_sequence.binding_sha256:
+            raise ContractValidationError("planned terminal sequence binding changed")
+        if self.terminal_validator_decision is None and self.terminal_reader_verdict is None:
+            raise ContractValidationError("planned terminal lacks terminal qualification evidence")
+        if type(self.provider_calls) is not int or self.provider_calls < 0:
+            raise ContractValidationError("planned terminal provider count is invalid")
+        if len(self.provider_evidence_json_sha256) != 64 or any(
+            value not in "0123456789abcdef"
+            for value in self.provider_evidence_json_sha256
+        ):
+            raise ContractValidationError("planned terminal provider evidence hash is invalid")
+        if (
+            self.applied_story_effect_ids
+            or self.applied_presence_effect_ids
+            or self.applied_durable_effect_ids
+            or self.promotion_receipt_created
+            or self.unresolved_creator_review_created
+        ):
+            raise ContractValidationError("planned terminal cannot contain accepted effects")
+
+    @property
+    def artifact_sha256(self) -> str:
+        return canonical_sha256(self)
 
 
 @dataclass(frozen=True, slots=True)

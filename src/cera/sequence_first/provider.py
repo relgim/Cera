@@ -54,10 +54,10 @@ from .prompting import (
 
 SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v8"
 SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v7"
-SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v11"
-SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v10"
-SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v3"
-SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v2"
+SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v12"
+SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v11"
+SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v4"
+SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v3"
 SEQUENCE_FIRST_WRITER_ADAPTER = "cera.sequence_first.writer_adapter.v1"
 SEQUENCE_FIRST_WRITER_PROMPT = "cera.sequence_first.writer_prompt.v2"
 
@@ -78,7 +78,7 @@ def sequence_first_planner_route():
 def sequence_first_validator_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_validator_{model}_{effort}_v11",
+        route_id=f"cera_sequence_first_validator_{model}_{effort}_v12",
         adapter_id=SEQUENCE_FIRST_VALIDATOR_ADAPTER,
         prompt_version=SEQUENCE_FIRST_VALIDATOR_PROMPT,
         maximum_output_tokens=8_192,
@@ -91,7 +91,7 @@ def sequence_first_validator_route(*, model: str, effort: str):
 def sequence_first_reader_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_reader_{model}_{effort}_v3",
+        route_id=f"cera_sequence_first_reader_{model}_{effort}_v4",
         adapter_id=SEQUENCE_FIRST_READER_ADAPTER,
         prompt_version=SEQUENCE_FIRST_READER_PROMPT,
         maximum_output_tokens=4_096,
@@ -393,12 +393,25 @@ def validator_decision_json_schema(
     )
 
 
-def reader_verdict_json_schema() -> dict:
+def reader_verdict_json_schema(
+    *,
+    planner_item_keys: tuple[str, ...] = (),
+) -> dict:
+    omitted_planner_item_key = _closed_nullable(values=planner_item_keys)
     issue = _strict_object(
         {
             "issue_code": _local_key(),
             "concise_explanation": {"type": "string"},
+            "feedback_scope": {
+                "type": "string",
+                "enum": [
+                    "exact_quote",
+                    "omitted_planner_item",
+                    "whole_candidate_quality",
+                ],
+            },
             "exact_quote": _nullable({"type": "string"}),
+            "omitted_planner_item_key": omitted_planner_item_key,
         }
     )
     return _strict_object(
@@ -687,6 +700,12 @@ class SequenceFirstReaderCodexPort:
         self.last_provider_result: ContinuousProviderResultV1 | None = None
 
     def read(self, request: SequenceFirstReaderInputV1) -> ReaderVerdictV1:
+        planner_item_keys = tuple(
+            item.item_key for item in request.intended_sequence.items
+        )
+        output_schema = reader_verdict_json_schema(
+            planner_item_keys=planner_item_keys
+        )
         thread_id = self.lifecycle.start_stored_thread()
         stored_thread_sha256 = text_sha256(thread_id)
         self._operation_index += 1
@@ -704,7 +723,7 @@ class SequenceFirstReaderCodexPort:
         def dispatch(markers):
             return transport.invoke(
                 reader_prompt(request),
-                output_schema=reader_verdict_json_schema(),
+                output_schema=output_schema,
                 mcp_binding=None,
                 on_worker_started=markers.mark_worker_started,
                 on_worker_preflight=markers.mark_worker_preflight,
@@ -737,7 +756,7 @@ class SequenceFirstReaderCodexPort:
                     if self.operation_evidence is None
                     else self.operation_evidence.request(
                         request_bytes=reader_prompt(request).encode("utf-8"),
-                        structured_output_schema=reader_verdict_json_schema(),
+                        structured_output_schema=output_schema,
                         prompt_version=self.route.prompt_version,
                         schema_version=ReaderVerdictV1.SCHEMA_VERSION,
                         operation_workspace=str(operation_workspace),

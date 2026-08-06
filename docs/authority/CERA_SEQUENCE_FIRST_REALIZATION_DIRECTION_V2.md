@@ -13,8 +13,11 @@ action, reaction, consequence, resulting direction, and stopping boundary.
 Python binds that sequence immutably for the turn. DeepSeek realizes the frozen
 sequence as complete prose; it is secondary canon until Python acceptance.
 Accepted artifacts retain both the intended primary sequence and the realized
-sequence. A rejected or exhausted run retains the intended sequence with status
-`planned`; it never applies planned presence or durable effects.
+sequence and distinguish Validator/Reader qualification from explicit creator
+acceptance. A rejected or exhausted Stage 6 run retains an immutable,
+restart-readable intended-sequence terminal artifact with status `planned`
+outside accepted `ACTIVE` story authority; it never applies story, presence,
+durable, promotion, or creator-review effects.
 
 DeepSeek may add compatible NPC dialogue, thoughts, feelings, expression,
 gesture, gaze, posture, movement, staging, atmosphere, objects, incidental
@@ -43,10 +46,14 @@ visible quality/depth/stopping failures.
 
 Attempt one receives no feedback. Later attempts receive at most the typed,
 exact feedback for the immediately prior rejection: owner, feedback type, issue
-code, concise reason, exact quote or omitted Planner item, and required
-correction. Feedback is noncanonical and never story context. The primary
-sequence, brief, and hashes remain frozen; every retry is a fresh complete
-replacement with no patching, merging, fallback, substitution, or fourth attempt.
+code, concise reason, one truthful scope (`exact_quote`,
+`omitted_planner_item`, or `whole_candidate_quality`), and required correction.
+Quotes are verbatim candidate substrings; omitted items are Reader-identified
+keys constrained to the current intended sequence; whole-candidate feedback
+asserts neither locator. Feedback is noncanonical and never story context. The
+primary sequence, brief, and hashes remain frozen; every retry is a fresh
+complete replacement with no patching, merging, fallback, substitution, or
+fourth attempt.
 
 ## Scope and supersession
 

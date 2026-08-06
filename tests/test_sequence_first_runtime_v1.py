@@ -37,6 +37,7 @@ from cera.sequence_first import (
     ReaderIssueV1,
     ReaderStatus,
     ReaderVerdictV1,
+    RetryFeedbackScope,
     SequenceCustodyEnvelopeV1,
     SequenceDraftV1,
     SequenceFirstCoordinator,
@@ -206,7 +207,10 @@ def semantic_input(
         ),
         approved_targets=approved_targets,
         unresolved_threads=("Ted has not chosen what to do next.",),
-        hard_boundaries=("Do not invent Ted's response.",),
+        hard_boundaries=(
+            "Do not invent Ted speech or dialogue.",
+            "Do not invent Ted thoughts or feelings.",
+        ),
         scene_reinitialization=scene_reinitialization,
     )
 
@@ -291,6 +295,33 @@ def rejected_reader() -> ReaderVerdictV1:
                 issue_code="severe_repetition",
                 concise_explanation="The prose repeats one line throughout.",
                 exact_quote="Again. Again. Again.",
+            ),
+        ),
+    )
+
+
+def whole_candidate_reader() -> ReaderVerdictV1:
+    return ReaderVerdictV1(
+        status=ReaderStatus.REJECTED,
+        issues=(
+            ReaderIssueV1(
+                issue_code="wrong_voice",
+                concise_explanation="The candidate is globally incoherent in voice.",
+                feedback_scope=RetryFeedbackScope.WHOLE_CANDIDATE_QUALITY,
+            ),
+        ),
+    )
+
+
+def omitted_item_reader(item_key: str) -> ReaderVerdictV1:
+    return ReaderVerdictV1(
+        status=ReaderStatus.REJECTED,
+        issues=(
+            ReaderIssueV1(
+                issue_code="missing_central_action",
+                concise_explanation="The candidate omits the identified central item.",
+                omitted_planner_item_key=item_key,
+                feedback_scope=RetryFeedbackScope.OMITTED_PLANNER_ITEM,
             ),
         ),
     )
@@ -467,7 +498,10 @@ class SequenceFirstSemanticBoundaryTests(unittest.TestCase):
                 branch_id="branch-main",
                 known_character_ids=("character:ted", "character:hana"),
                 voice_cues=(VoiceCueV1("character:hana", "Warm and direct."),),
-                hard_boundaries=("Do not invent Ted's response.",),
+                hard_boundaries=(
+                    "Do not invent Ted speech or dialogue.",
+                    "Do not invent Ted thoughts or feelings.",
+                ),
             )
             published = assembler.publish_initial_projection(authority)
             self.assertEqual(published, active / assembler.RELATIVE_PATH)
@@ -1118,7 +1152,7 @@ class SequenceFirstPipelineTests(unittest.TestCase):
         self.assertNotIn("Ted nodded.", frozen_prompts[0])
         self.assertNotIn("Ted nodded again.", frozen_prompts[0])
 
-    def test_compatible_presentation_fixture_matrix_is_noncanonical(self) -> None:
+    def test_compatible_presentation_fixture_matrix_is_allowed_secondary_realization(self) -> None:
         fixtures = (
             "Ted remains in the established entryway as Hana speaks.",
             "Near the doorway, Hana asks what Ted wants to do next.",
@@ -1321,9 +1355,13 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             "proposition actually asserted",
             "possessive reference",
             "NPC perception or attention",
-            "incidental sensory consequence",
-            "specific expression or state",
-            "cite that conflict rather than a neutral protected-user reference",
+            "Compatible visible Ted movement",
+            "invents his speech/dialogue",
+            "invents his thoughts/feelings",
+            "accepted state or strong character logic",
+            "unauthorized consequential E",
+            "supersedes any broader route-local hard-boundary wording",
+            "cite that conflict rather than a neutral reference to Ted",
             "semantically complete intended item is creative authority",
             "exact NPC-owned proposition it states",
             "Accept a faithful natural paraphrase",
@@ -1344,6 +1382,54 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             self.assertNotIn(forbidden_phrase, PLANNER_BASE_INSTRUCTIONS)
             self.assertNotIn(forbidden_phrase, WRITER_INSTRUCTIONS)
             self.assertNotIn(forbidden_phrase, VALIDATOR_BASE_INSTRUCTIONS)
+
+        for superseded_clause in (
+            "remain visible and noncanonical",
+            "new unsupported protected-user action, movement",
+            "specific expression or state, response, dialogue, sensation",
+        ):
+            self.assertNotIn(superseded_clause, VALIDATOR_BASE_INSTRUCTIONS)
+
+    def test_v2_ted_boundary_fake_candidate_matrix(self) -> None:
+        cases = (
+            (
+                "Ted shifts one step nearer the established doorway while Hana speaks.",
+                accepted_decision(),
+                True,
+            ),
+            (
+                'Ted says, "I agree," although the creator supplied no dialogue.',
+                rejected_decision(
+                    conflict_class=ConflictClass.PROTECTED_USER_INVENTION,
+                    quote='Ted says, "I agree,"',
+                ),
+                False,
+            ),
+            (
+                "Ted privately hopes Hana will agree.",
+                rejected_decision(
+                    conflict_class=ConflictClass.PROTECTED_USER_INVENTION,
+                    quote="privately hopes",
+                ),
+                False,
+            ),
+            (
+                "Ted breaks the locked door and permanently enters the room.",
+                rejected_decision(
+                    conflict_class=ConflictClass.MATERIAL_ADDITION,
+                    quote="breaks the locked door",
+                ),
+                False,
+            ),
+        )
+        for prose, decision, expected in cases:
+            with self.subTest(prose=prose):
+                value, _, _ = coordinator(
+                    writer_outputs=[prose],
+                    validator_outputs=[decision],
+                    maximum_writer_attempts=1,
+                )
+                self.assertEqual(value.generate(request()).accepted, expected)
 
     def test_transport_failure_never_opens_writer_retry(self) -> None:
         value, writer, _ = coordinator(
@@ -1385,6 +1471,76 @@ class SequenceFirstPipelineTests(unittest.TestCase):
         self.assertTrue(result.accepted)
         self.assertEqual(result.candidate.writer_response.story_text, writer.outputs[1])
         self.assertEqual(len(factory.sessions), 2)
+        feedback = writer.retry_feedback[1][0]
+        self.assertEqual(feedback.feedback_scope, RetryFeedbackScope.EXACT_QUOTE)
+        self.assertEqual(feedback.exact_quote, "Again. Again. Again.")
+        self.assertIsNone(feedback.omitted_planner_item_key)
+
+    def test_reader_whole_candidate_feedback_fabricates_no_locator(self) -> None:
+        value, writer, _ = coordinator(
+            writer_outputs=["Globally wrong voice.", "Hana asks a clear question."],
+            validator_outputs=[accepted_decision(), accepted_decision()],
+            reader_outputs=[whole_candidate_reader(), accepted_reader()],
+        )
+        result = value.generate(request())
+        self.assertTrue(result.accepted)
+        feedback = writer.retry_feedback[1][0]
+        self.assertEqual(
+            feedback.feedback_scope,
+            RetryFeedbackScope.WHOLE_CANDIDATE_QUALITY,
+        )
+        self.assertIsNone(feedback.exact_quote)
+        self.assertIsNone(feedback.omitted_planner_item_key)
+
+    def test_reader_may_name_only_an_actually_identified_current_item(self) -> None:
+        plan = intended()
+        item_key = plan.items[0].item_key
+        value, writer, _ = coordinator(
+            plan=plan,
+            writer_outputs=["The central action is absent.", "Hana asks a clear question."],
+            validator_outputs=[accepted_decision(), accepted_decision()],
+            reader_outputs=[omitted_item_reader(item_key), accepted_reader()],
+        )
+        self.assertTrue(value.generate(request()).accepted)
+        feedback = writer.retry_feedback[1][0]
+        self.assertEqual(
+            feedback.feedback_scope,
+            RetryFeedbackScope.OMITTED_PLANNER_ITEM,
+        )
+        self.assertEqual(feedback.omitted_planner_item_key, item_key)
+        self.assertIsNone(feedback.exact_quote)
+
+        invalid, _, _ = coordinator(
+            plan=plan,
+            writer_outputs=["The central action is absent."],
+            validator_outputs=[accepted_decision()],
+            reader_outputs=[omitted_item_reader("unknown_item")],
+        )
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "unknown omitted Planner item",
+        ):
+            invalid.generate(request())
+
+    def test_reader_quote_must_be_verbatim_frozen_candidate_substring(self) -> None:
+        invalid_issue = ReaderVerdictV1(
+            status=ReaderStatus.REJECTED,
+            issues=(
+                ReaderIssueV1(
+                    issue_code="severe_repetition",
+                    concise_explanation="The prose repeats.",
+                    exact_quote="Absent quote.",
+                    feedback_scope=RetryFeedbackScope.EXACT_QUOTE,
+                ),
+            ),
+        )
+        value, _, _ = coordinator(
+            writer_outputs=["Actual frozen prose."],
+            validator_outputs=[accepted_decision()],
+            reader_outputs=[invalid_issue],
+        )
+        with self.assertRaisesRegex(ContractValidationError, "Reader rejection quote"):
+            value.generate(request())
 
     def test_reader_inconclusive_terminates_without_any_retry_or_repair(self) -> None:
         value, writer, factory = coordinator(
@@ -1623,7 +1779,10 @@ class SequenceFirstSessionTests(unittest.TestCase):
                     accepted_present_character_ids=("character:ted", "character:hana"),
                     current_public_scene_state="Ted and Hana are in the room.",
                     protected_source_claims=(),
-                    hard_boundaries=("Do not invent Ted's response.",),
+                    hard_boundaries=(
+                        "Do not invent Ted speech or dialogue.",
+                        "Do not invent Ted thoughts or feelings.",
+                    ),
                     reference_scope=reference_scope(plan=intended()),
                 )
             )
@@ -1655,7 +1814,10 @@ class SequenceFirstSessionTests(unittest.TestCase):
             accepted_present_character_ids=("character:ted", "character:hana"),
             current_public_scene_state="Ted and Hana are in the entryway.",
             protected_source_claims=(),
-            hard_boundaries=("Do not invent Ted's response.",),
+            hard_boundaries=(
+                "Do not invent Ted speech or dialogue.",
+                "Do not invent Ted thoughts or feelings.",
+            ),
             reference_scope=reference_scope(plan=intended()),
         )
         prompt = validator_candidate_prompt(request)
@@ -1812,6 +1974,11 @@ class SequenceFirstSessionTests(unittest.TestCase):
         self.assertEqual(
             reader_issue["issue_code"]["pattern"], LOCAL_KEY_JSON_PATTERN
         )
+        self.assertEqual(
+            reader_issue["feedback_scope"]["enum"],
+            ["exact_quote", "omitted_planner_item", "whole_candidate_quality"],
+        )
+        self.assertEqual(reader_issue["omitted_planner_item_key"], {"type": "null"})
 
         with self.assertRaises(ContractValidationError):
             item(key="item:hana_answers")
@@ -2004,6 +2171,21 @@ class SequenceFirstSessionTests(unittest.TestCase):
             realized_item["planner_item_keys"]["items"]["enum"],
             list(scope.planner_item_keys),
         )
+        reader_schema = reader_verdict_json_schema(
+            planner_item_keys=scope.planner_item_keys
+        )
+        reader_issue = reader_schema["properties"]["issues"]["items"]["properties"]
+        self.assertEqual(
+            reader_issue["omitted_planner_item_key"]["anyOf"][0]["enum"],
+            list(scope.planner_item_keys),
+        )
+        self.assertTrue(
+            tuple(
+                Draft202012Validator(
+                    reader_issue["omitted_planner_item_key"]["anyOf"][0]
+                ).iter_errors("unknown_item")
+            )
+        )
         self.assertEqual(
             validator_schema["properties"]["conflict"]["anyOf"][0][
                 "properties"
@@ -2037,6 +2219,10 @@ class SequenceFirstSessionTests(unittest.TestCase):
             validator_schema,
             ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
         ).provider_schema
+        projected_reader = project_provider_output_schema(
+            reader_schema,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
         self.assertEqual(
             projected_planner["properties"]["items"]["items"]["properties"]
             ["evidence_keys"]["items"]["enum"],
@@ -2046,6 +2232,11 @@ class SequenceFirstSessionTests(unittest.TestCase):
             projected_validator["properties"]["realized_sequence"]["anyOf"]
             [0]["properties"]["items"]["items"]["properties"]
             ["planner_item_keys"]["items"]["enum"],
+            list(scope.planner_item_keys),
+        )
+        self.assertEqual(
+            projected_reader["properties"]["issues"]["items"]["properties"]
+            ["omitted_planner_item_key"]["anyOf"][0]["enum"],
             list(scope.planner_item_keys),
         )
 
@@ -2176,7 +2367,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_ADAPTER,
-            "cera.sequence_first.validator_adapter.v11",
+            "cera.sequence_first.validator_adapter.v12",
         )
         self.assertEqual(
             validator_route.prompt_version,
@@ -2184,9 +2375,9 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_PROMPT,
-            "cera.sequence_first.validator_prompt.v10",
+            "cera.sequence_first.validator_prompt.v11",
         )
-        self.assertTrue(validator_route.route_id.endswith("_v11"))
+        self.assertTrue(validator_route.route_id.endswith("_v12"))
         self.assertEqual(
             SEQUENCE_FIRST_PLANNER_ADAPTER,
             "cera.sequence_first.planner_adapter.v8",
@@ -2197,6 +2388,15 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertTrue(planner_route.route_id.endswith("_v8"))
         self.assertEqual(reader_route.adapter_id, SEQUENCE_FIRST_READER_ADAPTER)
+        self.assertEqual(
+            SEQUENCE_FIRST_READER_ADAPTER,
+            "cera.sequence_first.reader_adapter.v4",
+        )
+        self.assertEqual(
+            reader_route.prompt_version,
+            "cera.sequence_first.reader_prompt.v3",
+        )
+        self.assertTrue(reader_route.route_id.endswith("_v4"))
         self.assertEqual(writer_route.adapter_id, SEQUENCE_FIRST_WRITER_ADAPTER)
         self.assertEqual(writer_route.prompt_version, SEQUENCE_FIRST_WRITER_PROMPT)
         self.assertEqual(
@@ -2422,7 +2622,10 @@ class SequenceFirstStage6AdapterTests(unittest.TestCase):
             protected_source_claims=(
                 ProtectedSourceClaimV1("current_request", source),
             ),
-            hard_boundaries=("Do not invent Ted's response.",),
+            hard_boundaries=(
+                "Do not invent Ted speech or dialogue.",
+                "Do not invent Ted thoughts or feelings.",
+            ),
             scene_reinitialization=scene,
         )
 
@@ -2581,10 +2784,18 @@ class SequenceFirstWorldTransactionTests(unittest.TestCase):
             event = json.loads(event_path.read_text(encoding="utf-8"))
             self.assertEqual(
                 event["schema_version"],
-                "cera.sequence_first.accepted_story_artifact.v2",
+                "cera.sequence_first.accepted_story_artifact.v3",
             )
             self.assertEqual(event["primary_sequence_status"], "realized")
-            self.assertEqual(event["acceptance_basis"], "automatic_qualification")
+            self.assertEqual(
+                event["qualification_basis"],
+                "validator_and_reader_qualified",
+            )
+            self.assertEqual(
+                event["creator_acceptance_basis"],
+                "explicit_creator_acceptance",
+            )
+            self.assertNotIn("acceptance_basis", event)
             self.assertIn("intended_sequence", event)
             self.assertIn("realized_sequence", event)
 
@@ -2603,6 +2814,74 @@ class SequenceFirstWorldTransactionTests(unittest.TestCase):
             self.assertIsNotNone(accepted_head.prior_realized_sequence)
             self.assertIsNotNone(accepted_head.prior_intended_sequence)
             self.assertFalse(hasattr(accepted_head, "provider_thread_id"))
+
+    def test_historical_v1_and_v2_accepted_artifacts_remain_restart_readable(self) -> None:
+        for schema_version in (
+            "cera.sequence_first.accepted_story_artifact.v1",
+            "cera.sequence_first.accepted_story_artifact.v2",
+        ):
+            with self.subTest(schema_version=schema_version), TemporaryDirectory() as temporary:
+                root = Path(temporary).resolve()
+                store = ContinuousWorldStore(root)
+                result, _ = self._qualified_candidate(store, root)
+                SequenceFirstCoordinator.commit(
+                    result,
+                    transaction=SequenceFirstWorldTransaction(store),
+                    expected_parent_accepted_turn_id=None,
+                    creator_accepted=True,
+                )
+                active = store.branch_root("world-test", "branch-main") / "ACTIVE"
+                event_path = next((active / "Events").glob("*.sequence_first.json"))
+                event = json.loads(event_path.read_text(encoding="utf-8"))
+                event["schema_version"] = schema_version
+                event.pop("qualification_basis", None)
+                event.pop("creator_acceptance_basis", None)
+                event["acceptance_basis"] = "automatic_qualification"
+                if schema_version.endswith(".v1"):
+                    event.pop("intended_sequence", None)
+                    event.pop("intended_sequence_binding_sha256", None)
+                    event.pop("primary_sequence_status", None)
+                event_path.write_text(
+                    json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n",
+                    encoding="utf-8",
+                )
+
+                head = SequenceFirstWorldTransaction(
+                    ContinuousWorldStore(root)
+                ).load_accepted_head(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                )
+                self.assertEqual(head.accepted_turn_id, "turn-001")
+                self.assertIsNotNone(head.prior_realized_sequence)
+                self.assertIsNotNone(head.prior_intended_sequence)
+
+    def test_v3_accepted_artifact_provenance_tamper_fails_closed(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            store = ContinuousWorldStore(root)
+            result, _ = self._qualified_candidate(store, root)
+            SequenceFirstCoordinator.commit(
+                result,
+                transaction=SequenceFirstWorldTransaction(store),
+                expected_parent_accepted_turn_id=None,
+                creator_accepted=True,
+            )
+            active = store.branch_root("world-test", "branch-main") / "ACTIVE"
+            event_path = next((active / "Events").glob("*.sequence_first.json"))
+            event = json.loads(event_path.read_text(encoding="utf-8"))
+            event["creator_acceptance_basis"] = "automatic_qualification"
+            event_path.write_text(
+                json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(StateConflictError, "acceptance provenance"):
+                SequenceFirstWorldTransaction(
+                    ContinuousWorldStore(root)
+                ).load_accepted_head(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                )
 
     def test_branch_scoped_restart_loader_does_not_read_sibling_artifacts(self) -> None:
         with TemporaryDirectory() as temporary:

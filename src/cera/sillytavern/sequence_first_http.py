@@ -236,7 +236,16 @@ class SequenceFirstStage6HttpAdapter:
             )
             result = self._bridge.generate(prepared)
             provider_calls = self._provider_call_count() - before_calls
+            provider_evidence_json = canonical_json(
+                dict(self._provider_evidence_snapshot())
+            )
             if result.candidate is None:
+                self._bridge.retain_planned_terminal(
+                    prepared,
+                    result,
+                    provider_calls=provider_calls,
+                    provider_evidence_json=provider_evidence_json,
+                )
                 raise StateConflictError("sequence-first candidate failed qualification")
             review_id = deterministic_id(
                 IdKind.REVIEW_PACKET,
@@ -251,9 +260,7 @@ class SequenceFirstStage6HttpAdapter:
                 result=result,
                 generation=generation,
                 provider_calls=provider_calls,
-                provider_evidence_json=canonical_json(
-                    dict(self._provider_evidence_snapshot())
-                ),
+                provider_evidence_json=provider_evidence_json,
             )
             self._reviews[review_id] = record
             self._unresolved_review_id = review_id
@@ -366,9 +373,7 @@ class SequenceFirstStage6HttpAdapter:
             ),
             "accepted_head_after_sha256": record.active_head_after_sha256,
             "intended_sequence_sha256": (
-                None
-                if candidate is None
-                else candidate.intended_sequence.semantic.semantic_sha256
+                record.result.intended_sequence.semantic.semantic_sha256
             ),
             "writer_prose_sha256": None if candidate is None else candidate.prose_sha256,
             "realized_sequence_sha256": (

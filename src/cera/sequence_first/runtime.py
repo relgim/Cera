@@ -15,6 +15,7 @@ from .contracts import (
     ProviderReferenceScopeV1,
     PrimarySequenceStatus,
     ReaderStatus,
+    RetryFeedbackScope,
     ReaderVerdictV1,
     SequenceCustodyEnvelopeV1,
     SequenceDraftV1,
@@ -272,6 +273,22 @@ class SequenceFirstCoordinator:
                 realized_sequence=realized,
             )
             reader_verdict = self._reader.read(reader_input)
+            intended_item_keys = {item.item_key for item in intended.items}
+            for issue in reader_verdict.issues:
+                if (
+                    issue.feedback_scope is RetryFeedbackScope.EXACT_QUOTE
+                    and issue.exact_quote not in writer_response.story_text
+                ):
+                    raise ContractValidationError(
+                        "Reader rejection quote is absent from frozen Writer prose"
+                    )
+                if (
+                    issue.feedback_scope is RetryFeedbackScope.OMITTED_PLANNER_ITEM
+                    and issue.omitted_planner_item_key not in intended_item_keys
+                ):
+                    raise ContractValidationError(
+                        "Reader rejection cites an unknown omitted Planner item"
+                    )
             if reader_verdict.status is ReaderStatus.INCONCLUSIVE:
                 # INCONCLUSIVE is a review/setup ambiguity, not evidence that the
                 # frozen Writer candidate is defective.  It terminates this run
@@ -321,11 +338,8 @@ class SequenceFirstCoordinator:
                             "primary sequence and corrects this one severe reader-facing issue."
                         ),
                         exact_quote=issue.exact_quote,
-                        omitted_planner_item_key=(
-                            None
-                            if issue.exact_quote is not None
-                            else intended.items[0].item_key
-                        ),
+                        omitted_planner_item_key=issue.omitted_planner_item_key,
+                        feedback_scope=issue.feedback_scope,
                     ),
                 )
                 continue
