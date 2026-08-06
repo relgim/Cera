@@ -1,0 +1,68 @@
+{
+  "schema_version": "cera.codex_self_continuation_result.v1",
+  "queue_revision": "0062",
+  "plan_id": "self-continuation:q0062:0037:sequence-first-responder-kind-derivation-v1",
+  "plan_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0062_0037_sequence-first-responder-kind-derivation-v1.md",
+  "plan_sha256": "1ddc792ecf3cd1926636c61e5d18c937044cb89b0962f7aa2a1204c5e0bdd37e",
+  "status": "completed",
+  "checkpoint_identity": "2026-08-06-cera-sequence-first-responder-kind-derivation-v1-001",
+  "source_git_sha": "dfce3f886c563110ec294eec9796f2614cb1ad7f",
+  "source_tree_sha": "7fd76e9724df0f5669cf6563f707f64fcb378f71",
+  "trigger_evidence": {
+    "failed_identity": "2026-08-06-cera-sequence-first-stage3-live-v1",
+    "planner_structural_item_key": "item:mia_remains_backgrounded",
+    "planner_structural_item_kind": "material_continuity",
+    "planner_structural_owner_id": "character:mia",
+    "meaning": "Mia remained present but backgrounded"
+  },
+  "correction": {
+    "provider_calls": 0,
+    "responder_item_kinds": [
+      "action",
+      "dialogue_intent",
+      "private_state",
+      "perception",
+      "remote_communication"
+    ],
+    "structural_owner_semantics_preserved": true,
+    "provider_schema_changed": false,
+    "provider_prompt_changed": false,
+    "output_repair_added": false
+  },
+  "tests": [
+    {
+      "kind": "focused_sequence_first",
+      "command": ".venv/Scripts/python.exe -m unittest tests.test_sequence_first_runtime_v1 tests.test_sequence_first_stage6_bridge_v1",
+      "passed": 65,
+      "failed": 0,
+      "errors": 0,
+      "duration_seconds": 4.996
+    },
+    {
+      "kind": "complete_repository_suite_at_corrected_source_freeze",
+      "command": ".venv/Scripts/python.exe -m unittest discover -s tests",
+      "passed": 1189,
+      "skipped": 3,
+      "failed": 0,
+      "errors": 0,
+      "total": 1192,
+      "duration_seconds": 775.056
+    }
+  ],
+  "remaining_creator_balance": {
+    "codex_sol_family": 601,
+    "deepseek_family": 719
+  },
+  "remaining_stage3_ceiling": {
+    "codex_sol_family": 9,
+    "deepseek_family": 6
+  },
+  "protected_effects": {
+    "production_route_changed": false,
+    "installed_sillytavern_changed": false,
+    "live_story_database_changed": false,
+    "remote_operation_performed": false
+  },
+  "next_unfinished_queue_step": "Run fresh Stage 3 V2 two-turn canary with at most two independent Writer attempts per turn.",
+  "completed_at_utc": "2026-08-06T06:45:19.2067518Z"
+}
