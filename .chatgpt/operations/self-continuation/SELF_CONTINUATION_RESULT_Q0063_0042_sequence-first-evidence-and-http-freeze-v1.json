@@ -1,0 +1,45 @@
+{
+  "schema_version": "cera.codex_self_continuation_result.v1",
+  "plan_id": "self-continuation:q0063:0042:sequence-first-evidence-and-http-freeze-v1",
+  "queue_revision": "0063",
+  "status": "completed",
+  "completed_at_utc": "2026-08-06T10:06:11.6044167Z",
+  "source_commit": "2f32c4717c69197f677f979a54ce31d84446d127",
+  "source_tree": "c33b919d6509a9e8003595e2474f836befa23de2",
+  "provider_calls": {
+    "codex_sol_family": 0,
+    "deepseek_family": 0
+  },
+  "focused_tests": {
+    "tests_run": 83,
+    "failures": 0,
+    "errors": 0,
+    "named_presence_restart_test": "passed"
+  },
+  "complete_suite": {
+    "command": ".venv\\Scripts\\python.exe -m unittest discover -s tests",
+    "tests_run": 1202,
+    "skipped": 3,
+    "failures": 0,
+    "errors": 0,
+    "elapsed_seconds": 767.958
+  },
+  "evidence_contract": {
+    "offline_post_dispatch_failure_proved": true,
+    "earlier_call_directory_preserved": true,
+    "exact_request_and_raw_result_bytes_captured": true,
+    "ledger_terminal_event_bound": true,
+    "workspace_and_archive_status_captured": true
+  },
+  "stage6_http": {
+    "health": "passed",
+    "models": "passed",
+    "chat_completion": "passed",
+    "review_lookup": "passed",
+    "accept": "passed",
+    "decline": "passed",
+    "restart_and_branch_reload": "passed",
+    "explicit_loopback_port": 5116,
+    "shared_default_port_changed": false
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": "cera.overnight_manager_notification.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0002",
+  "goal": 2,
+  "status": "passed",
+  "created_at_utc": "2026-08-06T10:06:11.6044167Z",
+  "source_commit": "2f32c4717c69197f677f979a54ce31d84446d127",
+  "source_tree": "c33b919d6509a9e8003595e2474f836befa23de2",
+  "provider_calls": {
+    "codex_sol_family": 0,
+    "deepseek_family": 0
+  },
+  "summary": "Goal 2 passed: immutable per-call evidence was proven offline, the exact sequence-first HTTP status/config route passed, and 1202 repository tests passed at the frozen source.",
+  "next_goal": 3
+}

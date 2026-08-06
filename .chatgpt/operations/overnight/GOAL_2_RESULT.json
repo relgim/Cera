@@ -1,0 +1,79 @@
+{
+  "schema_version": "cera.overnight_goal_result.v1",
+  "queue_revision": "0063",
+  "roadmap_revision": "0002",
+  "goal": 2,
+  "status": "passed",
+  "completed_at_utc": "2026-08-06T10:06:11.6044167Z",
+  "execution_repository": "D:\\CP25\\source",
+  "provider_free_source": {
+    "commit": "2f32c4717c69197f677f979a54ce31d84446d127",
+    "tree": "c33b919d6509a9e8003595e2474f836befa23de2",
+    "branch": "review/cera-sequence-first-runtime-v1-20260805",
+    "pushed": false
+  },
+  "provider_calls": {
+    "codex_sol_family": 0,
+    "deepseek_family": 0,
+    "balance_after_goal": {
+      "codex_sol_family": 595,
+      "deepseek_family": 715
+    }
+  },
+  "offline_evidence_capture": {
+    "status": "passed",
+    "one_add_only_directory_per_call": true,
+    "pre_dispatch_exact_request_and_schema": true,
+    "terminal_raw_result_or_failure_receipt": true,
+    "parsed_output_receipt_telemetry_token_cache_latency_tools": true,
+    "ledger_event_identity": true,
+    "archival_nonresumability": true,
+    "later_failure_preserved_prior_call_hash": true
+  },
+  "stage6_http": {
+    "status": "passed",
+    "health_status_interface": true,
+    "models": true,
+    "chat_completion": true,
+    "review_lookup": true,
+    "accept_atomic_commit": true,
+    "decline_no_mutation": true,
+    "restart_and_branch_reload": true,
+    "old_route_fallback": false,
+    "route_model_profile_identity": true,
+    "ordinary_full_character_record_reread": false,
+    "explicit_config": "http://127.0.0.1:5116/v1",
+    "shared_server_default_changed": false
+  },
+  "tests": {
+    "focused": {
+      "tests_run": 83,
+      "failures": 0,
+      "errors": 0
+    },
+    "named_test": "test_failed_commit_restart_and_sibling_branch_preserve_presence",
+    "named_test_status": "passed",
+    "complete_suite": {
+      "tests_run": 1202,
+      "skipped": 3,
+      "failures": 0,
+      "errors": 0,
+      "elapsed_seconds": 767.958
+    },
+    "compile_import": "passed"
+  },
+  "provider_ledger_integrity": {
+    "v3_sha256": "600ce4ea8b52e9b705a76888c9ecc812a831b25dbf514bd30e7128e12196c00b",
+    "v4_sha256": "d010d56e44de6bfe4f190ee3e2d75add4bc665960c8b85bf6309a2ac6f6ab645",
+    "unchanged": true
+  },
+  "protected_effects": {
+    "production_route_changed": false,
+    "installed_sillytavern_changed": false,
+    "story_database_changed": false,
+    "provider_called": false,
+    "remote_operation_performed": false,
+    "push_performed": false
+  },
+  "next_goal": "Goal 3 fresh two-turn V5 under clean-transition authority"
+}
