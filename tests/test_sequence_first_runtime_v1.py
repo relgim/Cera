@@ -1228,6 +1228,14 @@ class SequenceFirstPipelineTests(unittest.TestCase):
                 self.assertEqual(len(result.attempt_receipts), 1)
 
     def test_writer_and_validator_guidance_is_general_not_phrase_specific(self) -> None:
+        for general_rule in (
+            "Every dialogue item must state the communicative proposition",
+            "do not merely say that the speaker answers",
+            "subjective or noncommittal proposition",
+            "without inventing an objective material, relationship, presence, knowledge, or future-causal fact",
+            "Keep exact prose open for the Writer",
+        ):
+            self.assertIn(general_rule, PLANNER_BASE_INSTRUCTIONS)
         self.assertIn("backgrounded_character_ids", WRITER_INSTRUCTIONS)
         self.assertIn("Compatible static presentation", WRITER_INSTRUCTIONS)
         self.assertIn("omit it from the realized sequence", VALIDATOR_BASE_INSTRUCTIONS)
@@ -1259,6 +1267,12 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             "incidental sensory consequence",
             "specific expression or state",
             "cite that conflict rather than a neutral protected-user reference",
+            "semantically complete intended item is creative authority",
+            "exact NPC-owned proposition it states",
+            "Accept a faithful natural paraphrase",
+            "substitutes for or materially expands the planned proposition",
+            "only when the intended sequence explicitly selects that response",
+            "require the substantive planned proposition",
         ):
             self.assertIn(general_rule, VALIDATOR_BASE_INSTRUCTIONS)
         for forbidden_phrase in (
@@ -1266,7 +1280,11 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             "in the living room, Mia sits",
             "his expression",
             "rustle of his shoes",
+            "dinner went well",
+            "there's plenty",
+            "something simple simmering",
         ):
+            self.assertNotIn(forbidden_phrase, PLANNER_BASE_INSTRUCTIONS)
             self.assertNotIn(forbidden_phrase, WRITER_INSTRUCTIONS)
             self.assertNotIn(forbidden_phrase, VALIDATOR_BASE_INSTRUCTIONS)
 
@@ -2101,7 +2119,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_ADAPTER,
-            "cera.sequence_first.validator_adapter.v10",
+            "cera.sequence_first.validator_adapter.v11",
         )
         self.assertEqual(
             validator_route.prompt_version,
@@ -2109,18 +2127,18 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_PROMPT,
-            "cera.sequence_first.validator_prompt.v8",
+            "cera.sequence_first.validator_prompt.v9",
         )
-        self.assertTrue(validator_route.route_id.endswith("_v10"))
+        self.assertTrue(validator_route.route_id.endswith("_v11"))
         self.assertEqual(
             SEQUENCE_FIRST_PLANNER_ADAPTER,
-            "cera.sequence_first.planner_adapter.v7",
+            "cera.sequence_first.planner_adapter.v8",
         )
         self.assertEqual(
             planner_route.prompt_version,
-            "cera.sequence_first.planner_prompt.v5",
+            "cera.sequence_first.planner_prompt.v6",
         )
-        self.assertTrue(planner_route.route_id.endswith("_v7"))
+        self.assertTrue(planner_route.route_id.endswith("_v8"))
         self.assertEqual(reader_route.adapter_id, SEQUENCE_FIRST_READER_ADAPTER)
         self.assertEqual(writer_route.adapter_id, SEQUENCE_FIRST_WRITER_ADAPTER)
         self.assertEqual(writer_route.prompt_version, SEQUENCE_FIRST_WRITER_PROMPT)
