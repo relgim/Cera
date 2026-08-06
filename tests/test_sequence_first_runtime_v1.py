@@ -66,6 +66,7 @@ from cera.sequence_first.provider import (
     SEQUENCE_FIRST_VALIDATOR_ADAPTER,
     SEQUENCE_FIRST_WRITER_ADAPTER,
     SEQUENCE_FIRST_WRITER_PROMPT,
+    SequenceFirstDeepSeekWriterPort,
     SequenceFirstPlannerCodexBackend,
     SequenceFirstReaderCodexPort,
     SequenceFirstValidatorCodexBackend,
@@ -541,6 +542,39 @@ class SequenceFirstSemanticBoundaryTests(unittest.TestCase):
             "backgrounded_character_ids",
             {field.name for field in fields(WriterResponseV1)},
         )
+
+    def test_writer_evidence_uses_the_exact_two_field_wire_schema(self) -> None:
+        class ComposerFake:
+            def __init__(self) -> None:
+                self.options = None
+
+            def compose(self, prompt: str, **options):
+                self.options = options
+                return SimpleNamespace(
+                    value=SimpleNamespace(
+                        schema_version=WRITER_SCHEMA,
+                        story_text="Hana answers Ted's dinner question.",
+                    )
+                )
+
+        runtime, recording_writer, _ = coordinator()
+        self.assertTrue(runtime.generate(request()).accepted)
+        composer = ComposerFake()
+        response = SequenceFirstDeepSeekWriterPort(composer).write(
+            recording_writer.briefs[0],
+            1,
+        )
+
+        self.assertEqual(WriterResponseV1.SCHEMA_VERSION, WRITER_SCHEMA)
+        self.assertEqual(
+            tuple(field.name for field in fields(WriterResponseV1)),
+            ("schema_version", "story_text"),
+        )
+        self.assertEqual(
+            composer.options["operation_evidence_schema_version"],
+            WRITER_SCHEMA,
+        )
+        self.assertEqual(response.schema_version, WRITER_SCHEMA)
 
     def test_protected_user_exact_quote_is_python_verified(self) -> None:
         semantics = semantic_input(source='Ted says, "Please continue."')

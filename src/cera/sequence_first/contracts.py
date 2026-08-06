@@ -814,11 +814,13 @@ class SequenceFirstWriterBriefV1:
 class WriterResponseV1:
     """The entire normal DeepSeek response wire: exactly two fields."""
 
+    SCHEMA_VERSION: ClassVar[str] = "cera.scene_writer_draft.v1"
+
     schema_version: str
     story_text: str
 
     def __post_init__(self) -> None:
-        if self.schema_version != "cera.scene_writer_draft.v1":
+        if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("Writer response schema changed")
         _text(self.story_text, "writer_response.story_text", maximum=100_000)
 
