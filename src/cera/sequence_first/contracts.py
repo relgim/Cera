@@ -322,7 +322,7 @@ class PresenceChangeV1:
 class SequenceDraftV1:
     """Provider-authored semantic sequence with no Python custody fields."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.sequence_draft.v3"
+    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.sequence_draft.v4"
 
     items: tuple[SequenceItemV1, ...]
     durable_changes: tuple[DurableChangeV1, ...]
@@ -601,6 +601,57 @@ class SequenceFirstTurnSemanticInputV1:
                 )
 
 
+@dataclass(frozen=True, slots=True)
+class ProviderReferenceScopeV1:
+    """Python-owned finite references available to one provider operation."""
+
+    known_character_ids: tuple[str, ...]
+    evidence_keys: tuple[str, ...]
+    protected_source_claim_keys: tuple[str, ...]
+    approved_target_keys: tuple[str, ...]
+    planner_item_keys: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        fields_and_validators = (
+            ("known_character_ids", _character),
+            ("evidence_keys", _identity),
+            ("protected_source_claim_keys", _key),
+            ("approved_target_keys", _identity),
+            ("planner_item_keys", _key),
+        )
+        for field_name, validator in fields_and_validators:
+            values = getattr(self, field_name)
+            _unique(values, f"provider_reference_scope.{field_name}")
+            for value in values:
+                validator(value, f"provider_reference_scope.{field_name}")
+
+    @classmethod
+    def from_turn(
+        cls,
+        semantic_input: SequenceFirstTurnSemanticInputV1,
+        *,
+        intended_sequence: SequenceDraftV1 | None = None,
+    ) -> "ProviderReferenceScopeV1":
+        return cls(
+            known_character_ids=semantic_input.known_character_ids,
+            evidence_keys=(
+                semantic_input.current_source_key,
+                *(record.evidence_key for record in semantic_input.evidence_records),
+            ),
+            protected_source_claim_keys=tuple(
+                claim.claim_key for claim in semantic_input.protected_source_claims
+            ),
+            approved_target_keys=tuple(
+                target.target_key for target in semantic_input.approved_targets
+            ),
+            planner_item_keys=(
+                ()
+                if intended_sequence is None
+                else tuple(item.item_key for item in intended_sequence.items)
+            ),
+        )
+
+
 def apply_presence_changes(
     accepted_present_character_ids: tuple[str, ...],
     draft: SequenceDraftV1,
@@ -866,7 +917,7 @@ class ValidationConflictV1:
 
 @dataclass(frozen=True, slots=True)
 class ValidatorDecisionV1:
-    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.validator_decision.v2"
+    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.validator_decision.v3"
 
     verdict: ValidatorVerdict
     realized_sequence: SequenceDraftV1 | None
@@ -914,6 +965,7 @@ class SequenceFirstValidatorInputV1:
     current_public_scene_state: str
     protected_source_claims: tuple[ProtectedSourceClaimV1, ...]
     hard_boundaries: tuple[str, ...]
+    reference_scope: ProviderReferenceScopeV1
 
     def __post_init__(self) -> None:
         _text(self.exact_writer_prose, "validator_input.exact_writer_prose", maximum=100_000)

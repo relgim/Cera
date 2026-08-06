@@ -30,6 +30,7 @@ from cera.continuous.provider import (
 from .contracts import (
     CHARACTER_ID_JSON_PATTERN,
     LOCAL_KEY_JSON_PATTERN,
+    ProviderReferenceScopeV1,
     STABLE_IDENTITY_JSON_PATTERN,
     SequenceDraftV1,
     ReaderVerdictV1,
@@ -50,10 +51,10 @@ from .prompting import (
 )
 
 
-SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v6"
-SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v4"
-SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v8"
-SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v6"
+SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v7"
+SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v5"
+SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v9"
+SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v7"
 SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v3"
 SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v2"
 SEQUENCE_FIRST_WRITER_ADAPTER = "cera.sequence_first.writer_adapter.v1"
@@ -63,7 +64,7 @@ SEQUENCE_FIRST_WRITER_PROMPT = "cera.sequence_first.writer_prompt.v1"
 def sequence_first_planner_route():
     return replace(
         codex_reasoner_candidate(model="gpt-5.6-sol", effort="medium"),
-        route_id="cera_sequence_first_planner_sol_medium_v6",
+        route_id="cera_sequence_first_planner_sol_medium_v7",
         adapter_id=SEQUENCE_FIRST_PLANNER_ADAPTER,
         prompt_version=SEQUENCE_FIRST_PLANNER_PROMPT,
         maximum_output_tokens=8_192,
@@ -76,7 +77,7 @@ def sequence_first_planner_route():
 def sequence_first_validator_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_validator_{model}_{effort}_v8",
+        route_id=f"cera_sequence_first_validator_{model}_{effort}_v9",
         adapter_id=SEQUENCE_FIRST_VALIDATOR_ADAPTER,
         prompt_version=SEQUENCE_FIRST_VALIDATOR_PROMPT,
         maximum_output_tokens=8_192,
@@ -151,6 +152,18 @@ def _character_id_array() -> dict:
     return {"type": "array", "items": _character_id()}
 
 
+def _closed_array(*, values: tuple[str, ...], fallback_item: dict) -> dict:
+    if not values:
+        return {"type": "array", "items": fallback_item, "maxItems": 0}
+    return {"type": "array", "items": {"type": "string", "enum": list(values)}}
+
+
+def _closed_nullable(*, values: tuple[str, ...]) -> dict:
+    if not values:
+        return {"type": "null"}
+    return _nullable({"type": "string", "enum": list(values)})
+
+
 def _operation_workspace(root: Path, *, role: str, index: int) -> Path:
     """Create one immutable empty worker directory for one provider operation."""
 
@@ -168,10 +181,34 @@ def _operation_workspace(root: Path, *, role: str, index: int) -> Path:
     return workspace
 
 
-def _sequence_item_schema(*, allow_planner_item_keys: bool) -> dict:
+def _sequence_item_schema(
+    *,
+    allow_planner_item_keys: bool,
+    reference_scope: ProviderReferenceScopeV1 | None,
+) -> dict:
     planner_item_keys = _local_key_array()
     if not allow_planner_item_keys:
         planner_item_keys["maxItems"] = 0
+    if allow_planner_item_keys and reference_scope is not None:
+        planner_item_keys = _closed_array(
+            values=reference_scope.planner_item_keys,
+            fallback_item=_local_key(),
+        )
+    owner_id = _nullable(_character_id())
+    evidence_keys = _stable_identity_array()
+    protected_claim_keys = _local_key_array()
+    if reference_scope is not None:
+        owner_id = _closed_nullable(
+            values=reference_scope.known_character_ids,
+        )
+        evidence_keys = _closed_array(
+            values=reference_scope.evidence_keys,
+            fallback_item=_stable_identity(),
+        )
+        protected_claim_keys = _closed_array(
+            values=reference_scope.protected_source_claim_keys,
+            fallback_item=_local_key(),
+        )
     return _strict_object(
         {
             "item_key": _local_key(),
@@ -191,10 +228,10 @@ def _sequence_item_schema(*, allow_planner_item_keys: bool) -> dict:
                 ],
             },
             "concise_meaning": {"type": "string"},
-            "owner_id": _nullable(_character_id()),
+            "owner_id": owner_id,
             "causal_parent_item_key": _nullable(_local_key()),
-            "evidence_keys": _stable_identity_array(),
-            "protected_user_claim_keys": _local_key_array(),
+            "evidence_keys": evidence_keys,
+            "protected_user_claim_keys": protected_claim_keys,
             "protected_user_exact_quotes": _string_array(),
             "durable_change_keys": _local_key_array(),
             "planner_item_keys": planner_item_keys,
@@ -202,7 +239,25 @@ def _sequence_item_schema(*, allow_planner_item_keys: bool) -> dict:
     )
 
 
-def _durable_change_schema() -> dict:
+def _durable_change_schema(
+    reference_scope: ProviderReferenceScopeV1 | None,
+) -> dict:
+    subject_ids = _character_id_array()
+    target_key = _stable_identity()
+    knowledge_owner_id = _nullable(_character_id())
+    if reference_scope is not None:
+        subject_ids = _closed_array(
+            values=reference_scope.known_character_ids,
+            fallback_item=_character_id(),
+        )
+        if reference_scope.approved_target_keys:
+            target_key = {
+                "type": "string",
+                "enum": list(reference_scope.approved_target_keys),
+            }
+        knowledge_owner_id = _closed_nullable(
+            values=reference_scope.known_character_ids,
+        )
     return _strict_object(
         {
             "change_key": _local_key(),
@@ -215,45 +270,64 @@ def _durable_change_schema() -> dict:
                     "character_development",
                 ],
             },
-            "subject_ids": _character_id_array(),
+            "subject_ids": subject_ids,
             "concise_change": {"type": "string"},
-            "target_key": _stable_identity(),
+            "target_key": target_key,
             "visibility": {
                 "type": "string",
                 "enum": ["public", "character_private"],
             },
-            "knowledge_owner_id": _nullable(_character_id()),
+            "knowledge_owner_id": knowledge_owner_id,
         }
     )
 
 
-def _presence_change_schema() -> dict:
+def _presence_change_schema(
+    reference_scope: ProviderReferenceScopeV1 | None,
+) -> dict:
+    character_id = _character_id()
+    if reference_scope is not None and reference_scope.known_character_ids:
+        character_id = {
+            "type": "string",
+            "enum": list(reference_scope.known_character_ids),
+        }
     return _strict_object(
         {
-            "character_id": _character_id(),
+            "character_id": character_id,
             "direction": {"type": "string", "enum": ["enter", "leave"]},
             "effective_after_item_key": _local_key(),
         }
     )
 
 
-def sequence_draft_json_schema(*, allow_planner_item_keys: bool = False) -> dict:
+def sequence_draft_json_schema(
+    *,
+    allow_planner_item_keys: bool = False,
+    reference_scope: ProviderReferenceScopeV1 | None = None,
+) -> dict:
+    durable_changes = {
+        "type": "array",
+        "items": _durable_change_schema(reference_scope),
+    }
+    presence_changes = {
+        "type": "array",
+        "items": _presence_change_schema(reference_scope),
+    }
+    if reference_scope is not None and not reference_scope.approved_target_keys:
+        durable_changes["maxItems"] = 0
+    if reference_scope is not None and not reference_scope.known_character_ids:
+        presence_changes["maxItems"] = 0
     return _strict_object(
         {
             "items": {
                 "type": "array",
                 "items": _sequence_item_schema(
-                    allow_planner_item_keys=allow_planner_item_keys
+                    allow_planner_item_keys=allow_planner_item_keys,
+                    reference_scope=reference_scope,
                 ),
             },
-            "durable_changes": {
-                "type": "array",
-                "items": _durable_change_schema(),
-            },
-            "presence_changes": {
-                "type": "array",
-                "items": _presence_change_schema(),
-            },
+            "durable_changes": durable_changes,
+            "presence_changes": presence_changes,
             "resulting_public_state": {"type": "string"},
             "unresolved_threads": _string_array(),
             "stopping_boundary": {"type": "string"},
@@ -261,7 +335,10 @@ def sequence_draft_json_schema(*, allow_planner_item_keys: bool = False) -> dict
     )
 
 
-def validator_decision_json_schema() -> dict:
+def validator_decision_json_schema(
+    *,
+    reference_scope: ProviderReferenceScopeV1 | None = None,
+) -> dict:
     review_flag = _strict_object(
         {
             "flag_code": _local_key(),
@@ -272,6 +349,11 @@ def validator_decision_json_schema() -> dict:
             "concise_explanation": {"type": "string"},
         }
     )
+    omitted_planner_item_key = _nullable(_local_key())
+    if reference_scope is not None:
+        omitted_planner_item_key = _closed_nullable(
+            values=reference_scope.planner_item_keys,
+        )
     conflict = _strict_object(
         {
             "conflict_class": {
@@ -292,14 +374,17 @@ def validator_decision_json_schema() -> dict:
             },
             "concise_explanation": {"type": "string"},
             "exact_quote": _nullable({"type": "string"}),
-            "omitted_planner_item_key": _nullable(_local_key()),
+            "omitted_planner_item_key": omitted_planner_item_key,
         }
     )
     return _strict_object(
         {
             "verdict": {"type": "string", "enum": ["accept", "reject"]},
             "realized_sequence": _nullable(
-                sequence_draft_json_schema(allow_planner_item_keys=True)
+                sequence_draft_json_schema(
+                    allow_planner_item_keys=True,
+                    reference_scope=reference_scope,
+                )
             ),
             "review_flags": {"type": "array", "items": review_flag},
             "conflict": _nullable(conflict),
@@ -356,7 +441,13 @@ class SequenceFirstPlannerCodexBackend:
             )
         return self.lifecycle.start_stored_thread()
 
-    def run_planner_turn(self, *, thread_id: str, prompt: str) -> SequenceDraftV1:
+    def run_planner_turn(
+        self,
+        *,
+        thread_id: str,
+        prompt: str,
+        reference_scope: ProviderReferenceScopeV1,
+    ) -> SequenceDraftV1:
         self._operation_index += 1
         operation_workspace = _operation_workspace(
             self.workspace,
@@ -374,11 +465,14 @@ class SequenceFirstPlannerCodexBackend:
             if self.world_bridge is not None
             else None
         )
+        output_schema = sequence_draft_json_schema(
+            reference_scope=reference_scope
+        )
 
         def dispatch(markers):
             return transport.invoke(
                 prompt,
-                output_schema=sequence_draft_json_schema(),
+                output_schema=output_schema,
                 mcp_binding=mcp_binding,
                 on_worker_started=markers.mark_worker_started,
                 on_worker_preflight=markers.mark_worker_preflight,
@@ -415,7 +509,7 @@ class SequenceFirstPlannerCodexBackend:
                 if self.operation_evidence is None
                 else self.operation_evidence.request(
                     request_bytes=prompt.encode("utf-8"),
-                    structured_output_schema=sequence_draft_json_schema(),
+                    structured_output_schema=output_schema,
                     prompt_version=self.route.prompt_version,
                     schema_version=SequenceDraftV1.SCHEMA_VERSION,
                     operation_workspace=str(operation_workspace),
@@ -473,6 +567,7 @@ class SequenceFirstValidatorCodexBackend:
         *,
         thread_id: str,
         prompt: str,
+        reference_scope: ProviderReferenceScopeV1,
     ) -> ValidatorDecisionV1:
         self._operation_index += 1
         operation_workspace = _operation_workspace(
@@ -486,11 +581,14 @@ class SequenceFirstValidatorCodexBackend:
             runner=StoredCodexThreadRunner(thread_id),
         )
         stored_thread_sha256 = text_sha256(thread_id)
+        output_schema = validator_decision_json_schema(
+            reference_scope=reference_scope
+        )
 
         def dispatch(markers):
             return transport.invoke(
                 prompt,
-                output_schema=validator_decision_json_schema(),
+                output_schema=output_schema,
                 mcp_binding=None,
                 on_worker_started=markers.mark_worker_started,
                 on_worker_preflight=markers.mark_worker_preflight,
@@ -525,7 +623,7 @@ class SequenceFirstValidatorCodexBackend:
                 if self.operation_evidence is None
                 else self.operation_evidence.request(
                     request_bytes=prompt.encode("utf-8"),
-                    structured_output_schema=validator_decision_json_schema(),
+                    structured_output_schema=output_schema,
                     prompt_version=self.route.prompt_version,
                     schema_version=ValidatorDecisionV1.SCHEMA_VERSION,
                     operation_workspace=str(operation_workspace),

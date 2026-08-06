@@ -31,6 +31,7 @@ from cera.sequence_first import (
     PersistentPlannerSession,
     PresenceChangeV1,
     PresenceDirection,
+    ProviderReferenceScopeV1,
     ProtectedSourceClaimV1,
     ReaderIssueV1,
     ReaderStatus,
@@ -204,6 +205,17 @@ def semantic_input(
         unresolved_threads=("Ted has not chosen what to do next.",),
         hard_boundaries=("Do not invent Ted's response.",),
         scene_reinitialization=scene_reinitialization,
+    )
+
+
+def reference_scope(
+    *,
+    semantics: SequenceFirstTurnSemanticInputV1 | None = None,
+    plan: SequenceDraftV1 | None = None,
+) -> ProviderReferenceScopeV1:
+    return ProviderReferenceScopeV1.from_turn(
+        semantics or semantic_input(),
+        intended_sequence=plan,
     )
 
 
@@ -1448,8 +1460,14 @@ class SequenceFirstSessionTests(unittest.TestCase):
             self.starts.append((base_instructions, profile))
             return "planner-thread"
 
-        def run_planner_turn(self, *, thread_id: str, prompt: str) -> SequenceDraftV1:
-            self.prompts.append(prompt)
+        def run_planner_turn(
+            self,
+            *,
+            thread_id: str,
+            prompt: str,
+            reference_scope: ProviderReferenceScopeV1,
+        ) -> SequenceDraftV1:
+            self.prompts.append((prompt, reference_scope))
             return intended()
 
         def is_resumable(self, thread_id: str) -> bool:
@@ -1466,8 +1484,14 @@ class SequenceFirstSessionTests(unittest.TestCase):
             self.starts.append((thread_id, base_instructions, profile))
             return thread_id
 
-        def run_validator_once(self, *, thread_id: str, prompt: str):
-            self.prompts.append((thread_id, prompt))
+        def run_validator_once(
+            self,
+            *,
+            thread_id: str,
+            prompt: str,
+            reference_scope: ProviderReferenceScopeV1,
+        ):
+            self.prompts.append((thread_id, prompt, reference_scope))
             return accepted_decision()
 
         def archive(self, thread_id: str) -> None:
@@ -1484,7 +1508,14 @@ class SequenceFirstSessionTests(unittest.TestCase):
         self.assertEqual(backend.starts, [(PLANNER_BASE_INSTRUCTIONS, PLANNER_PROFILE)])
         self.assertEqual(len(backend.prompts), 2)
         self.assertTrue(
-            all(PLANNER_BASE_INSTRUCTIONS not in prompt for prompt in backend.prompts)
+            all(
+                PLANNER_BASE_INSTRUCTIONS not in prompt
+                for prompt, _reference_scope in backend.prompts
+            )
+        )
+        self.assertEqual(
+            backend.prompts[0][1].evidence_keys,
+            ("source:current", "evidence:hana_voice"),
         )
 
     def test_validator_is_fresh_compact_and_nonresumable_per_candidate(self) -> None:
@@ -1504,6 +1535,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
                     current_public_scene_state="Ted and Hana are in the room.",
                     protected_source_claims=(),
                     hard_boundaries=("Do not invent Ted's response.",),
+                    reference_scope=reference_scope(plan=intended()),
                 )
             )
             session.archive_and_prove_nonresumable()
@@ -1516,7 +1548,10 @@ class SequenceFirstSessionTests(unittest.TestCase):
             all(value[1] == VALIDATOR_BASE_INSTRUCTIONS for value in backend.starts)
         )
         self.assertTrue(
-            all(VALIDATOR_BASE_INSTRUCTIONS not in prompt for _, prompt in backend.prompts)
+            all(
+                VALIDATOR_BASE_INSTRUCTIONS not in prompt
+                for _, prompt, _reference_scope in backend.prompts
+            )
         )
         self.assertEqual(backend.archived, {"validator-1", "validator-2"})
         self.assertNotIn("exhaustive", VALIDATOR_PROFILE)
@@ -1802,6 +1837,151 @@ class SequenceFirstSessionTests(unittest.TestCase):
                 STABLE_IDENTITY_JSON_PATTERN,
             )
 
+    def test_request_reference_scope_closes_planner_and_validator_schemas(self) -> None:
+        scope = ProviderReferenceScopeV1(
+            known_character_ids=("character:ted", "character:hana"),
+            evidence_keys=("source:current", "evidence:hana_current"),
+            protected_source_claim_keys=("current_request",),
+            approved_target_keys=("target:hana",),
+            planner_item_keys=("hana_answers", "await_ted"),
+        )
+        planner_schema = sequence_draft_json_schema(reference_scope=scope)
+        planner_item = planner_schema["properties"]["items"]["items"]["properties"]
+        self.assertEqual(
+            planner_item["owner_id"]["anyOf"][0]["enum"],
+            ["character:ted", "character:hana"],
+        )
+        self.assertEqual(
+            planner_item["evidence_keys"]["items"]["enum"],
+            ["source:current", "evidence:hana_current"],
+        )
+        self.assertEqual(
+            planner_item["protected_user_claim_keys"]["items"]["enum"],
+            ["current_request"],
+        )
+        self.assertEqual(planner_item["planner_item_keys"]["maxItems"], 0)
+        durable = planner_schema["properties"]["durable_changes"]["items"][
+            "properties"
+        ]
+        self.assertEqual(durable["subject_ids"]["items"]["enum"], list(scope.known_character_ids))
+        self.assertEqual(durable["target_key"]["enum"], ["target:hana"])
+        self.assertEqual(
+            durable["knowledge_owner_id"]["anyOf"][0]["enum"],
+            list(scope.known_character_ids),
+        )
+        self.assertEqual(
+            planner_schema["properties"]["presence_changes"]["items"][
+                "properties"
+            ]["character_id"]["enum"],
+            list(scope.known_character_ids),
+        )
+
+        validator_schema = validator_decision_json_schema(reference_scope=scope)
+        realized = validator_schema["properties"]["realized_sequence"]["anyOf"][0]
+        realized_item = realized["properties"]["items"]["items"]["properties"]
+        self.assertEqual(
+            realized_item["planner_item_keys"]["items"]["enum"],
+            list(scope.planner_item_keys),
+        )
+        self.assertEqual(
+            validator_schema["properties"]["conflict"]["anyOf"][0][
+                "properties"
+            ]["omitted_planner_item_key"]["anyOf"][0]["enum"],
+            list(scope.planner_item_keys),
+        )
+        self.assertTrue(
+            tuple(
+                Draft202012Validator(realized_item["owner_id"]).iter_errors(
+                    "character:mia"
+                )
+            )
+        )
+        self.assertTrue(
+            tuple(
+                Draft202012Validator(realized_item["evidence_keys"]["items"])
+                .iter_errors("hana_current")
+            )
+        )
+        self.assertTrue(
+            tuple(
+                Draft202012Validator(realized_item["planner_item_keys"]["items"])
+                .iter_errors("unknown_item")
+            )
+        )
+        projected_planner = project_provider_output_schema(
+            planner_schema,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        projected_validator = project_provider_output_schema(
+            validator_schema,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        self.assertEqual(
+            projected_planner["properties"]["items"]["items"]["properties"]
+            ["evidence_keys"]["items"]["enum"],
+            list(scope.evidence_keys),
+        )
+        self.assertEqual(
+            projected_validator["properties"]["realized_sequence"]["anyOf"]
+            [0]["properties"]["items"]["items"]["properties"]
+            ["planner_item_keys"]["items"]["enum"],
+            list(scope.planner_item_keys),
+        )
+
+        empty_optional_scope = ProviderReferenceScopeV1(
+            known_character_ids=("character:hana",),
+            evidence_keys=("source:current",),
+            protected_source_claim_keys=(),
+            approved_target_keys=(),
+            planner_item_keys=(),
+        )
+        empty_planner = sequence_draft_json_schema(
+            reference_scope=empty_optional_scope
+        )
+        self.assertEqual(
+            empty_planner["properties"]["items"]["items"]["properties"][
+                "protected_user_claim_keys"
+            ]["maxItems"],
+            0,
+        )
+        self.assertEqual(
+            empty_planner["properties"]["durable_changes"]["maxItems"],
+            0,
+        )
+        empty_validator = validator_decision_json_schema(
+            reference_scope=empty_optional_scope
+        )
+        self.assertEqual(
+            empty_validator["properties"]["conflict"]["anyOf"][0][
+                "properties"
+            ]["omitted_planner_item_key"],
+            {"type": "null"},
+        )
+        self.assertEqual(
+            empty_validator["properties"]["realized_sequence"]["anyOf"][0][
+                "properties"
+            ]["items"]["items"]["properties"]["planner_item_keys"][
+                "maxItems"
+            ],
+            0,
+        )
+
+        next_scope = ProviderReferenceScopeV1(
+            known_character_ids=("character:sakura",),
+            evidence_keys=("source:current", "evidence:next_turn"),
+            protected_source_claim_keys=(),
+            approved_target_keys=(),
+            planner_item_keys=("sakura_answers",),
+        )
+        next_schema = sequence_draft_json_schema(reference_scope=next_scope)
+        self.assertEqual(
+            next_schema["properties"]["items"]["items"]["properties"][
+                "evidence_keys"
+            ]["items"]["enum"],
+            ["source:current", "evidence:next_turn"],
+        )
+        self.assertNotIn("evidence:hana_current", canonical_json(next_schema))
+
     def test_validator_schema_is_strict_complete_and_closed(self) -> None:
         schema = validator_decision_json_schema()
         self.assertIsInstance(schema, dict)
@@ -1875,7 +2055,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_ADAPTER,
-            "cera.sequence_first.validator_adapter.v8",
+            "cera.sequence_first.validator_adapter.v9",
         )
         self.assertEqual(
             validator_route.prompt_version,
@@ -1883,14 +2063,18 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_PROMPT,
-            "cera.sequence_first.validator_prompt.v6",
+            "cera.sequence_first.validator_prompt.v7",
         )
-        self.assertTrue(validator_route.route_id.endswith("_v8"))
+        self.assertTrue(validator_route.route_id.endswith("_v9"))
         self.assertEqual(
             SEQUENCE_FIRST_PLANNER_ADAPTER,
-            "cera.sequence_first.planner_adapter.v6",
+            "cera.sequence_first.planner_adapter.v7",
         )
-        self.assertTrue(planner_route.route_id.endswith("_v6"))
+        self.assertEqual(
+            planner_route.prompt_version,
+            "cera.sequence_first.planner_prompt.v5",
+        )
+        self.assertTrue(planner_route.route_id.endswith("_v7"))
         self.assertEqual(reader_route.adapter_id, SEQUENCE_FIRST_READER_ADAPTER)
         self.assertEqual(writer_route.adapter_id, SEQUENCE_FIRST_WRITER_ADAPTER)
         self.assertEqual(writer_route.prompt_version, SEQUENCE_FIRST_WRITER_PROMPT)
@@ -2027,9 +2211,18 @@ class SequenceFirstSessionTests(unittest.TestCase):
                 for adapter_id, schema in self.CodexTransportFake.captured_schemas
                 if adapter_id == SEQUENCE_FIRST_VALIDATOR_ADAPTER
             ]
+            planner_reference_scope = reference_scope()
+            validator_reference_scope = reference_scope(plan=intended())
             self.assertEqual(
                 validator_schemas,
-                [validator_decision_json_schema(), validator_decision_json_schema()],
+                [
+                    validator_decision_json_schema(
+                        reference_scope=validator_reference_scope
+                    ),
+                    validator_decision_json_schema(
+                        reference_scope=validator_reference_scope
+                    ),
+                ],
             )
             planner_schemas = [
                 schema
@@ -2038,15 +2231,34 @@ class SequenceFirstSessionTests(unittest.TestCase):
             ]
             self.assertEqual(
                 planner_schemas,
-                [sequence_draft_json_schema(), sequence_draft_json_schema()],
+                [
+                    sequence_draft_json_schema(
+                        reference_scope=planner_reference_scope
+                    ),
+                    sequence_draft_json_schema(
+                        reference_scope=planner_reference_scope
+                    ),
+                ],
             )
             self.assertEqual(
                 {canonical_sha256(schema) for schema in planner_schemas},
-                {canonical_sha256(sequence_draft_json_schema())},
+                {
+                    canonical_sha256(
+                        sequence_draft_json_schema(
+                            reference_scope=planner_reference_scope
+                        )
+                    )
+                },
             )
             self.assertEqual(
                 {canonical_sha256(schema) for schema in validator_schemas},
-                {canonical_sha256(validator_decision_json_schema())},
+                {
+                    canonical_sha256(
+                        validator_decision_json_schema(
+                            reference_scope=validator_reference_scope
+                        )
+                    )
+                },
             )
             self.assertIsNotNone(validator_schemas[0])
 

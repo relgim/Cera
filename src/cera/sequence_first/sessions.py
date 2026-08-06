@@ -7,6 +7,7 @@ from typing import Protocol
 from cera.errors import ContractValidationError, StateConflictError
 
 from .contracts import (
+    ProviderReferenceScopeV1,
     SequenceDraftV1,
     SequenceFirstTurnSemanticInputV1,
     SequenceFirstValidatorInputV1,
@@ -25,7 +26,13 @@ from .prompting import (
 class PlannerThreadBackendPort(Protocol):
     def start_stored_thread(self, *, base_instructions: str, profile: str) -> str: ...
 
-    def run_planner_turn(self, *, thread_id: str, prompt: str) -> SequenceDraftV1: ...
+    def run_planner_turn(
+        self,
+        *,
+        thread_id: str,
+        prompt: str,
+        reference_scope: ProviderReferenceScopeV1,
+    ) -> SequenceDraftV1: ...
 
     def is_resumable(self, thread_id: str) -> bool: ...
 
@@ -52,6 +59,7 @@ class PersistentPlannerSession:
         return self._backend.run_planner_turn(
             thread_id=self._thread_id,
             prompt=planner_turn_prompt(semantic_input),
+            reference_scope=ProviderReferenceScopeV1.from_turn(semantic_input),
         )
 
 
@@ -63,6 +71,7 @@ class ValidatorThreadBackendPort(Protocol):
         *,
         thread_id: str,
         prompt: str,
+        reference_scope: ProviderReferenceScopeV1,
     ) -> ValidatorDecisionV1: ...
 
     def archive(self, thread_id: str) -> None: ...
@@ -101,6 +110,7 @@ class FreshCandidateValidatorSession:
         return self._backend.run_validator_once(
             thread_id=self._thread_id,
             prompt=validator_candidate_prompt(request),
+            reference_scope=request.reference_scope,
         )
 
     def archive_and_prove_nonresumable(self) -> None:

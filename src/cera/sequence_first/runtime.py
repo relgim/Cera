@@ -12,6 +12,7 @@ from cera.serialization import text_sha256
 from .contracts import (
     BoundSequenceV1,
     ControllerFailureType,
+    ProviderReferenceScopeV1,
     ReaderStatus,
     ReaderVerdictV1,
     SequenceCustodyEnvelopeV1,
@@ -168,6 +169,10 @@ class SequenceFirstCoordinator:
                 current_public_scene_state=semantics.current_public_scene_state,
                 protected_source_claims=semantics.protected_source_claims,
                 hard_boundaries=semantics.hard_boundaries,
+                reference_scope=ProviderReferenceScopeV1.from_turn(
+                    semantics,
+                    intended_sequence=intended,
+                ),
             )
             validator = self._validator_factory.create_sequence_first_validator()
             try:
