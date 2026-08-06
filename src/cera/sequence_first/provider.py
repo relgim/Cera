@@ -46,18 +46,18 @@ from .prompting import (
 )
 
 
-SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v4"
+SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v5"
 SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v4"
-SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v3"
+SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v4"
 SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v3"
-SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v2"
+SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v3"
 SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v2"
 
 
 def sequence_first_planner_route():
     return replace(
         codex_reasoner_candidate(model="gpt-5.6-sol", effort="medium"),
-        route_id="cera_sequence_first_planner_sol_medium_v4",
+        route_id="cera_sequence_first_planner_sol_medium_v5",
         adapter_id=SEQUENCE_FIRST_PLANNER_ADAPTER,
         prompt_version=SEQUENCE_FIRST_PLANNER_PROMPT,
         maximum_output_tokens=8_192,
@@ -70,7 +70,7 @@ def sequence_first_planner_route():
 def sequence_first_validator_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_validator_{model}_{effort}_v3",
+        route_id=f"cera_sequence_first_validator_{model}_{effort}_v4",
         adapter_id=SEQUENCE_FIRST_VALIDATOR_ADAPTER,
         prompt_version=SEQUENCE_FIRST_VALIDATOR_PROMPT,
         maximum_output_tokens=8_192,
@@ -83,7 +83,7 @@ def sequence_first_validator_route(*, model: str, effort: str):
 def sequence_first_reader_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_reader_{model}_{effort}_v2",
+        route_id=f"cera_sequence_first_reader_{model}_{effort}_v3",
         adapter_id=SEQUENCE_FIRST_READER_ADAPTER,
         prompt_version=SEQUENCE_FIRST_READER_PROMPT,
         maximum_output_tokens=4_096,
@@ -116,6 +116,23 @@ def _local_key() -> dict:
 
 def _local_key_array() -> dict:
     return {"type": "array", "items": _local_key()}
+
+
+def _operation_workspace(root: Path, *, role: str, index: int) -> Path:
+    """Create one immutable empty worker directory for one provider operation."""
+
+    if not root.is_absolute() or not root.is_dir():
+        raise ContractValidationError(
+            "sequence-first provider workspace root must already exist"
+        )
+    workspace = root / f"{role}_operation_{index:04d}"
+    try:
+        workspace.mkdir()
+    except FileExistsError as exc:
+        raise ContractValidationError(
+            "sequence-first provider operation workspace already exists"
+        ) from exc
+    return workspace
 
 
 def _sequence_item_schema(*, allow_planner_item_keys: bool) -> dict:
@@ -305,12 +322,16 @@ class SequenceFirstPlannerCodexBackend:
         return self.lifecycle.start_stored_thread()
 
     def run_planner_turn(self, *, thread_id: str, prompt: str) -> SequenceDraftV1:
+        self._operation_index += 1
         transport = CodexSDKTransport(
             self.route,
-            workspace=self.workspace,
+            workspace=_operation_workspace(
+                self.workspace,
+                role="planner",
+                index=self._operation_index,
+            ),
             runner=StoredCodexThreadRunner(thread_id),
         )
-        self._operation_index += 1
         stored_thread_sha256 = text_sha256(thread_id)
         mcp_binding = (
             self.world_bridge.runtime_binding
@@ -395,12 +416,16 @@ class SequenceFirstValidatorCodexBackend:
         thread_id: str,
         prompt: str,
     ) -> ValidatorDecisionV1:
+        self._operation_index += 1
         transport = CodexSDKTransport(
             self.route,
-            workspace=self.workspace,
+            workspace=_operation_workspace(
+                self.workspace,
+                role="validator",
+                index=self._operation_index,
+            ),
             runner=StoredCodexThreadRunner(thread_id),
         )
-        self._operation_index += 1
         stored_thread_sha256 = text_sha256(thread_id)
 
         def dispatch(markers):
@@ -473,12 +498,16 @@ class SequenceFirstReaderCodexPort:
     def read(self, request: SequenceFirstReaderInputV1) -> ReaderVerdictV1:
         thread_id = self.lifecycle.start_stored_thread()
         stored_thread_sha256 = text_sha256(thread_id)
+        self._operation_index += 1
         transport = CodexSDKTransport(
             self.route,
-            workspace=self.workspace,
+            workspace=_operation_workspace(
+                self.workspace,
+                role="reader",
+                index=self._operation_index,
+            ),
             runner=StoredCodexThreadRunner(thread_id),
         )
-        self._operation_index += 1
 
         def dispatch(markers):
             return transport.invoke(

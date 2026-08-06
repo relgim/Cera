@@ -986,11 +986,15 @@ class SequenceFirstSessionTests(unittest.TestCase):
 
     class CodexTransportFake:
         captured_schemas = []
+        captured_workspaces = []
 
         def __init__(self, route, *, workspace: Path, runner) -> None:
+            if not workspace.is_dir() or any(workspace.iterdir()):
+                raise AssertionError("fake Codex transport requires an empty workspace")
             self.route = route
             self.workspace = workspace
             self.runner = runner
+            self.__class__.captured_workspaces.append(workspace)
 
         def invoke(
             self,
@@ -1004,6 +1008,10 @@ class SequenceFirstSessionTests(unittest.TestCase):
         ):
             self.__class__.captured_schemas.append(
                 (self.route.adapter_id, output_schema)
+            )
+            (self.workspace / ".cera_codex_worker_progress.json").write_text(
+                '{"stage":"response_encode"}',
+                encoding="utf-8",
             )
             on_worker_started()
             on_worker_preflight()
@@ -1282,7 +1290,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
             root = Path(temporary).resolve()
             ledger = ContinuousProviderCallLedger(
                 root / "provider_calls.jsonl",
-                maximum_calls=3,
+                maximum_calls=6,
             )
             planner_lifecycle = self.StoredLifecycleFake(
                 PLANNER_BASE_INSTRUCTIONS,
@@ -1324,23 +1332,53 @@ class SequenceFirstSessionTests(unittest.TestCase):
             )
             runtime = SequenceFirstCoordinator(
                 planner=planner,
-                writer=WriterFake(["Hana asks what Ted wants to do next."]),
+                writer=WriterFake(
+                    [
+                        "Hana asks what Ted wants to do next.",
+                        "Hana again leaves the next choice to Ted.",
+                    ]
+                ),
                 validator_factory=validator,
                 reader=reader,
                 voice_cue_resolver=VoiceCueResolverFake(),
             )
             self.CodexTransportFake.captured_schemas = []
+            self.CodexTransportFake.captured_workspaces = []
             with patch(
                 "cera.sequence_first.provider.CodexSDKTransport",
                 self.CodexTransportFake,
             ):
                 result = runtime.generate(request())
+                second = runtime.generate(
+                    request(
+                        private_custody=custody(
+                            candidate_id="candidate-two",
+                            turn_id="turn-003",
+                        )
+                    )
+                )
 
             self.assertTrue(result.accepted)
-            self.assertEqual(ledger.dispatched_call_count, 3)
+            self.assertTrue(second.accepted)
+            self.assertEqual(ledger.dispatched_call_count, 6)
             self.assertEqual(planner_lifecycle.archived, set())
-            self.assertEqual(validator_lifecycle.archived, {"validator-1"})
-            self.assertEqual(reader_lifecycle.archived, {"reader-1"})
+            self.assertEqual(
+                validator_lifecycle.archived,
+                {"validator-1", "validator-2"},
+            )
+            self.assertEqual(
+                reader_lifecycle.archived,
+                {"reader-1", "reader-2"},
+            )
+            workspaces = self.CodexTransportFake.captured_workspaces
+            self.assertEqual(len(workspaces), 6)
+            self.assertEqual(len(set(workspaces)), 6)
+            self.assertTrue(
+                all(
+                    (workspace / ".cera_codex_worker_progress.json").is_file()
+                    for workspace in workspaces
+                )
+            )
             accepted_owners = {
                 event["owner"]
                 for event in ledger.events
@@ -1355,7 +1393,10 @@ class SequenceFirstSessionTests(unittest.TestCase):
                 for adapter_id, schema in self.CodexTransportFake.captured_schemas
                 if adapter_id == SEQUENCE_FIRST_VALIDATOR_ADAPTER
             ]
-            self.assertEqual(validator_schemas, [validator_decision_json_schema()])
+            self.assertEqual(
+                validator_schemas,
+                [validator_decision_json_schema(), validator_decision_json_schema()],
+            )
             self.assertIsNotNone(validator_schemas[0])
 
 
