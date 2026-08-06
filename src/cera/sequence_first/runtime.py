@@ -7,12 +7,13 @@ from typing import Protocol
 
 from cera.errors import ContractValidationError
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
-from cera.serialization import text_sha256
+from cera.serialization import canonical_sha256, text_sha256
 
 from .contracts import (
     BoundSequenceV1,
     ControllerFailureType,
     ProviderReferenceScopeV1,
+    PrimarySequenceStatus,
     ReaderStatus,
     ReaderVerdictV1,
     SequenceCustodyEnvelopeV1,
@@ -28,6 +29,7 @@ from .contracts import (
     VoiceCueV1,
     WriterAttemptReceiptV1,
     WriterAttemptStatus,
+    WriterRetryFeedbackV1,
     WriterResponseV1,
     writer_retry_eligible,
 )
@@ -44,6 +46,7 @@ class WriterPort(Protocol):
         self,
         brief: SequenceFirstWriterBriefV1,
         attempt_number: int,
+        retry_feedback: tuple[WriterRetryFeedbackV1, ...] = (),
     ) -> WriterResponseV1: ...
 
 
@@ -91,6 +94,7 @@ class SequenceFirstTransactionPort(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class SequenceFirstRunResultV1:
+    intended_sequence: BoundSequenceV1
     candidate: SequenceFirstCandidateV1 | None
     attempt_receipts: tuple[WriterAttemptReceiptV1, ...]
     terminal_validator_decision: ValidatorDecisionV1 | None = None
@@ -99,6 +103,14 @@ class SequenceFirstRunResultV1:
     @property
     def accepted(self) -> bool:
         return self.candidate is not None
+
+    @property
+    def primary_sequence_status(self) -> PrimarySequenceStatus:
+        return (
+            PrimarySequenceStatus.REALIZED
+            if self.candidate is not None
+            else PrimarySequenceStatus.PLANNED
+        )
 
 
 class SequenceFirstCoordinator:
@@ -154,11 +166,14 @@ class SequenceFirstCoordinator:
             hard_boundaries=semantics.hard_boundaries,
         )
         receipts: list[WriterAttemptReceiptV1] = []
+        retry_feedback: tuple[WriterRetryFeedbackV1, ...] = ()
 
         for attempt_number in range(1, self._maximum_writer_attempts + 1):
             if self._operation_evidence is not None:
                 self._operation_evidence.set_attempt(attempt_number)
-            writer_response = self._writer.write(brief, attempt_number)
+            writer_response = self._writer.write(
+                brief, attempt_number, retry_feedback=retry_feedback
+            )
             validator_input = SequenceFirstValidatorInputV1(
                 intended_sequence=intended,
                 exact_writer_prose=writer_response.story_text,
@@ -174,6 +189,8 @@ class SequenceFirstCoordinator:
                     semantics,
                     intended_sequence=intended,
                 ),
+                accepted_character_deltas=semantics.character_deltas,
+                accepted_evidence_records=semantics.evidence_records,
             )
             validator = self._validator_factory.create_sequence_first_validator()
             try:
@@ -214,6 +231,9 @@ class SequenceFirstCoordinator:
                         status=WriterAttemptStatus.VALIDATOR_REJECTED,
                         writer_prose_sha256=text_sha256(writer_response.story_text),
                         concise_reason=conflict.concise_explanation,
+                        retry_feedback_sha256=(
+                            canonical_sha256(retry_feedback) if retry_feedback else None
+                        ),
                     )
                 )
                 if not writer_retry_eligible(
@@ -221,10 +241,25 @@ class SequenceFirstCoordinator:
                     decision=decision,
                 ) or attempt_number == self._maximum_writer_attempts:
                     return SequenceFirstRunResultV1(
+                        intended_sequence=bound_intended,
                         candidate=None,
                         attempt_receipts=tuple(receipts),
                         terminal_validator_decision=decision,
                     )
+                retry_feedback = (
+                    WriterRetryFeedbackV1(
+                        owner="validator",
+                        feedback_type="semantic_writer_conflict",
+                        issue_code=conflict.conflict_class.value,
+                        concise_reason=conflict.concise_explanation,
+                        required_correction=(
+                            "Produce a fresh complete response that preserves the frozen "
+                            "primary sequence and corrects this one material issue."
+                        ),
+                        exact_quote=conflict.exact_quote,
+                        omitted_planner_item_key=conflict.omitted_planner_item_key,
+                    ),
+                )
                 continue
 
             realized = decision.realized_sequence
@@ -242,6 +277,7 @@ class SequenceFirstCoordinator:
                 # frozen Writer candidate is defective.  It terminates this run
                 # identity without Writer/Reader retry, fallback, or hidden repair.
                 return SequenceFirstRunResultV1(
+                    intended_sequence=bound_intended,
                     candidate=None,
                     attempt_receipts=tuple(receipts),
                     terminal_validator_decision=decision,
@@ -258,17 +294,40 @@ class SequenceFirstCoordinator:
                         concise_reason="; ".join(
                             issue.concise_explanation for issue in reader_verdict.issues
                         ),
+                        retry_feedback_sha256=(
+                            canonical_sha256(retry_feedback) if retry_feedback else None
+                        ),
                     )
                 )
                 if not writer_retry_eligible(
                     failure_type=ControllerFailureType.READER_QUALITY_REJECTION,
                 ) or attempt_number == self._maximum_writer_attempts:
                     return SequenceFirstRunResultV1(
+                        intended_sequence=bound_intended,
                         candidate=None,
                         attempt_receipts=tuple(receipts),
                         terminal_validator_decision=decision,
                         terminal_reader_verdict=reader_verdict,
                     )
+                issue = reader_verdict.issues[0]
+                retry_feedback = (
+                    WriterRetryFeedbackV1(
+                        owner="reader",
+                        feedback_type="reader_quality_rejection",
+                        issue_code=issue.issue_code,
+                        concise_reason=issue.concise_explanation,
+                        required_correction=(
+                            "Produce a fresh complete response that preserves the frozen "
+                            "primary sequence and corrects this one severe reader-facing issue."
+                        ),
+                        exact_quote=issue.exact_quote,
+                        omitted_planner_item_key=(
+                            None
+                            if issue.exact_quote is not None
+                            else intended.items[0].item_key
+                        ),
+                    ),
+                )
                 continue
 
             receipts.append(
@@ -293,6 +352,7 @@ class SequenceFirstCoordinator:
                 accepted_attempt_number=attempt_number,
             )
             return SequenceFirstRunResultV1(
+                intended_sequence=bound_intended,
                 candidate=candidate,
                 attempt_receipts=tuple(receipts),
                 terminal_validator_decision=decision,

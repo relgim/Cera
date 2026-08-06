@@ -31,6 +31,7 @@ from cera.sequence_first import (
     PersistentPlannerSession,
     PresenceChangeV1,
     PresenceDirection,
+    PrimarySequenceStatus,
     ProviderReferenceScopeV1,
     ProtectedSourceClaimV1,
     ReaderIssueV1,
@@ -324,10 +325,12 @@ class WriterFake:
         self.outputs = outputs
         self.calls = 0
         self.briefs = []
+        self.retry_feedback = []
 
-    def write(self, brief, attempt_number: int) -> WriterResponseV1:
+    def write(self, brief, attempt_number: int, retry_feedback=()) -> WriterResponseV1:
         self.calls += 1
         self.briefs.append(brief)
+        self.retry_feedback.append(tuple(retry_feedback))
         output = self.outputs[self.calls - 1]
         if isinstance(output, Exception):
             raise output
@@ -950,6 +953,77 @@ class SequenceFirstPresenceTests(unittest.TestCase):
 
 
 class SequenceFirstPipelineTests(unittest.TestCase):
+    def test_exhausted_writer_attempts_retain_frozen_intended_primary_sequence(self) -> None:
+        plan = intended()
+        value, writer, _ = coordinator(
+            plan=plan,
+            writer_outputs=["bad one", "bad two", "bad three"],
+            validator_outputs=[
+                rejected_decision(
+                    conflict_class=ConflictClass.MATERIAL_ADDITION,
+                    quote="bad one",
+                ),
+                rejected_decision(
+                    conflict_class=ConflictClass.MATERIAL_ADDITION,
+                    quote="bad two",
+                ),
+                rejected_decision(
+                    conflict_class=ConflictClass.MATERIAL_ADDITION,
+                    quote="bad three",
+                ),
+            ],
+        )
+        result = value.generate(request())
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.primary_sequence_status, PrimarySequenceStatus.PLANNED)
+        self.assertEqual(result.intended_sequence.semantic, plan)
+        self.assertEqual(result.intended_sequence.semantic.semantic_sha256, plan.semantic_sha256)
+        self.assertEqual(len(writer.retry_feedback), 3)
+        self.assertEqual(writer.retry_feedback[0], ())
+        self.assertEqual(writer.retry_feedback[1][0].owner, "validator")
+        self.assertEqual(writer.retry_feedback[2][0].issue_code, "material_addition")
+
+    def test_realized_sequence_cannot_drop_planned_presence_or_durable_changes(self) -> None:
+        change = DurableChangeV1(
+            change_key="hana_development",
+            kind=DurableChangeKind.CHARACTER_DEVELOPMENT,
+            subject_ids=("character:hana",),
+            concise_change="Hana asks a direct question.",
+            target_key="target:hana",
+        )
+        plan_item = item(change_keys=(change.change_key,))
+        plan = intended(
+            items=(plan_item,),
+            durable_changes=(change,),
+            presence_changes=(
+                PresenceChangeV1(
+                    character_id="character:sakura",
+                    direction=PresenceDirection.ENTER,
+                    effective_after_item_key=plan_item.item_key,
+                ),
+            ),
+        )
+        semantics = semantic_input(
+            approved_targets=(
+                ApprovedTargetV1(
+                    target_key="target:hana",
+                    allowed_change_kinds=(DurableChangeKind.CHARACTER_DEVELOPMENT,),
+                ),
+            )
+        )
+        missing = realized(
+            items=(
+                item(
+                    key="realized_answer",
+                    planner_keys=(plan_item.item_key,),
+                    change_keys=(change.change_key,),
+                ),
+            ),
+            durable_changes=(change,),
+        )
+        with self.assertRaisesRegex(ContractValidationError, "presence change"):
+            semantics.validate_realized(missing, intended=plan)
+
     def test_voice_cues_resolve_only_after_planner_owner_selection(self) -> None:
         resolver = VoiceCueResolverFake()
         plan = intended(
@@ -1033,8 +1107,10 @@ class SequenceFirstPipelineTests(unittest.TestCase):
                 WriterAttemptStatus.ACCEPTED,
             ),
         )
+        self.assertEqual(writer.retry_feedback[0], ())
+        self.assertEqual(len(writer.retry_feedback[1]), 1)
+        self.assertEqual(len(writer.retry_feedback[2]), 1)
         frozen_prompts = tuple(writer_prompt(brief) for brief in writer.briefs)
-        self.assertEqual(len(set(frozen_prompts)), 1)
         self.assertEqual(
             len({canonical_json(brief) for brief in writer.briefs}),
             1,
@@ -1236,30 +1312,11 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             "Keep exact prose open for the Writer",
         ):
             self.assertIn(general_rule, PLANNER_BASE_INSTRUCTIONS)
-        self.assertIn("backgrounded_character_ids", WRITER_INSTRUCTIONS)
-        self.assertIn("Compatible static presentation", WRITER_INSTRUCTIONS)
-        self.assertIn("omit it from the realized sequence", VALIDATOR_BASE_INSTRUCTIONS)
-        self.assertIn(
-            "static positional refinement inside an already accepted location",
-            VALIDATOR_BASE_INSTRUCTIONS,
-        )
-        self.assertIn(
-            "unless it changes the accepted location",
-            VALIDATOR_BASE_INSTRUCTIONS,
-        )
-        self.assertIn("present nonresponding NPCs", VALIDATOR_BASE_INSTRUCTIONS)
-        self.assertIn(
-            "Actorless or passive incidental presentation",
-            VALIDATOR_BASE_INSTRUCTIONS,
-        )
-        self.assertIn(
-            "Do not infer a sensitive actor",
-            VALIDATOR_BASE_INSTRUCTIONS,
-        )
-        self.assertIn(
-            "necessarily establishes a consequential material",
-            VALIDATOR_BASE_INSTRUCTIONS,
-        )
+        self.assertIn("Present/backgrounded NPCs are not behaviorally frozen", WRITER_INSTRUCTIONS)
+        self.assertIn("compatible NPC", WRITER_INSTRUCTIONS)
+        self.assertIn("Accept compatible novelty", VALIDATOR_BASE_INSTRUCTIONS)
+        self.assertIn("E when it was not already planned", VALIDATOR_BASE_INSTRUCTIONS)
+        self.assertIn("Present/backgrounded NPCs are not behaviorally frozen", VALIDATOR_BASE_INSTRUCTIONS)
         for general_rule in (
             "proposition actually asserted",
             "possessive reference",
@@ -2127,7 +2184,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_PROMPT,
-            "cera.sequence_first.validator_prompt.v9",
+            "cera.sequence_first.validator_prompt.v10",
         )
         self.assertTrue(validator_route.route_id.endswith("_v11"))
         self.assertEqual(
@@ -2136,7 +2193,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             planner_route.prompt_version,
-            "cera.sequence_first.planner_prompt.v6",
+            "cera.sequence_first.planner_prompt.v7",
         )
         self.assertTrue(planner_route.route_id.endswith("_v8"))
         self.assertEqual(reader_route.adapter_id, SEQUENCE_FIRST_READER_ADAPTER)
@@ -2144,7 +2201,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
         self.assertEqual(writer_route.prompt_version, SEQUENCE_FIRST_WRITER_PROMPT)
         self.assertEqual(
             SEQUENCE_FIRST_WRITER_PROMPT,
-            "cera.sequence_first.writer_prompt.v1",
+            "cera.sequence_first.writer_prompt.v2",
         )
         self.assertEqual(writer_route.model_name, "deepseek-v4-flash")
         for route in (planner_route, validator_route, reader_route, writer_route):
@@ -2520,6 +2577,16 @@ class SequenceFirstWorldTransactionTests(unittest.TestCase):
                 / "PROMOTION_RECEIPT.json"
             )
             self.assertTrue(receipt.is_file())
+            event_path = next((active / "Events").glob("*.sequence_first.json"))
+            event = json.loads(event_path.read_text(encoding="utf-8"))
+            self.assertEqual(
+                event["schema_version"],
+                "cera.sequence_first.accepted_story_artifact.v2",
+            )
+            self.assertEqual(event["primary_sequence_status"], "realized")
+            self.assertEqual(event["acceptance_basis"], "automatic_qualification")
+            self.assertIn("intended_sequence", event)
+            self.assertIn("realized_sequence", event)
 
             restarted_store = ContinuousWorldStore(Path(temporary).resolve())
             accepted_head = SequenceFirstWorldTransaction(
@@ -2534,6 +2601,7 @@ class SequenceFirstWorldTransactionTests(unittest.TestCase):
                 ("character:ted", "character:hana", "character:mia"),
             )
             self.assertIsNotNone(accepted_head.prior_realized_sequence)
+            self.assertIsNotNone(accepted_head.prior_intended_sequence)
             self.assertFalse(hasattr(accepted_head, "provider_thread_id"))
 
     def test_branch_scoped_restart_loader_does_not_read_sibling_artifacts(self) -> None:

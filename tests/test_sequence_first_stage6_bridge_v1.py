@@ -127,7 +127,7 @@ class WriterFake:
         self.prose = prose
         self.calls = 0
 
-    def write(self, brief, attempt_number: int) -> WriterResponseV1:
+    def write(self, brief, attempt_number: int, retry_feedback=()) -> WriterResponseV1:
         self.calls += 1
         return WriterResponseV1("cera.scene_writer_draft.v1", self.prose)
 

@@ -6160,6 +6160,7 @@ class DeepSeekContinuousComposerPort:
         self,
         prompt: str,
         *,
+        system_prompt: str | None = None,
         operation_evidence: ProviderOperationEvidenceStoreV1 | None = None,
         operation_evidence_attempt: int = 1,
         operation_evidence_prompt_version: str | None = None,
@@ -6169,7 +6170,7 @@ class DeepSeekContinuousComposerPort:
         messages = (
             DeepSeekMessage(
                 "system",
-                "You are CERA's stateless Scene Writer. Realize the validated Planner sequence as one fresh complete presentation-neutral story response. Preserve the required causal beats, character boundaries, exact creator-source constraints, and stopping point. Write natural prose with dialogue, compatible transient gesture and staging, pacing, atmosphere, imagery, rhythm, and only the allowed character interiority. Never invent continuity-relevant objects, tasks, events, relocation, material state, relationship or memory facts, or protected-user behavior. Any recall directive is non-authoritative feedback about a rejected candidate; do not continue, patch, merge, or treat it as story context. Return exactly one JSON object containing schema_version and story_text. Do not return analysis, semantic labels, roles, owners, claim keys, consent judgments, offsets, hashes, coverage, events, memory, persistence, or acceptance decisions. Do not certify or explain your own prose. Thinking is disabled.",
+                system_prompt or "You are CERA's stateless Scene Writer. Realize the validated Planner sequence as one fresh complete presentation-neutral story response. Preserve the required causal beats, character boundaries, exact creator-source constraints, and stopping point. Write natural prose with dialogue, compatible transient gesture and staging, pacing, atmosphere, imagery, rhythm, and only the allowed character interiority. Never invent continuity-relevant objects, tasks, events, relocation, material state, relationship or memory facts, or protected-user behavior. Any recall directive is non-authoritative feedback about a rejected candidate; do not continue, patch, merge, or treat it as story context. Return exactly one JSON object containing schema_version and story_text. Do not return analysis, semantic labels, roles, owners, claim keys, consent judgments, offsets, hashes, coverage, events, memory, persistence, or acceptance decisions. Do not certify or explain your own prose. Thinking is disabled.",
             ),
             DeepSeekMessage(
                 "user",

@@ -67,6 +67,11 @@ class SequenceRole(StrEnum):
     SAFE_RESTRICTED = "safe_restricted"
 
 
+class PrimarySequenceStatus(StrEnum):
+    PLANNED = "planned"
+    REALIZED = "realized"
+
+
 class ItemKind(StrEnum):
     ACTION = "action"
     DIALOGUE_INTENT = "dialogue_intent"
@@ -534,6 +539,43 @@ class SequenceFirstTurnSemanticInputV1:
             raise ContractValidationError(
                 "accepted realized sequence does not cover every intended item"
             )
+        intended_changes = {
+            change.change_key: canonical_sha256(change)
+            for change in intended.durable_changes
+        }
+        realized_changes = {
+            change.change_key: canonical_sha256(change)
+            for change in realized.durable_changes
+        }
+        if realized_changes != intended_changes:
+            raise ContractValidationError(
+                "accepted realized sequence dropped or changed a planned durable change"
+            )
+        intended_presence = {
+            (change.character_id, change.direction.value, change.effective_after_item_key)
+            for change in intended.presence_changes
+        }
+        realized_item_to_planner = {
+            item.item_key: item.planner_item_keys[0]
+            for item in realized.items
+            if len(item.planner_item_keys) == 1
+        }
+        realized_presence = {
+            (
+                change.character_id,
+                change.direction.value,
+                realized_item_to_planner.get(change.effective_after_item_key),
+            )
+            for change in realized.presence_changes
+        }
+        if realized_presence != intended_presence:
+            raise ContractValidationError(
+                "accepted realized sequence dropped or changed a planned presence change"
+            )
+        if realized.stopping_boundary != intended.stopping_boundary:
+            raise ContractValidationError(
+                "accepted realized sequence changed the planned stopping boundary"
+            )
         apply_presence_changes(self.accepted_present_character_ids, realized)
 
     def derived_backgrounded_character_ids(
@@ -967,6 +1009,8 @@ class SequenceFirstValidatorInputV1:
     protected_source_claims: tuple[ProtectedSourceClaimV1, ...]
     hard_boundaries: tuple[str, ...]
     reference_scope: ProviderReferenceScopeV1
+    accepted_character_deltas: tuple[CharacterDeltaV1, ...] = ()
+    accepted_evidence_records: tuple[EvidenceRecordV1, ...] = ()
 
     def __post_init__(self) -> None:
         _text(self.exact_writer_prose, "validator_input.exact_writer_prose", maximum=100_000)
@@ -1015,11 +1059,40 @@ class SequenceFirstReaderInputV1:
 
 
 @dataclass(frozen=True, slots=True)
+class WriterRetryFeedbackV1:
+    """Typed, noncanonical correction metadata for a fresh Writer attempt."""
+
+    owner: str
+    feedback_type: str
+    issue_code: str
+    concise_reason: str
+    required_correction: str
+    exact_quote: str | None = None
+    omitted_planner_item_key: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.owner not in {"validator", "reader"}:
+            raise ContractValidationError("retry feedback owner is invalid")
+        _key(self.feedback_type, "retry_feedback.feedback_type")
+        _key(self.issue_code, "retry_feedback.issue_code")
+        _text(self.concise_reason, "retry_feedback.concise_reason", maximum=1_000)
+        _text(self.required_correction, "retry_feedback.required_correction", maximum=1_000)
+        _optional_text(self.exact_quote, "retry_feedback.exact_quote", maximum=1_000)
+        if self.omitted_planner_item_key is not None:
+            _key(self.omitted_planner_item_key, "retry_feedback.omitted_planner_item_key")
+        if (self.exact_quote is None) == (self.omitted_planner_item_key is None):
+            raise ContractValidationError(
+                "retry feedback requires exactly one quote or omitted Planner item"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class WriterAttemptReceiptV1:
     attempt_number: int
     status: WriterAttemptStatus
     writer_prose_sha256: str
     concise_reason: str | None = None
+    retry_feedback_sha256: str | None = None
 
     def __post_init__(self) -> None:
         if not 1 <= self.attempt_number <= 3:
@@ -1029,6 +1102,11 @@ class WriterAttemptReceiptV1:
         ):
             raise ContractValidationError("Writer attempt hash is invalid")
         _optional_text(self.concise_reason, "writer_attempt.concise_reason", maximum=1_000)
+        if self.retry_feedback_sha256 is not None and (
+            len(self.retry_feedback_sha256) != 64
+            or any(value not in "0123456789abcdef" for value in self.retry_feedback_sha256)
+        ):
+            raise ContractValidationError("Writer retry feedback hash is invalid")
         if self.status is WriterAttemptStatus.ACCEPTED and self.concise_reason is not None:
             raise ContractValidationError("accepted Writer attempt cannot have a rejection reason")
 

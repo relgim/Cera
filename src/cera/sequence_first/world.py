@@ -36,6 +36,8 @@ from .contracts import (
 
 
 SEQUENCE_FIRST_ACCEPTANCE_JOURNAL = "cera.sequence_first.acceptance_journal.v1"
+SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V1 = "cera.sequence_first.accepted_story_artifact.v1"
+SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V2 = "cera.sequence_first.accepted_story_artifact.v2"
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,6 +70,7 @@ class SequenceFirstAcceptedHeadV1:
     current_public_scene_state: str
     prior_realized_sequence: SequenceDraftV1 | None
     unresolved_threads: tuple[str, ...]
+    prior_intended_sequence: SequenceDraftV1 | None = None
 
 
 def _value_at_pointer(document, pointer: str):
@@ -241,7 +244,7 @@ class SequenceFirstWorldTransaction:
         self.store._write_json(
             event_path,
             {
-                "schema_version": "cera.sequence_first.accepted_story_artifact.v1",
+                "schema_version": SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V2,
                 "_cera_revision": 1,
                 "world_id": custody.world_id,
                 "branch_id": custody.branch_id,
@@ -249,7 +252,12 @@ class SequenceFirstWorldTransaction:
                 "accepted_turn_id": custody.turn_id,
                 "parent_accepted_turn_id": custody.parent_accepted_turn_id,
                 "story_text": candidate.writer_response.story_text,
+                "intended_sequence": to_primitive(candidate.intended_sequence.semantic),
+                "intended_sequence_binding_sha256": candidate.intended_sequence.semantic.semantic_sha256,
                 "realized_sequence": to_primitive(candidate.realized_sequence.semantic),
+                "realized_sequence_binding_sha256": candidate.realized_sequence.semantic.semantic_sha256,
+                "primary_sequence_status": "realized",
+                "acceptance_basis": "automatic_qualification",
                 "resulting_present_character_ids": resulting_presence,
                 "candidate_sha256": candidate.candidate_sha256,
             },
@@ -330,6 +338,7 @@ class SequenceFirstWorldTransaction:
                 current_public_scene_state="No sequence-first turn has been accepted.",
                 prior_realized_sequence=None,
                 unresolved_threads=(),
+                prior_intended_sequence=None,
             )
         event_path = active / "Events" / _identity_filename(
             turn_id,
@@ -355,6 +364,21 @@ class SequenceFirstWorldTransaction:
         ):
             raise StateConflictError("accepted sequence-first artifact changed branch scope")
         realized = from_mapping(SequenceDraftV1, event["realized_sequence"])
+        intended_payload = event.get("intended_sequence")
+        intended = (
+            from_mapping(SequenceDraftV1, intended_payload)
+            if isinstance(intended_payload, dict)
+            else realized
+        )
+        if event.get("primary_sequence_status", "realized") != "realized":
+            raise StateConflictError("accepted sequence artifact has invalid primary status")
+        for field, sequence, key in (
+            ("intended_sequence_binding_sha256", intended, "intended"),
+            ("realized_sequence_binding_sha256", realized, "realized"),
+        ):
+            expected = event.get(field)
+            if expected is not None and expected != sequence.semantic_sha256:
+                raise StateConflictError(f"accepted {key} sequence binding changed")
         event_presence = tuple(
             str(value) for value in event.get("resulting_present_character_ids", ())
         )
@@ -373,6 +397,7 @@ class SequenceFirstWorldTransaction:
             current_public_scene_state=realized.resulting_public_state,
             prior_realized_sequence=realized,
             unresolved_threads=realized.unresolved_threads,
+            prior_intended_sequence=intended,
         )
 
 

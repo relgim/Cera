@@ -47,18 +47,19 @@ from .prompting import (
     VALIDATOR_BASE_INSTRUCTIONS,
     VALIDATOR_PROFILE,
     reader_prompt,
+    SEQUENCE_FIRST_WRITER_SYSTEM_INSTRUCTIONS,
     writer_prompt,
 )
 
 
 SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v8"
-SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v6"
+SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v7"
 SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v11"
-SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v9"
+SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v10"
 SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v3"
 SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v2"
 SEQUENCE_FIRST_WRITER_ADAPTER = "cera.sequence_first.writer_adapter.v1"
-SEQUENCE_FIRST_WRITER_PROMPT = "cera.sequence_first.writer_prompt.v1"
+SEQUENCE_FIRST_WRITER_PROMPT = "cera.sequence_first.writer_prompt.v2"
 
 
 def sequence_first_planner_route():
@@ -802,11 +803,13 @@ class SequenceFirstDeepSeekWriterPort:
         self,
         brief: SequenceFirstWriterBriefV1,
         attempt_number: int,
+        retry_feedback=(),
     ) -> WriterResponseV1:
         if not 1 <= attempt_number <= 3:
             raise ContractValidationError("DeepSeek Writer attempt is outside its bound")
         result = self.composer.compose(
-            writer_prompt(brief),
+            writer_prompt(brief, retry_feedback=retry_feedback),
+            system_prompt=SEQUENCE_FIRST_WRITER_SYSTEM_INSTRUCTIONS,
             operation_evidence=self.operation_evidence,
             operation_evidence_attempt=attempt_number,
             operation_evidence_prompt_version=SEQUENCE_FIRST_WRITER_PROMPT,
