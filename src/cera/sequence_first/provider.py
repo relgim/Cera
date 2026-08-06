@@ -46,8 +46,8 @@ from .prompting import (
 )
 
 
-SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v3"
-SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v3"
+SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v4"
+SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v4"
 SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v3"
 SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v3"
 SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v2"
@@ -57,7 +57,7 @@ SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v2"
 def sequence_first_planner_route():
     return replace(
         codex_reasoner_candidate(model="gpt-5.6-sol", effort="medium"),
-        route_id="cera_sequence_first_planner_sol_medium_v3",
+        route_id="cera_sequence_first_planner_sol_medium_v4",
         adapter_id=SEQUENCE_FIRST_PLANNER_ADAPTER,
         prompt_version=SEQUENCE_FIRST_PLANNER_PROMPT,
         maximum_output_tokens=8_192,
@@ -118,7 +118,10 @@ def _local_key_array() -> dict:
     return {"type": "array", "items": _local_key()}
 
 
-def _sequence_item_schema() -> dict:
+def _sequence_item_schema(*, allow_planner_item_keys: bool) -> dict:
+    planner_item_keys = _local_key_array()
+    if not allow_planner_item_keys:
+        planner_item_keys["maxItems"] = 0
     return _strict_object(
         {
             "item_key": _local_key(),
@@ -144,7 +147,7 @@ def _sequence_item_schema() -> dict:
             "protected_user_claim_keys": _local_key_array(),
             "protected_user_exact_quotes": _string_array(),
             "durable_change_keys": _local_key_array(),
-            "planner_item_keys": _local_key_array(),
+            "planner_item_keys": planner_item_keys,
         }
     )
 
@@ -184,10 +187,15 @@ def _presence_change_schema() -> dict:
     )
 
 
-def sequence_draft_json_schema() -> dict:
+def sequence_draft_json_schema(*, allow_planner_item_keys: bool = False) -> dict:
     return _strict_object(
         {
-            "items": {"type": "array", "items": _sequence_item_schema()},
+            "items": {
+                "type": "array",
+                "items": _sequence_item_schema(
+                    allow_planner_item_keys=allow_planner_item_keys
+                ),
+            },
             "durable_changes": {
                 "type": "array",
                 "items": _durable_change_schema(),
@@ -240,7 +248,9 @@ def validator_decision_json_schema() -> dict:
     return _strict_object(
         {
             "verdict": {"type": "string", "enum": ["accept", "reject"]},
-            "realized_sequence": _nullable(sequence_draft_json_schema()),
+            "realized_sequence": _nullable(
+                sequence_draft_json_schema(allow_planner_item_keys=True)
+            ),
             "review_flags": {"type": "array", "items": review_flag},
             "conflict": _nullable(conflict),
         }

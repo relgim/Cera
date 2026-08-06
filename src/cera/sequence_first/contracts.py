@@ -292,6 +292,12 @@ class SequenceItemV1:
             raise ContractValidationError(
                 "protected-user-owned item requires exact current source authority"
             )
+        if self.owner_id != PROTECTED_USER_ID and (
+            self.protected_user_claim_keys or self.protected_user_exact_quotes
+        ):
+            raise ContractValidationError(
+                "protected-user source authority requires protected-user ownership"
+            )
 
 
 @dataclass(frozen=True, slots=True)

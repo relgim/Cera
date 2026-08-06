@@ -11,6 +11,7 @@ from unittest.mock import patch
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.world import ContinuousWorldStore
 from cera.errors import ContractValidationError, StateConflictError
+from cera.providers import ProviderSchemaDialect, project_provider_output_schema
 from cera.schema import from_mapping
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 from cera.sequence_first import (
@@ -526,6 +527,19 @@ class SequenceFirstSemanticBoundaryTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ContractValidationError, "absent from current source"):
             semantics.validate_intended(invalid)
+
+    def test_non_ted_item_cannot_claim_protected_user_source(self) -> None:
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "requires protected-user ownership",
+        ):
+            SequenceItemV1(
+                item_key="hana_misclaims_ted_source",
+                kind=ItemKind.DIALOGUE_INTENT,
+                concise_meaning="Hana answers Ted.",
+                owner_id="character:hana",
+                protected_user_exact_quotes=("Ted asks Hana a question.",),
+            )
 
     def test_prior_sequence_is_the_only_model_visible_public_state_copy(self) -> None:
         semantics = replace(semantic_input(), prior_realized_sequence=realized())
@@ -1139,6 +1153,15 @@ class SequenceFirstSessionTests(unittest.TestCase):
             self.assertEqual(
                 item_schema[name]["items"]["pattern"], LOCAL_KEY_JSON_PATTERN
             )
+        self.assertEqual(item_schema["planner_item_keys"]["maxItems"], 0)
+        projected = project_provider_output_schema(
+            sequence_schema,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        projected_planner_keys = projected["properties"]["items"]["items"][
+            "properties"
+        ]["planner_item_keys"]
+        self.assertEqual(projected_planner_keys["maxItems"], 0)
         self.assertEqual(
             durable_schema["change_key"]["pattern"], LOCAL_KEY_JSON_PATTERN
         )
@@ -1162,6 +1185,13 @@ class SequenceFirstSessionTests(unittest.TestCase):
             realized["properties"]["items"]["items"]["properties"]["item_key"]["pattern"],
             LOCAL_KEY_JSON_PATTERN,
         )
+        realized_planner_keys = realized["properties"]["items"]["items"][
+            "properties"
+        ]["planner_item_keys"]
+        self.assertEqual(
+            realized_planner_keys["items"]["pattern"], LOCAL_KEY_JSON_PATTERN
+        )
+        self.assertNotIn("maxItems", realized_planner_keys)
         reader_issue = reader_verdict_json_schema()["properties"]["issues"]["items"]["properties"]
         self.assertEqual(
             reader_issue["issue_code"]["pattern"], LOCAL_KEY_JSON_PATTERN
