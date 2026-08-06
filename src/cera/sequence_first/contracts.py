@@ -251,7 +251,7 @@ class SequenceItemV1:
     durable_change_keys: tuple[str, ...] = ()
     planner_item_keys: tuple[str, ...] = ()
 
-    OWNER_REQUIRED: ClassVar[frozenset[ItemKind]] = frozenset(
+    RESPONDER_KINDS: ClassVar[frozenset[ItemKind]] = frozenset(
         {
             ItemKind.ACTION,
             ItemKind.DIALOGUE_INTENT,
@@ -260,6 +260,7 @@ class SequenceItemV1:
             ItemKind.REMOTE_COMMUNICATION,
         }
     )
+    OWNER_REQUIRED: ClassVar[frozenset[ItemKind]] = RESPONDER_KINDS
 
     def __post_init__(self) -> None:
         _key(self.item_key, "sequence_item.item_key")
@@ -354,13 +355,19 @@ class SequenceDraftV1:
 
     @property
     def responding_character_ids(self) -> tuple[str, ...]:
-        """Mechanical view of the Planner's semantic owner choices."""
+        """Mechanical view of behavioral Planner owner choices.
+
+        Structural state/continuity items may identify an assertion owner for
+        evidence and knowledge custody without making that character respond.
+        """
 
         return tuple(
             dict.fromkeys(
                 item.owner_id
                 for item in self.items
-                if item.owner_id is not None and item.owner_id != PROTECTED_USER_ID
+                if item.kind in SequenceItemV1.RESPONDER_KINDS
+                and item.owner_id is not None
+                and item.owner_id != PROTECTED_USER_ID
             )
         )
 

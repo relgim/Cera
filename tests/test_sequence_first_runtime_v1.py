@@ -667,6 +667,28 @@ class SequenceFirstPresenceTests(unittest.TestCase):
             ("character:mia",),
         )
 
+    def test_structural_owner_does_not_make_backgrounded_mia_a_responder(self) -> None:
+        semantics = semantic_input()
+        plan = intended(
+            items=(
+                item(),
+                item(
+                    key="mia_remains_backgrounded",
+                    owner="character:mia",
+                    kind=ItemKind.MATERIAL_CONTINUITY,
+                    meaning="Mia remains present but does not enter the exchange.",
+                    evidence=(),
+                    parent="hana_answers",
+                ),
+            )
+        )
+        semantics.validate_intended(plan)
+        self.assertEqual(plan.responding_character_ids, ("character:hana",))
+        self.assertEqual(
+            semantics.derived_backgrounded_character_ids(plan),
+            ("character:mia",),
+        )
+
     def test_retrieval_about_absent_mia_does_not_create_presence_or_salience(self) -> None:
         base = semantic_input(present=("character:ted", "character:hana"))
         semantics = replace(
