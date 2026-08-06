@@ -1,0 +1,68 @@
+{
+  "schema_version": "cera.codex_self_continuation_result.v1",
+  "queue_revision": "0062",
+  "plan_id": "self-continuation:q0062:0036:sequence-first-local-key-schema-surface-v1",
+  "plan_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0062_0036_sequence-first-local-key-schema-surface-v1.md",
+  "plan_sha256": "5d36967012e0836ca565f408988b800967105b19a0ce3540f936c2b12a723b03",
+  "status": "completed",
+  "checkpoint_identity": "2026-08-06-cera-sequence-first-local-key-schema-surface-v1-001",
+  "source_git_sha": "6f5461b3fc7e3a665ceb25a20dd329e9b40aba5f",
+  "source_tree_sha": "4b1c625aaeafa7a468af44656dbefb8b957da865",
+  "failed_predecessor": {
+    "identity": "2026-08-06-cera-sequence-first-stage3-live-v1",
+    "result_path": ".chatgpt/pf/q0062_sequence_first_stage3_live_v1/STAGE3_RESULT.json",
+    "result_sha256": "655b9312119ab17cad04adee7e1cdc64c2d0ac2d6b2b67b2df845a3deec9069b",
+    "provider_ledger_path": ".chatgpt/pf/q0062_sequence_first_stage3_live_v1/PROVIDER_CALL_LEDGER.jsonl",
+    "provider_ledger_sha256": "46bbd203414caeceb25886380a97744dec920f23d019fbbcf3a7cb6357a597cd",
+    "submitted_calls": {
+      "codex_sol_family": 1,
+      "deepseek_family": 0
+    },
+    "accepted_turns": 0,
+    "planner_thread_terminalized": true
+  },
+  "correction": {
+    "provider_calls": 0,
+    "python_local_key_pattern": "[a-z][a-z0-9_]{0,95}",
+    "provider_json_pattern": "^[a-z][a-z0-9_]{0,95}$",
+    "output_repair_added": false,
+    "python_validation_broadened": false,
+    "provider_prompt_and_schema_versioned": true
+  },
+  "tests": [
+    {
+      "kind": "focused",
+      "command": ".venv/Scripts/python.exe -m unittest tests.test_sequence_first_runtime_v1 tests.test_sequence_first_stage6_bridge_v1",
+      "passed": 64,
+      "failed": 0,
+      "errors": 0,
+      "duration_seconds": 4.974
+    },
+    {
+      "kind": "complete_repository_suite_at_corrected_source_freeze",
+      "command": ".venv/Scripts/python.exe -m unittest discover -s tests",
+      "passed": 1188,
+      "skipped": 3,
+      "failed": 0,
+      "errors": 0,
+      "total": 1191,
+      "duration_seconds": 781.817
+    }
+  ],
+  "remaining_creator_balance": {
+    "codex_sol_family": 601,
+    "deepseek_family": 719
+  },
+  "remaining_stage3_ceiling": {
+    "codex_sol_family": 9,
+    "deepseek_family": 6
+  },
+  "protected_effects": {
+    "production_route_changed": false,
+    "installed_sillytavern_changed": false,
+    "live_story_database_changed": false,
+    "remote_operation_performed": false
+  },
+  "next_unfinished_queue_step": "Run fresh Stage 3 V2 two-turn canary under the corrected frozen source and reduced ceiling.",
+  "completed_at_utc": "2026-08-06T06:22:41.1593332Z"
+}
