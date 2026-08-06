@@ -1,0 +1,86 @@
+{
+  "schema_version": "cera.codex_self_continuation_result.v1",
+  "queue_revision": "0062",
+  "plan_id": "self-continuation:q0062:0039:sequence-first-operation-workspace-isolation-v1",
+  "plan_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0062_0039_sequence-first-operation-workspace-isolation-v1.md",
+  "plan_sha256": "74c2c2f60db9717a57c6317fa9aa8864766d448612775b6bcf35c2cd96ef6884",
+  "status": "completed",
+  "checkpoint_identity": "2026-08-06-cera-sequence-first-operation-workspace-isolation-v1-001",
+  "source_git_sha": "b00e8525861d461a4b36f2167f833505486fb0a8",
+  "source_tree_sha": "d98de7e68d7c44ed2bbf2dc47ffb04e412207cf5",
+  "failed_predecessor": {
+    "identity": "2026-08-06-cera-sequence-first-stage3-live-v3",
+    "result_path": ".chatgpt/pf/q0062_sequence_first_stage3_live_v3/STAGE3_RESULT.json",
+    "result_sha256": "221d56e02572c69a8b7b5b3aa056432f410b16f9de96e5e520a889b56739384e",
+    "provider_ledger_path": ".chatgpt/pf/q0062_sequence_first_stage3_live_v3/PROVIDER_CALL_LEDGER.jsonl",
+    "provider_ledger_sha256": "600ce4ea8b52e9b705a76888c9ecc812a831b25dbf514bd30e7128e12196c00b",
+    "submitted_calls": {
+      "codex_sol_family": 2,
+      "deepseek_family": 2
+    },
+    "accepted_turns": 0,
+    "planner_thread_terminalized": true
+  },
+  "correction": {
+    "provider_calls": 0,
+    "roles_with_operation_scoped_workspaces": [
+      "planner",
+      "validator",
+      "reader"
+    ],
+    "prior_operation_receipts_preserved": true,
+    "workspace_cleanup_added": false,
+    "thread_lifecycle_changed": false,
+    "planner_route": "cera_sequence_first_planner_sol_medium_v5",
+    "validator_route": "cera_sequence_first_validator_gpt-5.6-sol_medium_v4",
+    "reader_route": "cera_sequence_first_reader_gpt-5.6-sol_medium_v3"
+  },
+  "tests": [
+    {
+      "kind": "exact_residue_fixture",
+      "command": ".venv/Scripts/python.exe -m unittest tests.test_sequence_first_runtime_v1.SequenceFirstSessionTests.test_actual_codex_adapters_use_ledger_and_isolate_validator_reader",
+      "passed": 1,
+      "failed": 0,
+      "errors": 0,
+      "duration_seconds": 0.042
+    },
+    {
+      "kind": "focused_sequence_first",
+      "command": ".venv/Scripts/python.exe -m unittest tests.test_sequence_first_runtime_v1 tests.test_sequence_first_stage6_bridge_v1",
+      "passed": 66,
+      "failed": 0,
+      "errors": 0,
+      "duration_seconds": 5.058
+    },
+    {
+      "kind": "complete_repository_suite_at_corrected_source_freeze",
+      "command": ".venv/Scripts/python.exe -m unittest discover -s tests",
+      "passed": 1190,
+      "skipped": 3,
+      "failed": 0,
+      "errors": 0,
+      "total": 1193,
+      "duration_seconds": 772.715
+    }
+  ],
+  "remaining_creator_balance": {
+    "codex_sol_family": 598,
+    "deepseek_family": 717
+  },
+  "remaining_stage3_ceiling": {
+    "codex_sol_family": 6,
+    "deepseek_family": 4
+  },
+  "remaining_distinct_correction_reserve": {
+    "codex_sol_family": 20,
+    "deepseek_family": 12
+  },
+  "protected_effects": {
+    "production_route_changed": false,
+    "installed_sillytavern_changed": false,
+    "live_story_database_changed": false,
+    "remote_operation_performed": false
+  },
+  "next_unfinished_queue_step": "Run fresh Stage 3 V4 two-turn canary under combined remaining Stage 3 and distinct-correction reserve ceilings.",
+  "completed_at_utc": "2026-08-06T07:32:48.7405533Z"
+}
