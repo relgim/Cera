@@ -7,6 +7,7 @@ import socket
 from threading import Thread
 import unittest
 from urllib.request import Request, urlopen
+from urllib.error import HTTPError
 
 from cera.continuous.world import ContinuousWorldStore
 from cera.errors import ContractValidationError
@@ -490,17 +491,35 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
                 self.assertEqual(models["data"][0]["id"], CERA_SEQUENCE_FIRST_STAGE6_MODEL)
                 active = store.initialize("world-test", "branch-main") / "ACTIVE"
                 before = store.tree_sha256(active)
-                response = self._post_json(
-                    f"http://127.0.0.1:{port}/v1/chat/completions",
-                    {
-                        "model": CERA_SEQUENCE_FIRST_STAGE6_MODEL,
-                        "messages": [{"role": "user", "content": "Continue the scene."}],
-                        "stream": False,
-                        "cera_session_id": "sequence-test",
-                        "cera_profile_id": SEQUENCE_FIRST_STAGE6_PROFILE,
-                    },
-                )
+                endpoint = f"http://127.0.0.1:{port}/v1/chat/completions"
+                payload = {
+                    "model": CERA_SEQUENCE_FIRST_STAGE6_MODEL,
+                    "messages": [{"role": "user", "content": "Continue the scene."}],
+                    "stream": False,
+                    "cera_session_id": "sequence-test",
+                    "cera_profile_id": SEQUENCE_FIRST_STAGE6_PROFILE,
+                }
+                for field_name, invalid_value in (
+                    ("model", "cera-alpha"),
+                    ("cera_profile_id", "cera.sequence_first.stage6.other"),
+                    ("cera_session_id", "sequence-other"),
+                ):
+                    invalid = dict(payload)
+                    invalid[field_name] = invalid_value
+                    with self.assertRaises(HTTPError) as failure:
+                        self._post_json(endpoint, invalid)
+                    self.assertEqual(failure.exception.code, 400)
+                    self.assertEqual(store.tree_sha256(active), before)
+                response = self._post_json(endpoint, payload)
                 review_id = response["cera"]["provisional_review_id"]
+                self.assertEqual(store.tree_sha256(active), before)
+                unresolved = dict(payload)
+                unresolved["messages"] = [
+                    {"role": "user", "content": "A second unresolved request."}
+                ]
+                with self.assertRaises(HTTPError) as failure:
+                    self._post_json(endpoint, unresolved)
+                self.assertEqual(failure.exception.code, 400)
                 self.assertEqual(store.tree_sha256(active), before)
                 review = self._get_json(
                     f"http://127.0.0.1:{port}/v1/cera/reviews/{review_id}"
@@ -532,6 +551,12 @@ class SequenceFirstStage6BridgeTests(unittest.TestCase):
         self.assertEqual(config.host, "127.0.0.1")
         self.assertEqual(config.port, 5116)
         self.assertEqual(config.model, CERA_SEQUENCE_FIRST_STAGE6_MODEL)
+        with self.assertRaisesRegex(ValueError, "loopback-only"):
+            CeraSillyTavernServerConfig(
+                host="0.0.0.0",
+                port=5116,
+                model=CERA_SEQUENCE_FIRST_STAGE6_MODEL,
+            )
 
     def test_actual_loopback_http_decline_has_no_world_mutation(self) -> None:
         with TemporaryDirectory() as temporary:
