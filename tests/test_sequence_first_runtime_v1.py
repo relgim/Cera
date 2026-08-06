@@ -43,6 +43,7 @@ from cera.sequence_first import (
     SequenceFirstReaderInputV1,
     SequenceFirstTurnRequestV1,
     SequenceFirstTurnSemanticInputV1,
+    SequenceFirstValidatorInputV1,
     SequenceItemV1,
     TargetOperationKind,
     ValidationConflictV1,
@@ -62,6 +63,7 @@ from cera.sequence_first.prompting import (
     VALIDATOR_PROFILE,
     WRITER_INSTRUCTIONS,
     planner_turn_prompt,
+    validator_candidate_prompt,
     writer_prompt,
 )
 from cera.sequence_first.provider import (
@@ -1250,9 +1252,20 @@ class SequenceFirstPipelineTests(unittest.TestCase):
             "necessarily establishes a consequential material",
             VALIDATOR_BASE_INSTRUCTIONS,
         )
+        for general_rule in (
+            "proposition actually asserted",
+            "possessive reference",
+            "NPC perception or attention",
+            "incidental sensory consequence",
+            "specific expression or state",
+            "cite that conflict rather than a neutral protected-user reference",
+        ):
+            self.assertIn(general_rule, VALIDATOR_BASE_INSTRUCTIONS)
         for forbidden_phrase in (
             "stood just inside the door",
             "in the living room, Mia sits",
+            "his expression",
+            "rustle of his shoes",
         ):
             self.assertNotIn(forbidden_phrase, WRITER_INSTRUCTIONS)
             self.assertNotIn(forbidden_phrase, VALIDATOR_BASE_INSTRUCTIONS)
@@ -1530,6 +1543,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
                 ).SequenceFirstValidatorInputV1(
                     intended_sequence=intended(),
                     exact_writer_prose="Hana asks a question.",
+                    exact_current_source="Ted asks Hana how dinner went.",
                     prior_realized_sequence=None,
                     accepted_present_character_ids=("character:ted", "character:hana"),
                     current_public_scene_state="Ted and Hana are in the room.",
@@ -1555,6 +1569,38 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(backend.archived, {"validator-1", "validator-2"})
         self.assertNotIn("exhaustive", VALIDATOR_PROFILE)
+
+    def test_validator_prompt_has_exact_source_once_and_no_custody(self) -> None:
+        exact_source = "Ted steps into the entryway and asks Hana about dinner."
+        request = SequenceFirstValidatorInputV1(
+            intended_sequence=intended(),
+            exact_writer_prose="Hana answers Ted and leaves him the next choice.",
+            exact_current_source=exact_source,
+            prior_realized_sequence=realized(),
+            accepted_present_character_ids=("character:ted", "character:hana"),
+            current_public_scene_state="Ted and Hana are in the entryway.",
+            protected_source_claims=(),
+            hard_boundaries=("Do not invent Ted's response.",),
+            reference_scope=reference_scope(plan=intended()),
+        )
+        prompt = validator_candidate_prompt(request)
+        self.assertEqual(prompt.count(exact_source), 1)
+        self.assertIn('"current_public_scene_state"', prompt)
+        self.assertNotIn('"reference_scope"', prompt)
+        for forbidden in (
+            "world_id",
+            "branch_id",
+            "turn_id",
+            "candidate_id",
+            "transaction_id",
+            "exact_source_sha256",
+        ):
+            self.assertNotIn(f'"{forbidden}"', prompt)
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "validator_input.exact_current_source",
+        ):
+            replace(request, exact_current_source="")
 
     def test_validator_pre_dispatch_thread_is_archived_without_fake_call(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -2055,7 +2101,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_ADAPTER,
-            "cera.sequence_first.validator_adapter.v9",
+            "cera.sequence_first.validator_adapter.v10",
         )
         self.assertEqual(
             validator_route.prompt_version,
@@ -2063,9 +2109,9 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_PROMPT,
-            "cera.sequence_first.validator_prompt.v7",
+            "cera.sequence_first.validator_prompt.v8",
         )
-        self.assertTrue(validator_route.route_id.endswith("_v9"))
+        self.assertTrue(validator_route.route_id.endswith("_v10"))
         self.assertEqual(
             SEQUENCE_FIRST_PLANNER_ADAPTER,
             "cera.sequence_first.planner_adapter.v7",

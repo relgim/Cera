@@ -1,11 +1,11 @@
 {
   "schema_version": "cera.codex_self_continuation_pointer.v1",
   "queue_revision": "0063",
-  "plan_id": "self-continuation:q0063:0060:goal3-v11-request-reference-scope-v1",
-  "plan_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0063_0060_goal3-v11-request-reference-scope-v1.md",
-  "plan_sha256": "43038e99a7dfcf7605acf55d625997dcdafb767a9844594aa960413286930360",
-  "status": "plan_written_proceeding_provider_free",
+  "plan_id": "self-continuation:q0063:0061:goal3-v12-validator-proposition-boundary-v1",
+  "plan_path": ".chatgpt/operations/self-continuation/SELF_CONTINUATION_PLAN_Q0063_0061_goal3-v12-validator-proposition-boundary-v1.md",
+  "plan_sha256": "bdc654fe917866a608750e1bf485ecf12537caf6ec2aed2ae1a946162dfd2a92",
+  "status": "provider_free_correction_active",
   "result_path": null,
   "result_sha256": null,
-  "updated_at_utc": "2026-08-06T14:18:26Z"
+  "updated_at_utc": "2026-08-06T15:10:10Z"
 }

@@ -960,6 +960,7 @@ class SequenceFirstValidatorInputV1:
 
     intended_sequence: SequenceDraftV1
     exact_writer_prose: str
+    exact_current_source: str
     prior_realized_sequence: SequenceDraftV1 | None
     accepted_present_character_ids: tuple[str, ...]
     current_public_scene_state: str
@@ -969,6 +970,11 @@ class SequenceFirstValidatorInputV1:
 
     def __post_init__(self) -> None:
         _text(self.exact_writer_prose, "validator_input.exact_writer_prose", maximum=100_000)
+        _text(
+            self.exact_current_source,
+            "validator_input.exact_current_source",
+            maximum=100_000,
+        )
         _text(self.current_public_scene_state, "validator_input.current_public_scene_state")
 
 

@@ -53,8 +53,8 @@ from .prompting import (
 
 SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v7"
 SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v5"
-SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v9"
-SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v7"
+SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v10"
+SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v8"
 SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v3"
 SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v2"
 SEQUENCE_FIRST_WRITER_ADAPTER = "cera.sequence_first.writer_adapter.v1"
@@ -77,7 +77,7 @@ def sequence_first_planner_route():
 def sequence_first_validator_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_validator_{model}_{effort}_v9",
+        route_id=f"cera_sequence_first_validator_{model}_{effort}_v10",
         adapter_id=SEQUENCE_FIRST_VALIDATOR_ADAPTER,
         prompt_version=SEQUENCE_FIRST_VALIDATOR_PROMPT,
         maximum_output_tokens=8_192,

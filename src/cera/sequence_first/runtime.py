@@ -162,6 +162,7 @@ class SequenceFirstCoordinator:
             validator_input = SequenceFirstValidatorInputV1(
                 intended_sequence=intended,
                 exact_writer_prose=writer_response.story_text,
+                exact_current_source=semantics.exact_current_source,
                 prior_realized_sequence=semantics.prior_realized_sequence,
                 accepted_present_character_ids=(
                     semantics.accepted_present_character_ids
