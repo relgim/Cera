@@ -1636,7 +1636,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
             elif self.route.adapter_id == SEQUENCE_FIRST_VALIDATOR_ADAPTER:
                 payload = to_primitive(accepted_decision())
             elif self.route.adapter_id == SEQUENCE_FIRST_READER_ADAPTER:
-                payload = to_primitive(accepted_reader())
+                payload = {"verdict": to_primitive(accepted_reader())}
             else:
                 raise AssertionError("unexpected fake provider route")
             return SimpleNamespace(
@@ -1913,6 +1913,98 @@ class SequenceFirstSessionTests(unittest.TestCase):
         ):
             self.assertNotIn(f'"{forbidden}"', rendered)
 
+    def test_reader_provider_schema_closes_issue_and_status_branches(self) -> None:
+        planner_key = "hana_answers"
+
+        def issue(
+            scope: str,
+            *,
+            exact_quote=None,
+            omitted_key=None,
+        ) -> dict:
+            return {
+                "issue_code": "reader_quality",
+                "concise_explanation": "The candidate needs correction.",
+                "feedback_scope": scope,
+                "exact_quote": exact_quote,
+                "omitted_planner_item_key": omitted_key,
+            }
+
+        def verdict(status: str, issues: list[dict]) -> dict:
+            return {"verdict": {"status": status, "issues": issues}}
+
+        valid = (
+            verdict("accepted", []),
+            verdict(
+                "rejected",
+                [issue("exact_quote", exact_quote="Hana repeats herself.")],
+            ),
+            verdict(
+                "rejected",
+                [issue("omitted_planner_item", omitted_key=planner_key)],
+            ),
+            verdict("inconclusive", [issue("whole_candidate_quality")]),
+        )
+        invalid = (
+            verdict("accepted", [issue("whole_candidate_quality")]),
+            verdict("rejected", []),
+            verdict("inconclusive", []),
+            verdict("rejected", [issue("exact_quote")]),
+            verdict(
+                "rejected",
+                [
+                    issue(
+                        "exact_quote",
+                        exact_quote="Hana repeats herself.",
+                        omitted_key=planner_key,
+                    )
+                ],
+            ),
+            verdict("rejected", [issue("omitted_planner_item")]),
+            verdict(
+                "rejected",
+                [
+                    issue(
+                        "omitted_planner_item",
+                        exact_quote="Hana repeats herself.",
+                        omitted_key=planner_key,
+                    )
+                ],
+            ),
+            verdict(
+                "rejected",
+                [issue("omitted_planner_item", omitted_key="unknown_item")],
+            ),
+            verdict(
+                "rejected",
+                [
+                    issue(
+                        "whole_candidate_quality",
+                        exact_quote="Hana repeats herself.",
+                    )
+                ],
+            ),
+            verdict(
+                "rejected",
+                [issue("whole_candidate_quality", omitted_key=planner_key)],
+            ),
+        )
+        native = reader_verdict_json_schema(planner_item_keys=(planner_key,))
+        projected = project_provider_output_schema(
+            native,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        self.assertNotIn("oneOf", json.dumps(projected, sort_keys=True))
+        self.assertIn("anyOf", json.dumps(projected, sort_keys=True))
+        for label, schema in (("native", native), ("projected", projected)):
+            validator = Draft202012Validator(schema)
+            for index, payload in enumerate(valid):
+                with self.subTest(schema=label, valid=index):
+                    self.assertFalse(tuple(validator.iter_errors(payload)))
+            for index, payload in enumerate(invalid):
+                with self.subTest(schema=label, invalid=index):
+                    self.assertTrue(tuple(validator.iter_errors(payload)))
+
     def test_provider_local_key_schema_matches_closed_python_grammar(self) -> None:
         sequence_schema = sequence_draft_json_schema()
         item_schema = sequence_schema["properties"]["items"]["items"]["properties"]
@@ -1970,15 +2062,27 @@ class SequenceFirstSessionTests(unittest.TestCase):
             realized_planner_keys["items"]["pattern"], LOCAL_KEY_JSON_PATTERN
         )
         self.assertNotIn("maxItems", realized_planner_keys)
-        reader_issue = reader_verdict_json_schema()["properties"]["issues"]["items"]["properties"]
+        reader_verdict = reader_verdict_json_schema()["properties"]["verdict"][
+            "oneOf"
+        ][1]
+        reader_issue_branches = reader_verdict["properties"]["issues"]["items"][
+            "oneOf"
+        ]
+        reader_issue = reader_issue_branches[0]["properties"]
         self.assertEqual(
             reader_issue["issue_code"]["pattern"], LOCAL_KEY_JSON_PATTERN
         )
         self.assertEqual(
-            reader_issue["feedback_scope"]["enum"],
-            ["exact_quote", "omitted_planner_item", "whole_candidate_quality"],
+            [
+                branch["properties"]["feedback_scope"]["const"]
+                for branch in reader_issue_branches
+            ],
+            ["exact_quote", "whole_candidate_quality"],
         )
-        self.assertEqual(reader_issue["omitted_planner_item_key"], {"type": "null"})
+        self.assertEqual(
+            reader_issue["omitted_planner_item_key"],
+            {"type": "null"},
+        )
 
         with self.assertRaises(ContractValidationError):
             item(key="item:hana_answers")
@@ -2174,15 +2278,17 @@ class SequenceFirstSessionTests(unittest.TestCase):
         reader_schema = reader_verdict_json_schema(
             planner_item_keys=scope.planner_item_keys
         )
-        reader_issue = reader_schema["properties"]["issues"]["items"]["properties"]
+        reader_issue = reader_schema["properties"]["verdict"]["oneOf"][1][
+            "properties"
+        ]["issues"]["items"]["oneOf"][1]["properties"]
         self.assertEqual(
-            reader_issue["omitted_planner_item_key"]["anyOf"][0]["enum"],
+            reader_issue["omitted_planner_item_key"]["enum"],
             list(scope.planner_item_keys),
         )
         self.assertTrue(
             tuple(
                 Draft202012Validator(
-                    reader_issue["omitted_planner_item_key"]["anyOf"][0]
+                    reader_issue["omitted_planner_item_key"]
                 ).iter_errors("unknown_item")
             )
         )
@@ -2235,8 +2341,9 @@ class SequenceFirstSessionTests(unittest.TestCase):
             list(scope.planner_item_keys),
         )
         self.assertEqual(
-            projected_reader["properties"]["issues"]["items"]["properties"]
-            ["omitted_planner_item_key"]["anyOf"][0]["enum"],
+            projected_reader["properties"]["verdict"]["anyOf"][1]
+            ["properties"]["issues"]["items"]["anyOf"][1]
+            ["properties"]["omitted_planner_item_key"]["enum"],
             list(scope.planner_item_keys),
         )
 
@@ -2390,13 +2497,13 @@ class SequenceFirstSessionTests(unittest.TestCase):
         self.assertEqual(reader_route.adapter_id, SEQUENCE_FIRST_READER_ADAPTER)
         self.assertEqual(
             SEQUENCE_FIRST_READER_ADAPTER,
-            "cera.sequence_first.reader_adapter.v4",
+            "cera.sequence_first.reader_adapter.v5",
         )
         self.assertEqual(
             reader_route.prompt_version,
             "cera.sequence_first.reader_prompt.v3",
         )
-        self.assertTrue(reader_route.route_id.endswith("_v4"))
+        self.assertTrue(reader_route.route_id.endswith("_v5"))
         self.assertEqual(writer_route.adapter_id, SEQUENCE_FIRST_WRITER_ADAPTER)
         self.assertEqual(writer_route.prompt_version, SEQUENCE_FIRST_WRITER_PROMPT)
         self.assertEqual(
@@ -2752,6 +2859,38 @@ class SequenceFirstWorldTransactionTests(unittest.TestCase):
         result = value.generate(request(semantics=semantics, private_custody=private))
         return result, before
 
+    def _accepted_event_fixture(
+        self,
+        root: Path,
+        *,
+        schema_version: str = "cera.sequence_first.accepted_story_artifact.v3",
+    ):
+        store = ContinuousWorldStore(root)
+        result, _ = self._qualified_candidate(store, root)
+        SequenceFirstCoordinator.commit(
+            result,
+            transaction=SequenceFirstWorldTransaction(store),
+            expected_parent_accepted_turn_id=None,
+            creator_accepted=True,
+        )
+        active = store.branch_root("world-test", "branch-main") / "ACTIVE"
+        event_path = next((active / "Events").glob("*.sequence_first.json"))
+        event = json.loads(event_path.read_text(encoding="utf-8"))
+        event["schema_version"] = schema_version
+        if schema_version.endswith(".v1") or schema_version.endswith(".v2"):
+            event.pop("qualification_basis", None)
+            event.pop("creator_acceptance_basis", None)
+            event["acceptance_basis"] = "automatic_qualification"
+        if schema_version.endswith(".v1"):
+            event.pop("intended_sequence", None)
+            event.pop("intended_sequence_binding_sha256", None)
+            event.pop("primary_sequence_status", None)
+        event_path.write_text(
+            json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n",
+            encoding="utf-8",
+        )
+        return store, event_path, event
+
     def test_target_key_reaches_existing_revisioned_atomic_store(self) -> None:
         with TemporaryDirectory() as temporary:
             store = ContinuousWorldStore(Path(temporary).resolve())
@@ -2822,28 +2961,9 @@ class SequenceFirstWorldTransactionTests(unittest.TestCase):
         ):
             with self.subTest(schema_version=schema_version), TemporaryDirectory() as temporary:
                 root = Path(temporary).resolve()
-                store = ContinuousWorldStore(root)
-                result, _ = self._qualified_candidate(store, root)
-                SequenceFirstCoordinator.commit(
-                    result,
-                    transaction=SequenceFirstWorldTransaction(store),
-                    expected_parent_accepted_turn_id=None,
-                    creator_accepted=True,
-                )
-                active = store.branch_root("world-test", "branch-main") / "ACTIVE"
-                event_path = next((active / "Events").glob("*.sequence_first.json"))
-                event = json.loads(event_path.read_text(encoding="utf-8"))
-                event["schema_version"] = schema_version
-                event.pop("qualification_basis", None)
-                event.pop("creator_acceptance_basis", None)
-                event["acceptance_basis"] = "automatic_qualification"
-                if schema_version.endswith(".v1"):
-                    event.pop("intended_sequence", None)
-                    event.pop("intended_sequence_binding_sha256", None)
-                    event.pop("primary_sequence_status", None)
-                event_path.write_text(
-                    json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n",
-                    encoding="utf-8",
+                self._accepted_event_fixture(
+                    root,
+                    schema_version=schema_version,
                 )
 
                 head = SequenceFirstWorldTransaction(
@@ -2855,6 +2975,129 @@ class SequenceFirstWorldTransactionTests(unittest.TestCase):
                 self.assertEqual(head.accepted_turn_id, "turn-001")
                 self.assertIsNotNone(head.prior_realized_sequence)
                 self.assertIsNotNone(head.prior_intended_sequence)
+
+    def test_v2_v3_required_field_deletion_fails_closed(self) -> None:
+        required_by_schema = {
+            "cera.sequence_first.accepted_story_artifact.v2": (
+                "realized_sequence",
+                "intended_sequence",
+                "realized_sequence_binding_sha256",
+                "intended_sequence_binding_sha256",
+                "primary_sequence_status",
+                "acceptance_basis",
+            ),
+            "cera.sequence_first.accepted_story_artifact.v3": (
+                "realized_sequence",
+                "intended_sequence",
+                "realized_sequence_binding_sha256",
+                "intended_sequence_binding_sha256",
+                "primary_sequence_status",
+                "qualification_basis",
+                "creator_acceptance_basis",
+            ),
+        }
+        for schema_version, fields_to_delete in required_by_schema.items():
+            for field in fields_to_delete:
+                with (
+                    self.subTest(schema=schema_version, deleted=field),
+                    TemporaryDirectory() as temporary,
+                ):
+                    root = Path(temporary).resolve()
+                    _, event_path, event = self._accepted_event_fixture(
+                        root,
+                        schema_version=schema_version,
+                    )
+                    event.pop(field)
+                    event_path.write_text(
+                        json.dumps(event, sort_keys=True, separators=(",", ":"))
+                        + "\n",
+                        encoding="utf-8",
+                    )
+                    with self.assertRaises(StateConflictError):
+                        SequenceFirstWorldTransaction(
+                            ContinuousWorldStore(root)
+                        ).load_accepted_head(
+                            world_id="world-test",
+                            branch_id="branch-main",
+                        )
+
+    def test_v2_v3_malformed_and_tampered_custody_fails_closed(self) -> None:
+        mutations = {
+            "malformed_intended": lambda event: event.__setitem__(
+                "intended_sequence",
+                [],
+            ),
+            "malformed_realized": lambda event: event.__setitem__(
+                "realized_sequence",
+                None,
+            ),
+            "intended_binding": lambda event: event.__setitem__(
+                "intended_sequence_binding_sha256",
+                "0" * 64,
+            ),
+            "realized_binding": lambda event: event.__setitem__(
+                "realized_sequence_binding_sha256",
+                "0" * 64,
+            ),
+            "primary_status": lambda event: event.__setitem__(
+                "primary_sequence_status",
+                "planned",
+            ),
+        }
+        provenance_mutations = {
+            "cera.sequence_first.accepted_story_artifact.v2": {
+                "v2_basis": lambda event: event.__setitem__(
+                    "acceptance_basis",
+                    "explicit_creator_acceptance",
+                ),
+                "v3_field": lambda event: event.__setitem__(
+                    "creator_acceptance_basis",
+                    "explicit_creator_acceptance",
+                ),
+            },
+            "cera.sequence_first.accepted_story_artifact.v3": {
+                "qualification": lambda event: event.__setitem__(
+                    "qualification_basis",
+                    "automatic_qualification",
+                ),
+                "creator_acceptance": lambda event: event.__setitem__(
+                    "creator_acceptance_basis",
+                    "automatic_qualification",
+                ),
+                "legacy_basis": lambda event: event.__setitem__(
+                    "acceptance_basis",
+                    "automatic_qualification",
+                ),
+            },
+        }
+        for schema_version in provenance_mutations:
+            schema_mutations = {
+                **mutations,
+                **provenance_mutations[schema_version],
+            }
+            for label, mutate in schema_mutations.items():
+                with (
+                    self.subTest(schema=schema_version, mutation=label),
+                    TemporaryDirectory() as temporary,
+                ):
+                    root = Path(temporary).resolve()
+                    _, event_path, event = self._accepted_event_fixture(
+                        root,
+                        schema_version=schema_version,
+                    )
+                    mutate(event)
+                    event_path.write_text(
+                        json.dumps(event, sort_keys=True, separators=(",", ":"))
+                        + "\n",
+                        encoding="utf-8",
+                    )
+                    with self.assertRaises(StateConflictError):
+                        SequenceFirstWorldTransaction(
+                            ContinuousWorldStore(root)
+                        ).load_accepted_head(
+                            world_id="world-test",
+                            branch_id="branch-main",
+                        )
 
     def test_v3_accepted_artifact_provenance_tamper_fails_closed(self) -> None:
         with TemporaryDirectory() as temporary:

@@ -1,7 +1,7 @@
 # CERA Sequence-First Realization Direction V2
 
-This document is the active A1-A3 direction for the Sequence-First route under
-Queue 0064 and Overnight Roadmap 0018. The source authority is
+This document is the active A1-A8 direction for the Sequence-First route under
+Queue 0068 and Overnight Roadmap 0022. The source authority is
 `CERA_CODEX_SEQUENCE_FIRST_DIRECTION_ROADMAP_V2.md`, SHA-256
 `0fd37c31f9e750f917c15756a5ca422a48934341519b131feb8e501448ab0e45`.
 
@@ -18,6 +18,16 @@ acceptance. A rejected or exhausted Stage 6 run retains an immutable,
 restart-readable intended-sequence terminal artifact with status `planned`
 outside accepted `ACTIVE` story authority; it never applies story, presence,
 durable, promotion, or creator-review effects.
+
+Restart custody is version-exact and fails closed. Historical V1 artifacts may
+use their documented intended-sequence and status defaults, and any optional
+binding hash must still be correct when present. V2 requires realized and
+intended sequences, both exact binding hashes, `primary_sequence_status` equal
+to `realized`, and its legacy `automatic_qualification` provenance. V3 requires
+the same complete sequence custody plus separate
+`validator_and_reader_qualified` qualification and
+`explicit_creator_acceptance` provenance. Missing, malformed, cross-version,
+or hash-conflicting custody fields are not repaired or inferred at restart.
 
 DeepSeek may add compatible NPC dialogue, thoughts, feelings, expression,
 gesture, gaze, posture, movement, staging, atmosphere, objects, incidental
@@ -54,6 +64,14 @@ asserts neither locator. Feedback is noncanonical and never story context. The
 primary sequence, brief, and hashes remain frozen; every retry is a fresh
 complete replacement with no patching, merging, fallback, substitution, or
 fourth attempt.
+
+The Reader provider schema enforces the same closed branches before Python DTO
+decoding. `accepted` has no issues; `rejected` and `inconclusive` require at
+least one issue. An `exact_quote` issue requires a non-null exact quote and no
+omitted-item key; an `omitted_planner_item` issue requires a current intended
+sequence key and no quote; and `whole_candidate_quality` carries neither
+locator. The provider-facing root remains a transport envelope, while Python
+unwraps and validates the authoritative verdict DTO without broadening it.
 
 ## Scope and supersession
 

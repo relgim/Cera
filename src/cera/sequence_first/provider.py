@@ -56,8 +56,11 @@ SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v8"
 SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v7"
 SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v12"
 SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v11"
-SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v4"
+SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v5"
 SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v3"
+SEQUENCE_FIRST_READER_PROVIDER_SCHEMA = (
+    "cera.sequence_first.reader_provider_schema.v1"
+)
 SEQUENCE_FIRST_WRITER_ADAPTER = "cera.sequence_first.writer_adapter.v1"
 SEQUENCE_FIRST_WRITER_PROMPT = "cera.sequence_first.writer_prompt.v2"
 
@@ -91,7 +94,7 @@ def sequence_first_validator_route(*, model: str, effort: str):
 def sequence_first_reader_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_reader_{model}_{effort}_v4",
+        route_id=f"cera_sequence_first_reader_{model}_{effort}_v5",
         adapter_id=SEQUENCE_FIRST_READER_ADAPTER,
         prompt_version=SEQUENCE_FIRST_READER_PROMPT,
         maximum_output_tokens=4_096,
@@ -397,32 +400,82 @@ def reader_verdict_json_schema(
     *,
     planner_item_keys: tuple[str, ...] = (),
 ) -> dict:
-    omitted_planner_item_key = _closed_nullable(values=planner_item_keys)
-    issue = _strict_object(
-        {
-            "issue_code": _local_key(),
-            "concise_explanation": {"type": "string"},
-            "feedback_scope": {
-                "type": "string",
-                "enum": [
-                    "exact_quote",
-                    "omitted_planner_item",
-                    "whole_candidate_quality",
-                ],
-            },
-            "exact_quote": _nullable({"type": "string"}),
-            "omitted_planner_item_key": omitted_planner_item_key,
-        }
-    )
-    return _strict_object(
-        {
-            "status": {
-                "type": "string",
-                "enum": ["accepted", "rejected", "inconclusive"],
-            },
-            "issues": {"type": "array", "items": issue},
-        }
-    )
+    common = {
+        "issue_code": _local_key(),
+        "concise_explanation": {"type": "string"},
+    }
+    issue_branches = [
+        _strict_object(
+            {
+                **common,
+                "feedback_scope": {
+                    "type": "string",
+                    "const": "exact_quote",
+                },
+                "exact_quote": {"type": "string", "minLength": 1},
+                "omitted_planner_item_key": {"type": "null"},
+            }
+        ),
+        _strict_object(
+            {
+                **common,
+                "feedback_scope": {
+                    "type": "string",
+                    "const": "whole_candidate_quality",
+                },
+                "exact_quote": {"type": "null"},
+                "omitted_planner_item_key": {"type": "null"},
+            }
+        ),
+    ]
+    if planner_item_keys:
+        issue_branches.insert(
+            1,
+            _strict_object(
+                {
+                    **common,
+                    "feedback_scope": {
+                        "type": "string",
+                        "const": "omitted_planner_item",
+                    },
+                    "exact_quote": {"type": "null"},
+                    "omitted_planner_item_key": {
+                        "type": "string",
+                        "enum": list(planner_item_keys),
+                    },
+                }
+            ),
+        )
+    issue = {"oneOf": issue_branches}
+    verdict_branches = [
+        _strict_object(
+            {
+                "status": {"type": "string", "const": "accepted"},
+                "issues": {
+                    "type": "array",
+                    "items": issue,
+                    "maxItems": 0,
+                },
+            }
+        ),
+        *(
+            _strict_object(
+                {
+                    "status": {"type": "string", "const": status},
+                    "issues": {
+                        "type": "array",
+                        "items": issue,
+                        "minItems": 1,
+                    },
+                }
+            )
+            for status in ("rejected", "inconclusive")
+        ),
+    ]
+    # OpenAI Structured Outputs forbids a union at the document root. The
+    # single transport-only envelope keeps the DTO unchanged while allowing
+    # the complete verdict relationship to remain provider-enforced.
+    return _strict_object({"verdict": {"oneOf": verdict_branches}})
 
 
 class SequenceFirstPlannerCodexBackend:
@@ -731,8 +784,16 @@ class SequenceFirstReaderCodexPort:
             )
 
         def finalize(result):
+            payload = result.parsed_json or {}
+            if set(payload) != {"verdict"} or not isinstance(
+                payload.get("verdict"),
+                dict,
+            ):
+                raise ContractValidationError(
+                    "Reader provider result changed its closed verdict envelope"
+                )
             return ContinuousProviderResultV1(
-                value=from_mapping(ReaderVerdictV1, result.parsed_json or {}),
+                value=from_mapping(ReaderVerdictV1, payload["verdict"]),
                 provider_receipt=result.receipt,
                 operation_telemetry=result.operation_telemetry,
                 tool_call_count=result.tool_call_count,
@@ -758,7 +819,7 @@ class SequenceFirstReaderCodexPort:
                         request_bytes=reader_prompt(request).encode("utf-8"),
                         structured_output_schema=output_schema,
                         prompt_version=self.route.prompt_version,
-                        schema_version=ReaderVerdictV1.SCHEMA_VERSION,
+                        schema_version=SEQUENCE_FIRST_READER_PROVIDER_SCHEMA,
                         operation_workspace=str(operation_workspace),
                         role="reader",
                         archival_policy="fresh_per_candidate_then_archive",

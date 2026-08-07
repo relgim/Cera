@@ -428,20 +428,10 @@ class SequenceFirstWorldTransaction:
         ):
             raise StateConflictError("accepted sequence-first artifact changed scope")
         schema_version = event.get("schema_version")
-        if schema_version == SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V3:
-            if (
-                event.get("qualification_basis")
-                != "validator_and_reader_qualified"
-                or event.get("creator_acceptance_basis")
-                != "explicit_creator_acceptance"
-                or "acceptance_basis" in event
-            ):
-                raise StateConflictError(
-                    "accepted sequence-first artifact changed acceptance provenance"
-                )
-        elif schema_version not in {
+        if schema_version not in {
             SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V1,
             SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V2,
+            SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V3,
         }:
             raise StateConflictError("accepted sequence-first artifact schema changed")
         event_branch_id = str(event.get("branch_id", ""))
@@ -453,22 +443,85 @@ class SequenceFirstWorldTransaction:
             accepted_turn_id=turn_id,
         ):
             raise StateConflictError("accepted sequence-first artifact changed branch scope")
-        realized = from_mapping(SequenceDraftV1, event["realized_sequence"])
-        intended_payload = event.get("intended_sequence")
-        intended = (
-            from_mapping(SequenceDraftV1, intended_payload)
-            if isinstance(intended_payload, dict)
-            else realized
-        )
-        if event.get("primary_sequence_status", "realized") != "realized":
-            raise StateConflictError("accepted sequence artifact has invalid primary status")
-        for field, sequence, key in (
-            ("intended_sequence_binding_sha256", intended, "intended"),
-            ("realized_sequence_binding_sha256", realized, "realized"),
-        ):
+        def decode_sequence(field: str) -> SequenceDraftV1:
+            payload = event.get(field)
+            if not isinstance(payload, dict):
+                raise StateConflictError(
+                    f"accepted {field.removesuffix('_sequence')} sequence is missing"
+                )
+            try:
+                return from_mapping(SequenceDraftV1, payload)
+            except (ContractValidationError, KeyError, TypeError, ValueError) as exc:
+                raise StateConflictError(
+                    f"accepted {field.removesuffix('_sequence')} sequence is malformed"
+                ) from exc
+
+        def require_binding(
+            field: str,
+            sequence: SequenceDraftV1,
+            key: str,
+        ) -> None:
             expected = event.get(field)
-            if expected is not None and expected != sequence.semantic_sha256:
+            if not isinstance(expected, str) or expected != sequence.semantic_sha256:
                 raise StateConflictError(f"accepted {key} sequence binding changed")
+
+        realized = decode_sequence("realized_sequence")
+        if schema_version == SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V1:
+            intended_payload = event.get("intended_sequence")
+            if intended_payload is None:
+                intended = realized
+            elif isinstance(intended_payload, dict):
+                intended = decode_sequence("intended_sequence")
+            else:
+                raise StateConflictError("accepted intended sequence is malformed")
+            if event.get("primary_sequence_status", "realized") != "realized":
+                raise StateConflictError(
+                    "accepted sequence artifact has invalid primary status"
+                )
+            for field, sequence, key in (
+                ("intended_sequence_binding_sha256", intended, "intended"),
+                ("realized_sequence_binding_sha256", realized, "realized"),
+            ):
+                expected = event.get(field)
+                if expected is not None and expected != sequence.semantic_sha256:
+                    raise StateConflictError(
+                        f"accepted {key} sequence binding changed"
+                    )
+        else:
+            intended = decode_sequence("intended_sequence")
+            if event.get("primary_sequence_status") != "realized":
+                raise StateConflictError(
+                    "accepted sequence artifact has invalid primary status"
+                )
+            require_binding(
+                "intended_sequence_binding_sha256",
+                intended,
+                "intended",
+            )
+            require_binding(
+                "realized_sequence_binding_sha256",
+                realized,
+                "realized",
+            )
+            if schema_version == SEQUENCE_FIRST_ACCEPTED_STORY_ARTIFACT_V2:
+                if (
+                    event.get("acceptance_basis") != "automatic_qualification"
+                    or "qualification_basis" in event
+                    or "creator_acceptance_basis" in event
+                ):
+                    raise StateConflictError(
+                        "accepted sequence-first V2 artifact changed acceptance provenance"
+                    )
+            elif (
+                event.get("qualification_basis")
+                != "validator_and_reader_qualified"
+                or event.get("creator_acceptance_basis")
+                != "explicit_creator_acceptance"
+                or "acceptance_basis" in event
+            ):
+                raise StateConflictError(
+                    "accepted sequence-first artifact changed acceptance provenance"
+                )
         event_presence = tuple(
             str(value) for value in event.get("resulting_present_character_ids", ())
         )
