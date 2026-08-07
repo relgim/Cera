@@ -72,6 +72,7 @@ class ValidatorThreadBackendPort(Protocol):
         thread_id: str,
         prompt: str,
         reference_scope: ProviderReferenceScopeV1,
+        intended_sequence: SequenceDraftV1,
     ) -> ValidatorDecisionV1: ...
 
     def archive(self, thread_id: str) -> None: ...
@@ -111,6 +112,7 @@ class FreshCandidateValidatorSession:
             thread_id=self._thread_id,
             prompt=validator_candidate_prompt(request),
             reference_scope=request.reference_scope,
+            intended_sequence=request.intended_sequence,
         )
 
     def archive_and_prove_nonresumable(self) -> None:

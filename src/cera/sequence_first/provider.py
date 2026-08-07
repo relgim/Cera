@@ -38,6 +38,7 @@ from .contracts import (
     SequenceFirstValidatorInputV1,
     SequenceFirstWriterBriefV1,
     ValidatorDecisionV1,
+    ValidatorProviderDecisionV1,
     WriterResponseV1,
 )
 from .prompting import (
@@ -54,8 +55,9 @@ from .prompting import (
 
 SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v8"
 SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v7"
-SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v12"
-SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v11"
+SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v13"
+SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v12"
+SEQUENCE_FIRST_VALIDATOR_PROVIDER_SCHEMA = ValidatorProviderDecisionV1.SCHEMA_VERSION
 SEQUENCE_FIRST_READER_ADAPTER = "cera.sequence_first.reader_adapter.v5"
 SEQUENCE_FIRST_READER_PROMPT = "cera.sequence_first.reader_prompt.v3"
 SEQUENCE_FIRST_READER_PROVIDER_SCHEMA = (
@@ -81,7 +83,7 @@ def sequence_first_planner_route():
 def sequence_first_validator_route(*, model: str, effort: str):
     return replace(
         codex_realization_verifier_candidate(model=model, effort=effort),
-        route_id=f"cera_sequence_first_validator_{model}_{effort}_v12",
+        route_id=f"cera_sequence_first_validator_{model}_{effort}_v13",
         adapter_id=SEQUENCE_FIRST_VALIDATOR_ADAPTER,
         prompt_version=SEQUENCE_FIRST_VALIDATOR_PROMPT,
         maximum_output_tokens=8_192,
@@ -385,9 +387,18 @@ def validator_decision_json_schema(
         {
             "verdict": {"type": "string", "enum": ["accept", "reject"]},
             "realized_sequence": _nullable(
-                sequence_draft_json_schema(
-                    allow_planner_item_keys=True,
-                    reference_scope=reference_scope,
+                _strict_object(
+                    {
+                        "items": {
+                            "type": "array",
+                            "items": _sequence_item_schema(
+                                allow_planner_item_keys=True,
+                                reference_scope=reference_scope,
+                            ),
+                        },
+                        "resulting_public_state": {"type": "string"},
+                        "unresolved_threads": _string_array(),
+                    }
                 )
             ),
             "review_flags": {"type": "array", "items": review_flag},
@@ -635,6 +646,7 @@ class SequenceFirstValidatorCodexBackend:
         thread_id: str,
         prompt: str,
         reference_scope: ProviderReferenceScopeV1,
+        intended_sequence: SequenceDraftV1,
     ) -> ValidatorDecisionV1:
         self._operation_index += 1
         operation_workspace = _operation_workspace(
@@ -665,9 +677,9 @@ class SequenceFirstValidatorCodexBackend:
         def finalize(result):
             return ContinuousProviderResultV1(
                 value=from_mapping(
-                    ValidatorDecisionV1,
+                    ValidatorProviderDecisionV1,
                     result.parsed_json or {},
-                ),
+                ).project(intended_sequence=intended_sequence),
                 provider_receipt=result.receipt,
                 operation_telemetry=result.operation_telemetry,
                 tool_call_count=result.tool_call_count,
@@ -692,7 +704,7 @@ class SequenceFirstValidatorCodexBackend:
                     request_bytes=prompt.encode("utf-8"),
                     structured_output_schema=output_schema,
                     prompt_version=self.route.prompt_version,
-                    schema_version=ValidatorDecisionV1.SCHEMA_VERSION,
+                    schema_version=ValidatorProviderDecisionV1.SCHEMA_VERSION,
                     operation_workspace=str(operation_workspace),
                     role="validator",
                     archival_policy="fresh_per_candidate_then_archive",

@@ -964,6 +964,47 @@ class ValidationConflictV1:
 
 
 @dataclass(frozen=True, slots=True)
+class ValidatorAcceptedRealizationV1:
+    """Provider-authored realization only; exact Planner authority is absent."""
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.sequence_first.validator_accepted_realization.v1"
+    )
+
+    items: tuple[SequenceItemV1, ...]
+    resulting_public_state: str
+    unresolved_threads: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if not self.items:
+            raise ContractValidationError(
+                "accepted Validator realization requires at least one item"
+            )
+        _text(
+            self.resulting_public_state,
+            "validator_realization.resulting_public_state",
+        )
+        _unique(
+            self.unresolved_threads,
+            "validator_realization.unresolved_threads",
+        )
+        for value in self.unresolved_threads:
+            _text(value, "validator_realization.unresolved_threads", maximum=1_000)
+
+    def project(self, *, intended_sequence: SequenceDraftV1) -> SequenceDraftV1:
+        """Attach Planner-owned exact fields once, before strict validation."""
+
+        return SequenceDraftV1(
+            items=self.items,
+            durable_changes=intended_sequence.durable_changes,
+            presence_changes=intended_sequence.presence_changes,
+            resulting_public_state=self.resulting_public_state,
+            unresolved_threads=self.unresolved_threads,
+            stopping_boundary=intended_sequence.stopping_boundary,
+        )
+
+
+@dataclass(frozen=True, slots=True)
 class ValidatorDecisionV1:
     SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.validator_decision.v3"
 
@@ -980,6 +1021,44 @@ class ValidatorDecisionV1:
             raise ContractValidationError("rejected Validator branch is invalid")
         flag_codes = tuple(flag.flag_code for flag in self.review_flags)
         _unique(flag_codes, "validator_decision.review_flags")
+
+
+@dataclass(frozen=True, slots=True)
+class ValidatorProviderDecisionV1:
+    """Closed provider wire decision projected into `ValidatorDecisionV1`."""
+
+    SCHEMA_VERSION: ClassVar[str] = (
+        "cera.sequence_first.validator_provider_schema.v1"
+    )
+
+    verdict: ValidatorVerdict
+    realized_sequence: ValidatorAcceptedRealizationV1 | None
+    review_flags: tuple[ReviewFlagV1, ...] = ()
+    conflict: ValidationConflictV1 | None = None
+
+    def __post_init__(self) -> None:
+        if self.verdict is ValidatorVerdict.ACCEPT:
+            if self.realized_sequence is None or self.conflict is not None:
+                raise ContractValidationError(
+                    "accepted Validator provider branch is invalid"
+                )
+        elif self.realized_sequence is not None or self.conflict is None:
+            raise ContractValidationError("rejected Validator provider branch is invalid")
+        flag_codes = tuple(flag.flag_code for flag in self.review_flags)
+        _unique(flag_codes, "validator_provider_decision.review_flags")
+
+    def project(self, *, intended_sequence: SequenceDraftV1) -> ValidatorDecisionV1:
+        realized = (
+            None
+            if self.realized_sequence is None
+            else self.realized_sequence.project(intended_sequence=intended_sequence)
+        )
+        return ValidatorDecisionV1(
+            verdict=self.verdict,
+            realized_sequence=realized,
+            review_flags=self.review_flags,
+            conflict=self.conflict,
+        )
 
 
 def writer_retry_eligible(

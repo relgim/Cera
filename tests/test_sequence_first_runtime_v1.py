@@ -50,6 +50,8 @@ from cera.sequence_first import (
     TargetOperationKind,
     ValidationConflictV1,
     ValidatorDecisionV1,
+    ValidatorAcceptedRealizationV1,
+    ValidatorProviderDecisionV1,
     ValidatorVerdict,
     Visibility,
     VoiceCueV1,
@@ -73,6 +75,7 @@ from cera.sequence_first.provider import (
     SEQUENCE_FIRST_READER_ADAPTER,
     SEQUENCE_FIRST_VALIDATOR_ADAPTER,
     SEQUENCE_FIRST_VALIDATOR_PROMPT,
+    SEQUENCE_FIRST_VALIDATOR_PROVIDER_SCHEMA,
     SEQUENCE_FIRST_WRITER_ADAPTER,
     SEQUENCE_FIRST_WRITER_PROMPT,
     SequenceFirstDeepSeekWriterPort,
@@ -264,6 +267,20 @@ def accepted_decision(value: SequenceDraftV1 | None = None) -> ValidatorDecision
     return ValidatorDecisionV1(
         verdict=ValidatorVerdict.ACCEPT,
         realized_sequence=value or realized(),
+    )
+
+
+def accepted_provider_decision(
+    value: SequenceDraftV1 | None = None,
+) -> ValidatorProviderDecisionV1:
+    value = value or realized()
+    return ValidatorProviderDecisionV1(
+        verdict=ValidatorVerdict.ACCEPT,
+        realized_sequence=ValidatorAcceptedRealizationV1(
+            items=value.items,
+            resulting_public_state=value.resulting_public_state,
+            unresolved_threads=value.unresolved_threads,
+        ),
     )
 
 
@@ -1634,7 +1651,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
             if self.route.adapter_id == SEQUENCE_FIRST_PLANNER_ADAPTER:
                 payload = to_primitive(intended())
             elif self.route.adapter_id == SEQUENCE_FIRST_VALIDATOR_ADAPTER:
-                payload = to_primitive(accepted_decision())
+                payload = to_primitive(accepted_provider_decision())
             elif self.route.adapter_id == SEQUENCE_FIRST_READER_ADAPTER:
                 payload = {"verdict": to_primitive(accepted_reader())}
             else:
@@ -1734,8 +1751,11 @@ class SequenceFirstSessionTests(unittest.TestCase):
             thread_id: str,
             prompt: str,
             reference_scope: ProviderReferenceScopeV1,
+            intended_sequence: SequenceDraftV1,
         ):
-            self.prompts.append((thread_id, prompt, reference_scope))
+            self.prompts.append(
+                (thread_id, prompt, reference_scope, intended_sequence)
+            )
             return accepted_decision()
 
         def archive(self, thread_id: str) -> None:
@@ -1798,7 +1818,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
         self.assertTrue(
             all(
                 VALIDATOR_BASE_INSTRUCTIONS not in prompt
-                for _, prompt, _reference_scope in backend.prompts
+                for _, prompt, _reference_scope, _intended_sequence in backend.prompts
             )
         )
         self.assertEqual(backend.archived, {"validator-1", "validator-2"})
@@ -2149,44 +2169,44 @@ class SequenceFirstSessionTests(unittest.TestCase):
             )
             self.assertTrue(tuple(validator.iter_errors("evidence:hana")))
 
-        projected_sequence_schemas = (
-            project_provider_output_schema(
-                sequence_schema,
-                ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
-            ).provider_schema,
-            project_provider_output_schema(
-                validator_decision_json_schema(),
-                ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
-            ).provider_schema["properties"]["realized_sequence"]["anyOf"][0],
+        projected_planner = project_provider_output_schema(
+            sequence_schema,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        projected_realization = project_provider_output_schema(
+            validator_decision_json_schema(),
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema["properties"]["realized_sequence"]["anyOf"][0]
+        planner_properties = projected_planner["properties"]
+        projected_character_schemas = (
+            planner_properties["items"]["items"]["properties"]["owner_id"][
+                "anyOf"
+            ][0],
+            planner_properties["durable_changes"]["items"]["properties"][
+                "subject_ids"
+            ]["items"],
+            planner_properties["durable_changes"]["items"]["properties"][
+                "knowledge_owner_id"
+            ]["anyOf"][0],
+            planner_properties["presence_changes"]["items"]["properties"][
+                "character_id"
+            ],
+            projected_realization["properties"]["items"]["items"]["properties"][
+                "owner_id"
+            ]["anyOf"][0],
         )
-        for projected_sequence in projected_sequence_schemas:
-            projected_properties = projected_sequence["properties"]
-            projected_character_schemas = (
-                projected_properties["items"]["items"]["properties"][
-                    "owner_id"
-                ]["anyOf"][0],
-                projected_properties["durable_changes"]["items"]["properties"][
-                    "subject_ids"
-                ]["items"],
-                projected_properties["durable_changes"]["items"]["properties"][
-                    "knowledge_owner_id"
-                ]["anyOf"][0],
-                projected_properties["presence_changes"]["items"]["properties"][
-                    "character_id"
-                ],
+        for character_schema in projected_character_schemas:
+            self.assertEqual(
+                character_schema["pattern"],
+                CHARACTER_ID_JSON_PATTERN,
             )
-            for character_schema in projected_character_schemas:
-                self.assertEqual(
-                    character_schema["pattern"],
-                    CHARACTER_ID_JSON_PATTERN,
-                )
-                self.assertTrue(
-                    tuple(
-                        Draft202012Validator(character_schema).iter_errors(
-                            "character_hana_hanezawa"
-                        )
+            self.assertTrue(
+                tuple(
+                    Draft202012Validator(character_schema).iter_errors(
+                        "character_hana_hanezawa"
                     )
                 )
+            )
 
     def test_provider_stable_identity_schema_matches_closed_python_grammar(self) -> None:
         sequence_schema = sequence_draft_json_schema()
@@ -2219,9 +2239,6 @@ class SequenceFirstSessionTests(unittest.TestCase):
             realized_properties["items"]["items"]["properties"][
                 "evidence_keys"
             ]["items"],
-            realized_properties["durable_changes"]["items"]["properties"][
-                "target_key"
-            ],
         )
         for stable_schema in projected_stable_schemas:
             self.assertEqual(
@@ -2417,6 +2434,14 @@ class SequenceFirstSessionTests(unittest.TestCase):
             {"type": "null"},
         )
         self.assertEqual(properties["review_flags"]["type"], "array")
+        realized = properties["realized_sequence"]["anyOf"][0]
+        self.assertEqual(
+            set(realized["properties"]),
+            {"items", "resulting_public_state", "unresolved_threads"},
+        )
+        self.assertFalse(realized["additionalProperties"])
+        for forbidden in ("durable_changes", "presence_changes", "stopping_boundary"):
+            self.assertNotIn(forbidden, realized["properties"])
         conflict = properties["conflict"]["anyOf"][0]
         self.assertEqual(conflict["type"], "object")
         self.assertFalse(conflict["additionalProperties"])
@@ -2427,34 +2452,263 @@ class SequenceFirstSessionTests(unittest.TestCase):
 
     def test_validator_provider_payloads_decode_both_closed_branches(self) -> None:
         accepted = from_mapping(
-            ValidatorDecisionV1,
-            to_primitive(accepted_decision()),
-        )
+            ValidatorProviderDecisionV1,
+            to_primitive(accepted_provider_decision()),
+        ).project(intended_sequence=intended())
+        rejected_payload = to_primitive(rejected_decision())
         rejected = from_mapping(
-            ValidatorDecisionV1,
-            to_primitive(rejected_decision()),
-        )
+            ValidatorProviderDecisionV1,
+            rejected_payload,
+        ).project(intended_sequence=intended())
         self.assertIs(accepted.verdict, ValidatorVerdict.ACCEPT)
         self.assertIs(rejected.verdict, ValidatorVerdict.REJECT)
 
     def test_validator_provider_payload_rejects_mixed_branches(self) -> None:
-        accepted_with_conflict = to_primitive(accepted_decision())
+        accepted_with_conflict = to_primitive(accepted_provider_decision())
         accepted_with_conflict["conflict"] = to_primitive(
             rejected_decision().conflict
         )
         with self.assertRaisesRegex(
             ContractValidationError,
-            "accepted Validator branch is invalid",
+            "accepted Validator provider branch is invalid",
         ):
-            from_mapping(ValidatorDecisionV1, accepted_with_conflict)
+            from_mapping(ValidatorProviderDecisionV1, accepted_with_conflict)
 
         rejected_with_realization = to_primitive(rejected_decision())
-        rejected_with_realization["realized_sequence"] = to_primitive(realized())
+        rejected_with_realization["realized_sequence"] = to_primitive(
+            accepted_provider_decision().realized_sequence
+        )
         with self.assertRaisesRegex(
             ContractValidationError,
-            "rejected Validator branch is invalid",
+            "rejected Validator provider branch is invalid",
         ):
-            from_mapping(ValidatorDecisionV1, rejected_with_realization)
+            from_mapping(ValidatorProviderDecisionV1, rejected_with_realization)
+
+    def test_validator_provider_projection_excludes_planner_owned_exact_fields(self) -> None:
+        native = validator_decision_json_schema()
+        projected = project_provider_output_schema(
+            native,
+            ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
+        ).provider_schema
+        valid = to_primitive(accepted_provider_decision())
+
+        for schema in (native, projected):
+            realized_schema = schema["properties"]["realized_sequence"]["anyOf"][0]
+            self.assertEqual(
+                set(realized_schema["properties"]),
+                {"items", "resulting_public_state", "unresolved_threads"},
+            )
+            self.assertFalse(realized_schema["additionalProperties"])
+            self.assertFalse(tuple(Draft202012Validator(schema).iter_errors(valid)))
+            for forbidden, value in (
+                ("durable_changes", []),
+                ("presence_changes", []),
+                ("stopping_boundary", "A provider-authored restatement."),
+            ):
+                invalid = json.loads(json.dumps(valid))
+                invalid["realized_sequence"][forbidden] = value
+                self.assertTrue(
+                    tuple(Draft202012Validator(schema).iter_errors(invalid)),
+                    forbidden,
+                )
+                with self.assertRaisesRegex(
+                    ContractValidationError,
+                    f"unknown fields: {forbidden}",
+                ):
+                    from_mapping(ValidatorProviderDecisionV1, invalid)
+
+    def test_validator_projection_copies_exact_planner_authority_and_validates(self) -> None:
+        target = ApprovedTargetV1(
+            target_key="target:hana_reasoning",
+            allowed_change_kinds=(DurableChangeKind.CHARACTER_DEVELOPMENT,),
+        )
+        change = DurableChangeV1(
+            change_key="hana_directness",
+            kind=DurableChangeKind.CHARACTER_DEVELOPMENT,
+            subject_ids=("character:hana",),
+            concise_change="Hana asks directly when uncertainty matters.",
+            target_key=target.target_key,
+        )
+        planned = intended(
+            items=(item(key="hana_answers", change_keys=(change.change_key,)),),
+            durable_changes=(change,),
+            presence_changes=(
+                PresenceChangeV1(
+                    character_id="character:mia",
+                    direction=PresenceDirection.ENTER,
+                    effective_after_item_key="hana_answers",
+                ),
+            ),
+        )
+        provider = ValidatorProviderDecisionV1(
+            verdict=ValidatorVerdict.ACCEPT,
+            realized_sequence=ValidatorAcceptedRealizationV1(
+                items=(
+                    item(
+                        key="hana_answers",
+                        planner_keys=("hana_answers",),
+                        change_keys=(change.change_key,),
+                    ),
+                ),
+                resulting_public_state="Hana answers as Mia enters the room.",
+                unresolved_threads=("Ted has not chosen what to do next.",),
+            ),
+        )
+
+        decision = provider.project(intended_sequence=planned)
+        final = decision.realized_sequence
+        assert final is not None
+        self.assertIs(final.durable_changes, planned.durable_changes)
+        self.assertIs(final.presence_changes, planned.presence_changes)
+        self.assertIs(final.stopping_boundary, planned.stopping_boundary)
+        for copied, authoritative in (
+            (final.durable_changes, planned.durable_changes),
+            (final.presence_changes, planned.presence_changes),
+            (final.stopping_boundary, planned.stopping_boundary),
+        ):
+            self.assertEqual(canonical_json(copied), canonical_json(authoritative))
+            self.assertEqual(canonical_sha256(copied), canonical_sha256(authoritative))
+
+        semantics = semantic_input(
+            present=("character:ted", "character:hana"),
+            approved_targets=(target,),
+        )
+        semantics.validate_intended(planned)
+        semantics.validate_realized(final, intended=planned)
+
+    def test_v3_v4_boundary_rephrases_are_neither_requested_nor_accepted(self) -> None:
+        cases = (
+            (
+                "Stop before Ted answers Hana or otherwise chooses how to proceed.",
+                "The scene stops while Hana awaits Ted's answer, before he chooses how to proceed.",
+            ),
+            (
+                "Stop before inventing Ted's answer, intent, thoughts, feelings, or next consequential action; Ted's response to Hana is the next meaningful user choice.",
+                "The prose stops while Hana awaits Ted's response, before inventing his answer, intent, thoughts, feelings, or next consequential action.",
+            ),
+        )
+        schema = validator_decision_json_schema()
+        for authoritative, historical_rephrase in cases:
+            planned = replace(intended(), stopping_boundary=authoritative)
+            payload = to_primitive(accepted_provider_decision())
+            decision = from_mapping(ValidatorProviderDecisionV1, payload).project(
+                intended_sequence=planned
+            )
+            assert decision.realized_sequence is not None
+            self.assertEqual(
+                decision.realized_sequence.stopping_boundary,
+                authoritative,
+            )
+            self.assertNotEqual(authoritative, historical_rephrase)
+            payload["realized_sequence"]["stopping_boundary"] = historical_rephrase
+            self.assertTrue(
+                tuple(Draft202012Validator(schema).iter_errors(payload))
+            )
+            with self.assertRaisesRegex(ContractValidationError, "stopping_boundary"):
+                from_mapping(ValidatorProviderDecisionV1, payload)
+
+    def test_concrete_validator_fake_transport_rejects_true_boundary_crossing(self) -> None:
+        exact_crossing = "Then Ted answered for himself."
+        provider_payload = to_primitive(
+            ValidatorProviderDecisionV1(
+                verdict=ValidatorVerdict.REJECT,
+                realized_sequence=None,
+                conflict=ValidationConflictV1(
+                    conflict_class=ConflictClass.STOPPING_BOUNDARY_CROSSED,
+                    concise_explanation=(
+                        "The candidate continues past the planned user-choice boundary."
+                    ),
+                    exact_quote=exact_crossing,
+                ),
+            )
+        )
+
+        class RejectingTransport:
+            captured_schema = None
+
+            def __init__(self, route, *, workspace: Path, runner) -> None:
+                self.workspace = workspace
+
+            def invoke(
+                self,
+                prompt: str,
+                *,
+                output_schema: dict,
+                mcp_binding=None,
+                on_worker_started,
+                on_worker_preflight,
+                on_transport_invoke,
+            ):
+                self.__class__.captured_schema = output_schema
+                (self.workspace / ".cera_codex_worker_progress.json").write_text(
+                    '{"stage":"response_encode"}',
+                    encoding="utf-8",
+                )
+                on_worker_started()
+                on_worker_preflight()
+                on_transport_invoke()
+                return SimpleNamespace(
+                    output_text=canonical_json(provider_payload),
+                    parsed_json=provider_payload,
+                    receipt={"provider": "fake"},
+                    operation_telemetry=None,
+                    tool_call_count=0,
+                    failed_tool_call_count=0,
+                    tool_names=(),
+                    tool_server_names=(),
+                )
+
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            lifecycle = self.StoredLifecycleFake(
+                VALIDATOR_BASE_INSTRUCTIONS,
+                "validator",
+            )
+            backend = SequenceFirstValidatorCodexBackend(
+                lifecycle=lifecycle,
+                workspace=root,
+                model="gpt-5.6-sol",
+                effort="medium",
+                call_ledger=ContinuousProviderCallLedger(
+                    root / "provider_calls.jsonl",
+                    maximum_calls=1,
+                ),
+            )
+            request_value = SequenceFirstValidatorInputV1(
+                intended_sequence=intended(),
+                exact_writer_prose=f"Hana asks her question. {exact_crossing}",
+                exact_current_source="Continue the scene",
+                prior_realized_sequence=None,
+                accepted_present_character_ids=("character:ted", "character:hana"),
+                current_public_scene_state="Ted and Hana are in the room.",
+                protected_source_claims=(),
+                hard_boundaries=("Stop before Ted answers.",),
+                reference_scope=reference_scope(plan=intended()),
+            )
+            with patch(
+                "cera.sequence_first.provider.CodexSDKTransport",
+                RejectingTransport,
+            ):
+                session = FreshCandidateValidatorFactory(
+                    backend
+                ).create_sequence_first_validator()
+                decision = session.validate(request_value)
+                session.archive_and_prove_nonresumable()
+
+        self.assertIs(decision.verdict, ValidatorVerdict.REJECT)
+        assert decision.conflict is not None
+        self.assertIs(
+            decision.conflict.conflict_class,
+            ConflictClass.STOPPING_BOUNDARY_CROSSED,
+        )
+        self.assertEqual(decision.conflict.exact_quote, exact_crossing)
+        realized_schema = RejectingTransport.captured_schema["properties"][
+            "realized_sequence"
+        ]["anyOf"][0]
+        self.assertEqual(
+            set(realized_schema["properties"]),
+            {"items", "resulting_public_state", "unresolved_threads"},
+        )
 
     def test_new_routes_are_explicit_unpromoted_and_have_no_fallback(self) -> None:
         planner_route = sequence_first_planner_route()
@@ -2474,7 +2728,7 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_ADAPTER,
-            "cera.sequence_first.validator_adapter.v12",
+            "cera.sequence_first.validator_adapter.v13",
         )
         self.assertEqual(
             validator_route.prompt_version,
@@ -2482,9 +2736,13 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_VALIDATOR_PROMPT,
-            "cera.sequence_first.validator_prompt.v11",
+            "cera.sequence_first.validator_prompt.v12",
         )
-        self.assertTrue(validator_route.route_id.endswith("_v12"))
+        self.assertTrue(validator_route.route_id.endswith("_v13"))
+        self.assertEqual(
+            SEQUENCE_FIRST_VALIDATOR_PROVIDER_SCHEMA,
+            "cera.sequence_first.validator_provider_schema.v1",
+        )
         self.assertEqual(
             SEQUENCE_FIRST_PLANNER_ADAPTER,
             "cera.sequence_first.planner_adapter.v8",
