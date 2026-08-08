@@ -428,6 +428,14 @@ class LeanPiSceneCoordinator:
             world_id=turn.world_id,
             branch_id=turn.branch_id,
         )
+        if (
+            accepted_session is not None
+            and not force_rehydrate
+            and (head.receipt is None or head.receipt.route is not route)
+        ):
+            # Pi forks retain prior role/system history. Cross-route soft
+            # continuity is rehydrated from accepted Python state instead.
+            accepted_session = None
         pi_result = self.pi.invoke(
             PiSceneInvocationV1(
                 route=route,
@@ -499,6 +507,14 @@ class LeanPiSceneCoordinator:
             branch_id=accepted.branch_id,
             adult_full=accepted.route is SceneRoute.ADULT,
         )
+        current_records = tuple(
+            value
+            for value in accepted_records
+            if value.get("receipt", {}).get("accepted_turn_id")
+            == accepted.accepted_turn_id
+        )
+        if len(current_records) != 1:
+            raise StateConflictError("Recorder view did not resolve one accepted turn")
         view = self.writer_views.materialize(
             WriterViewInputV1(
                 world_id=accepted.world_id,
@@ -512,21 +528,23 @@ class LeanPiSceneCoordinator:
                 current_state=review.turn_input.current_state,
                 characters=review.turn_input.characters,
                 relationships=review.turn_input.relationships,
-                recent_prose=(*review.turn_input.recent_prose, accepted.exact_accepted_prose),
+                recent_prose=(accepted.exact_accepted_prose,),
                 relevant_memories=review.turn_input.relevant_memories,
                 voice_examples=review.turn_input.voice_examples,
                 craft_index=review.turn_input.craft_index,
-                accepted_records=accepted_records,
+                accepted_records=current_records,
             )
         )
         prompt = (
-            "Record the already accepted turn from accepted_records and recent_prose. "
+            "Record the sole accepted_records/0001.json turn using the exact "
+            "recent_prose/0001.txt prose. "
             "Return only the route-specific semantic record fields; Python binds custody."
         )
-        accepted_session = self.store.load_accepted_pi_session(
-            world_id=accepted.world_id,
-            branch_id=accepted.branch_id,
-        )
+        if review.recording_attempt is not None:
+            prompt += (
+                " This is an explicit recording repair after typed failure "
+                f"{review.recording_attempt.failure_code}; return a fresh complete record."
+            )
         invocation = self.pi.invoke(
             PiSceneInvocationV1(
                 route=accepted.route,
@@ -535,7 +553,9 @@ class LeanPiSceneCoordinator:
                 prompt=prompt,
                 candidate_id=f"recorder-{accepted.accepted_turn_id}-{attempt_number}",
                 session_dir=self._session_dir(accepted.world_id, accepted.branch_id),
-                accepted_parent_session=accepted_session,
+                # Recorder work is role-local and fresh. Only Writer sessions
+                # participate in accepted soft lineage.
+                accepted_parent_session=None,
             )
         )
         fault = (
@@ -552,9 +572,7 @@ class LeanPiSceneCoordinator:
                 failure_code=fault,
             )
         try:
-            payload = json.loads(invocation.output_text)
-            if not isinstance(payload, dict):
-                raise ContractValidationError("Recorder result is not a JSON object")
+            payload = _parse_recorder_payload(invocation.output_text)
             if accepted.route is SceneRoute.ORDINARY:
                 _require_exact_keys(
                     payload,
@@ -708,3 +726,15 @@ def _pi_operation_count(pi: object) -> int:
     ledger = getattr(pi, "operation_ledger", None)
     value = getattr(ledger, "operation_count", 0)
     return value if type(value) is int and value >= 0 else 0
+
+
+def _parse_recorder_payload(output_text: str) -> dict[str, Any]:
+    """Decode raw JSON or one exact JSON fence without semantic repair."""
+
+    value = output_text.strip()
+    if value.startswith("```json\n") and value.endswith("\n```"):
+        value = value[len("```json\n") : -len("\n```")].strip()
+    payload = json.loads(value)
+    if not isinstance(payload, dict):
+        raise ContractValidationError("Recorder result is not a JSON object")
+    return payload

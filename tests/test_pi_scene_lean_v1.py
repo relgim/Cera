@@ -32,6 +32,7 @@ from cera.pi_scene.runtime import (
     LeanSceneTurnInputV1,
     PlannerTurnInputV1,
     PlannerTurnOutputV1,
+    _parse_recorder_payload,
 )
 from cera.pi_scene.sillytavern_isolation import (
     isolated_sillytavern_command,
@@ -685,6 +686,43 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(repaired.candidate.candidate_sha256, candidate_sha)
             self.assertEqual(len(planner.calls), 1)
             self.assertEqual([value.purpose for value in pi.calls], ["writer", "recorder", "recorder"])
+            recorder_calls = [value for value in pi.calls if value.purpose == "recorder"]
+            self.assertTrue(
+                all(value.accepted_parent_session is None for value in recorder_calls)
+            )
+            self.assertTrue(
+                all(
+                    len(list((value.view.root / "accepted_records").glob("*.json"))) == 1
+                    and len(list((value.view.root / "recent_prose").glob("*.txt"))) == 1
+                    for value in recorder_calls
+                )
+            )
+
+    def test_recorder_accepts_one_exact_json_fence_without_commentary(self) -> None:
+        with TemporaryDirectory() as temporary:
+            coordinator, _, pi, _ = self.make_runtime(Path(temporary))
+            review = coordinator.start_ordinary(turn())
+            payload = {
+                "secondary_canon": [],
+                "resulting_public_state": "Hana has answered.",
+                "relationship_changes": [],
+                "knowledge_changes": [],
+                "durable_changes": [],
+                "unresolved_threads": [],
+            }
+            pi.recorder_outputs.append(
+                "```json\n" + json.dumps(payload, separators=(",", ":")) + "\n```"
+            )
+
+            accepted = coordinator.accept(review.review_id).review
+
+            self.assertEqual(accepted.recording_attempt.status, RecordingStatus.COMPLETE)
+            with self.assertRaises(json.JSONDecodeError):
+                _parse_recorder_payload(
+                    "Recorder result follows.\n```json\n"
+                    + json.dumps(payload, separators=(",", ":"))
+                    + "\n```"
+                )
 
     def test_recorder_transport_failure_returns_accepted_pending_repair(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -841,6 +879,9 @@ class PiSceneLeanTests(unittest.TestCase):
                 [call.route for call in pi.calls if call.purpose == "writer"],
                 [SceneRoute.ORDINARY, SceneRoute.ADULT, SceneRoute.ORDINARY],
             )
+            writer_calls = [call for call in pi.calls if call.purpose == "writer"]
+            self.assertIsNone(writer_calls[1].accepted_parent_session)
+            self.assertIsNone(writer_calls[2].accepted_parent_session)
 
     def test_reset_rehydrates_from_accepted_state_without_reusing_rejected_session(self) -> None:
         with TemporaryDirectory() as temporary:
