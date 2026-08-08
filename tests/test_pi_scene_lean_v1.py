@@ -410,6 +410,7 @@ class PiSceneLeanTests(unittest.TestCase):
                 source / "data" / "default-user",
                 source / "plugins" / "private-plugin",
                 source / "node_modules",
+                source / "node_modules" / "archiver" / "lib" / "plugins",
                 source / "public",
                 source / "src",
             ):
@@ -427,6 +428,12 @@ class PiSceneLeanTests(unittest.TestCase):
             (source / "plugins" / "private-plugin" / "secret.txt").write_text(
                 "must not copy", encoding="utf-8"
             )
+            nested_plugin = (
+                source / "node_modules" / "archiver" / "lib" / "plugins" / "zip.js"
+            )
+            nested_plugin.write_text(
+                "module.exports = {};\n", encoding="utf-8"
+            )
             node = root / "node.exe"
             node.write_text("stub", encoding="utf-8")
             manifest = stage_isolated_sillytavern(source, target)
@@ -436,6 +443,16 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(list((target / "data").iterdir()), [])
             self.assertEqual(list((target / "plugins").iterdir()), [])
             self.assertFalse((target / "data" / "default-user" / "private.txt").exists())
+            self.assertTrue(
+                (
+                    target
+                    / "node_modules"
+                    / "archiver"
+                    / "lib"
+                    / "plugins"
+                    / "zip.js"
+                ).is_file()
+            )
             command = isolated_sillytavern_command(
                 target,
                 node_executable=node,

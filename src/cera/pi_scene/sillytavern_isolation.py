@@ -30,11 +30,11 @@ def stage_isolated_sillytavern(source_root: Path, target_root: Path) -> dict[str
 
     def ignore(directory: str, names: list[str]) -> set[str]:
         directory_path = Path(directory)
+        at_source_root = directory_path == source
         ignored = {
             name
             for name in names
-            if name in _EXCLUDED_DIRECTORIES
-            or name == "config.yaml" and directory_path == source
+            if (at_source_root and (name in _EXCLUDED_DIRECTORIES or name == "config.yaml"))
             or name.endswith((".stdout.log", ".stderr.log"))
         }
         return ignored
