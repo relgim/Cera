@@ -34,6 +34,7 @@ from cera.pi_scene.runtime import (
     PlannerTurnInputV1,
     PlannerTurnOutputV1,
     _parse_recorder_payload,
+    repair_latest_ordinary_recording_from_output,
 )
 from cera.pi_scene.sillytavern_isolation import (
     isolated_sillytavern_command,
@@ -847,9 +848,44 @@ class PiSceneLeanTests(unittest.TestCase):
                 store.load_head(world_id="world-test", branch_id="branch-main").generation,
                 1,
             )
+
+    def test_existing_recorder_output_structurally_repairs_scalar_secondary_canon(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            coordinator, _, _, store = self.make_runtime(root)
+            review = coordinator.start_ordinary(turn())
+            accepted = store.accept(review.candidate)
+            payload = {
+                "secondary_canon": "Hana leaves the conversational floor open.",
+                "resulting_public_state": "Hana has answered.",
+                "relationship_changes": [],
+                "knowledge_changes": [],
+                "durable_changes": [],
+                "unresolved_threads": ["Ted may respond."],
+            }
+            output = "```json\n" + json.dumps(payload, separators=(",", ":")) + "\n```"
+            store.mark_recording_failure(
+                accepted,
+                recorder_request_sha256="a" * 64,
+                recorder_output_sha256=text_sha256(output),
+                provider_operations=2,
+                failure_code="recorder_contract:ContractValidationError",
+            )
+
+            attempt = repair_latest_ordinary_recording_from_output(
+                store=store,
+                turn=turn(),
+                output_text=output,
+            )
+
+            self.assertEqual(attempt.status, RecordingStatus.COMPLETE)
+            self.assertEqual(attempt.provider_operations, 0)
+            record = store.recent_accepted_payloads(
+                world_id="world-test", branch_id="branch-main"
+            )[0]["ordinary_record"]
             self.assertEqual(
-                store.load_head(world_id="world-test", branch_id="branch-main").generation,
-                1,
+                record["secondary_canon"],
+                ["Hana leaves the conversational floor open."],
             )
 
     def test_recorder_cannot_author_python_custody_fields(self) -> None:

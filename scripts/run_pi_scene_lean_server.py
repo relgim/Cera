@@ -33,7 +33,10 @@ from cera.pi_scene.http import (
 )
 from cera.pi_scene.operation_ledger import PiProviderOperationLedger
 from cera.pi_scene.pi_adapter import PiSceneAdapter
-from cera.pi_scene.runtime import LeanPiSceneCoordinator
+from cera.pi_scene.runtime import (
+    LeanPiSceneCoordinator,
+    repair_latest_ordinary_recording_from_output,
+)
 from cera.pi_scene.sillytavern_isolation import (
     isolated_sillytavern_command,
     stage_isolated_sillytavern,
@@ -586,6 +589,138 @@ def _smoke_step(label: str, value: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def repair_existing_smoke(runtime_root: Path) -> dict[str, Any]:
+    """Finish one explicit structural Recorder repair with zero provider work."""
+
+    root = runtime_root.resolve()
+    evidence_path = root / "SMOKE_EVIDENCE.json"
+    if evidence_path.exists():
+        raise StateConflictError("smoke evidence is already published")
+    store = LeanSceneStore(root / "accepted_world")
+    context = AcceptedBranchContextProvider(store, initial_hana_seed())
+    head = store.load_head(world_id="world-pi-scene-smoke", branch_id="branch-main")
+    if head.generation != 4 or head.receipt is None:
+        raise StateConflictError("existing smoke is not at accepted generation four")
+    if head.recording_status is not RecordingStatus.PENDING_REPAIR:
+        raise StateConflictError("existing smoke does not require final recording repair")
+
+    sessions = sorted((root / "pi_sessions").rglob("*.jsonl"))
+    if not sessions:
+        raise StateConflictError("existing smoke omitted Pi session evidence")
+    output_text = _last_assistant_text(sessions[-1])
+    turn = context(SceneRoute.ORDINARY, head.receipt.exact_user_source, ())
+    repaired = repair_latest_ordinary_recording_from_output(
+        store=store,
+        turn=turn,
+        output_text=output_text,
+    )
+    if repaired.status is not RecordingStatus.COMPLETE or repaired.provider_operations != 0:
+        raise StateConflictError("provider-free Recorder repair did not complete")
+
+    accepted = store.recent_accepted_payloads(
+        world_id="world-pi-scene-smoke",
+        branch_id="branch-main",
+        limit=6,
+        adult_full=True,
+    )
+    routes = [value["receipt"]["route"] for value in accepted]
+    if routes != ["ordinary", "adult", "adult", "ordinary"]:
+        raise StateConflictError("existing smoke route sequence changed")
+    for value in accepted:
+        route = value["receipt"]["route"]
+        if route == "ordinary" and "ordinary_record" not in value:
+            raise StateConflictError("existing smoke retained an incomplete ordinary record")
+        if route == "adult" and not {
+            "adult_full_record",
+            "adult_projection",
+        }.issubset(value):
+            raise StateConflictError("existing smoke retained an incomplete adult record")
+    if accepted[-1]["receipt"]["writer_receipt"]["rehydrated"] is not True:
+        raise StateConflictError("existing smoke final Writer was not rehydrated")
+
+    sol_events = _read_jsonl(root / "SOL_PROVIDER_CALLS.jsonl")
+    deepseek_events = _read_jsonl(root / "DEEPSEEK_PROVIDER_OPERATIONS.jsonl")
+    sol_calls = sum(value.get("state") == "transport_invoked" for value in sol_events)
+    deepseek_operations = sum(
+        value.get("event") == "provider_operation_started" for value in deepseek_events
+    )
+    if sol_calls != 1 or deepseek_operations != 12:
+        raise StateConflictError("existing smoke provider accounting changed")
+    if any(value.get("event") == "invocation_failed" for value in deepseek_events):
+        raise StateConflictError("existing smoke contains a failed Pi invocation")
+    st_manifest = verify_isolated_sillytavern(root / "isolated_sillytavern")
+    if not (root / "isolated_sillytavern" / "cera-smoke-logs").is_dir():
+        raise StateConflictError("existing smoke omitted SillyTavern launch evidence")
+
+    current_head = store.load_head(
+        world_id="world-pi-scene-smoke", branch_id="branch-main"
+    )
+    result = {
+        "schema_version": "cera.pi_scene.live_smoke_evidence.v1",
+        "status": "passed",
+        "accepted_turns": 4,
+        "routes": routes,
+        "sol_calls": sol_calls,
+        "deepseek_operations": deepseek_operations,
+        "deepseek_cached_input_tokens": sum(
+            int(value.get("cached_input_tokens", 0))
+            for value in deepseek_events
+            if value.get("event") == "provider_operation_completed"
+        ),
+        "regenerate_exact_sequence": True,
+        "pi_reset_rehydrated": True,
+        "recorder_failure_repaired": True,
+        "provider_free_final_recording_repair": True,
+        "route_transition": "ordinary-adult-adult-ordinary",
+        "isolated_sillytavern_started": True,
+        "isolated_sillytavern_routed_chat_completions": 2,
+        "resumed_from_accepted_generation": 2,
+        "isolated_sillytavern_user_data_copied": st_manifest["user_data_copied"],
+        "isolated_sillytavern_manifest_sha256": st_manifest["manifest_sha256"],
+        "accepted_head_sha256": current_head.accepted_head_sha256,
+        "steps": [
+            {
+                "accepted_turn_id": value["receipt"]["accepted_turn_id"],
+                "route": value["receipt"]["route"],
+                "recording_status": "complete",
+            }
+            for value in accepted
+        ],
+    }
+    result["evidence_sha256"] = canonical_sha256(result)
+    evidence_path.write_bytes(canonical_bytes(result) + b"\n")
+    return result
+
+
+def _last_assistant_text(path: Path) -> str:
+    output = ""
+    for event in _read_jsonl(path):
+        if event.get("type") != "message":
+            continue
+        message = event.get("message")
+        if not isinstance(message, dict) or message.get("role") != "assistant":
+            continue
+        content = message.get("content")
+        if isinstance(content, str):
+            output = content
+        elif isinstance(content, list):
+            output = "".join(
+                str(block.get("text", ""))
+                for block in content
+                if isinstance(block, dict) and block.get("type") == "text"
+            )
+    if not output.strip():
+        raise StateConflictError("Pi session omitted final assistant text")
+    return output
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    values = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+    if any(not isinstance(value, dict) for value in values):
+        raise StateConflictError("JSONL evidence contains a non-object")
+    return values
+
+
 def serve(runtime_root: Path, *, port: int, session_id: str) -> None:
     token = __import__("os").environ.get("CERA_PI_SCENE_TOKEN", "")
     if len(token) < 24:
@@ -618,7 +753,7 @@ def serve(runtime_root: Path, *, port: int, session_id: str) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("mode", choices=("live-smoke", "serve"))
+    parser.add_argument("mode", choices=("live-smoke", "repair-existing-smoke", "serve"))
     parser.add_argument("--runtime-root", type=Path, required=True)
     parser.add_argument("--port", type=int, default=5127)
     parser.add_argument("--session-id", default="cera-pi-scene-test")
@@ -643,6 +778,8 @@ def main() -> int:
                 sort_keys=True,
             )
         )
+    elif args.mode == "repair-existing-smoke":
+        print(json.dumps(repair_existing_smoke(args.runtime_root), indent=2, sort_keys=True))
     else:
         serve(args.runtime_root, port=args.port, session_id=args.session_id)
     return 0

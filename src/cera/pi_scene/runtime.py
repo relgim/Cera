@@ -601,53 +601,10 @@ class LeanPiSceneCoordinator:
         try:
             payload = _parse_recorder_payload(invocation.output_text)
             if accepted.route is SceneRoute.ORDINARY:
-                _require_exact_keys(
-                    payload,
-                    {
-                        "secondary_canon",
-                        "resulting_public_state",
-                        "relationship_changes",
-                        "knowledge_changes",
-                        "durable_changes",
-                        "unresolved_threads",
-                    },
-                    "ordinary Recorder",
-                )
-                primary = json.loads(accepted.primary_authority_json)
-                if not isinstance(primary, dict):
-                    raise ContractValidationError("ordinary primary authority is invalid")
-                items = primary.get("items")
-                if not isinstance(items, list):
-                    raise ContractValidationError("ordinary primary authority shape changed")
-                resulting_public_state = payload["resulting_public_state"]
-                if not isinstance(resulting_public_state, str) or not resulting_public_state.strip():
-                    raise ContractValidationError("resulting_public_state must be non-empty text")
-                record = ordinary_record_from_mapping(
-                    {
-                        "schema_version": "cera.pi_scene.ordinary_record.v1",
-                        "primary_sequence_sha256": accepted.primary_authority_sha256,
-                        "realized_item_keys": [value["item_key"] for value in items],
-                        "secondary_canon": _string_array(
-                            payload["secondary_canon"], "secondary_canon"
-                        ),
-                        "resulting_public_state": resulting_public_state,
-                        "relationship_changes": _string_array(
-                            payload["relationship_changes"], "relationship_changes"
-                        ),
-                        "knowledge_changes": _string_array(
-                            payload["knowledge_changes"], "knowledge_changes"
-                        ),
-                        "durable_changes": _string_array(
-                            payload["durable_changes"], "durable_changes"
-                        ),
-                        "unresolved_threads": _string_array(
-                            payload["unresolved_threads"], "unresolved_threads"
-                        ),
-                    }
-                )
-                return self.store.attach_ordinary_record(
-                    accepted,
-                    record,
+                return _attach_ordinary_payload(
+                    store=self.store,
+                    accepted=accepted,
+                    payload=payload,
                     recorder_request_sha256=invocation.writer_receipt.request_sha256,
                     recorder_output_sha256=invocation.writer_receipt.output_sha256,
                     provider_operations=invocation.writer_receipt.provider_operations,
@@ -749,6 +706,107 @@ def _string_array(value: Any, field_name: str) -> list[str]:
     if len(value) != len(set(value)):
         raise ContractValidationError(f"{field_name} contains duplicates")
     return value
+
+
+def _secondary_canon_array(value: Any) -> list[str]:
+    """Accept the Recorder's singular canonical note as one exact array item."""
+
+    if isinstance(value, str):
+        if not value.strip():
+            raise ContractValidationError("secondary_canon is empty")
+        return [value]
+    return _string_array(value, "secondary_canon")
+
+
+def _attach_ordinary_payload(
+    *,
+    store: LeanSceneStore,
+    accepted: LeanAcceptedTurnReceiptV1,
+    payload: Mapping[str, Any],
+    recorder_request_sha256: str,
+    recorder_output_sha256: str,
+    provider_operations: int,
+) -> LeanRecordingAttemptV1:
+    _require_exact_keys(
+        payload,
+        {
+            "secondary_canon",
+            "resulting_public_state",
+            "relationship_changes",
+            "knowledge_changes",
+            "durable_changes",
+            "unresolved_threads",
+        },
+        "ordinary Recorder",
+    )
+    primary = json.loads(accepted.primary_authority_json)
+    if not isinstance(primary, dict):
+        raise ContractValidationError("ordinary primary authority is invalid")
+    items = primary.get("items")
+    if not isinstance(items, list):
+        raise ContractValidationError("ordinary primary authority shape changed")
+    resulting_public_state = payload["resulting_public_state"]
+    if not isinstance(resulting_public_state, str) or not resulting_public_state.strip():
+        raise ContractValidationError("resulting_public_state must be non-empty text")
+    record = ordinary_record_from_mapping(
+        {
+            "schema_version": "cera.pi_scene.ordinary_record.v1",
+            "primary_sequence_sha256": accepted.primary_authority_sha256,
+            "realized_item_keys": [value["item_key"] for value in items],
+            "secondary_canon": _secondary_canon_array(payload["secondary_canon"]),
+            "resulting_public_state": resulting_public_state,
+            "relationship_changes": _string_array(
+                payload["relationship_changes"], "relationship_changes"
+            ),
+            "knowledge_changes": _string_array(
+                payload["knowledge_changes"], "knowledge_changes"
+            ),
+            "durable_changes": _string_array(payload["durable_changes"], "durable_changes"),
+            "unresolved_threads": _string_array(
+                payload["unresolved_threads"], "unresolved_threads"
+            ),
+        }
+    )
+    return store.attach_ordinary_record(
+        accepted,
+        record,
+        recorder_request_sha256=recorder_request_sha256,
+        recorder_output_sha256=recorder_output_sha256,
+        provider_operations=provider_operations,
+    )
+
+
+def repair_latest_ordinary_recording_from_output(
+    *,
+    store: LeanSceneStore,
+    turn: LeanSceneTurnInputV1,
+    output_text: str,
+) -> LeanRecordingAttemptV1:
+    """Explicitly revalidate one already-charged Recorder output after restart."""
+
+    head = store.load_head(world_id=turn.world_id, branch_id=turn.branch_id)
+    accepted = head.receipt
+    if (
+        accepted is None
+        or accepted.route is not SceneRoute.ORDINARY
+        or head.recording_status is RecordingStatus.COMPLETE
+    ):
+        raise StateConflictError("latest ordinary recording does not require repair")
+    if accepted.exact_user_source != turn.exact_user_source:
+        raise StateConflictError("recording repair turn source changed")
+    prior = store.load_recording_attempt(accepted)
+    output_sha256 = text_sha256(output_text.strip())
+    if prior.recorder_output_sha256 != output_sha256:
+        raise StateConflictError("Recorder repair output differs from the failed attempt")
+    payload = _parse_recorder_payload(output_text)
+    return _attach_ordinary_payload(
+        store=store,
+        accepted=accepted,
+        payload=payload,
+        recorder_request_sha256=prior.recorder_request_sha256,
+        recorder_output_sha256=output_sha256,
+        provider_operations=0,
+    )
 
 
 def _pi_operation_count(pi: object) -> int:
