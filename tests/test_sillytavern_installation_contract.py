@@ -113,12 +113,17 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         )
         extension = (source_root / "index.js").read_text(encoding="utf-8")
         styles = (source_root / "style.css").read_text(encoding="utf-8")
-        self.assertIn("actionButton('Adjustment'", extension)
-        self.assertNotIn("Correction / Adjustment", extension)
-        self.assertIn("'False Positive'", extension)
+        self.assertIn("renderPiSceneReview", extension)
+        self.assertIn("CODEX SEQUENCE REALIZATION READY FOR CREATOR REVIEW", extension)
+        self.assertIn("'Regenerate'", extension)
+        self.assertIn("'Replan'", extension)
+        self.assertIn("'Repair Recording'", extension)
+        self.assertIn("'Decline'", extension)
+        self.assertIn("'declined'", extension)
+        self.assertIn("reconcileDecisionAfterError", extension)
+        self.assertNotIn("Sol reviewing...", extension)
         self.assertIn("controlSelect('Sol'", extension)
         self.assertIn("['medium', 'M'], ['high', 'H'], ['xhigh', 'Ex']", extension)
-        self.assertIn("'false_positive'", extension)
         self.assertIn("renderStoredSpeakerMarks", extension)
         self.assertIn("vera_cast_readability", extension)
         for severity in ("good", "concern", "critical", "error"):
@@ -160,6 +165,29 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertIn("Check CERA status", extension)
         self.assertIn("refreshReviewStatus(messageId, reviewId)", extension)
         self.assertIn("CeraReviewRequestError", extension)
+
+    def test_pi_scene_review_identity_and_local_credential_cross_the_relay(self) -> None:
+        extension = (
+            REPOSITORY_ROOT
+            / "integrations"
+            / "sillytavern"
+            / "creator-review-extension"
+            / "index.js"
+        ).read_text(encoding="utf-8")
+        proxy = (
+            REPOSITORY_ROOT
+            / "integrations"
+            / "sillytavern"
+            / "cera-review-proxy-plugin"
+            / "index.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("import { oai_settings }", extension)
+        self.assertIn("oai_settings.custom_include_headers", extension)
+        self.assertIn("headers['X-Cera-Authorization'] = ceraAuthorizationHeader()", extension)
+        self.assertIn("review-[a-f0-9]{28}", proxy)
+        self.assertIn("const normalizedAuthorization = normalizeAuthorization(authorization)", proxy)
+        self.assertIn("Authorization: normalizedAuthorization", proxy)
+        self.assertIn("authorization: request.get('X-Cera-Authorization')", proxy)
 
     def test_openai_bridge_queues_only_provisional_cera_metadata(self) -> None:
         openai = (SILLYTAVERN_ROOT / "public" / "scripts" / "openai.js").read_text(

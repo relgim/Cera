@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any, Mapping, Protocol
 
+from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.errors import ContractValidationError
 from cera.schema import from_mapping
 from cera.serialization import canonical_json, text_sha256, to_primitive
@@ -24,6 +25,7 @@ from cera.sequence_first.contracts import (
 )
 
 from .runtime import PlannerTurnInputV1, PlannerTurnOutputV1
+from .readable_debug import ReadablePiSceneDebugLog
 
 
 class SequencePlannerSessionPort(Protocol):
@@ -33,15 +35,46 @@ class SequencePlannerSessionPort(Protocol):
 class RetainedCodexPlannerAdapter:
     """Adapt one retained Planner session to the lean coordinator contract."""
 
-    def __init__(self, session: SequencePlannerSessionPort) -> None:
+    def __init__(
+        self,
+        session: SequencePlannerSessionPort,
+        *,
+        operation_evidence: ProviderOperationEvidenceStoreV1 | None = None,
+        readable_debug: ReadablePiSceneDebugLog | None = None,
+    ) -> None:
         self.session = session
+        self.operation_evidence = operation_evidence
+        self.readable_debug = readable_debug
         self.last_semantic_input: SequenceFirstTurnSemanticInputV1 | None = None
+        self._turn_index = 0
 
     def plan(self, request: PlannerTurnInputV1) -> PlannerTurnOutputV1:
+        self._turn_index += 1
+        if self.operation_evidence is not None:
+            self.operation_evidence.begin_turn(
+                ":".join(
+                    (
+                        request.world_id,
+                        request.branch_id,
+                        f"planner-{self._turn_index:04d}",
+                        text_sha256(request.exact_user_source)[:12],
+                    )
+                )
+            )
         semantic_input = _semantic_input(request)
         sequence = self.session.plan(semantic_input)
         semantic_input.validate_intended(sequence)
         self.last_semantic_input = semantic_input
+        if self.readable_debug is not None:
+            self.readable_debug.write(
+                stage="codex-planner",
+                identity=f"{request.world_id}-{request.branch_id}-planner-{self._turn_index:04d}",
+                sections={
+                    "Exact user input": request.exact_user_source,
+                    "Python semantic input sent to Codex Planner": semantic_input,
+                    "Codex Planner structured output": sequence,
+                },
+            )
         return PlannerTurnOutputV1(
             sequence=to_primitive(sequence),
             provider_operations=1,

@@ -11,7 +11,13 @@ from urllib.request import Request, urlopen
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.pi_scene.codex_planner import RetainedCodexPlannerAdapter
-from cera.pi_scene.contracts import PiWriterReceiptV1, RecordingStatus, SceneRoute
+from cera.pi_scene.context import initial_hanezawa_doorway_seed
+from cera.pi_scene.contracts import (
+    PiWriterReceiptV1,
+    RecordingStatus,
+    SceneRoute,
+    advisory_ted_warnings,
+)
 from cera.pi_scene.http import (
     PI_SCENE_ORDINARY_MODEL,
     PI_SCENE_PROFILE,
@@ -20,6 +26,8 @@ from cera.pi_scene.http import (
     build_pi_scene_server,
 )
 from cera.pi_scene.pi_adapter import (
+    ADULT_WRITER_SYSTEM_PROMPT,
+    ORDINARY_WRITER_SYSTEM_PROMPT,
     PiSceneAdapter,
     PiSceneInvocationResultV1,
     PiSceneInvocationV1,
@@ -48,6 +56,7 @@ from cera.pi_scene.writer_view import (
     resolve_confined_path,
     verify_writer_view,
 )
+from cera.pi_scene.readable_debug import ReadablePiSceneDebugLog
 from cera.serialization import canonical_json, canonical_sha256, text_sha256
 from cera.sequence_first.contracts import (
     ItemKind,
@@ -122,6 +131,14 @@ class FakeSequencePlannerSession:
             unresolved_threads=("Ted may respond.",),
             stopping_boundary="Stop after Hana returns the floor to Ted.",
         )
+
+
+class FakeOperationEvidence:
+    def __init__(self) -> None:
+        self.turns: list[str] = []
+
+    def begin_turn(self, turn: str) -> None:
+        self.turns.append(turn)
 
 
 class FakePi:
@@ -317,7 +334,11 @@ class PiSceneLeanTests(unittest.TestCase):
 
     def test_retained_codex_adapter_projects_only_bounded_accepted_evidence(self) -> None:
         session = FakeSequencePlannerSession()
-        adapter = RetainedCodexPlannerAdapter(session)
+        operation_evidence = FakeOperationEvidence()
+        adapter = RetainedCodexPlannerAdapter(
+            session,
+            operation_evidence=operation_evidence,  # type: ignore[arg-type]
+        )
         accepted = {
             "receipt": {
                 "accepted_turn_id": "accepted-0001",
@@ -355,6 +376,12 @@ class PiSceneLeanTests(unittest.TestCase):
             )
         )
         self.assertEqual(result.provider_operations, 1)
+        self.assertEqual(len(operation_evidence.turns), 1)
+        self.assertTrue(
+            operation_evidence.turns[0].startswith(
+                "world-test:branch-main:planner-0001:"
+            )
+        )
         self.assertEqual(result.sequence["items"][0]["item_key"], "hana_answers")
         semantic = session.calls[0]
         self.assertIsNone(semantic.prior_realized_sequence)
@@ -379,6 +406,90 @@ class PiSceneLeanTests(unittest.TestCase):
                 "Do not invent Ted thoughts or feelings.",
             ),
         )
+
+    def test_human_readable_debug_log_keeps_labeled_inputs_and_outputs_together(self) -> None:
+        with TemporaryDirectory() as temporary:
+            debug = ReadablePiSceneDebugLog(Path(temporary) / "readable")
+            entry = debug.write(
+                stage="codex-planner",
+                identity="turn-0001",
+                sections={
+                    "Exact user input": "Continue the scene.",
+                    "Codex Planner structured output": {"items": ["hana_answers"]},
+                },
+            )
+            self.assertIsNotNone(entry)
+            assert entry is not None
+            self.assertTrue(entry.is_file())
+            self.assertEqual((debug.root / "LATEST.md").read_bytes(), entry.read_bytes())
+            text = entry.read_text(encoding="utf-8")
+            self.assertIn("## Exact user input", text)
+            self.assertIn("Continue the scene.", text)
+            self.assertIn("## Codex Planner structured output", text)
+            self.assertIn("hana_answers", text)
+            self.assertIn(entry.name, (debug.root / "INDEX.md").read_text(encoding="utf-8"))
+
+    def test_human_readable_debug_can_be_disabled_bounded_and_redacts_secrets(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            disabled = ReadablePiSceneDebugLog(root / "disabled", enabled=False)
+            self.assertIsNone(
+                disabled.write(stage="planner", identity="turn-1", sections={"Input": "x"})
+            )
+            self.assertFalse(disabled.root.exists())
+
+            debug = ReadablePiSceneDebugLog(root / "bounded", max_entries=2)
+            for number in range(3):
+                debug.write(
+                    stage="writer",
+                    identity=f"candidate-{number}",
+                    sections={
+                        "Request": {
+                            "Authorization": "Bearer private-value",
+                            "api_key": "private-value",
+                            "visible_prose": f"scene {number}",
+                        }
+                    },
+                )
+            entries = [
+                path
+                for path in debug.root.glob("*.md")
+                if path.name not in {"README.md", "INDEX.md", "LATEST.md"}
+            ]
+            self.assertEqual(len(entries), 2)
+            latest = (debug.root / "LATEST.md").read_text(encoding="utf-8")
+            self.assertNotIn("private-value", latest)
+            self.assertEqual(latest.count("[REDACTED]"), 2)
+            self.assertIn("scene 2", latest)
+
+    def test_observed_pronoun_attributed_ted_dialogue_is_warn_only(self) -> None:
+        story = (
+            "Ted stood just inside the threshold, looking toward Hana.\n\n"
+            '\"Sorry,\" he said, \"I meant to ask whether this is the residence.\"'
+        )
+        warnings = advisory_ted_warnings(story)
+        self.assertEqual(
+            [value.warning_code for value in warnings],
+            ["possible_invented_ted_dialogue"],
+        )
+
+    def test_writer_prompts_do_not_restate_protected_user_contributions(self) -> None:
+        for prompt in (ORDINARY_WRITER_SYSTEM_PROMPT, ADULT_WRITER_SYSTEM_PROMPT):
+            self.assertIn("Start from the NPC or world response", prompt)
+            self.assertIn("Do not invent Ted dialogue", prompt)
+            self.assertIn("Freely add compatible transient", prompt)
+            self.assertIn("unsupported durable history", prompt)
+            self.assertIn("institutional facts", prompt)
+            self.assertIn("Return complete visible prose only", prompt)
+            self.assertNotIn("opening sentence", prompt.lower())
+
+    def test_creator_test_seed_matches_visible_doorway_and_does_not_surface_mia(self) -> None:
+        seed = initial_hanezawa_doorway_seed()
+        self.assertEqual(seed.scene_id, "scene-hanezawa-entryway")
+        self.assertEqual(seed.accepted_present_character_ids, ("character:sakura",))
+        self.assertIn("outside the closed front door", seed.public_scene_state)
+        self.assertIn("Mia is in the common room", seed.public_scene_state)
+        self.assertIn("none of them is in the current", seed.public_scene_state)
 
     def test_writer_view_is_minimal_manifest_bound_and_confined(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -606,7 +717,7 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertNotIn("bash", command)
             self.assertNotIn("write", command)
             self.assertNotIn("edit", command)
-            self.assertEqual(captured["environment"]["CERA_PI_MAX_TOOL_CALLS"], "20")
+            self.assertEqual(captured["environment"]["CERA_PI_MAX_TOOL_CALLS"], "1")
             self.assertEqual(result.output_text, "Final scene prose.")
             self.assertEqual(result.writer_receipt.provider_operations, 2)
             self.assertEqual(result.writer_receipt.input_tokens, 220)
@@ -621,15 +732,19 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(settings["retry"]["provider"]["maxRetries"], 0)
             self.assertFalse(settings["compaction"]["enabled"])
 
-    def test_writer_output_requires_one_scene_envelope_and_preserves_inner_bytes(self) -> None:
+    def test_writer_output_accepts_raw_prose_and_strict_legacy_envelope(self) -> None:
         self.assertEqual(
             _parse_writer_output(
                 "Analysis that is not visible.\n<cera_scene>  Visible prose.  </cera_scene>"
             ),
             "Visible prose.",
         )
-        with self.assertRaisesRegex(StateConflictError, "scene envelope"):
-            _parse_writer_output("Visible but unframed prose.")
+        self.assertEqual(
+            _parse_writer_output("  Visible raw prose.  "),
+            "Visible raw prose.",
+        )
+        with self.assertRaisesRegex(StateConflictError, "partial or duplicate"):
+            _parse_writer_output("<cera_scene>Visible but unclosed prose.")
         with self.assertRaisesRegex(StateConflictError, "scene envelope"):
             _parse_writer_output(
                 "<cera_scene>One.</cera_scene><cera_scene>Two.</cera_scene>"
@@ -684,7 +799,10 @@ class PiSceneLeanTests(unittest.TestCase):
             coordinator, planner, pi, store = self.make_runtime(root)
             first = coordinator.start_ordinary(turn())
             first_authority = first.candidate.primary_authority_json
-            regenerated = coordinator.regenerate(first.review_id)
+            regenerated = coordinator.regenerate(
+                first.review_id,
+                feedback="Make the replacement more concise.",
+            )
             self.assertEqual(len(planner.calls), 1)
             self.assertIsNotNone(regenerated.successor)
             successor = regenerated.successor
@@ -706,7 +824,33 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(restarted.generation, 1)
             self.assertEqual(pi.calls[0].purpose, "writer")
             self.assertEqual(pi.calls[1].purpose, "writer")
+            self.assertIn("noncanonical creator guidance", pi.calls[1].prompt)
+            self.assertIn("more concise", pi.calls[1].prompt)
+            self.assertTrue((pi.calls[1].view.root / "PRIMARY_SEQUENCE.json").is_file())
+            self.assertTrue((pi.calls[1].view.root / "USER_PROMPT.txt").is_file())
             self.assertEqual(pi.calls[2].purpose, "recorder")
+
+    def test_writer_view_links_accepted_prose_once_without_losing_custody(self) -> None:
+        with TemporaryDirectory() as temporary:
+            coordinator, _, pi, _ = self.make_runtime(Path(temporary))
+            first = coordinator.start_ordinary(turn(source="First accepted turn."))
+            coordinator.accept(first.review_id)
+            coordinator.start_ordinary(turn(source="Second turn."))
+
+            second_writer = [call for call in pi.calls if call.purpose == "writer"][-1]
+            accepted = json.loads(
+                (second_writer.view.root / "accepted_records" / "0001.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            receipt = accepted["receipt"]
+            self.assertNotIn("exact_accepted_prose", receipt)
+            self.assertEqual(
+                receipt["exact_accepted_prose_sha256"],
+                first.candidate.story_text_sha256,
+            )
+            self.assertEqual(receipt["exact_user_source"], "First accepted turn.")
+            self.assertIn("ordinary_record", accepted)
 
     def test_decline_has_zero_accepted_effect_and_replan_is_only_second_planner_call(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -917,6 +1061,10 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertTrue(
                 accepted.recording_attempt.failure_code.startswith("recorder_contract:")
             )
+            self.assertIn(
+                "ordinary Recorder fields changed",
+                accepted.recording_attempt.failure_code,
+            )
             self.assertEqual(
                 store.load_head(world_id="world-test", branch_id="branch-main").generation,
                 1,
@@ -1033,10 +1181,47 @@ class PiSceneLeanTests(unittest.TestCase):
             assert successor is not None
             writer_calls = [value for value in pi.calls if value.purpose == "writer"]
             self.assertIsNotNone(writer_calls[1].accepted_parent_session)
+            self.assertTrue(writer_calls[1].force_rehydrate)
             self.assertTrue(writer_calls[2].force_rehydrate)
             self.assertIsNotNone(writer_calls[2].accepted_parent_session)
             self.assertIsNone(successor.candidate.writer_receipt.parent_session_id_sha256)
             self.assertTrue(successor.candidate.writer_receipt.rehydrated)
+
+    def test_all_post_accept_writers_rehydrate_without_forking_soft_lineage(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            first, _, _, store = self.make_runtime(root)
+            initial = first.start_ordinary(turn(source="First."))
+            first.accept(initial.review_id)
+
+            restarted_pi = FakePi()
+            restarted = LeanPiSceneCoordinator(
+                store=store,
+                planner=FakePlanner(),
+                writer_views=WriterViewMaterializer(root / "restart-views"),
+                pi=restarted_pi,  # type: ignore[arg-type]
+                session_root=root / "restart-sessions",
+            )
+            after_restart = restarted.start_ordinary(turn(source="Second."))
+            first_restarted_call = next(
+                value for value in restarted_pi.calls if value.purpose == "writer"
+            )
+            self.assertIsNotNone(first_restarted_call.accepted_parent_session)
+            self.assertTrue(first_restarted_call.force_rehydrate)
+            self.assertTrue(after_restart.candidate.writer_receipt.rehydrated)
+            self.assertIsNone(
+                after_restart.candidate.writer_receipt.parent_session_id_sha256
+            )
+            restarted.accept(after_restart.review_id)
+
+            third = restarted.start_ordinary(turn(source="Third."))
+            writer_calls = [
+                value for value in restarted_pi.calls if value.purpose == "writer"
+            ]
+            self.assertIsNotNone(writer_calls[-1].accepted_parent_session)
+            self.assertTrue(writer_calls[-1].force_rehydrate)
+            self.assertTrue(third.candidate.writer_receipt.rehydrated)
+            self.assertIsNone(third.candidate.writer_receipt.parent_session_id_sha256)
 
     def test_complete_fake_smoke_shape_reaches_four_accepted_turns(self) -> None:
         failures = {(2, 1)}
@@ -1161,9 +1346,15 @@ class PiSceneHttpTests(unittest.TestCase):
                     payload=payload,
                 )
                 review_id = response["cera"]["provisional_review_id"]
+                provider_counts = (len(planner.calls), len(pi.calls))
                 _, review = self._request(
                     f"http://127.0.0.1:{port}/v1/cera/reviews/{review_id}", token=token
                 )
+                _, recovered_review = self._request(
+                    f"http://127.0.0.1:{port}/v1/cera/reviews/{review_id}", token=token
+                )
+                self.assertEqual(recovered_review, review)
+                self.assertEqual((len(planner.calls), len(pi.calls)), provider_counts)
                 self.assertTrue(review["accept_enabled"])
                 self.assertTrue(review["regenerate_enabled"])
                 self.assertTrue(review["replan_enabled"])

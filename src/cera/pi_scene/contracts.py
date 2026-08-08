@@ -67,8 +67,13 @@ _TED_WARNING_PATTERNS = (
     (
         "possible_invented_ted_dialogue",
         re.compile(
+            r"(?:"
             r"\bTed\s+(?:said|asked|replied|answered|whispered|murmured|"
-            r"shouted|called|told)\b",
+            r"shouted|called|told)\b"
+            r"|\bTed\b[\s\S]{0,320}?[\"“][^\"”\n]{1,240}[\"”]\s*"
+            r"(?:he\s+)?(?:said|asked|replied|answered|whispered|murmured|"
+            r"shouted|called)\b"
+            r")",
             re.IGNORECASE,
         ),
     ),

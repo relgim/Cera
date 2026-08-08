@@ -19,9 +19,14 @@ from typing import Any
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
+from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.errors import ContractValidationError, StateConflictError
 from cera.pi_scene.codex_planner import RetainedCodexPlannerAdapter
-from cera.pi_scene.context import AcceptedBranchContextProvider, initial_hana_seed
+from cera.pi_scene.context import (
+    AcceptedBranchContextProvider,
+    initial_hana_seed,
+    initial_hanezawa_doorway_seed,
+)
 from cera.pi_scene.contracts import RecordingStatus, SceneRoute
 from cera.pi_scene.http import (
     PI_SCENE_ADULT_MODEL,
@@ -33,6 +38,7 @@ from cera.pi_scene.http import (
 )
 from cera.pi_scene.operation_ledger import PiProviderOperationLedger
 from cera.pi_scene.pi_adapter import PiSceneAdapter
+from cera.pi_scene.readable_debug import ReadablePiSceneDebugLog
 from cera.pi_scene.runtime import (
     LeanPiSceneCoordinator,
     repair_latest_ordinary_recording_from_output,
@@ -64,6 +70,7 @@ class LivePiSceneRuntime:
     store: LeanSceneStore
     sol_ledger: ContinuousProviderCallLedger
     deepseek_ledger: PiProviderOperationLedger
+    readable_debug: ReadablePiSceneDebugLog
 
     def close(self) -> None:
         self.stack.close()
@@ -115,14 +122,30 @@ def build_live_runtime(
             service_name="cera_pi_scene_planner",
             service_tier="priority",
         )
+        planner_evidence = ProviderOperationEvidenceStoreV1(
+            (runtime_root / "debug" / "planner").resolve(),
+            stage="pi_scene_lean_planner",
+        )
+        readable_debug_setting = os.environ.get(
+            "CERA_PI_SCENE_READABLE_DEBUG", "1"
+        ).strip().lower()
+        readable_debug = ReadablePiSceneDebugLog(
+            runtime_root / "debug" / "readable",
+            enabled=readable_debug_setting not in {"0", "false", "off", "no"},
+            max_entries=int(os.environ.get("CERA_PI_SCENE_READABLE_DEBUG_MAX", "200")),
+        )
+        planner_backend = SequenceFirstPlannerCodexBackend(
+            lifecycle=lifecycle,
+            workspace=operation_root,
+            call_ledger=sol_ledger,
+            operation_evidence=planner_evidence,
+        )
         planner = RetainedCodexPlannerAdapter(
             PersistentPlannerSession(
-                SequenceFirstPlannerCodexBackend(
-                    lifecycle=lifecycle,
-                    workspace=operation_root,
-                    call_ledger=sol_ledger,
-                )
-            )
+                planner_backend
+            ),
+            operation_evidence=planner_evidence,
+            readable_debug=readable_debug,
         )
         deepseek_ledger = PiProviderOperationLedger(
             (runtime_root / "DEEPSEEK_PROVIDER_OPERATIONS.jsonl").resolve(),
@@ -134,6 +157,7 @@ def build_live_runtime(
             extension_path=DEFAULT_EXTENSION,
             pi_version="0.84.1",
             operation_ledger=deepseek_ledger,
+            readable_debug=readable_debug,
         )
         store = LeanSceneStore(runtime_root / "accepted_world")
 
@@ -160,6 +184,7 @@ def build_live_runtime(
             store=store,
             sol_ledger=sol_ledger,
             deepseek_ledger=deepseek_ledger,
+            readable_debug=readable_debug,
         )
     except BaseException:
         stack.close()
@@ -368,6 +393,7 @@ def run_live_smoke(
             coordinator=runtime.coordinator,
             session_id=session_id,
             context_provider=context,
+            readable_debug=runtime.readable_debug,
         )
         server = build_pi_scene_server(
             adapter,
@@ -733,7 +759,11 @@ def serve(runtime_root: Path, *, port: int, session_id: str) -> None:
     adapter = PiSceneHttpAdapter(
         coordinator=runtime.coordinator,
         session_id=session_id,
-        context_provider=AcceptedBranchContextProvider(runtime.store, initial_hana_seed()),
+        context_provider=AcceptedBranchContextProvider(
+            runtime.store,
+            initial_hanezawa_doorway_seed(),
+        ),
+        readable_debug=runtime.readable_debug,
     )
     server = build_pi_scene_server(
         adapter,

@@ -23,6 +23,7 @@ from .runtime import (
     LeanReviewState,
     LeanSceneTurnInputV1,
 )
+from .readable_debug import ReadablePiSceneDebugLog
 
 
 PI_SCENE_ORDINARY_MODEL = "cera-pi-scene-ordinary"
@@ -64,12 +65,14 @@ class PiSceneHttpAdapter:
         coordinator: LeanPiSceneCoordinator,
         session_id: str,
         context_provider: ContextProvider,
+        readable_debug: ReadablePiSceneDebugLog | None = None,
     ) -> None:
         if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,95}", session_id):
             raise ContractValidationError("Pi Scene HTTP session identity is invalid")
         self.coordinator = coordinator
         self.session_id = session_id
         self.context_provider = context_provider
+        self.readable_debug = readable_debug
 
     @property
     def status(self) -> dict[str, Any]:
@@ -96,7 +99,18 @@ class PiSceneHttpAdapter:
             if route is SceneRoute.ORDINARY
             else self.coordinator.start_adult(turn)
         )
-        return self._completion_payload(review)
+        payload = self._completion_payload(review)
+        if self.readable_debug is not None:
+            self.readable_debug.write(
+                stage="creator-review-ready",
+                identity=review.review_id,
+                sections={
+                    "Exact user input": review.turn_input.exact_user_source,
+                    "Review state": self.review_payload(review),
+                    "Visible provisional prose": review.candidate.story_text,
+                },
+            )
+        return payload
 
     def get_review(self, review_id: str) -> dict[str, Any]:
         return self.review_payload(self.coordinator.get_review(review_id))
@@ -125,7 +139,18 @@ class PiSceneHttpAdapter:
             decision = self.coordinator.repair_recording(review_id)
         else:
             raise ContractValidationError("unknown Pi Scene creator action")
-        return self.decision_payload(action, decision)
+        result = self.decision_payload(action, decision)
+        if self.readable_debug is not None:
+            self.readable_debug.write(
+                stage="creator-decision",
+                identity=review_id,
+                sections={
+                    "Creator action": action,
+                    "Creator feedback": feedback,
+                    "Persisted review state": result,
+                },
+            )
+        return result
 
     def review_payload(self, review: LeanReviewRecordV1) -> dict[str, Any]:
         candidate = review.candidate

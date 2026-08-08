@@ -10,6 +10,7 @@ import {
     this_chid,
     updateMessageBlock,
 } from '../../../../script.js';
+import { oai_settings } from '../../../../scripts/openai.js';
 
 const API_ROOT = '/api/plugins/cera-review';
 const META_KEY = 'cera_creator_review';
@@ -20,6 +21,7 @@ const TERMINAL_REVIEW_STATES = Object.freeze([
     'error',
     'accepted',
     'rejected',
+    'declined',
     'awaiting_feedback',
 ]);
 const CONTROL_STORAGE_KEY = 'cera_creator_controls_v1';
@@ -149,7 +151,7 @@ function renderPending(messageId) {
     if (!panel) return;
     panel.innerHTML = `
         <div class="cera-review-badge">CERA - PROVISIONAL</div>
-        <div class="cera-review-status">Sol reviewing...</div>`;
+        <div class="cera-review-status">Preparing creator review...</div>`;
 }
 
 function renderTransportError(messageId, reviewId, error) {
@@ -224,11 +226,84 @@ function renderReview(messageId, review) {
         markCanonical(messageId);
         return;
     }
-    if (review.state === 'rejected') {
+    if (['rejected', 'declined'].includes(review.state)) {
         panel.remove();
         removeProvisionalMessage(messageId);
         return;
     }
+    if (review.schema_version === 'cera.pi_scene.review.v1') {
+        renderPiSceneReview(messageId, review, panel);
+        return;
+    }
+    renderLegacyReview(messageId, review, panel);
+}
+
+function renderPiSceneReview(messageId, review, panel) {
+    panel.innerHTML = '';
+
+    const badge = document.createElement('div');
+    badge.className = 'cera-review-badge';
+    badge.textContent = 'CERA - PROVISIONAL';
+    panel.appendChild(badge);
+
+    const heading = document.createElement('div');
+    heading.className = 'cera-review-heading';
+    heading.textContent = review.route === 'adult'
+        ? 'ADULT SCENE READY FOR CREATOR REVIEW'
+        : 'CODEX SEQUENCE REALIZATION READY FOR CREATOR REVIEW';
+    panel.appendChild(heading);
+
+    const result = document.createElement('div');
+    result.className = 'cera-review-result cera-review-severity-good';
+    result.textContent = 'Review the visible prose, then choose an action.';
+    panel.appendChild(result);
+
+    for (const warning of review.warnings ?? []) {
+        const notice = document.createElement('div');
+        notice.className = 'cera-review-reason';
+        notice.textContent = `Advisory: ${warning.warning_code ?? 'review warning'}${
+            warning.excerpt ? ` - ${warning.excerpt}` : ''
+        }`;
+        panel.appendChild(notice);
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'cera-review-actions';
+    actions.append(actionButton(
+        'Accept',
+        !review.accept_enabled,
+        () => decide(messageId, review, 'accept'),
+    ));
+    if (review.regenerate_enabled) {
+        actions.append(actionButton(
+            'Regenerate',
+            false,
+            () => decide(messageId, review, 'regenerate'),
+        ));
+    }
+    if (review.replan_enabled) {
+        actions.append(actionButton(
+            'Replan',
+            false,
+            () => feedbackDecision(messageId, review, 'replan'),
+        ));
+    }
+    if (review.repair_recording_enabled) {
+        actions.append(actionButton(
+            'Repair Recording',
+            false,
+            () => decide(messageId, review, 'repair_recording'),
+        ));
+    }
+    actions.append(actionButton(
+        'Decline',
+        !review.decline_enabled,
+        () => decide(messageId, review, 'decline'),
+    ));
+    panel.appendChild(actions);
+}
+
+function renderLegacyReview(messageId, review, panel) {
     const assessment = review.assessment;
     const title = assessment
         ? `${assessment.severity.toUpperCase()} - ${assessment.issue_owner}`
@@ -299,6 +374,7 @@ async function feedbackDecision(messageId, review, action) {
         correction_adjustment: 'Describe the small correction or adjustment.',
         deepseek_rewrite: 'Describe what the prose realization should change.',
         codex_replan: 'Describe what the causal SequencePlan got wrong.',
+        replan: 'Describe what the causal sequence should change.',
     };
     renderFeedbackEditor(messageId, review, action, labels[action]);
 }
@@ -350,27 +426,54 @@ async function decide(messageId, review, action, feedback = null) {
             `/v1/cera/reviews/${encodeURIComponent(review.review_id)}/decision`,
             { method: 'POST', body: { action, feedback } },
         );
+        const resolvedReview = result?.review ?? result;
         if (acceptsCandidate) {
             markCanonical(messageId, result);
             statusText(messageId, 'Finished - ready for next prompt');
             setTimeout(() => panelFor(messageId)?.remove(), 1100);
             return;
         }
-        if (result.candidate_text && result.review_id !== review.review_id) {
-            chat[messageId].mes = result.candidate_text;
+        const successor = result?.successor;
+        const successorReviewId = successor?.cera?.provisional_review_id;
+        const successorText = successor?.choices?.[0]?.message?.content;
+        if (successorReviewId && successorText) {
+            chat[messageId].mes = successorText;
             chat[messageId].extra[META_KEY] = {
-                review_id: result.review_id,
-                state: result.state,
+                review_id: successorReviewId,
+                candidate_id: successor.cera.candidate_id,
+                state: 'review_ready',
                 provisional: true,
-                prepared_package_id: result.prepared_package_id,
             };
             updateMessageBlock(messageId, chat[messageId]);
+            const nextReview = await requestJson(
+                `/v1/cera/reviews/${encodeURIComponent(successorReviewId)}`,
+            );
+            updateStoredState(messageId, nextReview);
+            renderReview(messageId, nextReview);
+            await saveChatConditional();
+            return;
         }
-        updateStoredState(messageId, result);
-        renderReview(messageId, result);
+        updateStoredState(messageId, resolvedReview);
+        renderReview(messageId, resolvedReview);
+        await saveChatConditional();
     } catch (error) {
+        if (await reconcileDecisionAfterError(messageId, review.review_id)) return;
         statusText(messageId, `Save failed - candidate remains provisional: ${String(error)}`);
         disablePanel(messageId, false);
+    }
+}
+
+async function reconcileDecisionAfterError(messageId, reviewId) {
+    try {
+        const persisted = await requestJson(
+            `/v1/cera/reviews/${encodeURIComponent(reviewId)}`,
+        );
+        updateStoredState(messageId, persisted);
+        renderReview(messageId, persisted);
+        await saveChatConditional();
+        return ['accepted', 'declined', 'rejected'].includes(persisted.state);
+    } catch {
+        return false;
     }
 }
 
@@ -381,6 +484,10 @@ function markCanonical(messageId, result = null) {
         metadata.state = 'accepted';
         if (result?.artifact_id) metadata.artifact_id = result.artifact_id;
         if (result?.generation) metadata.generation = result.generation;
+        if (result?.accepted_turn_id) metadata.accepted_turn_id = result.accepted_turn_id;
+        if (result?.accepted_receipt_sha256) {
+            metadata.accepted_receipt_sha256 = result.accepted_receipt_sha256;
+        }
     }
     void saveChatConditional();
     panelFor(messageId)?.classList.add('cera-review-finished');
@@ -526,9 +633,11 @@ function hasPendingReview() {
 }
 
 async function requestJson(path, options = {}) {
+    const headers = getRequestHeaders();
+    headers['X-Cera-Authorization'] = ceraAuthorizationHeader();
     const request = {
         method: options.method ?? 'GET',
-        headers: getRequestHeaders(),
+        headers,
     };
     if (options.body) request.body = JSON.stringify(options.body);
     let response;
@@ -559,6 +668,19 @@ async function requestJson(path, options = {}) {
         );
     }
     return payload;
+}
+
+function ceraAuthorizationHeader() {
+    const lines = String(oai_settings.custom_include_headers ?? '').split(/\r?\n/);
+    const entry = lines.find(line => /^\s*Authorization\s*:/i.test(line));
+    const value = entry?.slice(entry.indexOf(':') + 1).trim() ?? '';
+    if (!/^Bearer [A-Za-z0-9._~-]{24,512}$/.test(value)) {
+        throw new CeraReviewRequestError(
+            'configuration',
+            'The active CERA connection is missing its local review credential.',
+        );
+    }
+    return value;
 }
 
 function delay(milliseconds) {

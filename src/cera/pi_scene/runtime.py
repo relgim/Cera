@@ -411,6 +411,7 @@ class LeanPiSceneCoordinator:
             branch_id=turn.branch_id,
             adult_full=route is SceneRoute.ADULT,
         )
+        writer_records = _writer_context_records(accepted_records)
         view = self.writer_views.materialize(
             WriterViewInputV1(
                 world_id=turn.world_id,
@@ -428,7 +429,7 @@ class LeanPiSceneCoordinator:
                 relevant_memories=turn.relevant_memories,
                 voice_examples=turn.voice_examples,
                 craft_index=turn.craft_index,
-                accepted_records=accepted_records,
+                accepted_records=writer_records,
             )
         )
         prompt = (
@@ -461,7 +462,11 @@ class LeanPiSceneCoordinator:
                 candidate_id=candidate_id,
                 session_dir=self._session_dir(turn.world_id, turn.branch_id),
                 accepted_parent_session=accepted_session,
-                force_rehydrate=force_rehydrate,
+                # Clean Pi forks proved unable to preserve the exact Writer
+                # envelope reliably.  Accepted Python state therefore
+                # rehydrates every candidate in a fresh session.  The parent
+                # remains attached for custody/telemetry, but is never forked.
+                force_rehydrate=(force_rehydrate or accepted_session is not None),
             )
         )
         candidate = LeanCandidateV1(
@@ -661,7 +666,7 @@ class LeanPiSceneCoordinator:
                 recorder_request_sha256=invocation.writer_receipt.request_sha256,
                 recorder_output_sha256=invocation.writer_receipt.output_sha256,
                 provider_operations=invocation.writer_receipt.provider_operations,
-                failure_code=f"recorder_contract:{type(exc).__name__}",
+                failure_code=_recorder_contract_failure(exc),
             )
 
     def _current_review(self, review_id: str) -> LeanReviewRecordV1:
@@ -813,6 +818,36 @@ def _pi_operation_count(pi: object) -> int:
     ledger = getattr(pi, "operation_ledger", None)
     value = getattr(ledger, "operation_count", 0)
     return value if type(value) is int and value >= 0 else 0
+
+
+def _writer_context_records(
+    accepted_records: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, Any], ...]:
+    """Keep accepted custody and derived records without duplicating full prose."""
+
+    output: list[dict[str, Any]] = []
+    for record in accepted_records:
+        item = dict(record)
+        receipt = item.get("receipt")
+        if isinstance(receipt, Mapping):
+            projected_receipt = dict(receipt)
+            prose = projected_receipt.pop("exact_accepted_prose", None)
+            if prose is not None:
+                if not isinstance(prose, str) or projected_receipt.get(
+                    "exact_accepted_prose_sha256"
+                ) != text_sha256(prose):
+                    raise StateConflictError("accepted prose link changed")
+            item["receipt"] = projected_receipt
+        output.append(item)
+    return tuple(output)
+
+
+def _recorder_contract_failure(exc: BaseException) -> str:
+    """Preserve bounded structural feedback without recording provider prose."""
+
+    detail = " ".join(str(exc).split())
+    prefix = f"recorder_contract:{type(exc).__name__}"
+    return prefix if not detail else f"{prefix}:{detail[:240]}"
 
 
 def _parse_recorder_payload(output_text: str) -> dict[str, Any]:

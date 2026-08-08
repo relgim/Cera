@@ -164,3 +164,119 @@ def initial_hana_seed() -> PiSceneContextSeedV1:
             "stopping_boundary": "Stop after Hana makes the next choice legible to Ted.",
         },
     )
+
+
+def initial_hanezawa_doorway_seed() -> PiSceneContextSeedV1:
+    """Creator-test seed aligned to the visible SillyTavern doorway greeting."""
+
+    return PiSceneContextSeedV1(
+        world_id="world-hanezawa-creator-test",
+        branch_id="branch-main",
+        scene_id="scene-hanezawa-entryway",
+        accepted_present_character_ids=("character:sakura",),
+        public_scene_state=(
+            "On the evening of September 2, the doorbell has just rung at the "
+            "Hanezawa residence. Ted remains outside the closed front door and "
+            "has not yet been independently verified. Sakura is the only NPC at "
+            "the entryway and owns the immediate conversational floor. Hana is "
+            "in the kitchen, Mia is in the common room, and Tomi, Enne, Aoi, and "
+            "Yuuni are elsewhere in the house; none of them is in the current "
+            "entryway scene merely because the introduction mentioned them."
+        ),
+        characters={
+            "character:sakura": {
+                "name": "Sakura Hanezawa",
+                "role": "adult eldest daughter and current doorway host",
+                "character_logic": (
+                    "Composed, observant, and protective of household privacy; "
+                    "she separates polite acknowledgment from identity verification."
+                ),
+                "voice": "Calm, precise, courteous, and firm without hostility.",
+            },
+            "character:hana": {
+                "name": "Hana Hanezawa",
+                "age": 38,
+                "role": "adult household mother",
+                "character_logic": "Warm, trusting, kind, and conflict-averse, while retaining agency.",
+                "voice": "Gentle, attentive, and emotionally restrained.",
+            },
+            "character:mia": {
+                "name": "Mia Hanezawa",
+                "role": "adult daughter",
+                "character_logic": "Warm and socially attentive; do not surface her without scene relevance.",
+                "voice": "Friendly and natural.",
+            },
+            "character:tomi": {
+                "name": "Tomi Hanezawa",
+                "role": "adult daughter",
+                "character_logic": "Energetic and direct; do not surface her without scene relevance.",
+                "voice": "Brisk and candid.",
+            },
+            "character:enne": {
+                "name": "Enne Hanezawa",
+                "role": "adult daughter",
+                "character_logic": "Analytical and private; do not surface her without scene relevance.",
+                "voice": "Dry and economical.",
+            },
+            "character:aoi": {
+                "name": "Aoi Hanezawa",
+                "role": "adult daughter",
+                "character_logic": "Composed and perceptive; do not surface her without scene relevance.",
+                "voice": "Measured and understated.",
+            },
+            "character:yuuni": {
+                "name": "Yuuni Hanezawa",
+                "role": "adult daughter",
+                "character_logic": "Expressive and musical; do not surface her without scene relevance.",
+                "voice": "Lively but considerate.",
+            },
+        },
+        relationships={
+            "ted-household": {
+                "participants": [
+                    "character:ted",
+                    "character:sakura",
+                    "character:hana",
+                ],
+                "summary": (
+                    "Ted claims to be the new tenant, but the household has not "
+                    "yet verified his identity or purpose at the door."
+                ),
+            }
+        },
+        relevant_memories={},
+        voice_examples={
+            "sakura": {
+                "guidance": (
+                    "Acknowledge the visitor politely, request purpose or intended "
+                    "contact, and disclose no unnecessary household information."
+                )
+            }
+        },
+        ordinary_craft_index={
+            "approved_material": [
+                "doorway staging",
+                "verification-first dialogue",
+                "household privacy",
+                "character-specific pacing",
+            ]
+        },
+        adult_craft_index={
+            "approved_material": [
+                "consensual adult pacing",
+                "clear mutual boundaries",
+                "character-specific reactions",
+            ]
+        },
+        adult_handoff={
+            "schema_version": "cera.pi_scene.adult_handoff.v1",
+            "participant_ids": ["character:ted", "character:hana"],
+            "all_participants_adults": True,
+            "consent_and_capacity": "Both adults explicitly choose and can pause the interaction.",
+            "causal_direction": (
+                "Continue one mutually chosen intimate beat, preserve Hana's agency, "
+                "then return the conversational floor to Ted."
+            ),
+            "stopping_boundary": "Stop after Hana makes the next choice legible to Ted.",
+        },
+    )
