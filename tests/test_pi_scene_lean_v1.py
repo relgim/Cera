@@ -53,7 +53,10 @@ from cera.sequence_first.contracts import (
     SequenceDraftV1,
     SequenceItemV1,
 )
-from scripts.run_pi_scene_lean_server import _initialize_live_runtime_roots
+from scripts.run_pi_scene_lean_server import (
+    _initialize_live_runtime_roots,
+    _seed_live_runtime_state,
+)
 
 
 def sequence(label: str = "hana_answers") -> dict[str, object]:
@@ -173,8 +176,6 @@ class FakePi:
                                     "knowledge_scope": ["Only the present adults know the details."],
                                 }
                             ],
-                            "resulting_public_state": "The adults remain together after the choice.",
-                            "unresolved_threads": ["Their next conversation remains open."],
                         },
                         "codex_projection": {
                             "decision_path_summary": ["The adults made a mutual authorized choice."],
@@ -272,6 +273,32 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(root, requested.resolve())
             self.assertTrue(lifecycle.is_dir())
             self.assertTrue(operations.is_dir())
+
+    def test_live_runtime_seed_copy_preserves_source(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / "source"
+            target = root / "target"
+            (source / "accepted_world").mkdir(parents=True)
+            (source / "pi_sessions").mkdir()
+            (source / "accepted_world" / "receipt.json").write_text(
+                "accepted", encoding="utf-8"
+            )
+            (source / "pi_sessions" / "session.jsonl").write_text(
+                "session", encoding="utf-8"
+            )
+            target.mkdir()
+
+            _seed_live_runtime_state(target, source)
+
+            self.assertEqual(
+                (target / "accepted_world" / "receipt.json").read_text(encoding="utf-8"),
+                "accepted",
+            )
+            self.assertEqual(
+                (source / "pi_sessions" / "session.jsonl").read_text(encoding="utf-8"),
+                "session",
+            )
 
     def make_runtime(self, root: Path, *, fault=None):
         planner = FakePlanner()
@@ -791,6 +818,35 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             repaired = coordinator.repair_recording(review.review_id).review
             self.assertEqual(repaired.recording_attempt.status, RecordingStatus.COMPLETE)
+
+    def test_latest_recording_repair_resumes_from_authoritative_head(self) -> None:
+        failures = {1}
+
+        def fault(_accepted, attempt_number):
+            return "injected_recorder_failure" if attempt_number in failures else None
+
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            coordinator, _, _, store = self.make_runtime(root, fault=fault)
+            review = coordinator.start_ordinary(turn())
+            accepted = coordinator.accept(review.review_id).review
+            self.assertEqual(accepted.recording_attempt.status, RecordingStatus.PENDING_REPAIR)
+
+            restarted = LeanPiSceneCoordinator(
+                store=LeanSceneStore(root / "world"),
+                planner=FakePlanner(),
+                writer_views=WriterViewMaterializer(root / "restart-views"),
+                pi=FakePi(),  # type: ignore[arg-type]
+                session_root=root / "restart-sessions",
+            )
+            attempt = restarted.repair_latest_recording(turn())
+
+            self.assertEqual(attempt.status, RecordingStatus.COMPLETE)
+            self.assertEqual(attempt.attempt_number, 2)
+            self.assertEqual(
+                store.load_head(world_id="world-test", branch_id="branch-main").generation,
+                1,
+            )
             self.assertEqual(
                 store.load_head(world_id="world-test", branch_id="branch-main").generation,
                 1,

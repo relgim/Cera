@@ -22,7 +22,7 @@ from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.errors import ContractValidationError, StateConflictError
 from cera.pi_scene.codex_planner import RetainedCodexPlannerAdapter
 from cera.pi_scene.context import AcceptedBranchContextProvider, initial_hana_seed
-from cera.pi_scene.contracts import RecordingStatus
+from cera.pi_scene.contracts import RecordingStatus, SceneRoute
 from cera.pi_scene.http import (
     PI_SCENE_ADULT_MODEL,
     PI_SCENE_ORDINARY_MODEL,
@@ -82,11 +82,14 @@ def build_live_runtime(
     sol_ceiling: int,
     deepseek_ceiling: int,
     deepseek_per_invocation_ceiling: int = 6,
+    seed_runtime_root: Path | None = None,
     inject_generation_two_recorder_failure: bool = False,
 ) -> LivePiSceneRuntime:
     runtime_root, lifecycle_root, operation_root = _initialize_live_runtime_roots(
         runtime_root
     )
+    if seed_runtime_root is not None:
+        _seed_live_runtime_state(runtime_root, seed_runtime_root)
     stack = ExitStack()
     try:
         from openai_codex import Codex, CodexConfig
@@ -158,6 +161,21 @@ def build_live_runtime(
     except BaseException:
         stack.close()
         raise
+
+
+def _seed_live_runtime_state(runtime_root: Path, seed_runtime_root: Path) -> None:
+    source_root = seed_runtime_root.resolve()
+    target_root = runtime_root.resolve()
+    if source_root == target_root or target_root.is_relative_to(source_root):
+        raise ContractValidationError("live seed root overlaps its target")
+    for name in ("accepted_world", "pi_sessions"):
+        source = source_root / name
+        target = target_root / name
+        if not source.is_dir() or target.exists():
+            raise StateConflictError(f"live seed {name} is unavailable or occupied")
+        if any(path.is_symlink() for path in source.rglob("*")):
+            raise StateConflictError(f"live seed {name} contains a symlink")
+        shutil.copytree(source, target)
 
 
 def _available_loopback_port() -> int:
@@ -323,13 +341,15 @@ def run_live_smoke(
     sol_ceiling: int = 12,
     deepseek_ceiling: int = 60,
     deepseek_per_invocation_ceiling: int = 6,
+    resume_from_runtime_root: Path | None = None,
 ) -> dict[str, Any]:
     runtime = build_live_runtime(
         runtime_root,
         sol_ceiling=sol_ceiling,
         deepseek_ceiling=deepseek_ceiling,
         deepseek_per_invocation_ceiling=deepseek_per_invocation_ceiling,
-        inject_generation_two_recorder_failure=True,
+        seed_runtime_root=resume_from_runtime_root,
+        inject_generation_two_recorder_failure=(resume_from_runtime_root is None),
     )
     token = secrets.token_urlsafe(32)
     session_id = "cera-pi-scene-smoke"
@@ -394,28 +414,54 @@ def run_live_smoke(
         if not health.get("loopback_only") or not health.get("authorization_required"):
             raise StateConflictError("loopback health boundary changed")
 
-        ordinary_one = create(
-            PI_SCENE_ORDINARY_MODEL,
-            "Hana continues the conversation naturally and returns the next choice to Ted.",
-        )
-        ordinary_one_review = ordinary_one["cera"]["provisional_review_id"]
-        accepted_one = decide(ordinary_one_review, "accept")
-        if accepted_one["review"]["recording_status"] != RecordingStatus.COMPLETE.value:
-            raise StateConflictError("first ordinary Recorder did not complete")
-        evidence.append(_smoke_step("ordinary_accept_1", accepted_one))
+        if resume_from_runtime_root is None:
+            ordinary_one = create(
+                PI_SCENE_ORDINARY_MODEL,
+                "Hana continues the conversation naturally and returns the next choice to Ted.",
+            )
+            ordinary_one_review = ordinary_one["cera"]["provisional_review_id"]
+            accepted_one = decide(ordinary_one_review, "accept")
+            if accepted_one["review"]["recording_status"] != RecordingStatus.COMPLETE.value:
+                raise StateConflictError("first ordinary Recorder did not complete")
+            evidence.append(_smoke_step("ordinary_accept_1", accepted_one))
 
-        adult_one = create(
-            PI_SCENE_ADULT_MODEL,
-            "Both adults explicitly choose to become more intimate while Hana keeps the ability to pause.",
-        )
-        adult_one_review = adult_one["cera"]["provisional_review_id"]
-        accepted_two = decide(adult_one_review, "accept")
-        if accepted_two["review"]["recording_status"] != RecordingStatus.PENDING_REPAIR.value:
-            raise StateConflictError("injected Recorder failure did not remain repairable")
-        repaired_two = decide(adult_one_review, "repair_recording")
-        if repaired_two["review"]["recording_status"] != RecordingStatus.COMPLETE.value:
-            raise StateConflictError("Recorder repair did not complete")
-        evidence.append(_smoke_step("adult_accept_1_repaired", repaired_two))
+            adult_one = create(
+                PI_SCENE_ADULT_MODEL,
+                "Both adults explicitly choose to become more intimate while Hana keeps the ability to pause.",
+            )
+            adult_one_review = adult_one["cera"]["provisional_review_id"]
+            accepted_two = decide(adult_one_review, "accept")
+            if accepted_two["review"]["recording_status"] != RecordingStatus.PENDING_REPAIR.value:
+                raise StateConflictError("injected Recorder failure did not remain repairable")
+            repaired_two = decide(adult_one_review, "repair_recording")
+            if repaired_two["review"]["recording_status"] != RecordingStatus.COMPLETE.value:
+                raise StateConflictError("Recorder repair did not complete")
+            evidence.append(_smoke_step("adult_accept_1_repaired", repaired_two))
+        else:
+            seed_head = runtime.store.load_head(
+                world_id="world-pi-scene-smoke", branch_id="branch-main"
+            )
+            if seed_head.generation != 2 or seed_head.receipt is None:
+                raise StateConflictError("resume seed is not the accepted generation-two frontier")
+            repair_turn = context(
+                SceneRoute.ADULT,
+                seed_head.receipt.exact_user_source,
+                (),
+            )
+            repaired_attempt = runtime.coordinator.repair_latest_recording(repair_turn)
+            if repaired_attempt.status is not RecordingStatus.COMPLETE:
+                raise StateConflictError("resumed Recorder repair did not complete")
+            evidence.append(
+                {
+                    "label": "adult_accept_1_repaired_after_restart",
+                    "accepted_turn_id": seed_head.receipt.accepted_turn_id,
+                    "accepted_receipt_sha256": seed_head.receipt.receipt_sha256,
+                    "route": seed_head.receipt.route.value,
+                    "recording_status": repaired_attempt.status.value,
+                    "warnings": [],
+                    "provider_operations": repaired_attempt.provider_operations,
+                }
+            )
 
         adult_two = create(
             PI_SCENE_ADULT_MODEL,
@@ -479,12 +525,14 @@ def run_live_smoke(
         final_writer_receipt = accepted_payloads[-1]["receipt"]["writer_receipt"]
         if final_writer_receipt["rehydrated"] is not True:
             raise StateConflictError("final accepted Pi session was not rehydrated")
-        if runtime.sol_ledger.dispatched_call_count != 2:
-            raise StateConflictError("live smoke Sol call count differs from two")
+        expected_sol_calls = 2 if resume_from_runtime_root is None else 1
+        if runtime.sol_ledger.dispatched_call_count != expected_sol_calls:
+            raise StateConflictError("live smoke Sol call count differs from its route")
         if st_process.poll() is not None:
             raise StateConflictError("isolated SillyTavern exited during the live smoke")
-        if st_client.completed_requests != 4:
-            raise StateConflictError("isolated SillyTavern request count differs from four")
+        expected_st_requests = 4 if resume_from_runtime_root is None else 2
+        if st_client.completed_requests != expected_st_requests:
+            raise StateConflictError("isolated SillyTavern request count differs from its route")
 
         result = {
             "schema_version": "cera.pi_scene.live_smoke_evidence.v1",
@@ -504,6 +552,9 @@ def run_live_smoke(
             "route_transition": "ordinary-adult-adult-ordinary",
             "isolated_sillytavern_started": True,
             "isolated_sillytavern_routed_chat_completions": st_client.completed_requests,
+            "resumed_from_accepted_generation": (
+                None if resume_from_runtime_root is None else 2
+            ),
             "isolated_sillytavern_user_data_copied": st_manifest["user_data_copied"],
             "isolated_sillytavern_manifest_sha256": st_manifest["manifest_sha256"],
             "accepted_head_sha256": head.accepted_head_sha256,
@@ -575,6 +626,7 @@ def main() -> int:
     parser.add_argument("--sol-ceiling", type=int, default=12)
     parser.add_argument("--deepseek-ceiling", type=int, default=60)
     parser.add_argument("--deepseek-per-invocation-ceiling", type=int, default=6)
+    parser.add_argument("--resume-from-runtime-root", type=Path)
     args = parser.parse_args()
     if args.mode == "live-smoke":
         print(
@@ -585,6 +637,7 @@ def main() -> int:
                     sol_ceiling=args.sol_ceiling,
                     deepseek_ceiling=args.deepseek_ceiling,
                     deepseek_per_invocation_ceiling=args.deepseek_per_invocation_ceiling,
+                    resume_from_runtime_root=args.resume_from_runtime_root,
                 ),
                 indent=2,
                 sort_keys=True,

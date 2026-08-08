@@ -205,6 +205,29 @@ class LeanSceneStore:
         except (KeyError, ValueError) as exc:
             raise StateConflictError("recording head status is invalid") from exc
 
+    def load_recording_attempt(
+        self,
+        accepted: LeanAcceptedTurnReceiptV1,
+    ) -> LeanRecordingAttemptV1:
+        """Load and hash-verify the current immutable recording attempt."""
+
+        with self._lock:
+            turn_dir = self._accepted_turn_dir(accepted)
+            head = _read_json(turn_dir / "RECORDING_HEAD.json")
+            if head.get("accepted_turn_id") != accepted.accepted_turn_id:
+                raise StateConflictError("recording head changed accepted turn identity")
+            number = head.get("attempt_number")
+            if type(number) is not int or number < 1:
+                raise StateConflictError("recording head attempt number is invalid")
+            attempt = _recording_attempt_from_mapping(
+                _read_json(turn_dir / f"RECORDING_ATTEMPT_{number:04d}.json")
+            )
+            if canonical_sha256(attempt) != head.get("attempt_sha256"):
+                raise StateConflictError("recording attempt differs from its head")
+            if attempt.status.value != head.get("status"):
+                raise StateConflictError("recording attempt status differs from its head")
+            return attempt
+
     def mark_recording_failure(
         self,
         accepted: LeanAcceptedTurnReceiptV1,

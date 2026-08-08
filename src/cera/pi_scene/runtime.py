@@ -317,6 +317,22 @@ class LeanPiSceneCoordinator:
             self._reviews[review_id] = terminal
             return LeanDecisionResultV1(review=terminal)
 
+    def repair_latest_recording(
+        self,
+        turn: LeanSceneTurnInputV1,
+    ) -> LeanRecordingAttemptV1:
+        """Resume only post-Accept recording from authoritative branch state."""
+
+        with self._lock:
+            head = self.store.load_head(world_id=turn.world_id, branch_id=turn.branch_id)
+            accepted = head.receipt
+            if accepted is None or head.recording_status is RecordingStatus.COMPLETE:
+                raise StateConflictError("latest accepted turn does not require recording repair")
+            if accepted.exact_user_source != turn.exact_user_source:
+                raise StateConflictError("recording repair turn source changed")
+            prior = self.store.load_recording_attempt(accepted)
+            return self._record_accepted(accepted, turn, prior)
+
     def _record_after_accept(self, review: LeanReviewRecordV1) -> LeanRecordingAttemptV1:
         """Convert any post-Accept Recorder failure into repairable custody.
 
@@ -497,10 +513,18 @@ class LeanPiSceneCoordinator:
         accepted = review.accepted_receipt
         if accepted is None:
             raise StateConflictError("Recorder cannot run before phase-one acceptance")
+        return self._record_accepted(accepted, review.turn_input, review.recording_attempt)
+
+    def _record_accepted(
+        self,
+        accepted: LeanAcceptedTurnReceiptV1,
+        turn_input: LeanSceneTurnInputV1,
+        prior_attempt: LeanRecordingAttemptV1 | None,
+    ) -> LeanRecordingAttemptV1:
         attempt_number = (
             1
-            if review.recording_attempt is None
-            else review.recording_attempt.attempt_number + 1
+            if prior_attempt is None
+            else prior_attempt.attempt_number + 1
         )
         primary_authority = json.loads(accepted.primary_authority_json)
         if not isinstance(primary_authority, dict):
@@ -522,7 +546,7 @@ class LeanPiSceneCoordinator:
                 route=accepted.route,
                 user_prompt=accepted.exact_user_source,
                 primary_authority=primary_authority,
-                current_state=review.turn_input.current_state,
+                current_state=turn_input.current_state,
                 characters={},
                 relationships={},
                 recent_prose=(accepted.exact_accepted_prose,),
@@ -537,10 +561,10 @@ class LeanPiSceneCoordinator:
             "recent_prose/0001.txt prose. "
             "Return only the route-specific semantic record fields; Python binds custody."
         )
-        if review.recording_attempt is not None:
+        if prior_attempt is not None:
             prompt += (
                 " This is an explicit recording repair after typed failure "
-                f"{review.recording_attempt.failure_code}; return a fresh complete record."
+                f"{prior_attempt.failure_code}; return a fresh complete record."
             )
         fault = (
             None
@@ -639,7 +663,7 @@ class LeanPiSceneCoordinator:
                 raise ContractValidationError("adult Recorder dual payload is invalid")
             _require_exact_keys(
                 full_payload,
-                {"decision_path", "events", "resulting_public_state", "unresolved_threads"},
+                {"decision_path", "events"},
                 "adult full record",
             )
             _require_exact_keys(
@@ -652,6 +676,8 @@ class LeanPiSceneCoordinator:
                 {
                     "schema_version": "cera.pi_scene.adult_full_record.v1",
                     "adult_handoff_sha256": accepted.primary_authority_sha256,
+                    "resulting_public_state": projection_payload["resulting_public_state"],
+                    "unresolved_threads": projection_payload["unresolved_threads"],
                 }
             )
             full = adult_full_record_from_mapping(bound_full_payload)
