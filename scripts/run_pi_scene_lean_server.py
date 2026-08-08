@@ -66,6 +66,16 @@ class LivePiSceneRuntime:
         self.stack.close()
 
 
+def _initialize_live_runtime_roots(runtime_root: Path) -> tuple[Path, Path, Path]:
+    root = runtime_root.resolve()
+    root.mkdir(parents=True, exist_ok=False)
+    lifecycle_root = root / "codex_lifecycle"
+    lifecycle_root.mkdir()
+    operation_root = root / "codex_operations"
+    operation_root.mkdir()
+    return root, lifecycle_root, operation_root
+
+
 def build_live_runtime(
     runtime_root: Path,
     *,
@@ -73,8 +83,9 @@ def build_live_runtime(
     deepseek_ceiling: int,
     inject_generation_two_recorder_failure: bool = False,
 ) -> LivePiSceneRuntime:
-    runtime_root = runtime_root.resolve()
-    runtime_root.mkdir(parents=True, exist_ok=False)
+    runtime_root, lifecycle_root, operation_root = _initialize_live_runtime_roots(
+        runtime_root
+    )
     stack = ExitStack()
     try:
         from openai_codex import Codex, CodexConfig
@@ -85,8 +96,6 @@ def build_live_runtime(
         account = codex.account()
         if account.account is None:
             raise StateConflictError("ChatGPT Codex account is unavailable")
-        lifecycle_root = runtime_root / "codex_lifecycle"
-        lifecycle_root.mkdir()
         sol_ledger = ContinuousProviderCallLedger(
             (runtime_root / "SOL_PROVIDER_CALLS.jsonl").resolve(),
             maximum_calls=sol_ceiling,
@@ -103,7 +112,7 @@ def build_live_runtime(
             PersistentPlannerSession(
                 SequenceFirstPlannerCodexBackend(
                     lifecycle=lifecycle,
-                    workspace=runtime_root / "codex_operations",
+                    workspace=operation_root,
                     call_ledger=sol_ledger,
                 )
             )

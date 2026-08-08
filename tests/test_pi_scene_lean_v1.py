@@ -51,6 +51,7 @@ from cera.sequence_first.contracts import (
     SequenceDraftV1,
     SequenceItemV1,
 )
+from scripts.run_pi_scene_lean_server import _initialize_live_runtime_roots
 
 
 def sequence(label: str = "hana_answers") -> dict[str, object]:
@@ -262,6 +263,14 @@ def turn(*, source: str = "Continue the scene.", adult: bool = False) -> LeanSce
 
 
 class PiSceneLeanTests(unittest.TestCase):
+    def test_live_runtime_initializes_both_codex_workspace_roots(self) -> None:
+        with TemporaryDirectory() as temporary:
+            requested = Path(temporary) / "runtime"
+            root, lifecycle, operations = _initialize_live_runtime_roots(requested)
+            self.assertEqual(root, requested.resolve())
+            self.assertTrue(lifecycle.is_dir())
+            self.assertTrue(operations.is_dir())
+
     def make_runtime(self, root: Path, *, fault=None):
         planner = FakePlanner()
         pi = FakePi()
