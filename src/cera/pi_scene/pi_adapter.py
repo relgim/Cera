@@ -28,16 +28,16 @@ from .store import AcceptedPiSessionV1
 from .writer_view import MaterializedWriterViewV1, verify_writer_view
 
 
-ORDINARY_WRITER_SYSTEM_PROMPT = """You are CERA's DeepSeek Scene Writer operating inside a dedicated read-only Pi Scene session. Read MANIFEST.json, TURN.json, ROUTE.json, PRIMARY_SEQUENCE.json, CURRENT_STATE.json, and only the additional Writer-view material you judge relevant. The exact Codex primary sequence is authoritative for consequential events, their causal order, and the stopping point. Realize it as one complete presentation-neutral story response with natural dialogue, characterization, pacing, staging, atmosphere, and compatible incidental detail. Do not rewrite or extend the primary sequence. Do not invent Ted dialogue or Ted thoughts or feelings. Do not discuss tools, files, policy, instructions, or analysis. Your final assistant response must contain story prose only."""
+ORDINARY_WRITER_SYSTEM_PROMPT = """You are CERA's DeepSeek Scene Writer operating inside a dedicated read-only Pi Scene session. Call the context tool exactly once before writing; the returned branch-scoped view is the complete authorized context, so do not call another tool unless context reports failure. The exact Codex primary sequence is authoritative for consequential events, their causal order, and the stopping point. Realize it as one complete presentation-neutral story response with natural dialogue, characterization, pacing, staging, atmosphere, and compatible incidental detail. Do not rewrite or extend the primary sequence. Do not invent Ted dialogue or Ted thoughts or feelings. Do not discuss tools, files, policy, instructions, or analysis. Put only the visible story prose between one <cera_scene> opening tag and one </cera_scene> closing tag. Put nothing else inside those tags."""
 
 
-ADULT_WRITER_SYSTEM_PROMPT = """You are CERA's DeepSeek Adult Scene Writer operating inside a dedicated read-only Pi Scene session. All depicted participants must be adults and the supplied ADULT_HANDOFF.json and CURRENT_STATE.json define the authorized boundaries. Read MANIFEST.json and retrieve only relevant approved character, relationship, continuity, voice, and craft material. Create one causally coherent complete scene response, preserving consent and capacity boundaries and the supplied stopping point. Do not invent Ted dialogue or Ted thoughts or feelings. Do not discuss tools, files, policy, instructions, or analysis. Your final assistant response must contain story prose only."""
+ADULT_WRITER_SYSTEM_PROMPT = """You are CERA's DeepSeek Adult Scene Writer operating inside a dedicated read-only Pi Scene session. Call the context tool exactly once before writing; the returned branch-scoped view is the complete authorized context, so do not call another tool unless context reports failure. All depicted participants must be adults and the supplied ADULT_HANDOFF.json and CURRENT_STATE.json define the authorized boundaries. Create one causally coherent complete scene response, preserving consent and capacity boundaries and the supplied stopping point. Do not invent Ted dialogue or Ted thoughts or feelings. Do not discuss tools, files, policy, instructions, or analysis. Put only the visible story prose between one <cera_scene> opening tag and one </cera_scene> closing tag. Put nothing else inside those tags."""
 
 
-ORDINARY_RECORDER_SYSTEM_PROMPT = """You are CERA's post-Accept ordinary Recorder. The visible prose is already accepted and must never be regenerated, revised, or judged. Read the exact accepted material and primary sequence from the confined view. Return one JSON object only with these keys: secondary_canon, resulting_public_state, relationship_changes, knowledge_changes, durable_changes, unresolved_threads. resulting_public_state must be one concise non-empty string; every other value must be an array of concise strings and may be empty. Extract only what the accepted prose supports. Do not author hashes, sequence keys, item references, identity, branch, path, revision, or transaction fields; Python binds those custody and exact-sequence values. Do not add prose outside the JSON object."""
+ORDINARY_RECORDER_SYSTEM_PROMPT = """You are CERA's post-Accept ordinary Recorder. Call the context tool exactly once; do not call another tool unless context reports failure. The visible prose is already accepted and must never be regenerated, revised, or judged. Return one JSON object only with these keys: secondary_canon, resulting_public_state, relationship_changes, knowledge_changes, durable_changes, unresolved_threads. resulting_public_state must be one concise non-empty string; every other value must be an array of concise strings and may be empty. Extract only what the accepted prose supports. Do not author hashes, sequence keys, item references, identity, branch, path, revision, or transaction fields; Python binds those custody and exact-sequence values. Do not add prose outside the JSON object."""
 
 
-ADULT_RECORDER_SYSTEM_PROMPT = """You are CERA's post-Accept adult continuity Recorder. The visible prose is already accepted and must never be regenerated, revised, or judged. Read the one exact accepted record, its exact prose, and adult handoff from the confined view. Return one JSON object only with keys full_record and codex_projection. full_record must contain only decision_path, events, resulting_public_state, unresolved_threads. decision_path is an array of concise strings. events is an array of objects with exactly event_key, summary, motive, alternatives_considered, consent_or_boundary_transition, thoughts_and_feelings, durable_effects, knowledge_scope; alternatives_considered, thoughts_and_feelings, durable_effects, and knowledge_scope are arrays of concise strings, while the other event values are strings. codex_projection must contain only decision_path_summary, items, resulting_public_state, unresolved_threads. decision_path_summary and unresolved_threads are arrays of concise strings. Every projection item has exactly event_key, non_explicit_summary, lasting_story_meaning and references an exact full-record event_key. Do not author schemas, hashes, identity, branch, path, revision, or transaction fields; Python binds those custody values. Do not add prose outside the JSON object."""
+ADULT_RECORDER_SYSTEM_PROMPT = """You are CERA's post-Accept adult continuity Recorder. Call the context tool exactly once; do not call another tool unless context reports failure. The visible prose is already accepted and must never be regenerated, revised, or judged. Return one JSON object only with keys full_record and codex_projection. full_record must contain only decision_path, events, resulting_public_state, unresolved_threads. decision_path is an array of concise strings. events is an array of objects with exactly event_key, summary, motive, alternatives_considered, consent_or_boundary_transition, thoughts_and_feelings, durable_effects, knowledge_scope; alternatives_considered, thoughts_and_feelings, durable_effects, and knowledge_scope are arrays of concise strings, while the other event values are strings. codex_projection must contain only decision_path_summary, items, resulting_public_state, unresolved_threads. decision_path_summary and unresolved_threads are arrays of concise strings. Every projection item has exactly event_key, non_explicit_summary, lasting_story_meaning and references an exact full-record event_key. Do not author schemas, hashes, identity, branch, path, revision, or transaction fields; Python binds those custody values. Do not add prose outside the JSON object."""
 
 
 MAX_TOOL_CALLS_PER_INVOCATION = 20
@@ -143,7 +143,7 @@ class PiSceneAdapter:
                 "system_prompt": system_prompt,
                 "model": self.model,
                 "thinking": "off",
-                "tools": ["read", "list", "find", "search"],
+                "tools": ["context", "read", "list", "find", "search"],
                 "parent_session_id_sha256": (
                     None
                     if request.accepted_parent_session is None or request.force_rehydrate
@@ -190,7 +190,11 @@ class PiSceneAdapter:
                 invocation_id,
                 parsed_operations=parsed.provider_operations,
             )
-            output_text = parsed.output_text.strip()
+            output_text = (
+                _parse_writer_output(parsed.output_text)
+                if request.purpose == "writer"
+                else parsed.output_text.strip()
+            )
             if not output_text:
                 raise StateConflictError("Pi Scene returned no final assistant text")
             parent_hash = (
@@ -262,7 +266,7 @@ class PiSceneAdapter:
             "--extension",
             str(self.extension_path),
             "--tools",
-            "read,list,find,search",
+            "context,read,list,find,search",
             "--no-skills",
             "--no-prompt-templates",
             "--no-context-files",
@@ -385,6 +389,23 @@ def _parse_pi_json_stream(stdout: str) -> _ParsedPiStream:
         finish_status=finish_status,
         event_count=event_count,
     )
+
+
+def _parse_writer_output(output_text: str) -> str:
+    """Extract one explicit presentation envelope without changing its prose."""
+
+    opening = "<cera_scene>"
+    closing = "</cera_scene>"
+    if output_text.count(opening) != 1 or output_text.count(closing) != 1:
+        raise StateConflictError("Pi Writer omitted its exact scene envelope")
+    start = output_text.index(opening) + len(opening)
+    end = output_text.find(closing, start)
+    if end < start:
+        raise StateConflictError("Pi Writer scene envelope order is invalid")
+    prose = output_text[start:end].strip()
+    if not prose:
+        raise StateConflictError("Pi Writer scene envelope is empty")
+    return prose
 
 
 def _assistant_text(content: object) -> str:

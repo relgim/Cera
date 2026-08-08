@@ -180,7 +180,7 @@ class WriterViewMaterializer:
                 "candidate_id_sha256": text_sha256(source.candidate_id),
                 "route": source.route.value,
             },
-            "allowed_tools": ["read", "list", "find", "search"],
+            "allowed_tools": ["context", "read", "list", "find", "search"],
             "files": files,
         }
         _write_json(root / "MANIFEST.json", manifest)
@@ -197,7 +197,7 @@ def verify_writer_view(root: Path) -> MaterializedWriterViewV1:
         "cera.pi_scene.writer_view_manifest.v1"
     ):
         raise StateConflictError("Writer-view manifest identity changed")
-    if manifest.get("allowed_tools") != ["read", "list", "find", "search"]:
+    if manifest.get("allowed_tools") != ["context", "read", "list", "find", "search"]:
         raise StateConflictError("Writer-view tool boundary changed")
     entries = manifest.get("files")
     if not isinstance(entries, list):

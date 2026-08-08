@@ -24,6 +24,7 @@ from cera.pi_scene.pi_adapter import (
     PiSceneInvocationResultV1,
     PiSceneInvocationV1,
     _ProcessResult,
+    _parse_writer_output,
 )
 from cera.pi_scene.operation_ledger import PiProviderOperationLedger
 from cera.pi_scene.runtime import (
@@ -295,7 +296,7 @@ class PiSceneLeanTests(unittest.TestCase):
                 "generation": 1,
                 "route": "adult",
                 "exact_user_source": "The prior adult turn was accepted.",
-                "exact_accepted_prose": "The accepted scene ends with the floor open.",
+                "exact_accepted_prose": "Accepted private prose. " * 600,
                 "primary_authority_json": json.dumps(adult_handoff(), separators=(",", ":")),
             },
             "adult_projection": {
@@ -340,6 +341,9 @@ class PiSceneLeanTests(unittest.TestCase):
         )
         self.assertIn("adult_projection", accepted_evidence.exact_content)
         self.assertNotIn("adult_full_record", accepted_evidence.exact_content)
+        self.assertNotIn("The accepted scene ends", accepted_evidence.exact_content)
+        self.assertNotIn("primary_authority_json", accepted_evidence.exact_content)
+        self.assertLess(len(accepted_evidence.exact_content), 4_000)
         self.assertEqual(
             semantic.hard_boundaries[:2],
             (
@@ -512,7 +516,15 @@ class PiSceneLeanTests(unittest.TestCase):
                 "type": "message_end",
                 "message": {
                     "role": "assistant",
-                    "content": [{"type": "text", "text": "Final scene prose."}],
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "Analysis outside the presentation envelope.\n"
+                                "<cera_scene>Final scene prose.</cera_scene>"
+                            ),
+                        }
+                    ],
                     "usage": {"input": 120, "cacheRead": 80, "output": 20},
                     "stopReason": "stop",
                 },
@@ -559,7 +571,7 @@ class PiSceneLeanTests(unittest.TestCase):
             command = captured["command"]
             self.assertIn("--no-builtin-tools", command)
             self.assertIn("--no-extensions", command)
-            self.assertIn("read,list,find,search", command)
+            self.assertIn("context,read,list,find,search", command)
             self.assertIn("--approve", command)
             self.assertNotIn("--no-approve", command)
             self.assertNotIn("bash", command)
@@ -579,6 +591,20 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(settings["retry"]["maxRetries"], 0)
             self.assertEqual(settings["retry"]["provider"]["maxRetries"], 0)
             self.assertFalse(settings["compaction"]["enabled"])
+
+    def test_writer_output_requires_one_scene_envelope_and_preserves_inner_bytes(self) -> None:
+        self.assertEqual(
+            _parse_writer_output(
+                "Analysis that is not visible.\n<cera_scene>  Visible prose.  </cera_scene>"
+            ),
+            "Visible prose.",
+        )
+        with self.assertRaisesRegex(StateConflictError, "scene envelope"):
+            _parse_writer_output("Visible but unframed prose.")
+        with self.assertRaisesRegex(StateConflictError, "scene envelope"):
+            _parse_writer_output(
+                "<cera_scene>One.</cera_scene><cera_scene>Two.</cera_scene>"
+            )
 
     def test_pi_operation_ledger_charges_turn_start_and_rejects_automatic_work(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -697,6 +723,20 @@ class PiSceneLeanTests(unittest.TestCase):
                     for value in recorder_calls
                 )
             )
+            recorder_source = json.loads(
+                (recorder_calls[0].view.root / "accepted_records" / "0001.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                set(recorder_source),
+                {"route", "exact_user_source", "primary_authority"},
+            )
+            self.assertNotIn("sha256", canonical_json(recorder_source))
+            self.assertEqual(
+                list((recorder_calls[0].view.root / "characters").glob("*.json")),
+                [],
+            )
 
     def test_recorder_accepts_one_exact_json_fence_without_commentary(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -717,11 +757,17 @@ class PiSceneLeanTests(unittest.TestCase):
             accepted = coordinator.accept(review.review_id).review
 
             self.assertEqual(accepted.recording_attempt.status, RecordingStatus.COMPLETE)
-            with self.assertRaises(json.JSONDecodeError):
+            self.assertEqual(
                 _parse_recorder_payload(
                     "Recorder result follows.\n```json\n"
                     + json.dumps(payload, separators=(",", ":"))
                     + "\n```"
+                ),
+                payload,
+            )
+            with self.assertRaises(json.JSONDecodeError):
+                _parse_recorder_payload(
+                    "```json\n{}\n```\n```json\n{}\n```"
                 )
 
     def test_recorder_transport_failure_returns_accepted_pending_repair(self) -> None:

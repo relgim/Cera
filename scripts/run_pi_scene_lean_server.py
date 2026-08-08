@@ -81,6 +81,7 @@ def build_live_runtime(
     *,
     sol_ceiling: int,
     deepseek_ceiling: int,
+    deepseek_per_invocation_ceiling: int = 6,
     inject_generation_two_recorder_failure: bool = False,
 ) -> LivePiSceneRuntime:
     runtime_root, lifecycle_root, operation_root = _initialize_live_runtime_roots(
@@ -120,6 +121,7 @@ def build_live_runtime(
         deepseek_ledger = PiProviderOperationLedger(
             (runtime_root / "DEEPSEEK_PROVIDER_OPERATIONS.jsonl").resolve(),
             maximum_operations=deepseek_ceiling,
+            maximum_operations_per_invocation=deepseek_per_invocation_ceiling,
         )
         pi = PiSceneAdapter(
             pi_executable=DEFAULT_PI,
@@ -320,11 +322,13 @@ def run_live_smoke(
     sillytavern_source: Path = DEFAULT_SILLYTAVERN,
     sol_ceiling: int = 12,
     deepseek_ceiling: int = 60,
+    deepseek_per_invocation_ceiling: int = 6,
 ) -> dict[str, Any]:
     runtime = build_live_runtime(
         runtime_root,
         sol_ceiling=sol_ceiling,
         deepseek_ceiling=deepseek_ceiling,
+        deepseek_per_invocation_ceiling=deepseek_per_invocation_ceiling,
         inject_generation_two_recorder_failure=True,
     )
     token = secrets.token_urlsafe(32)
@@ -396,6 +400,8 @@ def run_live_smoke(
         )
         ordinary_one_review = ordinary_one["cera"]["provisional_review_id"]
         accepted_one = decide(ordinary_one_review, "accept")
+        if accepted_one["review"]["recording_status"] != RecordingStatus.COMPLETE.value:
+            raise StateConflictError("first ordinary Recorder did not complete")
         evidence.append(_smoke_step("ordinary_accept_1", accepted_one))
 
         adult_one = create(
@@ -417,6 +423,8 @@ def run_live_smoke(
         )
         adult_two_review = adult_two["cera"]["provisional_review_id"]
         accepted_three = decide(adult_two_review, "accept")
+        if accepted_three["review"]["recording_status"] != RecordingStatus.COMPLETE.value:
+            raise StateConflictError("second adult Recorder did not complete")
         evidence.append(_smoke_step("adult_accept_2", accepted_three))
 
         ordinary_two = create(
@@ -449,6 +457,8 @@ def run_live_smoke(
         ):
             raise StateConflictError("Regenerate changed the exact Codex sequence")
         accepted_four = decide(successor_review_id, "accept")
+        if accepted_four["review"]["recording_status"] != RecordingStatus.COMPLETE.value:
+            raise StateConflictError("final ordinary Recorder did not complete")
         evidence.append(_smoke_step("ordinary_accept_2_rehydrated", accepted_four))
 
         head = runtime.store.load_head(
@@ -564,6 +574,7 @@ def main() -> int:
     parser.add_argument("--sillytavern-source", type=Path, default=DEFAULT_SILLYTAVERN)
     parser.add_argument("--sol-ceiling", type=int, default=12)
     parser.add_argument("--deepseek-ceiling", type=int, default=60)
+    parser.add_argument("--deepseek-per-invocation-ceiling", type=int, default=6)
     args = parser.parse_args()
     if args.mode == "live-smoke":
         print(
@@ -573,6 +584,7 @@ def main() -> int:
                     sillytavern_source=args.sillytavern_source,
                     sol_ceiling=args.sol_ceiling,
                     deepseek_ceiling=args.deepseek_ceiling,
+                    deepseek_per_invocation_ceiling=args.deepseek_per_invocation_ceiling,
                 ),
                 indent=2,
                 sort_keys=True,

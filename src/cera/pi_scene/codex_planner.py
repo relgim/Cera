@@ -163,19 +163,18 @@ def _accepted_evidence(
         generation = receipt.get("generation")
         if type(generation) is not int or generation < 1:
             raise ContractValidationError("accepted evidence generation is invalid")
+        exact_prose = receipt.get("exact_accepted_prose")
+        primary_authority = receipt.get("primary_authority_json")
+        if not isinstance(exact_prose, str) or not isinstance(primary_authority, str):
+            raise ContractValidationError("accepted evidence custody fields are invalid")
         public_value = {
             "receipt": {
-                key: item
-                for key, item in receipt.items()
-                if key
-                in {
-                    "accepted_turn_id",
-                    "generation",
-                    "route",
-                    "exact_user_source",
-                    "exact_accepted_prose",
-                    "primary_authority_json",
-                }
+                "accepted_turn_id": receipt.get("accepted_turn_id"),
+                "generation": generation,
+                "route": receipt.get("route"),
+                "exact_user_source": receipt.get("exact_user_source"),
+                "exact_accepted_prose_sha256": text_sha256(exact_prose),
+                "primary_authority_sha256": text_sha256(primary_authority),
             },
             "ordinary_record": value.get("ordinary_record"),
             "adult_projection": value.get("adult_projection"),

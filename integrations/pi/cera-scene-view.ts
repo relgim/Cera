@@ -2,7 +2,7 @@
  * Dedicated CERA Pi Scene tools.
  *
  * Pi is launched with --no-builtin-tools and this extension explicitly.  The
- * four tools below can only observe the Python-materialized candidate view.
+ * tools below can only observe the Python-materialized candidate view.
  * They expose no shell, process, network, repository, database, or write API.
  */
 
@@ -13,6 +13,7 @@ import { isAbsolute, relative, resolve, sep } from "node:path";
 import { Type } from "typebox";
 
 const MAX_READ_BYTES = 64 * 1024;
+const MAX_CONTEXT_BYTES = 64 * 1024;
 const MAX_RESULTS = 80;
 const ROOT_ENV = "CERA_PI_VIEW_ROOT";
 const MAX_TOOL_CALLS_ENV = "CERA_PI_MAX_TOOL_CALLS";
@@ -79,7 +80,7 @@ async function allFiles(root: string): Promise<string[]> {
 
 const toolGuidelines = [
 	"Use only the CERA Writer-view tools. They are confined to the current branch/candidate view.",
-	"Read MANIFEST.json and TURN.json first, then retrieve only material relevant to the current scene.",
+	"Prefer one context call; Python already minimized the complete authoritative scene view.",
 	"Never claim access to repositories, drives, credentials, databases, Git, shell, or files outside this view.",
 ];
 
@@ -98,6 +99,32 @@ export default function (pi: ExtensionAPI) {
 				terminate: true,
 			};
 		}
+	});
+
+	pi.registerTool({
+		name: "context",
+		label: "Load CERA scene context",
+		description: "Load the complete bounded Python-materialized CERA scene view in one call.",
+		promptSnippet: "Load the complete approved CERA scene context once",
+		promptGuidelines: toolGuidelines,
+		parameters: Type.Object({}),
+		async execute() {
+			const root = await realpath(configuredRoot());
+			const sections: string[] = [];
+			let totalBytes = 0;
+			for (const rel of await allFiles(root)) {
+				const target = (await confinedPath(rel)).target;
+				const data = await readFile(target);
+				if (data.byteLength > MAX_READ_BYTES) throw new Error("context file exceeds the read bound");
+				totalBytes += data.byteLength;
+				if (totalBytes > MAX_CONTEXT_BYTES) throw new Error("Writer view exceeds the context bound");
+				sections.push(`===== ${rel} =====\n${data.toString("utf8")}`);
+			}
+			return {
+				content: [{ type: "text", text: sections.join("\n\n") }] as TextContent[],
+				details: { bytes: totalBytes, files: sections.length },
+			};
+		},
 	});
 
 	pi.registerTool({

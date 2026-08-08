@@ -502,19 +502,16 @@ class LeanPiSceneCoordinator:
             if review.recording_attempt is None
             else review.recording_attempt.attempt_number + 1
         )
-        accepted_records = self.store.recent_accepted_payloads(
-            world_id=accepted.world_id,
-            branch_id=accepted.branch_id,
-            adult_full=accepted.route is SceneRoute.ADULT,
+        primary_authority = json.loads(accepted.primary_authority_json)
+        if not isinstance(primary_authority, dict):
+            raise ContractValidationError("Recorder primary authority is invalid")
+        current_records = (
+            {
+                "route": accepted.route.value,
+                "exact_user_source": accepted.exact_user_source,
+                "primary_authority": primary_authority,
+            },
         )
-        current_records = tuple(
-            value
-            for value in accepted_records
-            if value.get("receipt", {}).get("accepted_turn_id")
-            == accepted.accepted_turn_id
-        )
-        if len(current_records) != 1:
-            raise StateConflictError("Recorder view did not resolve one accepted turn")
         view = self.writer_views.materialize(
             WriterViewInputV1(
                 world_id=accepted.world_id,
@@ -524,14 +521,14 @@ class LeanPiSceneCoordinator:
                 candidate_id=f"record-{accepted.accepted_turn_id}-{attempt_number}",
                 route=accepted.route,
                 user_prompt=accepted.exact_user_source,
-                primary_authority=json.loads(accepted.primary_authority_json),
+                primary_authority=primary_authority,
                 current_state=review.turn_input.current_state,
-                characters=review.turn_input.characters,
-                relationships=review.turn_input.relationships,
+                characters={},
+                relationships={},
                 recent_prose=(accepted.exact_accepted_prose,),
-                relevant_memories=review.turn_input.relevant_memories,
-                voice_examples=review.turn_input.voice_examples,
-                craft_index=review.turn_input.craft_index,
+                relevant_memories={},
+                voice_examples={},
+                craft_index={},
                 accepted_records=current_records,
             )
         )
@@ -732,8 +729,11 @@ def _parse_recorder_payload(output_text: str) -> dict[str, Any]:
     """Decode raw JSON or one exact JSON fence without semantic repair."""
 
     value = output_text.strip()
-    if value.startswith("```json\n") and value.endswith("\n```"):
-        value = value[len("```json\n") : -len("\n```")].strip()
+    fence = "```json\n"
+    if value.count("```") == 2 and fence in value:
+        start = value.index(fence) + len(fence)
+        end = value.index("```", start)
+        value = value[start:end].strip()
     payload = json.loads(value)
     if not isinstance(payload, dict):
         raise ContractValidationError("Recorder result is not a JSON object")
