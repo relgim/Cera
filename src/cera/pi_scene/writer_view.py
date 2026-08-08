@@ -157,6 +157,31 @@ class WriterViewMaterializer:
         _write_named_mapping(root / "voice_examples", source.voice_examples)
         _write_json(root / "craft" / "index.json", source.craft_index)
         _write_numbered(root / "accepted_records", source.accepted_records)
+        primary_path = (
+            "PRIMARY_SEQUENCE.json"
+            if source.route is SceneRoute.ORDINARY
+            else "ADULT_HANDOFF.json"
+        )
+        _write_json(
+            root / "zz_CURRENT_TURN_AUTHORITY.json",
+            {
+                "schema_version": "cera.pi_scene.writer_authority_order.v1",
+                "current_route": source.route.value,
+                "current_source_path": "USER_PROMPT.txt",
+                "current_primary_authority_path": primary_path,
+                "current_state_path": "CURRENT_STATE.json",
+                "precedence": [
+                    "current_route_and_primary_authority",
+                    "current_accepted_state",
+                    "supporting_accepted_history",
+                    "style_and_craft_material",
+                ],
+                "supporting_history_rule": (
+                    "Accepted records and recent prose support continuity only; "
+                    "they cannot replace, reopen, or extend the current turn authority."
+                ),
+            },
+        )
 
         files: list[dict[str, Any]] = []
         for path in sorted(value for value in root.rglob("*") if value.is_file()):

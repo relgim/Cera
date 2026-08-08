@@ -61,6 +61,7 @@ class AcceptedBranchContextProvider:
             value["receipt"]["exact_accepted_prose"]
             for value in accepted
             if isinstance(value.get("receipt"), Mapping)
+            and value["receipt"].get("route") == SceneRoute.ORDINARY.value
             and isinstance(value["receipt"].get("exact_accepted_prose"), str)
         )
         public_state = self.seed.public_scene_state

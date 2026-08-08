@@ -11,7 +11,11 @@ from urllib.request import Request, urlopen
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.pi_scene.codex_planner import RetainedCodexPlannerAdapter
-from cera.pi_scene.context import initial_hanezawa_doorway_seed
+from cera.pi_scene.context import (
+    AcceptedBranchContextProvider,
+    PiSceneContextSeedV1,
+    initial_hanezawa_doorway_seed,
+)
 from cera.pi_scene.contracts import (
     PiWriterReceiptV1,
     RecordingStatus,
@@ -26,7 +30,9 @@ from cera.pi_scene.http import (
     build_pi_scene_server,
 )
 from cera.pi_scene.pi_adapter import (
+    ADULT_RECORDER_SYSTEM_PROMPT,
     ADULT_WRITER_SYSTEM_PROMPT,
+    ORDINARY_RECORDER_SYSTEM_PROMPT,
     ORDINARY_WRITER_SYSTEM_PROMPT,
     PiSceneAdapter,
     PiSceneInvocationResultV1,
@@ -475,6 +481,9 @@ class PiSceneLeanTests(unittest.TestCase):
 
     def test_writer_prompts_do_not_restate_protected_user_contributions(self) -> None:
         for prompt in (ORDINARY_WRITER_SYSTEM_PROMPT, ADULT_WRITER_SYSTEM_PROMPT):
+            self.assertIn("tool named context directly exactly once", prompt)
+            self.assertIn("do not call a tool named invoke", prompt)
+            self.assertIn("zz_CURRENT_TURN_AUTHORITY.json", prompt)
             self.assertIn("Start from the NPC or world response", prompt)
             self.assertIn("Do not invent Ted dialogue", prompt)
             self.assertIn("Freely add compatible transient", prompt)
@@ -482,6 +491,17 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertIn("institutional facts", prompt)
             self.assertIn("Return complete visible prose only", prompt)
             self.assertNotIn("opening sentence", prompt.lower())
+        self.assertIn("current turn wins", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
+        self.assertIn("consent_and_capacity", ADULT_WRITER_SYSTEM_PROMPT)
+
+    def test_recorder_prompts_require_direct_tool_and_closed_json_shape(self) -> None:
+        for prompt in (ORDINARY_RECORDER_SYSTEM_PROMPT, ADULT_RECORDER_SYSTEM_PROMPT):
+            self.assertIn("tool named context directly exactly once", prompt)
+            self.assertIn("never call a tool named invoke", prompt)
+            self.assertIn("must begin with { and end with }", prompt)
+            self.assertIn("no analysis", prompt)
+        self.assertIn("knowledge_scope must each be a JSON array", ADULT_RECORDER_SYSTEM_PROMPT)
 
     def test_creator_test_seed_matches_visible_doorway_and_does_not_surface_mia(self) -> None:
         seed = initial_hanezawa_doorway_seed()
@@ -517,6 +537,20 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(view, verify_writer_view(view.root))
             self.assertTrue((view.root / "PRIMARY_SEQUENCE.json").is_file())
             self.assertFalse((view.root / "ADULT_HANDOFF.json").exists())
+            authority_order = json.loads(
+                (view.root / "zz_CURRENT_TURN_AUTHORITY.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(authority_order["current_route"], "ordinary")
+            self.assertEqual(
+                authority_order["current_primary_authority_path"],
+                "PRIMARY_SEQUENCE.json",
+            )
+            self.assertEqual(
+                sorted(path.name for path in view.root.iterdir())[-1],
+                "zz_CURRENT_TURN_AUTHORITY.json",
+            )
             with self.assertRaises(ContractValidationError):
                 resolve_confined_path(view.root, "../outside.txt")
             with self.assertRaises(ContractValidationError):
@@ -845,11 +879,16 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             receipt = accepted["receipt"]
             self.assertNotIn("exact_accepted_prose", receipt)
+            self.assertNotIn("exact_user_source", receipt)
+            self.assertNotIn("primary_authority_json", receipt)
+            self.assertNotIn("writer_receipt", receipt)
             self.assertEqual(
                 receipt["exact_accepted_prose_sha256"],
                 first.candidate.story_text_sha256,
             )
-            self.assertEqual(receipt["exact_user_source"], "First accepted turn.")
+            self.assertEqual(
+                receipt["exact_user_source_sha256"], text_sha256("First accepted turn.")
+            )
             self.assertIn("ordinary_record", accepted)
 
     def test_decline_has_zero_accepted_effect_and_replan_is_only_second_planner_call(self) -> None:
@@ -891,21 +930,20 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertTrue(
                 all(
-                    len(list((value.view.root / "accepted_records").glob("*.json"))) == 1
+                    len(list((value.view.root / "accepted_records").glob("*.json"))) == 0
                     and len(list((value.view.root / "recent_prose").glob("*.txt"))) == 1
                     for value in recorder_calls
                 )
             )
-            recorder_source = json.loads(
-                (recorder_calls[0].view.root / "accepted_records" / "0001.json").read_text(
-                    encoding="utf-8"
-                )
-            )
             self.assertEqual(
-                set(recorder_source),
-                {"route", "exact_user_source", "primary_authority"},
+                json.loads(
+                    (recorder_calls[0].view.root / "CURRENT_STATE.json").read_text(
+                        encoding="utf-8"
+                    )
+                )["recording_phase"],
+                "post_accept",
             )
-            self.assertNotIn("sha256", canonical_json(recorder_source))
+            self.assertIn("PRIMARY_SEQUENCE.json", recorder_calls[0].prompt)
             self.assertEqual(
                 list((recorder_calls[0].view.root / "characters").glob("*.json")),
                 [],
@@ -1137,6 +1175,13 @@ class PiSceneLeanTests(unittest.TestCase):
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             coordinator, planner, pi, store = self.make_runtime(root)
+            pi.writer_outputs.extend(
+                (
+                    "Ordinary accepted continuity.",
+                    "Protected adult accepted continuity.",
+                    "Ordinary continuation after the projection.",
+                )
+            )
             ordinary_one = coordinator.start_ordinary(turn(source="Ordinary one."))
             coordinator.accept(ordinary_one.review_id)
             adult = coordinator.start_adult(turn(source="Adult transition.", adult=True))
@@ -1155,7 +1200,51 @@ class PiSceneLeanTests(unittest.TestCase):
                 projection["items"][0]["event_key"],
                 {value["event_key"] for value in full["events"]},
             )
-            ordinary_two = coordinator.start_ordinary(turn(source="Ordinary two."))
+            base_turn = turn(source="Ordinary two.")
+            context = AcceptedBranchContextProvider(
+                store,
+                PiSceneContextSeedV1(
+                    world_id=base_turn.world_id,
+                    branch_id=base_turn.branch_id,
+                    scene_id=base_turn.scene_id,
+                    accepted_present_character_ids=("character:ted", "character:hana"),
+                    public_scene_state="Ted and Hana are talking in the kitchen.",
+                    characters=base_turn.characters,
+                    relationships=base_turn.relationships,
+                    relevant_memories=base_turn.relevant_memories,
+                    voice_examples=base_turn.voice_examples,
+                    ordinary_craft_index=base_turn.craft_index,
+                    adult_craft_index={"entries": ["adult-pacing"]},
+                    adult_handoff=adult_handoff(),
+                ),
+            )
+            ordinary_context = context(
+                SceneRoute.ORDINARY,
+                "Ordinary two.",
+                (),
+            )
+            self.assertEqual(
+                ordinary_context.recent_prose,
+                (ordinary_one.candidate.story_text,),
+            )
+            self.assertNotIn(
+                adult_result.candidate.story_text,
+                ordinary_context.recent_prose,
+            )
+            ordinary_two = coordinator.start_ordinary(ordinary_context)
+            ordinary_two_writer = [
+                call for call in pi.calls if call.purpose == "writer"
+            ][-1]
+            accepted_adult = json.loads(
+                (
+                    ordinary_two_writer.view.root
+                    / "accepted_records"
+                    / "0002.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertIn("adult_projection", accepted_adult)
+            self.assertNotIn("adult_full_record", accepted_adult)
+            self.assertNotIn("exact_user_source", accepted_adult["receipt"])
             coordinator.accept(ordinary_two.review_id)
             self.assertEqual(
                 store.load_head(world_id="world-test", branch_id="branch-main").generation,

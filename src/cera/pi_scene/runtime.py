@@ -534,13 +534,6 @@ class LeanPiSceneCoordinator:
         primary_authority = json.loads(accepted.primary_authority_json)
         if not isinstance(primary_authority, dict):
             raise ContractValidationError("Recorder primary authority is invalid")
-        current_records = (
-            {
-                "route": accepted.route.value,
-                "exact_user_source": accepted.exact_user_source,
-                "primary_authority": primary_authority,
-            },
-        )
         view = self.writer_views.materialize(
             WriterViewInputV1(
                 world_id=accepted.world_id,
@@ -551,19 +544,28 @@ class LeanPiSceneCoordinator:
                 route=accepted.route,
                 user_prompt=accepted.exact_user_source,
                 primary_authority=primary_authority,
-                current_state=turn_input.current_state,
+                current_state={
+                    "recording_phase": "post_accept",
+                    "accepted_turn_id": accepted.accepted_turn_id,
+                    "authority": "exact_accepted_prose_and_primary_authority",
+                },
                 characters={},
                 relationships={},
                 recent_prose=(accepted.exact_accepted_prose,),
                 relevant_memories={},
                 voice_examples={},
                 craft_index={},
-                accepted_records=current_records,
+                accepted_records=(),
             )
         )
+        primary_path = (
+            "PRIMARY_SEQUENCE.json"
+            if accepted.route is SceneRoute.ORDINARY
+            else "ADULT_HANDOFF.json"
+        )
         prompt = (
-            "Record the sole accepted_records/0001.json turn using the exact "
-            "recent_prose/0001.txt prose. "
+            "Call the context tool directly once. Record the exact accepted "
+            f"recent_prose/0001.txt prose against {primary_path}. "
             "Return only the route-specific semantic record fields; Python binds custody."
         )
         if prior_attempt is not None:
@@ -823,21 +825,36 @@ def _pi_operation_count(pi: object) -> int:
 def _writer_context_records(
     accepted_records: Sequence[Mapping[str, Any]],
 ) -> tuple[dict[str, Any], ...]:
-    """Keep accepted custody and derived records without duplicating full prose."""
+    """Project lean accepted continuity without replaying old turn authority."""
 
     output: list[dict[str, Any]] = []
     for record in accepted_records:
-        item = dict(record)
-        receipt = item.get("receipt")
-        if isinstance(receipt, Mapping):
-            projected_receipt = dict(receipt)
-            prose = projected_receipt.pop("exact_accepted_prose", None)
-            if prose is not None:
-                if not isinstance(prose, str) or projected_receipt.get(
-                    "exact_accepted_prose_sha256"
-                ) != text_sha256(prose):
-                    raise StateConflictError("accepted prose link changed")
-            item["receipt"] = projected_receipt
+        receipt = record.get("receipt")
+        if not isinstance(receipt, Mapping):
+            raise StateConflictError("accepted Writer context omitted its receipt")
+        prose = receipt.get("exact_accepted_prose")
+        if not isinstance(prose, str) or receipt.get(
+            "exact_accepted_prose_sha256"
+        ) != text_sha256(prose):
+            raise StateConflictError("accepted prose link changed")
+        projected_receipt = {
+            key: receipt[key]
+            for key in (
+                "schema_version",
+                "accepted_turn_id",
+                "generation",
+                "route",
+                "exact_user_source_sha256",
+                "exact_accepted_prose_sha256",
+                "primary_authority_sha256",
+            )
+            if key in receipt
+        }
+        item: dict[str, Any] = {"receipt": projected_receipt}
+        for key in ("ordinary_record", "adult_projection", "adult_full_record"):
+            value = record.get(key)
+            if value is not None:
+                item[key] = value
         output.append(item)
     return tuple(output)
 
