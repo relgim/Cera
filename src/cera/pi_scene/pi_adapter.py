@@ -143,7 +143,7 @@ class PiSceneAdapter:
                 "system_prompt": system_prompt,
                 "model": self.model,
                 "thinking": "off",
-                "tools": ["context", "read", "list", "find", "search"],
+                "tools": ["context"],
                 "parent_session_id_sha256": (
                     None
                     if request.accepted_parent_session is None or request.force_rehydrate
@@ -266,7 +266,7 @@ class PiSceneAdapter:
             "--extension",
             str(self.extension_path),
             "--tools",
-            "context,read,list,find,search",
+            "context",
             "--no-skills",
             "--no-prompt-templates",
             "--no-context-files",

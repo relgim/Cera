@@ -571,7 +571,8 @@ class PiSceneLeanTests(unittest.TestCase):
             command = captured["command"]
             self.assertIn("--no-builtin-tools", command)
             self.assertIn("--no-extensions", command)
-            self.assertIn("context,read,list,find,search", command)
+            self.assertIn("context", command)
+            self.assertNotIn("context,read,list,find,search", command)
             self.assertIn("--approve", command)
             self.assertNotIn("--no-approve", command)
             self.assertNotIn("bash", command)
@@ -711,7 +712,7 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(repaired.accepted_receipt.receipt_sha256, receipt_sha)
             self.assertEqual(repaired.candidate.candidate_sha256, candidate_sha)
             self.assertEqual(len(planner.calls), 1)
-            self.assertEqual([value.purpose for value in pi.calls], ["writer", "recorder", "recorder"])
+            self.assertEqual([value.purpose for value in pi.calls], ["writer", "recorder"])
             recorder_calls = [value for value in pi.calls if value.purpose == "recorder"]
             self.assertTrue(
                 all(value.accepted_parent_session is None for value in recorder_calls)
@@ -1001,7 +1002,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 [value.purpose for value in pi.calls].count("recorder"),
-                5,
+                4,
             )
 
 

@@ -416,8 +416,8 @@ class LeanPiSceneCoordinator:
             )
         )
         prompt = (
-            "Use the confined Writer view to produce the complete scene now. "
-            "Read the manifest and exact primary authority before writing."
+            "Call context exactly once, use its complete confined Writer view, "
+            "then produce the complete scene now without another tool call."
         )
         if feedback:
             prompt += (
@@ -542,6 +542,25 @@ class LeanPiSceneCoordinator:
                 " This is an explicit recording repair after typed failure "
                 f"{review.recording_attempt.failure_code}; return a fresh complete record."
             )
+        fault = (
+            None
+            if self._recording_fault_injector is None
+            else self._recording_fault_injector(accepted, attempt_number)
+        )
+        if fault is not None:
+            return self.store.mark_recording_failure(
+                accepted,
+                recorder_request_sha256=canonical_sha256(
+                    {
+                        "schema_version": "cera.pi_scene.injected_recorder_failure.v1",
+                        "accepted_receipt_sha256": accepted.receipt_sha256,
+                        "attempt_number": attempt_number,
+                    }
+                ),
+                recorder_output_sha256=None,
+                provider_operations=0,
+                failure_code=fault,
+            )
         invocation = self.pi.invoke(
             PiSceneInvocationV1(
                 route=accepted.route,
@@ -555,19 +574,6 @@ class LeanPiSceneCoordinator:
                 accepted_parent_session=None,
             )
         )
-        fault = (
-            None
-            if self._recording_fault_injector is None
-            else self._recording_fault_injector(accepted, attempt_number)
-        )
-        if fault is not None:
-            return self.store.mark_recording_failure(
-                accepted,
-                recorder_request_sha256=invocation.writer_receipt.request_sha256,
-                recorder_output_sha256=invocation.writer_receipt.output_sha256,
-                provider_operations=invocation.writer_receipt.provider_operations,
-                failure_code=fault,
-            )
         try:
             payload = _parse_recorder_payload(invocation.output_text)
             if accepted.route is SceneRoute.ORDINARY:
