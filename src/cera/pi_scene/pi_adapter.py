@@ -40,6 +40,9 @@ ORDINARY_RECORDER_SYSTEM_PROMPT = """You are CERA's post-Accept ordinary Recorde
 ADULT_RECORDER_SYSTEM_PROMPT = """You are CERA's post-Accept adult continuity Recorder. The visible prose is already accepted and must never be regenerated, revised, or judged. Read the exact accepted material and adult handoff from the confined view. Return one JSON object only with keys full_record and codex_projection. full_record must contain only decision_path, events, resulting_public_state, unresolved_threads. Every event must contain event_key, summary, motive, alternatives_considered, consent_or_boundary_transition, thoughts_and_feelings, durable_effects, knowledge_scope. codex_projection must contain only decision_path_summary, items, resulting_public_state, unresolved_threads. Each projection item must reference an exact full-record event_key and use non-explicit language while preserving lasting story meaning. Do not author schemas, hashes, identity, branch, path, revision, or transaction fields; Python binds those custody values. Do not add prose outside the JSON object."""
 
 
+MAX_TOOL_CALLS_PER_INVOCATION = 20
+
+
 @dataclass(frozen=True, slots=True)
 class PiSceneInvocationV1:
     route: SceneRoute
@@ -128,9 +131,7 @@ class PiSceneAdapter:
             {
                 "CERA_PI_VIEW_ROOT": str(view.root),
                 "PI_TELEMETRY": "0",
-                "CERA_PI_MAX_TOOL_CALLS": str(
-                    self.operation_ledger.maximum_operations_per_invocation - 1
-                ),
+                "CERA_PI_MAX_TOOL_CALLS": str(MAX_TOOL_CALLS_PER_INVOCATION),
             }
         )
         request_binding = canonical_sha256(

@@ -564,6 +564,7 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertNotIn("bash", command)
             self.assertNotIn("write", command)
             self.assertNotIn("edit", command)
+            self.assertEqual(captured["environment"]["CERA_PI_MAX_TOOL_CALLS"], "20")
             self.assertEqual(result.output_text, "Final scene prose.")
             self.assertEqual(result.writer_receipt.provider_operations, 2)
             self.assertEqual(result.writer_receipt.input_tokens, 220)

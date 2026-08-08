@@ -318,11 +318,13 @@ def run_live_smoke(
     runtime_root: Path,
     *,
     sillytavern_source: Path = DEFAULT_SILLYTAVERN,
+    sol_ceiling: int = 12,
+    deepseek_ceiling: int = 60,
 ) -> dict[str, Any]:
     runtime = build_live_runtime(
         runtime_root,
-        sol_ceiling=12,
-        deepseek_ceiling=60,
+        sol_ceiling=sol_ceiling,
+        deepseek_ceiling=deepseek_ceiling,
         inject_generation_two_recorder_failure=True,
     )
     token = secrets.token_urlsafe(32)
@@ -560,6 +562,8 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=5127)
     parser.add_argument("--session-id", default="cera-pi-scene-test")
     parser.add_argument("--sillytavern-source", type=Path, default=DEFAULT_SILLYTAVERN)
+    parser.add_argument("--sol-ceiling", type=int, default=12)
+    parser.add_argument("--deepseek-ceiling", type=int, default=60)
     args = parser.parse_args()
     if args.mode == "live-smoke":
         print(
@@ -567,6 +571,8 @@ def main() -> int:
                 run_live_smoke(
                     args.runtime_root,
                     sillytavern_source=args.sillytavern_source,
+                    sol_ceiling=args.sol_ceiling,
+                    deepseek_ceiling=args.deepseek_ceiling,
                 ),
                 indent=2,
                 sort_keys=True,
