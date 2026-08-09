@@ -777,6 +777,175 @@ class LeanSceneStore:
             self._cache_adult_scene_session(branch_root, receipt, envelope)
             return bound
 
+    def promote_adult_replacement_envelope(
+        self,
+        envelope: AdultAcceptedTurnEnvelopeV1,
+        *,
+        base: LeanAcceptedRegenerationBaseV1,
+    ) -> BoundAdultPromotionV1:
+        """Atomically select a fully filtered adult sibling replacement.
+
+        ``base`` freezes the exact selected turn being replaced and its
+        pre-turn accepted prefix.  The new adult object is published in full
+        before ``ACTIVE_LINEAGE.json`` switches; the replaced object and its
+        provider/session evidence remain immutable and inspectable.
+        """
+
+        from cera.adult_pipeline.acceptance import AdultAcceptedTurnEnvelopeV1
+        from cera.adult_pipeline.contracts import (
+            AdultAcceptedPromotionReceiptV1,
+            BoundAdultPromotionV1,
+        )
+
+        if type(envelope) is not AdultAcceptedTurnEnvelopeV1:
+            raise ContractValidationError(
+                "adult replacement requires the full acceptance envelope"
+            )
+        if type(base) is not LeanAcceptedRegenerationBaseV1:
+            raise ContractValidationError(
+                "adult replacement requires the frozen regeneration base"
+            )
+        if envelope.creator_action == "provisional_accept":
+            raise ContractValidationError(
+                "adult atomic replacement does not create provisional canon"
+            )
+        if (
+            envelope.world_id != base.world_id
+            or envelope.branch_id != base.branch_id
+        ):
+            raise StateConflictError("adult replacement escaped its frozen branch")
+        if envelope.generation != base.generation:
+            raise StateConflictError("adult replacement generation changed")
+        if envelope.parent_accepted_turn_id != base.parent_accepted_turn_id:
+            raise StateConflictError("adult replacement parent turn changed")
+        if (
+            envelope.parent_accepted_head_sha256
+            != base.parent_accepted_head_sha256
+            or envelope.promotion_bundle.accepted_head_before_sha256
+            != base.parent_accepted_head_sha256
+        ):
+            raise StateConflictError("adult replacement parent head changed")
+
+        with self._lock:
+            branch_root = self._branch_root(base.world_id, base.branch_id)
+            replaced = self.load_accepted_turn_by_receipt_sha256(
+                world_id=base.world_id,
+                branch_id=base.branch_id,
+                receipt_sha256=base.replaced_receipt_sha256,
+            )
+            if (
+                replaced.accepted_turn_id != base.replaced_turn_id
+                or replaced.generation != base.generation
+                or replaced.parent_accepted_turn_id
+                != base.parent_accepted_turn_id
+                or replaced.parent_accepted_head_sha256
+                != base.parent_accepted_head_sha256
+            ):
+                raise StateConflictError(
+                    "adult replacement target differs from frozen authority"
+                )
+            if replaced.route is not SceneRoute.ADULT:
+                raise StateConflictError("adult replacement target is not adult")
+            if envelope.accepted_turn_id != base.replaced_turn_id:
+                raise StateConflictError("adult replacement turn identity changed")
+            if (
+                envelope.exact_current_source != replaced.exact_user_source
+                or envelope.exact_current_source_sha256
+                != replaced.exact_user_source_sha256
+            ):
+                raise StateConflictError("adult replacement source custody changed")
+            if (
+                envelope.primary_handoff_kind != replaced.primary_authority_kind
+                or envelope.primary_handoff_json != replaced.primary_authority_json
+                or envelope.primary_handoff_sha256
+                != replaced.primary_authority_sha256
+            ):
+                raise StateConflictError("adult replacement settings custody changed")
+
+            head = self.load_head(world_id=base.world_id, branch_id=base.branch_id)
+            existing_matches = [
+                receipt
+                for receipt, _ in self._load_all_receipt_entries(branch_root)
+                if receipt.candidate_sha256 == envelope.envelope_sha256
+            ]
+            if len(existing_matches) > 1:
+                raise StateConflictError("adult replacement occurs more than once")
+            existing = existing_matches[0] if existing_matches else None
+            if existing is not None:
+                turn_dir = _locate_accepted_turn_dir(branch_root, existing)
+                loaded = _load_atomic_adult_promotion(turn_dir, accepted=existing)
+                if loaded is None or loaded[0] != envelope:
+                    raise StateConflictError(
+                        "stored adult replacement differs from replay"
+                    )
+                bound = loaded[2]
+                if head.accepted_head_sha256 == existing.receipt_sha256:
+                    lineage = self.load_active_lineage(
+                        world_id=base.world_id,
+                        branch_id=base.branch_id,
+                    )
+                    if (
+                        lineage.switch_kind != "replacement"
+                        or lineage.previous_generation != base.generation
+                        or lineage.previous_turn_id != base.replaced_turn_id
+                        or lineage.previous_receipt_sha256
+                        != base.replaced_receipt_sha256
+                    ):
+                        raise StateConflictError(
+                            "adult replacement replay cites another selector switch"
+                        )
+                    self._cache_adult_scene_session(branch_root, existing, envelope)
+                    return bound
+                if head.accepted_head_sha256 != replaced.receipt_sha256:
+                    raise StateConflictError(
+                        "stored adult replacement is outside the selected lineage"
+                    )
+                self._regeneration_prefix_receipts(base)
+                self._select_receipt(
+                    branch_root,
+                    receipt=existing,
+                    previous=head,
+                    switch_kind="replacement",
+                )
+                self._cache_adult_scene_session(branch_root, existing, envelope)
+                return bound
+
+            if head.accepted_head_sha256 != replaced.receipt_sha256:
+                raise StateConflictError("adult replacement target is not selected")
+            self._regeneration_prefix_receipts(base)
+            receipt = _adult_receipt_from_envelope(envelope)
+            promotion_receipt = AdultAcceptedPromotionReceiptV1(
+                schema_version=AdultAcceptedPromotionReceiptV1.SCHEMA_VERSION,
+                accepted_turn_id=receipt.accepted_turn_id,
+                world_id=receipt.world_id,
+                branch_id=receipt.branch_id,
+                accepted_head_before_sha256=receipt.parent_accepted_head_sha256,
+                accepted_head_after_sha256=receipt.receipt_sha256,
+                promotion_bundle_sha256=canonical_sha256(
+                    envelope.promotion_bundle
+                ),
+                current_logic_route=envelope.promotion_bundle.next_route,
+                return_to_codex=envelope.promotion_bundle.return_to_codex,
+            )
+            bound = BoundAdultPromotionV1(
+                bundle=envelope.promotion_bundle,
+                receipt=promotion_receipt,
+            )
+            self._publish_atomic_adult_object(
+                branch_root,
+                envelope=envelope,
+                accepted=receipt,
+                bound=bound,
+            )
+            self._select_receipt(
+                branch_root,
+                receipt=receipt,
+                previous=head,
+                switch_kind="replacement",
+            )
+            self._cache_adult_scene_session(branch_root, receipt, envelope)
+            return bound
+
     def load_promoted_adult_acceptance(
         self,
         *,

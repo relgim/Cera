@@ -32,6 +32,13 @@ class PiSceneAtomicAdultStoreTests(unittest.TestCase):
         self,
         *,
         next_route: AdultNextRoute = AdultNextRoute.ORDINARY,
+        accepted_head_sha256: str | None = None,
+        parent_accepted_turn_id: str | None = None,
+        generation: int = 1,
+        identity_suffix: str = "atomic-adult",
+        protected_prose: str = adult_support.PROTECTED_PROSE,
+        exact_source: str | None = None,
+        autonomy_mode: str | None = None,
     ):
         support = adult_support.AdultPiIntegrationTests(
             methodName="test_full_fake_route_creates_restart_safe_acceptance_custody"
@@ -40,7 +47,12 @@ class PiSceneAtomicAdultStoreTests(unittest.TestCase):
         self.addCleanup(support.tearDown)
         integration = support._integration()
         request = support._request(integration)
+        if exact_source is not None:
+            request = replace(request, exact_current_source=exact_source)
+        if autonomy_mode is not None:
+            request = replace(request, autonomy_mode=autonomy_mode)
         scene_wire = json.loads(adult_support._scene_wire())
+        scene_wire["exact_story_prose"] = protected_prose
         scene_wire["next_route"] = next_route.value
         scene_wire["next_route_reason"] = f"Continue with {next_route.value} logic."
         with (
@@ -56,18 +68,18 @@ class PiSceneAtomicAdultStoreTests(unittest.TestCase):
             ),
         ):
             execution = integration.execute(
-                request_id="request:atomic-adult",
-                candidate_id="candidate:atomic-adult",
+                request_id=f"request:{identity_suffix}",
+                candidate_id=f"candidate:{identity_suffix}",
                 world_id=support.context.world_id,
                 branch_id=support.context.branch_id,
-                accepted_head_sha256=None,
+                accepted_head_sha256=accepted_head_sha256,
                 scene_request=request,
             )
         envelope = execution.acceptance_envelope(
             accepted_turn_id=support.context.turn_id,
-            parent_accepted_turn_id=None,
+            parent_accepted_turn_id=parent_accepted_turn_id,
             scene_id=support.context.scene_id,
-            generation=1,
+            generation=generation,
         )
         return support, execution, envelope
 
@@ -401,6 +413,296 @@ class PiSceneAtomicAdultStoreTests(unittest.TestCase):
             ] = adult_support.PROTECTED_PROSE
             with self.assertRaisesRegex(ContractValidationError, "unknown fields"):
                 accepted_event_from_payload(tampered)
+
+    def test_adult_replacement_switches_one_immutable_sibling_atomically(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            first_prose = "The first protected adult alternative."
+            second_prose = "The independently regenerated adult alternative."
+            support, _, first_envelope = self._execution_and_envelope(
+                next_route=AdultNextRoute.ADULT,
+                identity_suffix="adult-replaced",
+                protected_prose=first_prose,
+            )
+            store = LeanSceneStore(root / "world")
+            first = store.promote_adult_acceptance_envelope(first_envelope)
+            first_receipt = store.load_accepted_turn_by_receipt_sha256(
+                world_id=support.context.world_id,
+                branch_id=support.context.branch_id,
+                receipt_sha256=first.receipt.accepted_head_after_sha256,
+            )
+            first_dir = store._accepted_turn_dir(first_receipt)
+            first_bytes = {
+                path.relative_to(first_dir).as_posix(): path.read_bytes()
+                for path in first_dir.rglob("*")
+                if path.is_file()
+            }
+            first_session = store.load_accepted_pi_session(
+                world_id=support.context.world_id,
+                branch_id=support.context.branch_id,
+            )
+            assert first_session is not None
+            base = store.regeneration_base(first_receipt)
+
+            _, _, second_envelope = self._execution_and_envelope(
+                next_route=AdultNextRoute.ORDINARY,
+                identity_suffix="adult-replacement",
+                protected_prose=second_prose,
+            )
+            second = store.promote_adult_replacement_envelope(
+                second_envelope,
+                base=base,
+            )
+            second_receipt = store.load_accepted_turn_by_receipt_sha256(
+                world_id=support.context.world_id,
+                branch_id=support.context.branch_id,
+                receipt_sha256=second.receipt.accepted_head_after_sha256,
+            )
+
+            self.assertEqual(second_receipt.generation, first_receipt.generation)
+            self.assertNotEqual(second_receipt.receipt_sha256, first_receipt.receipt_sha256)
+            self.assertEqual(
+                {
+                    path.relative_to(first_dir).as_posix(): path.read_bytes()
+                    for path in first_dir.rglob("*")
+                    if path.is_file()
+                },
+                first_bytes,
+            )
+            lineage = store.load_active_lineage(
+                world_id=support.context.world_id,
+                branch_id=support.context.branch_id,
+            )
+            self.assertEqual(lineage.switch_kind, "replacement")
+            self.assertEqual(lineage.selected_receipt_sha256, second_receipt.receipt_sha256)
+            self.assertEqual(lineage.previous_receipt_sha256, first_receipt.receipt_sha256)
+            self.assertEqual(
+                store.current_logic_route(
+                    world_id=support.context.world_id,
+                    branch_id=support.context.branch_id,
+                ).current_logic_route,
+                AdultNextRoute.ORDINARY,
+            )
+            current_session = store.load_accepted_pi_session(
+                world_id=support.context.world_id,
+                branch_id=support.context.branch_id,
+            )
+            assert current_session is not None
+            self.assertEqual(
+                current_session.accepted_receipt_sha256,
+                second_receipt.receipt_sha256,
+            )
+            self.assertNotEqual(
+                current_session.accepted_receipt_sha256,
+                first_session.accepted_receipt_sha256,
+            )
+            ordinary_wire = canonical_json(
+                store.recent_ordinary_context_payloads(
+                    world_id=support.context.world_id,
+                    branch_id=support.context.branch_id,
+                )
+            )
+            self.assertNotIn(first_prose, ordinary_wire)
+            self.assertNotIn(second_prose, ordinary_wire)
+            protected_wire = canonical_json(
+                store.recent_adult_context_payloads(
+                    world_id=support.context.world_id,
+                    branch_id=support.context.branch_id,
+                )
+            )
+            self.assertNotIn(first_prose, protected_wire)
+            self.assertIn(second_prose, protected_wire)
+            self.assertEqual(
+                store.promote_adult_replacement_envelope(
+                    second_envelope,
+                    base=base,
+                ),
+                second,
+            )
+            self.assertEqual(len(tuple((first_dir.parent).glob("*/ACCEPTED_RECEIPT.json"))), 2)
+
+    def test_adult_replacement_recovers_after_pre_selector_crash(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            support, _, first_envelope = self._execution_and_envelope(
+                identity_suffix="adult-crash-old"
+            )
+            store = LeanSceneStore(root / "world")
+            first = store.promote_adult_acceptance_envelope(first_envelope)
+            first_receipt = store.load_accepted_turn_by_receipt_sha256(
+                world_id=support.context.world_id,
+                branch_id=support.context.branch_id,
+                receipt_sha256=first.receipt.accepted_head_after_sha256,
+            )
+            base = store.regeneration_base(first_receipt)
+            _, _, replacement = self._execution_and_envelope(
+                identity_suffix="adult-crash-new",
+                protected_prose="A complete orphan waiting for the selector.",
+            )
+            select = store._select_receipt
+
+            def fail_selector(*_args, **_kwargs):
+                raise OSError("injected adult replacement selector failure")
+
+            store._select_receipt = fail_selector
+            with self.assertRaisesRegex(OSError, "replacement selector failure"):
+                store.promote_adult_replacement_envelope(replacement, base=base)
+            self.assertEqual(
+                LeanSceneStore(root / "world").load_head(
+                    world_id=support.context.world_id,
+                    branch_id=support.context.branch_id,
+                ).accepted_head_sha256,
+                first_receipt.receipt_sha256,
+            )
+
+            store._select_receipt = select
+            restarted = LeanSceneStore(root / "world")
+            promoted = restarted.promote_adult_replacement_envelope(
+                replacement,
+                base=base,
+            )
+            self.assertEqual(
+                restarted.load_head(
+                    world_id=support.context.world_id,
+                    branch_id=support.context.branch_id,
+                ).accepted_head_sha256,
+                promoted.receipt.accepted_head_after_sha256,
+            )
+            self.assertEqual(
+                restarted.promote_adult_replacement_envelope(
+                    replacement,
+                    base=base,
+                ),
+                promoted,
+            )
+            self.assertEqual(
+                len(
+                    tuple(
+                        (
+                            restarted._branch_root(
+                                support.context.world_id,
+                                support.context.branch_id,
+                            )
+                            / "accepted"
+                        ).glob("*/ACCEPTED_RECEIPT.json")
+                    )
+                ),
+                2,
+            )
+
+    def test_adult_replacement_rejects_source_and_settings_drift(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            support, _, original = self._execution_and_envelope(
+                identity_suffix="adult-custody-old"
+            )
+            store = LeanSceneStore(root / "world")
+            first = store.promote_adult_acceptance_envelope(original)
+            first_receipt = store.load_accepted_turn_by_receipt_sha256(
+                world_id=support.context.world_id,
+                branch_id=support.context.branch_id,
+                receipt_sha256=first.receipt.accepted_head_after_sha256,
+            )
+            base = store.regeneration_base(first_receipt)
+
+            _, _, changed_source = self._execution_and_envelope(
+                identity_suffix="adult-custody-source",
+                exact_source="A different user source must not enter Regenerate.",
+            )
+            with self.assertRaisesRegex(StateConflictError, "source custody"):
+                store.promote_adult_replacement_envelope(
+                    changed_source,
+                    base=base,
+                )
+
+            _, _, changed_settings = self._execution_and_envelope(
+                identity_suffix="adult-custody-settings",
+                autonomy_mode="mind",
+            )
+            with self.assertRaisesRegex(StateConflictError, "settings custody"):
+                store.promote_adult_replacement_envelope(
+                    changed_settings,
+                    base=base,
+                )
+
+    def test_fork_after_adult_replacement_copies_only_selected_sibling(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original_prose = "The adult sibling that becomes inactive."
+            selected_prose = "The adult sibling selected before the fork."
+            support, _, original = self._execution_and_envelope(
+                next_route=AdultNextRoute.ADULT,
+                identity_suffix="adult-fork-old",
+                protected_prose=original_prose,
+            )
+            runtime_root = root / "world"
+            manager = PiSceneWorldWorkspaceManager(
+                runtime_root,
+                workspace_support.GENESIS_ROOT,
+            )
+            manager.create_new_chat(
+                NewChatWorkspaceRequestV1(
+                    chat_id="chat:adult-replacement-parent",
+                    world_id=support.context.world_id,
+                    branch_id=support.context.branch_id,
+                    settings={"autonomy": "both"},
+                )
+            )
+            store = LeanSceneStore(runtime_root)
+            first = store.promote_adult_acceptance_envelope(original)
+            first_receipt = store.load_accepted_turn_by_receipt_sha256(
+                world_id=support.context.world_id,
+                branch_id=support.context.branch_id,
+                receipt_sha256=first.receipt.accepted_head_after_sha256,
+            )
+            _, _, replacement = self._execution_and_envelope(
+                next_route=AdultNextRoute.ORDINARY,
+                identity_suffix="adult-fork-selected",
+                protected_prose=selected_prose,
+            )
+            store.promote_adult_replacement_envelope(
+                replacement,
+                base=store.regeneration_base(first_receipt),
+            )
+
+            manager.fork_chat(
+                ForkChatWorkspaceRequestV1(
+                    parent_chat_id="chat:adult-replacement-parent",
+                    world_id=support.context.world_id,
+                    parent_branch_id=support.context.branch_id,
+                    child_chat_id="chat:adult-replacement-child",
+                    child_branch_id="branch:adult-replacement-child",
+                )
+            )
+            child = LeanSceneStore(runtime_root)
+            child_protected = canonical_json(
+                child.recent_adult_context_payloads(
+                    world_id=support.context.world_id,
+                    branch_id="branch:adult-replacement-child",
+                )
+            )
+            self.assertIn(selected_prose, child_protected)
+            self.assertNotIn(original_prose, child_protected)
+            child_ordinary = canonical_json(
+                child.recent_ordinary_context_payloads(
+                    world_id=support.context.world_id,
+                    branch_id="branch:adult-replacement-child",
+                )
+            )
+            self.assertNotIn(selected_prose, child_ordinary)
+            self.assertEqual(
+                child.current_logic_route(
+                    world_id=support.context.world_id,
+                    branch_id="branch:adult-replacement-child",
+                ).current_logic_route,
+                AdultNextRoute.ORDINARY,
+            )
+            self.assertIsNone(
+                child.load_accepted_pi_session(
+                    world_id=support.context.world_id,
+                    branch_id="branch:adult-replacement-child",
+                )
+            )
 
 
 if __name__ == "__main__":
