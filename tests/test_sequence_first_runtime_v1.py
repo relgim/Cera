@@ -2044,6 +2044,15 @@ class SequenceFirstSessionTests(unittest.TestCase):
                 item_schema[name]["items"]["pattern"], LOCAL_KEY_JSON_PATTERN
             )
         self.assertEqual(item_schema["planner_item_keys"]["maxItems"], 0)
+        self.assertIn("owner_response_semantics", item_schema)
+        self.assertIn(
+            "owner_response_semantics",
+            sequence_schema["properties"]["items"]["items"]["required"],
+        )
+        self.assertEqual(
+            item_schema["owner_response_semantics"],
+            {"anyOf": [{"type": "string"}, {"type": "null"}]},
+        )
         projected = project_provider_output_schema(
             sequence_schema,
             ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
@@ -2051,6 +2060,12 @@ class SequenceFirstSessionTests(unittest.TestCase):
         projected_planner_keys = projected["properties"]["items"]["items"][
             "properties"
         ]["planner_item_keys"]
+        projected_items = projected["properties"]["items"]["items"]
+        self.assertIn("owner_response_semantics", projected_items["required"])
+        self.assertIn(
+            "owner_response_semantics",
+            projected_items["properties"],
+        )
         self.assertEqual(projected_planner_keys["maxItems"], 0)
         self.assertEqual(
             durable_schema["change_key"]["pattern"], LOCAL_KEY_JSON_PATTERN
