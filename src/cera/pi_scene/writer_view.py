@@ -224,7 +224,7 @@ class WriterViewMaterializer:
         _write_json(
             root / "zz_CURRENT_TURN_AUTHORITY.json",
             {
-                "schema_version": "cera.pi_scene.writer_authority_order.v8",
+                "schema_version": "cera.pi_scene.writer_authority_order.v9",
                 "current_route": source.route.value,
                 "current_purpose": source.purpose,
                 "current_source_path": "USER_PROMPT.txt",
@@ -258,7 +258,9 @@ class WriterViewMaterializer:
                         "opening_location": "writer_selected",
                         "presentation_chronology": "writer_selected_within_causal_authority",
                         "interiority": "explicit_or_implicit_writer_choice",
-                        "resulting_state_usage": "postcondition_not_prose_checklist",
+                        "resulting_state_usage": (
+                            "exact_scene_constraint_not_prose_checklist"
+                        ),
                         "transient_detail_test": (
                             "Deleting an invented detail must change neither causality, "
                             "identity, accepted knowledge, nor any fact a later turn "

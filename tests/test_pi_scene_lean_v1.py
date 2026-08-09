@@ -561,6 +561,14 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("may share one utterance", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("guides_surface_item_key", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("one deletion test", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn(
+            "postconditions is an exact constraint on the entire scene",
+            ORDINARY_WRITER_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "setup, staging, narration, action, and ending must not contradict",
+            ORDINARY_WRITER_SYSTEM_PROMPT,
+        )
         self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn("consent_and_capacity", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn("You own presentation chronology", ADULT_WRITER_SYSTEM_PROMPT)
@@ -622,7 +630,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 authority_order["schema_version"],
-                "cera.pi_scene.writer_authority_order.v8",
+                "cera.pi_scene.writer_authority_order.v9",
             )
             self.assertEqual(authority_order["current_route"], "ordinary")
             self.assertEqual(
@@ -660,6 +668,10 @@ class PiSceneLeanTests(unittest.TestCase):
                     "an established current-floor relation unless the current "
                     "primary authority explicitly changes it."
                 ),
+            )
+            self.assertEqual(
+                authority_order["presentation_contract"]["resulting_state_usage"],
+                "exact_scene_constraint_not_prose_checklist",
             )
             self.assertEqual(
                 authority_order["presentation_contract"][
