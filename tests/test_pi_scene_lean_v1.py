@@ -536,12 +536,13 @@ class PiSceneLeanTests(unittest.TestCase):
             ["possible_invented_ted_dialogue"],
         )
 
-    def test_writer_prompts_do_not_restate_protected_user_contributions(self) -> None:
+    def test_writer_prompts_preserve_autonomy_and_presentation_contract(self) -> None:
         for prompt in (ORDINARY_WRITER_SYSTEM_PROMPT, ADULT_WRITER_SYSTEM_PROMPT):
             self.assertIn("tool named context directly exactly once", prompt)
             self.assertIn("do not call a tool named invoke", prompt)
             self.assertIn("zz_CURRENT_TURN_AUTHORITY.json", prompt)
             self.assertIn("Do not invent Ted dialogue", prompt)
+            self.assertIn("presentation_contract.source_usage", prompt)
             self.assertIn("fact_scope", prompt)
             self.assertIn("Return complete visible prose only", prompt)
             self.assertNotIn("opening sentence", prompt.lower())
@@ -621,7 +622,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 authority_order["schema_version"],
-                "cera.pi_scene.writer_authority_order.v7",
+                "cera.pi_scene.writer_authority_order.v8",
             )
             self.assertEqual(authority_order["current_route"], "ordinary")
             self.assertEqual(
@@ -650,6 +651,15 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(
                 authority_order["presentation_contract"]["opening_location"],
                 "writer_selected",
+            )
+            self.assertEqual(
+                authority_order["presentation_contract"]["source_usage"],
+                (
+                    "Adjudicated story material may be reordered, revisited, "
+                    "framed, or dramatized, but presentation must not mutate "
+                    "an established current-floor relation unless the current "
+                    "primary authority explicitly changes it."
+                ),
             )
             self.assertEqual(
                 authority_order["presentation_contract"][
@@ -744,6 +754,122 @@ class PiSceneLeanTests(unittest.TestCase):
                 "response projection custody hash changed",
             ):
                 verify_writer_view(view.root)
+
+    def test_writer_contract_preserves_established_relations_without_blocking_npc_interruption(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            authority = sequence("ted_offers_envelope")
+            authority["items"] = [
+                {
+                    "item_key": "ted_offers_envelope",
+                    "owner_id": "character:ted",
+                    "kind": "action",
+                    "concise_meaning": (
+                        "Ted holds a sealed envelope in his hand and offers it to Hana."
+                    ),
+                    "owner_response_semantics": None,
+                    "protected_user_claim_keys": ["current_request"],
+                    "protected_user_exact_quotes": [
+                        "I keep the sealed envelope in my hand and offer it to Hana."
+                    ],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "hana_declines_transfer",
+                    "owner_id": "character:hana",
+                    "kind": "action",
+                    "concise_meaning": (
+                        "Hana leaves the envelope with Ted and asks to verify its label "
+                        "before accepting it."
+                    ),
+                    "owner_response_semantics": (
+                        "Hana does not take the envelope and asks Ted to keep holding it "
+                        "while she verifies the label."
+                    ),
+                    "causal_parent_item_key": "ted_offers_envelope",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "return_floor",
+                    "owner_id": None,
+                    "kind": "stopping_boundary",
+                    "concise_meaning": "Return the floor to Ted.",
+                    "owner_response_semantics": None,
+                    "causal_parent_item_key": "hana_declines_transfer",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+            ]
+            authority["resulting_public_state"] = (
+                "Ted still holds the sealed envelope; Hana has not accepted it."
+            )
+            authority["unresolved_threads"] = [
+                "Whether Ted waits for Hana to verify the label."
+            ]
+            authority["stopping_boundary"] = (
+                "Stop after Hana asks Ted to keep holding the envelope."
+            )
+            view = WriterViewMaterializer(root / "views").materialize(
+                WriterViewInputV1(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                    scene_id="scene-entryway",
+                    turn_id="turn-0001",
+                    candidate_id="candidate-relation-contract",
+                    route=SceneRoute.ORDINARY,
+                    user_prompt=(
+                        "I keep the sealed envelope in my hand and offer it to Hana."
+                    ),
+                    primary_authority=authority,
+                    current_state={"public_scene_state": "Ted and Hana are present."},
+                    characters={"hana": {"name": "Hana", "age": 38}},
+                    relationships={},
+                    recent_prose=(),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={"approved_material": ["atmosphere", "interiority"]},
+                    accepted_records=(),
+                )
+            )
+            response = json.loads(
+                (view.root / "RESPONSE_SEQUENCE.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                [item["item_key"] for item in response["surface_realization_items"]],
+                ["hana_declines_transfer"],
+            )
+            self.assertNotIn(
+                "ted_offers_envelope",
+                canonical_json(response),
+            )
+            self.assertEqual(
+                response["postconditions"]["resulting_public_state_must_be_true"],
+                "Ted still holds the sealed envelope; Hana has not accepted it.",
+            )
+            control = json.loads(
+                (view.root / "zz_CURRENT_TURN_AUTHORITY.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertIn(
+                "must not mutate an established current-floor relation",
+                control["presentation_contract"]["source_usage"],
+            )
+            self.assertEqual(
+                control["presentation_contract"]["opening_location"],
+                "writer_selected",
+            )
+            self.assertEqual(
+                control["presentation_contract"]["interiority"],
+                "explicit_or_implicit_writer_choice",
+            )
+            self.assertIn(
+                "Anything future-relevant requires accepted authority",
+                control["fact_scope"]["creative_detail_rule"],
+            )
 
     def test_writer_view_separates_supplied_source_items_from_response_scope(self) -> None:
         with TemporaryDirectory() as temporary:
