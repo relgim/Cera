@@ -562,11 +562,15 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("guides_surface_item_key", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("one deletion test", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn(
-            "postconditions is an exact constraint on the entire scene",
+            "Accepted relations in CURRENT_STATE.json remain true until",
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
         self.assertIn(
-            "setup, staging, narration, action, and ending must not contradict",
+            "not an invariant against authorized intermediate transitions",
+            ORDINARY_WRITER_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "cannot create an unplanned relation change",
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
         self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
@@ -630,7 +634,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 authority_order["schema_version"],
-                "cera.pi_scene.writer_authority_order.v9",
+                "cera.pi_scene.writer_authority_order.v10",
             )
             self.assertEqual(authority_order["current_route"], "ordinary")
             self.assertEqual(
@@ -671,7 +675,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 authority_order["presentation_contract"]["resulting_state_usage"],
-                "exact_scene_constraint_not_prose_checklist",
+                "exact_at_end_with_only_planned_intermediate_transitions",
             )
             self.assertEqual(
                 authority_order["presentation_contract"][
@@ -882,6 +886,150 @@ class PiSceneLeanTests(unittest.TestCase):
                 "Anything future-relevant requires accepted authority",
                 control["fact_scope"]["creative_detail_rule"],
             )
+
+    def test_writer_projection_keeps_generic_relations_until_planned_transitions(self) -> None:
+        relation_kinds = ("possession", "actor_speaker", "location", "presence")
+        transition_cases = {
+            "unchanged": ((), "alpha"),
+            "changed": (("alpha_to_beta",), "beta"),
+            "changed_then_restored": (("alpha_to_beta", "beta_to_alpha"), "alpha"),
+        }
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for relation_kind in relation_kinds:
+                for case_name, (transitions, ending) in transition_cases.items():
+                    with self.subTest(relation_kind=relation_kind, case=case_name):
+                        source_key = f"source_{relation_kind}_{case_name}"
+                        items = [
+                            {
+                                "item_key": source_key,
+                                "owner_id": "character:ted",
+                                "kind": "action",
+                                "concise_meaning": (
+                                    f"Establish the {relation_kind} relation as alpha."
+                                ),
+                                "owner_response_semantics": None,
+                                "protected_user_claim_keys": ["current_request"],
+                                "protected_user_exact_quotes": ["relation alpha"],
+                                "durable_change_keys": [],
+                            }
+                        ]
+                        parent = source_key
+                        transition_keys = []
+                        for transition in transitions:
+                            item_key = f"{relation_kind}_{transition}"
+                            items.append(
+                                {
+                                    "item_key": item_key,
+                                    "owner_id": "character:hana",
+                                    "kind": "action",
+                                    "concise_meaning": (
+                                        f"Apply the planned {relation_kind} transition "
+                                        f"{transition}."
+                                    ),
+                                    "owner_response_semantics": (
+                                        f"The planned {relation_kind} relation changes "
+                                        f"through {transition}."
+                                    ),
+                                    "causal_parent_item_key": parent,
+                                    "protected_user_claim_keys": [],
+                                    "protected_user_exact_quotes": [],
+                                    "durable_change_keys": [],
+                                }
+                            )
+                            transition_keys.append(item_key)
+                            parent = item_key
+                        answer_key = f"answer_{relation_kind}_{case_name}"
+                        items.extend(
+                            [
+                                {
+                                    "item_key": answer_key,
+                                    "owner_id": "character:hana",
+                                    "kind": "dialogue_intent",
+                                    "concise_meaning": "Hana gives the requested answer.",
+                                    "owner_response_semantics": (
+                                        "Hana answers while respecting the adjudicated relation."
+                                    ),
+                                    "causal_parent_item_key": parent,
+                                    "protected_user_claim_keys": [],
+                                    "protected_user_exact_quotes": [],
+                                    "durable_change_keys": [],
+                                },
+                                {
+                                    "item_key": f"stop_{relation_kind}_{case_name}",
+                                    "owner_id": None,
+                                    "kind": "stopping_boundary",
+                                    "concise_meaning": "Return the floor to Ted.",
+                                    "owner_response_semantics": None,
+                                    "causal_parent_item_key": answer_key,
+                                    "protected_user_claim_keys": [],
+                                    "protected_user_exact_quotes": [],
+                                    "durable_change_keys": [],
+                                },
+                            ]
+                        )
+                        ending_state = f"{relation_kind} relation is {ending}."
+                        authority = {
+                            "items": items,
+                            "durable_changes": [],
+                            "presence_changes": [],
+                            "resulting_public_state": ending_state,
+                            "unresolved_threads": ["Ted may respond."],
+                            "stopping_boundary": "Stop before Ted's next choice.",
+                        }
+                        view = WriterViewMaterializer(
+                            root / relation_kind / case_name
+                        ).materialize(
+                            WriterViewInputV1(
+                                world_id="world-test",
+                                branch_id="branch-main",
+                                scene_id="scene-generic",
+                                turn_id=f"turn-{relation_kind}-{case_name}",
+                                candidate_id=f"candidate-{relation_kind}-{case_name}",
+                                route=SceneRoute.ORDINARY,
+                                user_prompt="Preserve relation alpha and continue.",
+                                primary_authority=authority,
+                                current_state={
+                                    "public_scene_state": (
+                                        f"{relation_kind} relation is alpha."
+                                    )
+                                },
+                                characters={"hana": {"name": "Hana", "age": 38}},
+                                relationships={},
+                                recent_prose=(),
+                                relevant_memories={},
+                                voice_examples={},
+                                craft_index={"approved_material": ["atmosphere"]},
+                                accepted_records=(),
+                            )
+                        )
+                        response = json.loads(
+                            (view.root / "RESPONSE_SEQUENCE.json").read_text(
+                                encoding="utf-8"
+                            )
+                        )
+                        self.assertEqual(
+                            [
+                                item["item_key"]
+                                for item in response["surface_realization_items"]
+                            ],
+                            [*transition_keys, answer_key],
+                        )
+                        self.assertEqual(
+                            response["postconditions"][
+                                "resulting_public_state_must_be_true"
+                            ],
+                            ending_state,
+                        )
+                        control = json.loads(
+                            (view.root / "zz_CURRENT_TURN_AUTHORITY.json").read_text(
+                                encoding="utf-8"
+                            )
+                        )
+                        self.assertEqual(
+                            control["presentation_contract"]["resulting_state_usage"],
+                            "exact_at_end_with_only_planned_intermediate_transitions",
+                        )
 
     def test_writer_view_separates_supplied_source_items_from_response_scope(self) -> None:
         with TemporaryDirectory() as temporary:
