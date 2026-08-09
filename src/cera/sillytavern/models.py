@@ -138,6 +138,9 @@ class SillyTavernChatRequest:
         raw_messages = value.get("messages")
         if not isinstance(raw_messages, list):
             raise ContractValidationError("chat completion messages must be an array")
+        stream = value.get("stream", False)
+        if type(stream) is not bool:
+            raise ContractValidationError("stream must be boolean")
         messages = []
         for item in raw_messages:
             if not isinstance(item, Mapping):
@@ -160,7 +163,7 @@ class SillyTavernChatRequest:
         return cls(
             model=str(value.get("model", "")),
             messages=tuple(messages),
-            stream=bool(value.get("stream", False)),
+            stream=stream,
             cera_session_id=_optional_control(value, "cera_session_id"),
             cera_profile_id=_optional_control(value, "cera_profile_id"),
             cera_scene_depth=_optional_control(

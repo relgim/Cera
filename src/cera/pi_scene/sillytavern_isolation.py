@@ -14,6 +14,7 @@ from cera.serialization import bytes_sha256, canonical_bytes, canonical_sha256
 _EXCLUDED_DIRECTORIES = frozenset(
     {".git", ".gemini", ".github", ".vscode", "backups", "colab", "data", "plugins", "tests"}
 )
+_MANIFEST_NAME = "CERA_ISOLATED_COPY_MANIFEST.json"
 
 
 def stage_isolated_sillytavern(source_root: Path, target_root: Path) -> dict[str, Any]:
@@ -43,20 +44,18 @@ def stage_isolated_sillytavern(source_root: Path, target_root: Path) -> dict[str
     shutil.copy2(source / "default" / "config.yaml", target / "config.yaml")
     (target / "data").mkdir()
     (target / "plugins").mkdir()
-    copied_files = sorted(
-        path.relative_to(target).as_posix()
-        for path in target.rglob("*")
-        if path.is_file()
-    )
+    copied_entries = _isolated_tree_entries(target)
+    copied_files = [entry["path"] for entry in copied_entries]
     if any(value.startswith(("data/", "plugins/", "backups/", ".git/")) for value in copied_files):
         raise StateConflictError("isolated SillyTavern copy contains excluded user material")
     manifest = {
-        "schema_version": "cera.pi_scene.isolated_sillytavern_copy.v1",
+        "schema_version": "cera.pi_scene.isolated_sillytavern_copy.v2",
         "source_package_json_sha256": bytes_sha256((source / "package.json").read_bytes()),
         "source_package_lock_sha256": bytes_sha256((source / "package-lock.json").read_bytes()),
         "source_server_sha256": bytes_sha256((source / "server.js").read_bytes()),
         "default_config_sha256": bytes_sha256((source / "default" / "config.yaml").read_bytes()),
         "copied_file_count": len(copied_files),
+        "copied_tree_sha256": canonical_sha256(copied_entries),
         "excluded_directories": sorted(_EXCLUDED_DIRECTORIES),
         "user_data_copied": False,
         "plugins_copied": False,
@@ -64,7 +63,7 @@ def stage_isolated_sillytavern(source_root: Path, target_root: Path) -> dict[str
         "loopback_launch_required": True,
     }
     manifest["manifest_sha256"] = canonical_sha256(manifest)
-    (target / "CERA_ISOLATED_COPY_MANIFEST.json").write_bytes(
+    (target / _MANIFEST_NAME).write_bytes(
         canonical_bytes(manifest) + b"\n"
     )
     return manifest
@@ -72,16 +71,18 @@ def stage_isolated_sillytavern(source_root: Path, target_root: Path) -> dict[str
 
 def verify_isolated_sillytavern(target_root: Path) -> dict[str, Any]:
     target = target_root.resolve()
-    manifest_path = target / "CERA_ISOLATED_COPY_MANIFEST.json"
+    manifest_path = target / _MANIFEST_NAME
     if not manifest_path.is_file():
         raise StateConflictError("isolated SillyTavern manifest is missing")
     value = json.loads(manifest_path.read_text(encoding="utf-8"))
     if not isinstance(value, dict):
         raise StateConflictError("isolated SillyTavern manifest is invalid")
-    expected = value.pop("manifest_sha256", None)
-    if expected != canonical_sha256(value):
+    if value.get("schema_version") != "cera.pi_scene.isolated_sillytavern_copy.v2":
+        raise StateConflictError("isolated SillyTavern manifest version is unsupported")
+    expected = value.get("manifest_sha256")
+    unsigned = {key: item for key, item in value.items() if key != "manifest_sha256"}
+    if expected != canonical_sha256(unsigned):
         raise StateConflictError("isolated SillyTavern manifest binding changed")
-    value["manifest_sha256"] = expected
     if value.get("user_data_copied") is not False or value.get("plugins_copied") is not False:
         raise StateConflictError("isolated SillyTavern copy claims protected material")
     for required in ("server.js", "package.json", "node_modules", "public", "src", "data"):
@@ -89,7 +90,47 @@ def verify_isolated_sillytavern(target_root: Path) -> dict[str, Any]:
             raise StateConflictError(f"isolated SillyTavern copy lacks {required}")
     if not (target / "data").is_dir():
         raise StateConflictError("isolated SillyTavern data root is invalid")
+    for protected in ("data", "plugins"):
+        if any((target / protected).iterdir()):
+            raise StateConflictError(
+                f"isolated SillyTavern {protected} root contains protected material"
+            )
+    entries = _isolated_tree_entries(target)
+    if len(entries) != value.get("copied_file_count"):
+        raise StateConflictError("isolated SillyTavern copied-file count changed")
+    if canonical_sha256(entries) != value.get("copied_tree_sha256"):
+        raise StateConflictError("isolated SillyTavern executable tree changed")
+    exact_files = {
+        "server.js": "source_server_sha256",
+        "package.json": "source_package_json_sha256",
+        "package-lock.json": "source_package_lock_sha256",
+        "config.yaml": "default_config_sha256",
+    }
+    entry_hashes = {entry["path"]: entry["sha256"] for entry in entries}
+    for relative, manifest_field in exact_files.items():
+        if entry_hashes.get(relative) != value.get(manifest_field):
+            raise StateConflictError(
+                f"isolated SillyTavern {relative} binding changed"
+            )
     return value
+
+
+def _isolated_tree_entries(root: Path) -> list[dict[str, Any]]:
+    entries: list[dict[str, Any]] = []
+    for path in sorted(root.rglob("*"), key=lambda item: item.as_posix().casefold()):
+        if path.is_symlink():
+            raise StateConflictError("isolated SillyTavern tree contains a symlink")
+        if not path.is_file() or path.name == _MANIFEST_NAME:
+            continue
+        data = path.read_bytes()
+        entries.append(
+            {
+                "path": path.relative_to(root).as_posix(),
+                "bytes": len(data),
+                "sha256": bytes_sha256(data),
+            }
+        )
+    return entries
 
 
 def isolated_sillytavern_command(
