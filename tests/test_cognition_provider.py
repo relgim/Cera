@@ -15,6 +15,9 @@ from cera.cognition.prompting import (
     COGNITION_PLANNER_PROFILE,
 )
 from cera.cognition.provider_schema import cognition_plan_json_schema
+from cera.pi_scene.cognition_planner import RetainedCognitionPlannerAdapter
+from cera.pi_scene.http_contracts import LeanSceneRequestControlsV1
+from cera.pi_scene.runtime import PlannerTurnInputV1
 from cera.sequence_first.contracts import ProviderReferenceScopeV1
 
 from .test_cognition_contracts import _plan, _turn
@@ -96,6 +99,46 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertTrue(all("[CURRENT COGNITION TURN]" in call[1] for call in backend.calls))
         self.assertTrue(
             all(COGNITION_PLANNER_BASE_INSTRUCTIONS not in call[1] for call in backend.calls)
+        )
+
+    def test_pi_adapter_propagates_global_autonomy_into_cognition(self) -> None:
+        backend = _FakeBackend(_plan())
+        session = PersistentCognitionPlannerSession(backend)
+        adapter = RetainedCognitionPlannerAdapter(session)
+        result = adapter.plan(
+            PlannerTurnInputV1(
+                world_id="world:test",
+                branch_id="branch:main",
+                scene_id="scene:door",
+                exact_user_source="Ted asks Sakura to open the door.",
+                current_state={
+                    "accepted_present_character_ids": [
+                        "character:ted",
+                        "character:sakura_hanezawa",
+                    ],
+                    "explicitly_authorized_remote_character_ids": [],
+                    "public_scene_state": "Ted and Sakura are inside by the closed door.",
+                    "unresolved_threads": [],
+                    "hard_boundaries": [],
+                    "approved_targets": [],
+                    "durable_changes": [],
+                    "provisional_canon_lineage": [],
+                },
+                characters={"character:sakura_hanezawa": {"name": "Sakura"}},
+                relationships={},
+                relevant_memories={},
+                accepted_records=(),
+                request_controls=LeanSceneRequestControlsV1(
+                    schema_version=LeanSceneRequestControlsV1.SCHEMA_VERSION,
+                    session_id="test-session",
+                    character_autonomy="both",
+                ),
+            )
+        )
+        self.assertEqual(result.sequence, result.decision_bundle["sequence"])
+        self.assertEqual(
+            adapter.last_context.autonomy_mode,
+            CharacterAutonomyMode.BOTH,
         )
 
 

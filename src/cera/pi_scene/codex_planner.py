@@ -9,27 +9,28 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Mapping, Protocol
+from collections.abc import Mapping
+from typing import Any, Protocol
 
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.errors import ContractValidationError
 from cera.schema import from_mapping
-from cera.serialization import canonical_json, text_sha256, to_primitive
 from cera.sequence_first.contracts import (
     ApprovedTargetV1,
     CharacterDeltaV1,
     EvidenceRecordV1,
+    ItemKind,
     ProtectedSourceClaimV1,
     SequenceDraftV1,
-    SequenceItemV1,
     SequenceFirstTurnSemanticInputV1,
+    SequenceItemV1,
     Visibility,
-    ItemKind,
 )
+from cera.serialization import canonical_json, text_sha256, to_primitive
 
 from .branch_state import DurableBranchChangeV1
-from .runtime import PlannerTurnInputV1, PlannerTurnOutputV1
 from .readable_debug import ReadablePiSceneDebugLog
+from .runtime import PlannerTurnInputV1, PlannerTurnOutputV1
 
 
 class SequencePlannerSessionPort(Protocol):
@@ -65,7 +66,7 @@ class RetainedCodexPlannerAdapter:
                     )
                 )
             )
-        semantic_input = _semantic_input(request)
+        semantic_input = build_sequence_semantic_input(request)
         sequence = self.session.plan(semantic_input)
         semantic_input.validate_intended(sequence)
         _validate_owner_response_semantics(sequence)
@@ -89,9 +90,7 @@ class RetainedCodexPlannerAdapter:
 def _validate_owner_response_semantics(sequence: SequenceDraftV1) -> None:
     surface_response_count = 0
     for item in sequence.items:
-        supplied = bool(
-            item.protected_user_claim_keys or item.protected_user_exact_quotes
-        )
+        supplied = bool(item.protected_user_claim_keys or item.protected_user_exact_quotes)
         if supplied or item.kind is ItemKind.STOPPING_BOUNDARY:
             if item.owner_response_semantics is not None:
                 raise ContractValidationError(
@@ -101,9 +100,7 @@ def _validate_owner_response_semantics(sequence: SequenceDraftV1) -> None:
         if not isinstance(item.owner_response_semantics, str) or not (
             item.owner_response_semantics.strip()
         ):
-            raise ContractValidationError(
-                "response item requires owner-response semantics"
-            )
+            raise ContractValidationError("response item requires owner-response semantics")
         if item.kind in SequenceItemV1.SURFACE_REALIZATION_KINDS:
             surface_response_count += 1
     if surface_response_count == 0:
@@ -112,7 +109,9 @@ def _validate_owner_response_semantics(sequence: SequenceDraftV1) -> None:
         )
 
 
-def _semantic_input(request: PlannerTurnInputV1) -> SequenceFirstTurnSemanticInputV1:
+def build_sequence_semantic_input(
+    request: PlannerTurnInputV1,
+) -> SequenceFirstTurnSemanticInputV1:
     present = _character_ids(
         request.current_state.get("accepted_present_character_ids"),
         field_name="accepted_present_character_ids",
@@ -195,9 +194,7 @@ def _semantic_input(request: PlannerTurnInputV1) -> SequenceFirstTurnSemanticInp
         approved_targets=approved_targets,
         unresolved_threads=unresolved,
         hard_boundaries=hard_boundaries,
-        scene_reinitialization=bool(
-            request.current_state.get("scene_reinitialization", False)
-        ),
+        scene_reinitialization=bool(request.current_state.get("scene_reinitialization", False)),
     )
     return semantics
 
@@ -295,9 +292,7 @@ def _accepted_text_hash(
         if stored_hash is not None and stored_hash != actual_hash:
             raise ContractValidationError(f"accepted {label} hash changed")
         return actual_hash
-    if not isinstance(stored_hash, str) or not re.fullmatch(
-        r"[0-9a-f]{64}", stored_hash
-    ):
+    if not isinstance(stored_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", stored_hash):
         raise ContractValidationError(f"accepted {label} custody hash is invalid")
     return stored_hash
 
@@ -368,10 +363,7 @@ def _character_ids(value: object, *, field_name: str) -> tuple[str, ...]:
     if isinstance(value, (str, bytes)) or not isinstance(value, (list, tuple)):
         raise ContractValidationError(f"{field_name} must be an ordered list")
     result = tuple(value)
-    if any(
-        not isinstance(item, str) or not item.startswith("character:")
-        for item in result
-    ):
+    if any(not isinstance(item, str) or not item.startswith("character:") for item in result):
         raise ContractValidationError(f"{field_name} contains an invalid character")
     if len(result) != len(set(result)):
         raise ContractValidationError(f"{field_name} contains duplicates")
