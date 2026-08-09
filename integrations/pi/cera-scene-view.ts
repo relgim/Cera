@@ -12,6 +12,8 @@ import { lstat, readFile, readdir, realpath } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { Type } from "typebox";
 
+import { writerContextPlan } from "./cera-scene-context.ts";
+
 const MAX_READ_BYTES = 64 * 1024;
 const MAX_CONTEXT_BYTES = 64 * 1024;
 const MAX_RESULTS = 80;
@@ -94,15 +96,15 @@ async function allFiles(root: string): Promise<string[]> {
 }
 
 async function writerContextPacket(root: string): Promise<{ text: string; files: number }> {
-	const responsePath = "RESPONSE_SEQUENCE.json";
 	const controlPath = "zz_CURRENT_TURN_AUTHORITY.json";
 	const sourcePath = "USER_PROMPT.txt";
-	const semanticPaths = (await allFiles(root)).filter(
-		(path) =>
-			!["MANIFEST.json", responsePath, controlPath, sourcePath].includes(
-				path,
-			),
-	);
+	const availablePaths = await allFiles(root);
+	const controlTarget = (await confinedPath(controlPath)).target;
+	const controlData = await readFile(controlTarget);
+	if (controlData.byteLength > MAX_READ_BYTES) {
+		throw new Error("context file exceeds the read bound");
+	}
+	const plan = writerContextPlan(controlData.toString("utf8"), availablePaths);
 	const sections: string[] = [];
 	const add = async (label: string, path: string) => {
 		const target = (await confinedPath(path)).target;
@@ -115,18 +117,18 @@ async function writerContextPacket(root: string): Promise<{ text: string; files:
 		"USER-SUPPLIED STORY MATERIAL | USER_PROMPT.txt | PLANNER ADJUDICATES COMPLETION, ATTEMPT, INTERRUPTION, AND PENDING DIRECTION",
 		sourcePath,
 	);
-	for (const path of semanticPaths) {
+	for (const path of plan.semanticPaths) {
 		await add(`SUPPORTING ACCEPTED CONTEXT | ${path}`, path);
 	}
 	await add(
-		"PLANNER-ADJUDICATED REALIZATION AUTHORITY | RESPONSE_SEQUENCE.json | PRESENT WITH NARRATIVE FREEDOM",
-		responsePath,
+		`LOGIC-OWNER REALIZATION AUTHORITY | ${plan.authorityPath} | PRESENT WITH NARRATIVE FREEDOM`,
+		plan.authorityPath,
 	);
 	const text = sections.join("\n\n");
 	if (Buffer.byteLength(text, "utf8") > MAX_CONTEXT_BYTES) {
 		throw new Error("Writer view exceeds the context bound");
 	}
-	return { text, files: semanticPaths.length + 3 };
+	return { text, files: plan.semanticPaths.length + 3 };
 }
 
 const toolGuidelines = [
