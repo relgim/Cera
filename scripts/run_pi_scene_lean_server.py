@@ -479,6 +479,7 @@ def build_live_runtime(
             store=store,
             adult_orchestrator_factory=adult_runtime.orchestrator,
             adult_context_provider=adult_runtime.execution_context,
+            adult_regeneration_executor=adult_runtime.regeneration_executor,
             adult_operation_controller_factory=lambda: ProtectedAdultOperationController(
                 ProtectedAdultOperationStore(
                     runtime_root / "protected_adult"
@@ -515,6 +516,20 @@ def _seed_live_runtime_state(runtime_root: Path, seed_runtime_root: Path) -> Non
         if any(path.is_symlink() for path in source.rglob("*")):
             raise StateConflictError(f"live seed {name} contains a symlink")
         shutil.copytree(source, target)
+    protected_adult_source = source_root / "protected_adult"
+    if protected_adult_source.exists():
+        protected_adult_target = target_root / "protected_adult"
+        if (
+            protected_adult_source.is_symlink()
+            or not protected_adult_source.is_dir()
+            or protected_adult_target.exists()
+        ):
+            raise StateConflictError(
+                "live seed protected_adult is unavailable or occupied"
+            )
+        if any(path.is_symlink() for path in protected_adult_source.rglob("*")):
+            raise StateConflictError("live seed protected_adult contains a symlink")
+        shutil.copytree(protected_adult_source, protected_adult_target)
     planner_source = source_root / "planner_threads"
     if planner_source.exists():
         planner_target = target_root / "planner_threads"

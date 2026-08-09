@@ -67,9 +67,10 @@ _REVIEW_BINDING_DOMAIN = "cera.pi_scene.adult_review_binding.v1"
 _ACCEPTED_REGENERATE_DOMAIN = "cera.pi_scene.accepted_adult_regenerate.v1"
 _ACCEPT_DECISION_DOMAIN = "cera.pi_scene.full_model_adult_accept_decision.v1"
 _REVIEW_ID = re.compile(r"adult-review:([a-f0-9]{64})\Z")
+_PUBLIC_REVIEW_ID = re.compile(r"review-([a-f0-9]{28})\Z")
 
 type ProtectedAdultExecutor = Callable[
-    [PreparedAdultRouteOperationV1], AdultRouteOperationOutcomeV1
+    [PreparedAdultRouteOperationV1, LeanSceneTurnInputV1], AdultRouteOperationOutcomeV1
 ]
 
 
@@ -122,10 +123,11 @@ class ProtectedAdultTurnCapsuleV1:
 class AdultReviewBindingV1:
     """Privacy-safe lookup binding for one identity-bound rejected review."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.pi_scene.adult_review_binding.v1"
+    SCHEMA_VERSION: ClassVar[str] = "cera.pi_scene.adult_review_binding.v2"
 
     schema_version: str
     review_id: str
+    public_review_id: str
     review_sha256: str
     request_id: str
     candidate_id: str
@@ -144,6 +146,8 @@ class AdultReviewBindingV1:
         match = _REVIEW_ID.fullmatch(self.review_id)
         if match is None or match.group(1) != self.review_sha256:
             raise ContractValidationError("adult review binding identity changed")
+        if self.public_review_id != _public_review_id(self.review_sha256):
+            raise ContractValidationError("adult public review identity changed")
         for value, label in (
             (self.review_sha256, "adult review binding review"),
             (self.operation_sha256, "adult review binding operation"),
@@ -188,6 +192,7 @@ class AdultReviewBindingV1:
             {
                 "schema_version": cls.SCHEMA_VERSION,
                 "review_id": review.review_id,
+                "public_review_id": _public_review_id(review.review_sha256),
                 "review_sha256": review.review_sha256,
                 "request_id": review.operation.request_id,
                 "candidate_id": review.operation.candidate_id,
@@ -203,6 +208,7 @@ class AdultReviewBindingV1:
         return cls(
             schema_version=cls.SCHEMA_VERSION,
             review_id=review.review_id,
+            public_review_id=_public_review_id(review.review_sha256),
             review_sha256=review.review_sha256,
             request_id=review.operation.request_id,
             candidate_id=review.operation.candidate_id,
@@ -337,6 +343,35 @@ class AdultRejectedReviewActionV1:
 
 
 @dataclass(frozen=True, slots=True)
+class AdultBoundRejectedReviewV1:
+    """Protected controller view bound to one public creator-review identity."""
+
+    outcome: RejectedAdultRouteOperationV1
+    review: AdultRejectedReviewSafeSummaryV1
+    public_review_id: str
+    planner_provider_operations: int
+    regenerate_available: bool
+
+    def __post_init__(self) -> None:
+        if self.public_review_id != _public_review_id(self.review.review_sha256):
+            raise ContractValidationError("bound adult public review identity changed")
+        if (
+            self.review.operation.request_id != self.outcome.prepared.request_id
+            or self.review.operation.candidate_id != self.outcome.prepared.candidate_id
+            or self.review.operation.operation_sha256
+            != self.outcome.prepared.operation_sha256
+        ):
+            raise ContractValidationError("bound adult review operation changed")
+        if (
+            type(self.planner_provider_operations) is not int
+            or self.planner_provider_operations < 0
+        ):
+            raise ContractValidationError("bound adult Planner count is invalid")
+        if type(self.regenerate_available) is not bool:
+            raise ContractValidationError("bound adult Regenerate state is invalid")
+
+
+@dataclass(frozen=True, slots=True)
 class AdultAutomaticRepairReviewRequiredV1:
     disposition: AdultAutomaticRepairDisposition
     review: AdultRejectedReviewSafeSummaryV1
@@ -372,10 +407,9 @@ class AdultFullModelReviewService:
             raise ContractValidationError("adult review service escaped protected runtime")
         self.capsules_root = self.root / "CAPSULES"
         self.bindings_root = self.root / "SAFE_REVIEW_BINDINGS"
-        self.accepted_actions_root = self.root / "ACCEPTED_REGENERATE_ACTIONS"
-        self.capsules_root.mkdir(parents=True, exist_ok=True)
-        self.bindings_root.mkdir(parents=True, exist_ok=True)
-        self.accepted_actions_root.mkdir(parents=True, exist_ok=True)
+        # Keep protected action custody below Windows' legacy path ceiling even
+        # when the isolated runtime itself has a moderately long root.
+        self.accepted_actions_root = self.root / "ACCEPTED_REGEN"
 
     def bind_prepared_turn(
         self,
@@ -422,7 +456,65 @@ class AdultFullModelReviewService:
             binding,
             AdultReviewBindingV1,
         )
-        return self.get_review(review.review_id)
+        self._write_or_verify(
+            self._public_review_binding_path(binding.public_review_id),
+            binding,
+            AdultReviewBindingV1,
+        )
+        return self.get_review(binding.public_review_id)
+
+    def public_review_id(self, review_id: str) -> str:
+        """Project protected or public identity to the stable HTTP review ID."""
+
+        return self._load_review_binding(review_id).public_review_id
+
+    def has_public_review(self, review_id: str) -> bool:
+        """Return whether an exact public identity has valid adult custody.
+
+        Existing malformed or tampered custody remains an error rather than
+        falling through to the unrelated ordinary review store.
+        """
+
+        if _PUBLIC_REVIEW_ID.fullmatch(review_id) is None:
+            return False
+        path = self._public_review_binding_path(review_id)
+        if not path.exists():
+            return False
+        self._load_review_binding(review_id)
+        return True
+
+    def regenerate_available(self, review_id: str) -> bool:
+        """Return whether one independent successor can still be dispatched."""
+
+        binding = self._load_review_binding(review_id)
+        record = self.operation_store.lookup(
+            request_id=binding.request_id,
+            candidate_id=binding.candidate_id,
+        )
+        return (
+            record.state is AdultOperationReviewState.EXECUTED_REJECTED
+            and record.repair is None
+            and record.predecessor_repair is None
+        )
+
+    def bound_rejection(self, review_id: str) -> AdultBoundRejectedReviewV1:
+        """Load exact rejected custody for the trusted full-model controller."""
+
+        binding = self._load_review_binding(review_id)
+        review = self.get_review(review_id)
+        record = self.operation_store.lookup(
+            request_id=binding.request_id,
+            candidate_id=binding.candidate_id,
+        )
+        if not isinstance(record.outcome, RejectedAdultRouteOperationV1):
+            raise StateConflictError("adult review no longer binds a rejected outcome")
+        return AdultBoundRejectedReviewV1(
+            outcome=record.outcome,
+            review=review,
+            public_review_id=binding.public_review_id,
+            planner_provider_operations=binding.planner_provider_operations,
+            regenerate_available=self.regenerate_available(review_id),
+        )
 
     def get_review(self, review_id: str) -> AdultRejectedReviewSafeSummaryV1:
         binding = self._load_review_binding(review_id)
@@ -444,7 +536,7 @@ class AdultFullModelReviewService:
     def decline(self, review_id: str) -> AdultRejectedReviewSafeSummaryV1:
         binding = self._load_review_binding(review_id)
         result = self.reviews.decline(
-            review_id=review_id,
+            review_id=binding.review_id,
             request_id=binding.request_id,
             candidate_id=binding.candidate_id,
         )
@@ -458,7 +550,7 @@ class AdultFullModelReviewService:
     ) -> AdultProvisionalAcceptanceBlockedV1:
         binding = self._load_review_binding(review_id)
         return self.reviews.provisional_acceptance_disposition(
-            review_id=review_id,
+            review_id=binding.review_id,
             request_id=binding.request_id,
             candidate_id=binding.candidate_id,
         )
@@ -476,10 +568,10 @@ class AdultFullModelReviewService:
             prepared: PreparedAdultRouteOperationV1,
         ) -> AdultRouteOperationOutcomeV1:
             self.bind_prepared_turn(prepared=prepared, turn_input=capsule.turn_input)
-            return execute(prepared)
+            return execute(prepared, capsule.turn_input)
 
         resolution = self.reviews.regenerate(
-            review_id=review_id,
+            review_id=binding.review_id,
             request_id=binding.request_id,
             candidate_id=binding.candidate_id,
             execute=execute_bound,
@@ -500,7 +592,7 @@ class AdultFullModelReviewService:
             )
             return AdultRejectedReviewActionV1(
                 action="regenerate",
-                predecessor_review_id=review_id,
+                predecessor_review_id=binding.review_id,
                 operation=review.operation,
                 review=review,
                 accepted=None,
@@ -514,7 +606,7 @@ class AdultFullModelReviewService:
         )
         return AdultRejectedReviewActionV1(
             action="regenerate",
-            predecessor_review_id=review_id,
+            predecessor_review_id=binding.review_id,
             operation=accepted.operation,
             review=None,
             accepted=accepted,
@@ -646,7 +738,10 @@ class AdultFullModelReviewService:
             prepare=lambda: prepared,
         )
         self.bind_prepared_turn(prepared=prepared, turn_input=capsule.turn_input)
-        resolution = self.operations.execute_new(begin, execute=execute)
+        resolution = self.operations.execute_new(
+            begin,
+            execute=lambda value: execute(value, capsule.turn_input),
+        )
         outcome = resolution.record.outcome
         if outcome is None:
             raise StateConflictError("accepted adult Regenerate lost its outcome")
@@ -786,6 +881,12 @@ class AdultFullModelReviewService:
             raise ContractValidationError("adult review identity is invalid")
         return self.bindings_root / f"review-{match.group(1)}.json"
 
+    def _public_review_binding_path(self, review_id: str) -> Path:
+        match = _PUBLIC_REVIEW_ID.fullmatch(review_id)
+        if match is None:
+            raise ContractValidationError("adult public review identity is invalid")
+        return self.bindings_root / f"public-review-{match.group(1)}.json"
+
     def _accepted_action_path(self, action_request_id: str) -> Path:
         if type(action_request_id) is not str or not action_request_id.strip():
             raise ContractValidationError("accepted adult Regenerate request is empty")
@@ -798,10 +899,19 @@ class AdultFullModelReviewService:
         )
 
     def _load_review_binding(self, review_id: str) -> AdultReviewBindingV1:
-        return cast(
+        if _REVIEW_ID.fullmatch(review_id) is not None:
+            path = self._review_binding_path(review_id)
+        elif _PUBLIC_REVIEW_ID.fullmatch(review_id) is not None:
+            path = self._public_review_binding_path(review_id)
+        else:
+            raise ContractValidationError("adult review identity is invalid")
+        binding = cast(
             AdultReviewBindingV1,
-            self._load(self._review_binding_path(review_id), AdultReviewBindingV1),
+            self._load(path, AdultReviewBindingV1),
         )
+        if review_id not in {binding.review_id, binding.public_review_id}:
+            raise StateConflictError("adult review lookup identity changed")
+        return binding
 
     @staticmethod
     def _load(path: Path, model: type[object]) -> object:
@@ -824,6 +934,7 @@ class AdultFullModelReviewService:
             if canonical_sha256(cls._load(path, model)) != canonical_sha256(value):
                 raise StateConflictError("adult review custody changed on replay")
             return
+        path.parent.mkdir(parents=True, exist_ok=True)
         temporary = path.parent / f".{path.name}.{uuid4().hex}.tmp"
         payload = canonical_json(to_primitive(value)) + "\n"
         try:
@@ -859,6 +970,7 @@ def _review_binding_sha256(binding: AdultReviewBindingV1) -> str:
         {
             "schema_version": binding.schema_version,
             "review_id": binding.review_id,
+            "public_review_id": binding.public_review_id,
             "review_sha256": binding.review_sha256,
             "request_id": binding.request_id,
             "candidate_id": binding.candidate_id,
@@ -871,6 +983,11 @@ def _review_binding_sha256(binding: AdultReviewBindingV1) -> str:
             "replacement_base": binding.replacement_base,
         },
     )
+
+
+def _public_review_id(review_sha256: str) -> str:
+    _sha(review_sha256, "adult public review source")
+    return f"review-{review_sha256[:28]}"
 
 
 def _accepted_regenerate_binding_sha256(

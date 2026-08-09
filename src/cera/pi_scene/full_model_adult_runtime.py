@@ -26,7 +26,12 @@ from cera.adult_pipeline.preparation import build_adult_turn_preparation_builder
 from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import canonical_json, canonical_sha256, domain_sha256, text_sha256
 
-from .adult_orchestration import AutomaticAdultRouteOrchestrator
+from .adult_orchestration import (
+    AdultRouteOperationOutcomeV1,
+    AutomaticAdultRouteOrchestrator,
+    PreparedAdultRouteOperationV1,
+    classify_prepared_adult_execution,
+)
 from .full_model_controller import AdultExecutionContextV1
 from .pi_adapter import PiSceneAdapter
 from .review_store import LeanSceneTurnInputV1
@@ -322,6 +327,81 @@ class FullModelAdultRuntimeFactory:
             ),
             pipeline=integration,
         )
+
+    def regeneration_executor(
+        self,
+        prepared: PreparedAdultRouteOperationV1,
+        frozen_turn: LeanSceneTurnInputV1,
+    ) -> AdultRouteOperationOutcomeV1:
+        """Execute one exact Regenerate without current-head/session input.
+
+        The protected operation and turn capsule are already durable before
+        this method is reachable.  The current store is deliberately not read:
+        the selected post-candidate head and its soft Pi session are not part
+        of the frozen pre-turn proof target.  A fresh candidate session is
+        rehydrated from the exact Scene request and capsule-only role context.
+        """
+
+        if (
+            prepared.route_state.world_id != frozen_turn.world_id
+            or prepared.route_state.branch_id != frozen_turn.branch_id
+            or prepared.scene_request.exact_current_source
+            != frozen_turn.exact_user_source
+        ):
+            raise StateConflictError("adult Regenerate changed frozen turn authority")
+        scope_sha256 = domain_sha256(
+            "cera.pi_scene.full_model_adult_regenerate_scope.v1",
+            {
+                "operation_sha256": prepared.operation_sha256,
+                "turn_sha256": canonical_sha256(frozen_turn),
+                "scene_request_sha256": canonical_sha256(prepared.scene_request),
+            },
+        )
+        role_context = AdultRoleViewContextV1(
+            world_id=frozen_turn.world_id,
+            branch_id=frozen_turn.branch_id,
+            scene_id=frozen_turn.scene_id,
+            turn_id=f"turn:adult-regenerate:{scope_sha256[:24]}",
+            candidate_id=prepared.candidate_id,
+            current_state=dict(frozen_turn.current_state),
+            characters={key: dict(value) for key, value in frozen_turn.characters.items()},
+            relationships={
+                key: dict(value) for key, value in frozen_turn.relationships.items()
+            },
+            recent_prose=tuple(frozen_turn.recent_prose),
+            relevant_memories={
+                key: dict(value) for key, value in frozen_turn.relevant_memories.items()
+            },
+            voice_examples=dict(frozen_turn.voice_examples),
+            accepted_records=(),
+        )
+        regeneration_root = (
+            self.protected_runtime_root / "r" / scope_sha256[:24]
+        ).resolve()
+        if not regeneration_root.is_relative_to(self.protected_runtime_root):
+            raise ContractValidationError("adult Regenerate escaped protected runtime")
+        regeneration_root.mkdir(parents=True, exist_ok=True)
+        integration = build_pi_adult_pipeline_integration(
+            pi_adapter=self.pi_adapter,
+            catalog_root=self.catalog_root,
+            protected_runtime_root=regeneration_root,
+            context=role_context,
+            accepted_parent_session=None,
+        )
+        if (
+            integration.craft_retrieval.catalog.manifest.manifest_sha256
+            != self.catalog_manifest_sha256
+        ):
+            raise StateConflictError("adult Regenerate changed the verified craft catalog")
+        execution = integration.execute(
+            request_id=prepared.request_id,
+            candidate_id=prepared.candidate_id,
+            world_id=prepared.route_state.world_id,
+            branch_id=prepared.route_state.branch_id,
+            accepted_head_sha256=prepared.route_state.accepted_head_sha256,
+            scene_request=prepared.scene_request,
+        )
+        return classify_prepared_adult_execution(prepared, execution)
 
 
 def _validate_turn_route_identity(

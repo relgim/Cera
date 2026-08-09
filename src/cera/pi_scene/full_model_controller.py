@@ -11,14 +11,17 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
+from threading import Lock
 from typing import ClassVar, Protocol, cast
 
 from cera.adult_pipeline.acceptance import AdultAcceptedTurnEnvelopeV1
 from cera.adult_pipeline.contracts import (
     AdultContextFactV1,
+    AdultFilterConflictClass,
     AdultNextRoute,
     AdultRouteStateSnapshotV1,
     BoundAdultPromotionV1,
@@ -34,6 +37,13 @@ from cera.serialization import (
     text_sha256,
 )
 
+from .adult_full_model_review import (
+    AdultAutomaticRepairReviewRequiredV1,
+    AdultBoundRejectedReviewV1,
+    AdultFullModelReviewService,
+    AdultPromotedReviewOutcomeV1,
+    AdultRejectedReviewActionV1,
+)
 from .adult_operation_contracts import (
     AdultOperationDecisionAction,
     AdultOperationDecisionV1,
@@ -44,10 +54,15 @@ from .adult_operation_store import (
     ProtectedAdultOperationStore,
 )
 from .adult_orchestration import (
+    AdultRouteOperationOutcomeV1,
     AutomaticAdultRouteOrchestrator,
     PassedAdultRouteOperationV1,
     PreparedAdultRouteOperationV1,
     RejectedAdultRouteOperationV1,
+)
+from .adult_review import (
+    AdultProvisionalAcceptanceBlockedV1,
+    AdultRejectedReviewSafeSummaryV1,
 )
 from .contracts import SceneRoute
 from .review_store import LeanReviewRecordV1, LeanSceneTurnInputV1
@@ -100,6 +115,60 @@ class AdultOrchestratorFactory(Protocol):
 
 
 type AdultOperationControllerFactory = Callable[[], ProtectedAdultOperationController]
+type AdultRegenerationExecutor = Callable[
+    [PreparedAdultRouteOperationV1, LeanSceneTurnInputV1],
+    AdultRouteOperationOutcomeV1,
+]
+
+
+@dataclass(frozen=True, slots=True)
+class AdultRepairAttemptTelemetryV1:
+    """Non-explicit first-pass evidence retained across one complete repair."""
+
+    public_review_id: str
+    conflict_class: AdultFilterConflictClass
+    operation_sha256: str
+    outcome_sha256: str
+    planner_provider_operations: int
+    adult_scene_provider_operations: int
+    adult_filter_provider_operations: int
+
+    def __post_init__(self) -> None:
+        if re.fullmatch(r"review-[a-f0-9]{28}", self.public_review_id) is None:
+            raise ContractValidationError("adult repair public review identity is invalid")
+        for value, label in (
+            (self.operation_sha256, "adult repair operation"),
+            (self.outcome_sha256, "adult repair outcome"),
+        ):
+            if not re_is_sha256(value):
+                raise ContractValidationError(f"{label} must be SHA-256")
+        for operation_count in (
+            self.planner_provider_operations,
+            self.adult_scene_provider_operations,
+            self.adult_filter_provider_operations,
+        ):
+            if type(operation_count) is not int or operation_count < 0:
+                raise ContractValidationError("adult repair operation count is invalid")
+
+    @classmethod
+    def from_bound(
+        cls,
+        bound: AdultBoundRejectedReviewV1,
+    ) -> AdultRepairAttemptTelemetryV1:
+        protected = bound.outcome.protected_execution.result
+        return cls(
+            public_review_id=bound.public_review_id,
+            conflict_class=bound.review.conflict_class,
+            operation_sha256=bound.outcome.prepared.operation_sha256,
+            outcome_sha256=bound.outcome.outcome_sha256,
+            planner_provider_operations=bound.planner_provider_operations,
+            adult_scene_provider_operations=(
+                protected.scene.invocation.receipt.provider_operations
+            ),
+            adult_filter_provider_operations=(
+                protected.filtered.invocation.receipt.provider_operations
+            ),
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +182,8 @@ class AcceptedAdultTurnV1:
     envelope: AdultAcceptedTurnEnvelopeV1
     promotion: BoundAdultPromotionV1
     planner_provider_operations: int
+    regenerate_enabled: bool = False
+    repair_attempts: tuple[AdultRepairAttemptTelemetryV1, ...] = ()
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
@@ -127,10 +198,14 @@ class AcceptedAdultTurnV1:
             self.outcome,
             self.planner_provider_operations,
         )
+        if type(self.regenerate_enabled) is not bool:
+            raise ContractValidationError("accepted adult Regenerate state is invalid")
+        if len(self.repair_attempts) > 1:
+            raise ContractValidationError("adult repair attempt ceiling changed")
 
     @property
     def exact_story_prose(self) -> str:
-        return cast(str, self.envelope.promotion_bundle.exact_story_prose)
+        return self.envelope.promotion_bundle.exact_story_prose
 
     @property
     def next_route(self) -> AdultNextRoute:
@@ -146,6 +221,10 @@ class RejectedAdultTurnV1:
     schema_version: str
     outcome: RejectedAdultRouteOperationV1
     planner_provider_operations: int
+    review: AdultRejectedReviewSafeSummaryV1
+    public_review_id: str
+    regenerate_enabled: bool
+    repair_attempts: tuple[AdultRepairAttemptTelemetryV1, ...] = ()
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
@@ -154,13 +233,23 @@ class RejectedAdultTurnV1:
             self.outcome,
             self.planner_provider_operations,
         )
+        if (
+            self.review.operation.request_id != self.outcome.prepared.request_id
+            or self.review.operation.candidate_id != self.outcome.prepared.candidate_id
+            or self.review.operation.operation_sha256
+            != self.outcome.prepared.operation_sha256
+        ):
+            raise ContractValidationError("rejected adult review operation changed")
+        if self.public_review_id != f"review-{self.review.review_sha256[:28]}":
+            raise ContractValidationError("rejected adult public review identity changed")
+        if type(self.regenerate_enabled) is not bool:
+            raise ContractValidationError("rejected adult Regenerate state is invalid")
+        if len(self.repair_attempts) > 1:
+            raise ContractValidationError("adult repair attempt ceiling changed")
 
     @property
     def exact_story_prose(self) -> str:
-        return cast(
-            str,
-            self.outcome.protected_execution.result.scene.invocation.output.exact_story_prose,
-        )
+        return self.outcome.protected_execution.result.scene.invocation.output.exact_story_prose
 
 
 type FullModelTurnOutcomeV1 = LeanReviewRecordV1 | AcceptedAdultTurnV1 | RejectedAdultTurnV1
@@ -177,6 +266,7 @@ class FullModelSceneController:
         adult_orchestrator_factory: AdultOrchestratorFactory,
         adult_context_provider: AdultExecutionContextProvider,
         adult_operation_controller_factory: AdultOperationControllerFactory | None = None,
+        adult_regeneration_executor: AdultRegenerationExecutor | None = None,
     ) -> None:
         self.ordinary = ordinary
         self.store = store
@@ -189,6 +279,20 @@ class FullModelSceneController:
                 ProtectedAdultOperationStore(self.store.root.parent / "protected_adult")
             )
         )
+        self.adult_regeneration_executor = adult_regeneration_executor
+        self._adult_reviews: AdultFullModelReviewService | None = None
+        self._adult_reviews_lock = Lock()
+
+    @property
+    def adult_reviews(self) -> AdultFullModelReviewService:
+        if self._adult_reviews is None:
+            with self._adult_reviews_lock:
+                if self._adult_reviews is None:
+                    self._adult_reviews = AdultFullModelReviewService(
+                        scene_store=self.store,
+                        operation_store=self.adult_operation_controller_factory().store,
+                    )
+        return self._adult_reviews
 
     def recover_committed_adult(
         self,
@@ -264,6 +368,7 @@ class FullModelSceneController:
             envelope=envelope,
             promotion=promotion,
             planner_provider_operations=planner_provider_operations,
+            regenerate_enabled=self.adult_regeneration_executor is not None,
         )
 
     def recover_completed_adult_operation(
@@ -316,11 +421,12 @@ class FullModelSceneController:
                 candidate_id=candidate_id,
             )
         if isinstance(outcome, RejectedAdultRouteOperationV1):
-            return RejectedAdultTurnV1(
-                schema_version=RejectedAdultTurnV1.SCHEMA_VERSION,
+            review = self.adult_reviews.register_rejection(
                 outcome=outcome,
+                turn_input=turn,
                 planner_provider_operations=planner_provider_operations,
             )
+            return self._rejected_turn(self.adult_reviews.bound_rejection(review.review_id))
         if not isinstance(outcome, PassedAdultRouteOperationV1):
             raise StateConflictError("adult operation recovered an unsupported outcome")
         return self._promote_passed_operation(
@@ -374,6 +480,10 @@ class FullModelSceneController:
                 ),
             ),
         )
+        self.adult_reviews.bind_prepared_turn(
+            prepared=begin.record.prepared,
+            turn_input=turn,
+        )
         planner_provider_operations = (
             0 if bound_plan is None else bound_plan.output.provider_operations
         )
@@ -390,9 +500,9 @@ class FullModelSceneController:
         if outcome is None:
             raise StateConflictError("adult protected execution resolution lost its outcome")
         if isinstance(outcome, RejectedAdultRouteOperationV1):
-            return RejectedAdultTurnV1(
-                schema_version=RejectedAdultTurnV1.SCHEMA_VERSION,
+            return self._register_and_resolve_rejection(
                 outcome=outcome,
+                turn=turn,
                 planner_provider_operations=planner_provider_operations,
             )
         return self._promote_passed_operation(
@@ -401,6 +511,145 @@ class FullModelSceneController:
             outcome=outcome,
             planner_provider_operations=planner_provider_operations,
         )
+
+    def has_adult_review(self, review_id: str) -> bool:
+        return self.adult_reviews.has_public_review(review_id)
+
+    def get_adult_review(self, review_id: str) -> AdultBoundRejectedReviewV1:
+        bound = self.adult_reviews.bound_rejection(review_id)
+        if self.adult_regeneration_executor is None and bound.regenerate_available:
+            return replace(bound, regenerate_available=False)
+        return bound
+
+    def decline_adult_review(self, review_id: str) -> AdultBoundRejectedReviewV1:
+        self.adult_reviews.decline(review_id)
+        return self.get_adult_review(review_id)
+
+    def provisional_adult_review(
+        self,
+        review_id: str,
+    ) -> AdultProvisionalAcceptanceBlockedV1:
+        return self.adult_reviews.provisional_acceptance(review_id)
+
+    def regenerate_adult_review(
+        self,
+        review_id: str,
+    ) -> AcceptedAdultTurnV1 | RejectedAdultTurnV1:
+        executor = self._adult_regeneration_executor()
+        action = self.adult_reviews.regenerate_rejected(
+            review_id,
+            execute=executor,
+        )
+        return self._review_action_turn(action)
+
+    def regenerate_accepted_adult(
+        self,
+        *,
+        action_request_id: str,
+        world_id: str,
+        branch_id: str,
+    ) -> AcceptedAdultTurnV1 | RejectedAdultTurnV1:
+        result = self.adult_reviews.regenerate_accepted(
+            action_request_id=action_request_id,
+            world_id=world_id,
+            branch_id=branch_id,
+            execute=self._adult_regeneration_executor(),
+        )
+        if isinstance(result, AdultPromotedReviewOutcomeV1):
+            return self._promoted_review_turn(result)
+        return self._rejected_turn(self.adult_reviews.bound_rejection(result.review_id))
+
+    def _register_and_resolve_rejection(
+        self,
+        *,
+        outcome: RejectedAdultRouteOperationV1,
+        turn: LeanSceneTurnInputV1,
+        planner_provider_operations: int,
+    ) -> AcceptedAdultTurnV1 | RejectedAdultTurnV1:
+        review = self.adult_reviews.register_rejection(
+            outcome=outcome,
+            turn_input=turn,
+            planner_provider_operations=planner_provider_operations,
+        )
+        if (
+            self.adult_regeneration_executor is not None
+            and review.automatic_repair_eligible
+        ):
+            repaired = self.adult_reviews.automatic_repair_if_critical(
+                review.review_id,
+                execute=self.adult_regeneration_executor,
+            )
+            if isinstance(repaired, AdultRejectedReviewActionV1):
+                return self._review_action_turn(repaired)
+            if not isinstance(repaired, AdultAutomaticRepairReviewRequiredV1):
+                raise StateConflictError("adult automatic repair returned invalid custody")
+        return self._rejected_turn(self.adult_reviews.bound_rejection(review.review_id))
+
+    def _review_action_turn(
+        self,
+        action: AdultRejectedReviewActionV1,
+    ) -> AcceptedAdultTurnV1 | RejectedAdultTurnV1:
+        predecessor = self.adult_reviews.bound_rejection(
+            action.predecessor_review_id
+        )
+        repair_attempts = (AdultRepairAttemptTelemetryV1.from_bound(predecessor),)
+        if action.accepted is not None:
+            return self._promoted_review_turn(
+                action.accepted,
+                repair_attempts=repair_attempts,
+            )
+        if action.review is None:
+            raise StateConflictError("adult review action lost its outcome")
+        return self._rejected_turn(
+            self.adult_reviews.bound_rejection(action.review.review_id),
+            repair_attempts=repair_attempts,
+        )
+
+    def _promoted_review_turn(
+        self,
+        promoted: AdultPromotedReviewOutcomeV1,
+        *,
+        repair_attempts: tuple[AdultRepairAttemptTelemetryV1, ...] = (),
+    ) -> AcceptedAdultTurnV1:
+        record = self.adult_reviews.operation_store.lookup(
+            request_id=promoted.operation.request_id,
+            candidate_id=promoted.operation.candidate_id,
+        )
+        if not isinstance(record.outcome, PassedAdultRouteOperationV1):
+            raise StateConflictError("adult reviewed promotion lost its passed outcome")
+        return AcceptedAdultTurnV1(
+            schema_version=AcceptedAdultTurnV1.SCHEMA_VERSION,
+            outcome=record.outcome,
+            envelope=promoted.envelope,
+            promotion=promoted.promotion,
+            planner_provider_operations=0,
+            regenerate_enabled=self.adult_regeneration_executor is not None,
+            repair_attempts=repair_attempts,
+        )
+
+    def _rejected_turn(
+        self,
+        bound: AdultBoundRejectedReviewV1,
+        *,
+        repair_attempts: tuple[AdultRepairAttemptTelemetryV1, ...] = (),
+    ) -> RejectedAdultTurnV1:
+        return RejectedAdultTurnV1(
+            schema_version=RejectedAdultTurnV1.SCHEMA_VERSION,
+            outcome=bound.outcome,
+            planner_provider_operations=bound.planner_provider_operations,
+            review=bound.review,
+            public_review_id=bound.public_review_id,
+            regenerate_enabled=(
+                self.adult_regeneration_executor is not None
+                and bound.regenerate_available
+            ),
+            repair_attempts=repair_attempts,
+        )
+
+    def _adult_regeneration_executor(self) -> AdultRegenerationExecutor:
+        if self.adult_regeneration_executor is None:
+            raise StateConflictError("adult Regenerate executor is unavailable")
+        return self.adult_regeneration_executor
 
     def _promote_passed_operation(
         self,
@@ -437,6 +686,7 @@ class FullModelSceneController:
             envelope=envelope,
             promotion=promotion,
             planner_provider_operations=planner_provider_operations,
+            regenerate_enabled=self.adult_regeneration_executor is not None,
         )
 
 
@@ -513,7 +763,10 @@ def _validate_adult_planner_operations(
             raise ContractValidationError(
                 "accepted adult continuation cannot report Codex Planner work"
             )
-    elif provider_operations < 1:
+    elif (
+        provider_operations < 1
+        and not outcome.prepared.candidate_id.startswith("candidate:adult-regenerate:")
+    ):
         raise ContractValidationError("Codex adult handoff lost its Planner operation count")
 
 
@@ -521,7 +774,7 @@ def _planner_telemetry_path(
     operation_controller: ProtectedAdultOperationController,
     prepared: PreparedAdultRouteOperationV1,
 ) -> Path:
-    store_root = cast(Path, operation_controller.store.root)
+    store_root = operation_controller.store.root
     root = (store_root / "PLANNER_TELEMETRY").resolve()
     if not root.is_relative_to(store_root):
         raise ContractValidationError("adult Planner telemetry escaped protected custody")

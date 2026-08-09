@@ -101,6 +101,8 @@ def _adult_progress(binding, *, rejected: bool = False) -> dict[str, object]:
         "candidate_id": "candidate:adult:test",
         "operation_sha256": "d" * 64,
         "planner_provider_operations": 0,
+        "regenerate_enabled": True,
+        "repair_attempts": [],
         "world_id": binding.world_id,
         "branch_id": binding.branch_id,
         "actual_route": "adult",
@@ -112,6 +114,8 @@ def _adult_progress(binding, *, rejected: bool = False) -> dict[str, object]:
         "promotion_bundle_sha256": None if rejected else "a" * 64,
         "protected_rejected_outcome": protected if rejected else None,
         "protected_rejected_outcome_sha256": (canonical_sha256(protected) if rejected else None),
+        "public_review_id": "review-" + "b" * 28 if rejected else None,
+        "review_sha256": "b" * 64 if rejected else None,
     }
 
 
@@ -217,6 +221,16 @@ class PiSceneRequestJournalTests(unittest.TestCase):
                 "exact_story_prose": "tampered",
             }
             with self.assertRaisesRegex(StateConflictError, "rejected adult progress"):
+                journal.bind_progress(binding, progress)
+
+    def test_adult_progress_rejects_malformed_repair_accounting(self) -> None:
+        binding = _binding(route=SceneRoute.ADULT)
+        with tempfile.TemporaryDirectory() as temporary:
+            journal = PiSceneRequestJournal(Path(temporary))
+            journal.begin(binding)
+            progress = _adult_progress(binding)
+            progress["repair_attempts"] = [{"planner_provider_operations": 1}]
+            with self.assertRaisesRegex(StateConflictError, "repair-attempt shape"):
                 journal.bind_progress(binding, progress)
 
     def test_canonical_request_bytes_ignore_object_key_order_only(self) -> None:

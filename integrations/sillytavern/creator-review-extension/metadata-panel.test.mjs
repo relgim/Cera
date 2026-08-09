@@ -162,6 +162,26 @@ test('durable actions require an exact backend review identity', async () => {
             status: 'validation_rejected',
         });
         assert.equal(valid.provisional_review_id, 'review-0123456789abcdef0123456789ab');
+
+        const adult = metadataModule.normalizeCompletionMetadata({
+            profile_id: 'cera.pi_scene.lean.v1',
+            candidate_id: 'candidate:adult-review',
+            route_mode: 'adult',
+            provisional: true,
+            review_id: 'review-abcdef0123456789abcdef012345',
+            status: 'validation_rejected',
+        });
+        assert.equal(adult.provisional_review_id, 'review-abcdef0123456789abcdef012345');
+
+        const invalidAdult = metadataModule.normalizeCompletionMetadata({
+            profile_id: 'cera.pi_scene.lean.v1',
+            candidate_id: 'candidate:adult-invalid-review',
+            route_mode: 'adult',
+            provisional: true,
+            review_id: 'adult-review:protected-internal-id',
+            status: 'validation_rejected',
+        });
+        assert.equal(invalidAdult.provisional_review_id, null);
     } finally {
         await rm(root, { recursive: true, force: true });
     }
@@ -313,6 +333,28 @@ test('provisional acceptance is backend-gated and reprojection stays unaccepted'
         assert.equal(actions.normalizeReprojectionRequired({
             ...blocked,
             story_state_committed: true,
+        }), null);
+
+        const acceptedRegenerate = actions.acceptedRegenerateSuccessor({
+            schema_version: 'cera.pi_scene.review_decision.v1',
+            creator_action: 'regenerate',
+            story_state_committed: true,
+            accepted_turn_id: 'turn-0001-test',
+            accepted_receipt_sha256: 'a'.repeat(64),
+            successor: {
+                choices: [{ message: { content: 'A fresh accepted alternative.' } }],
+                cera: {
+                    status: 'accepted',
+                    story_state_committed: true,
+                    candidate_id: 'candidate:adult-regenerate:test',
+                },
+            },
+        });
+        assert.equal(acceptedRegenerate.story_text, 'A fresh accepted alternative.');
+        assert.equal(acceptedRegenerate.completion.status, 'accepted');
+        assert.equal(actions.acceptedRegenerateSuccessor({
+            ...acceptedRegenerate,
+            story_state_committed: false,
         }), null);
     } finally {
         await rm(root, { recursive: true, force: true });

@@ -19,6 +19,7 @@ from threading import RLock
 from typing import Any, ClassVar
 from uuid import uuid4
 
+from cera.adult_pipeline.contracts import AdultFilterConflictClass
 from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import (
     bytes_sha256,
@@ -557,6 +558,8 @@ def _validate_adult_progress(
         "candidate_id",
         "operation_sha256",
         "planner_provider_operations",
+        "regenerate_enabled",
+        "repair_attempts",
         "world_id",
         "branch_id",
         "actual_route",
@@ -568,6 +571,8 @@ def _validate_adult_progress(
         "promotion_bundle_sha256",
         "protected_rejected_outcome",
         "protected_rejected_outcome_sha256",
+        "public_review_id",
+        "review_sha256",
     }
     if set(progress) != required:
         raise StateConflictError("Pi Scene adult request-progress shape changed")
@@ -596,6 +601,39 @@ def _validate_adult_progress(
         or progress["planner_provider_operations"] < 0
     ):
         raise StateConflictError("Pi Scene adult Planner operation count is invalid")
+    if type(progress["regenerate_enabled"]) is not bool:
+        raise StateConflictError("Pi Scene adult Regenerate state is invalid")
+    repair_attempts = progress["repair_attempts"]
+    if not isinstance(repair_attempts, list) or len(repair_attempts) > 1:
+        raise StateConflictError("Pi Scene adult repair-attempt custody is invalid")
+    repair_fields = {
+        "public_review_id",
+        "conflict_class",
+        "operation_sha256",
+        "outcome_sha256",
+        "planner_provider_operations",
+        "adult_scene_provider_operations",
+        "adult_filter_provider_operations",
+    }
+    for repair in repair_attempts:
+        if not isinstance(repair, dict) or set(repair) != repair_fields:
+            raise StateConflictError("Pi Scene adult repair-attempt shape changed")
+        if (
+            re.fullmatch(r"review-[a-f0-9]{28}", repair["public_review_id"] or "")
+            is None
+            or repair["conflict_class"]
+            not in {value.value for value in AdultFilterConflictClass}
+            or not re_is_sha256(repair["operation_sha256"] or "")
+            or not re_is_sha256(repair["outcome_sha256"] or "")
+        ):
+            raise StateConflictError("Pi Scene adult repair-attempt identity is invalid")
+        for field_name in (
+            "planner_provider_operations",
+            "adult_scene_provider_operations",
+            "adult_filter_provider_operations",
+        ):
+            if type(repair[field_name]) is not int or repair[field_name] < 0:
+                raise StateConflictError("Pi Scene adult repair-attempt count is invalid")
     status = progress["outcome_status"]
     accepted_values = (
         progress["accepted_turn_id"],
@@ -604,6 +642,8 @@ def _validate_adult_progress(
     )
     rejected = progress["protected_rejected_outcome"]
     rejected_sha = progress["protected_rejected_outcome_sha256"]
+    public_review_id = progress["public_review_id"]
+    review_sha256 = progress["review_sha256"]
     if status == "accepted":
         if (
             not isinstance(accepted_values[0], str)
@@ -611,6 +651,8 @@ def _validate_adult_progress(
             or not re_is_sha256(accepted_values[2] or "")
             or rejected is not None
             or rejected_sha is not None
+            or public_review_id is not None
+            or review_sha256 is not None
         ):
             raise StateConflictError("Pi Scene accepted adult progress is invalid")
     elif status == "filter_rejected":
@@ -619,6 +661,9 @@ def _validate_adult_progress(
             or not isinstance(rejected, dict)
             or not re_is_sha256(rejected_sha or "")
             or canonical_sha256(rejected) != rejected_sha
+            or not re.fullmatch(r"review-[a-f0-9]{28}", public_review_id or "")
+            or not re_is_sha256(review_sha256 or "")
+            or public_review_id != f"review-{review_sha256[:28]}"
         ):
             raise StateConflictError("Pi Scene rejected adult progress is invalid")
     else:

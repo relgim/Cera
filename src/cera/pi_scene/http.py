@@ -27,6 +27,8 @@ from .full_model_controller import (
 from .full_model_http import (
     adult_completion_payload,
     adult_journal_progress,
+    adult_provisional_blocked_payload,
+    adult_review_payload,
     recover_adult_journal_response,
 )
 from .http_contracts import (
@@ -40,6 +42,7 @@ from .http_contracts import (
 )
 from .readable_debug import ReadablePiSceneDebugLog
 from .request_journal import (
+    PiSceneRequestBindingV1,
     PiSceneRequestJournal,
     RequestReplayPendingError,
     build_request_binding,
@@ -235,6 +238,24 @@ class PiSceneHttpAdapter:
             response = self._completion_response_with_debug(review)
             request_journal.complete(binding, response)
             return response
+        if (
+            request.controls.regeneration_key is not None
+            and self.full_model_controller is not None
+            and request.automatic_route
+            and request.route is SceneRoute.ADULT
+        ):
+            adult_regeneration_outcome = (
+                self.full_model_controller.regenerate_accepted_adult(
+                    action_request_id=binding.request_id,
+                    world_id=turn.world_id,
+                    branch_id=turn.branch_id,
+                )
+            )
+            return self._finish_adult_outcome(
+                request_journal=request_journal,
+                binding=binding,
+                outcome=adult_regeneration_outcome,
+            )
         if request.controls.regeneration_key is not None:
             review = self._regenerate_from_chat_request(request, turn)
         else:
@@ -255,36 +276,20 @@ class PiSceneHttpAdapter:
                         branch_id=turn.branch_id,
                     )
                 if self.full_model_controller is not None and request.automatic_route:
-                    outcome = self.full_model_controller.complete(
+                    full_model_outcome = self.full_model_controller.complete(
                         request_id=binding.request_id,
                         turn=turn,
                     )
-                    if isinstance(outcome, (AcceptedAdultTurnV1, RejectedAdultTurnV1)):
-                        progress = adult_journal_progress(
-                            outcome,
-                            controls_sha256=binding.controls_sha256,
+                    if isinstance(
+                        full_model_outcome,
+                        (AcceptedAdultTurnV1, RejectedAdultTurnV1),
+                    ):
+                        return self._finish_adult_outcome(
+                            request_journal=request_journal,
+                            binding=binding,
+                            outcome=full_model_outcome,
                         )
-                        try:
-                            request_journal.bind_progress(binding, progress)
-                        except Exception as exc:
-                            if isinstance(outcome, AcceptedAdultTurnV1):
-                                raise PiSceneCommittedStateError(
-                                    "CERA accepted the adult story state but could not "
-                                    "bind its durable request progress"
-                                ) from exc
-                            raise
-                        response = self._adult_completion_response_with_debug(outcome)
-                        try:
-                            request_journal.complete(binding, response)
-                        except Exception as exc:
-                            if isinstance(outcome, AcceptedAdultTurnV1):
-                                raise PiSceneCommittedStateError(
-                                    "CERA accepted the adult story state but could not "
-                                    "terminalize its request replay journal"
-                                ) from exc
-                            raise
-                        return response
-                    review = outcome
+                    review = full_model_outcome
                 else:
                     review = (
                         self.coordinator.start_ordinary(turn)
@@ -306,6 +311,38 @@ class PiSceneHttpAdapter:
             if review.accepted_receipt is not None:
                 raise PiSceneCommittedStateError(
                     "Pi Scene accepted story state but could not terminalize "
+                    "its request replay journal"
+                ) from exc
+            raise
+        return response
+
+    def _finish_adult_outcome(
+        self,
+        *,
+        request_journal: PiSceneRequestJournal,
+        binding: PiSceneRequestBindingV1,
+        outcome: AcceptedAdultTurnV1 | RejectedAdultTurnV1,
+    ) -> dict[str, Any]:
+        progress = adult_journal_progress(
+            outcome,
+            controls_sha256=binding.controls_sha256,
+        )
+        try:
+            request_journal.bind_progress(binding, progress)
+        except Exception as exc:
+            if isinstance(outcome, AcceptedAdultTurnV1):
+                raise PiSceneCommittedStateError(
+                    "CERA accepted the adult story state but could not bind its "
+                    "durable request progress"
+                ) from exc
+            raise
+        response = self._adult_completion_response_with_debug(outcome)
+        try:
+            request_journal.complete(binding, response)
+        except Exception as exc:
+            if isinstance(outcome, AcceptedAdultTurnV1):
+                raise PiSceneCommittedStateError(
+                    "CERA accepted the adult story state but could not terminalize "
                     "its request replay journal"
                 ) from exc
             raise
@@ -360,9 +397,32 @@ class PiSceneHttpAdapter:
         return response
 
     def get_review(self, review_id: str) -> dict[str, Any]:
-        return self.review_payload(self.coordinator.get_review(review_id))
+        adult = (
+            self.full_model_controller is not None
+            and self.full_model_controller.has_adult_review(review_id)
+        )
+        ordinary = self._ordinary_review_optional(review_id)
+        if adult and ordinary is not None:
+            raise StateConflictError("CERA public review identity is ambiguous")
+        if adult:
+            assert self.full_model_controller is not None
+            return adult_review_payload(
+                self.full_model_controller.get_adult_review(review_id)
+            )
+        if ordinary is None:
+            raise StateConflictError("unknown Pi Scene review")
+        return self.review_payload(ordinary)
 
     def decide(self, review_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+        adult = (
+            self.full_model_controller is not None
+            and self.full_model_controller.has_adult_review(review_id)
+        )
+        ordinary = self._ordinary_review_optional(review_id)
+        if adult and ordinary is not None:
+            raise StateConflictError("CERA public review identity is ambiguous")
+        if adult:
+            return self._decide_adult_review(review_id, payload)
         action = str(payload.get("action", ""))
         feedback = payload.get("feedback")
         if feedback is not None and not isinstance(feedback, str):
@@ -423,6 +483,85 @@ class PiSceneHttpAdapter:
             except Exception:
                 result.setdefault("operational_warnings", []).append("readable_debug_write_failed")
         return result
+
+    def _decide_adult_review(
+        self,
+        review_id: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        controller = self.full_model_controller
+        if controller is None:
+            raise StateConflictError("adult creator review controller is unavailable")
+        action = str(payload.get("action", ""))
+        feedback = payload.get("feedback")
+        if feedback is not None and not isinstance(feedback, str):
+            raise ContractValidationError("creator feedback must be text")
+        if feedback not in (None, ""):
+            raise ContractValidationError(
+                "adult Regenerate uses no rejected-candidate feedback"
+            )
+        force_rehydrate = payload.get("force_rehydrate", False)
+        if type(force_rehydrate) is not bool:
+            raise ContractValidationError("force_rehydrate must be boolean")
+        if force_rehydrate:
+            raise ContractValidationError(
+                "adult Regenerate always uses fresh frozen rehydration"
+            )
+        if action == "decline":
+            review = adult_review_payload(controller.decline_adult_review(review_id))
+            return {
+                "schema_version": "cera.pi_scene.review_decision.v1",
+                "status": "review_transitioned",
+                "creator_action": "decline",
+                "story_state_committed": False,
+                "retry_mode": "not_applicable",
+                "review": review,
+                "successor": None,
+                "operational_warnings": [],
+            }
+        if action == "regenerate":
+            outcome = controller.regenerate_adult_review(review_id)
+            successor = self._adult_completion_response_with_debug(outcome)
+            committed = isinstance(outcome, AcceptedAdultTurnV1)
+            result: dict[str, Any] = {
+                "schema_version": "cera.pi_scene.review_decision.v1",
+                "status": "story_committed" if committed else "review_transitioned",
+                "creator_action": "regenerate",
+                "story_state_committed": committed,
+                "retry_mode": "not_applicable",
+                "review": adult_review_payload(controller.get_adult_review(review_id)),
+                "successor": successor,
+                "operational_warnings": [],
+            }
+            if isinstance(outcome, AcceptedAdultTurnV1):
+                result.update(
+                    {
+                        "accepted_turn_id": outcome.envelope.accepted_turn_id,
+                        "accepted_receipt_sha256": (
+                            outcome.promotion.receipt.accepted_head_after_sha256
+                        ),
+                    }
+                )
+            return result
+        if action == "accept_provisional":
+            blocked = controller.provisional_adult_review(review_id)
+            return adult_provisional_blocked_payload(
+                public_review_id=review_id,
+                blocked=blocked,
+            )
+        if action == "accept":
+            raise ContractValidationError(
+                "rejected adult candidate cannot be accepted without reprojection"
+            )
+        raise ContractValidationError("unknown adult creator-review action")
+
+    def _ordinary_review_optional(self, review_id: str) -> LeanReviewRecordV1 | None:
+        try:
+            return self.coordinator.get_review(review_id)
+        except StateConflictError as exc:
+            if exc.args == ("unknown Pi Scene review",):
+                return None
+            raise
 
     def review_payload(self, review: LeanReviewRecordV1) -> dict[str, Any]:
         candidate = review.candidate

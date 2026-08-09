@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 import unittest
 from dataclasses import replace
@@ -23,11 +24,13 @@ from cera.adult_pipeline.pi_roles import (
 )
 from cera.adult_pipeline.pipeline import AdultPipeline
 from cera.adult_pipeline.preparation import build_adult_turn_preparation_builder
+from cera.errors import StateConflictError
 from cera.pi_scene.adult_full_model_review import (
     AdultAutomaticRepairReviewRequiredV1,
     AdultFullModelReviewService,
     AdultPromotedReviewOutcomeV1,
     AdultRejectedReviewActionV1,
+    AdultReviewBindingV1,
     ProtectedAdultExecutor,
 )
 from cera.pi_scene.adult_operation_contracts import AdultOperationReviewState
@@ -44,10 +47,12 @@ from cera.pi_scene.adult_review import (
     AdultProvisionalAcceptanceDisposition,
     AdultRejectedReviewSafeSummaryV1,
 )
+from cera.pi_scene.review_store import LeanSceneTurnInputV1
 from cera.pi_scene.store import LeanSceneStore
 from cera.pi_scene.writer_view import WriterViewMaterializer
 from cera.provider_dispatch_guard import PROVIDER_DISPATCH_DISABLED_ENV
-from cera.serialization import canonical_json
+from cera.serialization import canonical_json, canonical_sha256
+from scripts.run_pi_scene_lean_server import _seed_live_runtime_state
 
 from .test_adult_pipeline_pi_integration import _FakeStructuredTransport
 from .test_adult_turn_preparation import CATALOG_ROOT, _plan, _turn
@@ -179,7 +184,11 @@ class AdultFullModelReviewServiceTests(unittest.TestCase):
         conflict: AdultFilterConflictClass | None,
         suffix: str,
     ) -> ProtectedAdultExecutor:
-        def execute(prepared: PreparedAdultRouteOperationV1) -> AdultRouteOperationOutcomeV1:
+        def execute(
+            prepared: PreparedAdultRouteOperationV1,
+            frozen_turn: LeanSceneTurnInputV1,
+        ) -> AdultRouteOperationOutcomeV1:
+            self.assertEqual(canonical_sha256(frozen_turn), canonical_sha256(self.turn))
             # Prepared custody must be durable before provider execution is reachable.
             record = self.operation_store.lookup(
                 request_id=prepared.request_id,
@@ -229,14 +238,19 @@ class AdultFullModelReviewServiceTests(unittest.TestCase):
 
     def test_safe_review_restart_decline_and_provisional_block(self) -> None:
         review = self._registered_rejection()
+        public_review_id = self.service.public_review_id(review.review_id)
+        self.assertRegex(public_review_id, r"\Areview-[a-f0-9]{28}\Z")
+        self.assertNotEqual(public_review_id, review.review_id)
         restarted = AdultFullModelReviewService(
             scene_store=LeanSceneStore(self.root / "world"),
             operation_store=ProtectedAdultOperationStore(self.root / "protected"),
         )
-        self.assertEqual(restarted.get_review(review.review_id), review)
+        self.assertTrue(restarted.has_public_review(public_review_id))
+        self.assertEqual(restarted.get_review(public_review_id), review)
         self.assertNotIn(self.turn.exact_user_source, canonical_json(review))
+        self.assertTrue(restarted.regenerate_available(public_review_id))
 
-        blocked = restarted.provisional_acceptance(review.review_id)
+        blocked = restarted.provisional_acceptance(public_review_id)
         self.assertEqual(
             blocked.disposition,
             AdultProvisionalAcceptanceDisposition.REPROJECTION_REQUIRED,
@@ -249,17 +263,54 @@ class AdultFullModelReviewServiceTests(unittest.TestCase):
             ).receipt
         )
 
-        first = restarted.decline(review.review_id)
-        second = restarted.decline(review.review_id)
+        first = restarted.decline(public_review_id)
+        second = restarted.decline(public_review_id)
         self.assertEqual(first, second)
         self.assertEqual(first.operation.state, AdultOperationReviewState.DECLINED)
+        self.assertFalse(restarted.regenerate_available(public_review_id))
+
+    def test_public_review_alias_fails_closed_on_tamper_and_collision(self) -> None:
+        first = self._registered_rejection(identity_suffix="public-first")
+        second = self._registered_rejection(identity_suffix="public-second")
+        first_public = self.service.public_review_id(first.review_id)
+        second_binding = self.service._load_review_binding(  # noqa: SLF001
+            second.review_id
+        )
+        first_alias = self.service._public_review_binding_path(  # noqa: SLF001
+            first_public
+        )
+        self.assertIn(first.review_sha256, first_alias.read_text(encoding="utf-8"))
+        with self.assertRaisesRegex(
+            StateConflictError,
+            "adult review custody changed on replay",
+        ):
+            self.service._write_or_verify(  # noqa: SLF001
+                first_alias,
+                second_binding,
+                AdultReviewBindingV1,
+            )
+
+        payload = first_alias.read_text(encoding="utf-8")
+        first_alias.write_text(
+            re.sub(first.review_sha256, "0" * 64, payload),
+            encoding="utf-8",
+        )
+        restarted = AdultFullModelReviewService(
+            scene_store=LeanSceneStore(self.root / "world"),
+            operation_store=ProtectedAdultOperationStore(self.root / "protected"),
+        )
+        with self.assertRaisesRegex(StateConflictError, "custody is invalid"):
+            restarted.get_review(first_public)
 
     def test_rejected_regenerate_passes_once_and_replays_without_dispatch(self) -> None:
         review = self._registered_rejection()
         calls = 0
         execute = self._execute_for(conflict=None, suffix="rejected-successor")
 
-        def counted(prepared: PreparedAdultRouteOperationV1) -> AdultRouteOperationOutcomeV1:
+        def counted(
+            prepared: PreparedAdultRouteOperationV1,
+            frozen_turn: LeanSceneTurnInputV1,
+        ) -> AdultRouteOperationOutcomeV1:
             nonlocal calls
             calls += 1
             original = self.operation_store.lookup(
@@ -268,12 +319,12 @@ class AdultFullModelReviewServiceTests(unittest.TestCase):
             ).prepared
             self.assertEqual(prepared.scene_request, original.scene_request)
             self.assertEqual(prepared.route_state, original.route_state)
-            return execute(prepared)
+            return execute(prepared, frozen_turn)
 
         first = self.service.regenerate_rejected(review.review_id, execute=counted)
         replay = self.service.regenerate_rejected(
             review.review_id,
-            execute=lambda _prepared: (_ for _ in ()).throw(
+            execute=lambda _prepared, _turn: (_ for _ in ()).throw(
                 AssertionError("completed adult Regenerate redispatched")
             ),
         )
@@ -296,7 +347,7 @@ class AdultFullModelReviewServiceTests(unittest.TestCase):
         quality = self._registered_rejection()
         skipped = self.service.automatic_repair_if_critical(
             quality.review_id,
-            execute=lambda _prepared: (_ for _ in ()).throw(
+            execute=lambda _prepared, _turn: (_ for _ in ()).throw(
                 AssertionError("quality-only rejection auto-repaired")
             ),
         )
@@ -349,12 +400,15 @@ class AdultFullModelReviewServiceTests(unittest.TestCase):
         calls = 0
         execute = self._execute_for(conflict=None, suffix="accepted-replacement")
 
-        def checked(value: PreparedAdultRouteOperationV1) -> AdultRouteOperationOutcomeV1:
+        def checked(
+            value: PreparedAdultRouteOperationV1,
+            frozen_turn: LeanSceneTurnInputV1,
+        ) -> AdultRouteOperationOutcomeV1:
             nonlocal calls
             calls += 1
             self.assertEqual(value.scene_request, prepared.scene_request)
             self.assertEqual(value.route_state, prepared.route_state)
-            return execute(value)
+            return execute(value, frozen_turn)
 
         replacement = self.service.regenerate_accepted(
             action_request_id="request:accepted-regenerate-one",
@@ -388,7 +442,7 @@ class AdultFullModelReviewServiceTests(unittest.TestCase):
             action_request_id="request:accepted-regenerate-one",
             world_id=self.turn.world_id,
             branch_id=self.turn.branch_id,
-            execute=lambda _prepared: (_ for _ in ()).throw(
+            execute=lambda _prepared, _turn: (_ for _ in ()).throw(
                 AssertionError("accepted adult Regenerate replay redispatched")
             ),
         )
@@ -441,6 +495,65 @@ class AdultFullModelReviewServiceTests(unittest.TestCase):
             ).accepted_head_sha256,
             old_head,
         )
+
+    def test_launcher_restart_seed_preserves_accepted_regenerate_custody(self) -> None:
+        source = self.root / "source-runtime"
+        (source / "pi_sessions").mkdir(parents=True)
+        self.scene_store = LeanSceneStore(source / "accepted_world")
+        self.operation_store = ProtectedAdultOperationStore(source / "protected_adult")
+        self.service = AdultFullModelReviewService(
+            scene_store=self.scene_store,
+            operation_store=self.operation_store,
+        )
+        _, outcome = self._prepared_and_outcome(
+            request_id="request:seeded-accepted-original",
+            candidate_id="candidate:seeded-accepted-original",
+            conflict=None,
+            suffix="seeded-accepted-original",
+        )
+        assert not isinstance(outcome, RejectedAdultRouteOperationV1)
+        original = self.service._promote_passed(  # noqa: SLF001 - exact restart setup
+            outcome,
+            turn_input=self.turn,
+            replacement_base=None,
+            replayed=False,
+        )
+        protected_source = source / "protected_adult"
+        source_bytes = {
+            path.relative_to(protected_source).as_posix(): path.read_bytes()
+            for path in protected_source.rglob("*")
+            if path.is_file()
+        }
+
+        target = self.root / "target-runtime"
+        target.mkdir()
+        _seed_live_runtime_state(target, source)
+
+        self.scene_store = LeanSceneStore(target / "accepted_world")
+        self.operation_store = ProtectedAdultOperationStore(target / "protected_adult")
+        self.service = AdultFullModelReviewService(
+            scene_store=self.scene_store,
+            operation_store=self.operation_store,
+        )
+        replacement = self.service.regenerate_accepted(
+            action_request_id="request:seeded-accepted-regenerate",
+            world_id=self.turn.world_id,
+            branch_id=self.turn.branch_id,
+            execute=self._execute_for(conflict=None, suffix="seeded-accepted-replacement"),
+        )
+        self.assertIsInstance(replacement, AdultPromotedReviewOutcomeV1)
+        assert isinstance(replacement, AdultPromotedReviewOutcomeV1)
+        self.assertEqual(replacement.envelope.accepted_turn_id, original.envelope.accepted_turn_id)
+        self.assertEqual(replacement.envelope.generation, original.envelope.generation)
+        self.assertEqual(
+            {
+                path.relative_to(protected_source).as_posix(): path.read_bytes()
+                for path in protected_source.rglob("*")
+                if path.is_file()
+            },
+            source_bytes,
+        )
+        self.assertFalse((target / "debug").exists())
 
 
 if __name__ == "__main__":

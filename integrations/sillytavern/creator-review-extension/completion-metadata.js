@@ -17,6 +17,11 @@ export function normalizeCompletionMetadata(value) {
     if (!plainObject(value)) return null;
     const profileId = boundedText(value.profile_id, 160);
     if (!profileId?.startsWith('cera.pi_scene.')) return null;
+    const provisionalReviewId = validReviewId(value.provisional_review_id)
+        ? value.provisional_review_id
+        : validReviewId(value.review_id)
+            ? value.review_id
+            : null;
     const normalized = {
         schema_version: 'cera.sillytavern.completion_metadata.v1',
         profile_id: profileId,
@@ -27,9 +32,7 @@ export function normalizeCompletionMetadata(value) {
         route_mode: enumText(value.route_mode ?? value.route, ['ordinary', 'adult']),
         logic_owner: boundedText(value.logic_owner, 160),
         provisional: value.provisional === true,
-        provisional_review_id: validReviewId(value.provisional_review_id)
-            ? value.provisional_review_id
-            : null,
+        provisional_review_id: provisionalReviewId,
         status: boundedText(value.status ?? value.review_status, 160),
         story_state_committed: optionalBoolean(value.story_state_committed),
         canon_status: boundedText(value.canon_status, 120),

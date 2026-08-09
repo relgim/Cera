@@ -19,6 +19,7 @@ import {
 } from './completion-metadata.js';
 import { appendCreatorTrace, renderCompletionPanel } from './creator-trace-panel.js';
 import {
+    acceptedRegenerateSuccessor,
     normalizeReprojectionRequired,
     provisionalAcceptanceCommitted,
     provisionalAcceptEnabled,
@@ -552,6 +553,16 @@ async function decide(messageId, review, action, feedback = null) {
             );
             updateStoredState(messageId, nextReview);
             renderReview(messageId, nextReview);
+            await saveChatConditional();
+            return;
+        }
+        const acceptedSuccessor = acceptedRegenerateSuccessor(result);
+        if (acceptedSuccessor) {
+            chat[messageId].mes = acceptedSuccessor.story_text;
+            chat[messageId].extra[META_KEY].candidate_id = successor.cera.candidate_id;
+            chat[messageId].extra[META_KEY].completion = acceptedSuccessor.completion;
+            updateMessageBlock(messageId, chat[messageId]);
+            markCanonical(messageId, result);
             await saveChatConditional();
             return;
         }

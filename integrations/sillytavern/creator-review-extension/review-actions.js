@@ -53,3 +53,23 @@ export function provisionalAcceptanceCommitted(value) {
     const canonStatus = value.canon_status ?? value.review?.canon_status;
     return committed && canonStatus === 'provisional';
 }
+
+/** Validate one automatically accepted Regenerate successor before UI replacement. */
+export function acceptedRegenerateSuccessor(value) {
+    if (
+        !value
+        || value.schema_version !== 'cera.pi_scene.review_decision.v1'
+        || value.creator_action !== 'regenerate'
+        || value.story_state_committed !== true
+        || value.successor?.cera?.status !== 'accepted'
+        || value.successor?.cera?.story_state_committed !== true
+    ) return null;
+    const storyText = value.successor?.choices?.[0]?.message?.content;
+    if (typeof storyText !== 'string' || !storyText.trim()) return null;
+    return {
+        story_text: storyText,
+        completion: structuredClone(value.successor.cera),
+        accepted_turn_id: value.accepted_turn_id ?? null,
+        accepted_receipt_sha256: value.accepted_receipt_sha256 ?? null,
+    };
+}

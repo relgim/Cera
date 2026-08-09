@@ -1,13 +1,19 @@
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import unittest
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from unittest.mock import patch
 
-from cera.adult_pipeline.contracts import AdultContextFactV1, AdultNextRoute
+from cera.adult_pipeline.contracts import (
+    AdultContextFactV1,
+    AdultFilterConflictClass,
+    AdultNextRoute,
+)
 from cera.adult_pipeline.craft_catalog import CatalogAdultCraftRetrieval
 from cera.adult_pipeline.integration import AdultPipelineIntegrationV1
 from cera.adult_pipeline.pi_roles import (
@@ -21,7 +27,12 @@ from cera.pi_scene.adult_operation_store import (
     ProtectedAdultOperationController,
     ProtectedAdultOperationStore,
 )
-from cera.pi_scene.adult_orchestration import AutomaticAdultRouteOrchestrator
+from cera.pi_scene.adult_orchestration import (
+    AdultRouteOperationOutcomeV1,
+    AutomaticAdultRouteOrchestrator,
+    PreparedAdultRouteOperationV1,
+    classify_prepared_adult_execution,
+)
 from cera.pi_scene.contracts import SceneRoute
 from cera.pi_scene.full_model_controller import (
     AcceptedAdultTurnV1,
@@ -35,12 +46,13 @@ from cera.pi_scene.http_contracts import (
     PI_SCENE_PROFILE,
 )
 from cera.pi_scene.request_journal import PiSceneRequestJournal
+from cera.pi_scene.review_store import LeanSceneTurnInputV1
 from cera.pi_scene.runtime import LeanPiSceneCoordinator, PlannerTurnOutputV1
 from cera.pi_scene.store import LeanSceneStore
 from cera.pi_scene.writer_view import WriterViewMaterializer
 from cera.provider_dispatch_guard import PROVIDER_DISPATCH_DISABLED_ENV
 from cera.semantic_validation import SemanticVerdict
-from cera.serialization import to_primitive
+from cera.serialization import canonical_json, to_primitive
 
 from . import test_pi_scene_atomic_adult_store as atomic_support
 from .test_adult_pipeline_pi_integration import (
@@ -50,6 +62,7 @@ from .test_adult_pipeline_pi_integration import (
 from .test_adult_turn_preparation import CATALOG_ROOT, _plan, _turn
 from .test_cognition_contracts import _plan as _ordinary_plan
 from .test_pi_scene_adult_orchestration import _RejectingTransport
+from .test_pi_scene_adult_review import _ConflictTransport
 from .test_pi_scene_lean_v1 import FakePi
 from .test_pi_scene_lean_v1 import turn as lean_turn
 from .test_pi_scene_semantic_runtime import _SemanticValidator
@@ -99,6 +112,17 @@ class _NeverFullModelController:
         raise AssertionError("explicit compatibility route entered full-model routing")
 
 
+class _AdultContinuingTransport(_FakeStructuredTransport):
+    def invoke_structured_role(self, **kwargs):  # type: ignore[no-untyped-def]
+        result = super().invoke_structured_role(**kwargs)
+        if kwargs["role"].value != "adult_scene":
+            return result
+        payload = json.loads(result.raw_json)
+        payload["next_route"] = "adult"
+        payload["next_route_reason"] = "The accepted adult sequence remains active."
+        return replace(result, raw_json=canonical_json(payload))
+
+
 def _controller_facts() -> tuple[AdultContextFactV1, ...]:
     return (
         AdultContextFactV1(
@@ -142,9 +166,11 @@ class PiSceneFullModelControllerTests(unittest.TestCase):
         root: Path,
         store: LeanSceneStore,
         transports: list[_FakeStructuredTransport],
+        transport_factory=None,  # type: ignore[no-untyped-def]
     ):
         def build(turn, _request_id, candidate_id):  # type: ignore[no-untyped-def]
-            transport = _FakeStructuredTransport()
+            selected_factory = _FakeStructuredTransport if transport_factory is None else transport_factory
+            transport = selected_factory()
             transports.append(transport)
             context = AdultRoleViewContextV1(
                 world_id=turn.world_id,
@@ -188,6 +214,81 @@ class PiSceneFullModelControllerTests(unittest.TestCase):
             )
 
         return build
+
+    def _adult_regeneration_executor(
+        self,
+        root: Path,
+        *,
+        transport_factory=_FakeStructuredTransport,  # type: ignore[no-untyped-def]
+    ) -> tuple[
+        Callable[
+            [PreparedAdultRouteOperationV1, LeanSceneTurnInputV1],
+            AdultRouteOperationOutcomeV1,
+        ],
+        list[_FakeStructuredTransport],
+    ]:
+        transports: list[_FakeStructuredTransport] = []
+
+        def execute(
+            prepared: PreparedAdultRouteOperationV1,
+            frozen_turn: LeanSceneTurnInputV1,
+        ) -> AdultRouteOperationOutcomeV1:
+            transport = transport_factory()
+            transports.append(transport)
+            context = AdultRoleViewContextV1(
+                world_id=frozen_turn.world_id,
+                branch_id=frozen_turn.branch_id,
+                scene_id=frozen_turn.scene_id,
+                turn_id=f"turn:regenerate:{prepared.candidate_id[-12:]}",
+                candidate_id=prepared.candidate_id,
+                current_state=dict(frozen_turn.current_state),
+                characters={
+                    key: dict(value) for key, value in frozen_turn.characters.items()
+                },
+                relationships={
+                    key: dict(value) for key, value in frozen_turn.relationships.items()
+                },
+                recent_prose=tuple(frozen_turn.recent_prose),
+                relevant_memories={
+                    key: dict(value)
+                    for key, value in frozen_turn.relevant_memories.items()
+                },
+                voice_examples=dict(frozen_turn.voice_examples),
+                accepted_records=(),
+            )
+            scope = prepared.operation_sha256[:20]
+            materializer = WriterViewMaterializer(root / "regen" / scope / "views")
+            session_root = root / "regen" / scope / "sessions"
+            scene = PiDeepSeekAdultScenePort(
+                transport=transport,
+                materializer=materializer,
+                context=context,
+                session_root=session_root,
+                accepted_parent_session=None,
+            )
+            filter_port = PiDeepSeekAdultFilterPort(
+                transport=transport,
+                materializer=materializer,
+                context=context,
+                session_root=session_root,
+            )
+            integration = AdultPipelineIntegrationV1(
+                pipeline=AdultPipeline(scene=scene, filter_port=filter_port),
+                scene_port=scene,
+                filter_port=filter_port,
+                craft_retrieval=CatalogAdultCraftRetrieval(CATALOG_ROOT),
+            )
+            protected = integration.execute(
+                request_id=prepared.request_id,
+                candidate_id=prepared.candidate_id,
+                world_id=prepared.route_state.world_id,
+                branch_id=prepared.route_state.branch_id,
+                accepted_head_sha256=prepared.route_state.accepted_head_sha256,
+                scene_request=prepared.scene_request,
+            )
+            return classify_prepared_adult_execution(prepared, protected)
+
+        return execute, transports
 
     @staticmethod
     def _http_payload() -> dict[str, object]:
@@ -537,7 +638,7 @@ class PiSceneFullModelControllerTests(unittest.TestCase):
                 store=store,
                 planner=_NeverPlanner(),
             )
-            recovered = PiSceneHttpAdapter(
+            recovered_adapter = PiSceneHttpAdapter(
                 coordinator=restarted,
                 session_id="session-adult-preparation",
                 context_provider=lambda *_args: replace(_turn(), request_controls=None),
@@ -547,7 +648,8 @@ class PiSceneFullModelControllerTests(unittest.TestCase):
                     ProtectedAdultOperationStore(custody_root),
                 ),
                 request_journal=PiSceneRequestJournal(journal_root),
-            ).complete(payload)
+            )
+            recovered = recovered_adapter.complete(payload)
 
             self.assertEqual(recovered["cera"]["status"], "accepted")
             self.assertEqual(recovered["choices"][0]["message"]["content"], PROTECTED_PROSE)
@@ -693,7 +795,7 @@ class PiSceneFullModelControllerTests(unittest.TestCase):
                 adapter.complete(payload)
 
             restarted, _ = self._coordinator(root, store=store, planner=_NeverPlanner())
-            recovered = PiSceneHttpAdapter(
+            recovered_adapter = PiSceneHttpAdapter(
                 coordinator=restarted,
                 session_id="session-adult-preparation",
                 context_provider=lambda *_args: replace(_turn(), request_controls=None),
@@ -703,7 +805,8 @@ class PiSceneFullModelControllerTests(unittest.TestCase):
                     ProtectedAdultOperationStore(custody_root),
                 ),
                 request_journal=PiSceneRequestJournal(journal_root),
-            ).complete(payload)
+            )
+            recovered = recovered_adapter.complete(payload)
 
             self.assertEqual(recovered["cera"]["status"], "validation_rejected")
             self.assertFalse(recovered["cera"]["story_state_committed"])
@@ -714,6 +817,248 @@ class PiSceneFullModelControllerTests(unittest.TestCase):
                 1,
             )
             self.assertEqual(len(transports), 1)
+            self.assertFalse(recovered["cera"]["regenerate_enabled"])
+            review_id = recovered["cera"]["provisional_review_id"]
+            self.assertFalse(recovered_adapter.get_review(review_id)["regenerate_enabled"])
+            first_decline = recovered_adapter.decide(review_id, {"action": "decline"})
+            replayed_decline = recovered_adapter.decide(review_id, {"action": "decline"})
+            self.assertEqual(first_decline, replayed_decline)
+            self.assertEqual(first_decline["review"]["state"], "declined")
+
+    def test_adult_review_get_and_regenerate_are_restart_safe_and_accounted(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path(r"D:\Cera\tmp")) as temporary:
+            root = Path(temporary)
+            store = LeanSceneStore(root / "world")
+            custody_root = root / "protected-adult"
+            planner = _HandoffPlanner()
+            ordinary, _ = self._coordinator(root, store=store, planner=planner)
+            transports: list[_FakeStructuredTransport] = []
+            executor, regenerate_transports = self._adult_regeneration_executor(root)
+
+            def build_controller(coordinator):  # type: ignore[no-untyped-def]
+                return FullModelSceneController(
+                    ordinary=coordinator,
+                    store=store,
+                    adult_orchestrator_factory=self._adult_factory(
+                        root,
+                        store,
+                        transports,
+                    ),
+                    adult_context_provider=lambda _turn, _route: AdultExecutionContextV1(
+                        accepted_safe_projection="The accepted public scene remains current.",
+                        protected_adult_continuity=None,
+                        current_facts=_controller_facts(),
+                        product_story_boundaries=("Preserve accepted branch authority.",),
+                    ),
+                    adult_operation_controller_factory=lambda: ProtectedAdultOperationController(
+                        ProtectedAdultOperationStore(custody_root)
+                    ),
+                    adult_regeneration_executor=executor,
+                )
+
+            def route(turn):  # type: ignore[no-untyped-def]
+                return SceneRoute(
+                    store.current_logic_route(
+                        world_id=turn.world_id,
+                        branch_id=turn.branch_id,
+                    ).current_logic_route.value
+                )
+
+            adapter = PiSceneHttpAdapter(
+                coordinator=ordinary,
+                session_id="session-adult-preparation",
+                context_provider=lambda *_args: replace(_turn(), request_controls=None),
+                logic_route_resolver=route,
+                full_model_controller=build_controller(ordinary),
+                request_journal=PiSceneRequestJournal(root / "journal"),
+            )
+            with patch(
+                "tests.test_pi_scene_full_model_controller._FakeStructuredTransport",
+                _RejectingTransport,
+            ):
+                rejected = adapter.complete(self._http_payload())
+
+            review_id = rejected["cera"]["provisional_review_id"]
+            self.assertRegex(review_id, r"\Areview-[a-f0-9]{28}\Z")
+            restarted, _ = self._coordinator(
+                root,
+                store=store,
+                planner=_NeverPlanner(),
+            )
+            restarted_adapter = PiSceneHttpAdapter(
+                coordinator=restarted,
+                session_id="session-adult-preparation",
+                context_provider=lambda *_args: replace(_turn(), request_controls=None),
+                logic_route_resolver=route,
+                full_model_controller=build_controller(restarted),
+            )
+            safe_review = restarted_adapter.get_review(review_id)
+            self.assertEqual(safe_review["schema_version"], "cera.pi_scene.review.v1")
+            self.assertEqual(safe_review["state"], "review_ready")
+            self.assertIsNone(safe_review["story_text"])
+            self.assertTrue(safe_review["regenerate_enabled"])
+            self.assertNotIn("adult-review:", canonical_json(safe_review))
+            blocked = restarted_adapter.decide(
+                review_id,
+                {"action": "accept_provisional"},
+            )
+            self.assertEqual(blocked["disposition"], "reprojection_required")
+            self.assertFalse(blocked["story_state_committed"])
+            self.assertIsNone(
+                store.load_head(world_id="world:test", branch_id="branch:test").receipt
+            )
+
+            regenerated = restarted_adapter.decide(review_id, {"action": "regenerate"})
+            replay = restarted_adapter.decide(review_id, {"action": "regenerate"})
+            self.assertEqual(len(regenerate_transports), 1)
+            self.assertTrue(regenerated["story_state_committed"])
+            self.assertEqual(
+                regenerated["successor"]["choices"][0]["message"]["content"],
+                PROTECTED_PROSE,
+            )
+            operations = regenerated["successor"]["cera"]["provider_operations"]
+            self.assertEqual(operations["planner"], 1)
+            self.assertEqual(operations["adult_scene"], 4)
+            self.assertEqual(operations["adult_filter"], 6)
+            repairs = regenerated["successor"]["cera"]["repair_attempts"]
+            self.assertEqual(len(repairs), 1)
+            self.assertEqual(repairs[0]["public_review_id"], review_id)
+            self.assertEqual(
+                replay["successor"]["cera"]["accepted_receipt_sha256"],
+                regenerated["successor"]["cera"]["accepted_receipt_sha256"],
+            )
+
+    def test_accepted_adult_regenerate_precedes_the_ordinary_handler_and_replays(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path(r"D:\Cera\tmp")) as temporary:
+            root = Path(temporary)
+            store = LeanSceneStore(root / "world")
+            planner = _HandoffPlanner()
+            ordinary, _ = self._coordinator(root, store=store, planner=planner)
+            initial_transports: list[_FakeStructuredTransport] = []
+            executor, regenerate_transports = self._adult_regeneration_executor(
+                root,
+                transport_factory=_AdultContinuingTransport,
+            )
+            controller = FullModelSceneController(
+                ordinary=ordinary,
+                store=store,
+                adult_orchestrator_factory=self._adult_factory(
+                    root,
+                    store,
+                    initial_transports,
+                    transport_factory=_AdultContinuingTransport,
+                ),
+                adult_context_provider=lambda _turn, _route: AdultExecutionContextV1(
+                    accepted_safe_projection="The accepted public scene remains current.",
+                    protected_adult_continuity=None,
+                    current_facts=_controller_facts(),
+                    product_story_boundaries=("Preserve accepted branch authority.",),
+                ),
+                adult_regeneration_executor=executor,
+            )
+
+            def route(turn):  # type: ignore[no-untyped-def]
+                return SceneRoute(
+                    store.current_logic_route(
+                        world_id=turn.world_id,
+                        branch_id=turn.branch_id,
+                    ).current_logic_route.value
+                )
+
+            adapter = PiSceneHttpAdapter(
+                coordinator=ordinary,
+                session_id="session-adult-preparation",
+                context_provider=lambda *_args: replace(_turn(), request_controls=None),
+                logic_route_resolver=route,
+                full_model_controller=controller,
+                request_journal=PiSceneRequestJournal(root / "journal"),
+            )
+            first = adapter.complete(self._http_payload())
+            regenerate_payload = dict(self._http_payload())
+            regenerate_payload["cera_regeneration_key"] = "adult_regen_one"
+            with patch.object(
+                adapter,
+                "_regenerate_from_chat_request",
+                side_effect=AssertionError("adult Regenerate entered ordinary routing"),
+            ):
+                regenerated = adapter.complete(regenerate_payload)
+                replay = adapter.complete(regenerate_payload)
+
+            self.assertEqual(len(initial_transports), 1)
+            self.assertEqual(len(regenerate_transports), 1)
+            self.assertEqual(regenerated, replay)
+            self.assertEqual(regenerated["cera"]["generation"], first["cera"]["generation"])
+            self.assertEqual(
+                regenerated["cera"]["accepted_turn_id"],
+                first["cera"]["accepted_turn_id"],
+            )
+            self.assertEqual(regenerated["cera"]["provider_operations"]["planner"], 0)
+            self.assertEqual(regenerated["cera"]["repair_attempts"], [])
+
+    def test_critical_adult_repair_preserves_first_pass_and_ledger_totals(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path(r"D:\Cera\tmp")) as temporary:
+            root = Path(temporary)
+            store = LeanSceneStore(root / "world")
+            ordinary, _ = self._coordinator(
+                root,
+                store=store,
+                planner=_HandoffPlanner(),
+            )
+            first_pass: list[_FakeStructuredTransport] = []
+            executor, repairs = self._adult_regeneration_executor(root)
+            controller = FullModelSceneController(
+                ordinary=ordinary,
+                store=store,
+                adult_orchestrator_factory=self._adult_factory(
+                    root,
+                    store,
+                    first_pass,
+                    transport_factory=lambda: _ConflictTransport(
+                        AdultFilterConflictClass.CURRENT_DATA_CONFLICT
+                    ),
+                ),
+                adult_context_provider=lambda _turn, _route: AdultExecutionContextV1(
+                    accepted_safe_projection="The accepted public scene remains current.",
+                    protected_adult_continuity=None,
+                    current_facts=_controller_facts(),
+                    product_story_boundaries=("Preserve accepted branch authority.",),
+                ),
+                adult_regeneration_executor=executor,
+            )
+
+            def route(turn):  # type: ignore[no-untyped-def]
+                return SceneRoute(
+                    store.current_logic_route(
+                        world_id=turn.world_id,
+                        branch_id=turn.branch_id,
+                    ).current_logic_route.value
+                )
+
+            response = PiSceneHttpAdapter(
+                coordinator=ordinary,
+                session_id="session-adult-preparation",
+                context_provider=lambda *_args: replace(_turn(), request_controls=None),
+                logic_route_resolver=route,
+                full_model_controller=controller,
+            ).complete(self._http_payload())
+
+            self.assertEqual(response["cera"]["status"], "accepted")
+            self.assertEqual(len(first_pass), 1)
+            self.assertEqual(len(repairs), 1)
+            operations = response["cera"]["provider_operations"]
+            self.assertEqual(operations["planner"], 1)
+            self.assertEqual(operations["adult_scene"], 4)
+            self.assertEqual(operations["adult_filter"], 6)
+            repair_attempts = response["cera"]["repair_attempts"]
+            self.assertEqual(len(repair_attempts), 1)
+            self.assertEqual(
+                repair_attempts[0]["conflict_class"],
+                AdultFilterConflictClass.CURRENT_DATA_CONFLICT.value,
+            )
+            self.assertRegex(
+                repair_attempts[0]["public_review_id"],
+                r"\Areview-[a-f0-9]{28}\Z",
+            )
 
     def test_accepted_adult_route_bypasses_codex_for_the_complete_message(self) -> None:
         with tempfile.TemporaryDirectory(dir=Path(r"D:\Cera\tmp")) as temporary:
