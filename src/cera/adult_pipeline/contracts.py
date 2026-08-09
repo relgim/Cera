@@ -331,8 +331,8 @@ class AdultProviderReceiptV1:
         _text(self.finish_status, "adult_receipt.finish_status", maximum=100)
         for field in ("session_id_sha256", "request_sha256", "output_sha256"):
             _sha(getattr(self, field), f"adult_receipt.{field}")
-        if type(self.provider_operations) is not int or self.provider_operations != 1:
-            raise ContractValidationError("adult role requires exactly one provider operation")
+        if type(self.provider_operations) is not int or self.provider_operations < 1:
+            raise ContractValidationError("adult role requires provider operation evidence")
         if type(self.session_terminalized) is not bool:
             raise ContractValidationError("adult receipt terminalization flag is invalid")
         if self.role is AdultProviderRole.SCENE:

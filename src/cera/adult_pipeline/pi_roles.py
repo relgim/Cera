@@ -1,0 +1,891 @@
+"""Concrete protected Pi + DeepSeek adapters for Adult Scene and Filter.
+
+The ordinary :class:`~cera.pi_scene.pi_adapter.PiSceneAdapter` deliberately
+returns prose only.  Adult Scene and Adult Filter need closed structured role
+outputs, so this module reuses its pinned command construction, confined
+Writer view, JSON event parser, operation ledger, and completion checks while
+supplying role-specific system prompts.  Exact adult inputs and outputs are
+written only through protected runtime paths/debug records.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Protocol, cast
+from uuid import uuid4
+
+from cera.errors import ContractValidationError, StateConflictError
+from cera.pi_scene.contracts import SceneRoute
+from cera.pi_scene.pi_adapter import (
+    MAX_TOOL_CALLS_PER_INVOCATION,
+    PiSceneAdapter,
+    PiSceneInvocationV1,
+    _parse_pi_json_stream,
+    _prepare_control_dir,
+    _validate_pi_completion,
+)
+from cera.pi_scene.store import AcceptedPiSessionV1
+from cera.pi_scene.writer_view import (
+    MaterializedWriterViewV1,
+    WriterViewInputV1,
+    WriterViewMaterializer,
+    verify_writer_view,
+)
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
+from cera.schema import from_mapping
+from cera.serialization import canonical_json, canonical_sha256, text_sha256
+
+from .acceptance import AdultFilterExecutionBindingV1, AdultSceneSessionBindingV1
+from .contracts import (
+    AdultCodexProjectionV2,
+    AdultCurrentDataUseV1,
+    AdultDecisionStepV1,
+    AdultFilterConflictClass,
+    AdultFilterConflictV1,
+    AdultFilterDecisionV1,
+    AdultFilterInvocationV1,
+    AdultFilterPassV1,
+    AdultFilterRequestV1,
+    AdultFilterVerdict,
+    AdultNextRoute,
+    AdultProjectionEffectV1,
+    AdultProjectionEventV1,
+    AdultProjectionPresenceChangeV1,
+    AdultProtectedEventV1,
+    AdultProtectedFullRecordV1,
+    AdultProviderReceiptV1,
+    AdultProviderRole,
+    AdultRouteTransitionV1,
+    AdultSceneInvocationV1,
+    AdultSceneOutputV1,
+    AdultSceneRequestV1,
+    AdultSessionScope,
+)
+
+ADULT_PI_ROLE_COMPATIBILITY_VERSION = "cera.adult_pipeline.pi_roles.v1"
+
+_SCENE_SYSTEM_PROMPT = """You are CERA's sole DeepSeek Adult Scene logic and prose owner. Call the context tool exactly once. The confined view is the complete current authority. Decide the characters' causal and psychological response, realize the complete visible scene, and select whether the next logic owner remains adult or returns to ordinary Codex. Adult craft is realization guidance only and never chooses the route. Do not expose files, tools, policies, or analysis. Return exactly one JSON object and no Markdown with keys decision_path, exact_story_prose, resulting_state, unresolved_threads, next_route, next_route_reason. decision_path is a non-empty ordered array of objects with exactly decision_key, character_id, concise_decision, evidence_refs. evidence_refs may cite only current_context evidence_ref values. unresolved_threads and evidence_refs are arrays of strings. next_route is adult or ordinary. Do not author schemas, hashes, branch or transaction custody, or a logic_owner field."""
+
+_FILTER_SYSTEM_PROMPT = """You are CERA's independent DeepSeek Adult Filter. Call the context tool exactly once. Validate the exact Adult Scene request and exact candidate output in the confined view. Do not regenerate, continue, rewrite, or soften the candidate. On pass, extract a protected full record and a non-explicit Codex projection. On reject, return one anchored conflict. Return exactly one JSON object and no Markdown. Pass shape: {\"verdict\":\"pass\",\"protected_record\":{\"events\":[{\"event_key\":string,\"protected_summary\":string,\"character_ids\":[string],\"durable_effects\":[string],\"knowledge_owner_ids\":[string]}],\"current_data_uses\":[{\"evidence_ref\":string,\"decision_key\":string,\"concise_use\":string}],\"resulting_protected_state\":string,\"unresolved_threads\":[string]},\"codex_projection\":{\"events\":[{\"event_key\":string,\"non_explicit_summary\":string,\"lasting_story_meaning\":string}],\"presence_changes\":[{\"character_id\":string,\"direction\":\"enter\"|\"leave\",\"effective_after_event_key\":string}],\"durable_effects\":[{\"effect_key\":string,\"effect_kind\":\"material\"|\"knowledge\"|\"relationship\"|\"character_development\",\"source_event_key\":string,\"subject_ids\":[string],\"non_explicit_effect\":string,\"target_key\":string,\"visibility\":\"public\"|\"character_private\",\"knowledge_owner_id\":string|null}],\"resulting_public_state\":string,\"unresolved_threads\":[string]}}. Reject shape: {\"verdict\":\"reject\",\"conflict\":{\"conflict_class\":string,\"concise_explanation\":string,\"decision_key\":string|null,\"exact_quote\":string|null}}. Event keys must copy the Scene decision keys in order. The projection must remain non-explicit and must not expose adult-role-private current context. Do not author schemas, hashes, exact prose copies, decision-path copies, route transitions, identity, or transaction custody; Python binds those exact values."""
+
+_SCENE_PROMPT = "Load the exact confined authority and return the Adult Scene JSON now."
+_FILTER_PROMPT = "Load the exact protected candidate and return the Adult Filter JSON now."
+
+
+@dataclass(frozen=True, slots=True)
+class AdultRoleViewContextV1:
+    """Branch-scoped material already authorized for the protected Writer view."""
+
+    world_id: str
+    branch_id: str
+    scene_id: str
+    turn_id: str
+    candidate_id: str
+    current_state: Mapping[str, Any]
+    characters: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    relationships: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    recent_prose: Sequence[Mapping[str, Any] | str] = ()
+    relevant_memories: Mapping[str, Mapping[str, Any]] = field(default_factory=dict)
+    voice_examples: Mapping[str, Mapping[str, Any] | str] = field(default_factory=dict)
+    accepted_records: Sequence[Mapping[str, Any]] = ()
+
+    def __post_init__(self) -> None:
+        for name in ("world_id", "branch_id", "scene_id", "turn_id", "candidate_id"):
+            value = getattr(self, name)
+            if not isinstance(value, str) or not value.strip():
+                raise ContractValidationError(f"adult role view {name} is empty")
+        if not self.current_state:
+            raise ContractValidationError("adult role view requires current state")
+
+
+@dataclass(frozen=True, slots=True)
+class StructuredAdultRoleResultV1:
+    raw_json: str
+    session_id: str
+    session_dir: Path
+    session_id_sha256: str
+    provider: str
+    model: str
+    provider_operations: int
+    finish_status: str
+    request_binding_sha256: str
+
+
+class StructuredAdultRoleTransport(Protocol):
+    @property
+    def external_provider_boundary(self) -> bool: ...
+
+    def invoke_structured_role(
+        self,
+        *,
+        role: AdultProviderRole,
+        view: MaterializedWriterViewV1,
+        candidate_id: str,
+        session_dir: Path,
+        system_prompt: str,
+        prompt: str,
+        accepted_parent_session: AcceptedPiSessionV1 | None,
+    ) -> StructuredAdultRoleResultV1: ...
+
+
+class WriterViewMaterializationPort(Protocol):
+    def materialize(self, source: WriterViewInputV1) -> MaterializedWriterViewV1: ...
+
+
+class LazyProtectedWriterViewMaterializer:
+    """Avoid filesystem mutation until the role dispatch guard has passed."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root.resolve()
+
+    def materialize(self, source: WriterViewInputV1) -> MaterializedWriterViewV1:
+        return WriterViewMaterializer(self.root).materialize(source)
+
+
+class PiStructuredAdultRoleTransport:
+    """Pinned Pi JSON-mode runner with exact per-operation accounting."""
+
+    def __init__(self, adapter: PiSceneAdapter) -> None:
+        self.adapter = adapter
+
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self.adapter)
+
+    def invoke_structured_role(
+        self,
+        *,
+        role: AdultProviderRole,
+        view: MaterializedWriterViewV1,
+        candidate_id: str,
+        session_dir: Path,
+        system_prompt: str,
+        prompt: str,
+        accepted_parent_session: AcceptedPiSessionV1 | None,
+    ) -> StructuredAdultRoleResultV1:
+        assert_provider_dispatch_allowed(
+            f"adult_pipeline.pi.{role.value}",
+            external_provider_boundary=self.external_provider_boundary,
+        )
+        verified = verify_writer_view(view.root)
+        if verified.manifest_sha256 != view.manifest_sha256 or verified.purpose != "writer":
+            raise StateConflictError("adult Pi role Writer-view binding changed")
+        session_dir = session_dir.resolve()
+        session_dir.mkdir(parents=True, exist_ok=True)
+        invocation = PiSceneInvocationV1(
+            route=SceneRoute.ADULT,
+            purpose="writer",
+            view=verified,
+            prompt=prompt,
+            candidate_id=candidate_id,
+            session_dir=session_dir,
+            accepted_parent_session=accepted_parent_session,
+        )
+        command = self.adapter.command_for(invocation, system_prompt=system_prompt)
+        environment = dict(os.environ)
+        environment.update(
+            {
+                "CERA_PI_VIEW_ROOT": str(verified.root),
+                "PI_TELEMETRY": "0",
+                "CERA_PI_MAX_TOOL_CALLS": str(MAX_TOOL_CALLS_PER_INVOCATION),
+                "CERA_PI_PURPOSE": "writer",
+            }
+        )
+        request_binding = canonical_sha256(
+            {
+                "compatibility_version": ADULT_PI_ROLE_COMPATIBILITY_VERSION,
+                "role": role.value,
+                "view_manifest_sha256": verified.manifest_sha256,
+                "prompt": prompt,
+                "system_prompt": system_prompt,
+                "model": self.adapter.model,
+                "thinking": "off",
+                "tools": ["context"],
+                "parent_session_id_sha256": (
+                    None
+                    if accepted_parent_session is None
+                    else accepted_parent_session.session_id_sha256
+                ),
+            }
+        )
+        invocation_id = self.adapter.operation_ledger.begin(
+            candidate_id=candidate_id,
+            purpose=role.value,
+            route=SceneRoute.ADULT.value,
+            request_sha256=request_binding,
+        )
+        started = time.perf_counter()
+        try:
+            process = self.adapter._process_runner(  # noqa: SLF001 - pinned compatibility seam
+                command,
+                _prepare_control_dir(session_dir),
+                environment,
+                self.adapter.timeout_seconds,
+                lambda line: self.adapter.operation_ledger.observe_line(invocation_id, line),
+            )
+        except BaseException as exc:
+            self.adapter.operation_ledger.finish(
+                invocation_id,
+                status="failed",
+                failure_type=type(exc).__name__,
+            )
+            raise
+        duration_ms = max(0, round((time.perf_counter() - started) * 1000))
+        if process.returncode != 0:
+            self.adapter.operation_ledger.finish(
+                invocation_id,
+                status="failed",
+                failure_type=f"process_exit_{process.returncode}",
+            )
+            raise StateConflictError(
+                "Pi adult role process failed "
+                f"(exit={process.returncode}, stderr_sha256={text_sha256(process.stderr)})"
+            )
+        try:
+            parsed = _parse_pi_json_stream(process.stdout)
+            _validate_pi_completion(parsed)
+            self.adapter.operation_ledger.assert_completed(
+                invocation_id,
+                parsed_operations=parsed.provider_operations,
+            )
+            raw_json = parsed.output_text.strip()
+            _json_object(raw_json, f"{role.value} output")
+        except BaseException as exc:
+            self.adapter.operation_ledger.finish(
+                invocation_id,
+                status="failed",
+                failure_type=type(exc).__name__,
+            )
+            raise
+        self.adapter.operation_ledger.finish(
+            invocation_id,
+            status="completed",
+            output_sha256=text_sha256(raw_json),
+        )
+        if self.adapter.readable_debug is not None and self.adapter.readable_debug.enabled:
+            self.adapter.readable_debug.write(
+                stage=f"deepseek-{role.value}",
+                identity=candidate_id,
+                protected=True,
+                sections={
+                    "Role": role.value,
+                    "DeepSeek system prompt": system_prompt,
+                    "Pi invocation prompt": prompt,
+                    "Complete confined protected Writer view": self.adapter.readable_debug.writer_view(
+                        verified.root
+                    ),
+                    "DeepSeek structured output": raw_json,
+                    "Provider operation count": parsed.provider_operations,
+                    "Duration ms": duration_ms,
+                },
+            )
+        return StructuredAdultRoleResultV1(
+            raw_json=raw_json,
+            session_id=parsed.session_id,
+            session_dir=session_dir,
+            session_id_sha256=text_sha256(parsed.session_id),
+            provider=self.adapter.provider,
+            model=self.adapter.model,
+            provider_operations=parsed.provider_operations,
+            finish_status=parsed.finish_status,
+            request_binding_sha256=request_binding,
+        )
+
+
+class PiDeepSeekAdultScenePort:
+    """Sole adult logic/prose role over a retained accepted-branch session."""
+
+    def __init__(
+        self,
+        *,
+        transport: StructuredAdultRoleTransport,
+        materializer: WriterViewMaterializationPort,
+        context: AdultRoleViewContextV1,
+        session_root: Path,
+        accepted_parent_session: AcceptedPiSessionV1 | None = None,
+    ) -> None:
+        self.transport = transport
+        self.materializer = materializer
+        self.context = context
+        self.session_root = session_root.resolve()
+        self.accepted_parent_session = accepted_parent_session
+
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self.transport)
+
+    def generate_adult_scene(self, request: AdultSceneRequestV1) -> AdultSceneInvocationV1:
+        assert_provider_dispatch_allowed(
+            "adult_pipeline.scene.pi",
+            external_provider_boundary=self.external_provider_boundary,
+        )
+        view = self.materializer.materialize(
+            _view_input(
+                self.context,
+                role=AdultProviderRole.SCENE,
+                primary=request,
+                exact_source=request.exact_current_source,
+                craft_index={
+                    "adult_craft_selection": _craft_provider_projection(
+                        request.retrieved_craft
+                    )
+                },
+            )
+        )
+        _assert_primary_binding(view, request, request.exact_current_source)
+        result = self.transport.invoke_structured_role(
+            role=AdultProviderRole.SCENE,
+            view=view,
+            candidate_id=self.context.candidate_id,
+            session_dir=self.session_root / "adult-scene",
+            system_prompt=_SCENE_SYSTEM_PROMPT,
+            prompt=_SCENE_PROMPT,
+            accepted_parent_session=self.accepted_parent_session,
+        )
+        output = _decode_scene_output(result.raw_json)
+        receipt = _receipt(
+            result,
+            role=AdultProviderRole.SCENE,
+            request_sha256=canonical_sha256(request),
+            output_sha256=canonical_sha256(output),
+            terminalized=False,
+        )
+        binding = AdultSceneSessionBindingV1(
+            schema_version=AdultSceneSessionBindingV1.SCHEMA_VERSION,
+            scene_request_sha256=canonical_sha256(request),
+            writer_view_manifest_sha256=view.manifest_sha256,
+            provider_receipt_sha256=canonical_sha256(receipt),
+            transport_request_binding_sha256=result.request_binding_sha256,
+            session_id=result.session_id,
+            session_id_sha256=result.session_id_sha256,
+            session_path=str(result.session_dir),
+        )
+        _write_durable_binding(
+            self.session_root / "ADULT_SCENE_SESSION_BINDING.json",
+            binding,
+        )
+        return AdultSceneInvocationV1(
+            output=output,
+            receipt=receipt,
+        )
+
+    def accepted_session_candidate(self, *, accepted_turn_id: str) -> AcceptedPiSessionV1:
+        binding = self.scene_session_binding()
+        return AcceptedPiSessionV1(
+            accepted_turn_id=accepted_turn_id,
+            session_id=binding.session_id,
+            session_path=binding.session_path,
+            session_id_sha256=binding.session_id_sha256,
+        )
+
+    def scene_session_binding(self) -> AdultSceneSessionBindingV1:
+        return _load_durable_binding(
+            self.session_root / "ADULT_SCENE_SESSION_BINDING.json",
+            AdultSceneSessionBindingV1,
+        )
+
+
+class PiDeepSeekAdultFilterPort:
+    """Fresh candidate-isolated Filter with protected exact input."""
+
+    def __init__(
+        self,
+        *,
+        transport: StructuredAdultRoleTransport,
+        materializer: WriterViewMaterializationPort,
+        context: AdultRoleViewContextV1,
+        session_root: Path,
+    ) -> None:
+        self.transport = transport
+        self.materializer = materializer
+        self.context = context
+        self.session_root = session_root.resolve()
+
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self.transport)
+
+    def validate_and_stage(self, request: AdultFilterRequestV1) -> AdultFilterInvocationV1:
+        assert_provider_dispatch_allowed(
+            "adult_pipeline.filter.pi",
+            external_provider_boundary=self.external_provider_boundary,
+        )
+        provider_input = _filter_provider_projection(request)
+        view = self.materializer.materialize(
+            _view_input(
+                self.context,
+                role=AdultProviderRole.FILTER,
+                primary=provider_input,
+                exact_source=request.scene_output.exact_story_prose,
+                craft_index={
+                    "adult_craft_selection": _craft_provider_projection(
+                        request.scene_request.retrieved_craft
+                    )
+                },
+            )
+        )
+        _assert_primary_binding(view, provider_input, request.scene_output.exact_story_prose)
+        filter_candidate_id = f"{self.context.candidate_id}:adult-filter"
+        result = self.transport.invoke_structured_role(
+            role=AdultProviderRole.FILTER,
+            view=view,
+            candidate_id=filter_candidate_id,
+            session_dir=self.session_root / "adult-filter",
+            system_prompt=_FILTER_SYSTEM_PROMPT,
+            prompt=_FILTER_PROMPT,
+            accepted_parent_session=None,
+        )
+        decision = _decode_filter_decision(result.raw_json, request)
+        receipt = _receipt(
+            result,
+            role=AdultProviderRole.FILTER,
+            request_sha256=canonical_sha256(request),
+            output_sha256=canonical_sha256(decision),
+            terminalized=True,
+        )
+        binding = AdultFilterExecutionBindingV1(
+            schema_version=AdultFilterExecutionBindingV1.SCHEMA_VERSION,
+            filter_request_sha256=canonical_sha256(request),
+            writer_view_manifest_sha256=view.manifest_sha256,
+            provider_receipt_sha256=canonical_sha256(receipt),
+            transport_request_binding_sha256=result.request_binding_sha256,
+            session_id_sha256=result.session_id_sha256,
+            session_path=str(result.session_dir),
+            session_terminalized=True,
+        )
+        _write_durable_binding(
+            self.session_root / "ADULT_FILTER_EXECUTION_BINDING.json",
+            binding,
+        )
+        return AdultFilterInvocationV1(
+            decision=decision,
+            receipt=receipt,
+        )
+
+    def filter_execution_binding(self) -> AdultFilterExecutionBindingV1:
+        return _load_durable_binding(
+            self.session_root / "ADULT_FILTER_EXECUTION_BINDING.json",
+            AdultFilterExecutionBindingV1,
+        )
+
+
+def _view_input(
+    context: AdultRoleViewContextV1,
+    *,
+    role: AdultProviderRole,
+    primary: object,
+    exact_source: str,
+    craft_index: Mapping[str, Any],
+) -> WriterViewInputV1:
+    candidate_id = (
+        context.candidate_id
+        if role is AdultProviderRole.SCENE
+        else f"{context.candidate_id}:adult-filter"
+    )
+    return WriterViewInputV1(
+        world_id=context.world_id,
+        branch_id=context.branch_id,
+        scene_id=context.scene_id,
+        turn_id=context.turn_id,
+        candidate_id=candidate_id,
+        route=SceneRoute.ADULT,
+        user_prompt=exact_source,
+        primary_authority=cast(Mapping[str, Any], _primitive(primary)),
+        current_state=context.current_state,
+        characters=context.characters,
+        relationships=context.relationships,
+        recent_prose=context.recent_prose,
+        relevant_memories=context.relevant_memories,
+        voice_examples=context.voice_examples,
+        craft_index=craft_index,
+        accepted_records=context.accepted_records,
+        purpose="writer",
+    )
+
+
+def _assert_primary_binding(view: MaterializedWriterViewV1, primary: object, source: str) -> None:
+    verified = verify_writer_view(view.root)
+    try:
+        stored = json.loads((verified.root / "ADULT_HANDOFF.json").read_text(encoding="utf-8"))
+        stored_source = (verified.root / "USER_PROMPT.txt").read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise StateConflictError("protected adult role view is unreadable") from exc
+    if stored != _primitive(primary) or stored_source != source:
+        raise StateConflictError("protected adult role view lost exact input custody")
+
+
+def _receipt(
+    result: StructuredAdultRoleResultV1,
+    *,
+    role: AdultProviderRole,
+    request_sha256: str,
+    output_sha256: str,
+    terminalized: bool,
+) -> AdultProviderReceiptV1:
+    return AdultProviderReceiptV1(
+        schema_version=AdultProviderReceiptV1.SCHEMA_VERSION,
+        role=role,
+        session_scope=(
+            AdultSessionScope.ACCEPTED_BRANCH
+            if role is AdultProviderRole.SCENE
+            else AdultSessionScope.CANDIDATE
+        ),
+        provider=result.provider,
+        model=result.model,
+        session_id_sha256=result.session_id_sha256,
+        request_sha256=request_sha256,
+        output_sha256=output_sha256,
+        provider_operations=result.provider_operations,
+        finish_status=result.finish_status,
+        session_terminalized=terminalized,
+    )
+
+
+def _decode_scene_output(raw: str) -> AdultSceneOutputV1:
+    value = _json_object(raw, "adult Scene output")
+    _keys(
+        value,
+        {
+            "decision_path",
+            "exact_story_prose",
+            "resulting_state",
+            "unresolved_threads",
+            "next_route",
+            "next_route_reason",
+        },
+        "adult Scene output",
+    )
+    steps = tuple(
+        AdultDecisionStepV1(
+            decision_key=_string(item, "decision_key"),
+            character_id=_string(item, "character_id"),
+            concise_decision=_string(item, "concise_decision"),
+            evidence_refs=_strings(item, "evidence_refs"),
+        )
+        for item in _objects(value, "decision_path", required=True)
+    )
+    return AdultSceneOutputV1(
+        schema_version=AdultSceneOutputV1.SCHEMA_VERSION,
+        logic_owner="deepseek_adult_scene",
+        decision_path=steps,
+        exact_story_prose=_string(value, "exact_story_prose"),
+        resulting_state=_string(value, "resulting_state"),
+        unresolved_threads=_strings(value, "unresolved_threads"),
+        next_route=AdultNextRoute(_string(value, "next_route")),
+        next_route_reason=_string(value, "next_route_reason"),
+    )
+
+
+def _decode_filter_decision(
+    raw: str,
+    request: AdultFilterRequestV1,
+) -> AdultFilterDecisionV1:
+    value = _json_object(raw, "adult Filter output")
+    verdict = _string(value, "verdict")
+    if verdict == AdultFilterVerdict.REJECT.value:
+        _keys(value, {"verdict", "conflict"}, "adult Filter rejection")
+        conflict = _object(value, "conflict")
+        _keys(
+            conflict,
+            {"conflict_class", "concise_explanation", "decision_key", "exact_quote"},
+            "adult Filter conflict",
+        )
+        return AdultFilterDecisionV1(
+            schema_version=AdultFilterDecisionV1.SCHEMA_VERSION,
+            verdict=AdultFilterVerdict.REJECT,
+            passed=None,
+            conflict=AdultFilterConflictV1(
+                conflict_class=AdultFilterConflictClass(
+                    _string(conflict, "conflict_class")
+                ),
+                concise_explanation=_string(conflict, "concise_explanation"),
+                decision_key=_nullable_string(conflict, "decision_key"),
+                exact_quote=_nullable_string(conflict, "exact_quote"),
+            ),
+        )
+    if verdict != AdultFilterVerdict.PASS.value:
+        raise ContractValidationError("adult Filter verdict is invalid")
+    _keys(value, {"verdict", "protected_record", "codex_projection"}, "adult Filter pass")
+    scene = request.scene_output
+    protected = _object(value, "protected_record")
+    _keys(
+        protected,
+        {
+            "events",
+            "current_data_uses",
+            "resulting_protected_state",
+            "unresolved_threads",
+        },
+        "adult Filter protected record",
+    )
+    events = tuple(_decode_protected_event(item) for item in _objects(protected, "events"))
+    uses = tuple(_decode_data_use(item) for item in _objects(protected, "current_data_uses"))
+    full = AdultProtectedFullRecordV1(
+        schema_version=AdultProtectedFullRecordV1.SCHEMA_VERSION,
+        scene_output_sha256=canonical_sha256(scene),
+        exact_story_prose=scene.exact_story_prose,
+        exact_story_prose_sha256=text_sha256(scene.exact_story_prose),
+        decision_path=scene.decision_path,
+        events=events,
+        current_data_uses=uses,
+        resulting_protected_state=_string(protected, "resulting_protected_state"),
+        unresolved_threads=_strings(protected, "unresolved_threads"),
+    )
+    projected = _object(value, "codex_projection")
+    _keys(
+        projected,
+        {
+            "events",
+            "presence_changes",
+            "durable_effects",
+            "resulting_public_state",
+            "unresolved_threads",
+        },
+        "adult Filter Codex projection",
+    )
+    projection = AdultCodexProjectionV2(
+        schema_version=AdultCodexProjectionV2.SCHEMA_VERSION,
+        protected_full_record_sha256=canonical_sha256(full),
+        events=tuple(_decode_projection_event(item) for item in _objects(projected, "events")),
+        presence_changes=tuple(
+            _decode_presence_change(item) for item in _objects(projected, "presence_changes")
+        ),
+        durable_effects=tuple(
+            _decode_projection_effect(item) for item in _objects(projected, "durable_effects")
+        ),
+        resulting_public_state=_string(projected, "resulting_public_state"),
+        unresolved_threads=_strings(projected, "unresolved_threads"),
+    )
+    transition = AdultRouteTransitionV1(
+        schema_version=AdultRouteTransitionV1.SCHEMA_VERSION,
+        current_route=AdultNextRoute.ADULT,
+        next_route=scene.next_route,
+        return_to_codex=scene.next_route is AdultNextRoute.ORDINARY,
+        concise_reason=scene.next_route_reason,
+    )
+    return AdultFilterDecisionV1(
+        schema_version=AdultFilterDecisionV1.SCHEMA_VERSION,
+        verdict=AdultFilterVerdict.PASS,
+        passed=AdultFilterPassV1(
+            protected_full_record=full,
+            codex_projection=projection,
+            route_transition=transition,
+        ),
+        conflict=None,
+    )
+
+
+def _decode_protected_event(value: Mapping[str, Any]) -> AdultProtectedEventV1:
+    _keys(
+        value,
+        {"event_key", "protected_summary", "character_ids", "durable_effects", "knowledge_owner_ids"},
+        "adult protected event",
+    )
+    return AdultProtectedEventV1(
+        event_key=_string(value, "event_key"),
+        protected_summary=_string(value, "protected_summary"),
+        character_ids=_strings(value, "character_ids"),
+        durable_effects=_strings(value, "durable_effects"),
+        knowledge_owner_ids=_strings(value, "knowledge_owner_ids"),
+    )
+
+
+def _decode_data_use(value: Mapping[str, Any]) -> AdultCurrentDataUseV1:
+    _keys(value, {"evidence_ref", "decision_key", "concise_use"}, "adult current-data use")
+    return AdultCurrentDataUseV1(
+        evidence_ref=_string(value, "evidence_ref"),
+        decision_key=_string(value, "decision_key"),
+        concise_use=_string(value, "concise_use"),
+    )
+
+
+def _decode_projection_event(value: Mapping[str, Any]) -> AdultProjectionEventV1:
+    _keys(
+        value,
+        {"event_key", "non_explicit_summary", "lasting_story_meaning"},
+        "adult projection event",
+    )
+    return AdultProjectionEventV1(
+        event_key=_string(value, "event_key"),
+        non_explicit_summary=_string(value, "non_explicit_summary"),
+        lasting_story_meaning=_string(value, "lasting_story_meaning"),
+    )
+
+
+def _decode_presence_change(value: Mapping[str, Any]) -> AdultProjectionPresenceChangeV1:
+    _keys(
+        value,
+        {"character_id", "direction", "effective_after_event_key"},
+        "adult projection presence change",
+    )
+    return AdultProjectionPresenceChangeV1(
+        character_id=_string(value, "character_id"),
+        direction=_string(value, "direction"),
+        effective_after_event_key=_string(value, "effective_after_event_key"),
+    )
+
+
+def _decode_projection_effect(value: Mapping[str, Any]) -> AdultProjectionEffectV1:
+    _keys(
+        value,
+        {
+            "effect_key",
+            "effect_kind",
+            "source_event_key",
+            "subject_ids",
+            "non_explicit_effect",
+            "target_key",
+            "visibility",
+            "knowledge_owner_id",
+        },
+        "adult projection effect",
+    )
+    return AdultProjectionEffectV1(
+        effect_key=_string(value, "effect_key"),
+        effect_kind=_string(value, "effect_kind"),
+        source_event_key=_string(value, "source_event_key"),
+        subject_ids=_strings(value, "subject_ids"),
+        non_explicit_effect=_string(value, "non_explicit_effect"),
+        target_key=_string(value, "target_key"),
+        visibility=_string(value, "visibility"),
+        knowledge_owner_id=_nullable_string(value, "knowledge_owner_id"),
+    )
+
+
+def _primitive(value: object) -> object:
+    return json.loads(canonical_json(value))
+
+
+def _craft_provider_projection(selection: object) -> dict[str, Any]:
+    value = cast(dict[str, Any], _primitive(selection))
+    return {
+        "mode": value["mode"],
+        "covered_axes": value["covered_axes"],
+        "excerpts": value["excerpts"],
+    }
+
+
+def _filter_provider_projection(request: AdultFilterRequestV1) -> dict[str, Any]:
+    scene_request = request.scene_request
+    scene_output = request.scene_output
+    return {
+        "scene_request": {
+            "entry_reason": scene_request.entry_reason.value,
+            "adult_handoff": scene_request.adult_handoff,
+            "exact_current_source": scene_request.exact_current_source,
+            "accepted_safe_continuity": scene_request.accepted_safe_continuity,
+            "accepted_protected_continuity": scene_request.accepted_protected_continuity,
+            "autonomy_mode": scene_request.autonomy_mode,
+            "depth_mode": scene_request.depth_mode,
+            "current_context": _primitive(scene_request.current_context),
+            "retrieved_craft": _craft_provider_projection(scene_request.retrieved_craft),
+            "hard_boundaries": list(scene_request.hard_boundaries),
+        },
+        "scene_output": {
+            "decision_path": _primitive(scene_output.decision_path),
+            "exact_story_prose": scene_output.exact_story_prose,
+            "resulting_state": scene_output.resulting_state,
+            "unresolved_threads": list(scene_output.unresolved_threads),
+            "next_route": scene_output.next_route.value,
+            "next_route_reason": scene_output.next_route_reason,
+        },
+    }
+
+
+def _write_durable_binding(path: Path, value: object) -> None:
+    payload = canonical_json(value)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists():
+        if path.read_text(encoding="utf-8") != payload:
+            raise StateConflictError("adult role execution binding already differs")
+        return
+    stage = path.parent / f".{path.name}.{uuid4().hex}.tmp"
+    try:
+        with stage.open("x", encoding="utf-8", newline="") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(stage, path)
+    finally:
+        if stage.exists():
+            stage.unlink()
+
+
+def _load_durable_binding[BindingT](
+    path: Path,
+    target: type[BindingT],
+) -> BindingT:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise StateConflictError("adult role execution binding is unavailable") from exc
+    if not isinstance(payload, dict):
+        raise StateConflictError("adult role execution binding is invalid")
+    return cast(BindingT, from_mapping(target, payload))
+
+
+def _json_object(raw: str, label: str) -> dict[str, Any]:
+    if not isinstance(raw, str) or not raw.strip() or raw.strip() != raw:
+        raise ContractValidationError(f"{label} is not one exact JSON object")
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ContractValidationError(f"{label} is not valid JSON") from exc
+    if not isinstance(value, dict):
+        raise ContractValidationError(f"{label} must be an object")
+    return cast(dict[str, Any], value)
+
+
+def _keys(value: Mapping[str, Any], expected: set[str], label: str) -> None:
+    if set(value) != expected:
+        raise ContractValidationError(f"{label} field set changed")
+
+
+def _object(value: Mapping[str, Any], key: str) -> dict[str, Any]:
+    item = value.get(key)
+    if not isinstance(item, dict):
+        raise ContractValidationError(f"{key} must be an object")
+    return cast(dict[str, Any], item)
+
+
+def _objects(
+    value: Mapping[str, Any],
+    key: str,
+    *,
+    required: bool = False,
+) -> tuple[dict[str, Any], ...]:
+    items = value.get(key)
+    if not isinstance(items, list) or (required and not items) or not all(
+        isinstance(item, dict) for item in items
+    ):
+        raise ContractValidationError(f"{key} must be an object array")
+    return tuple(cast(dict[str, Any], item) for item in items)
+
+
+def _string(value: Mapping[str, Any], key: str) -> str:
+    item = value.get(key)
+    if not isinstance(item, str):
+        raise ContractValidationError(f"{key} must be a string")
+    return item
+
+
+def _nullable_string(value: Mapping[str, Any], key: str) -> str | None:
+    item = value.get(key)
+    if item is not None and not isinstance(item, str):
+        raise ContractValidationError(f"{key} must be a string or null")
+    return item
+
+
+def _strings(value: Mapping[str, Any], key: str) -> tuple[str, ...]:
+    items = value.get(key)
+    if not isinstance(items, list) or not all(isinstance(item, str) for item in items):
+        raise ContractValidationError(f"{key} must be a string array")
+    return tuple(cast(list[str], items))

@@ -1,5 +1,11 @@
 """Protected adult Scene/Filter pipeline."""
 
+from .acceptance import (
+    AdultAcceptedTurnEnvelopeV1,
+    AdultFilterExecutionBindingV1,
+    AdultIntegratedExecutionV1,
+    AdultSceneSessionBindingV1,
+)
 from .contracts import (
     AdultAcceptedPromotionReceiptV1,
     AdultCodexProjectionV2,
@@ -35,6 +41,23 @@ from .contracts import (
     AdultSessionScope,
     BoundAdultPromotionV1,
 )
+from .craft_catalog import CatalogAdultCraftRetrieval
+from .integration import (
+    AdultPipelineIntegrationV1,
+    AdultScenePreparationV1,
+    build_pi_adult_pipeline_integration,
+)
+from .pi_roles import (
+    ADULT_PI_ROLE_COMPATIBILITY_VERSION,
+    AdultRoleViewContextV1,
+    LazyProtectedWriterViewMaterializer,
+    PiDeepSeekAdultFilterPort,
+    PiDeepSeekAdultScenePort,
+    PiStructuredAdultRoleTransport,
+    StructuredAdultRoleResultV1,
+    StructuredAdultRoleTransport,
+    WriterViewMaterializationPort,
+)
 from .pipeline import AdultPipeline, AdultPipelineInputV1, AdultSceneFilterPipeline
 from .ports import (
     AdultAtomicPromotionPort,
@@ -47,6 +70,8 @@ from .ports import (
 )
 
 __all__ = [
+    "ADULT_PI_ROLE_COMPATIBILITY_VERSION",
+    "AdultAcceptedTurnEnvelopeV1",
     "AdultAcceptedPromotionReceiptV1",
     "AdultAtomicPromotionPort",
     "AdultCodexProjectionV2",
@@ -63,13 +88,16 @@ __all__ = [
     "AdultFilterConflictV1",
     "AdultFilterDecisionV1",
     "AdultFilterInvocationV1",
+    "AdultFilterExecutionBindingV1",
     "AdultFilterPassV1",
     "AdultFilterPort",
     "AdultFilterVerdict",
     "AdultNextRoute",
     "AdultPipeline",
     "AdultPipelineInputV1",
+    "AdultPipelineIntegrationV1",
     "AdultPipelineResultV1",
+    "AdultIntegratedExecutionV1",
     "AdultProjectionEffectV1",
     "AdultProjectionEventV1",
     "AdultProjectionPresenceChangeV1",
@@ -86,8 +114,20 @@ __all__ = [
     "AdultSceneOutputV1",
     "AdultScenePort",
     "AdultSceneRequestV1",
+    "AdultScenePreparationV1",
+    "AdultSceneSessionBindingV1",
+    "AdultRoleViewContextV1",
     "AdultSessionScope",
     "BoundAdultPromotionV1",
+    "CatalogAdultCraftRetrieval",
+    "LazyProtectedWriterViewMaterializer",
+    "PiDeepSeekAdultFilterPort",
+    "PiDeepSeekAdultScenePort",
+    "PiStructuredAdultRoleTransport",
+    "StructuredAdultRoleResultV1",
+    "StructuredAdultRoleTransport",
+    "WriterViewMaterializationPort",
+    "build_pi_adult_pipeline_integration",
     "promote_passed_adult_candidate",
     "retrieve_bounded_adult_craft",
 ]
