@@ -1955,8 +1955,16 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(restarted.generation, 1)
             self.assertEqual(pi.calls[0].purpose, "writer")
             self.assertEqual(pi.calls[1].purpose, "writer")
-            self.assertIn("noncanonical creator guidance", pi.calls[1].prompt)
-            self.assertIn("more concise", pi.calls[1].prompt)
+            self.assertNotIn("more concise", pi.calls[1].prompt)
+            regenerated_state = json.loads(
+                (pi.calls[1].view.root / "CURRENT_STATE.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                regenerated_state["creator_control_guidance"]["text"],
+                "Make the replacement more concise.",
+            )
             self.assertFalse((pi.calls[1].view.root / "PRIMARY_SEQUENCE.json").exists())
             self.assertTrue((pi.calls[1].view.root / "USER_PROMPT.txt").is_file())
             self.assertEqual(pi.calls[2].purpose, "recorder")
