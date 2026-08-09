@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
@@ -92,6 +93,27 @@ class PlannerTurnOutputV1:
                 )
 
 
+@dataclass(frozen=True, slots=True)
+class BoundPlannerTurnOutputV1:
+    """Python custody for one exact turn and accepted-head Planner result."""
+
+    world_id: str
+    branch_id: str
+    accepted_head_sha256: str | None
+    turn_context_sha256: str
+    output: PlannerTurnOutputV1
+
+    def __post_init__(self) -> None:
+        if not self.world_id.strip() or not self.branch_id.strip():
+            raise ContractValidationError("bound Planner turn identity is empty")
+        if self.accepted_head_sha256 is not None and not re.fullmatch(
+            r"[a-f0-9]{64}", self.accepted_head_sha256
+        ):
+            raise ContractValidationError("bound Planner accepted head is invalid")
+        if not re.fullmatch(r"[a-f0-9]{64}", self.turn_context_sha256):
+            raise ContractValidationError("bound Planner turn hash is invalid")
+
+
 class OrdinarySemanticValidatorPort(Protocol):
     def validate(
         self,
@@ -146,32 +168,114 @@ class LeanPiSceneCoordinator:
     def start_ordinary(self, turn: LeanSceneTurnInputV1) -> LeanReviewRecordV1:
         with self._lock:
             self._require_no_unresolved(turn.world_id, turn.branch_id)
-            planned = self._plan_ordinary(turn, creator_guidance=None)
-            review = self._prepare_review(
-                turn,
-                route=SceneRoute.ORDINARY,
-                primary_authority=(planned.decision_bundle or planned.sequence),
-                planner_provider_operations=planned.provider_operations,
+            planned = self._bind_ordinary_plan(turn, creator_guidance=None)
+            return self._start_ordinary_from_bound_plan(turn, planned)
+
+    def plan_ordinary_logic(
+        self,
+        turn: LeanSceneTurnInputV1,
+    ) -> BoundPlannerTurnOutputV1:
+        """Run the retained ordinary logic owner without realizing prose.
+
+        The bound result is the handoff seam used by the full-model controller:
+        it may be realized by the ordinary Writer or transferred to the adult
+        logic owner, but it cannot be replayed against another turn/head.
+        """
+
+        with self._lock:
+            self._require_no_unresolved(turn.world_id, turn.branch_id)
+            return self._bind_ordinary_plan(turn, creator_guidance=None)
+
+    def start_ordinary_from_plan(
+        self,
+        turn: LeanSceneTurnInputV1,
+        planned: BoundPlannerTurnOutputV1,
+    ) -> LeanReviewRecordV1:
+        """Realize one previously bound ordinary plan without another Planner call."""
+
+        with self._lock:
+            self._require_no_unresolved(turn.world_id, turn.branch_id)
+            return self._start_ordinary_from_bound_plan(turn, planned)
+
+    def _start_ordinary_from_bound_plan(
+        self,
+        turn: LeanSceneTurnInputV1,
+        planned: BoundPlannerTurnOutputV1,
+    ) -> LeanReviewRecordV1:
+        self._validate_bound_plan(turn, planned)
+        if _plan_requests_adult_handoff(planned.output):
+            raise StateConflictError(
+                "ordinary realization cannot consume an adult logic-owner handoff"
             )
-            review = self._validate_ordinary_review(
-                review,
-                validation_evidence=planned.validation_evidence,
-            )
-            self._register_review(review)
-            if (
-                review.semantic_validation is not None
-                and review.semantic_validation.verdict.verdict is SemanticVerdict.PASS
-            ):
-                return self.accept(
-                    review.review_id,
-                    acceptance_action="automatic_accept",
-                ).review
-            if (
-                review.semantic_validation is not None
-                and review.semantic_validation.verdict.automatic_repair_eligible
-            ):
-                return self._repair_rejected_ordinary(review)
-            return review
+        output = planned.output
+        review = self._prepare_review(
+            turn,
+            route=SceneRoute.ORDINARY,
+            primary_authority=(output.decision_bundle or output.sequence),
+            planner_provider_operations=output.provider_operations,
+        )
+        review = self._validate_ordinary_review(
+            review,
+            validation_evidence=output.validation_evidence,
+        )
+        self._register_review(review)
+        if (
+            review.semantic_validation is not None
+            and review.semantic_validation.verdict.verdict is SemanticVerdict.PASS
+        ):
+            return self.accept(
+                review.review_id,
+                acceptance_action="automatic_accept",
+            ).review
+        if (
+            review.semantic_validation is not None
+            and review.semantic_validation.verdict.automatic_repair_eligible
+        ):
+            return self._repair_rejected_ordinary(review)
+        return review
+
+    def _bind_ordinary_plan(
+        self,
+        turn: LeanSceneTurnInputV1,
+        *,
+        creator_guidance: CreatorGuidanceV1 | None,
+    ) -> BoundPlannerTurnOutputV1:
+        head_before = self.store.load_head(
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+        )
+        output = self._plan_ordinary(turn, creator_guidance=creator_guidance)
+        head_after = self.store.load_head(
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+        )
+        if head_after.accepted_head_sha256 != head_before.accepted_head_sha256:
+            raise StateConflictError("accepted head changed during ordinary planning")
+        return BoundPlannerTurnOutputV1(
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+            accepted_head_sha256=head_before.accepted_head_sha256,
+            turn_context_sha256=canonical_sha256(turn),
+            output=output,
+        )
+
+    def _validate_bound_plan(
+        self,
+        turn: LeanSceneTurnInputV1,
+        planned: BoundPlannerTurnOutputV1,
+    ) -> None:
+        head = self.store.load_head(
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+        )
+        if (
+            planned.world_id != turn.world_id
+            or planned.branch_id != turn.branch_id
+            or planned.turn_context_sha256 != canonical_sha256(turn)
+            or planned.accepted_head_sha256 != head.accepted_head_sha256
+        ):
+            raise StateConflictError("bound ordinary plan belongs to another turn or head")
+
 
     def _plan_ordinary(
         self,
@@ -1400,6 +1504,20 @@ class LeanPiSceneCoordinator:
             raise ContractValidationError("Pi session directory escaped its root")
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+
+def _plan_requests_adult_handoff(output: PlannerTurnOutputV1) -> bool:
+    bundle = output.decision_bundle
+    if bundle is None:
+        return False
+    transition = bundle.get("route_transition")
+    if transition is None:
+        return False
+    if not isinstance(transition, Mapping):
+        raise ContractValidationError("cognition route transition is not an object")
+    if transition.get("from_route") != "ordinary" or transition.get("to_route") != "adult":
+        raise ContractValidationError("cognition route transition changed logic owners")
+    return True
 
 
 def _controlled_current_state(
