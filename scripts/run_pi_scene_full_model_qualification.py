@@ -12,6 +12,8 @@ rejected first pass, and both outcomes remain in evidence.
 from __future__ import annotations
 
 import argparse
+import importlib.metadata
+import importlib.util
 import json
 import os
 import secrets
@@ -48,6 +50,8 @@ from cera.pi_scene.qualification import (
 )
 from cera.pi_scene.qualification_isolation import (
     MANIFEST_NAME as ISOLATED_ST_MANIFEST_NAME,
+)
+from cera.pi_scene.qualification_isolation import (
     qualification_sillytavern_command,
     stage_qualification_sillytavern,
     verify_qualification_sillytavern,
@@ -66,6 +70,12 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v1.json"
 PI_PACKAGE_ROOT = Path(
     r"C:\Users\Ted\AppData\Roaming\npm\node_modules\@earendil-works\pi-coding-agent"
+)
+
+_CODEX_RUNTIME_DISTRIBUTIONS = (
+    ("openai_codex", "openai-codex"),
+    ("codex_cli_bin", "openai-codex-cli-bin"),
+    ("mcp", "mcp"),
 )
 
 
@@ -103,22 +113,95 @@ def _repository_artifacts(fixture_path: Path) -> dict[str, tuple[Path, ...]]:
     }
 
 
+def _installed_distribution_artifacts(
+    import_name: str,
+    distribution_name: str,
+) -> tuple[Path, Path]:
+    spec = importlib.util.find_spec(import_name)
+    if spec is None or spec.submodule_search_locations is None:
+        raise ContractValidationError(
+            f"qualification provider runtime package is unavailable: {import_name}"
+        )
+    package_locations = tuple(Path(value).resolve() for value in spec.submodule_search_locations)
+    if len(package_locations) != 1 or not package_locations[0].is_dir():
+        raise ContractValidationError(
+            f"qualification provider runtime package location is ambiguous: {import_name}"
+        )
+
+    try:
+        distribution = importlib.metadata.distribution(distribution_name)
+    except importlib.metadata.PackageNotFoundError as exc:
+        raise ContractValidationError(
+            f"qualification provider runtime distribution is unavailable: {distribution_name}"
+        ) from exc
+    files = distribution.files
+    if files is None:
+        raise ContractValidationError(
+            f"qualification provider runtime distribution has no file inventory: "
+            f"{distribution_name}"
+        )
+    metadata_relative_roots = {
+        Path(str(value)).parts[0]
+        for value in files
+        if Path(str(value)).parts and Path(str(value)).parts[0].endswith(".dist-info")
+    }
+    metadata_roots = {
+        Path(str(distribution.locate_file(value))).resolve() for value in metadata_relative_roots
+    }
+    if len(metadata_roots) != 1:
+        raise ContractValidationError(
+            f"qualification provider runtime metadata location is ambiguous: {distribution_name}"
+        )
+    metadata_root = next(iter(metadata_roots))
+    if not metadata_root.is_dir() or metadata_root.parent != package_locations[0].parent:
+        raise ContractValidationError(
+            f"qualification provider runtime package/metadata boundary changed: {distribution_name}"
+        )
+    return package_locations[0], metadata_root
+
+
 def _external_artifacts(isolated_sillytavern_root: Path) -> dict[str, tuple[Path, ...]]:
     node = shutil.which("node")
     if node is None:
         raise ContractValidationError("Node.js is unavailable for isolated SillyTavern")
+    python_executable = Path(sys.executable).resolve()
+    codex_runtime: list[Path] = []
+    for import_name, distribution_name in _CODEX_RUNTIME_DISTRIBUTIONS:
+        codex_runtime.extend(_installed_distribution_artifacts(import_name, distribution_name))
     return {
+        "frozen_python_interpreter": (python_executable,),
         "provider_runtime_tools": (
-            Path(sys.executable),
+            python_executable,
             DEFAULT_PI,
             PI_PACKAGE_ROOT / "package.json",
             PI_PACKAGE_ROOT / "dist",
             Path(node),
+            *codex_runtime,
         ),
         "sillytavern_executable_tree_binding": (
             isolated_sillytavern_root / ISOLATED_ST_MANIFEST_NAME,
         ),
     }
+
+
+def _assert_frozen_python_interpreter(manifest: dict[str, Any]) -> None:
+    categories = manifest.get("artifact_categories")
+    entries = categories.get("frozen_python_interpreter") if isinstance(categories, dict) else None
+    if not isinstance(entries, list) or len(entries) != 1:
+        raise StateConflictError("qualification frozen Python interpreter binding is missing")
+    entry = entries[0]
+    if (
+        not isinstance(entry, dict)
+        or entry.get("location") != "external"
+        or not isinstance(entry.get("path"), str)
+    ):
+        raise StateConflictError("qualification frozen Python interpreter binding is invalid")
+    frozen = Path(entry["path"]).resolve()
+    current = Path(sys.executable).resolve()
+    if current != frozen:
+        raise StateConflictError(
+            "qualification live process is not using the frozen Python interpreter"
+        )
 
 
 class DirectCeraQualificationClient:
@@ -273,18 +356,12 @@ class IsolatedSillyTavernQualificationClient:
             method="GET",
         )
         decline = self._relay(
-            path=(
-                "/api/plugins/cera-review/v1/cera/reviews/"
-                f"{decline_review_id}/decision"
-            ),
+            path=(f"/api/plugins/cera-review/v1/cera/reviews/{decline_review_id}/decision"),
             method="POST",
             payload={"action": "decline"},
         )
         regenerate = self._relay(
-            path=(
-                "/api/plugins/cera-review/v1/cera/reviews/"
-                f"{regenerate_review_id}/decision"
-            ),
+            path=(f"/api/plugins/cera-review/v1/cera/reviews/{regenerate_review_id}/decision"),
             method="POST",
             payload={"action": "regenerate"},
         )
@@ -360,9 +437,7 @@ def freeze(
     stage_qualification_sillytavern(
         sillytavern_source.resolve(),
         isolated_root,
-        repository_proxy_root=(
-            ROOT / "integrations" / "sillytavern" / "cera-review-proxy-plugin"
-        ),
+        repository_proxy_root=(ROOT / "integrations" / "sillytavern" / "cera-review-proxy-plugin"),
         repository_extension_root=(
             ROOT / "integrations" / "sillytavern" / "creator-review-extension"
         ),
@@ -404,9 +479,7 @@ def provider_free_check(
             manifest_path.resolve().parent / "isolated_sillytavern"
         )
         result["manifest_sha256"] = manifest["manifest_sha256"]
-        result["isolated_sillytavern_manifest_sha256"] = isolated[
-            "manifest_sha256"
-        ]
+        result["isolated_sillytavern_manifest_sha256"] = isolated["manifest_sha256"]
     result["result_sha256"] = canonical_sha256(result)
     return result
 
@@ -720,6 +793,7 @@ def live(
         expected_commit=str(manifest["source_commit"]),
         expected_tree=str(manifest["source_tree"]),
     )
+    _assert_frozen_python_interpreter(manifest)
     verify_qualification_artifacts(manifest, repository_root=ROOT)
     fixtures = load_qualification_fixtures(fixture_path)
     if manifest["fixture_set_sha256"] != __import__(

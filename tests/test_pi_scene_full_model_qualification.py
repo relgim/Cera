@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 import tempfile
 import unittest
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from cera.pi_scene.qualification import (
     DEEPSEEK_HTTP_OPERATION_CEILING,
@@ -575,9 +576,7 @@ class FullModelQualificationTests(unittest.TestCase):
             )
             result = runner.run_phase(QualificationPhase.BACKEND, fixtures, client)
             adult_two = next(
-                value
-                for value in result["results"]
-                if value["fixture_id"] == "backend-adult-02"
+                value for value in result["results"] if value["fixture_id"] == "backend-adult-02"
             )
             self.assertEqual(adult_two["provider_operations"]["planner"], 0)
             self.assertFalse(adult_two["first_pass_accepted"])
@@ -603,9 +602,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 ),
             )
             repaired = next(
-                value
-                for value in result["results"]
-                if value["fixture_id"] == "backend-ordinary-02"
+                value for value in result["results"] if value["fixture_id"] == "backend-ordinary-02"
             )
             self.assertEqual(repaired["provider_operations"]["planner"], 1)
             self.assertEqual(repaired["provider_operations"]["writer"], 2)
@@ -680,6 +677,94 @@ class FullModelQualificationTests(unittest.TestCase):
             with self.assertRaisesRegex(Exception, "artifact changed"):
                 verify_qualification_artifacts(manifest, repository_root=root)
 
+    def test_external_artifacts_bind_exact_codex_runtime_packages(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            isolated = root / "isolated"
+            isolated.mkdir()
+            (isolated / "CERA_QUALIFICATION_ISOLATED_COPY_MANIFEST.json").write_text(
+                "{}",
+                encoding="utf-8",
+            )
+            package_pairs: list[tuple[Path, Path]] = []
+            for index in range(3):
+                package_root = root / f"package-{index}"
+                metadata_root = root / f"package-{index}.dist-info"
+                package_root.mkdir()
+                metadata_root.mkdir()
+                package_pairs.append((package_root, metadata_root))
+            with (
+                patch.object(
+                    entrypoint,
+                    "_installed_distribution_artifacts",
+                    side_effect=package_pairs,
+                ) as installed,
+                patch(
+                    "scripts.run_pi_scene_full_model_qualification.shutil.which",
+                    return_value=str(root / "node.exe"),
+                ),
+            ):
+                artifacts = entrypoint._external_artifacts(isolated)
+
+            self.assertEqual(
+                artifacts["frozen_python_interpreter"],
+                (Path(sys.executable).resolve(),),
+            )
+            runtime_paths = artifacts["provider_runtime_tools"]
+            for package_root, metadata_root in package_pairs:
+                self.assertIn(package_root, runtime_paths)
+                self.assertIn(metadata_root, runtime_paths)
+            self.assertEqual(
+                installed.call_args_list,
+                [
+                    call("openai_codex", "openai-codex"),
+                    call("codex_cli_bin", "openai-codex-cli-bin"),
+                    call("mcp", "mcp"),
+                ],
+            )
+
+    def test_live_interpreter_must_match_frozen_manifest_binding(self) -> None:
+        current = Path(sys.executable).resolve()
+        manifest = {
+            "artifact_categories": {
+                "frozen_python_interpreter": [
+                    {
+                        "path": str(current),
+                        "location": "external",
+                        "bytes": 1,
+                        "sha256": "a" * 64,
+                    }
+                ]
+            }
+        }
+        entrypoint._assert_frozen_python_interpreter(manifest)
+        manifest["artifact_categories"]["frozen_python_interpreter"][0]["path"] = str(
+            current.with_name("other-python.exe")
+        )
+        with self.assertRaisesRegex(Exception, "not using the frozen Python interpreter"):
+            entrypoint._assert_frozen_python_interpreter(manifest)
+
+    def test_live_checks_frozen_interpreter_before_artifact_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            manifest = {
+                "source_commit": "a" * 40,
+                "source_tree": "b" * 40,
+            }
+            with (
+                patch.object(entrypoint, "load_qualification_manifest", return_value=manifest),
+                patch.object(entrypoint, "_assert_clean_exact_repository"),
+                patch.object(
+                    entrypoint,
+                    "_assert_frozen_python_interpreter",
+                    side_effect=RuntimeError("interpreter blocked"),
+                ),
+                patch.object(entrypoint, "verify_qualification_artifacts") as verify,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "interpreter blocked"):
+                    entrypoint.live(output_root=root, fixture_path=FIXTURES)
+            verify.assert_not_called()
+
     def test_freeze_binds_exact_disposable_tree_before_live(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -704,8 +789,7 @@ class FullModelQualificationTests(unittest.TestCase):
                     "_external_artifacts",
                     side_effect=lambda isolated: {
                         "sillytavern_executable_tree_binding": (
-                            isolated
-                            / "CERA_QUALIFICATION_ISOLATED_COPY_MANIFEST.json",
+                            isolated / "CERA_QUALIFICATION_ISOLATED_COPY_MANIFEST.json",
                         ),
                     },
                 ),
