@@ -273,6 +273,7 @@ class LeanRunResultV1:
     writer_provider_operations: int
     regenerated_from_candidate_id: str | None = None
     replanned_from_candidate_id: str | None = None
+    repaired_from_candidate_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
@@ -288,8 +289,15 @@ class LeanRunResultV1:
             raise ContractValidationError("Writer operation count differs from its receipt")
         if self.candidate.route is SceneRoute.ADULT and self.planner_provider_operations != 0:
             raise ContractValidationError("initial adult route must not call the Codex Planner")
-        if self.regenerated_from_candidate_id and self.replanned_from_candidate_id:
-            raise ContractValidationError("a result cannot be both regenerated and replanned")
+        lineage = (
+            self.regenerated_from_candidate_id,
+            self.replanned_from_candidate_id,
+            self.repaired_from_candidate_id,
+        )
+        if sum(value is not None for value in lineage) > 1:
+            raise ContractValidationError(
+                "a result cannot be regenerated, replanned, and repaired together"
+            )
 
 
 @dataclass(frozen=True, slots=True)

@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hmac
 import json
 import re
-from typing import Any, Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import Any
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
@@ -24,15 +25,14 @@ from .http_contracts import (
     PiSceneChatRequestV1,
     parse_chat_request,
 )
-from .runtime import (
+from .readable_debug import ReadablePiSceneDebugLog
+from .review_store import (
     LeanDecisionResultV1,
-    LeanPiSceneCoordinator,
     LeanReviewRecordV1,
     LeanReviewState,
     LeanSceneTurnInputV1,
 )
-from .readable_debug import ReadablePiSceneDebugLog
-
+from .runtime import LeanPiSceneCoordinator
 
 ContextProvider = Callable[[SceneRoute, str, Sequence[Mapping[str, str]]], LeanSceneTurnInputV1]
 RequestContextProvider = Callable[
@@ -99,17 +99,20 @@ class PiSceneHttpAdapter:
     @property
     def status(self) -> dict[str, Any]:
         return {
-            "mode": "pi_scene_lean",
+            "mode": "pi_scene_full_model",
             "active": True,
             "profile_id": PI_SCENE_PROFILE,
             "models": [PI_SCENE_ORDINARY_MODEL, PI_SCENE_ADULT_MODEL],
-            "creator_review_required": True,
-            "validator_required": False,
+            "creator_review_required": False,
+            "creator_review_available_on_reject": True,
+            "validator_required": True,
             "reader_required": False,
             "ted_restrictions": "warn_only",
             "writer_session": "accepted_lineage_or_fresh_rehydration",
             "python_accepted_state_authoritative": True,
+            "automatic_accept_after_semantic_pass": True,
             "automatic_retry": False,
+            "maximum_critical_complete_repairs": 1,
             "fallback": False,
             "session_scope": (
                 "static_legacy" if self.request_context_provider is None else "per_chat_branch"
@@ -229,6 +232,25 @@ class PiSceneHttpAdapter:
             if review.accepted_receipt is None
             else self.coordinator.store.recording_status(review.accepted_receipt).value
         )
+        validation = review.semantic_validation
+        validation_payload = (
+            None
+            if validation is None
+            else {
+                "binding_sha256": validation.binding_sha256,
+                "verdict": validation.verdict.verdict.value,
+                "automatic_repair_eligible": validation.verdict.automatic_repair_eligible,
+                "conflict": (
+                    None
+                    if validation.verdict.conflict is None
+                    else to_primitive(validation.verdict.conflict)
+                ),
+                "review_flags": [
+                    to_primitive(value) for value in validation.verdict.review_flags
+                ],
+            }
+        )
+        rejected = validation is not None and validation.verdict.verdict.value == "reject"
         return {
             "schema_version": "cera.pi_scene.review.v1",
             "review_id": review.review_id,
@@ -244,6 +266,7 @@ class PiSceneHttpAdapter:
             "warnings_block_accept": False,
             "recording_status": status,
             "story_state_committed": review.accepted_receipt is not None,
+            "semantic_validation": validation_payload,
             "request_controls": (
                 None
                 if review.turn_input.request_controls is None
@@ -254,7 +277,12 @@ class PiSceneHttpAdapter:
                 if review.creator_guidance is None
                 else to_primitive(review.creator_guidance)
             ),
-            "accept_enabled": review.state == LeanReviewState.REVIEW_READY,
+            "accept_enabled": (
+                review.state == LeanReviewState.REVIEW_READY and not rejected
+            ),
+            "provisional_accept_enabled": (
+                review.state == LeanReviewState.REVIEW_READY and rejected
+            ),
             "decline_enabled": review.state == LeanReviewState.REVIEW_READY,
             "regenerate_enabled": review.state == LeanReviewState.REVIEW_READY,
             "replan_enabled": (
@@ -311,6 +339,21 @@ class PiSceneHttpAdapter:
     @staticmethod
     def _completion_payload(review: LeanReviewRecordV1) -> dict[str, Any]:
         candidate = review.candidate
+        committed = review.accepted_receipt is not None
+        validation = review.semantic_validation
+        rejected = validation is not None and validation.verdict.verdict.value == "reject"
+        recording_status = (
+            None
+            if review.recording_attempt is None
+            else review.recording_attempt.status.value
+        )
+        review_status = (
+            "accepted"
+            if committed
+            else "validation_rejected"
+            if rejected
+            else "review_ready"
+        )
         return {
             "id": f"chatcmpl-cera-{candidate.candidate_sha256[:24]}",
             "object": "chat.completion",
@@ -331,16 +374,46 @@ class PiSceneHttpAdapter:
             "cera": {
                 "profile_id": PI_SCENE_PROFILE,
                 "route_mode": candidate.route.value,
-                "provisional": True,
-                "status": "review_ready",
-                "story_state_committed": False,
-                "provisional_review_id": review.review_id,
+                "provisional": not committed,
+                "status": review_status,
+                "story_state_committed": committed,
+                "provisional_review_id": None if committed else review.review_id,
                 "review_url": f"/v1/cera/reviews/{review.review_id}",
                 "candidate_id": candidate.candidate_id,
                 "generation": candidate.generation,
                 "warnings": [to_primitive(value) for value in candidate.warnings],
                 "warnings_block_accept": False,
-                "recording_status": None,
+                "accepted_turn_id": (
+                    None
+                    if review.accepted_receipt is None
+                    else review.accepted_receipt.accepted_turn_id
+                ),
+                "accepted_receipt_sha256": (
+                    None
+                    if review.accepted_receipt is None
+                    else review.accepted_receipt.receipt_sha256
+                ),
+                "recording_status": recording_status,
+                "semantic_validation": (
+                    None
+                    if validation is None
+                    else {
+                        "binding_sha256": validation.binding_sha256,
+                        "verdict": validation.verdict.verdict.value,
+                        "automatic_repair_eligible": (
+                            validation.verdict.automatic_repair_eligible
+                        ),
+                        "conflict": (
+                            None
+                            if validation.verdict.conflict is None
+                            else to_primitive(validation.verdict.conflict)
+                        ),
+                        "review_flags": [
+                            to_primitive(value)
+                            for value in validation.verdict.review_flags
+                        ],
+                    }
+                ),
                 "request_controls": (
                     None
                     if review.turn_input.request_controls is None
@@ -432,7 +505,7 @@ def _typed_error_payload(
     story_state_committed: bool = False,
     retry_mode: str = "not_applicable",
 ) -> dict[str, Any]:
-    envelope = {
+    envelope: dict[str, Any] = {
         "schema_version": "cera.error.v1",
         "error_code": error_code,
         "message": message,

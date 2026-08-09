@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from cera.pi_scene.http import PiSceneHttpAdapter
 from cera.pi_scene.review_store import LeanReviewState
 from cera.pi_scene.runtime import LeanPiSceneCoordinator, PlannerTurnOutputV1
 from cera.pi_scene.store import LeanSceneStore
@@ -24,8 +25,12 @@ from .test_pi_scene_lean_v1 import FakePi, turn
 class _CognitionPlanner:
     external_provider_boundary = False
 
+    def __init__(self) -> None:
+        self.calls = 0
+
     def plan(self, request):
         del request
+        self.calls += 1
         plan = to_primitive(_plan())
         return PlannerTurnOutputV1(
             sequence=plan["sequence"],
@@ -37,15 +42,18 @@ class _CognitionPlanner:
 class _SemanticValidator:
     external_provider_boundary = False
 
-    def __init__(self, verdict: SemanticVerdict) -> None:
-        self.verdict = verdict
+    def __init__(self, *verdicts: SemanticVerdict) -> None:
+        if not verdicts:
+            raise ValueError("at least one verdict is required")
+        self.verdicts = verdicts
         self.calls = 0
 
     def validate(self, request, custody):
         self.calls += 1
+        verdict = self.verdicts[min(self.calls - 1, len(self.verdicts) - 1)]
         conflict = (
             None
-            if self.verdict is SemanticVerdict.PASS
+            if verdict is SemanticVerdict.PASS
             else SemanticConflictV1(
                 conflict_class=SemanticConflictClass.OMITTED_DECISION,
                 concise_explanation="The candidate omitted Sakura's decision.",
@@ -58,7 +66,7 @@ class _SemanticValidator:
             custody=custody,
             verdict=SemanticValidationVerdictV1(
                 schema_version=SemanticValidationVerdictV1.SCHEMA_VERSION,
-                verdict=self.verdict,
+                verdict=verdict,
                 conflict=conflict,
             ),
         )
@@ -66,15 +74,16 @@ class _SemanticValidator:
 
 def _runtime(root: Path, validator: _SemanticValidator):
     store = LeanSceneStore(root / "world")
+    planner = _CognitionPlanner()
     coordinator = LeanPiSceneCoordinator(
         store=store,
-        planner=_CognitionPlanner(),
+        planner=planner,
         writer_views=WriterViewMaterializer(root / "views"),
         pi=FakePi(),
         session_root=root / "sessions",
         semantic_validator=validator,
     )
-    return coordinator, store
+    return coordinator, store, planner
 
 
 class PiSceneSemanticRuntimeTests(unittest.TestCase):
@@ -82,7 +91,7 @@ class PiSceneSemanticRuntimeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             validator = _SemanticValidator(SemanticVerdict.PASS)
-            coordinator, store = _runtime(root, validator)
+            coordinator, store, _ = _runtime(root, validator)
             review = coordinator.start_ordinary(turn())
             self.assertEqual(review.state, LeanReviewState.ACCEPTED)
             self.assertIsNotNone(review.semantic_validation)
@@ -102,14 +111,23 @@ class PiSceneSemanticRuntimeTests(unittest.TestCase):
                 review.candidate.turn_id,
             )
 
-    def test_reject_stays_inspectable_then_auto_declines_on_next_turn(self) -> None:
+    def test_one_failed_repair_stays_inspectable_then_auto_declines(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             validator = _SemanticValidator(SemanticVerdict.REJECT)
-            coordinator, store = _runtime(root, validator)
+            coordinator, store, _ = _runtime(root, validator)
             review = coordinator.start_ordinary(turn())
             self.assertEqual(review.state, LeanReviewState.REVIEW_READY)
+            self.assertIsNotNone(review.result.repaired_from_candidate_id)
             self.assertIsNotNone(review.semantic_validation)
+            self.assertEqual(validator.calls, 2)
+            original_id = review.result.repaired_from_candidate_id
+            original = next(
+                value
+                for value in coordinator._reviews.values()
+                if value.candidate.candidate_id == original_id
+            )
+            self.assertEqual(original.state, LeanReviewState.REPAIRED)
             self.assertIsNone(
                 store.load_head(
                     world_id=review.candidate.world_id,
@@ -117,7 +135,7 @@ class PiSceneSemanticRuntimeTests(unittest.TestCase):
                 ).receipt
             )
 
-            restarted, _ = _runtime(root, validator)
+            restarted, _, _ = _runtime(root, validator)
             recovered = restarted.get_review(review.review_id)
             self.assertEqual(recovered.semantic_validation, review.semantic_validation)
             decision = restarted.accept_unresolved_for_new_turn(
@@ -132,6 +150,79 @@ class PiSceneSemanticRuntimeTests(unittest.TestCase):
                     branch_id=review.candidate.branch_id,
                 ).receipt
             )
+
+    def test_one_complete_repair_passes_and_auto_accepts(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            validator = _SemanticValidator(
+                SemanticVerdict.REJECT,
+                SemanticVerdict.PASS,
+            )
+            coordinator, store, _ = _runtime(root, validator)
+            accepted = coordinator.start_ordinary(turn())
+            self.assertEqual(accepted.state, LeanReviewState.ACCEPTED)
+            self.assertIsNotNone(accepted.result.repaired_from_candidate_id)
+            self.assertEqual(validator.calls, 2)
+            self.assertEqual(
+                store.load_head(
+                    world_id=accepted.candidate.world_id,
+                    branch_id=accepted.candidate.branch_id,
+                ).accepted_turn_id,
+                accepted.candidate.turn_id,
+            )
+
+            restarted, _, _ = _runtime(root, validator)
+            recovered = restarted.get_review(accepted.review_id)
+            self.assertEqual(recovered.state, LeanReviewState.ACCEPTED)
+
+    def test_regenerate_reruns_the_logic_owner_before_the_writer(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            validator = _SemanticValidator(SemanticVerdict.REJECT)
+            coordinator, _, planner = _runtime(root, validator)
+            first = coordinator.start_ordinary(turn())
+            self.assertEqual(planner.calls, 1)
+
+            decision = coordinator.regenerate(first.review_id)
+            assert decision.successor is not None
+            self.assertEqual(planner.calls, 2)
+            self.assertEqual(
+                decision.successor.result.regenerated_from_candidate_id,
+                first.candidate.candidate_id,
+            )
+            self.assertGreater(
+                decision.successor.result.planner_provider_operations,
+                0,
+            )
+
+    def test_completion_metadata_reports_auto_accept_and_rejection_truthfully(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            accepted, _, _ = _runtime(
+                Path(temporary) / "accepted",
+                _SemanticValidator(SemanticVerdict.PASS),
+            )
+            accepted_review = accepted.start_ordinary(turn())
+            accepted_payload = PiSceneHttpAdapter._completion_payload(accepted_review)
+            self.assertEqual(accepted_payload["cera"]["status"], "accepted")
+            self.assertTrue(accepted_payload["cera"]["story_state_committed"])
+            self.assertFalse(accepted_payload["cera"]["provisional"])
+            self.assertEqual(
+                accepted_payload["cera"]["semantic_validation"]["verdict"],
+                "pass",
+            )
+
+            rejected, _, _ = _runtime(
+                Path(temporary) / "rejected",
+                _SemanticValidator(SemanticVerdict.REJECT),
+            )
+            rejected_review = rejected.start_ordinary(turn())
+            rejected_payload = PiSceneHttpAdapter._completion_payload(rejected_review)
+            self.assertEqual(
+                rejected_payload["cera"]["status"],
+                "validation_rejected",
+            )
+            self.assertFalse(rejected_payload["cera"]["story_state_committed"])
+            self.assertTrue(rejected_payload["cera"]["provisional"])
 
 
 if __name__ == "__main__":

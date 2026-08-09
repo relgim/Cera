@@ -96,6 +96,7 @@ class LeanReviewState(str):
     DECLINED = "declined"
     REGENERATED = "regenerated"
     REPLANNED = "replanned"
+    REPAIRED = "repaired"
 
 
 @dataclass(frozen=True, slots=True)
@@ -392,7 +393,13 @@ def decision_request_sha256(
     force_rehydrate: bool = False,
     turn_input: LeanSceneTurnInputV1 | None = None,
 ) -> str:
-    if action not in {"accept", "decline", "regenerate", "replan"}:
+    if action not in {
+        "accept",
+        "decline",
+        "regenerate",
+        "replan",
+        "automatic_repair",
+    }:
         raise ContractValidationError("Pi Scene decision action is invalid")
     return canonical_sha256(
         {
@@ -507,6 +514,7 @@ def _review_from_state_payload(
         LeanReviewState.DECLINED,
         LeanReviewState.REGENERATED,
         LeanReviewState.REPLANNED,
+        LeanReviewState.REPAIRED,
     }:
         raise StateConflictError("Pi Scene persisted review state is invalid")
     accepted_value = None if is_legacy else value["accepted_receipt"]
@@ -639,7 +647,13 @@ def _decision_from_state_payload(
     warnings = value["operational_warnings"]
     if (
         not isinstance(review_id, str)
-        or action not in {"accept", "decline", "regenerate", "replan"}
+        or action not in {
+            "accept",
+            "decline",
+            "regenerate",
+            "replan",
+            "automatic_repair",
+        }
         or not isinstance(request_sha256, str)
         or not re.fullmatch(r"[0-9a-f]{64}", request_sha256)
         or not isinstance(warnings, list)
@@ -658,11 +672,16 @@ def _decision_from_state_payload(
         "decline": LeanReviewState.DECLINED,
         "regenerate": LeanReviewState.REGENERATED,
         "replan": LeanReviewState.REPLANNED,
+        "automatic_repair": LeanReviewState.REPAIRED,
     }[action]
     if review.review_id != review_id or review.state != expected_state:
         raise StateConflictError("Pi Scene decision receipt review changed")
-    if action in {"regenerate", "replan"}:
-        if successor is None or successor.state != LeanReviewState.REVIEW_READY:
+    if action in {"regenerate", "replan", "automatic_repair"}:
+        allowed_successor_states = {
+            LeanReviewState.REVIEW_READY,
+            LeanReviewState.ACCEPTED,
+        }
+        if successor is None or successor.state not in allowed_successor_states:
             raise StateConflictError("Pi Scene decision successor is missing")
         if (
             successor.review_id == review_id
@@ -675,13 +694,21 @@ def _decision_from_state_payload(
         if action == "regenerate" and (
             successor.result.regenerated_from_candidate_id != predecessor_id
             or successor.result.replanned_from_candidate_id is not None
+            or successor.result.repaired_from_candidate_id is not None
         ):
             raise StateConflictError("Pi Scene regeneration receipt changed")
         if action == "replan" and (
             successor.result.replanned_from_candidate_id != predecessor_id
             or successor.result.regenerated_from_candidate_id is not None
+            or successor.result.repaired_from_candidate_id is not None
         ):
             raise StateConflictError("Pi Scene replan receipt changed")
+        if action == "automatic_repair" and (
+            successor.result.repaired_from_candidate_id != predecessor_id
+            or successor.result.regenerated_from_candidate_id is not None
+            or successor.result.replanned_from_candidate_id is not None
+        ):
+            raise StateConflictError("Pi Scene automatic-repair receipt changed")
     elif successor is not None:
         raise StateConflictError("Pi Scene decision has an unexpected successor")
     return review_id, DecisionReplayV1(

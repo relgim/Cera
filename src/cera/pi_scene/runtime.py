@@ -11,6 +11,10 @@ from threading import RLock
 from typing import Any, Protocol
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.semantic_validation import (
     BoundSemanticValidationV1,
     SemanticValidationCustodyV1,
@@ -140,55 +144,134 @@ class LeanPiSceneCoordinator:
     def start_ordinary(self, turn: LeanSceneTurnInputV1) -> LeanReviewRecordV1:
         with self._lock:
             self._require_no_unresolved(turn.world_id, turn.branch_id)
-            accepted_records = self.store.recent_ordinary_context_payloads(
-                world_id=turn.world_id,
-                branch_id=turn.branch_id,
-            )
-            planned = self._planner_for(turn).plan(
-                PlannerTurnInputV1(
-                    world_id=turn.world_id,
-                    branch_id=turn.branch_id,
-                    scene_id=turn.scene_id,
-                    exact_user_source=turn.exact_user_source,
-                    current_state=_controlled_current_state(
-                        turn,
-                        creator_guidance=None,
-                    ),
-                    characters=turn.characters,
-                    relationships=turn.relationships,
-                    relevant_memories=turn.relevant_memories,
-                    accepted_records=accepted_records,
-                    request_controls=turn.request_controls,
-                )
-            )
+            planned = self._plan_ordinary(turn, creator_guidance=None)
             review = self._prepare_review(
                 turn,
                 route=SceneRoute.ORDINARY,
                 primary_authority=(planned.decision_bundle or planned.sequence),
                 planner_provider_operations=planned.provider_operations,
             )
-            if review.candidate.primary_authority_kind == "codex_cognition_plan":
-                if self.semantic_validator is None:
-                    raise StateConflictError("cognition candidate requires the semantic Validator")
-                validation_request, validation_custody = build_semantic_validation_input(
-                    candidate=review.candidate,
-                    current_state=turn.current_state,
-                    validation_evidence=planned.validation_evidence,
-                )
-                review = replace(
-                    review,
-                    semantic_validation=self.semantic_validator.validate(
-                        validation_request,
-                        validation_custody,
-                    ),
-                )
+            review = self._validate_ordinary_review(
+                review,
+                validation_evidence=planned.validation_evidence,
+            )
             self._register_review(review)
             if (
                 review.semantic_validation is not None
                 and review.semantic_validation.verdict.verdict is SemanticVerdict.PASS
             ):
                 return self.accept(review.review_id).review
+            if (
+                review.semantic_validation is not None
+                and review.semantic_validation.verdict.automatic_repair_eligible
+            ):
+                return self._repair_rejected_ordinary(review)
             return review
+
+    def _plan_ordinary(
+        self,
+        turn: LeanSceneTurnInputV1,
+        *,
+        creator_guidance: CreatorGuidanceV1 | None,
+    ) -> PlannerTurnOutputV1:
+        accepted_records = self.store.recent_ordinary_context_payloads(
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+        )
+        return self._planner_for(turn).plan(
+            PlannerTurnInputV1(
+                world_id=turn.world_id,
+                branch_id=turn.branch_id,
+                scene_id=turn.scene_id,
+                exact_user_source=turn.exact_user_source,
+                current_state=_controlled_current_state(
+                    turn,
+                    creator_guidance=creator_guidance,
+                ),
+                characters=turn.characters,
+                relationships=turn.relationships,
+                relevant_memories=turn.relevant_memories,
+                accepted_records=accepted_records,
+                request_controls=turn.request_controls,
+                creator_guidance=creator_guidance,
+            )
+        )
+
+    def _validate_ordinary_review(
+        self,
+        review: LeanReviewRecordV1,
+        *,
+        validation_evidence: Sequence[Mapping[str, Any]],
+    ) -> LeanReviewRecordV1:
+        if review.candidate.primary_authority_kind != "codex_cognition_plan":
+            return review
+        if self.semantic_validator is None:
+            raise StateConflictError("cognition candidate requires the semantic Validator")
+        validation_request, validation_custody = build_semantic_validation_input(
+            candidate=review.candidate,
+            current_state=review.turn_input.current_state,
+            validation_evidence=validation_evidence,
+        )
+        return replace(
+            review,
+            semantic_validation=self.semantic_validator.validate(
+                validation_request,
+                validation_custody,
+            ),
+        )
+
+    def _repair_rejected_ordinary(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> LeanReviewRecordV1:
+        validation = review.semantic_validation
+        if validation is None or not validation.verdict.automatic_repair_eligible:
+            raise StateConflictError("automatic repair requires one eligible rejection")
+        authority = json.loads(review.candidate.primary_authority_json)
+        if not isinstance(authority, Mapping):
+            raise StateConflictError("automatic repair lost the cognition authority")
+        successor = self._prepare_review(
+            review.turn_input,
+            route=SceneRoute.ORDINARY,
+            primary_authority=authority,
+            planner_provider_operations=0,
+            repaired_from_candidate_id=review.candidate.candidate_id,
+            repair_validation=validation,
+        )
+        successor = self._validate_ordinary_review(
+            successor,
+            validation_evidence=tuple(
+                to_primitive(value) for value in validation.request.selected_evidence
+            ),
+        )
+        terminal = replace(review, state=LeanReviewState.REPAIRED)
+        request_sha256 = decision_request_sha256(
+            action="automatic_repair",
+            feedback=validation.binding_sha256,
+        )
+        decision = DecisionReplayV1(
+            action="automatic_repair",
+            request_sha256=request_sha256,
+            result=LeanDecisionResultV1(review=terminal, successor=successor),
+        )
+        self._commit_review_transition(
+            review,
+            terminal=terminal,
+            successor=successor,
+            decision=decision,
+        )
+        if (
+            successor.semantic_validation is not None
+            and successor.semantic_validation.verdict.verdict is SemanticVerdict.PASS
+        ):
+            accepted = self.accept(successor.review_id).review
+            self._decisions[review.review_id] = replace(
+                decision,
+                result=replace(decision.result, successor=accepted),
+            )
+            self._persist_review_state()
+            return accepted
+        return successor
 
     def start_adult(self, turn: LeanSceneTurnInputV1) -> LeanReviewRecordV1:
         with self._lock:
@@ -401,35 +484,58 @@ class LeanPiSceneCoordinator:
                 if feedback is None
                 else CreatorGuidanceV1.create(action="regenerate", text=feedback)
             )
-            authority = json.loads(review.candidate.primary_authority_json)
-            successor = self._prepare_review(
-                replacement_turn,
-                route=review.candidate.route,
-                primary_authority=authority,
-                planner_provider_operations=0,
-                regenerated_from_candidate_id=review.candidate.candidate_id,
-                creator_guidance=guidance,
-                force_rehydrate=force_rehydrate,
-            )
-            if (
-                successor.candidate.primary_authority_json
-                != review.candidate.primary_authority_json
-                or successor.candidate.primary_authority_sha256
-                != review.candidate.primary_authority_sha256
-            ):
-                raise StateConflictError("Regenerate changed the exact primary authority")
+            if review.candidate.route is SceneRoute.ORDINARY:
+                planned = self._plan_ordinary(
+                    replacement_turn,
+                    creator_guidance=guidance,
+                )
+                successor = self._prepare_review(
+                    replacement_turn,
+                    route=SceneRoute.ORDINARY,
+                    primary_authority=(planned.decision_bundle or planned.sequence),
+                    planner_provider_operations=planned.provider_operations,
+                    regenerated_from_candidate_id=review.candidate.candidate_id,
+                    creator_guidance=guidance,
+                    force_rehydrate=force_rehydrate,
+                )
+                successor = self._validate_ordinary_review(
+                    successor,
+                    validation_evidence=planned.validation_evidence,
+                )
+            else:
+                authority = json.loads(review.candidate.primary_authority_json)
+                if not isinstance(authority, Mapping):
+                    raise StateConflictError("adult Regenerate lost its route authority")
+                successor = self._prepare_review(
+                    replacement_turn,
+                    route=SceneRoute.ADULT,
+                    primary_authority=authority,
+                    planner_provider_operations=0,
+                    regenerated_from_candidate_id=review.candidate.candidate_id,
+                    creator_guidance=guidance,
+                    force_rehydrate=force_rehydrate,
+                )
             terminal = replace(review, state=LeanReviewState.REGENERATED)
             result = LeanDecisionResultV1(review=terminal, successor=successor)
+            decision = DecisionReplayV1(
+                action="regenerate",
+                request_sha256=request_sha256,
+                result=result,
+            )
             self._commit_review_transition(
                 review,
                 terminal=terminal,
                 successor=successor,
-                decision=DecisionReplayV1(
-                    action="regenerate",
-                    request_sha256=request_sha256,
-                    result=result,
-                ),
+                decision=decision,
             )
+            if (
+                successor.semantic_validation is not None
+                and successor.semantic_validation.verdict.verdict is SemanticVerdict.PASS
+            ):
+                accepted = self.accept(successor.review_id).review
+                result = replace(result, successor=accepted)
+                self._decisions[review.review_id] = replace(decision, result=result)
+                self._persist_review_state()
             return result
 
     def replan(
@@ -464,27 +570,9 @@ class LeanPiSceneCoordinator:
                 action="replan",
                 text=normalized_feedback,
             )
-            accepted_records = self.store.recent_ordinary_context_payloads(
-                world_id=review.turn_input.world_id,
-                branch_id=review.turn_input.branch_id,
-            )
-            planned = self._planner_for(review.turn_input).plan(
-                PlannerTurnInputV1(
-                    world_id=review.turn_input.world_id,
-                    branch_id=review.turn_input.branch_id,
-                    scene_id=review.turn_input.scene_id,
-                    exact_user_source=review.turn_input.exact_user_source,
-                    current_state=_controlled_current_state(
-                        review.turn_input,
-                        creator_guidance=guidance,
-                    ),
-                    characters=review.turn_input.characters,
-                    relationships=review.turn_input.relationships,
-                    relevant_memories=review.turn_input.relevant_memories,
-                    accepted_records=accepted_records,
-                    request_controls=review.turn_input.request_controls,
-                    creator_guidance=guidance,
-                )
+            planned = self._plan_ordinary(
+                review.turn_input,
+                creator_guidance=guidance,
             )
             successor = self._prepare_review(
                 review.turn_input,
@@ -494,18 +582,31 @@ class LeanPiSceneCoordinator:
                 replanned_from_candidate_id=review.candidate.candidate_id,
                 creator_guidance=guidance,
             )
+            successor = self._validate_ordinary_review(
+                successor,
+                validation_evidence=planned.validation_evidence,
+            )
             terminal = replace(review, state=LeanReviewState.REPLANNED)
             result = LeanDecisionResultV1(review=terminal, successor=successor)
+            decision = DecisionReplayV1(
+                action="replan",
+                request_sha256=request_sha256,
+                result=result,
+            )
             self._commit_review_transition(
                 review,
                 terminal=terminal,
                 successor=successor,
-                decision=DecisionReplayV1(
-                    action="replan",
-                    request_sha256=request_sha256,
-                    result=result,
-                ),
+                decision=decision,
             )
+            if (
+                successor.semantic_validation is not None
+                and successor.semantic_validation.verdict.verdict is SemanticVerdict.PASS
+            ):
+                accepted = self.accept(successor.review_id).review
+                result = replace(result, successor=accepted)
+                self._decisions[review.review_id] = replace(decision, result=result)
+                self._persist_review_state()
             return result
 
     def repair_recording(self, review_id: str) -> LeanDecisionResultV1:
@@ -571,6 +672,10 @@ class LeanPiSceneCoordinator:
         The durable Pi operation ledger remains the provider-accounting source.
         """
 
+        assert_provider_dispatch_allowed(
+            "pi_scene.record_after_accept",
+            external_provider_boundary=is_external_provider_boundary(self.pi),
+        )
         accepted = review.accepted_receipt
         if accepted is None:
             raise StateConflictError("Recorder recovery requires an accepted turn")
@@ -613,8 +718,10 @@ class LeanPiSceneCoordinator:
         planner_provider_operations: int,
         regenerated_from_candidate_id: str | None = None,
         replanned_from_candidate_id: str | None = None,
+        repaired_from_candidate_id: str | None = None,
         creator_guidance: CreatorGuidanceV1 | None = None,
         force_rehydrate: bool = False,
+        repair_validation: BoundSemanticValidationV1 | None = None,
     ) -> LeanReviewRecordV1:
         head = self.store.load_head(world_id=turn.world_id, branch_id=turn.branch_id)
         candidate_counter = self._reserve_candidate_counter()
@@ -673,10 +780,7 @@ class LeanPiSceneCoordinator:
                 purpose="writer",
             )
         )
-        prompt = (
-            "Call context exactly once, use its complete confined Writer view, "
-            "then produce the complete scene now without another tool call."
-        )
+        prompt = _writer_prompt(repair_validation)
         accepted_session = self.store.load_accepted_pi_session(
             world_id=turn.world_id,
             branch_id=turn.branch_id,
@@ -741,6 +845,7 @@ class LeanPiSceneCoordinator:
             writer_provider_operations=pi_result.writer_receipt.provider_operations,
             regenerated_from_candidate_id=regenerated_from_candidate_id,
             replanned_from_candidate_id=replanned_from_candidate_id,
+            repaired_from_candidate_id=repaired_from_candidate_id,
         )
         review_id = f"review-{candidate.candidate_sha256[:28]}"
         review = LeanReviewRecordV1(
@@ -1210,6 +1315,38 @@ def _pi_operation_count(pi: object) -> int:
     ledger = getattr(pi, "operation_ledger", None)
     value = getattr(ledger, "operation_count", 0)
     return value if type(value) is int and value >= 0 else 0
+
+
+def _writer_prompt(
+    repair_validation: BoundSemanticValidationV1 | None,
+) -> str:
+    base = (
+        "Call context exactly once, use its complete confined Writer view, "
+        "then produce the complete scene now without another tool call."
+    )
+    if repair_validation is None:
+        return base
+    verdict = repair_validation.verdict
+    conflict = verdict.conflict
+    if (
+        verdict.verdict is not SemanticVerdict.REJECT
+        or not verdict.automatic_repair_eligible
+        or conflict is None
+    ):
+        raise ContractValidationError(
+            "Writer repair requires one eligible semantic rejection"
+        )
+    target = (
+        f"decision {conflict.decision_key}"
+        if conflict.decision_key is not None
+        else f"the exact candidate phrase {json.dumps(conflict.exact_quote)}"
+    )
+    return (
+        f"{base} This is the only complete repair attempt. The prior candidate "
+        f"was rejected for {conflict.conflict_class.value} at {target}: "
+        f"{conflict.concise_explanation} Produce a fresh complete scene from "
+        "the unchanged Writer view; do not quote, patch, or continue the rejected prose."
+    )
 
 
 def _writer_context_records(
