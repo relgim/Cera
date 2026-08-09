@@ -11,10 +11,13 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import ClassVar, cast
+from typing import ClassVar
 
 from cera.errors import ContractValidationError
-from cera.sequence_first.contracts import SequenceDraftV1
+from cera.sequence_first.contracts import (
+    SequenceDraftV1,
+    SequenceFirstTurnSemanticInputV1,
+)
 from cera.serialization import canonical_sha256
 
 _LOCAL_KEY = re.compile(r"[a-z][a-z0-9_]{0,95}\Z")
@@ -347,6 +350,29 @@ class RouteTransitionProposalV1:
 
 
 @dataclass(frozen=True, slots=True)
+class CognitionTurnContextV1:
+    """Complete semantic input for one logic-owner operation."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.cognition.turn_context.v1"
+
+    turn: SequenceFirstTurnSemanticInputV1
+    autonomy_mode: CharacterAutonomyMode
+    logic_route: LogicRoute
+    available_provisional_record_ids: tuple[str, ...] = ()
+
+    def __post_init__(self) -> None:
+        _unique(
+            self.available_provisional_record_ids,
+            "cognition_turn_context.available_provisional_record_ids",
+        )
+        for value in self.available_provisional_record_ids:
+            _identity(
+                value,
+                "cognition_turn_context.available_provisional_record_ids",
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class CognitionPlanV1:
     """One provider-authored cognition result wrapping legacy sequence semantics."""
 
@@ -380,4 +406,4 @@ class CognitionPlanV1:
 
     @property
     def semantic_sha256(self) -> str:
-        return cast(str, canonical_sha256(self))
+        return canonical_sha256(self)

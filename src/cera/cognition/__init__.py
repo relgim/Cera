@@ -5,6 +5,7 @@ from .contracts import (
     CharacterAutonomyMode,
     CloseAlternativeV1,
     CognitionPlanV1,
+    CognitionTurnContextV1,
     DecisionItemLinkV1,
     DecisionRecordV1,
     KnowledgeCertainty,
@@ -21,6 +22,7 @@ from .contracts import (
 )
 from .custody import CognitionCustodyEnvelopeV1
 from .ports import AdultFilterPort, AdultLogicPort, CharacterLogicPort, SemanticValidatorPort
+from .session import PersistentCognitionPlannerSession
 from .validation import CognitionValidationContextV1, validate_cognition_plan
 
 __all__ = [
@@ -32,6 +34,7 @@ __all__ = [
     "CloseAlternativeV1",
     "CognitionCustodyEnvelopeV1",
     "CognitionPlanV1",
+    "CognitionTurnContextV1",
     "CognitionValidationContextV1",
     "DecisionItemLinkV1",
     "DecisionRecordV1",
@@ -41,6 +44,7 @@ __all__ = [
     "ObserverFrameV1",
     "PerceivedFactV1",
     "PressureLevel",
+    "PersistentCognitionPlannerSession",
     "ProvisionalDependencyV1",
     "ProvisionalTruthValue",
     "ResponseLayersV1",
