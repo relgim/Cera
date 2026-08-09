@@ -9,8 +9,11 @@ accepted-head checks, and atomic publication.
 
 from __future__ import annotations
 
+import json
+import os
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 from typing import ClassVar, Protocol, cast
 
 from cera.adult_pipeline.acceptance import AdultAcceptedTurnEnvelopeV1
@@ -23,11 +26,18 @@ from cera.adult_pipeline.contracts import (
 from cera.cognition.contracts import CognitionPlanV1
 from cera.errors import ContractValidationError, StateConflictError
 from cera.schema import from_mapping
-from cera.serialization import canonical_sha256, domain_sha256, re_is_sha256, text_sha256
+from cera.serialization import (
+    canonical_json,
+    canonical_sha256,
+    domain_sha256,
+    re_is_sha256,
+    text_sha256,
+)
 
 from .adult_operation_contracts import (
     AdultOperationDecisionAction,
     AdultOperationDecisionV1,
+    AdultOperationDispatchUncertainError,
 )
 from .adult_operation_store import (
     ProtectedAdultOperationController,
@@ -36,6 +46,7 @@ from .adult_operation_store import (
 from .adult_orchestration import (
     AutomaticAdultRouteOrchestrator,
     PassedAdultRouteOperationV1,
+    PreparedAdultRouteOperationV1,
     RejectedAdultRouteOperationV1,
 )
 from .contracts import SceneRoute
@@ -101,6 +112,7 @@ class AcceptedAdultTurnV1:
     outcome: PassedAdultRouteOperationV1
     envelope: AdultAcceptedTurnEnvelopeV1
     promotion: BoundAdultPromotionV1
+    planner_provider_operations: int
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
@@ -111,6 +123,10 @@ class AcceptedAdultTurnV1:
             raise ContractValidationError("accepted adult turn receipt changed its bundle")
         if self.promotion.receipt.accepted_turn_id != self.envelope.accepted_turn_id:
             raise ContractValidationError("accepted adult turn receipt changed its identity")
+        _validate_adult_planner_operations(
+            self.outcome,
+            self.planner_provider_operations,
+        )
 
     @property
     def exact_story_prose(self) -> str:
@@ -129,10 +145,15 @@ class RejectedAdultTurnV1:
 
     schema_version: str
     outcome: RejectedAdultRouteOperationV1
+    planner_provider_operations: int
 
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("rejected adult turn schema changed")
+        _validate_adult_planner_operations(
+            self.outcome,
+            self.planner_provider_operations,
+        )
 
     @property
     def exact_story_prose(self) -> str:
@@ -214,6 +235,10 @@ class FullModelSceneController:
             raise StateConflictError(
                 "committed adult promotion lacks its exact passed operation"
             )
+        planner_provider_operations = _load_adult_planner_telemetry(
+            operation_controller,
+            record.prepared,
+        )
         reconstructed = outcome.protected_execution.acceptance_envelope(
             accepted_turn_id=envelope.accepted_turn_id,
             parent_accepted_turn_id=envelope.parent_accepted_turn_id,
@@ -238,6 +263,71 @@ class FullModelSceneController:
             outcome=outcome,
             envelope=envelope,
             promotion=promotion,
+            planner_provider_operations=planner_provider_operations,
+        )
+
+    def recover_completed_adult_operation(
+        self,
+        *,
+        request_id: str,
+        turn: LeanSceneTurnInputV1,
+    ) -> AcceptedAdultTurnV1 | RejectedAdultTurnV1 | None:
+        """Recover one durable adult execution before HTTP progress exists.
+
+        A committed promotion is terminalized first.  Otherwise the original
+        candidate is re-derived only from the still-current pre-turn route and
+        request custody.  No Planner, context provider, orchestrator, Scene, or
+        Filter callback is reachable from this method.
+        """
+
+        promoted = self.recover_committed_adult(request_id=request_id, turn=turn)
+        if promoted is not None:
+            return promoted
+
+        route_state = self.store.current_logic_route(
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+        )
+        candidate_id = _adult_candidate_id(
+            request_id=request_id,
+            turn=turn,
+            route_state=route_state,
+        )
+        operation_controller = self.adult_operation_controller_factory()
+        record = operation_controller.store.lookup_optional(
+            request_id=request_id,
+            candidate_id=candidate_id,
+        )
+        if record is None:
+            return None
+        _validate_recovered_adult_preparation(
+            record.prepared,
+            turn=turn,
+            route_state=route_state,
+        )
+        planner_provider_operations = _load_adult_planner_telemetry(
+            operation_controller,
+            record.prepared,
+        )
+        outcome = record.outcome
+        if outcome is None:
+            raise AdultOperationDispatchUncertainError(
+                request_id=request_id,
+                candidate_id=candidate_id,
+            )
+        if isinstance(outcome, RejectedAdultRouteOperationV1):
+            return RejectedAdultTurnV1(
+                schema_version=RejectedAdultTurnV1.SCHEMA_VERSION,
+                outcome=outcome,
+                planner_provider_operations=planner_provider_operations,
+            )
+        if not isinstance(outcome, PassedAdultRouteOperationV1):
+            raise StateConflictError("adult operation recovered an unsupported outcome")
+        return self._promote_passed_operation(
+            turn=turn,
+            operation_controller=operation_controller,
+            outcome=outcome,
+            planner_provider_operations=planner_provider_operations,
         )
 
     def complete(
@@ -284,6 +374,14 @@ class FullModelSceneController:
                 ),
             ),
         )
+        planner_provider_operations = (
+            0 if bound_plan is None else bound_plan.output.provider_operations
+        )
+        _bind_adult_planner_telemetry(
+            operation_controller,
+            begin.record.prepared,
+            planner_provider_operations,
+        )
         resolution = operation_controller.execute_new(
             begin,
             execute=orchestrator.execute_prepared,
@@ -295,10 +393,26 @@ class FullModelSceneController:
             return RejectedAdultTurnV1(
                 schema_version=RejectedAdultTurnV1.SCHEMA_VERSION,
                 outcome=outcome,
+                planner_provider_operations=planner_provider_operations,
             )
+        return self._promote_passed_operation(
+            turn=turn,
+            operation_controller=operation_controller,
+            outcome=outcome,
+            planner_provider_operations=planner_provider_operations,
+        )
 
+    def _promote_passed_operation(
+        self,
+        *,
+        turn: LeanSceneTurnInputV1,
+        operation_controller: ProtectedAdultOperationController,
+        outcome: PassedAdultRouteOperationV1,
+        planner_provider_operations: int,
+    ) -> AcceptedAdultTurnV1:
+        prepared = outcome.prepared
         head = self.store.load_head(world_id=turn.world_id, branch_id=turn.branch_id)
-        if head.accepted_head_sha256 != route_state.accepted_head_sha256:
+        if head.accepted_head_sha256 != prepared.route_state.accepted_head_sha256:
             raise StateConflictError("accepted head changed during adult execution")
         generation = head.generation + 1
         accepted_turn_id = f"turn-{generation:04d}-{text_sha256(turn.exact_user_source)[:12]}"
@@ -310,10 +424,10 @@ class FullModelSceneController:
         )
         promotion = self.store.promote_adult_acceptance_envelope(envelope)
         operation_controller.store.mark_accepted(
-            request_id=request_id,
-            candidate_id=candidate_id,
+            request_id=prepared.request_id,
+            candidate_id=prepared.candidate_id,
             decision=_adult_accept_decision(
-                operation_sha256=resolution.record.prepared.operation_sha256,
+                operation_sha256=prepared.operation_sha256,
                 promotion=promotion,
             ),
         )
@@ -322,6 +436,7 @@ class FullModelSceneController:
             outcome=outcome,
             envelope=envelope,
             promotion=promotion,
+            planner_provider_operations=planner_provider_operations,
         )
 
 
@@ -382,3 +497,128 @@ def _adult_accept_decision(
         decision_request_sha256=decision_request_sha256,
         accepted_binding_sha256=accepted_binding_sha256,
     )
+
+
+_PLANNER_TELEMETRY_SCHEMA = "cera.pi_scene.adult_planner_telemetry.v1"
+
+
+def _validate_adult_planner_operations(
+    outcome: PassedAdultRouteOperationV1 | RejectedAdultRouteOperationV1,
+    provider_operations: int,
+) -> None:
+    if type(provider_operations) is not int or provider_operations < 0:
+        raise ContractValidationError("adult Planner operation count is invalid")
+    if outcome.prepared.bypassed_codex:
+        if provider_operations != 0:
+            raise ContractValidationError(
+                "accepted adult continuation cannot report Codex Planner work"
+            )
+    elif provider_operations < 1:
+        raise ContractValidationError("Codex adult handoff lost its Planner operation count")
+
+
+def _planner_telemetry_path(
+    operation_controller: ProtectedAdultOperationController,
+    prepared: PreparedAdultRouteOperationV1,
+) -> Path:
+    store_root = cast(Path, operation_controller.store.root)
+    root = (store_root / "PLANNER_TELEMETRY").resolve()
+    if not root.is_relative_to(store_root):
+        raise ContractValidationError("adult Planner telemetry escaped protected custody")
+    root.mkdir(parents=True, exist_ok=True)
+    return root / f"op-{prepared.operation_sha256}.json"
+
+
+def _adult_planner_telemetry_payload(
+    prepared: PreparedAdultRouteOperationV1,
+    provider_operations: int,
+) -> dict[str, object]:
+    if type(provider_operations) is not int or provider_operations < 0:
+        raise ContractValidationError("adult Planner operation count is invalid")
+    if prepared.bypassed_codex != (provider_operations == 0):
+        raise ContractValidationError("adult Planner telemetry changed logic-owner custody")
+    body: dict[str, object] = {
+        "schema_version": _PLANNER_TELEMETRY_SCHEMA,
+        "request_id": prepared.request_id,
+        "candidate_id": prepared.candidate_id,
+        "operation_id": prepared.operation_id,
+        "operation_sha256": prepared.operation_sha256,
+        "provider_operations": provider_operations,
+    }
+    return {**body, "binding_sha256": canonical_sha256(body)}
+
+
+def _bind_adult_planner_telemetry(
+    operation_controller: ProtectedAdultOperationController,
+    prepared: PreparedAdultRouteOperationV1,
+    provider_operations: int,
+) -> None:
+    path = _planner_telemetry_path(operation_controller, prepared)
+    payload = _adult_planner_telemetry_payload(prepared, provider_operations)
+    rendered = canonical_json(payload) + "\n"
+    try:
+        with path.open("x", encoding="utf-8", newline="\n") as handle:
+            handle.write(rendered)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except FileExistsError:
+        if path.read_text(encoding="utf-8") != rendered:
+            raise StateConflictError("adult Planner telemetry changed on replay") from None
+
+
+def _load_adult_planner_telemetry(
+    operation_controller: ProtectedAdultOperationController,
+    prepared: PreparedAdultRouteOperationV1,
+) -> int:
+    path = _planner_telemetry_path(operation_controller, prepared)
+    if not path.exists():
+        if prepared.bypassed_codex:
+            return 0
+        raise StateConflictError(
+            "Codex adult handoff lacks durable Planner operation telemetry"
+        )
+    try:
+        text = path.read_text(encoding="utf-8")
+        payload = json.loads(text)
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise StateConflictError("adult Planner telemetry is unreadable") from exc
+    required = {
+        "schema_version",
+        "request_id",
+        "candidate_id",
+        "operation_id",
+        "operation_sha256",
+        "provider_operations",
+        "binding_sha256",
+    }
+    if not isinstance(payload, dict) or set(payload) != required:
+        raise StateConflictError("adult Planner telemetry shape changed")
+    if text != canonical_json(payload) + "\n":
+        raise StateConflictError("adult Planner telemetry is not canonical")
+    body = {key: payload[key] for key in required if key != "binding_sha256"}
+    if payload["binding_sha256"] != canonical_sha256(body):
+        raise StateConflictError("adult Planner telemetry binding changed")
+    expected = _adult_planner_telemetry_payload(
+        prepared,
+        payload["provider_operations"],
+    )
+    if payload != expected:
+        raise StateConflictError("adult Planner telemetry operation custody changed")
+    return cast(int, payload["provider_operations"])
+
+
+def _validate_recovered_adult_preparation(
+    prepared: PreparedAdultRouteOperationV1,
+    *,
+    turn: LeanSceneTurnInputV1,
+    route_state: AdultRouteStateSnapshotV1,
+) -> None:
+    if prepared.route_state != route_state:
+        raise StateConflictError("recovered adult operation changed accepted route custody")
+    request = prepared.scene_request
+    if (
+        route_state.world_id != turn.world_id
+        or route_state.branch_id != turn.branch_id
+        or request.exact_current_source != turn.exact_user_source
+    ):
+        raise StateConflictError("recovered adult operation changed exact request custody")

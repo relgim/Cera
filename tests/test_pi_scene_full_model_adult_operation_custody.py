@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import tempfile
 import unittest
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -33,6 +34,16 @@ from cera.serialization import canonical_sha256
 from . import test_pi_scene_full_model_controller as support
 from .test_adult_turn_preparation import _turn
 from .test_pi_scene_adult_orchestration import _RejectingTransport
+
+
+class _ThreeOperationHandoffPlanner:
+    external_provider_boundary = False
+
+    def __init__(self) -> None:
+        self.delegate = support._HandoffPlanner()
+
+    def plan(self, request):  # type: ignore[no-untyped-def]
+        return replace(self.delegate.plan(request), provider_operations=3)
 
 
 class _AuditedOrchestrator:
@@ -117,6 +128,25 @@ class FullModelAdultOperationCustodyTests(unittest.TestCase):
         )
         return controller, audited, transports
 
+    def test_completed_recovery_returns_none_when_no_operation_exists(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path(r"D:\Cera\tmp")) as temporary:
+            root = Path(temporary)
+            store = LeanSceneStore(root / "world")
+            controller, audits, transports = self._controller(
+                root=root,
+                store=store,
+                custody=ProtectedAdultOperationStore(root / "protected-adult"),
+                planner=support._NeverPlanner(),
+                forbid_dispatch=True,
+            )
+            recovered = controller.recover_completed_adult_operation(
+                request_id="request:adult-custody-missing",
+                turn=_turn(),
+            )
+            self.assertIsNone(recovered)
+            self.assertEqual(audits, [])
+            self.assertEqual(transports, [])
+
     def test_completed_pass_replays_without_adult_redispatch_then_binds_accept(self) -> None:
         with tempfile.TemporaryDirectory(dir=Path(r"D:\Cera\tmp")) as temporary:
             root = Path(temporary)
@@ -126,7 +156,7 @@ class FullModelAdultOperationCustodyTests(unittest.TestCase):
                 root=root,
                 store=store,
                 custody=custody,
-                planner=support._HandoffPlanner(),
+                planner=_ThreeOperationHandoffPlanner(),
             )
             with (
                 patch.dict(
@@ -153,25 +183,27 @@ class FullModelAdultOperationCustodyTests(unittest.TestCase):
             )
             self.assertEqual(pending.state, AdultOperationReviewState.EXECUTED_PASSED)
 
-            # Recovery uses the same deterministic request/candidate identity.  The
-            # newly constructed provider adapter exists but may not be dispatched.
+            # Recovery resolves the durable original candidate without touching
+            # any model-facing construction seam.
+            restarted_custody = ProtectedAdultOperationStore(root / "protected-adult")
             restarted, restarted_audits, restarted_transports = self._controller(
                 root=root,
                 store=store,
-                custody=ProtectedAdultOperationStore(root / "protected-adult"),
-                planner=support._HandoffPlanner(),
+                custody=restarted_custody,
+                planner=support._NeverPlanner(),
                 forbid_dispatch=True,
             )
-            result = restarted.complete(
+            result = restarted.recover_completed_adult_operation(
                 request_id="request:adult-custody-replay",
                 turn=_turn(),
             )
 
             self.assertIsInstance(result, AcceptedAdultTurnV1)
             assert isinstance(result, AcceptedAdultTurnV1)
-            self.assertEqual(restarted_audits[0].execute_calls, 0)
-            self.assertEqual(restarted_transports[0].calls, [])
-            record = restarted_audits[0].custody.lookup(
+            self.assertEqual(result.planner_provider_operations, 3)
+            self.assertEqual(restarted_audits, [])
+            self.assertEqual(restarted_transports, [])
+            record = restarted_custody.lookup(
                 request_id="request:adult-custody-replay",
                 candidate_id=result.outcome.prepared.candidate_id,
             )
@@ -210,16 +242,16 @@ class FullModelAdultOperationCustodyTests(unittest.TestCase):
                 root=root,
                 store=store,
                 custody=ProtectedAdultOperationStore(root / "protected-adult"),
-                planner=support._HandoffPlanner(),
+                planner=support._NeverPlanner(),
                 forbid_dispatch=True,
             )
             with self.assertRaises(AdultOperationDispatchUncertainError):
-                restarted.complete(
+                restarted.recover_completed_adult_operation(
                     request_id="request:adult-custody-uncertain",
                     turn=_turn(),
                 )
-            self.assertEqual(restarted_audits[0].execute_calls, 0)
-            self.assertEqual(restarted_transports[0].calls, [])
+            self.assertEqual(restarted_audits, [])
+            self.assertEqual(restarted_transports, [])
 
     def test_filter_rejection_is_durable_and_has_no_accepted_effect(self) -> None:
         with tempfile.TemporaryDirectory(dir=Path(r"D:\Cera\tmp")) as temporary:
@@ -246,6 +278,8 @@ class FullModelAdultOperationCustodyTests(unittest.TestCase):
                 )
 
             self.assertIsInstance(result, RejectedAdultTurnV1)
+            assert isinstance(result, RejectedAdultTurnV1)
+            self.assertEqual(result.planner_provider_operations, 1)
             prepared = audits[0].prepared
             assert prepared is not None
             record = custody.lookup(
@@ -254,6 +288,25 @@ class FullModelAdultOperationCustodyTests(unittest.TestCase):
             )
             self.assertEqual(record.state, AdultOperationReviewState.EXECUTED_REJECTED)
             self.assertIsNone(record.decision)
+            self.assertEqual(
+                store.load_head(world_id="world:test", branch_id="branch:test").generation,
+                0,
+            )
+
+            restarted, restarted_audits, restarted_transports = self._controller(
+                root=root,
+                store=store,
+                custody=ProtectedAdultOperationStore(root / "protected-adult"),
+                planner=support._NeverPlanner(),
+                forbid_dispatch=True,
+            )
+            recovered = restarted.recover_completed_adult_operation(
+                request_id="request:adult-custody-rejected",
+                turn=_turn(),
+            )
+            self.assertEqual(recovered, result)
+            self.assertEqual(restarted_audits, [])
+            self.assertEqual(restarted_transports, [])
             self.assertEqual(
                 store.load_head(world_id="world:test", branch_id="branch:test").generation,
                 0,
@@ -321,6 +374,7 @@ class FullModelAdultOperationCustodyTests(unittest.TestCase):
             self.assertEqual(restarted_audits, [])
             self.assertEqual(restarted_transports, [])
             assert recovered is not None
+            self.assertEqual(recovered.planner_provider_operations, 1)
             terminal = restarted_custody.lookup(
                 request_id="request:adult-custody-post-promotion",
                 candidate_id=recovered.envelope.candidate_id,
