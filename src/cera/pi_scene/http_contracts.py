@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import re
-from typing import Any, ClassVar, Mapping
+from collections.abc import Mapping
+from dataclasses import dataclass
+from typing import Any, ClassVar
 
 from cera.errors import ContractValidationError
 
 from .contracts import SceneRoute
-
 
 PI_SCENE_ORDINARY_MODEL = "cera-pi-scene-ordinary"
 PI_SCENE_ADULT_MODEL = "cera-pi-scene-adult"
@@ -22,6 +22,7 @@ _SUPPORTED_CONTROLS = frozenset(
         "cera_scene_depth",
         "cera_regeneration_key",
         "cera_character_autonomy",
+        "cera_adult_craft_mode",
         "cera_prompt_handling",
         "cera_reasoning_effort",
         "cera_scene_change",
@@ -68,23 +69,63 @@ class LeanSceneRequestControlsV1:
     def model_visible(self) -> dict[str, Any]:
         """Return only non-secret semantic controls for confined model context."""
 
-        autonomy_meaning = {
-            "off": "User direction is prioritized.",
-            "mind": "Character decision logic is prioritized.",
-            "body": "Bodily impulse and reaction are prioritized.",
-            "both": "Character decision logic and bodily impulse or reaction are prioritized.",
-        }[self.character_autonomy]
-        return {
-            "schema_version": "cera.pi_scene.model_visible_controls.v1",
-            "scene_depth": self.scene_depth,
-            "character_autonomy": self.character_autonomy,
-            "character_autonomy_meaning": autonomy_meaning,
-            "opposing_pressure_rule": (
-                "Strong opposing pressure can overcome a prioritized mind or body tendency."
-            ),
-            "prompt_handling": self.prompt_handling,
-            "scene_change": self.scene_change,
-        }
+        return _base_model_visible_controls(self)
+
+
+@dataclass(frozen=True, slots=True)
+class LeanSceneRequestControlsV2(LeanSceneRequestControlsV1):
+    """Current controls with Adult craft retrieval breadth.
+
+    ``adult_craft_mode`` is a presentation/craft control.  It cannot choose the
+    scene route or the turn's logic owner; those remain separate Python-owned
+    decisions.
+    """
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.pi_scene.request_controls.v2"
+
+    adult_craft_mode: str = "off"
+
+    def __post_init__(self) -> None:
+        LeanSceneRequestControlsV1.__post_init__(self)
+        if self.adult_craft_mode not in {"off", "on", "ex"}:
+            raise ContractValidationError("Pi Scene adult-craft control is invalid")
+
+    @property
+    def model_visible(self) -> dict[str, Any]:
+        """Expose breadth as craft guidance without granting route authority."""
+
+        value = _base_model_visible_controls(self)
+        value.update(
+            {
+                "schema_version": "cera.pi_scene.model_visible_controls.v2",
+                "adult_craft_mode": self.adult_craft_mode,
+                "adult_craft_scope": "adult_scene_craft_retrieval_only",
+                "adult_craft_route_effect": "none",
+            }
+        )
+        return value
+
+
+def _base_model_visible_controls(
+    controls: LeanSceneRequestControlsV1,
+) -> dict[str, Any]:
+    autonomy_meaning = {
+        "off": "User direction is prioritized.",
+        "mind": "Character decision logic is prioritized.",
+        "body": "Bodily impulse and reaction are prioritized.",
+        "both": "Character decision logic and bodily impulse or reaction are prioritized.",
+    }[controls.character_autonomy]
+    return {
+        "schema_version": "cera.pi_scene.model_visible_controls.v1",
+        "scene_depth": controls.scene_depth,
+        "character_autonomy": controls.character_autonomy,
+        "character_autonomy_meaning": autonomy_meaning,
+        "opposing_pressure_rule": (
+            "Strong opposing pressure can overcome a prioritized mind or body tendency."
+        ),
+        "prompt_handling": controls.prompt_handling,
+        "scene_change": controls.scene_change,
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,7 +133,7 @@ class PiSceneChatRequestV1:
     route: SceneRoute
     messages: tuple[Mapping[str, str], ...]
     exact_user_source: str
-    controls: LeanSceneRequestControlsV1
+    controls: LeanSceneRequestControlsV2
 
 
 def parse_chat_request(
@@ -129,8 +170,8 @@ def parse_chat_request(
         raise ContractValidationError("Pi Scene requires a session identity")
     if expected_session_id is not None and session_id != expected_session_id:
         raise ContractValidationError("Pi Scene rejects session substitution")
-    controls = LeanSceneRequestControlsV1(
-        schema_version=LeanSceneRequestControlsV1.SCHEMA_VERSION,
+    controls = LeanSceneRequestControlsV2(
+        schema_version=LeanSceneRequestControlsV2.SCHEMA_VERSION,
         session_id=session_id,
         scene_depth=_normalized_control(payload, "cera_scene_depth", "auto"),
         regeneration_key=_optional_text_control(payload, "cera_regeneration_key"),
@@ -138,6 +179,11 @@ def parse_chat_request(
             payload,
             "cera_character_autonomy",
             "both",
+        ),
+        adult_craft_mode=_normalized_control(
+            payload,
+            "cera_adult_craft_mode",
+            "off",
         ),
         prompt_handling=_normalized_control(
             payload,

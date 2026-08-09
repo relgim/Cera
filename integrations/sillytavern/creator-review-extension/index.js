@@ -38,6 +38,7 @@ const DEFAULT_SPEAKER_COLORS = Object.freeze({
 const DEFAULT_CONTROLS = Object.freeze({
     scene_depth: 'auto',
     character_autonomy: 'both',
+    adult_craft_mode: 'off',
     prompt_handling: 'adjustment',
     reasoning_effort: 'medium',
 });
@@ -697,6 +698,9 @@ function readControls() {
             character_autonomy: ['off', 'mind', 'body', 'both'].includes(value.character_autonomy)
                 ? value.character_autonomy
                 : DEFAULT_CONTROLS.character_autonomy,
+            adult_craft_mode: ['off', 'on', 'ex'].includes(value.adult_craft_mode)
+                ? value.adult_craft_mode
+                : DEFAULT_CONTROLS.adult_craft_mode,
             prompt_handling: ['adjustment', 'modification'].includes(value.prompt_handling)
                 ? value.prompt_handling
                 : DEFAULT_CONTROLS.prompt_handling,
@@ -725,6 +729,9 @@ function installControlBar() {
         controlSelect('Autonomy', 'cera_autonomy_control', [
             ['off', 'Off'], ['mind', 'Mind'], ['body', 'Body'], ['both', 'Both'],
         ], controls.character_autonomy),
+        controlSelect('Adult', 'cera_adult_craft_control', [
+            ['off', 'Off'], ['on', 'On'], ['ex', 'Ex'],
+        ], controls.adult_craft_mode),
         controlSelect('Prompt', 'cera_prompt_control', [
             ['adjustment', 'Adjustment'], ['modification', 'Modification'],
         ], controls.prompt_handling),
@@ -737,6 +744,7 @@ function installControlBar() {
         localStorage.setItem(CONTROL_STORAGE_KEY, JSON.stringify({
             scene_depth: bar.querySelector('#cera_depth_control')?.value,
             character_autonomy: bar.querySelector('#cera_autonomy_control')?.value,
+            adult_craft_mode: bar.querySelector('#cera_adult_craft_control')?.value,
             prompt_handling: bar.querySelector('#cera_prompt_control')?.value,
             reasoning_effort: bar.querySelector('#cera_reasoning_effort_control')?.value,
         }));

@@ -23,7 +23,7 @@ from .contracts import (
     LeanRunResultV1,
     RecordingStatus,
 )
-from .http_contracts import LeanSceneRequestControlsV1
+from .http_contracts import LeanSceneRequestControlsV1, LeanSceneRequestControlsV2
 from .store import LeanSceneStore
 
 
@@ -74,7 +74,7 @@ class LeanSceneTurnInputV1:
     voice_examples: Mapping[str, Mapping[str, Any] | str]
     craft_index: Mapping[str, Any]
     adult_handoff: Mapping[str, Any] | None = None
-    request_controls: LeanSceneRequestControlsV1 | None = None
+    request_controls: LeanSceneRequestControlsV1 | LeanSceneRequestControlsV2 | None = None
 
     def __post_init__(self) -> None:
         for field_name in ("world_id", "branch_id", "scene_id", "exact_user_source"):
@@ -85,7 +85,7 @@ class LeanSceneTurnInputV1:
             raise ContractValidationError("turn input requires current accepted state")
         if self.request_controls is not None and not isinstance(
             self.request_controls,
-            LeanSceneRequestControlsV1,
+            (LeanSceneRequestControlsV1, LeanSceneRequestControlsV2),
         ):
             raise ContractValidationError("turn input request controls are invalid")
 
