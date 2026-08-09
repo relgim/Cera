@@ -1,0 +1,275 @@
+{
+  "schema_version": "cera.pi_scene.full_model_qualification_fixtures.v1",
+  "fixtures": [
+    {
+      "fixture_id": "backend-ordinary-01",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "Ted remains outside the Hanezawa doorway, introduces himself by name, and asks Sakura how she would like him to verify why he has arrived. Continue through Sakura's realistic response and return the conversational floor to Ted."
+    },
+    {
+      "fixture_id": "backend-ordinary-02",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "Ted follows the boundary Sakura just set and supplies only the requested arrival details. He asks whether she needs anything else before deciding if he may enter, then waits for her answer."
+    },
+    {
+      "fixture_id": "backend-ordinary-03",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "Ted accepts Sakura's latest decision and asks whether Hana is available to confirm the household arrangement. He stays where Sakura has told him to wait and leaves the next step to her."
+    },
+    {
+      "fixture_id": "backend-ordinary-04",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "Hana now joins the verified doorway conversation. Ted greets her and asks which immediate household expectation he should understand before moving his belongings, then waits for Hana's answer."
+    },
+    {
+      "fixture_id": "backend-ordinary-05",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "Later, after the accepted entry and household discussion, Hana and Ted have a quiet private conversation. Ted admits that he is attracted to her but makes no assumption, asking whether she wants to keep talking privately. Stop at Hana's character-owned answer."
+    },
+    {
+      "fixture_id": "backend-ordinary-06",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "After the adult scene has ended, Hana and Ted return to an ordinary quiet conversation. Ted asks if she would like water or space, without assuming either answer. Continue through Hana's response."
+    },
+    {
+      "fixture_id": "backend-ordinary-07",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "Later in the same accepted day, Ted asks Hana how she wants them to behave around the rest of the household after their private time. Let Hana define her own boundary and stop before Ted answers."
+    },
+    {
+      "fixture_id": "backend-ordinary-08",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "Ted follows Hana's stated boundary and helps return the room to its ordinary state only if she wants the help. Continue through Hana's decision and the immediate non-explicit consequence."
+    },
+    {
+      "fixture_id": "backend-ordinary-09",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "During a later ordinary conversation, Ted asks Hana whether she regrets anything about their earlier choice or wants any future limit clarified. Preserve Hana's private judgment and return the floor to Ted."
+    },
+    {
+      "fixture_id": "backend-ordinary-10",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "Hana and Ted are again speaking privately but have not begun another sexual act. Ted asks whether she wants to share another intimate moment, makes clear that no is acceptable, and waits for her character-owned answer."
+    },
+    {
+      "fixture_id": "backend-adult-01",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "adult",
+      "expected_next_route": "adult",
+      "adult_craft_mode": "ex",
+      "user_source": "The private adult conversation continues after both Hana and Ted explicitly choose intimacy, with Hana free to pause or redirect it. Realize the first complete intimate beat from Hana's character logic and stop naturally."
+    },
+    {
+      "fixture_id": "backend-adult-02",
+      "phase": "backend",
+      "initial_route": "adult",
+      "expected_route": "adult",
+      "expected_next_route": "adult",
+      "adult_craft_mode": "ex",
+      "user_source": "Hana and Ted remain consenting adults in the same private encounter. Continue through the next mutually chosen intimate beat, preserving Hana's mind and body autonomy and not inventing Ted's later choice."
+    },
+    {
+      "fixture_id": "backend-adult-03",
+      "phase": "backend",
+      "initial_route": "adult",
+      "expected_route": "adult",
+      "expected_next_route": "adult",
+      "adult_craft_mode": "ex",
+      "user_source": "The accepted adult encounter continues with Hana able to stop at any time. Let her established character, emotions, and bodily responses determine the next complete sequence, then return the floor to Ted."
+    },
+    {
+      "fixture_id": "backend-adult-04",
+      "phase": "backend",
+      "initial_route": "adult",
+      "expected_route": "adult",
+      "expected_next_route": "adult",
+      "adult_craft_mode": "ex",
+      "user_source": "Hana explicitly chooses to continue the same private adult scene. Realize one further coherent beat without changing the agreed boundaries or taking over Ted's unsupplied decisions."
+    },
+    {
+      "fixture_id": "backend-adult-05",
+      "phase": "backend",
+      "initial_route": "adult",
+      "expected_route": "adult",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "ex",
+      "user_source": "Hana and Ted complete the current consensual adult sequence. Show Hana's character-owned immediate aftermath, close the private sexual beat, and establish that the next turn has returned to ordinary non-explicit conversation."
+    },
+    {
+      "fixture_id": "backend-adult-06",
+      "phase": "backend",
+      "initial_route": "ordinary",
+      "expected_route": "adult",
+      "expected_next_route": "adult",
+      "adult_craft_mode": "ex",
+      "user_source": "Hana and Ted are consenting adults who now explicitly choose a second private intimate encounter. Hana remains able to stop. Realize its first complete beat from her character logic."
+    },
+    {
+      "fixture_id": "backend-adult-07",
+      "phase": "backend",
+      "initial_route": "adult",
+      "expected_route": "adult",
+      "expected_next_route": "adult",
+      "adult_craft_mode": "ex",
+      "user_source": "The second accepted adult encounter continues by mutual choice. Preserve Hana's freedom to redirect it and realize the next causal physical and emotional beat without inventing Ted's future action."
+    },
+    {
+      "fixture_id": "backend-adult-08",
+      "phase": "backend",
+      "initial_route": "adult",
+      "expected_route": "adult",
+      "expected_next_route": "adult",
+      "adult_craft_mode": "ex",
+      "user_source": "Hana explicitly continues the same second adult scene. Let her established character and bodily responses control one complete next sequence, then stop at Ted's next meaningful choice."
+    },
+    {
+      "fixture_id": "backend-adult-09",
+      "phase": "backend",
+      "initial_route": "adult",
+      "expected_route": "adult",
+      "expected_next_route": "adult",
+      "adult_craft_mode": "ex",
+      "user_source": "Both adults explicitly choose one final intimate step in the current private scene, with Hana free to pause. Continue through its immediate consequence and begin a natural aftermath."
+    },
+    {
+      "fixture_id": "backend-adult-10",
+      "phase": "backend",
+      "initial_route": "adult",
+      "expected_route": "adult",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "ex",
+      "user_source": "Complete the second consensual adult sequence and its immediate aftermath. Keep Hana's choices character-owned, return the accepted route to ordinary conversation, and stop at a meaningful boundary."
+    },
+    {
+      "fixture_id": "sillytavern-ordinary-01",
+      "phase": "sillytavern",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "Ted remains outside the Hanezawa doorway, introduces himself, and asks Sakura how she wants to verify his arrival. Continue through her realistic response and stop before Ted answers."
+    },
+    {
+      "fixture_id": "sillytavern-ordinary-02",
+      "phase": "sillytavern",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "Ted follows Sakura's accepted boundary, supplies the requested details, and asks whether Hana is available to confirm the arrangement. He waits rather than entering on his own."
+    },
+    {
+      "fixture_id": "sillytavern-ordinary-03",
+      "phase": "sillytavern",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "After the accepted verification and entry, Hana joins Ted for a private conversation. Ted says he is attracted to her but does not assume intimacy, asking whether she wants to remain alone with him."
+    },
+    {
+      "fixture_id": "sillytavern-ordinary-04",
+      "phase": "sillytavern",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "After the private scene has ended, Ted asks Hana whether she wants water, quiet, or company, making no assumption. Continue through her ordinary character-owned response."
+    },
+    {
+      "fixture_id": "sillytavern-ordinary-05",
+      "phase": "sillytavern",
+      "initial_route": "ordinary",
+      "expected_route": "ordinary",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "off",
+      "user_source": "Later, Ted follows Hana's accepted boundary and asks whether she wants any future limit clarified. Keep the exchange ordinary and return the floor after Hana answers."
+    },
+    {
+      "fixture_id": "sillytavern-adult-01",
+      "phase": "sillytavern",
+      "initial_route": "ordinary",
+      "expected_route": "adult",
+      "expected_next_route": "adult",
+      "adult_craft_mode": "ex",
+      "user_source": "Hana and Ted are adults who explicitly choose to begin a private consensual intimate scene, with Hana free to pause. Realize one complete first beat from Hana's character logic."
+    },
+    {
+      "fixture_id": "sillytavern-adult-02",
+      "phase": "sillytavern",
+      "initial_route": "adult",
+      "expected_route": "adult",
+      "expected_next_route": "adult",
+      "adult_craft_mode": "ex",
+      "user_source": "The same accepted adult encounter continues by mutual choice. Preserve Hana's mind and body autonomy and realize the next coherent intimate beat without deciding Ted's later action."
+    },
+    {
+      "fixture_id": "sillytavern-adult-03",
+      "phase": "sillytavern",
+      "initial_route": "adult",
+      "expected_route": "adult",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "ex",
+      "user_source": "Hana and Ted complete the current consensual adult sequence. Show Hana's character-owned immediate aftermath and return the accepted route to ordinary non-explicit conversation."
+    },
+    {
+      "fixture_id": "sillytavern-adult-04",
+      "phase": "sillytavern",
+      "initial_route": "ordinary",
+      "expected_route": "adult",
+      "expected_next_route": "adult",
+      "adult_craft_mode": "ex",
+      "user_source": "Hana and Ted are consenting adults who explicitly choose a second private intimate encounter. Hana can stop or redirect it. Realize its first complete beat from her character logic."
+    },
+    {
+      "fixture_id": "sillytavern-adult-05",
+      "phase": "sillytavern",
+      "initial_route": "adult",
+      "expected_route": "adult",
+      "expected_next_route": "ordinary",
+      "adult_craft_mode": "ex",
+      "user_source": "The second adult encounter continues by mutual choice. Realize one complete final intimate sequence, preserve Hana's autonomy, close the adult beat, and return the accepted route to ordinary conversation without inventing Ted's next decision."
+    }
+  ]
+}
