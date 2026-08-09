@@ -45,6 +45,15 @@ from .contracts import (
     validate_adult_records,
     validate_ordinary_record,
 )
+from .lineage import (
+    LeanAcceptedRegenerationBaseV1,
+    LeanActiveLineageV1,
+    accepted_object_directory_name,
+    active_lineage_from_payload,
+    active_lineage_payload,
+    receipt_sha_index,
+    selected_receipt_chain,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,6 +236,7 @@ class AcceptedPiSessionV1:
     session_id: str
     session_path: str
     session_id_sha256: str
+    accepted_receipt_sha256: str | None = None
 
     def __post_init__(self) -> None:
         if (
@@ -241,6 +251,10 @@ class AcceptedPiSessionV1:
             raise ContractValidationError("accepted Pi session identity is incomplete")
         if text_sha256(self.session_id) != self.session_id_sha256:
             raise ContractValidationError("accepted Pi session binding changed")
+        if self.accepted_receipt_sha256 is not None and not re_is_sha256(
+            self.accepted_receipt_sha256
+        ):
+            raise ContractValidationError("accepted Pi session receipt binding is invalid")
 
 
 class LeanSceneStore:
@@ -320,6 +334,120 @@ class LeanSceneStore:
                 recording_status=self.recording_status(receipt),
             )
 
+    def load_active_lineage(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+    ) -> LeanActiveLineageV1:
+        """Return the selected head without exposing inactive sibling objects."""
+
+        with self._lock:
+            branch_root = self._branch_root(world_id, branch_id)
+            receipts = self._load_receipts(branch_root)
+            stored = self._load_active_lineage_manifest(branch_root)
+            if stored is not None:
+                return stored
+            if not receipts:
+                return LeanActiveLineageV1(
+                    schema_version=LeanActiveLineageV1.SCHEMA_VERSION,
+                    world_id=world_id,
+                    branch_id=branch_id,
+                    revision=0,
+                    switch_kind="legacy",
+                    selected_generation=0,
+                    selected_turn_id=None,
+                    selected_receipt_sha256=None,
+                    previous_generation=0,
+                    previous_turn_id=None,
+                    previous_receipt_sha256=None,
+                )
+            head = receipts[-1]
+            return LeanActiveLineageV1(
+                schema_version=LeanActiveLineageV1.SCHEMA_VERSION,
+                world_id=world_id,
+                branch_id=branch_id,
+                revision=0,
+                switch_kind="legacy",
+                selected_generation=head.generation,
+                selected_turn_id=head.accepted_turn_id,
+                selected_receipt_sha256=head.receipt_sha256,
+                previous_generation=max(0, head.generation - 1),
+                previous_turn_id=head.parent_accepted_turn_id,
+                previous_receipt_sha256=head.parent_accepted_head_sha256,
+            )
+
+    def regeneration_base(
+        self,
+        receipt: LeanAcceptedTurnReceiptV1,
+    ) -> LeanAcceptedRegenerationBaseV1:
+        """Freeze the exact selected prefix used by an accepted Regenerate."""
+
+        with self._lock:
+            selected = self._selected_receipts_for_supplied_head(receipt)
+            return LeanAcceptedRegenerationBaseV1(
+                world_id=receipt.world_id,
+                branch_id=receipt.branch_id,
+                generation=receipt.generation,
+                replaced_turn_id=receipt.accepted_turn_id,
+                replaced_receipt_sha256=receipt.receipt_sha256,
+                parent_accepted_turn_id=receipt.parent_accepted_turn_id,
+                parent_accepted_head_sha256=receipt.parent_accepted_head_sha256,
+                selected_prefix_receipt_sha256s=tuple(
+                    value.receipt_sha256 for value in selected[:-1]
+                ),
+            )
+
+    def regeneration_prefix_payloads(
+        self,
+        base: LeanAcceptedRegenerationBaseV1,
+        *,
+        adult_full: bool = False,
+        allow_pending: bool = True,
+    ) -> tuple[dict[str, Any], ...]:
+        """Read only the exact pre-turn prefix bound by ``regeneration_base``."""
+
+        if type(adult_full) is not bool or type(allow_pending) is not bool:
+            raise ContractValidationError("regeneration prefix flags must be boolean")
+        with self._lock:
+            branch_root = self._branch_root(base.world_id, base.branch_id)
+            selected = self._load_receipts(branch_root)
+            if (
+                not selected
+                or selected[-1].receipt_sha256 != base.replaced_receipt_sha256
+                or tuple(value.receipt_sha256 for value in selected[:-1])
+                != base.selected_prefix_receipt_sha256s
+            ):
+                raise StateConflictError("regeneration base is no longer selected")
+            return self._accepted_payloads(
+                branch_root,
+                selected[:-1],
+                adult_full=adult_full,
+                allow_pending=allow_pending,
+            )
+
+    def load_accepted_turn_by_receipt_sha256(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+        receipt_sha256: str,
+    ) -> LeanAcceptedTurnReceiptV1:
+        """Inspect one immutable accepted object, selected or inactive."""
+
+        if type(receipt_sha256) is not str or not re_is_sha256(receipt_sha256):
+            raise ContractValidationError("accepted receipt hash is invalid")
+        with self._lock:
+            branch_root = self._branch_root(world_id, branch_id)
+            entries = self._load_all_receipt_entries(branch_root)
+            matches = [receipt for receipt, _ in entries if receipt.receipt_sha256 == receipt_sha256]
+            if len(matches) != 1:
+                raise StateConflictError("accepted receipt hash is not uniquely stored")
+            receipt = matches[0]
+            if receipt.world_id != world_id or receipt.branch_id != branch_id:
+                raise StateConflictError("accepted receipt escaped its branch identity")
+            return receipt
+
     def accept(
         self,
         candidate: LeanCandidateV1,
@@ -331,12 +459,28 @@ class LeanSceneStore:
 
         with self._lock:
             branch_root = self._branch_root(candidate.world_id, candidate.branch_id)
-            existing = self._receipt_by_turn_id(branch_root, candidate.turn_id)
+            existing = self._receipt_by_candidate(branch_root, candidate)
             if existing is not None:
-                if existing.candidate_sha256 != candidate.candidate_sha256:
+                head = self.load_head(
+                    world_id=candidate.world_id,
+                    branch_id=candidate.branch_id,
+                )
+                if head.accepted_head_sha256 == existing.receipt_sha256:
+                    return existing
+                if (
+                    existing.generation != head.generation + 1
+                    or existing.parent_accepted_turn_id != head.accepted_turn_id
+                    or existing.parent_accepted_head_sha256 != head.accepted_head_sha256
+                ):
                     raise StateConflictError(
-                        "accepted turn identity was reused by another candidate"
+                        "existing accepted object is not the next selected turn"
                     )
+                self._select_receipt(
+                    branch_root,
+                    receipt=existing,
+                    previous=head,
+                    switch_kind="append",
+                )
                 return existing
 
             head = self.load_head(world_id=candidate.world_id, branch_id=candidate.branch_id)
@@ -352,71 +496,216 @@ class LeanSceneStore:
                 semantic_validation,
                 acceptance_action=acceptance_action,
             )
-            receipt = LeanAcceptedTurnReceiptV1(
-                schema_version=LeanAcceptedTurnReceiptV1.SCHEMA_VERSION,
-                accepted_turn_id=candidate.turn_id,
-                parent_accepted_turn_id=candidate.parent_accepted_turn_id,
-                parent_accepted_head_sha256=candidate.accepted_head_before_sha256,
+            receipt = _receipt_for_candidate(
+                candidate,
+                acceptance_action=acceptance_action,
+            )
+            self._publish_accepted_object(
+                branch_root,
+                candidate=candidate,
+                receipt=receipt,
+                semantic_validation=semantic_validation,
+                acceptance_action=acceptance_action,
+            )
+            self._select_receipt(
+                branch_root,
+                receipt=receipt,
+                previous=head,
+                switch_kind="append",
+            )
+            return receipt
+
+    def accept_replacement(
+        self,
+        candidate: LeanCandidateV1,
+        *,
+        replaced_receipt: LeanAcceptedTurnReceiptV1,
+        semantic_validation: BoundSemanticValidationV1 | None = None,
+        acceptance_action: str = "automatic_accept",
+    ) -> LeanAcceptedTurnReceiptV1:
+        """Accept a same-generation sibling and atomically select it.
+
+        The replaced receipt and every derived record beneath it remain
+        immutable.  Only the active-lineage selector changes.
+        """
+
+        with self._lock:
+            if (
+                candidate.world_id != replaced_receipt.world_id
+                or candidate.branch_id != replaced_receipt.branch_id
+            ):
+                raise StateConflictError("replacement candidate escaped its branch")
+            branch_root = self._branch_root(candidate.world_id, candidate.branch_id)
+            head = self.load_head(
                 world_id=candidate.world_id,
                 branch_id=candidate.branch_id,
-                scene_id=candidate.scene_id,
-                generation=candidate.generation,
-                route=candidate.route,
-                exact_user_source=candidate.exact_user_source,
-                exact_user_source_sha256=candidate.exact_user_source_sha256,
-                exact_accepted_prose=candidate.story_text,
-                exact_accepted_prose_sha256=candidate.story_text_sha256,
-                primary_authority_kind=candidate.primary_authority_kind,
-                primary_authority_json=candidate.primary_authority_json,
-                primary_authority_sha256=candidate.primary_authority_sha256,
-                writer_view_manifest_sha256=candidate.writer_view_manifest_sha256,
-                writer_receipt=candidate.writer_receipt,
-                creator_action=acceptance_action,
-                warnings=candidate.warnings,
-                initial_recording_status=RecordingStatus.PROJECTION_PENDING,
-                candidate_sha256=candidate.candidate_sha256,
             )
-            accepted_root = branch_root / "accepted"
-            final_dir = accepted_root / _turn_directory_name(receipt)
-            stage = branch_root / f".accept-{uuid4().hex}"
-            stage.mkdir(parents=False, exist_ok=False)
-            try:
-                _write_new_json(stage / "ACCEPTED_RECEIPT.json", to_primitive(receipt))
-                if semantic_validation is not None:
-                    _write_new_json(
-                        stage / "SEMANTIC_VALIDATION.json",
-                        _semantic_validation_artifact(
-                            candidate=candidate,
-                            validation=semantic_validation,
-                            acceptance_action=acceptance_action,
-                        ),
-                    )
-                if acceptance_action == "provisional_accept":
-                    if semantic_validation is None:  # guarded above
-                        raise AssertionError("provisional acceptance lost validation")
-                    _write_new_json(
-                        stage / "PROVISIONAL_CANON.json",
-                        _provisional_canon_artifact(
-                            candidate=candidate,
-                            validation=semantic_validation,
-                        ),
-                    )
+            existing = self._receipt_by_candidate(branch_root, candidate)
+            if existing is not None and head.accepted_head_sha256 == existing.receipt_sha256:
+                return existing
+            if (
+                head.receipt is None
+                or head.accepted_head_sha256 != replaced_receipt.receipt_sha256
+                or head.accepted_turn_id != replaced_receipt.accepted_turn_id
+            ):
+                raise StateConflictError("replacement target is not the selected head")
+            stored_replaced = self.load_accepted_turn_by_receipt_sha256(
+                world_id=replaced_receipt.world_id,
+                branch_id=replaced_receipt.branch_id,
+                receipt_sha256=replaced_receipt.receipt_sha256,
+            )
+            if stored_replaced != replaced_receipt:
+                raise StateConflictError("replacement target differs from stored bytes")
+            if candidate.generation != replaced_receipt.generation:
+                raise StateConflictError("replacement generation differs from selected turn")
+            if candidate.parent_accepted_turn_id != replaced_receipt.parent_accepted_turn_id:
+                raise StateConflictError("replacement parent turn changed")
+            if (
+                candidate.accepted_head_before_sha256
+                != replaced_receipt.parent_accepted_head_sha256
+            ):
+                raise StateConflictError("replacement parent head changed")
+            _validate_candidate_qualification(
+                candidate,
+                semantic_validation,
+                acceptance_action=acceptance_action,
+            )
+            receipt = existing or _receipt_for_candidate(
+                candidate,
+                acceptance_action=acceptance_action,
+            )
+            if existing is None:
+                self._publish_accepted_object(
+                    branch_root,
+                    candidate=candidate,
+                    receipt=receipt,
+                    semantic_validation=semantic_validation,
+                    acceptance_action=acceptance_action,
+                )
+            self._select_receipt(
+                branch_root,
+                receipt=receipt,
+                previous=head,
+                switch_kind="replacement",
+            )
+            return receipt
+
+    def _publish_accepted_object(
+        self,
+        branch_root: Path,
+        *,
+        candidate: LeanCandidateV1,
+        receipt: LeanAcceptedTurnReceiptV1,
+        semantic_validation: BoundSemanticValidationV1 | None,
+        acceptance_action: str,
+    ) -> None:
+        accepted_root = branch_root / "accepted"
+        final_dir = accepted_root / _accepted_object_directory_name(receipt)
+        if final_dir.exists():
+            stored = _accepted_receipt_from_mapping(
+                _read_json(final_dir / "ACCEPTED_RECEIPT.json")
+            )
+            if stored.receipt_sha256 != receipt.receipt_sha256:
+                raise StateConflictError("accepted object path is occupied")
+            return
+        stage = branch_root / f".accept-{uuid4().hex}"
+        stage.mkdir(parents=False, exist_ok=False)
+        try:
+            _write_new_json(stage / "ACCEPTED_RECEIPT.json", to_primitive(receipt))
+            if semantic_validation is not None:
                 _write_new_json(
-                    stage / "RECORDING_HEAD.json",
-                    _recording_head_payload(
-                        accepted_turn_id=receipt.accepted_turn_id,
-                        status=RecordingStatus.PROJECTION_PENDING,
-                        attempt_number=0,
-                        attempt_sha256=None,
+                    stage / "SEMANTIC_VALIDATION.json",
+                    _semantic_validation_artifact(
+                        candidate=candidate,
+                        validation=semantic_validation,
+                        acceptance_action=acceptance_action,
                     ),
                 )
-                os.replace(stage, final_dir)
-            except Exception:
-                if stage.exists():
-                    shutil.rmtree(stage)
-                raise
+            if acceptance_action == "provisional_accept":
+                if semantic_validation is None:  # guarded by qualification
+                    raise AssertionError("provisional acceptance lost validation")
+                _write_new_json(
+                    stage / "PROVISIONAL_CANON.json",
+                    _provisional_canon_artifact(
+                        candidate=candidate,
+                        validation=semantic_validation,
+                    ),
+                )
+            _write_new_json(
+                stage / "RECORDING_HEAD.json",
+                _recording_head_payload(
+                    accepted_turn_id=receipt.accepted_turn_id,
+                    status=RecordingStatus.PROJECTION_PENDING,
+                    attempt_number=0,
+                    attempt_sha256=None,
+                ),
+            )
+            os.replace(stage, final_dir)
+        except Exception:
+            if stage.exists():
+                shutil.rmtree(stage)
+            raise
+
+    def _select_receipt(
+        self,
+        branch_root: Path,
+        *,
+        receipt: LeanAcceptedTurnReceiptV1,
+        previous: LeanAcceptedHeadV1,
+        switch_kind: str,
+    ) -> None:
+        prior_manifest = self._load_active_lineage_manifest(branch_root)
+        revision = 1 if prior_manifest is None else prior_manifest.revision + 1
+        lineage = LeanActiveLineageV1(
+            schema_version=LeanActiveLineageV1.SCHEMA_VERSION,
+            world_id=receipt.world_id,
+            branch_id=receipt.branch_id,
+            revision=revision,
+            switch_kind=switch_kind,
+            selected_generation=receipt.generation,
+            selected_turn_id=receipt.accepted_turn_id,
+            selected_receipt_sha256=receipt.receipt_sha256,
+            previous_generation=previous.generation,
+            previous_turn_id=previous.accepted_turn_id,
+            previous_receipt_sha256=previous.accepted_head_sha256,
+        )
+        # Accepted object publication precedes this one atomic selector write.
+        # A crash before this replace leaves the previous lineage selected.
+        _atomic_write_json(
+            branch_root / "ACTIVE_LINEAGE.json",
+            active_lineage_payload(lineage),
+        )
+        try:
             self._write_branch_cache(branch_root, receipt)
-            return receipt
+        except Exception:
+            # ACTIVE_LINEAGE is authoritative.  The compatibility cache is
+            # reconciled from lineage.previous_* on the next verified read.
+            pass
+
+    def _selected_receipts_for_supplied_head(
+        self,
+        receipt: LeanAcceptedTurnReceiptV1,
+    ) -> list[LeanAcceptedTurnReceiptV1]:
+        branch_root = self._branch_root(receipt.world_id, receipt.branch_id)
+        selected = self._load_receipts(branch_root)
+        if (
+            not selected
+            or selected[-1].accepted_turn_id != receipt.accepted_turn_id
+            or selected[-1].receipt_sha256 != receipt.receipt_sha256
+        ):
+            raise StateConflictError("supplied accepted turn is not the selected head")
+        return selected
+
+    @staticmethod
+    def _load_active_lineage_manifest(
+        branch_root: Path,
+    ) -> LeanActiveLineageV1 | None:
+        path = branch_root / "ACTIVE_LINEAGE.json"
+        if not path.exists():
+            return None
+        if not path.is_file() or path.is_symlink():
+            raise StateConflictError("active-lineage manifest path is invalid")
+        return active_lineage_from_payload(_read_json(path))
 
     def recording_status(self, accepted: LeanAcceptedTurnReceiptV1) -> RecordingStatus:
         with self._lock:
@@ -704,12 +993,19 @@ class LeanSceneStore:
             branch_root = self._branch_root(accepted.world_id, accepted.branch_id)
             path = branch_root / "sessions" / "ACCEPTED_SESSION.json"
             if head.accepted_turn_id != accepted.accepted_turn_id:
-                return _load_current_pi_session(path, head=head)
+                return _load_current_pi_session(
+                    path,
+                    head=head,
+                    allow_legacy_unbound=(
+                        self._load_active_lineage_manifest(branch_root) is None
+                    ),
+                )
             payload = AcceptedPiSessionV1(
                 accepted_turn_id=accepted.accepted_turn_id,
                 session_id=session_id,
                 session_path=str(session_path.resolve()),
                 session_id_sha256=text_sha256(session_id),
+                accepted_receipt_sha256=accepted.receipt_sha256,
             )
             if path.exists():
                 existing = _decode_stored(
@@ -717,7 +1013,10 @@ class LeanSceneStore:
                     _read_json(path),
                     "accepted Pi session",
                 )
-                if existing.accepted_turn_id == accepted.accepted_turn_id:
+                if (
+                    existing.accepted_turn_id == accepted.accepted_turn_id
+                    and existing.accepted_receipt_sha256 == accepted.receipt_sha256
+                ):
                     if existing.session_id_sha256 != payload.session_id_sha256:
                         raise StateConflictError("accepted Pi session changed for the current head")
                     return existing
@@ -736,7 +1035,13 @@ class LeanSceneStore:
             if not path.exists():
                 return None
             head = self.load_head(world_id=world_id, branch_id=branch_id)
-            return _load_current_pi_session(path, head=head)
+            return _load_current_pi_session(
+                path,
+                head=head,
+                allow_legacy_unbound=(
+                    self._load_active_lineage_manifest(branch_root) is None
+                ),
+            )
 
     def recent_accepted_payloads(
         self,
@@ -905,7 +1210,7 @@ class LeanSceneStore:
     ) -> tuple[dict[str, Any], ...]:
         output: list[dict[str, Any]] = []
         for receipt in receipts:
-            turn_dir = branch_root / "accepted" / _turn_directory_name(receipt)
+            turn_dir = _locate_accepted_turn_dir(branch_root, receipt)
             head = _read_recording_head(turn_dir, accepted=receipt)
             if head.status is not RecordingStatus.COMPLETE:
                 recovered = _recover_atomic_recording_bundle(
@@ -959,47 +1264,129 @@ class LeanSceneStore:
             output.append(item)
         return tuple(output)
 
-    def _load_receipts(self, branch_root: Path) -> list[LeanAcceptedTurnReceiptV1]:
-        receipts: list[LeanAcceptedTurnReceiptV1] = []
-        for path in sorted((branch_root / "accepted").glob("*/ACCEPTED_RECEIPT.json")):
-            receipt = _accepted_receipt_from_mapping(_read_json(path))
-            _verify_semantic_validation_artifact(path.parent, receipt=receipt)
-            receipts.append(receipt)
-        receipts.sort(key=lambda value: value.generation)
-        if len({value.generation for value in receipts}) != len(receipts):
-            raise StateConflictError("accepted branch contains duplicate generations")
-        return receipts
-
-    def _receipt_by_turn_id(
+    def _load_all_receipt_entries(
         self,
         branch_root: Path,
-        turn_id: str,
-    ) -> LeanAcceptedTurnReceiptV1 | None:
-        receipts = self._load_receipts(branch_root)
-        if receipts:
-            _validate_receipt_chain(
-                receipts,
-                world_id=receipts[0].world_id,
-                branch_id=receipts[0].branch_id,
+    ) -> list[tuple[LeanAcceptedTurnReceiptV1, Path]]:
+        entries: list[tuple[LeanAcceptedTurnReceiptV1, Path]] = []
+        seen_hashes: set[str] = set()
+        for path in sorted((branch_root / "accepted").glob("*/ACCEPTED_RECEIPT.json")):
+            receipt = _accepted_receipt_from_mapping(_read_json(path))
+            if path.parent.name not in {
+                _turn_directory_name(receipt),
+                _accepted_object_directory_name(receipt),
+            }:
+                raise StateConflictError(
+                    "accepted receipt hash chain or object directory binding changed"
+                )
+            _verify_semantic_validation_artifact(path.parent, receipt=receipt)
+            if receipt.receipt_sha256 in seen_hashes:
+                raise StateConflictError("accepted receipt object occurs more than once")
+            seen_hashes.add(receipt.receipt_sha256)
+            entries.append((receipt, path.parent))
+        return entries
+
+    def _load_receipts(self, branch_root: Path) -> list[LeanAcceptedTurnReceiptV1]:
+        """Load only the selected receipt prefix, never inactive siblings."""
+
+        entries = self._load_all_receipt_entries(branch_root)
+        all_receipts = [receipt for receipt, _ in entries]
+        identity = _read_json(branch_root / "BRANCH_IDENTITY.json")
+        world_id = identity.get("world_id")
+        branch_id = identity.get("branch_id")
+        if not isinstance(world_id, str) or not isinstance(branch_id, str):
+            raise StateConflictError("branch identity values are invalid")
+        for receipt in all_receipts:
+            if receipt.world_id != world_id or receipt.branch_id != branch_id:
+                raise StateConflictError("accepted receipt escaped its branch identity")
+
+        lineage = self._load_active_lineage_manifest(branch_root)
+        if lineage is None:
+            # Historical stores had exactly one receipt per generation.  Keep
+            # that path readable and preserve its one-step crash recovery.  A
+            # same-generation orphan can exist only before the first selector
+            # switch; in that case the compatibility cache identifies the old
+            # selected prefix and the orphan remains inactive.
+            generations = [value.generation for value in all_receipts]
+            if len(generations) == len(set(generations)):
+                selected = sorted(all_receipts, key=lambda value: value.generation)
+                _validate_receipt_chain(
+                    selected,
+                    world_id=world_id,
+                    branch_id=branch_id,
+                )
+                self._verify_or_advance_branch_cache(branch_root, selected)
+                return selected
+            cache = _decode_stored(
+                _BranchHeadCacheV1,
+                _read_json(branch_root / "BRANCH_HEAD_CACHE.json"),
+                "branch-head cache",
             )
-        self._verify_or_advance_branch_cache(branch_root, receipts)
-        matches = [value for value in receipts if value.accepted_turn_id == turn_id]
+            synthetic = LeanActiveLineageV1(
+                schema_version=LeanActiveLineageV1.SCHEMA_VERSION,
+                world_id=world_id,
+                branch_id=branch_id,
+                revision=0,
+                switch_kind="legacy",
+                selected_generation=cache.generation,
+                selected_turn_id=cache.accepted_turn_id,
+                selected_receipt_sha256=cache.accepted_head_sha256,
+                previous_generation=0,
+                previous_turn_id=None,
+                previous_receipt_sha256=None,
+            )
+            selected = list(
+                selected_receipt_chain(
+                    lineage=synthetic,
+                    receipts_by_sha256=receipt_sha_index(all_receipts),
+                )
+            )
+            _validate_receipt_chain(
+                selected,
+                world_id=world_id,
+                branch_id=branch_id,
+            )
+            return selected
+
+        if lineage.world_id != world_id or lineage.branch_id != branch_id:
+            raise StateConflictError("active-lineage manifest escaped its branch")
+        selected = list(
+            selected_receipt_chain(
+                lineage=lineage,
+                receipts_by_sha256=receipt_sha_index(all_receipts),
+            )
+        )
+        _validate_receipt_chain(
+            selected,
+            world_id=world_id,
+            branch_id=branch_id,
+        )
+        self._verify_or_advance_branch_cache(branch_root, selected)
+        return selected
+
+    def _receipt_by_candidate(
+        self,
+        branch_root: Path,
+        candidate: LeanCandidateV1,
+    ) -> LeanAcceptedTurnReceiptV1 | None:
+        matches = [
+            receipt
+            for receipt, _ in self._load_all_receipt_entries(branch_root)
+            if receipt.candidate_sha256 == candidate.candidate_sha256
+        ]
         if len(matches) > 1:
-            raise StateConflictError("accepted turn identity occurs more than once")
+            raise StateConflictError("accepted candidate occurs more than once")
+        if matches and (
+            matches[0].accepted_turn_id != candidate.turn_id
+            or matches[0].world_id != candidate.world_id
+            or matches[0].branch_id != candidate.branch_id
+        ):
+            raise StateConflictError("accepted candidate identity binding changed")
         return matches[0] if matches else None
 
     def _accepted_turn_dir(self, accepted: LeanAcceptedTurnReceiptV1) -> Path:
         branch_root = self._branch_root(accepted.world_id, accepted.branch_id)
-        receipts = self._load_receipts(branch_root)
-        _validate_receipt_chain(
-            receipts,
-            world_id=accepted.world_id,
-            branch_id=accepted.branch_id,
-        )
-        self._verify_or_advance_branch_cache(branch_root, receipts)
-        turn_dir = branch_root / "accepted" / _turn_directory_name(accepted)
-        if not turn_dir.is_dir():
-            raise StateConflictError("accepted turn directory is missing")
+        turn_dir = _locate_accepted_turn_dir(branch_root, accepted)
         stored = _accepted_receipt_from_mapping(_read_json(turn_dir / "ACCEPTED_RECEIPT.json"))
         if stored.receipt_sha256 != accepted.receipt_sha256:
             raise StateConflictError("accepted turn receipt differs from stored bytes")
@@ -1081,6 +1468,19 @@ class LeanSceneStore:
             and cache.accepted_head_sha256 == latest.receipt_sha256
         ):
             return
+        lineage = cls._load_active_lineage_manifest(branch_root)
+        if lineage is not None:
+            previous_matches = (
+                cache.generation == lineage.previous_generation
+                and cache.accepted_turn_id == lineage.previous_turn_id
+                and cache.accepted_head_sha256 == lineage.previous_receipt_sha256
+            )
+            if not previous_matches:
+                raise StateConflictError(
+                    "accepted branch head cache conflicts with active lineage"
+                )
+            cls._write_branch_cache(branch_root, latest)
+            return
         anchor_matches = (cache.generation == 0 and len(receipts) == 1) or any(
             value.generation == cache.generation
             and value.accepted_turn_id == cache.accepted_turn_id
@@ -1093,7 +1493,71 @@ class LeanSceneStore:
 
 
 def _turn_directory_name(receipt: LeanAcceptedTurnReceiptV1) -> str:
+    """Historical linear-store directory name (read compatibility only)."""
+
     return f"{receipt.generation:08d}-{text_sha256(receipt.accepted_turn_id)[:20]}"
+
+
+def _accepted_object_directory_name(receipt: LeanAcceptedTurnReceiptV1) -> str:
+    """Collision-free object name for same-generation accepted siblings."""
+
+    return accepted_object_directory_name(
+        generation=receipt.generation,
+        accepted_turn_id=receipt.accepted_turn_id,
+        receipt_sha256=receipt.receipt_sha256,
+    )
+
+
+def _locate_accepted_turn_dir(
+    branch_root: Path,
+    receipt: LeanAcceptedTurnReceiptV1,
+) -> Path:
+    candidates = (
+        branch_root / "accepted" / _accepted_object_directory_name(receipt),
+        branch_root / "accepted" / _turn_directory_name(receipt),
+    )
+    matches: list[Path] = []
+    for path in candidates:
+        receipt_path = path / "ACCEPTED_RECEIPT.json"
+        if not receipt_path.is_file() or receipt_path.is_symlink():
+            continue
+        stored = _accepted_receipt_from_mapping(_read_json(receipt_path))
+        if stored.receipt_sha256 == receipt.receipt_sha256:
+            matches.append(path)
+    if len(matches) != 1:
+        raise StateConflictError("accepted turn object is not uniquely stored")
+    return matches[0]
+
+
+def _receipt_for_candidate(
+    candidate: LeanCandidateV1,
+    *,
+    acceptance_action: str,
+) -> LeanAcceptedTurnReceiptV1:
+    return LeanAcceptedTurnReceiptV1(
+        schema_version=LeanAcceptedTurnReceiptV1.SCHEMA_VERSION,
+        accepted_turn_id=candidate.turn_id,
+        parent_accepted_turn_id=candidate.parent_accepted_turn_id,
+        parent_accepted_head_sha256=candidate.accepted_head_before_sha256,
+        world_id=candidate.world_id,
+        branch_id=candidate.branch_id,
+        scene_id=candidate.scene_id,
+        generation=candidate.generation,
+        route=candidate.route,
+        exact_user_source=candidate.exact_user_source,
+        exact_user_source_sha256=candidate.exact_user_source_sha256,
+        exact_accepted_prose=candidate.story_text,
+        exact_accepted_prose_sha256=candidate.story_text_sha256,
+        primary_authority_kind=candidate.primary_authority_kind,
+        primary_authority_json=candidate.primary_authority_json,
+        primary_authority_sha256=candidate.primary_authority_sha256,
+        writer_view_manifest_sha256=candidate.writer_view_manifest_sha256,
+        writer_receipt=candidate.writer_receipt,
+        creator_action=acceptance_action,
+        warnings=candidate.warnings,
+        initial_recording_status=RecordingStatus.PROJECTION_PENDING,
+        candidate_sha256=candidate.candidate_sha256,
+    )
 
 
 def _validate_candidate_qualification(
@@ -1178,13 +1642,13 @@ def _provisional_canon_artifact(
     if validation.verdict.verdict is not SemanticVerdict.REJECT:
         raise ContractValidationError("provisional canon requires a rejected candidate")
     body = {
-        "schema_version": "cera.pi_scene.provisional_canon.v1",
+        "schema_version": "cera.pi_scene.provisional_canon.v2",
         "provisional_canon_id": f"provisional:{candidate.candidate_sha256[:24]}",
         "candidate_id": candidate.candidate_id,
         "candidate_sha256": candidate.candidate_sha256,
         "validation_binding_sha256": validation.binding_sha256,
         "status": "unresolved",
-        "working_assumption": "accepted_candidate_events_are_provisionally_true",
+        "resolution_policy": "dependent_cognition_plan_must_bind_true_or_false",
     }
     return {**body, "artifact_sha256": canonical_sha256(body)}
 
@@ -1266,38 +1730,57 @@ def _verify_provisional_canon_artifact(
     if not path.is_file() or path.is_symlink():
         raise StateConflictError("provisional acceptance lacks its canon artifact")
     payload = _read_json(path)
-    expected = {
+    common = {
         "schema_version",
         "provisional_canon_id",
         "candidate_id",
         "candidate_sha256",
         "validation_binding_sha256",
         "status",
-        "working_assumption",
         "artifact_sha256",
     }
+    schema_version = payload.get("schema_version")
+    expected = (
+        common | {"working_assumption"}
+        if schema_version == "cera.pi_scene.provisional_canon.v1"
+        else common | {"resolution_policy"}
+    )
     if set(payload) != expected:
         raise StateConflictError("provisional-canon artifact fields changed")
     body = {key: payload[key] for key in payload if key != "artifact_sha256"}
     if (
-        payload["schema_version"] != "cera.pi_scene.provisional_canon.v1"
+        schema_version
+        not in {
+            "cera.pi_scene.provisional_canon.v1",
+            "cera.pi_scene.provisional_canon.v2",
+        }
         or payload["candidate_id"] != validation.custody.candidate_id
         or payload["candidate_sha256"] != receipt.candidate_sha256
         or payload["validation_binding_sha256"] != validation.binding_sha256
         or payload["status"] != "unresolved"
-        or payload["working_assumption"]
-        != "accepted_candidate_events_are_provisionally_true"
         or payload["provisional_canon_id"]
         != f"provisional:{receipt.candidate_sha256[:24]}"
         or payload["artifact_sha256"] != canonical_sha256(body)
     ):
         raise StateConflictError("provisional-canon artifact binding changed")
+    if schema_version == "cera.pi_scene.provisional_canon.v1":
+        if (
+            payload["working_assumption"]
+            != "accepted_candidate_events_are_provisionally_true"
+        ):
+            raise StateConflictError("historical provisional assumption changed")
+    elif (
+        payload["resolution_policy"]
+        != "dependent_cognition_plan_must_bind_true_or_false"
+    ):
+        raise StateConflictError("provisional resolution policy changed")
 
 
 def _load_current_pi_session(
     path: Path,
     *,
     head: LeanAcceptedHeadV1,
+    allow_legacy_unbound: bool,
 ) -> AcceptedPiSessionV1 | None:
     """Return a current soft cache entry; silently ignore a valid stale one."""
 
@@ -1309,6 +1792,14 @@ def _load_current_pi_session(
         "accepted Pi session",
     )
     if session.accepted_turn_id != head.accepted_turn_id:
+        return None
+    if session.accepted_receipt_sha256 is None:
+        # Historical sessions predate receipt-bound sibling lineage.  They are
+        # safe to reuse only while the branch itself still has no lineage
+        # selector.  Once a selector exists, an unbound same-turn session may
+        # belong to an inactive sibling and must be rehydrated instead.
+        return session if allow_legacy_unbound else None
+    if session.accepted_receipt_sha256 != head.accepted_head_sha256:
         return None
     return session
 

@@ -46,6 +46,12 @@ from .genesis_catalog import (
     AcceptedGenesisRevisionV1,
     GenesisRevisionPinV1,
 )
+from .lineage import (
+    LeanActiveLineageV1,
+    accepted_object_directory_name,
+    active_lineage_from_payload,
+    active_lineage_payload,
+)
 from .store import LeanSceneStore
 
 
@@ -354,11 +360,21 @@ class PiSceneWorldWorkspaceManager:
                     staging / "BRANCH_IDENTITY.json",
                     {"world_id": world_id, "branch_id": child_branch_id},
                 )
+                selected_payloads = LeanSceneStore(
+                    self.runtime_root
+                ).accepted_branch_payloads(
+                    world_id=world_id,
+                    branch_id=parent_branch_id,
+                )
                 rewritten_receipts = self._rebind_accepted_receipts(
                     staging,
                     source_world_id=world_id,
                     source_branch_id=parent_branch_id,
                     child_branch_id=child_branch_id,
+                    selected_receipt_sha256s=tuple(
+                        str(value["accepted_receipt_sha256"])
+                        for value in selected_payloads
+                    ),
                 )
                 rewritten_sessions = self._isolate_forked_session_cache(staging)
                 workspace = self._workspace_payload(
@@ -684,6 +700,7 @@ class PiSceneWorldWorkspaceManager:
         source_world_id: str,
         source_branch_id: str,
         child_branch_id: str,
+        selected_receipt_sha256s: tuple[str, ...],
     ) -> frozenset[str]:
         """Rebind copied immutable prose custody to the child receipt chain.
 
@@ -693,20 +710,44 @@ class PiSceneWorldWorkspaceManager:
         in a separate fork receipt.
         """
 
-        paths = sorted(
-            (staging / "accepted").glob("*/ACCEPTED_RECEIPT.json"),
-            key=lambda value: read_json_object(value, "accepted receipt").get(
-                "generation", 0
-            ),
-        )
+        all_paths = sorted((staging / "accepted").glob("*/ACCEPTED_RECEIPT.json"))
+        by_sha256: dict[str, tuple[Path, dict[str, Any]]] = {}
+        for path in all_paths:
+            raw = read_json_object(path, "accepted receipt")
+            receipt_sha256 = canonical_sha256(raw)
+            if receipt_sha256 in by_sha256:
+                raise StateConflictError("fork source contains duplicate accepted objects")
+            by_sha256[receipt_sha256] = (path, raw)
+        if any(value not in by_sha256 for value in selected_receipt_sha256s):
+            raise StateConflictError("fork selected lineage references a missing receipt")
+
+        # Preserve inactive sibling evidence outside the child's live accepted
+        # object set.  The source branch is never changed or deleted.
+        inactive_root = staging / "FORK_SOURCE_INACTIVE_ACCEPTED"
+        rewritten: set[str] = {"FORK_REBINDING.json"}
+        selected_set = set(selected_receipt_sha256s)
+        for receipt_sha256, (path, _) in by_sha256.items():
+            if receipt_sha256 in selected_set:
+                continue
+            source_dir = path.parent
+            target_dir = inactive_root / source_dir.name
+            if target_dir.exists():
+                raise StateConflictError("fork inactive accepted archive is occupied")
+            target_dir.parent.mkdir(parents=True, exist_ok=True)
+            for item in source_dir.rglob("*"):
+                if item.is_file():
+                    relative_inside = item.relative_to(source_dir)
+                    rewritten.add(item.relative_to(staging).as_posix())
+                    rewritten.add((target_dir / relative_inside).relative_to(staging).as_posix())
+            os.replace(source_dir, target_dir)
+
+        paths = [by_sha256[value] for value in selected_receipt_sha256s]
         source_parent_turn: str | None = None
         source_parent_sha256: str | None = None
         child_parent_turn: str | None = None
         child_parent_sha256: str | None = None
         entries: list[dict[str, Any]] = []
-        rewritten: set[str] = {"FORK_REBINDING.json"}
-        for generation, path in enumerate(paths, start=1):
-            raw = read_json_object(path, "accepted receipt")
+        for generation, (path, raw) in enumerate(paths, start=1):
             if (
                 raw.get("world_id") != source_world_id
                 or raw.get("branch_id") != source_branch_id
@@ -728,6 +769,38 @@ class PiSceneWorldWorkspaceManager:
             }
             child_sha256 = canonical_sha256(child)
             write_json(path, child)
+            self._rebind_selected_accepted_artifacts(
+                path.parent,
+                child_branch_id=child_branch_id,
+                child_parent_sha256=child_parent_sha256,
+                child_receipt_sha256=child_sha256,
+            )
+            for changed_path in (
+                path.parent / "SEMANTIC_VALIDATION.json",
+                path.parent / "PROVISIONAL_CANON.json",
+                *path.parent.glob("RECORDING_BUNDLE_*/BUNDLE_MANIFEST.json"),
+            ):
+                if changed_path.is_file():
+                    rewritten.add(changed_path.relative_to(staging).as_posix())
+            source_dir = path.parent
+            target_dir = source_dir
+            if source_dir.name.endswith(f"-{source_sha256[:24]}"):
+                target_dir = source_dir.parent / accepted_object_directory_name(
+                    generation=generation,
+                    accepted_turn_id=raw["accepted_turn_id"],
+                    receipt_sha256=child_sha256,
+                )
+                if target_dir.exists():
+                    raise StateConflictError("fork child accepted object path is occupied")
+                for item in source_dir.rglob("*"):
+                    if item.is_file():
+                        relative_inside = item.relative_to(source_dir)
+                        rewritten.add(item.relative_to(staging).as_posix())
+                        rewritten.add(
+                            (target_dir / relative_inside).relative_to(staging).as_posix()
+                        )
+                os.replace(source_dir, target_dir)
+                path = target_dir / "ACCEPTED_RECEIPT.json"
             relative = path.relative_to(staging).as_posix()
             rewritten.add(relative)
             entries.append(
@@ -743,6 +816,42 @@ class PiSceneWorldWorkspaceManager:
             source_parent_sha256 = source_sha256
             child_parent_turn = raw["accepted_turn_id"]
             child_parent_sha256 = child_sha256
+
+        active_path = staging / "ACTIVE_LINEAGE.json"
+        source_lineage = (
+            active_lineage_from_payload(read_json_object(active_path, "active lineage"))
+            if active_path.exists()
+            else None
+        )
+        if source_lineage is not None and (
+            source_lineage.world_id != source_world_id
+            or source_lineage.branch_id != source_branch_id
+            or source_lineage.selected_receipt_sha256 != source_parent_sha256
+        ):
+            raise StateConflictError("source active lineage is stale")
+        if entries or source_lineage is not None:
+            previous_entry = entries[-2] if len(entries) > 1 else None
+            child_lineage = LeanActiveLineageV1(
+                schema_version=LeanActiveLineageV1.SCHEMA_VERSION,
+                world_id=source_world_id,
+                branch_id=child_branch_id,
+                revision=1 if source_lineage is None else source_lineage.revision + 1,
+                switch_kind="fork",
+                selected_generation=len(entries),
+                selected_turn_id=child_parent_turn,
+                selected_receipt_sha256=child_parent_sha256,
+                previous_generation=max(0, len(entries) - 1),
+                previous_turn_id=(
+                    None if previous_entry is None else previous_entry["accepted_turn_id"]
+                ),
+                previous_receipt_sha256=(
+                    None
+                    if previous_entry is None
+                    else previous_entry["child_receipt_sha256"]
+                ),
+            )
+            write_json(active_path, active_lineage_payload(child_lineage))
+            rewritten.add("ACTIVE_LINEAGE.json")
         cache_path = staging / "BRANCH_HEAD_CACHE.json"
         if cache_path.exists():
             cache = read_json_object(cache_path, "source branch-head cache")
@@ -774,6 +883,72 @@ class PiSceneWorldWorkspaceManager:
             {**payload, "rebinding_sha256": canonical_sha256(payload)},
         )
         return frozenset(rewritten)
+
+    @staticmethod
+    def _rebind_selected_accepted_artifacts(
+        turn_dir: Path,
+        *,
+        child_branch_id: str,
+        child_parent_sha256: str | None,
+        child_receipt_sha256: str,
+    ) -> None:
+        """Rebind hashes mechanically derived from a forked receipt.
+
+        Exact prose, model output, and Recorder-authored meaning are untouched.
+        Only Python custody fields whose source receipt hash changed are
+        rewritten in the child copy.
+        """
+
+        semantic_path = turn_dir / "SEMANTIC_VALIDATION.json"
+        if semantic_path.exists():
+            semantic = read_json_object(semantic_path, "semantic validation")
+            validation = semantic.get("validation")
+            if not isinstance(validation, dict):
+                raise StateConflictError("fork semantic validation is invalid")
+            custody = validation.get("custody")
+            if not isinstance(custody, dict):
+                raise StateConflictError("fork semantic custody is invalid")
+            custody["branch_id"] = child_branch_id
+            custody["accepted_head_sha256"] = child_parent_sha256
+            semantic_body = {
+                "schema_version": semantic.get("schema_version"),
+                "candidate_sha256": semantic.get("candidate_sha256"),
+                "validation": validation,
+            }
+            write_json(
+                semantic_path,
+                {
+                    **semantic_body,
+                    "artifact_sha256": canonical_sha256(semantic_body),
+                },
+            )
+            provisional_path = turn_dir / "PROVISIONAL_CANON.json"
+            if provisional_path.exists():
+                provisional = read_json_object(
+                    provisional_path,
+                    "provisional canon",
+                )
+                provisional["validation_binding_sha256"] = canonical_sha256(validation)
+                provisional_body = {
+                    key: value
+                    for key, value in provisional.items()
+                    if key != "artifact_sha256"
+                }
+                write_json(
+                    provisional_path,
+                    {
+                        **provisional_body,
+                        "artifact_sha256": canonical_sha256(provisional_body),
+                    },
+                )
+
+        for manifest_path in sorted(
+            turn_dir.glob("RECORDING_BUNDLE_*/BUNDLE_MANIFEST.json")
+        ):
+            manifest = read_json_object(manifest_path, "recording bundle manifest")
+            if "accepted_receipt_sha256" in manifest:
+                manifest["accepted_receipt_sha256"] = child_receipt_sha256
+                write_json(manifest_path, manifest)
 
     def _isolate_forked_session_cache(self, staging: Path) -> frozenset[str]:
         """Preserve parent cache evidence without sharing its live provider session."""
