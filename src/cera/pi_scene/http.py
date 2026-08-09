@@ -776,7 +776,11 @@ def build_pi_scene_server(
                         "object": "list",
                         "data": [
                             {"id": model, "object": "model", "owned_by": "cera-local-isolated"}
-                            for model in (PI_SCENE_ORDINARY_MODEL, PI_SCENE_ADULT_MODEL)
+                            for model in (
+                                PI_SCENE_AUTO_MODEL,
+                                PI_SCENE_ORDINARY_MODEL,
+                                PI_SCENE_ADULT_MODEL,
+                            )
                         ],
                     },
                 )
