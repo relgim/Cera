@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import unittest
-
+from pathlib import Path
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 SILLYTAVERN_ROOT = Path(
@@ -124,6 +123,9 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertNotIn("Sol reviewing...", extension)
         self.assertIn("controlSelect('Sol'", extension)
         self.assertIn("['medium', 'M'], ['high', 'H'], ['xhigh', 'Ex']", extension)
+        self.assertIn("controlSelect('Adult'", extension)
+        self.assertIn("['off', 'Off'], ['on', 'On'], ['ex', 'Ex']", extension)
+        self.assertIn("adult_craft_mode", extension)
         self.assertIn("renderStoredSpeakerMarks", extension)
         self.assertIn("vera_cast_readability", extension)
         for severity in ("good", "concern", "critical", "error"):
@@ -210,15 +212,42 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
             / "chat-completions.js"
         ).read_text(encoding="utf-8")
         for marker in (
-            "request.body.model === 'cera-alpha'",
+            "['cera-alpha', 'cera-pi-scene-ordinary', 'cera-pi-scene-adult']",
+            "requestBody.cera_profile_id",
             "requestBody.cera_session_id",
             "requestBody.cera_scene_depth",
             "requestBody.cera_character_autonomy",
             "requestBody.cera_prompt_handling",
             "requestBody.cera_reasoning_effort",
+            "requestBody.cera_adult_craft_mode",
             "requestBody.cera_regeneration_key",
         ):
             self.assertIn(marker, backend)
+        self.assertIn(
+            "Retrieval breadth only; it never selects ordinary/adult routing.",
+            backend,
+        )
+
+    def test_cera_controls_cross_the_client_bridge(self) -> None:
+        openai = (SILLYTAVERN_ROOT / "public" / "scripts" / "openai.js").read_text(
+            encoding="utf-8"
+        )
+        for marker in (
+            "['cera-alpha', 'cera-pi-scene-ordinary', 'cera-pi-scene-adult']",
+            "'cera_profile_id': isCeraCustomModel ? 'cera.pi_scene.lean.v1'",
+            "'cera_session_id': isCeraCustomModel",
+            "'cera_scene_depth': isCeraCustomModel",
+            "'cera_character_autonomy': isCeraCustomModel",
+            "'cera_prompt_handling': isCeraCustomModel",
+            "'cera_reasoning_effort': isCeraCustomModel",
+            "'cera_adult_craft_mode': isCeraCustomModel",
+            "'cera_regeneration_key': ceraRegenerationKey",
+        ):
+            self.assertIn(marker, openai)
+        self.assertIn(
+            "Craft breadth is route-neutral. Python remains the sole route owner.",
+            openai,
+        )
 
     def test_provisional_messages_are_excluded_from_exports(self) -> None:
         chats = (SILLYTAVERN_ROOT / "src" / "endpoints" / "chats.js").read_text(

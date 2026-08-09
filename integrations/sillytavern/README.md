@@ -37,10 +37,13 @@ same-network phone without publishing port 5101 to the LAN. The relay exposes
 only health, exact review lookup, and typed creator-decision paths; it cannot
 proxy an arbitrary CERA URL.
 
-For `cera-alpha`, the installed SillyTavern request path forwards typed
-`cera_session_id`, `cera_scene_depth`, and optional
-`cera_regeneration_key` fields. CERA treats these fields as the primary
-transport contract. Hidden `[[CERA_*]]` prompt markers remain a legacy
+For `cera-alpha` and the two explicit Pi Scene compatibility model IDs, the
+installed SillyTavern request path forwards typed `cera_profile_id`,
+`cera_session_id`, scene depth, character autonomy, prompt handling, reasoning
+effort, optional regeneration identity, and `cera_adult_craft_mode`. Adult
+craft mode selects retrieval breadth only; it never chooses the ordinary or
+adult route. CERA treats these fields as the primary transport contract.
+Hidden `[[CERA_*]]` prompt markers remain a legacy
 compatibility path only; the current client does not inject them into story
 prompts, and conflicting typed and legacy-marker values fail closed.
 
