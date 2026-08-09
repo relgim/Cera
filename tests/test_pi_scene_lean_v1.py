@@ -496,11 +496,11 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("current turn wins", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("RESPONSE_SEQUENCE.json", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn(
-            "outside the visible Writer realization context",
+            "outside the Writer root",
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
         self.assertIn(
-            "realization_scope.already_supplied_item_keys",
+            "completed_source_anchor_key",
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
         self.assertIn("first response item", ORDINARY_WRITER_SYSTEM_PROMPT)
@@ -547,8 +547,12 @@ class PiSceneLeanTests(unittest.TestCase):
                 )
             )
             self.assertEqual(view, verify_writer_view(view.root))
-            self.assertTrue((view.root / "PRIMARY_SEQUENCE.json").is_file())
+            self.assertEqual(view.purpose, "writer")
+            self.assertFalse((view.root / "PRIMARY_SEQUENCE.json").exists())
             self.assertFalse((view.root / "ADULT_HANDOFF.json").exists())
+            self.assertTrue(
+                (view.root.parent / "custody" / "CANONICAL_SEQUENCE.json").is_file()
+            )
             authority_order = json.loads(
                 (view.root / "zz_CURRENT_TURN_AUTHORITY.json").read_text(
                     encoding="utf-8"
@@ -560,18 +564,12 @@ class PiSceneLeanTests(unittest.TestCase):
                 "RESPONSE_SEQUENCE.json",
             )
             self.assertEqual(
-                authority_order["canonical_primary_sequence_path"],
-                "PRIMARY_SEQUENCE.json",
-            )
-            self.assertEqual(
-                authority_order["writer_excluded_paths"],
-                ["PRIMARY_SEQUENCE.json"],
+                authority_order["canonical_primary_sequence_custody"],
+                "python_and_post_accept_recorder_only",
             )
             self.assertEqual(
                 authority_order["realization_scope"],
                 {
-                    "already_supplied_item_keys": [],
-                    "canonical_authority_path": "PRIMARY_SEQUENCE.json",
                     "render_user_prompt": False,
                     "response_authority_path": "RESPONSE_SEQUENCE.json",
                     "response_item_keys": ["hana_answers"],
@@ -585,6 +583,11 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             with self.assertRaises(ContractValidationError):
                 resolve_confined_path(view.root, "../outside.txt")
+            with self.assertRaises(ContractValidationError):
+                resolve_confined_path(
+                    view.root,
+                    "../custody/CANONICAL_SEQUENCE.json",
+                )
             with self.assertRaises(ContractValidationError):
                 resolve_confined_path(view.root, str((root / "outside.txt").resolve()))
             outside = root / "outside.txt"
@@ -693,7 +696,6 @@ class PiSceneLeanTests(unittest.TestCase):
                     encoding="utf-8"
                 )
             )["realization_scope"]
-            self.assertEqual(scope["already_supplied_item_keys"], ["ted_source_action"])
             self.assertEqual(scope["response_item_keys"], ["hana_response", "return_floor"])
             self.assertEqual(scope["response_start_item_key"], "hana_response")
             response_sequence = json.loads(
@@ -705,8 +707,12 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 response_sequence["items"][0]["causal_parent_item_key"],
-                "ted_source_action",
+                None,
             )
+            source_anchor = response_sequence["items"][0][
+                "completed_source_anchor_key"
+            ]
+            self.assertRegex(source_anchor, r"^completed-source-[0-9a-f]{20}$")
             self.assertNotIn(
                 "ted_source_action",
                 [item["item_key"] for item in response_sequence["items"]],
@@ -724,9 +730,45 @@ class PiSceneLeanTests(unittest.TestCase):
                 ["hana_response"],
             )
             self.assertEqual(
-                json.loads((view.root / "PRIMARY_SEQUENCE.json").read_text(encoding="utf-8")),
+                json.loads(
+                    (
+                        view.root.parent
+                        / "custody"
+                        / "CANONICAL_SEQUENCE.json"
+                    ).read_text(encoding="utf-8")
+                ),
                 authority,
             )
+            provenance = json.loads(
+                (
+                    view.root.parent / "custody" / "PROJECTION_PROVENANCE.json"
+                ).read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                provenance["source_anchor_bindings"],
+                [
+                    {
+                        "canonical_source_item_key": "ted_source_action",
+                        "completed_source_anchor_key": source_anchor,
+                    }
+                ],
+            )
+            self.assertEqual(
+                provenance["response_item_mappings"][0],
+                {
+                    "canonical_causal_parent_item_key": "ted_source_action",
+                    "canonical_item_key": "hana_response",
+                    "completed_source_anchor_key": source_anchor,
+                    "projected_causal_parent_item_key": None,
+                },
+            )
+            visible_bytes = "\n".join(
+                path.read_text(encoding="utf-8")
+                for path in view.root.rglob("*")
+                if path.is_file()
+            )
+            self.assertNotIn("The protected user's supplied action", visible_bytes)
+            self.assertNotIn("ted_source_action", visible_bytes)
 
     def test_isolated_sillytavern_copy_excludes_user_data_and_forces_loopback(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -863,14 +905,15 @@ class PiSceneLeanTests(unittest.TestCase):
                     on_stdout_line(line)
                 return _ProcessResult(0, stream, "")
 
+            ledger = PiProviderOperationLedger(
+                (root / "provider_operations.jsonl").resolve(),
+                maximum_operations=60,
+            )
             adapter = PiSceneAdapter(
                 pi_executable=executable,
                 extension_path=extension,
                 pi_version="0.84.1",
-                operation_ledger=PiProviderOperationLedger(
-                    (root / "provider_operations.jsonl").resolve(),
-                    maximum_operations=60,
-                ),
+                operation_ledger=ledger,
                 process_runner=runner,
             )
             request = PiSceneInvocationV1(
@@ -907,6 +950,19 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(settings["retry"]["maxRetries"], 0)
             self.assertEqual(settings["retry"]["provider"]["maxRetries"], 0)
             self.assertFalse(settings["compaction"]["enabled"])
+            event_count = len(ledger.events)
+            with self.assertRaisesRegex(StateConflictError, "purpose differs"):
+                adapter.invoke(
+                    PiSceneInvocationV1(
+                        route=SceneRoute.ORDINARY,
+                        purpose="recorder",
+                        view=view,
+                        prompt="Record the accepted scene.",
+                        candidate_id="candidate-mismatched-purpose",
+                        session_dir=root / "mismatched-sessions",
+                    )
+                )
+            self.assertEqual(len(ledger.events), event_count)
 
     def test_pi_context_hides_python_custody_sequence_from_writer_only(self) -> None:
         extension = (
@@ -1014,9 +1070,12 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(pi.calls[1].purpose, "writer")
             self.assertIn("noncanonical creator guidance", pi.calls[1].prompt)
             self.assertIn("more concise", pi.calls[1].prompt)
-            self.assertTrue((pi.calls[1].view.root / "PRIMARY_SEQUENCE.json").is_file())
+            self.assertFalse((pi.calls[1].view.root / "PRIMARY_SEQUENCE.json").exists())
             self.assertTrue((pi.calls[1].view.root / "USER_PROMPT.txt").is_file())
             self.assertEqual(pi.calls[2].purpose, "recorder")
+            self.assertEqual(pi.calls[2].view.purpose, "recorder")
+            self.assertTrue((pi.calls[2].view.root / "PRIMARY_SEQUENCE.json").is_file())
+            self.assertTrue((pi.calls[2].view.root / "recent_prose" / "0001.txt").is_file())
 
     def test_writer_view_links_accepted_prose_once_without_losing_custody(self) -> None:
         with TemporaryDirectory() as temporary:

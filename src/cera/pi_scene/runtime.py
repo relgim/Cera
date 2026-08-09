@@ -430,6 +430,7 @@ class LeanPiSceneCoordinator:
                 voice_examples=turn.voice_examples,
                 craft_index=turn.craft_index,
                 accepted_records=writer_records,
+                purpose="writer",
             )
         )
         prompt = (
@@ -556,6 +557,7 @@ class LeanPiSceneCoordinator:
                 voice_examples={},
                 craft_index={},
                 accepted_records=(),
+                purpose="recorder",
             )
         )
         primary_path = (
