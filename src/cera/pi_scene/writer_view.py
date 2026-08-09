@@ -224,7 +224,7 @@ class WriterViewMaterializer:
         _write_json(
             root / "zz_CURRENT_TURN_AUTHORITY.json",
             {
-                "schema_version": "cera.pi_scene.writer_authority_order.v10",
+                "schema_version": "cera.pi_scene.writer_authority_order.v11",
                 "current_route": source.route.value,
                 "current_purpose": source.purpose,
                 "current_source_path": "USER_PROMPT.txt",
@@ -237,8 +237,8 @@ class WriterViewMaterializer:
                 ),
                 "current_state_path": "CURRENT_STATE.json",
                 "precedence": [
-                    "current_route_and_primary_authority",
-                    "current_accepted_state",
+                    "current_accepted_state_baseline",
+                    "current_primary_authority_changes_and_postconditions",
                     "supporting_accepted_history",
                     "style_and_craft_material",
                 ],
@@ -251,9 +251,7 @@ class WriterViewMaterializer:
                     {
                         "source_usage": (
                             "Adjudicated story material may be reordered, revisited, "
-                            "framed, or dramatized, but presentation must not mutate "
-                            "an established current-floor relation unless the current "
-                            "primary authority explicitly changes it."
+                            "framed, or dramatized within the factual precedence above."
                         ),
                         "opening_location": "writer_selected",
                         "presentation_chronology": "writer_selected_within_causal_authority",

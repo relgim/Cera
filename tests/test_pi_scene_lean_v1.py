@@ -548,8 +548,8 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertNotIn("opening sentence", prompt.lower())
         self.assertIn("supplied story material and intended direction", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("not automatically a fully completed off-page event", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("You own chronology of presentation", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("Interiority may be explicit or implicit", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("you own chronology", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("explicit or implicit interiority", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("RESPONSE_SEQUENCE.json", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn(
             "outside the Writer root",
@@ -560,19 +560,45 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("surface_realization_items", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("may share one utterance", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("guides_surface_item_key", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("one deletion test", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("one future-reliance test", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Factual authority:", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn(
-            "Accepted relations in CURRENT_STATE.json remain true until",
+            "remain true until an explicit RESPONSE_SEQUENCE.json transition changes them",
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
         self.assertIn(
-            "not an invariant against authorized intermediate transitions",
+            "No setup, staging, narration, action, or ending may invent",
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
-        self.assertIn(
-            "cannot create an unplanned relation change",
-            ORDINARY_WRITER_SYSTEM_PROMPT,
+        self.assertIn("Requested scene development:", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Presentation freedom:", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Ted autonomy and output:", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertEqual(
+            ORDINARY_WRITER_SYSTEM_PROMPT.count("unplanned relation change"),
+            1,
         )
+        self.assertLess(
+            ORDINARY_WRITER_SYSTEM_PROMPT.index("Factual authority:"),
+            ORDINARY_WRITER_SYSTEM_PROMPT.index("Requested scene development:"),
+        )
+        self.assertLess(
+            ORDINARY_WRITER_SYSTEM_PROMPT.index("Requested scene development:"),
+            ORDINARY_WRITER_SYSTEM_PROMPT.index("Presentation freedom:"),
+        )
+        self.assertLess(
+            ORDINARY_WRITER_SYSTEM_PROMPT.index("Presentation freedom:"),
+            ORDINARY_WRITER_SYSTEM_PROMPT.index("Ted autonomy and output:"),
+        )
+        for freedom in (
+            "source-adjacent action",
+            "prelude",
+            "explicit or implicit interiority",
+            "atmosphere",
+            "point of view",
+            "reordered",
+            "compatible reversible staging",
+        ):
+            self.assertIn(freedom, ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn("consent_and_capacity", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn("You own presentation chronology", ADULT_WRITER_SYSTEM_PROMPT)
@@ -634,7 +660,14 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 authority_order["schema_version"],
-                "cera.pi_scene.writer_authority_order.v10",
+                "cera.pi_scene.writer_authority_order.v11",
+            )
+            self.assertEqual(
+                authority_order["precedence"][:2],
+                [
+                    "current_accepted_state_baseline",
+                    "current_primary_authority_changes_and_postconditions",
+                ],
             )
             self.assertEqual(authority_order["current_route"], "ordinary")
             self.assertEqual(
@@ -668,9 +701,7 @@ class PiSceneLeanTests(unittest.TestCase):
                 authority_order["presentation_contract"]["source_usage"],
                 (
                     "Adjudicated story material may be reordered, revisited, "
-                    "framed, or dramatized, but presentation must not mutate "
-                    "an established current-floor relation unless the current "
-                    "primary authority explicitly changes it."
+                    "framed, or dramatized within the factual precedence above."
                 ),
             )
             self.assertEqual(
@@ -870,9 +901,12 @@ class PiSceneLeanTests(unittest.TestCase):
                     encoding="utf-8"
                 )
             )
-            self.assertIn(
-                "must not mutate an established current-floor relation",
-                control["presentation_contract"]["source_usage"],
+            self.assertEqual(
+                control["precedence"][:2],
+                [
+                    "current_accepted_state_baseline",
+                    "current_primary_authority_changes_and_postconditions",
+                ],
             )
             self.assertEqual(
                 control["presentation_contract"]["opening_location"],
@@ -888,7 +922,13 @@ class PiSceneLeanTests(unittest.TestCase):
             )
 
     def test_writer_projection_keeps_generic_relations_until_planned_transitions(self) -> None:
-        relation_kinds = ("possession", "actor_speaker", "location", "presence")
+        relation_kinds = (
+            "possession",
+            "actor_speaker",
+            "location",
+            "presence",
+            "object_state",
+        )
         transition_cases = {
             "unchanged": ((), "alpha"),
             "changed": (("alpha_to_beta",), "beta"),
