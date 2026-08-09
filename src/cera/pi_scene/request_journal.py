@@ -556,6 +556,7 @@ def _validate_adult_progress(
         "request_id",
         "candidate_id",
         "operation_sha256",
+        "planner_provider_operations",
         "world_id",
         "branch_id",
         "actual_route",
@@ -590,6 +591,11 @@ def _validate_adult_progress(
     ):
         if not re_is_sha256(progress[field_name] or ""):
             raise StateConflictError(f"Pi Scene adult {field_name} is invalid")
+    if (
+        type(progress["planner_provider_operations"]) is not int
+        or progress["planner_provider_operations"] < 0
+    ):
+        raise StateConflictError("Pi Scene adult Planner operation count is invalid")
     status = progress["outcome_status"]
     accepted_values = (
         progress["accepted_turn_id"],

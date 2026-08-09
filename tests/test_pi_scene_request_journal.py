@@ -100,6 +100,7 @@ def _adult_progress(binding, *, rejected: bool = False) -> dict[str, object]:
         "request_id": binding.request_id,
         "candidate_id": "candidate:adult:test",
         "operation_sha256": "d" * 64,
+        "planner_provider_operations": 0,
         "world_id": binding.world_id,
         "branch_id": binding.branch_id,
         "actual_route": "adult",

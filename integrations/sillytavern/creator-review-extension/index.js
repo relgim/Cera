@@ -11,6 +11,13 @@ import {
     updateMessageBlock,
 } from '../../../../script.js';
 import { oai_settings } from '../../../../scripts/openai.js';
+import {
+    completionIdentity,
+    normalizeCompletionMetadata,
+    normalizeCreatorTrace,
+    validReviewId,
+} from './completion-metadata.js';
+import { appendCreatorTrace, renderCompletionPanel } from './creator-trace-panel.js';
 
 const API_ROOT = '/api/plugins/cera-review';
 const META_KEY = 'cera_creator_review';
@@ -47,16 +54,15 @@ let completionMetadata = null;
 const polling = new Map();
 
 window.ceraCreatorControls = () => ({ ...readControls() });
+window.ceraCaptureCompletionMetadata = value => captureCompletionMetadata(value);
 
 eventSource.on(event_types.APP_READY, () => {
     installControlBar();
 });
 
 window.addEventListener(COMPLETION_EVENT, event => {
-    const value = event?.detail;
-    if (value?.provisional && value?.provisional_review_id) {
-        completionMetadata = structuredClone(value);
-    }
+    const value = normalizeCompletionMetadata(event?.detail);
+    if (value) completionMetadata = structuredClone(value);
 });
 
 eventSource.on(event_types.MESSAGE_RECEIVED, async messageId => {
@@ -66,6 +72,7 @@ eventSource.on(event_types.MESSAGE_RECEIVED, async messageId => {
 eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, async messageId => {
     await attachPendingMetadata(messageId, { resume: false });
     renderStoredSpeakerMarks(messageId);
+    renderStoredCompletionMetadata(messageId);
     if (chat[messageId]?.extra?.[META_KEY]?.provisional) {
         await resumeReview(messageId);
     }
@@ -73,18 +80,37 @@ eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, async messageId => {
 
 async function attachPendingMetadata(messageId, { resume = true } = {}) {
     const message = chat[messageId];
-    if (!message || message.is_user || message.extra?.[META_KEY]?.review_id) return false;
+    if (!message || message.is_user || message.extra?.[META_KEY]) return false;
     const metadata = takeCompletionMetadata();
     if (!metadata) return false;
+    const reviewId = validReviewId(metadata.provisional_review_id)
+        ? metadata.provisional_review_id
+        : null;
     message.extra ??= {};
     message.extra[META_KEY] = {
-        review_id: metadata.provisional_review_id,
+        review_id: reviewId,
         candidate_id: metadata.candidate_id,
-        state: metadata.review_status,
-        provisional: true,
+        state: metadata.status,
+        provisional: Boolean(metadata.provisional && reviewId),
+        completion: structuredClone(metadata),
     };
     await saveChatConditional();
-    if (resume) await resumeReview(messageId);
+    renderStoredCompletionMetadata(messageId);
+    if (resume && reviewId) await resumeReview(messageId);
+    return true;
+}
+
+function captureCompletionMetadata(value) {
+    const metadata = normalizeCompletionMetadata(value);
+    if (!metadata) return false;
+    const queue = Array.isArray(window.ceraCompletionMetadataQueue)
+        ? window.ceraCompletionMetadataQueue
+        : (window.ceraCompletionMetadataQueue = []);
+    const snapshot = structuredClone(metadata);
+    queue.push(snapshot);
+    if (queue.length > 8) queue.splice(0, queue.length - 8);
+    completionMetadata = structuredClone(snapshot);
+    window.dispatchEvent(new CustomEvent(COMPLETION_EVENT, { detail: snapshot }));
     return true;
 }
 
@@ -92,19 +118,22 @@ function takeCompletionMetadata() {
     const queue = Array.isArray(window.ceraCompletionMetadataQueue)
         ? window.ceraCompletionMetadataQueue
         : [];
-    const metadata = completionMetadata ?? queue[0] ?? null;
+    const metadata = normalizeCompletionMetadata(completionMetadata ?? queue[0] ?? null);
     completionMetadata = null;
     if (!metadata) return null;
-    const queuedIndex = queue.findIndex(value => (
-        value?.request_id === metadata.request_id
-        && value?.provisional_review_id === metadata.provisional_review_id
-    ));
+    const identity = completionIdentity(metadata);
+    const queuedIndex = queue.findIndex(value => {
+        const normalized = normalizeCompletionMetadata(value);
+        return normalized && completionIdentity(normalized) === identity;
+    });
     if (queuedIndex >= 0) queue.splice(queuedIndex, 1);
     return structuredClone(metadata);
 }
 
 eventSource.on(event_types.CHAT_CHANGED, () => {
     for (let index = 0; index < chat.length; index += 1) {
+        renderStoredCompletionMetadata(index);
+        renderStoredSpeakerMarks(index);
         if (chat[index]?.extra?.[META_KEY]?.provisional) {
             void resumeReview(index);
         }
@@ -153,6 +182,25 @@ function renderPending(messageId) {
     panel.innerHTML = `
         <div class="cera-review-badge">CERA - PROVISIONAL</div>
         <div class="cera-review-status">Preparing creator review...</div>`;
+    appendCreatorTrace(panel, chat[messageId]?.extra?.[META_KEY]?.completion);
+}
+
+function renderStoredCompletionMetadata(messageId) {
+    const stored = chat[messageId]?.extra?.[META_KEY];
+    const completion = stored?.completion;
+    if (!completion) return;
+    const panel = panelFor(messageId);
+    if (!panel) return;
+    if (stored.provisional && validReviewId(stored.review_id)) {
+        if (!panel.querySelector('.cera-trace-details')) appendCreatorTrace(panel, completion);
+        return;
+    }
+    renderCompletionPanel(
+        panel,
+        completion,
+        stored.state,
+        validReviewId(stored.review_id),
+    );
 }
 
 function renderTransportError(messageId, reviewId, error) {
@@ -263,13 +311,22 @@ function renderPiSceneReview(messageId, review, panel) {
         const notice = document.createElement('div');
         notice.className = 'cera-review-reason';
         notice.textContent = `Advisory: ${warning.warning_code ?? 'review warning'}${
-            warning.excerpt ? ` - ${warning.excerpt}` : ''
+            review.route !== 'adult' && warning.excerpt ? ` - ${warning.excerpt}` : ''
         }`;
         panel.appendChild(notice);
     }
 
+    appendCreatorTrace(panel, chat[messageId]?.extra?.[META_KEY]?.completion);
+
     const actions = document.createElement('div');
     actions.className = 'cera-review-actions';
+    if (!validReviewId(review.review_id)) {
+        const notice = document.createElement('div');
+        notice.className = 'cera-review-reason cera-review-severity-error';
+        notice.textContent = 'No durable action is available because CERA did not supply a valid review ID.';
+        panel.appendChild(notice);
+        return;
+    }
     actions.append(actionButton(
         'Accept',
         !review.accept_enabled,
@@ -342,10 +399,18 @@ function renderLegacyReview(messageId, review, panel) {
         reason.textContent = assessment.creator_reason;
         panel.appendChild(reason);
     }
+    appendCreatorTrace(panel, chat[messageId]?.extra?.[META_KEY]?.completion);
     if (review.state === 'error') return;
 
     const actions = document.createElement('div');
     actions.className = 'cera-review-actions';
+    if (!validReviewId(review.review_id)) {
+        const notice = document.createElement('div');
+        notice.className = 'cera-review-reason cera-review-severity-error';
+        notice.textContent = 'No durable action is available because CERA did not supply a valid review ID.';
+        panel.appendChild(notice);
+        return;
+    }
     actions.append(actionButton(
         'Accept',
         !review.accept_enabled,
@@ -397,7 +462,7 @@ function renderFeedbackEditor(messageId, review, action, label) {
     controls.append(
         actionButton('Submit', false, async () => {
             const feedback = input.value.trim();
-            if (!feedback) {
+            if (!feedback && action !== 'replan') {
                 input.focus();
                 return;
             }
@@ -412,6 +477,10 @@ function renderFeedbackEditor(messageId, review, action, label) {
 }
 
 async function decide(messageId, review, action, feedback = null) {
+    if (!validReviewId(review?.review_id)) {
+        statusText(messageId, 'CERA did not supply a valid durable review ID. No action was sent.');
+        return;
+    }
     const acceptsCandidate = ['accept', 'false_positive'].includes(action);
     disablePanel(messageId, true);
     statusText(
@@ -430,14 +499,12 @@ async function decide(messageId, review, action, feedback = null) {
         const resolvedReview = result?.review ?? result;
         if (acceptsCandidate) {
             markCanonical(messageId, result);
-            statusText(messageId, 'Finished - ready for next prompt');
-            setTimeout(() => panelFor(messageId)?.remove(), 1100);
             return;
         }
         const successor = result?.successor;
         const successorReviewId = successor?.cera?.provisional_review_id;
         const successorText = successor?.choices?.[0]?.message?.content;
-        if (successorReviewId && successorText) {
+        if (validReviewId(successorReviewId) && successorText) {
             chat[messageId].mes = successorText;
             chat[messageId].extra[META_KEY] = {
                 review_id: successorReviewId,
@@ -489,9 +556,23 @@ function markCanonical(messageId, result = null) {
         if (result?.accepted_receipt_sha256) {
             metadata.accepted_receipt_sha256 = result.accepted_receipt_sha256;
         }
+        if (metadata.completion) {
+            metadata.completion.provisional = false;
+            metadata.completion.status = 'accepted';
+            metadata.completion.story_state_committed = true;
+            if (result?.artifact_id) metadata.completion.artifact_id = result.artifact_id;
+            if (result?.generation) metadata.completion.generation = result.generation;
+            if (result?.accepted_turn_id) {
+                metadata.completion.accepted_turn_id = result.accepted_turn_id;
+            }
+            if (result?.accepted_receipt_sha256) {
+                metadata.completion.accepted_receipt_sha256 = result.accepted_receipt_sha256;
+            }
+        }
     }
     void saveChatConditional();
     panelFor(messageId)?.classList.add('cera-review-finished');
+    renderStoredCompletionMetadata(messageId);
     activateSendButtons();
 }
 
@@ -508,6 +589,21 @@ function updateStoredState(messageId, review) {
     if (!metadata) return;
     metadata.state = review.state;
     metadata.prepared_package_id = review.prepared_package_id;
+    if (metadata.completion) {
+        metadata.completion.status = review.state;
+        metadata.completion.recording_status = review.recording_status
+            ?? metadata.completion.recording_status;
+        if (review.semantic_validation) {
+            metadata.completion.creator_trace = normalizeCreatorTrace(
+                {
+                    ...(metadata.completion.creator_trace ?? {}),
+                    validation: review.semantic_validation,
+                    provider_operations: review.provider_operations,
+                },
+                metadata.completion,
+            );
+        }
+    }
     if (
         Array.isArray(review.speaker_marks)
         && (review.speaker_marks.length || !Array.isArray(metadata.speaker_marks))

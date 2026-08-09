@@ -18,6 +18,7 @@ from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 
 from .contracts import RecordingStatus, SceneRoute
+from .creator_trace import cognition_creator_trace
 from .full_model_controller import (
     AcceptedAdultTurnV1,
     FullModelSceneController,
@@ -186,7 +187,7 @@ class PiSceneHttpAdapter:
         except RequestReplayPendingError:
             if self.full_model_controller is None:
                 raise
-            recovered = self.full_model_controller.recover_committed_adult(
+            recovered = self.full_model_controller.recover_completed_adult_operation(
                 request_id=binding.request_id,
                 turn=turn,
             )
@@ -550,7 +551,67 @@ class PiSceneHttpAdapter:
         review_status = (
             "accepted" if committed else "validation_rejected" if rejected else "review_ready"
         )
-        return {
+        cera_payload: dict[str, Any] = {
+            "profile_id": PI_SCENE_PROFILE,
+            "route_mode": candidate.route.value,
+            "provisional": not committed,
+            "status": review_status,
+            "story_state_committed": committed,
+            "canon_status": (
+                "provisional" if provisional_canon else "accepted" if committed else None
+            ),
+            "provisional_review_id": None if committed else review.review_id,
+            "review_url": f"/v1/cera/reviews/{review.review_id}",
+            "candidate_id": candidate.candidate_id,
+            "generation": candidate.generation,
+            "warnings": [to_primitive(value) for value in candidate.warnings],
+            "warnings_block_accept": False,
+            "accepted_turn_id": (
+                None
+                if review.accepted_receipt is None
+                else review.accepted_receipt.accepted_turn_id
+            ),
+            "accepted_receipt_sha256": (
+                None if review.accepted_receipt is None else review.accepted_receipt.receipt_sha256
+            ),
+            "recording_status": recording_status,
+            "semantic_validation": (
+                None
+                if validation is None
+                else {
+                    "binding_sha256": validation.binding_sha256,
+                    "verdict": validation.verdict.verdict.value,
+                    "automatic_repair_eligible": validation.verdict.automatic_repair_eligible,
+                    "conflict": (
+                        None
+                        if validation.verdict.conflict is None
+                        else to_primitive(validation.verdict.conflict)
+                    ),
+                    "review_flags": [
+                        to_primitive(value) for value in validation.verdict.review_flags
+                    ],
+                }
+            ),
+            "request_controls": (
+                None
+                if review.turn_input.request_controls is None
+                else to_primitive(review.turn_input.request_controls)
+            ),
+            "creator_guidance": (
+                None if review.creator_guidance is None else to_primitive(review.creator_guidance)
+            ),
+            "operational_warnings": [],
+            "provider_operations": {
+                "planner": review.result.planner_provider_operations,
+                "writer": review.result.writer_provider_operations,
+                "recorder": (
+                    0
+                    if review.recording_attempt is None
+                    else review.recording_attempt.provider_operations
+                ),
+            },
+        }
+        response: dict[str, Any] = {
             "id": f"chatcmpl-cera-{candidate.candidate_sha256[:24]}",
             "object": "chat.completion",
             "created": review.created_unix_seconds,
@@ -567,66 +628,12 @@ class PiSceneHttpAdapter:
                 }
             ],
             "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            "cera": {
-                "profile_id": PI_SCENE_PROFILE,
-                "route_mode": candidate.route.value,
-                "provisional": not committed,
-                "status": review_status,
-                "story_state_committed": committed,
-                "canon_status": (
-                    "provisional" if provisional_canon else "accepted" if committed else None
-                ),
-                "provisional_review_id": None if committed else review.review_id,
-                "review_url": f"/v1/cera/reviews/{review.review_id}",
-                "candidate_id": candidate.candidate_id,
-                "generation": candidate.generation,
-                "warnings": [to_primitive(value) for value in candidate.warnings],
-                "warnings_block_accept": False,
-                "accepted_turn_id": (
-                    None
-                    if review.accepted_receipt is None
-                    else review.accepted_receipt.accepted_turn_id
-                ),
-                "accepted_receipt_sha256": (
-                    None
-                    if review.accepted_receipt is None
-                    else review.accepted_receipt.receipt_sha256
-                ),
-                "recording_status": recording_status,
-                "semantic_validation": (
-                    None
-                    if validation is None
-                    else {
-                        "binding_sha256": validation.binding_sha256,
-                        "verdict": validation.verdict.verdict.value,
-                        "automatic_repair_eligible": (validation.verdict.automatic_repair_eligible),
-                        "conflict": (
-                            None
-                            if validation.verdict.conflict is None
-                            else to_primitive(validation.verdict.conflict)
-                        ),
-                        "review_flags": [
-                            to_primitive(value) for value in validation.verdict.review_flags
-                        ],
-                    }
-                ),
-                "request_controls": (
-                    None
-                    if review.turn_input.request_controls is None
-                    else to_primitive(review.turn_input.request_controls)
-                ),
-                "creator_guidance": (
-                    None
-                    if review.creator_guidance is None
-                    else to_primitive(review.creator_guidance)
-                ),
-                "operational_warnings": [],
-                "provider_operations": {
-                    "planner": review.result.planner_provider_operations,
-                    "writer": review.result.writer_provider_operations,
-                },
-            },
+            "cera": cera_payload,
         }
+        if candidate.primary_authority_kind == "codex_cognition_plan":
+            trace = cognition_creator_trace(candidate.primary_authority_json)
+            cera_payload.update(trace)
+        return response
 
     def _parse_chat_request(
         self,

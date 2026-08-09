@@ -28,7 +28,13 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
             / "third-party"
             / "cera-creator-review"
         )
-        for name in ("index.js", "style.css", "manifest.json"):
+        for name in (
+            "index.js",
+            "completion-metadata.js",
+            "creator-trace-panel.js",
+            "style.css",
+            "manifest.json",
+        ):
             source = source_root / name
             installed = installed_root / name
             self.assertTrue(installed.is_file(), f"missing installed extension: {installed}")
@@ -102,6 +108,92 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertIn("event_types.GENERATION_ENDED", extension)
         self.assertIn("attachPendingMetadata(messageId, { resume: false })", extension)
         self.assertIn("await resumeReview(messageId)", extension)
+
+    def test_full_model_completion_metadata_source_contract_is_closed_and_trace_aware(
+        self,
+    ) -> None:
+        source_root = REPOSITORY_ROOT / "integrations" / "sillytavern"
+        extension = (
+            source_root / "creator-review-extension" / "index.js"
+        ).read_text(encoding="utf-8")
+        metadata = (
+            source_root / "creator-review-extension" / "completion-metadata.js"
+        ).read_text(encoding="utf-8")
+        panel = (
+            source_root / "creator-review-extension" / "creator-trace-panel.js"
+        ).read_text(encoding="utf-8")
+        styles = (
+            source_root / "creator-review-extension" / "style.css"
+        ).read_text(encoding="utf-8")
+        bridge = (
+            source_root / "CERA_FULL_MODEL_COMPLETION_METADATA_BRIDGE.md"
+        ).read_text(encoding="utf-8")
+
+        for marker in (
+            "window.ceraCaptureCompletionMetadata",
+            "normalizeCompletionMetadata",
+            "normalizeCreatorTrace",
+            "validReviewId",
+            "renderStoredCompletionMetadata",
+        ):
+            self.assertIn(marker, extension)
+        for marker in (
+            "CERA decision and processing details",
+            "Relevant decisions",
+            "Autonomy application",
+            "Route transition",
+            "Validation",
+            "Provider operations",
+            "Readable debug log",
+        ):
+            self.assertIn(marker, panel)
+        self.assertIn("/^review-[a-f0-9]{28}$/", metadata)
+        self.assertIn("so no action was fabricated", panel)
+        self.assertNotIn("exact_story_prose:", metadata)
+        self.assertIn(".cera-trace-details", styles)
+        self.assertIn("data?.cera", bridge)
+        self.assertIn("window.ceraCaptureCompletionMetadata(data.cera)", bridge)
+        self.assertIn("must not clone, log, reshape, or persist", bridge)
+
+    def test_full_model_metadata_panel_node_contract(self) -> None:
+        node = shutil.which("node")
+        self.assertIsNotNone(node, "Node.js is required for the CERA metadata panel")
+        test_path = (
+            REPOSITORY_ROOT
+            / "integrations"
+            / "sillytavern"
+            / "creator-review-extension"
+            / "metadata-panel.test.mjs"
+        )
+        result = subprocess.run(
+            [str(node), "--test", str(test_path)],
+            cwd=REPOSITORY_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_creator_review_extension_node_syntax(self) -> None:
+        node = shutil.which("node")
+        self.assertIsNotNone(node, "Node.js is required for the CERA extension")
+        extension_root = (
+            REPOSITORY_ROOT
+            / "integrations"
+            / "sillytavern"
+            / "creator-review-extension"
+        )
+        for name in ("index.js", "completion-metadata.js", "creator-trace-panel.js"):
+            result = subprocess.run(
+                [str(node), "--check", str(extension_root / name)],
+                cwd=REPOSITORY_ROOT,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_creator_review_presentation_contract_is_explicit(self) -> None:
         source_root = (
@@ -191,17 +283,19 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertIn("Authorization: normalizedAuthorization", proxy)
         self.assertIn("authorization: request.get('X-Cera-Authorization')", proxy)
 
-    def test_openai_bridge_queues_only_provisional_cera_metadata(self) -> None:
+    def test_openai_bridge_routes_all_cera_metadata_through_closed_projection(self) -> None:
         openai = (SILLYTAVERN_ROOT / "public" / "scripts" / "openai.js").read_text(
             encoding="utf-8"
         )
         self.assertIn(
+            "if (data?.cera && typeof window.ceraCaptureCompletionMetadata === 'function')",
+            openai,
+        )
+        self.assertIn("window.ceraCaptureCompletionMetadata(data.cera)", openai)
+        self.assertNotIn(
             "if (data?.cera?.provisional && data.cera.provisional_review_id)",
             openai,
         )
-        self.assertIn("window.ceraCompletionMetadataQueue", openai)
-        self.assertIn("if (queue.length > 8)", openai)
-        self.assertIn("new CustomEvent('cera:completion-metadata'", openai)
 
     def test_cera_controls_cross_the_server_bridge(self) -> None:
         backend = (

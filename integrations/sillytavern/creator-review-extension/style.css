@@ -17,6 +17,7 @@
     letter-spacing: 0.03em;
 }
 
+.cera-review-accepted { background: #287c55; }
 .cera-review-error { background: #d66b78; }
 .cera-review-heading { margin-top: 0.65rem; font-weight: 700; }
 .cera-review-sequence { margin: 0.35rem 0 0.65rem 1.25rem; }
@@ -44,6 +45,59 @@
     width: 100%;
 }
 .cera-review-feedback-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+
+.cera-trace-details {
+    margin-top: 0.65rem;
+    border-top: 1px solid color-mix(in srgb, var(--SmartThemeBodyColor) 24%, transparent);
+    padding-top: 0.55rem;
+}
+
+.cera-trace-details > summary,
+.cera-decision-record > summary {
+    cursor: pointer;
+    font-weight: 650;
+}
+
+.cera-trace-facts {
+    display: grid;
+    grid-template-columns: minmax(8.5rem, 0.35fr) minmax(0, 1fr);
+    gap: 0.25rem 0.7rem;
+    margin: 0.55rem 0 0;
+}
+
+.cera-trace-facts dt {
+    color: color-mix(in srgb, var(--SmartThemeBodyColor) 72%, transparent);
+    font-weight: 650;
+}
+
+.cera-trace-facts dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.cera-trace-section {
+    margin-top: 0.65rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed color-mix(in srgb, var(--SmartThemeBodyColor) 20%, transparent);
+}
+
+.cera-trace-heading { font-weight: 700; }
+.cera-trace-note { margin-top: 0.35rem; }
+.cera-trace-list { margin: 0.35rem 0 0 1.15rem; }
+.cera-decision-record { margin-top: 0.4rem; }
+.cera-decision-record .cera-trace-facts { margin-left: 0.65rem; }
+.cera-debug-path {
+    display: block;
+    margin-top: 0.35rem;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+@media (max-width: 700px) {
+    .cera-trace-facts { grid-template-columns: 1fr; }
+    .cera-trace-facts dd { margin-bottom: 0.3rem; }
+}
 
 .cera-speaker-dialogue {
     color: var(--cera-speaker-color);

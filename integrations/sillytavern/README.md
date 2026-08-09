@@ -114,6 +114,13 @@ produces the protected full record and safe projection. Rejected/provisional
 text is excluded from accepted continuity and ordinary exports. Creator
 decisions make no hidden scene-regeneration call.
 
+The full-model UI metadata dispatch contract is documented in
+[`CERA_FULL_MODEL_COMPLETION_METADATA_BRIDGE.md`](CERA_FULL_MODEL_COMPLETION_METADATA_BRIDGE.md).
+The extension projects all CERA completions into a collapsed decision panel,
+but an installed `openai.js` receives the widened bridge only at an explicitly
+authorized installation-sync boundary. Raw protected adult fields are never
+queued or duplicated by that bridge.
+
 ## Verification
 
 The installed PNG was parsed with SillyTavern's own

@@ -7,12 +7,13 @@ state; it only validates durable custody and builds the client projection.
 
 from __future__ import annotations
 
+import json
 import time
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, cast
 
 from cera.adult_pipeline.acceptance import AdultAcceptedTurnEnvelopeV1
-from cera.adult_pipeline.contracts import BoundAdultPromotionV1
+from cera.adult_pipeline.contracts import AdultSceneRequestV1, BoundAdultPromotionV1
 from cera.errors import ContractValidationError, StateConflictError
 from cera.schema import from_mapping
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
@@ -44,6 +45,7 @@ def adult_journal_progress(
         "request_id": prepared.request_id,
         "candidate_id": prepared.candidate_id,
         "operation_sha256": operation.outcome_sha256,
+        "planner_provider_operations": outcome.planner_provider_operations,
         "world_id": prepared.route_state.world_id,
         "branch_id": prepared.route_state.branch_id,
         "actual_route": SceneRoute.ADULT.value,
@@ -100,6 +102,7 @@ def recover_adult_journal_response(
             envelope,
             promotion,
             operation_sha256=str(progress["operation_sha256"]),
+            planner_provider_operations=int(progress["planner_provider_operations"]),
         )
 
     raw = progress.get("protected_rejected_outcome")
@@ -112,6 +115,7 @@ def recover_adult_journal_response(
     wrapped = RejectedAdultTurnV1(
         schema_version=RejectedAdultTurnV1.SCHEMA_VERSION,
         outcome=rejected,
+        planner_provider_operations=int(progress["planner_provider_operations"]),
     )
     if adult_journal_progress(
         wrapped,
@@ -129,6 +133,7 @@ def adult_completion_payload(
             outcome.envelope,
             outcome.promotion,
             operation_sha256=outcome.outcome.outcome_sha256,
+            planner_provider_operations=outcome.planner_provider_operations,
         )
     return rejected_adult_completion_payload(outcome)
 
@@ -138,8 +143,11 @@ def accepted_adult_completion_payload(
     promotion: BoundAdultPromotionV1,
     *,
     operation_sha256: str,
+    planner_provider_operations: int,
 ) -> dict[str, Any]:
     bundle = envelope.promotion_bundle
+    scene_request = _accepted_scene_request(envelope)
+    scene_output = envelope.scene_invocation.output
     return {
         "id": f"chatcmpl-cera-{bundle.scene_candidate_sha256[:24]}",
         "object": "chat.completion",
@@ -157,6 +165,13 @@ def accepted_adult_completion_payload(
             "profile_id": PI_SCENE_PROFILE,
             "route_mode": SceneRoute.ADULT.value,
             "logic_owner": bundle.logic_owner,
+            "decision_records": [to_primitive(value) for value in scene_output.decision_path],
+            "autonomy_application": {"mode": scene_request.autonomy_mode},
+            "route_transition": {
+                "to_route": scene_output.next_route.value,
+                "reason": scene_output.next_route_reason,
+            },
+            "provisional_dependencies": [],
             "provisional": False,
             "status": "accepted",
             "story_state_committed": True,
@@ -178,7 +193,7 @@ def accepted_adult_completion_payload(
             "codex_projection_sha256": canonical_sha256(bundle.codex_projection),
             "operational_warnings": [],
             "provider_operations": {
-                "planner": 0,
+                "planner": planner_provider_operations,
                 "adult_scene": envelope.scene_invocation.receipt.provider_operations,
                 "adult_filter": envelope.filter_invocation.receipt.provider_operations,
                 "recorder": 0,
@@ -191,6 +206,8 @@ def rejected_adult_completion_payload(outcome: RejectedAdultTurnV1) -> dict[str,
     protected = outcome.outcome
     conflict = protected.conflict
     scene = protected.protected_execution.result.scene
+    scene_request = scene.request
+    scene_output = scene.invocation.output
     return {
         "id": f"chatcmpl-cera-{scene.candidate_sha256[:24]}",
         "object": "chat.completion",
@@ -208,6 +225,13 @@ def rejected_adult_completion_payload(outcome: RejectedAdultTurnV1) -> dict[str,
             "profile_id": PI_SCENE_PROFILE,
             "route_mode": SceneRoute.ADULT.value,
             "logic_owner": "deepseek_adult_scene",
+            "decision_records": [to_primitive(value) for value in scene_output.decision_path],
+            "autonomy_application": {"mode": scene_request.autonomy_mode},
+            "route_transition": {
+                "to_route": scene_output.next_route.value,
+                "reason": scene_output.next_route_reason,
+            },
+            "provisional_dependencies": [],
             "provisional": True,
             "status": "validation_rejected",
             "story_state_committed": False,
@@ -228,7 +252,7 @@ def rejected_adult_completion_payload(outcome: RejectedAdultTurnV1) -> dict[str,
             "replan_enabled": False,
             "operational_warnings": [],
             "provider_operations": {
-                "planner": 0,
+                "planner": outcome.planner_provider_operations,
                 "adult_scene": (
                     protected.protected_execution.result.scene.invocation.receipt.provider_operations
                 ),
@@ -239,3 +263,16 @@ def rejected_adult_completion_payload(outcome: RejectedAdultTurnV1) -> dict[str,
             },
         },
     }
+
+
+def _accepted_scene_request(envelope: AdultAcceptedTurnEnvelopeV1) -> AdultSceneRequestV1:
+    try:
+        raw = json.loads(envelope.primary_handoff_json)
+    except json.JSONDecodeError as exc:
+        raise StateConflictError("accepted adult request is not valid JSON") from exc
+    if not isinstance(raw, Mapping):
+        raise StateConflictError("accepted adult request is not an object")
+    try:
+        return cast(AdultSceneRequestV1, from_mapping(AdultSceneRequestV1, raw))
+    except (ContractValidationError, TypeError, ValueError) as exc:
+        raise StateConflictError("accepted adult request is invalid") from exc

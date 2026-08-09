@@ -49,6 +49,7 @@ from .test_adult_pipeline_pi_integration import (
 )
 from .test_adult_turn_preparation import CATALOG_ROOT, _plan, _turn
 from .test_cognition_contracts import _plan as _ordinary_plan
+from .test_pi_scene_adult_orchestration import _RejectingTransport
 from .test_pi_scene_lean_v1 import FakePi
 from .test_pi_scene_lean_v1 import turn as lean_turn
 from .test_pi_scene_semantic_runtime import _SemanticValidator
@@ -539,36 +540,161 @@ class PiSceneFullModelControllerTests(unittest.TestCase):
             self.assertEqual(recovered["cera"]["status"], "accepted")
             self.assertEqual(recovered["choices"][0]["message"]["content"], PROTECTED_PROSE)
             self.assertEqual(len(transports), 1)
-            restarted, _ = self._coordinator(
-                root,
-                store=store,
-                planner=_NeverPlanner(),
+
+    def test_http_recovers_executed_pass_before_atomic_promotion(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path(r"D:\Cera\tmp")) as temporary:
+            root = Path(temporary)
+            store = LeanSceneStore(root / "world")
+            custody_root = root / "protected-adult"
+            custody = ProtectedAdultOperationStore(custody_root)
+            planner = _HandoffPlanner()
+            ordinary, _ = self._coordinator(root, store=store, planner=planner)
+            transports: list[_FakeStructuredTransport] = []
+
+            def controller_for(coordinator, operation_store):  # type: ignore[no-untyped-def]
+                return FullModelSceneController(
+                    ordinary=coordinator,
+                    store=store,
+                    adult_orchestrator_factory=self._adult_factory(root, store, transports),
+                    adult_context_provider=lambda _turn, _route: AdultExecutionContextV1(
+                        accepted_safe_projection="The accepted public scene remains current.",
+                        protected_adult_continuity=None,
+                        current_facts=_controller_facts(),
+                        product_story_boundaries=("Preserve accepted branch authority.",),
+                    ),
+                    adult_operation_controller_factory=(
+                        lambda: ProtectedAdultOperationController(operation_store)
+                    ),
+                )
+
+            def route(turn):  # type: ignore[no-untyped-def]
+                return SceneRoute(
+                    store.current_logic_route(
+                        world_id=turn.world_id,
+                        branch_id=turn.branch_id,
+                    ).current_logic_route.value
+                )
+
+            journal_root = root / "request-journal"
+            payload = self._http_payload()
+            adapter = PiSceneHttpAdapter(
+                coordinator=ordinary,
+                session_id="session-adult-preparation",
+                context_provider=lambda *_args: replace(_turn(), request_controls=None),
+                logic_route_resolver=route,
+                full_model_controller=controller_for(ordinary, custody),
+                request_journal=PiSceneRequestJournal(journal_root),
             )
+            with (
+                patch.dict(
+                    os.environ,
+                    {PROVIDER_DISPATCH_DISABLED_ENV: "1"},
+                    clear=False,
+                ),
+                patch.object(
+                    store,
+                    "promote_adult_acceptance_envelope",
+                    side_effect=OSError("injected pre-promotion failure"),
+                ),
+                self.assertRaisesRegex(OSError, "pre-promotion"),
+            ):
+                adapter.complete(payload)
+
+            restarted, _ = self._coordinator(root, store=store, planner=_NeverPlanner())
             recovered = PiSceneHttpAdapter(
                 coordinator=restarted,
                 session_id="session-adult-preparation",
                 context_provider=lambda *_args: replace(_turn(), request_controls=None),
                 logic_route_resolver=route,
-                full_model_controller=FullModelSceneController(
-                    ordinary=restarted,
-                    store=store,
-                    adult_orchestrator_factory=self._adult_factory(
-                        root,
-                        store,
-                        transports,
-                    ),
-                    adult_context_provider=lambda _turn, _route: AdultExecutionContextV1(
-                        accepted_safe_projection="The accepted public scene remains current.",
-                        protected_adult_continuity=PROTECTED_PROSE,
-                        current_facts=_controller_facts(),
-                        product_story_boundaries=("Preserve accepted branch authority.",),
-                    ),
+                full_model_controller=controller_for(
+                    restarted,
+                    ProtectedAdultOperationStore(custody_root),
                 ),
                 request_journal=PiSceneRequestJournal(journal_root),
             ).complete(payload)
 
             self.assertEqual(recovered["cera"]["status"], "accepted")
-            self.assertEqual(recovered["choices"][0]["message"]["content"], PROTECTED_PROSE)
+            self.assertEqual(len(transports), 1)
+
+    def test_http_recovers_executed_rejection_before_progress_binding(self) -> None:
+        with tempfile.TemporaryDirectory(dir=Path(r"D:\Cera\tmp")) as temporary:
+            root = Path(temporary)
+            store = LeanSceneStore(root / "world")
+            custody_root = root / "protected-adult"
+            custody = ProtectedAdultOperationStore(custody_root)
+            planner = _HandoffPlanner()
+            ordinary, _ = self._coordinator(root, store=store, planner=planner)
+            transports: list[_FakeStructuredTransport] = []
+
+            def controller_for(coordinator, operation_store):  # type: ignore[no-untyped-def]
+                return FullModelSceneController(
+                    ordinary=coordinator,
+                    store=store,
+                    adult_orchestrator_factory=self._adult_factory(root, store, transports),
+                    adult_context_provider=lambda _turn, _route: AdultExecutionContextV1(
+                        accepted_safe_projection="The accepted public scene remains current.",
+                        protected_adult_continuity=None,
+                        current_facts=_controller_facts(),
+                        product_story_boundaries=("Preserve accepted branch authority.",),
+                    ),
+                    adult_operation_controller_factory=(
+                        lambda: ProtectedAdultOperationController(operation_store)
+                    ),
+                )
+
+            def route(turn):  # type: ignore[no-untyped-def]
+                return SceneRoute(
+                    store.current_logic_route(
+                        world_id=turn.world_id,
+                        branch_id=turn.branch_id,
+                    ).current_logic_route.value
+                )
+
+            journal_root = root / "request-journal"
+            first_journal = PiSceneRequestJournal(journal_root)
+            payload = self._http_payload()
+            adapter = PiSceneHttpAdapter(
+                coordinator=ordinary,
+                session_id="session-adult-preparation",
+                context_provider=lambda *_args: replace(_turn(), request_controls=None),
+                logic_route_resolver=route,
+                full_model_controller=controller_for(ordinary, custody),
+                request_journal=first_journal,
+            )
+            with (
+                patch.dict(
+                    os.environ,
+                    {PROVIDER_DISPATCH_DISABLED_ENV: "1"},
+                    clear=False,
+                ),
+                patch(
+                    "tests.test_pi_scene_full_model_controller._FakeStructuredTransport",
+                    _RejectingTransport,
+                ),
+                patch.object(
+                    first_journal,
+                    "bind_progress",
+                    side_effect=OSError("injected pre-progress failure"),
+                ),
+                self.assertRaisesRegex(OSError, "pre-progress"),
+            ):
+                adapter.complete(payload)
+
+            restarted, _ = self._coordinator(root, store=store, planner=_NeverPlanner())
+            recovered = PiSceneHttpAdapter(
+                coordinator=restarted,
+                session_id="session-adult-preparation",
+                context_provider=lambda *_args: replace(_turn(), request_controls=None),
+                logic_route_resolver=route,
+                full_model_controller=controller_for(
+                    restarted,
+                    ProtectedAdultOperationStore(custody_root),
+                ),
+                request_journal=PiSceneRequestJournal(journal_root),
+            ).complete(payload)
+
+            self.assertEqual(recovered["cera"]["status"], "validation_rejected")
+            self.assertFalse(recovered["cera"]["story_state_committed"])
             self.assertEqual(len(transports), 1)
 
     def test_accepted_adult_route_bypasses_codex_for_the_complete_message(self) -> None:
