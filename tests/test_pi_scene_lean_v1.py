@@ -487,11 +487,15 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertIn("Start from the NPC or world response", prompt)
             self.assertIn("Do not invent Ted dialogue", prompt)
             self.assertIn("Freely add compatible transient", prompt)
+            self.assertIn("fact_scope", prompt)
+            self.assertIn("leave it generic or unspecified", prompt)
             self.assertIn("unsupported durable history", prompt)
             self.assertIn("institutional facts", prompt)
             self.assertIn("Return complete visible prose only", prompt)
             self.assertNotIn("opening sentence", prompt.lower())
         self.assertIn("current turn wins", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("already_supplied_item_keys", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("response_item_key", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn("consent_and_capacity", ADULT_WRITER_SYSTEM_PROMPT)
 
@@ -548,6 +552,16 @@ class PiSceneLeanTests(unittest.TestCase):
                 "PRIMARY_SEQUENCE.json",
             )
             self.assertEqual(
+                authority_order["realization_scope"],
+                {
+                    "already_supplied_item_keys": [],
+                    "render_user_prompt": False,
+                    "response_item_keys": ["hana_answers"],
+                    "response_start_item_key": "hana_answers",
+                    "source_contribution_status": "already_supplied_context_only",
+                },
+            )
+            self.assertEqual(
                 sorted(path.name for path in view.root.iterdir())[-1],
                 "zz_CURRENT_TURN_AUTHORITY.json",
             )
@@ -586,6 +600,69 @@ class PiSceneLeanTests(unittest.TestCase):
                         accepted_records=(),
                     )
                 )
+
+    def test_writer_view_separates_supplied_source_items_from_response_scope(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            authority = sequence("ted_source_action")
+            authority["items"] = [
+                {
+                    "item_key": "ted_source_action",
+                    "owner_id": "character:ted",
+                    "kind": "action",
+                    "summary": "The protected user's supplied action is entry state.",
+                    "protected_user_claim_keys": ["current_request"],
+                    "protected_user_exact_quotes": ["supplied source"],
+                },
+                {
+                    "item_key": "hana_response",
+                    "owner_id": "character:hana",
+                    "kind": "dialogue_intent",
+                    "summary": "Hana responds from her own perspective.",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                },
+                {
+                    "item_key": "return_floor",
+                    "owner_id": None,
+                    "kind": "stopping_boundary",
+                    "summary": "Return the floor to the protected user.",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                },
+            ]
+            view = WriterViewMaterializer(root / "views").materialize(
+                WriterViewInputV1(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                    scene_id="scene-private",
+                    turn_id="turn-0001",
+                    candidate_id="candidate-scope",
+                    route=SceneRoute.ORDINARY,
+                    user_prompt="A supplied source contribution.",
+                    primary_authority=authority,
+                    current_state={"public_scene_state": "Two adults are present."},
+                    characters={"hana": {"name": "Hana", "age": 38}},
+                    relationships={},
+                    recent_prose=(),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            scope = json.loads(
+                (view.root / "zz_CURRENT_TURN_AUTHORITY.json").read_text(
+                    encoding="utf-8"
+                )
+            )["realization_scope"]
+            self.assertEqual(scope["already_supplied_item_keys"], ["ted_source_action"])
+            self.assertEqual(scope["response_item_keys"], ["hana_response", "return_floor"])
+            self.assertEqual(scope["response_start_item_key"], "hana_response")
+            self.assertEqual(
+                json.loads((view.root / "PRIMARY_SEQUENCE.json").read_text(encoding="utf-8")),
+                authority,
+            )
 
     def test_isolated_sillytavern_copy_excludes_user_data_and_forces_loopback(self) -> None:
         with TemporaryDirectory() as temporary:

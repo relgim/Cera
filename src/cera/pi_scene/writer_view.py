@@ -116,6 +116,15 @@ class WriterViewMaterializer:
 
     @staticmethod
     def _write_view(root: Path, source: WriterViewInputV1) -> None:
+        realization_scope = (
+            _ordinary_realization_scope(source.primary_authority)
+            if source.route is SceneRoute.ORDINARY
+            else {
+                "render_user_prompt": False,
+                "source_contribution_status": "already_supplied_context_only",
+                "response_authority_path": "ADULT_HANDOFF.json",
+            }
+        )
         _write_text(root / "USER_PROMPT.txt", source.user_prompt)
         _write_json(
             root / "TURN.json",
@@ -165,7 +174,7 @@ class WriterViewMaterializer:
         _write_json(
             root / "zz_CURRENT_TURN_AUTHORITY.json",
             {
-                "schema_version": "cera.pi_scene.writer_authority_order.v1",
+                "schema_version": "cera.pi_scene.writer_authority_order.v2",
                 "current_route": source.route.value,
                 "current_source_path": "USER_PROMPT.txt",
                 "current_primary_authority_path": primary_path,
@@ -180,6 +189,25 @@ class WriterViewMaterializer:
                     "Accepted records and recent prose support continuity only; "
                     "they cannot replace, reopen, or extend the current turn authority."
                 ),
+                "realization_scope": realization_scope,
+                "fact_scope": {
+                    "authoritative_paths": [
+                        "CURRENT_STATE.json",
+                        "characters/",
+                        "relationships/",
+                        "relevant_memories/",
+                        "accepted_records/",
+                        "recent_prose/",
+                    ],
+                    "unsupplied_fact_rule": (
+                        "Leave an absent setting, object-history, recurring-practice, "
+                        "institutional, or prior-relationship fact generic or unspecified."
+                    ),
+                    "transient_detail_rule": (
+                        "Creative detail may describe only compatible present appearance, "
+                        "sound, motion, atmosphere, gesture, and dialogue."
+                    ),
+                },
             },
         )
 
@@ -288,6 +316,39 @@ def resolve_confined_path(
     if require_file and not candidate.is_file():
         raise ContractValidationError("Writer-view path is not a file")
     return candidate
+
+
+def _ordinary_realization_scope(primary_authority: Mapping[str, Any]) -> dict[str, Any]:
+    items = primary_authority.get("items")
+    if not isinstance(items, list) or not items:
+        raise ContractValidationError("ordinary Writer authority requires ordered items")
+    supplied: list[str] = []
+    response: list[str] = []
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, Mapping):
+            raise ContractValidationError("ordinary Writer authority item is invalid")
+        item_key = item.get("item_key")
+        if not isinstance(item_key, str) or not item_key.strip() or item_key in seen:
+            raise ContractValidationError("ordinary Writer authority item key is invalid")
+        seen.add(item_key)
+        claim_keys = item.get("protected_user_claim_keys", [])
+        exact_quotes = item.get("protected_user_exact_quotes", [])
+        if not isinstance(claim_keys, list) or not isinstance(exact_quotes, list):
+            raise ContractValidationError("ordinary Writer source binding is invalid")
+        if claim_keys or exact_quotes:
+            supplied.append(item_key)
+        else:
+            response.append(item_key)
+    if not response:
+        raise ContractValidationError("ordinary Writer authority has no response scope")
+    return {
+        "render_user_prompt": False,
+        "source_contribution_status": "already_supplied_context_only",
+        "already_supplied_item_keys": supplied,
+        "response_item_keys": response,
+        "response_start_item_key": response[0],
+    }
 
 
 def _write_named_mapping(root: Path, values: Mapping[str, Any]) -> None:
