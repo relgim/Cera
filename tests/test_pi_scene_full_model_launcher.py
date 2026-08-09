@@ -253,7 +253,7 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
                 accepted_two.candidate.route,
                 source,
                 ({"role": "user", "content": source},),
-                _controls("chat-launcher-b", effort="high"),
+                _controls("chat-launcher-b", effort="xhigh"),
             )
             accepted_three = runtime.coordinator.start_ordinary(separate)
 
@@ -267,6 +267,10 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
             self.assertEqual(len(backends[0].starts), 1)
             self.assertEqual(len(backends[0].calls), 2)
             self.assertEqual(len(backends[1].starts), 1)
+            self.assertEqual(
+                (backends[1].route.reasoning_effort, backends[1].route.timeout_seconds),
+                ("xhigh", 600),
+            )
             self.assertNotEqual(
                 backends[0].world_mcp_factory.workspace.world_id,
                 backends[1].world_mcp_factory.workspace.world_id,

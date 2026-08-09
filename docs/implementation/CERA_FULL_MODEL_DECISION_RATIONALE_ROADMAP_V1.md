@@ -854,8 +854,18 @@ Recent prose is narrative context only. It cannot replace cumulative state.
 - visible ordinary/adult logic-owner indicator;
 - Accept as Provisional for failed candidates;
 - Decline, Regenerate, Replan;
+- manual Retry for a proven zero-effect provider transport failure;
 - retry validation/filter only when no durable result exists;
 - collapsed decision and state views.
+
+Transport Retry is not Regenerate and is never automatic. It is exposed only
+after Python has durably proven that the failed provider attempt created no
+candidate, review, accepted receipt, recording, or selected-head effect. It
+reuses the exact normalized user request and branch authority with a fresh
+provider thread, preserves and charges the failed attempt, and creates a new
+attempt identity. A running, pending, ambiguous, or story-effective operation
+cannot be retried. The UI must not offer Retry merely because three minutes
+have elapsed while an operation may still be running.
 
 ### 11.2 Required user-visible states
 
@@ -875,6 +885,8 @@ regenerating
 replanning
 route_transition_pending
 error_recoverable
+transport_failed_retryable
+transport_retrying
 ```
 
 Every error shows:
@@ -1188,13 +1200,16 @@ Work:
 4. Add logic-owner, validation, recording, and route indicators.
 5. Add collapsed decisions, associations, provisional dependencies, removed
    candidates, and debug files.
-6. Map backend failures to stable user-readable errors.
+6. Map backend failures to stable user-readable errors and expose the manual
+   transport Retry only with a durable zero-effect proof.
 7. Verify installed integration hashes before any authorized synchronization.
 
 Exit gate:
 
 - Accept, provisional acceptance, Decline, Regenerate, Replan, restart, and
   new-chat flows work without stale IDs;
+- an eligible transport failure can be retried once per explicit click without
+  resuming the interrupted provider thread or duplicating accepted state;
 - every failure states whether accepted state changed;
 - no generic unexplained `Bad Request` remains for known error classes.
 
@@ -1405,6 +1420,18 @@ For an existing retained Codex session, the ordinary logic path target is no
 more than three minutes under the chosen quality configuration. Testing must not
 lower effort, simplify the cognition protocol, or alter model settings merely
 to satisfy that target.
+
+The first Planner operation in each new chat/session is a separate cold-start
+class. It is expected to be the longest because it establishes the retained
+provider context and first world/evidence cache. It must be reported separately
+and must not be used to classify later retained-session performance.
+
+A second or later retained Planner operation at or above 180 seconds is a
+latency concern. CERA records the owning stage, retrieval activity, cache/token
+telemetry, and duration for optimization, but does not automatically cancel or
+retry it. The provider hard transport-loss boundary is 600 seconds. The outer
+qualification HTTP timeout must exceed the complete bounded sequential-stage
+budget so the client cannot abandon backend work that may still commit.
 
 When a change materially increases latency, record the increase and its owning
 stage before optimizing.

@@ -14,6 +14,7 @@ from cera.cognition.prompting import (
     COGNITION_PLANNER_BASE_INSTRUCTIONS,
     COGNITION_PLANNER_PROFILE,
 )
+from cera.cognition.provider import cognition_planner_route
 from cera.cognition.provider_schema import cognition_plan_json_schema
 from cera.errors import StateConflictError
 from cera.pi_scene.cognition_planner import RetainedCognitionPlannerAdapter
@@ -65,6 +66,12 @@ class _FakeBackend:
 
 
 class CognitionProviderContractTests(unittest.TestCase):
+    def test_live_route_uses_bounded_hard_timeout_without_retry(self) -> None:
+        route = cognition_planner_route()
+        self.assertEqual(route.timeout_seconds, 600)
+        self.assertEqual(route.automatic_retry_count, 0)
+        self.assertFalse(route.fallback_enabled)
+
     def test_schema_closes_autonomy_and_provisional_scope(self) -> None:
         context = _context()
         schema = cognition_plan_json_schema(

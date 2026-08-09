@@ -5,7 +5,7 @@ import shutil
 import sys
 import tempfile
 import unittest
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 from unittest.mock import call, patch
@@ -72,12 +72,15 @@ class _FakeQualificationClient:
         reject_first: bool = False,
         reject_fixture_id: str | None = None,
         automatic_repair_fixture_id: str | None = None,
+        planner_durations_ms: tuple[int, ...] = (),
     ) -> None:
         self.runtime_root = runtime_root
         self.runtime_root.mkdir(parents=True, exist_ok=True)
         self.reject_first = reject_first
         self.reject_fixture_id = reject_fixture_id
         self.automatic_repair_fixture_id = automatic_repair_fixture_id
+        self.planner_durations_ms = planner_durations_ms
+        self.planner_duration_index = 0
         self.rejected = False
         self.calls = 0
         self.regenerates = 0
@@ -174,8 +177,18 @@ class _FakeQualificationClient:
         path = self.runtime_root / "SOL_PROVIDER_CALLS.jsonl"
         existing = _jsonl(path)
         call_id = f"call-{len(existing) + 1}-{owner}"
-        timestamp = datetime.now(UTC).isoformat(timespec="microseconds")
+        started = datetime.now(UTC)
+        duration_ms = 0
+        if owner == "planner":
+            if self.planner_duration_index < len(self.planner_durations_ms):
+                duration_ms = self.planner_durations_ms[self.planner_duration_index]
+            self.planner_duration_index += 1
         for state in ("transport_invoked", "provider_completed"):
+            timestamp = (
+                started
+                if state == "transport_invoked"
+                else started + timedelta(milliseconds=duration_ms)
+            ).isoformat(timespec="microseconds")
             event = {
                 "event_index": len(existing) + 1,
                 "call_id": call_id,
@@ -457,6 +470,14 @@ class _FakeQualificationClient:
 
 
 class FullModelQualificationTests(unittest.TestCase):
+    def test_outer_http_timeout_exceeds_every_bounded_provider_stage(self) -> None:
+        self.assertEqual(entrypoint.QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS, 4_200)
+        self.assertGreater(
+            entrypoint.QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
+            entrypoint.QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES
+            * entrypoint.QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
+        )
+
     def test_fixture_set_is_two_ordered_sequential_campaigns(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
         self.assertEqual(len(fixtures), 30)
@@ -541,6 +562,43 @@ class FullModelQualificationTests(unittest.TestCase):
                     "sillytavern-adult-03": ("adult", "adult", "ordinary"),
                     "sillytavern-ordinary-05": ("ordinary", "ordinary", "ordinary"),
                     "sillytavern-adult-05": ("adult", "adult", "ordinary"),
+                },
+            )
+
+    def test_planner_latency_separates_cold_start_from_retained_concern(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "runtime"
+            result = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=runtime,
+                evidence_root=root / "evidence",
+            ).run_phase(
+                QualificationPhase.BACKEND,
+                fixtures,
+                _FakeQualificationClient(
+                    runtime,
+                    planner_durations_ms=(420_000, 180_000, 179_999),
+                ),
+            )
+
+            first = result["results"][0]["planner_latency"][0]
+            second = result["results"][1]["planner_latency"][0]
+            third = result["results"][2]["planner_latency"][0]
+            self.assertEqual(first["latency_class"], "cold_start")
+            self.assertFalse(first["retained_latency_concern"])
+            self.assertEqual(second["latency_class"], "retained_latency_concern")
+            self.assertTrue(second["retained_latency_concern"])
+            self.assertEqual(third["latency_class"], "retained_within_target")
+            self.assertEqual(
+                result["planner_latency_summary"],
+                {
+                    "cold_start_latency_ms": 420_000,
+                    "retained_concern_threshold_ms": 180_000,
+                    "retained_planner_calls": 11,
+                    "retained_latency_concern_count": 1,
+                    "maximum_retained_latency_ms": 180_000,
                 },
             )
 

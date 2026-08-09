@@ -34,6 +34,9 @@ from .schema import semantic_verdict_json_schema
 
 LUNA_VALIDATOR_ADAPTER = "cera.semantic_validation.luna_adapter.v1"
 LUNA_VALIDATOR_PROMPT = "cera.semantic_validation.luna_prompt.v1"
+# A fresh xhigh validation may legitimately outlive the UI's progress target.
+# Keep one bounded call alive; never turn the extra headroom into a retry.
+LUNA_VALIDATOR_HARD_TIMEOUT_SECONDS = 600
 
 
 def luna_validator_route() -> LiveProviderRoute:
@@ -45,6 +48,7 @@ def luna_validator_route() -> LiveProviderRoute:
         route_id="cera_semantic_validator_luna_xhigh_v1",
         adapter_id=LUNA_VALIDATOR_ADAPTER,
         prompt_version=LUNA_VALIDATOR_PROMPT,
+        timeout_seconds=LUNA_VALIDATOR_HARD_TIMEOUT_SECONDS,
         maximum_output_tokens=4_096,
         automatic_retry_count=0,
         fallback_enabled=False,

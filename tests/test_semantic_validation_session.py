@@ -105,6 +105,7 @@ class SemanticValidationSessionTests(unittest.TestCase):
         route = luna_validator_route()
         self.assertEqual(route.model_name, "gpt-5.6-luna")
         self.assertEqual(route.reasoning_effort, "xhigh")
+        self.assertEqual(route.timeout_seconds, 600)
         self.assertEqual(route.automatic_retry_count, 0)
         self.assertFalse(route.fallback_enabled)
         self.assertFalse(route.production_enabled)

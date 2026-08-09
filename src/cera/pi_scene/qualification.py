@@ -42,6 +42,12 @@ DEEPSEEK_HTTP_OPERATION_CEILING = 480
 DEEPSEEK_PER_INVOCATION_CEILING = 6
 TERRA_CEILING = 0
 
+# The first retained Planner operation hydrates the world/context cache and is
+# reported separately.  Later Planner calls are still allowed to finish within
+# their hard transport bound, but three minutes is a diagnostic concern that
+# should be visible in qualification evidence.
+RETAINED_PLANNER_LATENCY_CONCERN_MS = 180_000
+
 EXPECTED_PHASE_COUNTS: Mapping[str, Mapping[str, int]] = {
     "backend": {"ordinary": 10, "adult": 10},
     "sillytavern": {"ordinary": 5, "adult": 5},
@@ -298,6 +304,7 @@ class QualificationCampaignRun:
         self.deepseek_operations = 0
         self.deepseek_cached_input_tokens = 0
         self.deepseek_input_tokens = 0
+        self.planner_operation_count = 0
         self.restart_count = 0
 
     def run_segment(
@@ -328,6 +335,7 @@ class QualificationCampaignRun:
                 session_id=self.session_id,
                 messages=request_messages,
             )
+            planner_latency: list[dict[str, Any]] | None = None
             try:
                 response = client.complete(
                     fixture=fixture,
@@ -412,7 +420,9 @@ class QualificationCampaignRun:
                 after = ProviderLedgerSnapshotV1.load(segment_root)
                 delta = after.delta_from(before)
                 telemetry = _validate_provider_delta(fixture, projections, delta)
-                for operation in _provider_operation_records(delta):
+                operation_records = _provider_operation_records(delta)
+                planner_latency = self._planner_latency_observations(operation_records)
+                for operation in operation_records:
                     self.parent.evidence.append(
                         {
                             "schema_version": ("cera.pi_scene.qualification_provider_operation.v1"),
@@ -450,6 +460,7 @@ class QualificationCampaignRun:
                     "provider_operations": projection["provider_operations"],
                     "latency_ms": response.duration_ms
                     + (0 if regeneration is None else regeneration.duration_ms),
+                    "planner_latency": planner_latency,
                     **telemetry,
                 }
                 self.results.append(result)
@@ -468,6 +479,10 @@ class QualificationCampaignRun:
                 self.failure = exc
                 after = ProviderLedgerSnapshotV1.load(segment_root)
                 delta = after.delta_from(before)
+                if planner_latency is None:
+                    planner_latency = self._planner_latency_observations(
+                        _provider_operation_records(delta)
+                    )
                 failed = {
                     "fixture_id": fixture.fixture_id,
                     "phase": self.phase.value,
@@ -482,6 +497,7 @@ class QualificationCampaignRun:
                     "failure_message": str(exc),
                     "sol_operations_observed": delta.sol_transport_operations,
                     "deepseek_operations_observed": delta.deepseek_started_operations,
+                    "planner_latency": planner_latency,
                 }
                 self.results.append(failed)
                 self.sol_operations += delta.sol_transport_operations
@@ -506,8 +522,72 @@ class QualificationCampaignRun:
         ):
             raise StateConflictError("qualification exceeded its DeepSeek ceiling")
 
+    def _planner_latency_observations(
+        self,
+        operation_records: Sequence[Mapping[str, Any]],
+    ) -> list[dict[str, Any]]:
+        observations: list[dict[str, Any]] = []
+        for operation in operation_records:
+            if (
+                operation.get("provider_family") != "sol"
+                or operation.get("owner") != "planner"
+            ):
+                continue
+            self.planner_operation_count += 1
+            duration_ms = operation.get("duration_ms")
+            if duration_ms is not None and (
+                type(duration_ms) is not int or duration_ms < 0
+            ):
+                raise StateConflictError("qualification Planner duration is invalid")
+            cold_start = self.planner_operation_count == 1
+            retained_concern = (
+                not cold_start
+                and type(duration_ms) is int
+                and duration_ms >= RETAINED_PLANNER_LATENCY_CONCERN_MS
+            )
+            observations.append(
+                {
+                    "planner_call_index": self.planner_operation_count,
+                    "duration_ms": duration_ms,
+                    "latency_class": (
+                        "cold_start"
+                        if cold_start
+                        else (
+                            "retained_latency_concern"
+                            if retained_concern
+                            else "retained_within_target"
+                        )
+                    ),
+                    "cold_start": cold_start,
+                    "retained_latency_concern": retained_concern,
+                    "retained_concern_threshold_ms": (
+                        RETAINED_PLANNER_LATENCY_CONCERN_MS
+                    ),
+                }
+            )
+        return observations
+
     def finish(self) -> dict[str, Any]:
         required = len(self.fixtures)
+        planner_latency = [
+            observation
+            for result in self.results
+            for observation in cast(Sequence[Mapping[str, Any]], result["planner_latency"])
+        ]
+        cold_start_latency = next(
+            (
+                observation["duration_ms"]
+                for observation in planner_latency
+                if observation["cold_start"] is True
+            ),
+            None,
+        )
+        retained_latencies = [
+            observation["duration_ms"]
+            for observation in planner_latency
+            if observation["cold_start"] is False
+            and type(observation["duration_ms"]) is int
+        ]
         passed = (
             self.failure is None and self.next_index == required and len(self.results) == required
         )
@@ -536,6 +616,23 @@ class QualificationCampaignRun:
             "deepseek_http_operations": self.deepseek_operations,
             "deepseek_cached_input_tokens": self.deepseek_cached_input_tokens,
             "deepseek_input_tokens": self.deepseek_input_tokens,
+            "planner_latency_summary": {
+                "cold_start_latency_ms": cold_start_latency,
+                "retained_concern_threshold_ms": (
+                    RETAINED_PLANNER_LATENCY_CONCERN_MS
+                ),
+                "retained_planner_calls": sum(
+                    observation["cold_start"] is False
+                    for observation in planner_latency
+                ),
+                "retained_latency_concern_count": sum(
+                    observation["retained_latency_concern"] is True
+                    for observation in planner_latency
+                ),
+                "maximum_retained_latency_ms": (
+                    max(retained_latencies) if retained_latencies else None
+                ),
+            },
             "results": self.results,
         }
         result_payload["result_sha256"] = canonical_sha256(result_payload)
@@ -1141,11 +1238,13 @@ def _classify_completion_response(
         adult_review_id = cera.get("review_id")
         if fixture.expected_route is QualificationRoute.ORDINARY:
             if adult_review_id is not None:
-                raise StateConflictError("ordinary rejection exposed an adult review identity")
+                raise StateConflictError(
+                    "ordinary rejection exposed an adult review identity"
+                ) from exc
             review_id = ordinary_review_id
         else:
             if ordinary_review_id != adult_review_id:
-                raise StateConflictError("adult rejection review aliases disagree")
+                raise StateConflictError("adult rejection review aliases disagree") from exc
             review_id = adult_review_id
         if not isinstance(review_id, str) or not re.fullmatch(
             r"(?:[a-z][a-z0-9_]{0,31}:[A-Za-z0-9._-]{1,160}|review-[a-f0-9]{28})",
@@ -1594,6 +1693,7 @@ __all__ = [
     "QualificationFixtureV1",
     "QualificationPhase",
     "QualificationRoute",
+    "RETAINED_PLANNER_LATENCY_CONCERN_MS",
     "SOL_FAMILY_CEILING",
     "TERRA_CEILING",
     "build_qualification_manifest",

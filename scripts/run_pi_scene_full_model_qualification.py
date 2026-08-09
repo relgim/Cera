@@ -79,6 +79,16 @@ _CODEX_RUNTIME_DISTRIBUTIONS = (
     ("mcp", "mcp"),
 )
 
+# One ordinary request can contain Planner, Writer, Luna, one critical
+# Writer/Luna repair, and Recorder. Each provider stage has a 600-second hard
+# boundary. The HTTP client must outlive that complete bounded sequence so it
+# never abandons authoritative backend work while it is still committing.
+QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS = 600
+QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES = 6
+QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS = (
+    QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES + 1
+) * QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS
+
 
 def _preflight_runtime_path_budget(output_root: Path) -> None:
     """Reject a qualification root that cannot safely host request custody."""
@@ -331,7 +341,10 @@ class IsolatedSillyTavernQualificationClient:
             method="POST",
         )
         try:
-            with self._opener.open(request, timeout=900) as response:
+            with self._opener.open(
+                request,
+                timeout=QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
+            ) as response:
                 status = response.status
                 body = _decode_json_object(response.read())
         except HTTPError as exc:
@@ -427,7 +440,10 @@ class IsolatedSillyTavernQualificationClient:
             method=method,
         )
         try:
-            with self._opener.open(request, timeout=900) as response:
+            with self._opener.open(
+                request,
+                timeout=QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
+            ) as response:
                 status = response.status
                 body = _decode_json_object(response.read())
         except HTTPError as exc:
@@ -1016,7 +1032,10 @@ def _post_json(
         method="POST",
     )
     try:
-        with urlopen(request, timeout=900) as response:
+        with urlopen(
+            request,
+            timeout=QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
+        ) as response:
             status = response.status
             body = _decode_json_object(response.read())
     except HTTPError as exc:
