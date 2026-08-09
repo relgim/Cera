@@ -329,7 +329,7 @@ class PiSceneHttpAdapter:
                     },
                 )
                 if debug_entry is not None:
-                    response["cera"]["debug_log_path"] = str(debug_entry)
+                    self._attach_debug_path(response, str(debug_entry))
             except Exception:
                 response["cera"]["operational_warnings"] = ["readable_debug_write_failed"]
         return response
@@ -354,7 +354,7 @@ class PiSceneHttpAdapter:
                     },
                 )
                 if debug_entry is not None:
-                    response["cera"]["debug_log_path"] = str(debug_entry)
+                    self._attach_debug_path(response, str(debug_entry))
             except Exception:
                 response["cera"]["operational_warnings"] = ["readable_debug_write_failed"]
         return response
@@ -632,8 +632,52 @@ class PiSceneHttpAdapter:
         }
         if candidate.primary_authority_kind == "codex_cognition_plan":
             trace = cognition_creator_trace(candidate.primary_authority_json)
+            applications = trace.pop("autonomy_application")
+            controls = review.turn_input.request_controls
+            trace["autonomy"] = {
+                "mode": None if controls is None else controls.character_autonomy,
+                "applications": applications,
+            }
+            trace["validation"] = PiSceneHttpAdapter._safe_semantic_validation_trace(validation)
+            trace["recording"] = {
+                "status": recording_status,
+                "recorder_required": committed,
+                "projection_status": None,
+                "protected_record_status": None,
+            }
+            trace["provider_operations"] = dict(cera_payload["provider_operations"])
+            cera_payload["creator_trace"] = trace
             cera_payload.update(trace)
         return response
+
+    @staticmethod
+    def _safe_semantic_validation_trace(validation: Any) -> dict[str, Any] | None:
+        if validation is None:
+            return None
+        conflict = validation.verdict.conflict
+        safe_conflict = None
+        if conflict is not None:
+            safe_conflict = {
+                "conflict_class": conflict.conflict_class.value,
+                "decision_key": conflict.decision_key,
+                "concise_explanation": conflict.concise_explanation,
+            }
+        return {
+            "role": "luna_semantic_validator",
+            "verdict": validation.verdict.verdict.value,
+            "binding_sha256": validation.binding_sha256,
+            "conflict": safe_conflict,
+        }
+
+    @staticmethod
+    def _attach_debug_path(response: dict[str, Any], debug_path: str) -> None:
+        cera_payload = response.get("cera")
+        if not isinstance(cera_payload, dict):
+            raise StateConflictError("CERA response lost its metadata object")
+        cera_payload["debug_log_path"] = debug_path
+        trace = cera_payload.get("creator_trace")
+        if isinstance(trace, dict):
+            trace["debug_log_path"] = debug_path
 
     def _parse_chat_request(
         self,

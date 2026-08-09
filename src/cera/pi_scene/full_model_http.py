@@ -148,6 +148,37 @@ def accepted_adult_completion_payload(
     bundle = envelope.promotion_bundle
     scene_request = _accepted_scene_request(envelope)
     scene_output = envelope.scene_invocation.output
+    provider_operations = {
+        "planner": planner_provider_operations,
+        "adult_scene": envelope.scene_invocation.receipt.provider_operations,
+        "adult_filter": envelope.filter_invocation.receipt.provider_operations,
+        "recorder": 0,
+    }
+    creator_trace = {
+        "schema_version": "cera.pi_scene.creator_adult_trace.v1",
+        "logic_owner": bundle.logic_owner,
+        "decision_records": [to_primitive(value) for value in scene_output.decision_path],
+        "autonomy": {"mode": scene_request.autonomy_mode, "applications": []},
+        "route_transition": {
+            "to_route": scene_output.next_route.value,
+            "reason": scene_output.next_route_reason,
+            "return_to_codex": bundle.return_to_codex,
+        },
+        "validation": {
+            "role": "deepseek_adult_filter",
+            "verdict": "pass",
+            "binding_sha256": bundle.filter_binding_sha256,
+            "conflict": None,
+        },
+        "recording": {
+            "status": envelope.recording_status,
+            "recorder_required": False,
+            "projection_status": "complete",
+            "protected_record_status": "complete",
+        },
+        "provisional_dependencies": [],
+        "provider_operations": provider_operations,
+    }
     return {
         "id": f"chatcmpl-cera-{bundle.scene_candidate_sha256[:24]}",
         "object": "chat.completion",
@@ -172,6 +203,7 @@ def accepted_adult_completion_payload(
                 "reason": scene_output.next_route_reason,
             },
             "provisional_dependencies": [],
+            "creator_trace": creator_trace,
             "provisional": False,
             "status": "accepted",
             "story_state_committed": True,
@@ -192,12 +224,7 @@ def accepted_adult_completion_payload(
             "protected_full_record_sha256": canonical_sha256(bundle.protected_full_record),
             "codex_projection_sha256": canonical_sha256(bundle.codex_projection),
             "operational_warnings": [],
-            "provider_operations": {
-                "planner": planner_provider_operations,
-                "adult_scene": envelope.scene_invocation.receipt.provider_operations,
-                "adult_filter": envelope.filter_invocation.receipt.provider_operations,
-                "recorder": 0,
-            },
+            "provider_operations": provider_operations,
         },
     }
 
@@ -208,6 +235,42 @@ def rejected_adult_completion_payload(outcome: RejectedAdultTurnV1) -> dict[str,
     scene = protected.protected_execution.result.scene
     scene_request = scene.request
     scene_output = scene.invocation.output
+    provider_operations = {
+        "planner": outcome.planner_provider_operations,
+        "adult_scene": scene.invocation.receipt.provider_operations,
+        "adult_filter": protected.protected_execution.result.filtered.invocation.receipt.provider_operations,
+        "recorder": 0,
+    }
+    safe_conflict = {
+        "conflict_class": conflict.conflict_class.value,
+        "decision_key": conflict.decision_key,
+        "concise_explanation": conflict.concise_explanation,
+    }
+    creator_trace = {
+        "schema_version": "cera.pi_scene.creator_adult_trace.v1",
+        "logic_owner": "deepseek_adult_scene",
+        "decision_records": [to_primitive(value) for value in scene_output.decision_path],
+        "autonomy": {"mode": scene_request.autonomy_mode, "applications": []},
+        "route_transition": {
+            "to_route": scene_output.next_route.value,
+            "reason": scene_output.next_route_reason,
+            "return_to_codex": False,
+        },
+        "validation": {
+            "role": "deepseek_adult_filter",
+            "verdict": "reject",
+            "binding_sha256": None,
+            "conflict": safe_conflict,
+        },
+        "recording": {
+            "status": None,
+            "recorder_required": False,
+            "projection_status": "not_produced",
+            "protected_record_status": "not_produced",
+        },
+        "provisional_dependencies": [],
+        "provider_operations": provider_operations,
+    }
     return {
         "id": f"chatcmpl-cera-{scene.candidate_sha256[:24]}",
         "object": "chat.completion",
@@ -232,6 +295,7 @@ def rejected_adult_completion_payload(outcome: RejectedAdultTurnV1) -> dict[str,
                 "reason": scene_output.next_route_reason,
             },
             "provisional_dependencies": [],
+            "creator_trace": creator_trace,
             "provisional": True,
             "status": "validation_rejected",
             "story_state_committed": False,
@@ -251,16 +315,7 @@ def rejected_adult_completion_payload(outcome: RejectedAdultTurnV1) -> dict[str,
             "regenerate_enabled": True,
             "replan_enabled": False,
             "operational_warnings": [],
-            "provider_operations": {
-                "planner": outcome.planner_provider_operations,
-                "adult_scene": (
-                    protected.protected_execution.result.scene.invocation.receipt.provider_operations
-                ),
-                "adult_filter": (
-                    protected.protected_execution.result.filtered.invocation.receipt.provider_operations
-                ),
-                "recorder": 0,
-            },
+            "provider_operations": provider_operations,
         },
     }
 

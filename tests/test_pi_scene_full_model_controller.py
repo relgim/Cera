@@ -341,6 +341,18 @@ class PiSceneFullModelControllerTests(unittest.TestCase):
             self.assertEqual(first, replay)
             self.assertEqual(first["choices"][0]["message"]["content"], PROTECTED_PROSE)
             self.assertEqual(first["cera"]["status"], "accepted")
+            self.assertEqual(
+                first["cera"]["creator_trace"]["logic_owner"],
+                "deepseek_adult_scene",
+            )
+            self.assertEqual(
+                first["cera"]["creator_trace"]["validation"]["verdict"],
+                "pass",
+            )
+            self.assertEqual(
+                first["cera"]["creator_trace"]["provider_operations"]["planner"],
+                1,
+            )
             self.assertEqual(planner.calls, 1)
             self.assertEqual(len(transports), 1)
 
@@ -695,6 +707,12 @@ class PiSceneFullModelControllerTests(unittest.TestCase):
 
             self.assertEqual(recovered["cera"]["status"], "validation_rejected")
             self.assertFalse(recovered["cera"]["story_state_committed"])
+            safe_conflict = recovered["cera"]["creator_trace"]["validation"]["conflict"]
+            self.assertNotIn("exact_quote", safe_conflict)
+            self.assertEqual(
+                recovered["cera"]["creator_trace"]["provider_operations"]["planner"],
+                1,
+            )
             self.assertEqual(len(transports), 1)
 
     def test_accepted_adult_route_bypasses_codex_for_the_complete_message(self) -> None:
