@@ -1,10 +1,13 @@
 import {
+    addOneMessage,
     activateSendButtons,
     chat,
     characters,
     deactivateSendButtons,
     eventSource,
     event_types,
+    getCurrentChatId,
+    getMessageTimeStamp,
     getRequestHeaders,
     saveChatConditional,
     this_chid,
@@ -21,6 +24,7 @@ import { appendCreatorTrace, renderCompletionPanel } from './creator-trace-panel
 import {
     acceptedRegenerateSuccessor,
     normalizeReprojectionRequired,
+    normalizeTransportRetryFailure,
     provisionalAcceptanceCommitted,
     provisionalAcceptEnabled,
 } from './review-actions.js';
@@ -58,12 +62,17 @@ const DEFAULT_CONTROLS = Object.freeze({
 
 let completionMetadata = null;
 const polling = new Map();
+let transportRetryFailure = null;
+let transportRetryContext = null;
+let transportRetryInFlight = false;
 
 window.ceraCreatorControls = () => ({ ...readControls() });
 window.ceraCaptureCompletionMetadata = value => captureCompletionMetadata(value);
+window.ceraCaptureTransportFailure = value => captureTransportFailure(value);
 
 eventSource.on(event_types.APP_READY, () => {
     installControlBar();
+    renderTransportRetryControl();
 });
 
 window.addEventListener(COMPLETION_EVENT, event => {
@@ -136,6 +145,173 @@ function takeCompletionMetadata() {
     return structuredClone(metadata);
 }
 
+function captureTransportFailure(value) {
+    const failure = normalizeTransportRetryFailure(value);
+    if (!failure) return false;
+    transportRetryFailure = structuredClone(failure);
+    transportRetryContext = {
+        character_id: this_chid,
+        chat_id: String(getCurrentChatId() ?? ''),
+    };
+    transportRetryInFlight = false;
+    renderTransportRetryControl();
+    return true;
+}
+
+function transportRetryContextIsCurrent() {
+    return Boolean(
+        transportRetryContext
+        && transportRetryContext.character_id === this_chid
+        && transportRetryContext.chat_id === String(getCurrentChatId() ?? ''),
+    );
+}
+
+function renderTransportRetryControl({
+    phase = 'ready',
+    detail = null,
+    allowAction = true,
+} = {}) {
+    document.querySelector('#cera_transport_retry_panel')?.remove();
+    if (!transportRetryFailure && phase !== 'terminal') return;
+    const controls = document.querySelector('#cera_creator_controls');
+    const sendForm = document.querySelector('#send_form');
+    const anchor = controls ?? sendForm;
+    if (!anchor?.parentElement) return;
+
+    const panel = document.createElement('section');
+    panel.id = 'cera_transport_retry_panel';
+    panel.className = 'cera-transport-retry';
+
+    const heading = document.createElement('div');
+    heading.className = 'cera-review-heading';
+    heading.textContent = phase === 'pending'
+        ? 'CERA TRANSPORT RETRY IN PROGRESS'
+        : phase === 'terminal'
+            ? 'CERA TRANSPORT RETRY STOPPED'
+            : 'CERA TRANSPORT RETRY AVAILABLE';
+
+    const status = document.createElement('div');
+    status.className = 'cera-review-status';
+    status.textContent = detail ?? (
+        phase === 'pending'
+            ? 'Retrying the exact durable request. No output will be merged.'
+            : 'The provider transport ended before any candidate, review, recording, or accepted effect was created.'
+    );
+    panel.append(heading, status);
+
+    if (allowAction && transportRetryFailure && phase !== 'pending') {
+        const actions = document.createElement('div');
+        actions.className = 'cera-review-actions';
+        const label = phase === 'unknown' ? 'Check retry result' : 'Retry transport';
+        actions.append(actionButton(label, false, () => retryTransport()));
+        panel.appendChild(actions);
+    }
+    anchor.parentElement.insertBefore(panel, anchor.nextSibling);
+}
+
+async function retryTransport() {
+    if (
+        transportRetryInFlight
+        || !transportRetryFailure
+        || !transportRetryContextIsCurrent()
+    ) {
+        renderTransportRetryControl({
+            phase: 'terminal',
+            detail: 'The original chat context is no longer active, so this retry was not sent.',
+            allowAction: false,
+        });
+        return;
+    }
+    transportRetryInFlight = true;
+    deactivateSendButtons();
+    renderTransportRetryControl({ phase: 'pending', allowAction: false });
+    const attempted = structuredClone(transportRetryFailure);
+    try {
+        const result = await requestJson(attempted.retry_url, {
+            method: 'POST',
+            body: {},
+        });
+        await appendTransportRetryCompletion(result);
+        transportRetryFailure = null;
+        transportRetryContext = null;
+        document.querySelector('#cera_transport_retry_panel')?.remove();
+    } catch (error) {
+        const nextFailure = normalizeTransportRetryFailure(error?.payload);
+        if (nextFailure) {
+            transportRetryFailure = structuredClone(nextFailure);
+            renderTransportRetryControl({
+                detail: 'The retry also ended in a proven zero-effect transport failure. A new manual retry is available.',
+            });
+        } else if (error instanceof CeraReviewRequestError && error.kind === 'transport') {
+            renderTransportRetryControl({
+                phase: 'unknown',
+                detail: 'The browser could not read the retry result. Use the same durable retry ID to reconcile it; CERA will not dispatch it twice.',
+            });
+        } else {
+            renderTransportRetryControl({
+                phase: 'terminal',
+                detail: 'CERA did not prove that another provider retry is safe. No additional retry was offered.',
+                allowAction: false,
+            });
+        }
+        if (!hasPendingReview()) activateSendButtons();
+    } finally {
+        transportRetryInFlight = false;
+    }
+}
+
+async function appendTransportRetryCompletion(result) {
+    const storyText = result?.choices?.[0]?.message?.content;
+    const completion = normalizeCompletionMetadata(result?.cera);
+    if (typeof storyText !== 'string' || !storyText.trim() || !completion) {
+        throw new CeraReviewRequestError(
+            'invalid_response',
+            'CERA returned an invalid transport retry completion.',
+        );
+    }
+    if (!transportRetryContextIsCurrent()) {
+        throw new CeraReviewRequestError(
+            'context_changed',
+            'The active chat changed while CERA was retrying.',
+        );
+    }
+    const reviewId = validReviewId(completion.provisional_review_id)
+        ? completion.provisional_review_id
+        : null;
+    const message = {
+        name: characters[this_chid]?.name ?? 'CERA',
+        is_user: false,
+        is_system: false,
+        send_date: getMessageTimeStamp(),
+        mes: storyText,
+        extra: {
+            [META_KEY]: {
+                review_id: reviewId,
+                candidate_id: completion.candidate_id,
+                state: completion.status,
+                provisional: Boolean(completion.provisional && reviewId),
+                completion: structuredClone(completion),
+            },
+        },
+    };
+    chat.push(message);
+    const messageId = chat.length - 1;
+    addOneMessage(message);
+    await saveChatConditional();
+    await eventSource.emit(event_types.MESSAGE_RECEIVED, messageId, 'cera_transport_retry');
+    await eventSource.emit(
+        event_types.CHARACTER_MESSAGE_RENDERED,
+        messageId,
+        'cera_transport_retry',
+    );
+    renderStoredCompletionMetadata(messageId);
+    if (message.extra[META_KEY].provisional) {
+        await resumeReview(messageId);
+    } else {
+        activateSendButtons();
+    }
+}
+
 eventSource.on(event_types.CHAT_CHANGED, () => {
     for (let index = 0; index < chat.length; index += 1) {
         renderStoredCompletionMetadata(index);
@@ -143,6 +319,11 @@ eventSource.on(event_types.CHAT_CHANGED, () => {
         if (chat[index]?.extra?.[META_KEY]?.provisional) {
             void resumeReview(index);
         }
+    }
+    if (transportRetryFailure && transportRetryContextIsCurrent()) {
+        renderTransportRetryControl();
+    } else {
+        document.querySelector('#cera_transport_retry_panel')?.remove();
     }
 });
 
@@ -272,10 +453,11 @@ function describeReviewRequestError(error) {
 }
 
 class CeraReviewRequestError extends Error {
-    constructor(kind, message) {
+    constructor(kind, message, payload = null) {
         super(message);
         this.name = 'CeraReviewRequestError';
         this.kind = kind;
+        this.payload = payload;
     }
 }
 
@@ -862,6 +1044,7 @@ async function requestJson(path, options = {}) {
         throw new CeraReviewRequestError(
             'server',
             `${prefix}${failure.message ?? `HTTP ${response.status}`}`,
+            payload,
         );
     }
     return payload;

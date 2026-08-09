@@ -809,6 +809,10 @@ class FullModelQualificationTests(unittest.TestCase):
                 frozen["metadata_bridge_contract"],
                 "cera.full_model.capture_function.v1",
             )
+            self.assertEqual(
+                frozen["transport_retry_server_bridge_contract"],
+                "cera.transport_retry.closed_error_projection.v1",
+            )
             check = entrypoint.provider_free_check(
                 fixture_path=FIXTURES,
                 manifest_path=output / "QUALIFICATION_MANIFEST.json",
@@ -875,7 +879,20 @@ class FullModelQualificationTests(unittest.TestCase):
             self.assertTrue((target / "plugins/cera-review-proxy/index.js").is_file())
             openai = (target / "public/scripts/openai.js").read_text(encoding="utf-8")
             self.assertIn("window.ceraCaptureCompletionMetadata(data.cera)", openai)
+            self.assertEqual(openai.count("window.ceraCaptureTransportFailure(data)"), 1)
             self.assertNotIn("data?.cera?.provisional", openai)
+            backend = (
+                target / "src/endpoints/backends/chat-completions.js"
+            ).read_text(encoding="utf-8")
+            self.assertIn("CERA_PROVIDER_TRANSPORT_FAILED", backend)
+            self.assertIn("ceraTransportRetryError", backend)
+            self.assertNotIn("debug_log_path", backend)
+            (target / "src/endpoints/backends/chat-completions.js").write_text(
+                "tampered",
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(StateConflictError, "transport retry bridge changed"):
+                verify_qualification_sillytavern(target)
 
     def test_provider_free_entrypoint_reports_exact_campaign_counts(self) -> None:
         result = entrypoint.provider_free_check(fixture_path=FIXTURES)
@@ -901,7 +918,7 @@ def _fake_sillytavern_source(root: Path) -> Path:
         "default",
         "node_modules",
         "public/scripts/extensions/third-party/unapproved",
-        "src",
+        "src/endpoints/backends",
         "data",
         "plugins/unapproved",
     ):
@@ -914,6 +931,12 @@ def _fake_sillytavern_source(root: Path) -> Path:
         "node_modules/module.js": "module",
         "public/index.html": "index",
         "public/scripts/openai.js": (
+            "function tryParseStreamingError(response, data, quiet) {\n"
+            "        if (data.error) {\n"
+            "            !quiet && toastr.error(data.error.message || response.statusText, "
+            "'Chat Completion API');\n"
+            "        }\n"
+            "}\n"
             "async function request() {\n"
             "        if (data?.cera?.provisional && "
             "data.cera.provisional_review_id) {\n"
@@ -929,10 +952,29 @@ def _fake_sillytavern_source(root: Path) -> Path:
             "                detail: data.cera,\n"
             "            }));\n"
             "        }\n"
+            "        if (data.error) {\n"
+            "            const message = data.error.message || response.statusText || "
+            "t`Unknown error`;\n"
+            "        }\n"
             "}\n"
         ),
         "public/scripts/extensions/third-party/unapproved/index.js": "bad",
         "src/app.js": "app",
+        "src/endpoints/backends/chat-completions.js": (
+            "async function send(request, response) {\n"
+            "            const message = fetchResponse.statusText || "
+            "'Unknown error occurred';\n"
+            "            const quota_error = fetchResponse.status === 429 && "
+            "errorData?.error?.type === 'insufficient_quota';\n"
+            "            console.error('Chat completion request error: ', message, "
+            "responseText);\n\n"
+            "            if (!response.headersSent) {\n"
+            "                response.send({ error: { message }, quota_error: quota_error });\n"
+            "            } else if (!response.writableEnded) {\n"
+            "                response.write(responseText);\n"
+            "            }\n"
+            "}\n"
+        ),
         "data/private.json": "private",
         "plugins/unapproved/index.js": "bad",
     }.items():

@@ -14,6 +14,27 @@ if (data?.cera && typeof window.ceraCaptureCompletionMetadata === 'function') {
 }
 ```
 
+The same authorized sync must add a transport-failure capture call immediately
+before SillyTavern handles an error body:
+
+```javascript
+if (data.error) {
+    if (typeof window.ceraCaptureTransportFailure === 'function') {
+        window.ceraCaptureTransportFailure(data);
+    }
+    // Existing SillyTavern error handling continues here.
+}
+```
+
+SillyTavern's Custom backend normally discards upstream error bodies. For CERA
+models only, the server bridge must therefore recognize the complete
+`cera.error.v1` zero-effect transport-failure proof and forward a closed
+projection with its original HTTP status. The projection contains only the
+fixed public error code and message, request ID, exact effect booleans, and the
+seven-field `cera.pi_scene.transport_retry.v1` object. It must not forward or
+log the raw error body, trace, debug path, provider fragment, prompt, or prose.
+All unrelated errors retain SillyTavern's existing behavior.
+
 That same sync must copy `index.js`, `completion-metadata.js`,
 `creator-trace-panel.js`, `review-actions.js`, `style.css`, and `manifest.json`
 from the repository-owned creator-review extension directory. The small
@@ -30,6 +51,21 @@ The extension accepts both automatically accepted and provisional CERA
 completions. A rejected candidate receives durable buttons only when the
 backend supplies a review ID matching `review-[a-f0-9]{28}`. The client never
 derives or repairs a review ID.
+
+`Retry transport` is exposed only when the closed error projection has
+`retry_transport_enabled === true`, `retry_mode === "manual_transport"`, a
+valid backend-issued request ID, and an exact eligible retry object whose URL
+matches its stable retry ID. One click posts the exact empty JSON object to the
+same-origin review relay. There is no automatic retry, fallback, result merge,
+or client-derived retry identity. A successful retry is inserted as one normal
+completion; another proven zero-effect transport failure may supply a new
+manual retry ID. Ambiguous, pending, generic, or accepted-effect failures never
+receive the button.
+
+The relay applies the same closed projection to an error returned by the retry
+itself. A normal OpenAI-compatible completion passes through unchanged. An
+ineligible or ambiguous error is reduced to a fixed no-retry envelope, so raw
+debug paths and provider details do not become browser data.
 
 `Accept as Provisional` is exposed only when the fetched review payload sets
 `provisional_accept_enabled` to the Boolean value `true`. An adult

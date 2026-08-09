@@ -23,6 +23,7 @@ from .sillytavern_isolation import stage_isolated_sillytavern
 MANIFEST_NAME = "CERA_QUALIFICATION_ISOLATED_COPY_MANIFEST.json"
 _BASE_MANIFEST_NAME = "CERA_ISOLATED_COPY_MANIFEST.json"
 _METADATA_BRIDGE_RELATIVE = Path("public/scripts/openai.js")
+_TRANSPORT_RETRY_SERVER_BRIDGE_RELATIVE = Path("src/endpoints/backends/chat-completions.js")
 _LEGACY_METADATA_BRIDGE = (
     b"        if (data?.cera?.provisional && "
     b"data.cera.provisional_review_id) {\n"
@@ -42,6 +43,108 @@ _FULL_MODEL_METADATA_BRIDGE = (
     b"window.ceraCaptureCompletionMetadata === 'function') {\n"
     b"            window.ceraCaptureCompletionMetadata(data.cera);\n"
     b"        }\n"
+)
+_STREAMING_ERROR_CAPTURE_TARGET = (
+    b"        if (data.error) {\n"
+    b"            !quiet && toastr.error(data.error.message || response.statusText, "
+    b"'Chat Completion API');\n"
+)
+_STREAMING_ERROR_CAPTURE_BRIDGE = (
+    b"        if (data.error) {\n"
+    b"            if (typeof window.ceraCaptureTransportFailure === 'function') {\n"
+    b"                window.ceraCaptureTransportFailure(data);\n"
+    b"            }\n"
+    b"            !quiet && toastr.error(data.error.message || response.statusText, "
+    b"'Chat Completion API');\n"
+)
+_SERVER_ERROR_FORWARD_TARGET = (
+    b"            const message = fetchResponse.statusText || 'Unknown error occurred';\n"
+    b"            const quota_error = fetchResponse.status === 429 && "
+    b"errorData?.error?.type === 'insufficient_quota';\n"
+    b"            console.error('Chat completion request error: ', message, "
+    b"responseText);\n\n"
+    b"            if (!response.headersSent) {\n"
+    b"                response.send({ error: { message }, quota_error: quota_error });\n"
+    b"            } else if (!response.writableEnded) {\n"
+)
+_SERVER_ERROR_FORWARD_BRIDGE = (
+    b"            const message = fetchResponse.statusText || 'Unknown error occurred';\n"
+    b"            const quota_error = fetchResponse.status === 429 && "
+    b"errorData?.error?.type === 'insufficient_quota';\n"
+    b"            const ceraRetry = errorData?.error?.transport_retry;\n"
+    b"            const ceraTransportRetryError = (\n"
+    b"                request.body.chat_completion_source === "
+    b"CHAT_COMPLETION_SOURCES.CUSTOM\n"
+    b"                && ['cera-alpha', 'cera-pi-scene-ordinary', "
+    b"'cera-pi-scene-adult'].includes(request.body.model)\n"
+    b"                && errorData?.status === 'error'\n"
+    b"                && errorData?.story_state_committed === false\n"
+    b"                && errorData?.error?.schema_version === 'cera.error.v1'\n"
+    b"                && errorData.error.error_code === "
+    b"'CERA_PROVIDER_TRANSPORT_FAILED'\n"
+    b"                && /^request-[a-f0-9]{64}$/.test(errorData.error.request_id)\n"
+    b"                && errorData.error.story_state_committed === false\n"
+    b"                && errorData.error.retry_mode === 'manual_transport'\n"
+    b"                && typeof errorData.error.provider_operation_submitted === "
+    b"'boolean'\n"
+    b"                && errorData.error.accepted_state_changed === false\n"
+    b"                && errorData.error.fallback_used === false\n"
+    b"                && errorData.error.next_action === 'use_transport_retry'\n"
+    b"                && errorData.error.retry_transport_enabled === true\n"
+    b"                && ceraRetry?.schema_version === "
+    b"'cera.pi_scene.transport_retry.v1'\n"
+    b"                && /^retry-[a-f0-9]{64}$/.test(ceraRetry.retry_id)\n"
+    b"                && ceraRetry.retry_url === "
+    b"`/v1/cera/transport-retries/${ceraRetry.retry_id}`\n"
+    b"                && ceraRetry.method === 'POST'\n"
+    b"                && ceraRetry.eligible === true\n"
+    b"                && ceraRetry.automatic === false\n"
+    b"                && /^[a-f0-9]{64}$/.test(ceraRetry.effect_proof_sha256)\n"
+    b"                && Object.keys(ceraRetry).sort().join(',') === "
+    b"'automatic,effect_proof_sha256,eligible,method,retry_id,retry_url,schema_version'\n"
+    b"            ) ? {\n"
+    b"                status: 'error',\n"
+    b"                story_state_committed: false,\n"
+    b"                error: {\n"
+    b"                    schema_version: 'cera.error.v1',\n"
+    b"                    error_code: 'CERA_PROVIDER_TRANSPORT_FAILED',\n"
+    b"                    message: 'CERA provider transport failed before any "
+    b"candidate or accepted effect.',\n"
+    b"                    request_id: errorData.error.request_id,\n"
+    b"                    story_state_committed: false,\n"
+    b"                    retry_mode: 'manual_transport',\n"
+    b"                    provider_operation_submitted: "
+    b"errorData.error.provider_operation_submitted,\n"
+    b"                    accepted_state_changed: false,\n"
+    b"                    fallback_used: false,\n"
+    b"                    next_action: 'use_transport_retry',\n"
+    b"                    retry_transport_enabled: true,\n"
+    b"                    transport_retry: {\n"
+    b"                        schema_version: ceraRetry.schema_version,\n"
+    b"                        retry_id: ceraRetry.retry_id,\n"
+    b"                        retry_url: ceraRetry.retry_url,\n"
+    b"                        method: 'POST',\n"
+    b"                        eligible: true,\n"
+    b"                        automatic: false,\n"
+    b"                        effect_proof_sha256: ceraRetry.effect_proof_sha256,\n"
+    b"                    },\n"
+    b"                },\n"
+    b"            } : null;\n"
+    b"            console.error(\n"
+    b"                'Chat completion request error: ',\n"
+    b"                message,\n"
+    b"                ceraTransportRetryError\n"
+    b"                    ? '[CERA transport retry metadata retained]'\n"
+    b"                    : responseText,\n"
+    b"            );\n\n"
+    b"            if (!response.headersSent) {\n"
+    b"                if (ceraTransportRetryError) {\n"
+    b"                    return response.status(fetchResponse.status).send(\n"
+    b"                        ceraTransportRetryError,\n"
+    b"                    );\n"
+    b"                }\n"
+    b"                response.send({ error: { message }, quota_error: quota_error });\n"
+    b"            } else if (!response.writableEnded) {\n"
 )
 
 
@@ -73,6 +176,11 @@ def stage_qualification_sillytavern(
     _enable_repository_plugins(target / "config.yaml")
     bridge_path = _within(target, target / _METADATA_BRIDGE_RELATIVE)
     _install_completion_metadata_bridge(bridge_path)
+    transport_retry_server_bridge_path = _within(
+        target,
+        target / _TRANSPORT_RETRY_SERVER_BRIDGE_RELATIVE,
+    )
+    _install_transport_retry_server_bridge(transport_retry_server_bridge_path)
 
     base_manifest_path.unlink()
     entries = _tree_entries(target)
@@ -92,6 +200,14 @@ def stage_qualification_sillytavern(
         "metadata_bridge_path": _METADATA_BRIDGE_RELATIVE.as_posix(),
         "metadata_bridge_sha256": bytes_sha256(bridge_path.read_bytes()),
         "metadata_bridge_contract": "cera.full_model.capture_function.v1",
+        "transport_retry_client_bridge_contract": ("cera.transport_retry.capture_function.v1"),
+        "transport_retry_server_bridge_path": (_TRANSPORT_RETRY_SERVER_BRIDGE_RELATIVE.as_posix()),
+        "transport_retry_server_bridge_sha256": bytes_sha256(
+            transport_retry_server_bridge_path.read_bytes()
+        ),
+        "transport_retry_server_bridge_contract": (
+            "cera.transport_retry.closed_error_projection.v1"
+        ),
         "copied_file_count": len(entries),
         "copied_tree_sha256": canonical_sha256(entries),
         "only_repository_cera_integrations": True,
@@ -131,8 +247,7 @@ def verify_qualification_sillytavern(target_root: Path) -> dict[str, Any]:
         or value.get("base_user_data_copied") is not False
         or value.get("base_plugins_copied") is not False
         or value.get("review_loopback_override_env") != "CERA_REVIEW_LOOPBACK_ROOT"
-        or value.get("review_loopback_policy")
-        != "dynamic_http_127_0_0_1_port_no_path"
+        or value.get("review_loopback_policy") != "dynamic_http_127_0_0_1_port_no_path"
         or value.get("installed_default_port_5101_untouched") is not True
     ):
         raise StateConflictError("qualification SillyTavern contains unapproved material")
@@ -158,11 +273,24 @@ def verify_qualification_sillytavern(target_root: Path) -> dict[str, Any]:
         not bridge_path.is_file()
         or bytes_sha256(bridge_path.read_bytes()) != value.get("metadata_bridge_sha256")
         or value.get("metadata_bridge_path") != _METADATA_BRIDGE_RELATIVE.as_posix()
-        or value.get("metadata_bridge_contract")
-        != "cera.full_model.capture_function.v1"
+        or value.get("metadata_bridge_contract") != "cera.full_model.capture_function.v1"
     ):
         raise StateConflictError("qualification completion metadata bridge changed")
     _verify_completion_metadata_bridge(bridge_path)
+    transport_retry_server_bridge_path = target / _TRANSPORT_RETRY_SERVER_BRIDGE_RELATIVE
+    if (
+        not transport_retry_server_bridge_path.is_file()
+        or bytes_sha256(transport_retry_server_bridge_path.read_bytes())
+        != value.get("transport_retry_server_bridge_sha256")
+        or value.get("transport_retry_server_bridge_path")
+        != _TRANSPORT_RETRY_SERVER_BRIDGE_RELATIVE.as_posix()
+        or value.get("transport_retry_client_bridge_contract")
+        != "cera.transport_retry.capture_function.v1"
+        or value.get("transport_retry_server_bridge_contract")
+        != "cera.transport_retry.closed_error_projection.v1"
+    ):
+        raise StateConflictError("qualification transport retry bridge changed")
+    _verify_transport_retry_server_bridge(transport_retry_server_bridge_path)
     entries = _tree_entries(target)
     if len(entries) != value.get("copied_file_count") or canonical_sha256(entries) != value.get(
         "copied_tree_sha256"
@@ -247,9 +375,13 @@ def _install_completion_metadata_bridge(path: Path) -> None:
     elif _bridge_occurrences(data) == 1:
         updated = data
     else:
-        raise StateConflictError(
-            "qualification SillyTavern metadata bridge source is unsupported"
-        )
+        raise StateConflictError("qualification SillyTavern metadata bridge source is unsupported")
+    updated = _install_exact_bridge(
+        updated,
+        target=_STREAMING_ERROR_CAPTURE_TARGET,
+        replacement=_STREAMING_ERROR_CAPTURE_BRIDGE,
+        label="streaming transport failure capture",
+    )
     path.write_bytes(updated)
     _verify_completion_metadata_bridge(path)
 
@@ -258,6 +390,7 @@ def _verify_completion_metadata_bridge(path: Path) -> None:
     data = path.read_bytes()
     if (
         _bridge_occurrences(data) != 1
+        or _transport_capture_occurrences(data) != 1
         or _LEGACY_METADATA_BRIDGE in data
         or _LEGACY_METADATA_BRIDGE.replace(b"\n", b"\r\n") in data
     ):
@@ -268,6 +401,53 @@ def _bridge_occurrences(data: bytes) -> int:
     return data.count(_FULL_MODEL_METADATA_BRIDGE) + data.count(
         _FULL_MODEL_METADATA_BRIDGE.replace(b"\n", b"\r\n")
     )
+
+
+def _transport_capture_occurrences(data: bytes) -> int:
+    return sum(
+        data.count(value) + data.count(value.replace(b"\n", b"\r\n"))
+        for value in (_STREAMING_ERROR_CAPTURE_BRIDGE,)
+    )
+
+
+def _install_transport_retry_server_bridge(path: Path) -> None:
+    if path.is_symlink() or not path.is_file():
+        raise StateConflictError("qualification transport retry bridge target is unavailable")
+    updated = _install_exact_bridge(
+        path.read_bytes(),
+        target=_SERVER_ERROR_FORWARD_TARGET,
+        replacement=_SERVER_ERROR_FORWARD_BRIDGE,
+        label="server transport retry error projection",
+    )
+    path.write_bytes(updated)
+    _verify_transport_retry_server_bridge(path)
+
+
+def _verify_transport_retry_server_bridge(path: Path) -> None:
+    data = path.read_bytes()
+    occurrences = data.count(_SERVER_ERROR_FORWARD_BRIDGE) + data.count(
+        _SERVER_ERROR_FORWARD_BRIDGE.replace(b"\n", b"\r\n")
+    )
+    if occurrences != 1 or _SERVER_ERROR_FORWARD_TARGET in data:
+        raise StateConflictError("qualification transport retry server bridge is invalid")
+
+
+def _install_exact_bridge(
+    data: bytes,
+    *,
+    target: bytes,
+    replacement: bytes,
+    label: str,
+) -> bytes:
+    target_crlf = target.replace(b"\n", b"\r\n")
+    replacement_crlf = replacement.replace(b"\n", b"\r\n")
+    if data.count(target) == 1:
+        return data.replace(target, replacement, 1)
+    if data.count(target_crlf) == 1:
+        return data.replace(target_crlf, replacement_crlf, 1)
+    if data.count(replacement) + data.count(replacement_crlf) == 1:
+        return data
+    raise StateConflictError(f"qualification SillyTavern {label} source is unsupported")
 
 
 def _within(root: Path, path: Path) -> Path:

@@ -9,6 +9,76 @@ const REQUIRED_ARTIFACTS = Object.freeze([
     'non_explicit_codex_projection',
     'route_transition',
 ]);
+const TRANSPORT_RETRY_SCHEMA = 'cera.pi_scene.transport_retry.v1';
+const TRANSPORT_FAILURE_CODE = 'CERA_PROVIDER_TRANSPORT_FAILED';
+const REQUEST_ID_PATTERN = /^request-[a-f0-9]{64}$/;
+const TRANSPORT_RETRY_ID_PATTERN = /^retry-[a-f0-9]{64}$/;
+const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+
+/** A retry identity is backend-issued; the browser never derives one. */
+export function validTransportRetryId(value) {
+    return typeof value === 'string' && TRANSPORT_RETRY_ID_PATTERN.test(value);
+}
+
+/**
+ * Project only a proven zero-effect provider transport failure.
+ * Generic, pending, ambiguous, and post-accept errors deliberately return null.
+ */
+export function normalizeTransportRetryFailure(value) {
+    if (!plainObject(value) || value.status !== 'error' || value.story_state_committed !== false) {
+        return null;
+    }
+    const error = value.error;
+    const retry = error?.transport_retry;
+    if (
+        !plainObject(error)
+        || error.schema_version !== 'cera.error.v1'
+        || error.error_code !== TRANSPORT_FAILURE_CODE
+        || error.retry_mode !== 'manual_transport'
+        || error.retry_transport_enabled !== true
+        || error.story_state_committed !== false
+        || typeof error.provider_operation_submitted !== 'boolean'
+        || error.accepted_state_changed !== false
+        || error.fallback_used !== false
+        || error.next_action !== 'use_transport_retry'
+        || typeof error.request_id !== 'string'
+        || !REQUEST_ID_PATTERN.test(error.request_id)
+        || !plainObject(retry)
+        || retry.schema_version !== TRANSPORT_RETRY_SCHEMA
+        || !validTransportRetryId(retry.retry_id)
+        || retry.retry_url !== `/v1/cera/transport-retries/${retry.retry_id}`
+        || retry.method !== 'POST'
+        || retry.eligible !== true
+        || retry.automatic !== false
+        || typeof retry.effect_proof_sha256 !== 'string'
+        || !SHA256_PATTERN.test(retry.effect_proof_sha256)
+    ) return null;
+    const retryKeys = Object.keys(retry).sort();
+    if (retryKeys.join(',') !== [
+        'automatic',
+        'effect_proof_sha256',
+        'eligible',
+        'method',
+        'retry_id',
+        'retry_url',
+        'schema_version',
+    ].join(',')) return null;
+    return {
+        schema_version: TRANSPORT_RETRY_SCHEMA,
+        request_id: error.request_id,
+        provider_operation_submitted: error.provider_operation_submitted,
+        retry_id: retry.retry_id,
+        retry_url: retry.retry_url,
+        method: 'POST',
+        eligible: true,
+        automatic: false,
+        effect_proof_sha256: retry.effect_proof_sha256,
+    };
+}
+
+function plainObject(value) {
+    return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
 
 /** The backend, rather than the UI, owns provisional-accept availability. */
 export function provisionalAcceptEnabled(review) {

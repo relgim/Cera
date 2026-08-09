@@ -31,8 +31,11 @@ export const event_types = {
   CHAT_CHANGED: 'CHAT_CHANGED', GENERATION_ENDED: 'GENERATION_ENDED'
 };
 export const eventSource = { on() {} };
+export function addOneMessage() {}
 export function activateSendButtons() {}
 export function deactivateSendButtons() {}
+export function getCurrentChatId() { return 'test-chat'; }
+export function getMessageTimeStamp() { return 'test-time'; }
 export function getRequestHeaders() { return {}; }
 export async function saveChatConditional() {}
 export function updateMessageBlock() {}
@@ -278,6 +281,111 @@ test('source presents collapsed trace and preserves creator actions', async () =
     assert.equal(source.includes("if (!feedback && action !== 'replan')"), true);
     assert.equal(panel.includes('CERA - PROVISIONAL CANON'), true);
     assert.equal(panel.includes('not settled final truth'), true);
+    assert.equal(source.includes('window.ceraCaptureTransportFailure'), true);
+    assert.equal(source.includes("'Retry transport'"), true);
+    assert.equal(source.includes("body: {}"), true);
+});
+
+test('manual transport retry is gated by the complete zero-effect backend proof', async () => {
+    const { root } = await loadExtension();
+    try {
+        const actions = await import(
+            `${pathToFileURL(path.join(
+                root,
+                'public',
+                'scripts',
+                'extensions',
+                'third-party',
+                'cera-creator-review',
+                'review-actions.js',
+            )).href}?v=${Date.now()}`
+        );
+        const retryId = `retry-${'b'.repeat(64)}`;
+        const eligible = {
+            status: 'error',
+            story_state_committed: false,
+            error: {
+                schema_version: 'cera.error.v1',
+                error_code: 'CERA_PROVIDER_TRANSPORT_FAILED',
+                request_id: `request-${'a'.repeat(64)}`,
+                story_state_committed: false,
+                retry_mode: 'manual_transport',
+                provider_operation_submitted: true,
+                accepted_state_changed: false,
+                fallback_used: false,
+                next_action: 'use_transport_retry',
+                retry_transport_enabled: true,
+                transport_retry: {
+                    schema_version: 'cera.pi_scene.transport_retry.v1',
+                    retry_id: retryId,
+                    retry_url: `/v1/cera/transport-retries/${retryId}`,
+                    method: 'POST',
+                    eligible: true,
+                    automatic: false,
+                    effect_proof_sha256: 'c'.repeat(64),
+                },
+            },
+        };
+        assert.deepEqual(actions.normalizeTransportRetryFailure(eligible), {
+            schema_version: 'cera.pi_scene.transport_retry.v1',
+            request_id: `request-${'a'.repeat(64)}`,
+            provider_operation_submitted: true,
+            retry_id: retryId,
+            retry_url: `/v1/cera/transport-retries/${retryId}`,
+            method: 'POST',
+            eligible: true,
+            automatic: false,
+            effect_proof_sha256: 'c'.repeat(64),
+        });
+        assert.equal(window.ceraCaptureTransportFailure(eligible), true);
+        assert.equal(window.ceraCaptureTransportFailure({
+            status: 'error',
+            story_state_committed: false,
+            error: { error_code: 'CERA_INTERNAL_ERROR' },
+        }), false);
+        for (const mutation of [
+            { retry_transport_enabled: false },
+            { retry_transport_enabled: 'true' },
+            { retry_mode: 'manual_after_review' },
+            { accepted_state_changed: true },
+            { provider_operation_submitted: 'true' },
+        ]) {
+            assert.equal(actions.normalizeTransportRetryFailure({
+                ...eligible,
+                error: { ...eligible.error, ...mutation },
+            }), null);
+        }
+        const preTransport = {
+            ...eligible,
+            error: { ...eligible.error, provider_operation_submitted: false },
+        };
+        assert.equal(
+            actions.normalizeTransportRetryFailure(preTransport).provider_operation_submitted,
+            false,
+        );
+        assert.equal(actions.normalizeTransportRetryFailure({
+            ...eligible,
+            error: {
+                ...eligible.error,
+                transport_retry: {
+                    ...eligible.error.transport_retry,
+                    hidden: true,
+                },
+            },
+        }), null);
+        assert.equal(actions.normalizeTransportRetryFailure({
+            ...eligible,
+            error: {
+                ...eligible.error,
+                transport_retry: {
+                    ...eligible.error.transport_retry,
+                    retry_url: '/v1/cera/reviews/not-the-retry',
+                },
+            },
+        }), null);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
 });
 
 test('provisional acceptance is backend-gated and reprojection stays unaccepted', async () => {

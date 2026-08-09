@@ -132,6 +132,7 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
 
         for marker in (
             "window.ceraCaptureCompletionMetadata",
+            "window.ceraCaptureTransportFailure",
             "normalizeCompletionMetadata",
             "normalizeCreatorTrace",
             "validReviewId",
@@ -155,6 +156,8 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertIn("data?.cera", bridge)
         self.assertIn("window.ceraCaptureCompletionMetadata(data.cera)", bridge)
         self.assertIn("must not clone, log, reshape, or persist", bridge)
+        self.assertIn("Retry transport", bridge)
+        self.assertIn("cera.pi_scene.transport_retry.v1", bridge)
 
     def test_full_model_metadata_panel_node_contract(self) -> None:
         node = shutil.which("node")
@@ -296,6 +299,8 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertIn("Authorization: normalizedAuthorization", proxy)
         self.assertIn("authorization: request.get('X-Cera-Authorization')", proxy)
         self.assertIn("'accept_provisional'", proxy)
+        self.assertIn("/v1/cera/transport-retries/:retryId", proxy)
+        self.assertIn("normalizeTransportRetryBody", proxy)
 
     def test_openai_bridge_routes_all_cera_metadata_through_closed_projection(self) -> None:
         openai = (SILLYTAVERN_ROOT / "public" / "scripts" / "openai.js").read_text(
@@ -306,6 +311,7 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
             openai,
         )
         self.assertIn("window.ceraCaptureCompletionMetadata(data.cera)", openai)
+        self.assertEqual(openai.count("window.ceraCaptureTransportFailure(data)"), 1)
         self.assertNotIn(
             "if (data?.cera?.provisional && data.cera.provisional_review_id)",
             openai,

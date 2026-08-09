@@ -141,3 +141,13 @@
     min-width: 6.5rem;
     padding: 0.2rem 1.4rem 0.2rem 0.4rem;
 }
+
+.cera-transport-retry {
+    margin: 0.35rem 0;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid color-mix(in srgb, #f6c177 70%, transparent);
+    border-radius: 0.45rem;
+    background: color-mix(in srgb, var(--SmartThemeBlurTintColor) 84%, #5a3b00 16%);
+}
+
+.cera-transport-retry .cera-review-heading { margin-top: 0; }
