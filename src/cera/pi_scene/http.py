@@ -20,6 +20,7 @@ from cera.serialization import canonical_sha256, text_sha256, to_primitive
 from .contracts import RecordingStatus, SceneRoute
 from .http_contracts import (
     PI_SCENE_ADULT_MODEL,
+    PI_SCENE_AUTO_MODEL,
     PI_SCENE_ORDINARY_MODEL,
     PI_SCENE_PROFILE,
     LeanSceneRequestControlsV1,
@@ -45,6 +46,7 @@ RequestContextProvider = Callable[
     [SceneRoute, str, Sequence[Mapping[str, str]], LeanSceneRequestControlsV1],
     LeanSceneTurnInputV1,
 ]
+LogicRouteResolver = Callable[[LeanSceneTurnInputV1], SceneRoute]
 
 class PiSceneCommittedStateError(RuntimeError):
     """Reporting/delivery failed after authoritative Accept already committed."""
@@ -84,6 +86,7 @@ class PiSceneHttpAdapter:
         request_context_provider: RequestContextProvider | None = None,
         readable_debug: ReadablePiSceneDebugLog | None = None,
         request_journal: PiSceneRequestJournal | None = None,
+        logic_route_resolver: LogicRouteResolver | None = None,
     ) -> None:
         legacy = request_context_provider is None
         if legacy:
@@ -103,6 +106,7 @@ class PiSceneHttpAdapter:
         self.request_context_provider = request_context_provider
         self.readable_debug = readable_debug
         self.request_journal = request_journal
+        self.logic_route_resolver = logic_route_resolver
 
     @property
     def status(self) -> dict[str, Any]:
@@ -110,7 +114,13 @@ class PiSceneHttpAdapter:
             "mode": "pi_scene_full_model",
             "active": True,
             "profile_id": PI_SCENE_PROFILE,
-            "models": [PI_SCENE_ORDINARY_MODEL, PI_SCENE_ADULT_MODEL],
+            "models": [
+                PI_SCENE_AUTO_MODEL,
+                PI_SCENE_ORDINARY_MODEL,
+                PI_SCENE_ADULT_MODEL,
+            ],
+            "production_model": PI_SCENE_AUTO_MODEL,
+            "explicit_route_models": "compatibility_and_test_only",
             "creator_review_required": False,
             "creator_review_available_on_reject": True,
             "validator_required": True,
@@ -130,6 +140,21 @@ class PiSceneHttpAdapter:
     def complete(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         request = self._parse_chat_request(payload)
         turn = self._turn_for_request(request)
+        if request.automatic_route and self.logic_route_resolver is not None:
+            resolved_route = self.logic_route_resolver(turn)
+            if type(resolved_route) is not SceneRoute:
+                raise StateConflictError("Pi Scene logic-route resolver returned invalid state")
+            if resolved_route is not request.route:
+                request = replace(request, route=resolved_route)
+                rebuilt = self._turn_for_request(request)
+                if (rebuilt.world_id, rebuilt.branch_id) != (
+                    turn.world_id,
+                    turn.branch_id,
+                ):
+                    raise StateConflictError(
+                        "Pi Scene automatic route changed world or branch scope"
+                    )
+                turn = rebuilt
         binding = build_request_binding(
             payload=payload,
             session_id=request.controls.session_id,

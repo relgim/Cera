@@ -13,6 +13,7 @@ from .contracts import SceneRoute
 
 PI_SCENE_ORDINARY_MODEL = "cera-pi-scene-ordinary"
 PI_SCENE_ADULT_MODEL = "cera-pi-scene-adult"
+PI_SCENE_AUTO_MODEL = "cera-alpha"
 PI_SCENE_PROFILE = "cera.pi_scene.lean.v1"
 
 _SUPPORTED_CONTROLS = frozenset(
@@ -131,6 +132,7 @@ def _base_model_visible_controls(
 @dataclass(frozen=True, slots=True)
 class PiSceneChatRequestV1:
     route: SceneRoute
+    automatic_route: bool
     messages: tuple[Mapping[str, str], ...]
     exact_user_source: str
     controls: LeanSceneRequestControlsV2
@@ -155,10 +157,18 @@ def parse_chat_request(
             "unsupported Pi Scene controls: " + ", ".join(unsupported)
         )
     model = str(payload.get("model", ""))
-    if model == PI_SCENE_ORDINARY_MODEL:
+    if model == PI_SCENE_AUTO_MODEL:
+        # Ordinary is only the bootstrap context shape.  The HTTP adapter
+        # resolves the durable branch route before any provider dispatch and
+        # rebuilds adult context when necessary.
         route = SceneRoute.ORDINARY
+        automatic_route = True
+    elif model == PI_SCENE_ORDINARY_MODEL:
+        route = SceneRoute.ORDINARY
+        automatic_route = False
     elif model == PI_SCENE_ADULT_MODEL:
         route = SceneRoute.ADULT
+        automatic_route = False
     else:
         raise ContractValidationError("Pi Scene rejects model substitution")
     if payload.get("stream", False) is not False:
@@ -214,6 +224,7 @@ def parse_chat_request(
         raise ContractValidationError("Pi Scene request has no user source")
     return PiSceneChatRequestV1(
         route=route,
+        automatic_route=automatic_route,
         messages=tuple(messages),
         exact_user_source=sources[-1],
         controls=controls,
