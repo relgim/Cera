@@ -23,6 +23,10 @@ from cera.cognition.prompting import COGNITION_PLANNER_BASE_INSTRUCTIONS
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.errors import ContractValidationError, StateConflictError
+from cera.pi_scene.adult_operation_store import (
+    ProtectedAdultOperationController,
+    ProtectedAdultOperationStore,
+)
 from cera.pi_scene.cognition_planner import RetainedCognitionPlannerAdapter
 from cera.pi_scene.context import (
     AcceptedBranchContextProvider,
@@ -475,6 +479,11 @@ def build_live_runtime(
             store=store,
             adult_orchestrator_factory=adult_runtime.orchestrator,
             adult_context_provider=adult_runtime.execution_context,
+            adult_operation_controller_factory=lambda: ProtectedAdultOperationController(
+                ProtectedAdultOperationStore(
+                    runtime_root / "protected_adult"
+                )
+            ),
         )
         return LivePiSceneRuntime(
             stack=stack,
