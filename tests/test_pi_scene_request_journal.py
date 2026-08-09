@@ -144,6 +144,34 @@ class PiSceneRequestJournalTests(unittest.TestCase):
         self.assertEqual(adult.route, SceneRoute.ORDINARY)
         self.assertEqual(adult.route_intent, "automatic")
 
+    def test_automatic_progress_binds_derived_route_but_explicit_route_cannot_change(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            controls = _controls("session-auto-progress")
+            payload = _payload("session-auto-progress")
+            payload["model"] = PI_SCENE_AUTO_MODEL
+            automatic = build_request_binding(
+                payload=payload,
+                session_id="session-auto-progress",
+                world_id="world:test",
+                branch_id="branch:test",
+                route=SceneRoute.ADULT,
+                controls=controls,
+            )
+            adult_progress = _progress(automatic)
+            adult_progress["route"] = SceneRoute.ADULT.value
+            journal = PiSceneRequestJournal(root / "automatic")
+            journal.begin(automatic)
+            journal.bind_review(automatic, adult_progress)
+
+            explicit = _binding(session_id="session-explicit-progress")
+            changed_progress = _progress(explicit)
+            changed_progress["route"] = SceneRoute.ADULT.value
+            explicit_journal = PiSceneRequestJournal(root / "explicit")
+            explicit_journal.begin(explicit)
+            with self.assertRaises(StateConflictError):
+                explicit_journal.bind_review(explicit, changed_progress)
+
     def test_terminal_response_replays_exactly_after_restart(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

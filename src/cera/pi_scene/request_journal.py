@@ -527,10 +527,15 @@ def _validate_review_progress(
     ):
         if not re_is_sha256(progress[field_name] or ""):
             raise StateConflictError(f"Pi Scene request {field_name} is invalid")
+    actual_route = progress["route"]
+    route_matches = actual_route == binding.route.value or (
+        binding.route_intent == "automatic"
+        and actual_route in {SceneRoute.ORDINARY.value, SceneRoute.ADULT.value}
+    )
     if (
         progress["world_id"] != binding.world_id
         or progress["branch_id"] != binding.branch_id
-        or progress["route"] != binding.route.value
+        or not route_matches
         or progress["controls_sha256"] != binding.controls_sha256
     ):
         raise StateConflictError("Pi Scene request review-progress custody changed")
