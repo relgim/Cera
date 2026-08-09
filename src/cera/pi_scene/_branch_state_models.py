@@ -347,8 +347,6 @@ class AcceptedBranchEventV1:
         unique_text(self.unresolved_threads, "accepted unresolved threads")
         if self.route == "ordinary" and self.adult_public_continuity:
             raise ContractValidationError("ordinary event contains adult projection")
-        if self.route == "adult" and self.presence_changes:
-            raise ContractValidationError("adult projection cannot authorize presence changes")
         if type(self.derived_state_complete) is not bool:
             raise ContractValidationError("accepted derived-state status is invalid")
         if self.derived_state_complete:

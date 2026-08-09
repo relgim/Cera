@@ -6,7 +6,10 @@ import json
 from typing import Any, Mapping
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.schema import from_mapping
 from cera.serialization import text_sha256
+
+from .contracts import AdultCodexProjectionV1, AdultCodexProjectionV2
 
 from ._branch_state_models import (
     RECORDING_STATUSES,
@@ -198,19 +201,69 @@ def _adult_event(
     if recording_status != "complete":
         raise StateConflictError("pending adult recording exposed derived projection")
 
-    items_value = projection.get("items")
-    if not isinstance(items_value, list) or not items_value:
-        raise ContractValidationError("adult projection items are invalid")
+    version = projection.get("schema_version")
+    decoded: AdultCodexProjectionV1 | AdultCodexProjectionV2 | None = None
+    if version is None:
+        # Historical reducer fixtures predate the durable projection envelope.
+        # They remain readable, but only the closed V1/V2 DTOs can carry new
+        # state effects.
+        legacy_items = projection.get("items")
+        if not isinstance(legacy_items, list) or not legacy_items:
+            raise ContractValidationError("adult projection items are invalid")
+        item_values = tuple(
+            (
+                _mapping_text(value, "event_key", "adult projection item"),
+                _mapping_text(
+                    value,
+                    "non_explicit_summary",
+                    "adult projection item",
+                ),
+                _mapping_text(
+                    value,
+                    "lasting_story_meaning",
+                    "adult projection item",
+                ),
+            )
+            for value in legacy_items
+            if isinstance(value, Mapping)
+        )
+        if len(item_values) != len(legacy_items):
+            raise ContractValidationError("adult projection item is invalid")
+        resulting_public_state = _mapping_text(
+            projection,
+            "resulting_public_state",
+            "adult projection",
+        )
+        unresolved_threads = _mapping_text_array(
+            projection,
+            "unresolved_threads",
+            "adult projection",
+        )
+    else:
+        try:
+            if version == AdultCodexProjectionV1.SCHEMA_VERSION:
+                decoded = from_mapping(AdultCodexProjectionV1, projection)
+            elif version == AdultCodexProjectionV2.SCHEMA_VERSION:
+                decoded = from_mapping(AdultCodexProjectionV2, projection)
+            else:
+                raise ContractValidationError("adult projection version is unsupported")
+        except (KeyError, TypeError, ValueError) as exc:
+            raise ContractValidationError("adult filtered projection is invalid") from exc
+        item_values = tuple(
+            (
+                value.event_key,
+                value.non_explicit_summary,
+                value.lasting_story_meaning,
+            )
+            for value in decoded.items
+        )
+        resulting_public_state = decoded.resulting_public_state
+        unresolved_threads = decoded.unresolved_threads
     accepted_turn_id = str(common["accepted_turn_id"])
     accepted_order = int(common["accepted_order"])
     public_items: list[AdultPublicContinuityV1] = []
     durable: list[DurableBranchChangeV1] = []
-    for index, value in enumerate(items_value, start=1):
-        if not isinstance(value, Mapping):
-            raise ContractValidationError("adult projection item is invalid")
-        event_key = _mapping_text(value, "event_key", "adult projection item")
-        summary = _mapping_text(value, "non_explicit_summary", "adult projection item")
-        meaning = _mapping_text(value, "lasting_story_meaning", "adult projection item")
+    for index, (event_key, summary, meaning) in enumerate(item_values, start=1):
         public_items.append(
             AdultPublicContinuityV1(
                 accepted_turn_id=accepted_turn_id,
@@ -232,23 +285,45 @@ def _adult_event(
                 source_kind="adult_codex_projection",
             )
         )
+    presence = ()
+    if isinstance(decoded, AdultCodexProjectionV2):
+        event_order = {
+            value.event_key: index for index, value in enumerate(decoded.items)
+        }
+        presence = tuple(
+            PresenceChangeV1(
+                character_id=value.character_id,
+                direction=value.direction,
+                effective_after_item_key=value.effective_after_event_key,
+            )
+            for value in sorted(
+                decoded.presence_changes,
+                key=lambda change: event_order[change.effective_after_event_key],
+            )
+        )
+        durable.extend(
+            DurableBranchChangeV1(
+                change_key=value.change_key,
+                kind=value.kind,
+                subject_ids=value.subject_ids,
+                concise_change=value.non_explicit_change,
+                target_key=value.target_key,
+                visibility=value.visibility,
+                knowledge_owner_id=value.knowledge_owner_id,
+                accepted_turn_id=accepted_turn_id,
+                source_kind="adult_codex_projection_v2",
+            )
+            for value in decoded.durable_effects
+        )
     return AcceptedBranchEventV1(
         **common,
-        presence_changes=(),
+        presence_changes=presence,
         durable_changes=tuple(durable),
         secondary_canon=(),
         relationship_changes=(),
         knowledge_changes=(),
-        resulting_public_state=_mapping_text(
-            projection,
-            "resulting_public_state",
-            "adult projection",
-        ),
-        unresolved_threads=_mapping_text_array(
-            projection,
-            "unresolved_threads",
-            "adult projection",
-        ),
+        resulting_public_state=resulting_public_state,
+        unresolved_threads=unresolved_threads,
         adult_public_continuity=tuple(public_items),
         derived_state_complete=True,
     )

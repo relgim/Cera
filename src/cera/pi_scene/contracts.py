@@ -458,6 +458,71 @@ class AdultProjectionItemV1:
 
 
 @dataclass(frozen=True, slots=True)
+class AdultProjectionPresenceChangeV1:
+    """Non-explicit, Recorder-proposed presence change.
+
+    The provider owns only the semantic change. Python supplies accepted-turn
+    identity and custody when the projection is attached.
+    """
+
+    character_id: str
+    direction: str
+    effective_after_event_key: str
+
+    def __post_init__(self) -> None:
+        _required(self.character_id, "adult presence character_id")
+        if not self.character_id.startswith("character:"):
+            raise ContractValidationError("adult presence character_id is invalid")
+        if self.direction not in {"enter", "leave"}:
+            raise ContractValidationError("adult presence direction is invalid")
+        _required(
+            self.effective_after_event_key,
+            "adult presence effective_after_event_key",
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class AdultProjectionDurableChangeV1:
+    """Non-explicit durable effect with explicit knowledge ownership."""
+
+    change_key: str
+    kind: str
+    subject_ids: tuple[str, ...]
+    non_explicit_change: str
+    target_key: str
+    visibility: str
+    knowledge_owner_id: str | None
+
+    def __post_init__(self) -> None:
+        for field_name in ("change_key", "non_explicit_change", "target_key"):
+            _required(getattr(self, field_name), f"adult durable {field_name}")
+        if self.kind not in {
+            "material",
+            "knowledge",
+            "relationship",
+            "character_development",
+        }:
+            raise ContractValidationError("adult durable kind is invalid")
+        _unique_nonempty(self.subject_ids, "adult durable subject_ids")
+        if self.visibility not in {"public", "character_private"}:
+            raise ContractValidationError("adult durable visibility is invalid")
+        if self.visibility == "character_private":
+            _required(self.knowledge_owner_id or "", "adult durable knowledge_owner_id")
+            if (
+                self.knowledge_owner_id is None
+                or not self.knowledge_owner_id.startswith("character:")
+                or self.knowledge_owner_id not in self.subject_ids
+            ):
+                raise ContractValidationError(
+                    "private adult durable effect requires a subject owner"
+                )
+        elif self.knowledge_owner_id is not None:
+            raise ContractValidationError(
+                "public adult durable effect cannot name a knowledge owner"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class AdultCodexProjectionV1:
     SCHEMA_VERSION: ClassVar[str] = "cera.pi_scene.adult_codex_projection.v1"
 
@@ -476,6 +541,49 @@ class AdultCodexProjectionV1:
         if not self.items:
             raise ContractValidationError("adult projection requires at least one item")
         _unique_nonempty(tuple(value.event_key for value in self.items), "projection event keys")
+        _required(self.resulting_public_state, "resulting_public_state")
+        _unique_nonempty(self.unresolved_threads, "unresolved_threads")
+
+
+@dataclass(frozen=True, slots=True)
+class AdultCodexProjectionV2:
+    """Non-explicit adult-to-Codex bridge with scoped state effects.
+
+    ``adult_full_record_sha256`` is injected by Python. The remaining fields
+    are the Recorder's non-explicit semantic proposal and contain no accepted
+    receipt, turn, branch, path, or transaction custody.
+    """
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.pi_scene.adult_codex_projection.v2"
+
+    schema_version: str
+    adult_full_record_sha256: str
+    decision_path_summary: tuple[str, ...]
+    items: tuple[AdultProjectionItemV1, ...]
+    presence_changes: tuple[AdultProjectionPresenceChangeV1, ...]
+    durable_effects: tuple[AdultProjectionDurableChangeV1, ...]
+    resulting_public_state: str
+    unresolved_threads: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("adult projection V2 schema changed")
+        _sha(self.adult_full_record_sha256, "adult_full_record_sha256")
+        _unique_nonempty(self.decision_path_summary, "decision_path_summary")
+        if not self.items:
+            raise ContractValidationError("adult projection requires at least one item")
+        event_keys = tuple(value.event_key for value in self.items)
+        _unique_nonempty(event_keys, "projection event keys")
+        event_key_set = set(event_keys)
+        for change in self.presence_changes:
+            if change.effective_after_event_key not in event_key_set:
+                raise ContractValidationError(
+                    "adult presence change cites an unknown projection event"
+                )
+        if len({value.change_key for value in self.durable_effects}) != len(
+            self.durable_effects
+        ):
+            raise ContractValidationError("adult durable change keys contain duplicates")
         _required(self.resulting_public_state, "resulting_public_state")
         _unique_nonempty(self.unresolved_threads, "unresolved_threads")
 
@@ -594,7 +702,7 @@ def validate_ordinary_record(
 
 def validate_adult_records(
     full: AdultFullRecordV1,
-    projection: AdultCodexProjectionV1,
+    projection: AdultCodexProjectionV1 | AdultCodexProjectionV2,
     *,
     accepted: LeanAcceptedTurnReceiptV1,
 ) -> None:

@@ -29,6 +29,7 @@ from cera.serialization import (
 
 from .contracts import (
     AdultCodexProjectionV1,
+    AdultCodexProjectionV2,
     AdultFullRecordV1,
     LeanAcceptedTurnReceiptV1,
     LeanCandidateV1,
@@ -74,6 +75,34 @@ class _RecordingHeadV1:
             or not re_is_sha256(self.attempt_sha256)
         ):
             raise ContractValidationError("recording-head attempt binding is invalid")
+
+
+@dataclass(frozen=True, slots=True)
+class _BranchHeadCacheV1:
+    """Durable branch-head anchor used to detect coherent receipt rewrites."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.pi_scene.branch_head_cache.v1"
+
+    schema_version: str
+    generation: int
+    accepted_turn_id: str | None
+    accepted_head_sha256: str | None
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("branch-head cache schema changed")
+        if type(self.generation) is not int or self.generation < 0:
+            raise ContractValidationError("branch-head cache generation is invalid")
+        if self.generation == 0:
+            if self.accepted_turn_id is not None or self.accepted_head_sha256 is not None:
+                raise ContractValidationError("root branch-head cache contains a turn")
+        elif (
+            type(self.accepted_turn_id) is not str
+            or not self.accepted_turn_id.strip()
+            or type(self.accepted_head_sha256) is not str
+            or not re_is_sha256(self.accepted_head_sha256)
+        ):
+            raise ContractValidationError("branch-head cache binding is invalid")
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,11 +152,66 @@ class _RecordingBundleManifestV1:
 
 
 @dataclass(frozen=True, slots=True)
+class _RecordingBundleManifestV2:
+    """Python-owned binding between one record bundle and accepted prose."""
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.pi_scene.recording_bundle_manifest.v2"
+
+    schema_version: str
+    accepted_turn_id: str
+    accepted_receipt_sha256: str
+    exact_accepted_prose_sha256: str
+    primary_authority_sha256: str
+    attempt_number: int
+    attempt_sha256: str
+    route: SceneRoute
+    ordinary_record_sha256: str | None
+    adult_full_record_sha256: str | None
+    adult_projection_sha256: str | None
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("recording-bundle V2 schema changed")
+        if type(self.accepted_turn_id) is not str or not self.accepted_turn_id.strip():
+            raise ContractValidationError("recording-bundle accepted turn is invalid")
+        if type(self.attempt_number) is not int or self.attempt_number < 1:
+            raise ContractValidationError("recording-bundle attempt number is invalid")
+        if type(self.route) is not SceneRoute:
+            raise ContractValidationError("recording-bundle route is invalid")
+        for field_name in (
+            "accepted_receipt_sha256",
+            "exact_accepted_prose_sha256",
+            "primary_authority_sha256",
+            "attempt_sha256",
+            "ordinary_record_sha256",
+            "adult_full_record_sha256",
+            "adult_projection_sha256",
+        ):
+            value = getattr(self, field_name)
+            if value is not None and (
+                type(value) is not str or not re_is_sha256(value)
+            ):
+                raise ContractValidationError(f"recording-bundle {field_name} is invalid")
+        ordinary = self.ordinary_record_sha256 is not None
+        adult = (
+            self.adult_full_record_sha256 is not None
+            and self.adult_projection_sha256 is not None
+        )
+        if ordinary == adult:
+            raise ContractValidationError("recording bundle must contain one route shape")
+        if ordinary != (self.route is SceneRoute.ORDINARY):
+            raise ContractValidationError("recording bundle route shape changed")
+
+
+_RecordingBundleManifest = _RecordingBundleManifestV1 | _RecordingBundleManifestV2
+
+
+@dataclass(frozen=True, slots=True)
 class _CompleteRecordingBundle:
     attempt: LeanRecordingAttemptV1
     ordinary_record: OrdinarySceneRecordV1 | None = None
     adult_full_record: AdultFullRecordV1 | None = None
-    adult_projection: AdultCodexProjectionV1 | None = None
+    adult_projection: AdultCodexProjectionV1 | AdultCodexProjectionV2 | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,6 +278,22 @@ class LeanSceneStore:
             _atomic_write_json(identity_path, identity)
         (root / "accepted").mkdir(exist_ok=True)
         (root / "sessions").mkdir(exist_ok=True)
+        cache_path = root / "BRANCH_HEAD_CACHE.json"
+        if (
+            not cache_path.exists()
+            and not any((root / "accepted").glob("*/ACCEPTED_RECEIPT.json"))
+        ):
+            _atomic_write_json(
+                cache_path,
+                to_primitive(
+                    _BranchHeadCacheV1(
+                        schema_version=_BranchHeadCacheV1.SCHEMA_VERSION,
+                        generation=0,
+                        accepted_turn_id=None,
+                        accepted_head_sha256=None,
+                    )
+                ),
+            )
         return root
 
     def load_head(self, *, world_id: str, branch_id: str) -> LeanAcceptedHeadV1:
@@ -205,6 +305,7 @@ class LeanSceneStore:
                 world_id=world_id,
                 branch_id=branch_id,
             )
+            self._verify_or_advance_branch_cache(branch_root, receipts)
             if not receipts:
                 return LeanAcceptedHeadV1(
                     world_id=world_id,
@@ -487,7 +588,7 @@ class LeanSceneStore:
         self,
         accepted: LeanAcceptedTurnReceiptV1,
         full: AdultFullRecordV1,
-        projection: AdultCodexProjectionV1,
+        projection: AdultCodexProjectionV1 | AdultCodexProjectionV2,
         *,
         recorder_request_sha256: str,
         recorder_output_sha256: str,
@@ -637,6 +738,7 @@ class LeanSceneStore:
                 world_id=world_id,
                 branch_id=branch_id,
             )
+            self._verify_or_advance_branch_cache(branch_root, receipts)
             return self._accepted_payloads(
                 branch_root,
                 receipts[-limit:],
@@ -667,6 +769,7 @@ class LeanSceneStore:
                 world_id=world_id,
                 branch_id=branch_id,
             )
+            self._verify_or_advance_branch_cache(branch_root, receipts)
             raw = self._accepted_payloads(
                 branch_root,
                 receipts,
@@ -689,12 +792,11 @@ class LeanSceneStore:
         while that projection is pending.
         """
 
-        raw = self.recent_accepted_payloads(
+        raw = self._recent_context_payloads_with_all_pending(
             world_id=world_id,
             branch_id=branch_id,
             limit=limit,
             adult_full=False,
-            allow_pending=True,
         )
         output: list[dict[str, Any]] = []
         for value in raw:
@@ -722,13 +824,53 @@ class LeanSceneStore:
         or a protected adult full record. It must never be passed to Codex.
         """
 
-        return self.recent_accepted_payloads(
+        return self._recent_context_payloads_with_all_pending(
             world_id=world_id,
             branch_id=branch_id,
             limit=limit,
             adult_full=True,
-            allow_pending=True,
         )
+
+    def _recent_context_payloads_with_all_pending(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+        limit: int,
+        adult_full: bool,
+    ) -> tuple[dict[str, Any], ...]:
+        """Keep the presentation tail plus every unresolved accepted turn.
+
+        A pending Recorder attachment is branch authority even after more than
+        ``limit`` later turns have been accepted.  Omitting it here could let a
+        route owner proceed without knowing that derived custody is incomplete.
+        """
+
+        if type(limit) is not int or not 1 <= limit <= 20:
+            raise ContractValidationError("accepted context limit is invalid")
+        with self._lock:
+            branch_root = self._branch_root(world_id, branch_id)
+            receipts = self._load_receipts(branch_root)
+            _validate_receipt_chain(
+                receipts,
+                world_id=world_id,
+                branch_id=branch_id,
+            )
+            self._verify_or_advance_branch_cache(branch_root, receipts)
+            all_payloads = self._accepted_payloads(
+                branch_root,
+                receipts,
+                adult_full=adult_full,
+                allow_pending=True,
+            )
+            tail_start = max(0, len(all_payloads) - limit)
+            selected = [
+                value
+                for index, value in enumerate(all_payloads)
+                if index >= tail_start
+                or value.get("recording_status") != RecordingStatus.COMPLETE.value
+            ]
+            return tuple(selected)
 
     @staticmethod
     def _accepted_payloads(
@@ -806,13 +948,28 @@ class LeanSceneStore:
         branch_root: Path,
         turn_id: str,
     ) -> LeanAcceptedTurnReceiptV1 | None:
-        matches = [value for value in self._load_receipts(branch_root) if value.accepted_turn_id == turn_id]
+        receipts = self._load_receipts(branch_root)
+        if receipts:
+            _validate_receipt_chain(
+                receipts,
+                world_id=receipts[0].world_id,
+                branch_id=receipts[0].branch_id,
+            )
+        self._verify_or_advance_branch_cache(branch_root, receipts)
+        matches = [value for value in receipts if value.accepted_turn_id == turn_id]
         if len(matches) > 1:
             raise StateConflictError("accepted turn identity occurs more than once")
         return matches[0] if matches else None
 
     def _accepted_turn_dir(self, accepted: LeanAcceptedTurnReceiptV1) -> Path:
         branch_root = self._branch_root(accepted.world_id, accepted.branch_id)
+        receipts = self._load_receipts(branch_root)
+        _validate_receipt_chain(
+            receipts,
+            world_id=accepted.world_id,
+            branch_id=accepted.branch_id,
+        )
+        self._verify_or_advance_branch_cache(branch_root, receipts)
         turn_dir = branch_root / "accepted" / _turn_directory_name(accepted)
         if not turn_dir.is_dir():
             raise StateConflictError("accepted turn directory is missing")
@@ -855,13 +1012,60 @@ class LeanSceneStore:
     def _write_branch_cache(branch_root: Path, receipt: LeanAcceptedTurnReceiptV1) -> None:
         _atomic_write_json(
             branch_root / "BRANCH_HEAD_CACHE.json",
-            {
-                "schema_version": "cera.pi_scene.branch_head_cache.v1",
-                "generation": receipt.generation,
-                "accepted_turn_id": receipt.accepted_turn_id,
-                "accepted_head_sha256": receipt.receipt_sha256,
-            },
+            to_primitive(
+                _BranchHeadCacheV1(
+                    schema_version=_BranchHeadCacheV1.SCHEMA_VERSION,
+                    generation=receipt.generation,
+                    accepted_turn_id=receipt.accepted_turn_id,
+                    accepted_head_sha256=receipt.receipt_sha256,
+                )
+            ),
         )
+
+    @classmethod
+    def _verify_or_advance_branch_cache(
+        cls,
+        branch_root: Path,
+        receipts: Sequence[LeanAcceptedTurnReceiptV1],
+    ) -> None:
+        """Verify the closed anchor, advancing only from an exact ancestor.
+
+        An exact ancestor is the only recoverable state: it represents a crash
+        after atomic receipt publication and before the small cache update.
+        Missing, forward, or same-generation-different-hash anchors fail closed.
+        """
+
+        path = branch_root / "BRANCH_HEAD_CACHE.json"
+        if not path.exists():
+            raise StateConflictError("accepted branch head cache is missing")
+        cache = _decode_stored(
+            _BranchHeadCacheV1,
+            _read_json(path),
+            "branch-head cache",
+        )
+        if not receipts:
+            if cache.generation != 0:
+                raise StateConflictError("empty accepted branch has a non-root head cache")
+            return
+        latest = receipts[-1]
+        if (
+            cache.generation == latest.generation
+            and cache.accepted_turn_id == latest.accepted_turn_id
+            and cache.accepted_head_sha256 == latest.receipt_sha256
+        ):
+            return
+        anchor_matches = (cache.generation == 0 and len(receipts) == 1) or any(
+            value.generation == cache.generation
+            and value.accepted_turn_id == cache.accepted_turn_id
+            and value.receipt_sha256 == cache.accepted_head_sha256
+            for value in receipts
+        )
+        if (
+            not anchor_matches
+            or latest.generation != cache.generation + 1
+        ):
+            raise StateConflictError("accepted branch head cache conflicts with receipts")
+        cls._write_branch_cache(branch_root, latest)
 
 
 def _turn_directory_name(receipt: LeanAcceptedTurnReceiptV1) -> str:
@@ -1099,7 +1303,11 @@ def _recording_bundle_path(turn_dir: Path, attempt_number: int) -> Path:
     return turn_dir / f"RECORDING_BUNDLE_{attempt_number:04d}"
 
 
-def _bundle_manifest(bundle: _CompleteRecordingBundle) -> _RecordingBundleManifestV1:
+def _bundle_manifest(
+    bundle: _CompleteRecordingBundle,
+    *,
+    accepted: LeanAcceptedTurnReceiptV1,
+) -> _RecordingBundleManifestV2:
     attempt = bundle.attempt
     if attempt.status is not RecordingStatus.COMPLETE:
         raise ContractValidationError("atomic recording bundle requires a complete attempt")
@@ -1108,9 +1316,12 @@ def _bundle_manifest(bundle: _CompleteRecordingBundle) -> _RecordingBundleManife
         if bundle.ordinary_record is not None
         else SceneRoute.ADULT
     )
-    manifest = _RecordingBundleManifestV1(
-        schema_version=_RecordingBundleManifestV1.SCHEMA_VERSION,
+    manifest = _RecordingBundleManifestV2(
+        schema_version=_RecordingBundleManifestV2.SCHEMA_VERSION,
         accepted_turn_id=attempt.accepted_turn_id,
+        accepted_receipt_sha256=accepted.receipt_sha256,
+        exact_accepted_prose_sha256=accepted.exact_accepted_prose_sha256,
+        primary_authority_sha256=accepted.primary_authority_sha256,
         attempt_number=attempt.attempt_number,
         attempt_sha256=canonical_sha256(attempt),
         route=route,
@@ -1152,7 +1363,7 @@ def _publish_atomic_recording_bundle(
     can verify and finish without repeating Recorder work.
     """
 
-    manifest = _bundle_manifest(bundle)
+    manifest = _bundle_manifest(bundle, accepted=accepted)
     if manifest.accepted_turn_id != accepted.accepted_turn_id:
         raise StateConflictError("recording bundle changed accepted turn identity")
     if manifest.route is not accepted.route:
@@ -1374,11 +1585,22 @@ def _load_recording_bundle_directory(
     }
     if names not in (ordinary_names, adult_names):
         raise StateConflictError("recording bundle file set changed")
-    manifest = _decode_stored(
-        _RecordingBundleManifestV1,
-        _read_json(path / "BUNDLE_MANIFEST.json"),
-        "recording bundle manifest",
-    )
+    manifest_payload = _read_json(path / "BUNDLE_MANIFEST.json")
+    manifest_version = manifest_payload.get("schema_version")
+    if manifest_version == _RecordingBundleManifestV1.SCHEMA_VERSION:
+        manifest: _RecordingBundleManifest = _decode_stored(
+            _RecordingBundleManifestV1,
+            manifest_payload,
+            "recording bundle manifest",
+        )
+    elif manifest_version == _RecordingBundleManifestV2.SCHEMA_VERSION:
+        manifest = _decode_stored(
+            _RecordingBundleManifestV2,
+            manifest_payload,
+            "recording bundle manifest",
+        )
+    else:
+        raise StateConflictError("recording bundle manifest version is unsupported")
     attempt = _recording_attempt_from_mapping(
         _read_json(path / "RECORDING_ATTEMPT.json")
     )
@@ -1386,6 +1608,13 @@ def _load_recording_bundle_directory(
         raise StateConflictError("recording bundle changed accepted turn identity")
     if manifest.route is not accepted.route:
         raise StateConflictError("recording bundle route differs from accepted turn")
+    if isinstance(manifest, _RecordingBundleManifestV2) and (
+        manifest.accepted_receipt_sha256 != accepted.receipt_sha256
+        or manifest.exact_accepted_prose_sha256
+        != accepted.exact_accepted_prose_sha256
+        or manifest.primary_authority_sha256 != accepted.primary_authority_sha256
+    ):
+        raise StateConflictError("recording bundle accepted custody changed")
     if (
         attempt.status is not RecordingStatus.COMPLETE
         or attempt.accepted_turn_id != accepted.accepted_turn_id
@@ -1411,10 +1640,9 @@ def _load_recording_bundle_directory(
         _read_json(path / "ADULT_FULL_RECORD.json"),
         "adult full record",
     )
-    projection = _decode_stored(
-        AdultCodexProjectionV1,
+    projection = _decode_adult_projection(
         _read_json(path / "ADULT_CODEX_PROJECTION.json"),
-        "adult Codex projection",
+        label="adult Codex projection",
     )
     if canonical_sha256(full) != manifest.adult_full_record_sha256:
         raise StateConflictError("adult full record differs from its bundle hash")
@@ -1454,10 +1682,9 @@ def _load_historical_complete_recording_bundle(
         _read_json(turn_dir / "ADULT_FULL_RECORD.json"),
         "historical adult full record",
     )
-    projection = _decode_stored(
-        AdultCodexProjectionV1,
+    projection = _decode_adult_projection(
         _read_json(turn_dir / "ADULT_CODEX_PROJECTION.json"),
-        "historical adult Codex projection",
+        label="historical adult Codex projection",
     )
     if canonical_sha256(full) != attempt.adult_full_record_sha256:
         raise StateConflictError("historical adult full-record hash changed")
@@ -1484,7 +1711,7 @@ def _validate_stored_ordinary_record(
 
 def _validate_stored_adult_records(
     full: AdultFullRecordV1,
-    projection: AdultCodexProjectionV1,
+    projection: AdultCodexProjectionV1 | AdultCodexProjectionV2,
     *,
     accepted: LeanAcceptedTurnReceiptV1,
 ) -> None:
@@ -1584,5 +1811,23 @@ def adult_full_record_from_mapping(value: Mapping[str, Any]) -> AdultFullRecordV
     return from_mapping(AdultFullRecordV1, value)
 
 
-def adult_projection_from_mapping(value: Mapping[str, Any]) -> AdultCodexProjectionV1:
-    return from_mapping(AdultCodexProjectionV1, value)
+def adult_projection_from_mapping(
+    value: Mapping[str, Any],
+) -> AdultCodexProjectionV1 | AdultCodexProjectionV2:
+    version = value.get("schema_version")
+    if version == AdultCodexProjectionV1.SCHEMA_VERSION:
+        return from_mapping(AdultCodexProjectionV1, value)
+    if version == AdultCodexProjectionV2.SCHEMA_VERSION:
+        return from_mapping(AdultCodexProjectionV2, value)
+    raise ContractValidationError("adult Codex projection version is unsupported")
+
+
+def _decode_adult_projection(
+    value: Mapping[str, Any],
+    *,
+    label: str,
+) -> AdultCodexProjectionV1 | AdultCodexProjectionV2:
+    try:
+        return adult_projection_from_mapping(value)
+    except (ContractValidationError, KeyError, TypeError, ValueError) as exc:
+        raise StateConflictError(f"stored {label} is invalid: {exc}") from exc

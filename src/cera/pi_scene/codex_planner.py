@@ -27,6 +27,7 @@ from cera.sequence_first.contracts import (
     ItemKind,
 )
 
+from .branch_state import DurableBranchChangeV1
 from .runtime import PlannerTurnInputV1, PlannerTurnOutputV1
 from .readable_debug import ReadablePiSceneDebugLog
 
@@ -142,6 +143,12 @@ def _semantic_input(request: PlannerTurnInputV1) -> SequenceFirstTurnSemanticInp
     )
     prior = _immediate_prior_ordinary_sequence(request.accepted_records)
     evidence = _accepted_evidence(request.accepted_records)
+    evidence += _durable_change_evidence(
+        _mapping_sequence(
+            request.current_state.get("durable_changes", ()),
+            field_name="durable_changes",
+        )
+    )
     evidence += _mapping_evidence("relationship", request.relationships)
     evidence += _mapping_evidence("memory", request.relevant_memories)
 
@@ -308,6 +315,43 @@ def _mapping_evidence(
                 subject_id=f"{namespace}:{digest}",
                 visibility=Visibility.PUBLIC,
                 exact_content=_bounded_json(value, f"{namespace} evidence"),
+            )
+        )
+    return tuple(output)
+
+
+def _durable_change_evidence(
+    values: tuple[Mapping[str, Any], ...],
+) -> tuple[EvidenceRecordV1, ...]:
+    """Expose accepted durable facts without widening private visibility.
+
+    Branch-internal Recorder summaries intentionally remain unavailable to the
+    Planner.  Public and character-private facts retain their accepted order
+    and explicit knowledge owner.
+    """
+
+    output: list[EvidenceRecordV1] = []
+    for index, value in enumerate(values, start=1):
+        change = from_mapping(DurableBranchChangeV1, value)
+        if change.visibility == "branch_internal_unspecified":
+            continue
+        visibility = (
+            Visibility.CHARACTER_PRIVATE
+            if change.visibility == "character_private"
+            else Visibility.PUBLIC
+        )
+        output.append(
+            EvidenceRecordV1(
+                evidence_key=(
+                    f"evidence:durable:{text_sha256(change.change_key)[:16]}:{index:02d}"
+                ),
+                subject_id=f"durable:{text_sha256(change.target_key)[:16]}",
+                visibility=visibility,
+                exact_content=_bounded_json(
+                    to_primitive(change),
+                    f"durable evidence {change.change_key}",
+                ),
+                knowledge_owner_id=change.knowledge_owner_id,
             )
         )
     return tuple(output)

@@ -86,6 +86,58 @@ class BranchStateReducerV1:
             current = self._apply(current, accepted_event_from_payload(payload))
         return current
 
+    def reconcile_recording_completions(
+        self,
+        checkpoint: BranchStateCheckpointV1,
+        *,
+        payloads: Sequence[Mapping[str, Any]],
+    ) -> BranchStateCheckpointV1:
+        """Replace pending derived state by replaying the same accepted lineage.
+
+        Recorder completion does not append a new accepted event.  Replaying
+        from Genesis is therefore required so an older pending turn's effects
+        are applied in their original order rather than after newer turns.
+        Only pending-to-complete movement is allowed; accepted ancestry and the
+        branch's explicit fork/provisional custody remain byte-for-byte equal.
+        """
+
+        self._validate_checkpoint(checkpoint)
+        replay_branch_id = (
+            checkpoint.accepted_lineage[0].branch_id
+            if checkpoint.accepted_lineage
+            else checkpoint.branch_id
+        )
+        rebuilt = self.reduce(
+            branch_id=replay_branch_id,
+            payloads=payloads,
+            scene_id=self.genesis.scene_id,
+        )
+        if rebuilt.accepted_lineage != checkpoint.accepted_lineage:
+            raise StateConflictError(
+                "recording reconciliation changed accepted branch lineage"
+            )
+        if (
+            rebuilt.accepted_order != checkpoint.accepted_order
+            or rebuilt.last_accepted_turn_id != checkpoint.last_accepted_turn_id
+            or rebuilt.last_accepted_receipt_sha256
+            != checkpoint.last_accepted_receipt_sha256
+        ):
+            raise StateConflictError("recording reconciliation changed accepted head")
+        if not set(rebuilt.pending_ordinary_recording_turn_ids).issubset(
+            checkpoint.pending_ordinary_recording_turn_ids
+        ) or not set(rebuilt.pending_adult_projection_turn_ids).issubset(
+            checkpoint.pending_adult_projection_turn_ids
+        ):
+            raise StateConflictError(
+                "recording reconciliation introduced a new pending turn"
+            )
+        return replace(
+            rebuilt,
+            branch_id=checkpoint.branch_id,
+            provisional_canon_lineage=checkpoint.provisional_canon_lineage,
+            branch_lineage=checkpoint.branch_lineage,
+        )
+
     def fork(
         self,
         checkpoint: BranchStateCheckpointV1,
