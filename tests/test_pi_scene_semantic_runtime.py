@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from cera.pi_scene.http import PiSceneHttpAdapter
+from cera.pi_scene.http_contracts import PI_SCENE_ORDINARY_MODEL, PI_SCENE_PROFILE
 from cera.pi_scene.review_store import LeanReviewState
 from cera.pi_scene.runtime import LeanPiSceneCoordinator, PlannerTurnOutputV1
 from cera.pi_scene.store import LeanSceneStore
@@ -182,6 +183,75 @@ class PiSceneSemanticRuntimeTests(unittest.TestCase):
                 recovered.result.repaired_from_candidate_id,
             )
             self.assertEqual(attempts[1], recovered)
+
+    def test_http_accounts_for_both_critical_repair_attempts_after_restart(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            coordinator, _, _ = _runtime(
+                root,
+                _SemanticValidator(
+                    SemanticVerdict.REJECT,
+                    SemanticVerdict.PASS,
+                ),
+            )
+            payload = {
+                "model": PI_SCENE_ORDINARY_MODEL,
+                "messages": [{"role": "user", "content": "Continue the scene."}],
+                "stream": False,
+                "cera_profile_id": PI_SCENE_PROFILE,
+                "cera_session_id": "semantic-repair-accounting",
+            }
+            first = PiSceneHttpAdapter(
+                coordinator=coordinator,
+                session_id="semantic-repair-accounting",
+                context_provider=lambda *_args: turn(),
+            ).complete(payload)
+
+            self.assertEqual(
+                first["cera"]["provider_operations"],
+                {"planner": 1, "writer": 2, "validator": 2, "recorder": 1},
+            )
+            self.assertEqual(
+                first["cera"]["provider_attempts"],
+                [
+                    {
+                        "attempt_number": 1,
+                        "candidate_id": first["cera"]["provider_attempts"][0]["candidate_id"],
+                        "disposition": "semantic_rejected",
+                        "provider_operations": {
+                            "planner": 1,
+                            "writer": 1,
+                            "validator": 1,
+                        },
+                    },
+                    {
+                        "attempt_number": 2,
+                        "candidate_id": first["cera"]["candidate_id"],
+                        "disposition": "semantic_pass",
+                        "provider_operations": {
+                            "planner": 0,
+                            "writer": 1,
+                            "validator": 1,
+                        },
+                    },
+                ],
+            )
+            self.assertNotEqual(
+                first["cera"]["provider_attempts"][0]["candidate_id"],
+                first["cera"]["candidate_id"],
+            )
+
+            restarted, _, restarted_planner = _runtime(
+                root,
+                _SemanticValidator(SemanticVerdict.PASS),
+            )
+            replay = PiSceneHttpAdapter(
+                coordinator=restarted,
+                session_id="semantic-repair-accounting",
+                context_provider=lambda *_args: turn(),
+            ).complete(payload)
+            self.assertEqual(replay, first)
+            self.assertEqual(restarted_planner.calls, 0)
 
     def test_provider_operation_attempts_are_one_for_an_unrepaired_pass(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

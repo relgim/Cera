@@ -244,12 +244,10 @@ class PiSceneHttpAdapter:
             and request.automatic_route
             and request.route is SceneRoute.ADULT
         ):
-            adult_regeneration_outcome = (
-                self.full_model_controller.regenerate_accepted_adult(
-                    action_request_id=binding.request_id,
-                    world_id=turn.world_id,
-                    branch_id=turn.branch_id,
-                )
+            adult_regeneration_outcome = self.full_model_controller.regenerate_accepted_adult(
+                action_request_id=binding.request_id,
+                world_id=turn.world_id,
+                branch_id=turn.branch_id,
             )
             return self._finish_adult_outcome(
                 request_journal=request_journal,
@@ -352,7 +350,10 @@ class PiSceneHttpAdapter:
         self,
         review: LeanReviewRecordV1,
     ) -> dict[str, Any]:
-        response = self._completion_payload(review)
+        response = self._completion_payload(
+            review,
+            provider_attempts=self.coordinator.provider_operation_attempts(review),
+        )
         if self.readable_debug is not None:
             try:
                 debug_entry = self.readable_debug.write(
@@ -406,9 +407,7 @@ class PiSceneHttpAdapter:
             raise StateConflictError("CERA public review identity is ambiguous")
         if adult:
             assert self.full_model_controller is not None
-            return adult_review_payload(
-                self.full_model_controller.get_adult_review(review_id)
-            )
+            return adult_review_payload(self.full_model_controller.get_adult_review(review_id))
         if ordinary is None:
             raise StateConflictError("unknown Pi Scene review")
         return self.review_payload(ordinary)
@@ -497,16 +496,12 @@ class PiSceneHttpAdapter:
         if feedback is not None and not isinstance(feedback, str):
             raise ContractValidationError("creator feedback must be text")
         if feedback not in (None, ""):
-            raise ContractValidationError(
-                "adult Regenerate uses no rejected-candidate feedback"
-            )
+            raise ContractValidationError("adult Regenerate uses no rejected-candidate feedback")
         force_rehydrate = payload.get("force_rehydrate", False)
         if type(force_rehydrate) is not bool:
             raise ContractValidationError("force_rehydrate must be boolean")
         if force_rehydrate:
-            raise ContractValidationError(
-                "adult Regenerate always uses fresh frozen rehydration"
-            )
+            raise ContractValidationError("adult Regenerate always uses fresh frozen rehydration")
         if action == "decline":
             review = adult_review_payload(controller.decline_adult_review(review_id))
             return {
@@ -665,7 +660,14 @@ class PiSceneHttpAdapter:
             "retry_mode": "not_applicable",
             "review": self.review_payload(decision.review),
             "successor": (
-                None if decision.successor is None else self._completion_payload(decision.successor)
+                None
+                if decision.successor is None
+                else self._completion_payload(
+                    decision.successor,
+                    provider_attempts=self.coordinator.provider_operation_attempts(
+                        decision.successor
+                    ),
+                )
             ),
             "operational_warnings": list(decision.operational_warnings),
         }
@@ -675,7 +677,11 @@ class PiSceneHttpAdapter:
         return body
 
     @staticmethod
-    def _completion_payload(review: LeanReviewRecordV1) -> dict[str, Any]:
+    def _completion_payload(
+        review: LeanReviewRecordV1,
+        *,
+        provider_attempts: Sequence[LeanReviewRecordV1] | None = None,
+    ) -> dict[str, Any]:
         candidate = review.candidate
         committed = review.accepted_receipt is not None
         validation = review.semantic_validation
@@ -689,6 +695,40 @@ class PiSceneHttpAdapter:
         )
         review_status = (
             "accepted" if committed else "validation_rejected" if rejected else "review_ready"
+        )
+        attempts = (review,) if provider_attempts is None else tuple(provider_attempts)
+        if not attempts or attempts[-1] != review:
+            raise StateConflictError(
+                "Pi Scene provider-attempt accounting lost its terminal review"
+            )
+        attempt_payloads = [
+            {
+                "attempt_number": index,
+                "candidate_id": attempt.candidate.candidate_id,
+                "disposition": (
+                    "semantic_pass"
+                    if attempt.semantic_validation is not None
+                    and attempt.semantic_validation.verdict.verdict.value == "pass"
+                    else "semantic_rejected"
+                ),
+                "provider_operations": {
+                    "planner": attempt.result.planner_provider_operations,
+                    "writer": attempt.result.writer_provider_operations,
+                    "validator": 1 if attempt.semantic_validation is not None else 0,
+                },
+            }
+            for index, attempt in enumerate(attempts, start=1)
+        ]
+        provider_operations = {
+            role: sum(
+                attempt_payload["provider_operations"][role] for attempt_payload in attempt_payloads
+            )
+            for role in ("planner", "writer", "validator")
+        }
+        provider_operations["recorder"] = (
+            0
+            if not committed or review.recording_attempt is None
+            else review.recording_attempt.provider_operations
         )
         cera_payload: dict[str, Any] = {
             "profile_id": PI_SCENE_PROFILE,
@@ -740,15 +780,8 @@ class PiSceneHttpAdapter:
                 None if review.creator_guidance is None else to_primitive(review.creator_guidance)
             ),
             "operational_warnings": [],
-            "provider_operations": {
-                "planner": review.result.planner_provider_operations,
-                "writer": review.result.writer_provider_operations,
-                "recorder": (
-                    0
-                    if review.recording_attempt is None
-                    else review.recording_attempt.provider_operations
-                ),
-            },
+            "provider_attempts": attempt_payloads,
+            "provider_operations": provider_operations,
         }
         response: dict[str, Any] = {
             "id": f"chatcmpl-cera-{candidate.candidate_sha256[:24]}",
