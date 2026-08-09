@@ -9,20 +9,41 @@ import re
 from typing import Any, Mapping
 
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import canonical_bytes, canonical_sha256
+from cera.serialization import canonical_bytes, canonical_sha256, text_sha256
 
 
-SLUG_PATTERN = re.compile(r"[a-z0-9][a-z0-9_-]{0,95}")
 SHA256_PATTERN = re.compile(r"[0-9a-f]{64}")
 _REPARSE_POINT = 0x400
 
 
-def safe_slug(value: str, field: str) -> str:
-    if not isinstance(value, str) or SLUG_PATTERN.fullmatch(value) is None:
-        raise ContractValidationError(
-            f"{field} must be a bounded lowercase filesystem-safe slug"
-        )
+def required_identity(value: str, field: str) -> str:
+    if (
+        not isinstance(value, str)
+        or not value.strip()
+        or len(value) > 512
+        or "\x00" in value
+    ):
+        raise ContractValidationError(f"{field} must be a bounded non-empty identity")
     return value
+
+
+def lean_scene_branch_keys(world_id: str, branch_id: str) -> tuple[str, str]:
+    """Mirror LeanSceneStore's collision-checked physical path convention."""
+
+    world_id = required_identity(world_id, "world_id")
+    branch_id = required_identity(branch_id, "branch_id")
+    return (
+        f"world-{text_sha256(world_id)[:24]}",
+        f"branch-{text_sha256(branch_id)[:24]}",
+    )
+
+
+def lean_scene_branch_root(root: Path, world_id: str, branch_id: str) -> Path:
+    world_key, branch_key = lean_scene_branch_keys(world_id, branch_id)
+    candidate = (root / world_key / branch_key).resolve()
+    if not candidate.is_relative_to(root.resolve()):
+        raise ContractValidationError("branch store escaped its configured root")
+    return candidate
 
 
 def sha256_bytes(value: bytes) -> str:

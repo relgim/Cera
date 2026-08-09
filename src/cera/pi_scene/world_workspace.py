@@ -4,21 +4,22 @@ The module deliberately owns only filesystem custody.  Callers supply story
 state and settings as ordinary files after creation; this layer never infers
 story meaning or promotes a record.  A new chat is seeded from the newest
 revision in an explicitly accepted Genesis catalog.  A fork copies the entire
-parent workspace and changes only the two branch-identity documents.
+parent workspace, rebinds accepted-receipt custody to the child branch, and
+archives the parent's soft provider session so it cannot cross branches.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-import hashlib
 import os
 from pathlib import Path
 import shutil
 from threading import RLock
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.providers import CodexMcpRuntimeBinding
 from cera.serialization import canonical_sha256, to_primitive
 from cera.continuous.sessions import ContinuousSessionRole
 from cera.continuous.world_mcp import (
@@ -31,8 +32,10 @@ from ._world_workspace_files import (
     SHA256_PATTERN,
     assert_plain_tree,
     is_link_or_reparse,
+    lean_scene_branch_keys,
+    lean_scene_branch_root,
     read_json_object,
-    safe_slug,
+    required_identity,
     sha256_bytes,
     tree_sha256,
     write_json,
@@ -42,6 +45,7 @@ from .genesis_catalog import (
     AcceptedGenesisRevisionV1,
     GenesisRevisionPinV1,
 )
+from .store import LeanSceneStore
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,11 +78,54 @@ class BranchWorldWorkspaceV1:
     workspace_sha256: str
 
 
+@dataclass(frozen=True, slots=True)
+class PinnedGenesisContextMappingsV1:
+    """Exact provider-free Genesis groupings for PiSceneContextSeedV1 fields."""
+
+    genesis_revision: str
+    genesis_projection_tree_sha256: str
+    characters: Mapping[str, Mapping[str, object]]
+    relationships: Mapping[str, Mapping[str, object]]
+    relevant_memories: Mapping[str, Mapping[str, object]]
+
+    def seed_mapping_fields(self) -> dict[str, object]:
+        """Return only the Genesis-owned ``PiSceneContextSeedV1`` fields."""
+
+        return {
+            "genesis_revision": self.genesis_revision,
+            "characters": self.characters,
+            "relationships": self.relationships,
+            "relevant_memories": self.relevant_memories,
+        }
+
+    @property
+    def mappings_sha256(self) -> str:
+        return canonical_sha256(
+            {
+                "genesis_revision": self.genesis_revision,
+                "genesis_projection_tree_sha256": (
+                    self.genesis_projection_tree_sha256
+                ),
+                "characters": self.characters,
+                "relationships": self.relationships,
+                "relevant_memories": self.relevant_memories,
+            }
+        )
+
+
 class BranchBoundWorldMcpFactory:
     """Construct request-local, read-only Planner lookup for exactly one branch."""
 
-    def __init__(self, workspace: BranchWorldWorkspaceV1) -> None:
+    def __init__(
+        self,
+        workspace: BranchWorldWorkspaceV1,
+        *,
+        raw_bridge_factory: Callable[
+            [ContinuousWorldToolDispatcher], ContinuousWorldMcpBridge
+        ] = ContinuousWorldMcpBridge,
+    ) -> None:
         self.workspace = workspace
+        self.raw_bridge_factory = raw_bridge_factory
 
     def dispatcher(
         self, *, turn_id: str | None = None, maximum_calls: int = WORLD_MCP_MAXIMUM_CALLS
@@ -92,10 +139,73 @@ class BranchBoundWorldMcpFactory:
 
     def bridge(
         self, *, turn_id: str | None = None, maximum_calls: int = WORLD_MCP_MAXIMUM_CALLS
-    ) -> ContinuousWorldMcpBridge:
-        return ContinuousWorldMcpBridge(
-            self.dispatcher(turn_id=turn_id, maximum_calls=maximum_calls)
+    ) -> "RequestBoundWorldMcpBridge":
+        dispatcher = self.dispatcher(
+            turn_id=turn_id, maximum_calls=maximum_calls
         )
+        return RequestBoundWorldMcpBridge(
+            lambda: self.raw_bridge_factory(dispatcher)
+        )
+
+
+class RequestBoundWorldMcpBridge:
+    """Lazy one-turn MCP bridge that always closes after finalize or abort."""
+
+    def __init__(self, bridge_factory: Callable[[], ContinuousWorldMcpBridge]) -> None:
+        self._bridge_factory = bridge_factory
+        self._bridge: ContinuousWorldMcpBridge | None = None
+        self._terminal = False
+
+    @property
+    def runtime_binding(self) -> CodexMcpRuntimeBinding:
+        if self._terminal:
+            raise StateConflictError("request-bound world MCP bridge is terminal")
+        if self._bridge is None:
+            try:
+                bridge = self._bridge_factory()
+            except BaseException:
+                self._terminal = True
+                raise
+            self._bridge = bridge
+            try:
+                bridge.start()
+            except BaseException:
+                self._terminal = True
+                bridge.stop(suppress_errors=True)
+                raise
+        try:
+            return self._bridge.runtime_binding
+        except BaseException:
+            bridge = self._bridge
+            self._terminal = True
+            bridge.stop(suppress_errors=True)
+            raise
+
+    def finalize(self, provider_result: Any) -> dict[str, Any]:
+        if self._terminal or self._bridge is None:
+            raise StateConflictError(
+                "request-bound world MCP bridge was not started or is terminal"
+            )
+        bridge = self._bridge
+        self._terminal = True
+        try:
+            return bridge.finalize(provider_result)
+        finally:
+            bridge.stop(suppress_errors=False)
+
+    def abort(self) -> None:
+        if self._terminal:
+            return
+        self._terminal = True
+        if self._bridge is not None:
+            self._bridge.stop(suppress_errors=True)
+
+    def __enter__(self) -> "RequestBoundWorldMcpBridge":
+        return self
+
+    def __exit__(self, exc_type, exc, traceback) -> None:
+        del exc_type, exc, traceback
+        self.abort()
 
 
 class PiSceneWorldWorkspaceManager:
@@ -103,7 +213,9 @@ class PiSceneWorldWorkspaceManager:
 
     _WORKSPACE_SCHEMA = "cera.pi_scene_world_workspace.v1"
     _WORLD_STATE_SCHEMA = "cera.pi_scene_world_state.v1"
-    _IDENTITY_FILES = frozenset({"WORKSPACE.json", "ACTIVE/WORLD_STATE.json"})
+    _IDENTITY_FILES = frozenset(
+        {"WORKSPACE.json", "BRANCH_IDENTITY.json", "ACTIVE/WORLD_STATE.json"}
+    )
 
     def __init__(self, runtime_root: Path, accepted_genesis_root: Path) -> None:
         if not runtime_root.is_absolute():
@@ -121,7 +233,7 @@ class PiSceneWorldWorkspaceManager:
         chat_id, world_id, branch_id = self._validated_identity(
             request.chat_id, request.world_id, request.branch_id
         )
-        safe_slug(request.initial_scene_id, "initial_scene_id")
+        required_identity(request.initial_scene_id, "initial_scene_id")
         target = self._branch_root(world_id, branch_id)
         with self._lock:
             if target.exists():
@@ -136,6 +248,12 @@ class PiSceneWorldWorkspaceManager:
             staging = self._staging_root(world_id, branch_id)
             try:
                 self._materialize_genesis(staging, selected)
+                write_json(
+                    staging / "BRANCH_IDENTITY.json",
+                    {"world_id": world_id, "branch_id": branch_id},
+                )
+                (staging / "accepted").mkdir(parents=True, exist_ok=True)
+                (staging / "sessions").mkdir(parents=True, exist_ok=True)
                 write_json(
                     staging / "ACTIVE" / "Settings" / "CHAT_SETTINGS.json",
                     {
@@ -186,8 +304,8 @@ class PiSceneWorldWorkspaceManager:
         parent_chat_id, world_id, parent_branch_id = self._validated_identity(
             request.parent_chat_id, request.world_id, request.parent_branch_id
         )
-        child_chat_id = safe_slug(request.child_chat_id, "child_chat_id")
-        child_branch_id = safe_slug(request.child_branch_id, "child_branch_id")
+        child_chat_id = required_identity(request.child_chat_id, "child_chat_id")
+        child_branch_id = required_identity(request.child_branch_id, "child_branch_id")
         if child_branch_id == parent_branch_id:
             raise ContractValidationError("fork child branch must differ from its parent")
         parent = self.open(
@@ -223,6 +341,17 @@ class PiSceneWorldWorkspaceManager:
                 state["chat_id"] = child_chat_id
                 state["branch_id"] = child_branch_id
                 write_json(state_path, state)
+                write_json(
+                    staging / "BRANCH_IDENTITY.json",
+                    {"world_id": world_id, "branch_id": child_branch_id},
+                )
+                rewritten_receipts = self._rebind_accepted_receipts(
+                    staging,
+                    source_world_id=world_id,
+                    source_branch_id=parent_branch_id,
+                    child_branch_id=child_branch_id,
+                )
+                rewritten_sessions = self._isolate_forked_session_cache(staging)
                 workspace = self._workspace_payload(
                     kind="fork",
                     chat_id=child_chat_id,
@@ -238,8 +367,14 @@ class PiSceneWorldWorkspaceManager:
                     inherited_files_sha256=inherited_sha256,
                 )
                 write_json(staging / "WORKSPACE.json", workspace)
-                if tree_sha256(staging, omitted=self._IDENTITY_FILES) != inherited_sha256:
-                    raise StateConflictError("fork changed inherited workspace files")
+                rewritten_paths = self._IDENTITY_FILES.union(
+                    rewritten_receipts, rewritten_sessions
+                )
+                if tree_sha256(staging, omitted=rewritten_paths) != tree_sha256(
+                    parent.branch_root,
+                    omitted=rewritten_paths,
+                ):
+                    raise StateConflictError("fork changed non-identity workspace files")
                 if tree_sha256(parent.branch_root) != parent_tree_sha256:
                     raise StateConflictError("parent workspace changed during fork")
                 self._publish_staging(staging, target)
@@ -297,8 +432,8 @@ class PiSceneWorldWorkspaceManager:
                 or SHA256_PATTERN.fullmatch(metadata["inherited_files_sha256"]) is None
             ):
                 raise StateConflictError("fork workspace lacks parent custody")
-            safe_slug(metadata["parent_chat_id"], "parent_chat_id")
-            safe_slug(metadata["parent_branch_id"], "parent_branch_id")
+            required_identity(metadata["parent_chat_id"], "parent_chat_id")
+            required_identity(metadata["parent_branch_id"], "parent_branch_id")
         else:
             raise StateConflictError("workspace kind is invalid")
         if (
@@ -337,6 +472,16 @@ class PiSceneWorldWorkspaceManager:
             or state.get("genesis_revision_id") != pin.revision_id
         ):
             raise StateConflictError("branch world-state identity changed")
+        branch_identity = read_json_object(
+            root / "BRANCH_IDENTITY.json", "Lean Scene branch identity"
+        )
+        if branch_identity != {"world_id": world_id, "branch_id": branch_id}:
+            raise StateConflictError("Lean Scene branch identity changed")
+        # Prove that the same physical root and receipt chain are immediately
+        # consumable by the authoritative lean accepted-state store.
+        LeanSceneStore(self.runtime_root).load_head(
+            world_id=world_id, branch_id=branch_id
+        )
         return BranchWorldWorkspaceV1(
             chat_id=chat_id,
             world_id=world_id,
@@ -347,7 +492,14 @@ class PiSceneWorldWorkspaceManager:
             workspace_sha256=stored_sha256,
         )
 
-    def mcp_factory(self, workspace: BranchWorldWorkspaceV1) -> BranchBoundWorldMcpFactory:
+    def mcp_factory(
+        self,
+        workspace: BranchWorldWorkspaceV1,
+        *,
+        raw_bridge_factory: Callable[
+            [ContinuousWorldToolDispatcher], ContinuousWorldMcpBridge
+        ] = ContinuousWorldMcpBridge,
+    ) -> BranchBoundWorldMcpFactory:
         reopened = self.open(
             chat_id=workspace.chat_id,
             world_id=workspace.world_id,
@@ -355,7 +507,119 @@ class PiSceneWorldWorkspaceManager:
         )
         if reopened.workspace_sha256 != workspace.workspace_sha256:
             raise StateConflictError("branch workspace handle is stale")
-        return BranchBoundWorldMcpFactory(reopened)
+        return BranchBoundWorldMcpFactory(
+            reopened, raw_bridge_factory=raw_bridge_factory
+        )
+
+    def load_genesis_context_mappings(
+        self, workspace: BranchWorldWorkspaceV1
+    ) -> PinnedGenesisContextMappingsV1:
+        """Group exact pinned projections without creating semantic summaries.
+
+        Story-start scene, presence, public state, voice examples, craft, and
+        adult handoff remain explicit caller inputs.  This method supplies only
+        the three Genesis mappings consumed by ``PiSceneContextSeedV1``.
+        """
+
+        opened = self.open(
+            chat_id=workspace.chat_id,
+            world_id=workspace.world_id,
+            branch_id=workspace.branch_id,
+        )
+        if opened.workspace_sha256 != workspace.workspace_sha256:
+            raise StateConflictError("branch workspace handle is stale")
+        grouped: dict[str, dict[str, list[dict[str, Any]]]] = {
+            "characters": {},
+            "relationships": {},
+            "relevant_memories": {},
+        }
+        projections = opened.branch_root / "ACTIVE" / "GenesisRecords"
+        for path in sorted(projections.rglob("*.json")):
+            projection = read_json_object(path, "Genesis record projection")
+            if (
+                projection.get("schema_version")
+                != "cera.pi_scene_genesis_record_projection.v1"
+                or projection.get("genesis_revision_id")
+                != opened.genesis_pin.revision_id
+                or not isinstance(projection.get("record"), dict)
+            ):
+                raise StateConflictError("Genesis context projection changed")
+            record = projection["record"]
+            subject_ids = record.get("subject_ids")
+            ids: set[str] = set()
+            if isinstance(subject_ids, list):
+                ids.update(
+                    value
+                    for value in subject_ids
+                    if isinstance(value, str) and value.startswith("character:")
+                )
+            for name in (
+                "owner_id",
+                "relationship_from_id",
+                "relationship_to_id",
+            ):
+                value = record.get(name)
+                if isinstance(value, str) and value.startswith("character:"):
+                    ids.add(value)
+            owners = record.get("knowledge_owner_ids")
+            if isinstance(owners, list):
+                ids.update(
+                    value
+                    for value in owners
+                    if isinstance(value, str) and value.startswith("character:")
+                )
+            record_type = str(record.get("record_type", ""))
+            source_path = str(projection.get("source_relative_path", ""))
+            if record_type == "memory_seed" or source_path.startswith(
+                "modules/memories/"
+            ):
+                category = "relevant_memories"
+                owner_ids: set[str] = set()
+                owner_id = record.get("owner_id")
+                if isinstance(owner_id, str) and owner_id.startswith("character:"):
+                    owner_ids.add(owner_id)
+                if isinstance(owners, list):
+                    owner_ids.update(
+                        value
+                        for value in owners
+                        if isinstance(value, str)
+                        and value.startswith("character:")
+                    )
+                target_ids = owner_ids or ids
+            elif (
+                "relationship" in record_type
+                or source_path == "modules/relationships_family.json"
+                or record.get("relationship_from_id") is not None
+                or record.get("relationship_to_id") is not None
+            ):
+                category = "relationships"
+                target_ids = ids
+            else:
+                category = "characters"
+                target_ids = ids
+            for character_id in sorted(target_ids):
+                grouped[category].setdefault(character_id, []).append(projection)
+        if not grouped["characters"]:
+            raise StateConflictError("pinned Genesis contains no character projections")
+
+        def mappings(category: str) -> dict[str, Mapping[str, object]]:
+            return {
+                character_id: {
+                    "character_id": character_id,
+                    "genesis_record_projections": tuple(records),
+                }
+                for character_id, records in sorted(grouped[category].items())
+            }
+
+        return PinnedGenesisContextMappingsV1(
+            genesis_revision=opened.genesis_pin.revision_id,
+            genesis_projection_tree_sha256=(
+                opened.genesis_projection_tree_sha256
+            ),
+            characters=mappings("characters"),
+            relationships=mappings("relationships"),
+            relevant_memories=mappings("relevant_memories"),
+        )
 
     def _materialize_genesis(
         self, staging: Path, selected: AcceptedGenesisRevisionV1
@@ -398,11 +662,126 @@ class PiSceneWorldWorkspaceManager:
                     "knowledge_owner_id": knowledge_owner,
                     "record": record,
                 }
-                filename = f"{index:04d}-{hashlib.sha256(record_id.encode('utf-8')).hexdigest()}.json"
+                filename = f"{index:04d}.json"
                 write_json(
                     staging / "ACTIVE" / "GenesisRecords" / module_key / filename,
                     projection,
                 )
+
+    def _rebind_accepted_receipts(
+        self,
+        staging: Path,
+        *,
+        source_world_id: str,
+        source_branch_id: str,
+        child_branch_id: str,
+    ) -> frozenset[str]:
+        """Rebind copied immutable prose custody to the child receipt chain.
+
+        Exact accepted prose, Writer receipts, recording heads/bundles, and turn
+        identities remain unchanged.  Only branch identity and the mechanical
+        parent receipt hash chain change.  The source/new hashes are preserved
+        in a separate fork receipt.
+        """
+
+        paths = sorted(
+            (staging / "accepted").glob("*/ACCEPTED_RECEIPT.json"),
+            key=lambda value: read_json_object(value, "accepted receipt").get(
+                "generation", 0
+            ),
+        )
+        source_parent_turn: str | None = None
+        source_parent_sha256: str | None = None
+        child_parent_turn: str | None = None
+        child_parent_sha256: str | None = None
+        entries: list[dict[str, Any]] = []
+        rewritten: set[str] = {"FORK_REBINDING.json"}
+        for generation, path in enumerate(paths, start=1):
+            raw = read_json_object(path, "accepted receipt")
+            if (
+                raw.get("world_id") != source_world_id
+                or raw.get("branch_id") != source_branch_id
+                or raw.get("generation") != generation
+                or raw.get("parent_accepted_turn_id") != source_parent_turn
+                or raw.get("parent_accepted_head_sha256")
+                != source_parent_sha256
+                or not isinstance(raw.get("accepted_turn_id"), str)
+            ):
+                raise StateConflictError(
+                    "source accepted receipt chain is invalid for fork"
+                )
+            source_sha256 = canonical_sha256(raw)
+            child = {
+                **raw,
+                "branch_id": child_branch_id,
+                "parent_accepted_turn_id": child_parent_turn,
+                "parent_accepted_head_sha256": child_parent_sha256,
+            }
+            child_sha256 = canonical_sha256(child)
+            write_json(path, child)
+            relative = path.relative_to(staging).as_posix()
+            rewritten.add(relative)
+            entries.append(
+                {
+                    "generation": generation,
+                    "accepted_turn_id": raw["accepted_turn_id"],
+                    "relative_path": relative,
+                    "source_receipt_sha256": source_sha256,
+                    "child_receipt_sha256": child_sha256,
+                }
+            )
+            source_parent_turn = raw["accepted_turn_id"]
+            source_parent_sha256 = source_sha256
+            child_parent_turn = raw["accepted_turn_id"]
+            child_parent_sha256 = child_sha256
+        cache_path = staging / "BRANCH_HEAD_CACHE.json"
+        if cache_path.exists():
+            cache = read_json_object(cache_path, "source branch-head cache")
+            expected_cache = {
+                "schema_version": "cera.pi_scene.branch_head_cache.v1",
+                "generation": len(entries),
+                "accepted_turn_id": source_parent_turn,
+                "accepted_head_sha256": source_parent_sha256,
+            }
+            if cache != expected_cache:
+                raise StateConflictError("source branch-head cache is stale")
+            write_json(
+                cache_path,
+                {
+                    **expected_cache,
+                    "accepted_head_sha256": child_parent_sha256,
+                },
+            )
+            rewritten.add("BRANCH_HEAD_CACHE.json")
+        payload = {
+            "schema_version": "cera.pi_scene_fork_rebinding.v1",
+            "source_world_id": source_world_id,
+            "source_branch_id": source_branch_id,
+            "child_branch_id": child_branch_id,
+            "accepted_receipts": entries,
+        }
+        write_json(
+            staging / "FORK_REBINDING.json",
+            {**payload, "rebinding_sha256": canonical_sha256(payload)},
+        )
+        return frozenset(rewritten)
+
+    def _isolate_forked_session_cache(self, staging: Path) -> frozenset[str]:
+        """Preserve parent cache evidence without sharing its live provider session."""
+
+        active = staging / "sessions" / "ACCEPTED_SESSION.json"
+        if not active.exists():
+            return frozenset()
+        archived = staging / "sessions" / "FORK_SOURCE_ACCEPTED_SESSION.json"
+        if archived.exists():
+            raise StateConflictError("fork source session archive path is occupied")
+        os.replace(active, archived)
+        return frozenset(
+            {
+                "sessions/ACCEPTED_SESSION.json",
+                "sessions/FORK_SOURCE_ACCEPTED_SESSION.json",
+            }
+        )
 
     def _workspace_payload(
         self,
@@ -433,27 +812,25 @@ class PiSceneWorldWorkspaceManager:
         }
         return {**payload, "workspace_sha256": canonical_sha256(payload)}
 
-    def _validated_identity(self, chat_id: str, world_id: str, branch_id: str) -> tuple[str, str, str]:
+    def _validated_identity(
+        self, chat_id: str, world_id: str, branch_id: str
+    ) -> tuple[str, str, str]:
         return (
-            safe_slug(chat_id, "chat_id"),
-            safe_slug(world_id, "world_id"),
-            safe_slug(branch_id, "branch_id"),
+            required_identity(chat_id, "chat_id"),
+            required_identity(world_id, "world_id"),
+            required_identity(branch_id, "branch_id"),
         )
 
     def _branch_root(self, world_id: str, branch_id: str) -> Path:
-        world_id = safe_slug(world_id, "world_id")
-        branch_id = safe_slug(branch_id, "branch_id")
-        root = self.runtime_root / world_id / branch_id
-        if root.parent.parent != self.runtime_root:
-            raise PermissionError("world workspace escaped its configured root")
-        return root
+        return lean_scene_branch_root(self.runtime_root, world_id, branch_id)
 
     def _staging_root(self, world_id: str, branch_id: str) -> Path:
-        world_root = self.runtime_root / safe_slug(world_id, "world_id")
+        world_key = lean_scene_branch_keys(world_id, branch_id)[0]
+        world_root = self.runtime_root / world_key
         world_root.mkdir(parents=True, exist_ok=True)
         if is_link_or_reparse(world_root):
             raise StateConflictError("world directory cannot be linked")
-        return world_root / f".{safe_slug(branch_id, 'branch_id')}-{uuid4().hex}.tmp"
+        return world_root / f".{uuid4().hex[:12]}.tmp"
 
     def _publish_staging(self, staging: Path, target: Path) -> None:
         if target.exists():

@@ -12,13 +12,16 @@ from cera.errors import (
     ContractValidationError,
     StateConflictError,
 )
-from cera.continuous.world_mcp import ContinuousWorldMcpBridge
 from cera.pi_scene.world_workspace import (
     AcceptedGenesisCatalog,
     ForkChatWorkspaceRequestV1,
     NewChatWorkspaceRequestV1,
     PiSceneWorldWorkspaceManager,
+    RequestBoundWorldMcpBridge,
 )
+from cera.pi_scene.contracts import LeanCandidateV1, PiWriterReceiptV1, SceneRoute
+from cera.pi_scene.store import LeanSceneStore
+from cera.serialization import canonical_json, text_sha256
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -35,6 +38,104 @@ def _raw_manifest(root: Path, *, omitted: frozenset[str] = frozenset()) -> dict[
         for path in root.rglob("*")
         if path.is_file() and path.relative_to(root).as_posix() not in omitted
     }
+
+
+class _FakeRawBridge:
+    def __init__(self, dispatcher) -> None:
+        self.dispatcher = dispatcher
+        self.starts = 0
+        self.stops: list[bool] = []
+        self.finalizations: list[object] = []
+
+    def start(self):
+        self.starts += 1
+        return self
+
+    @property
+    def runtime_binding(self):
+        return "fake-runtime-binding"
+
+    def finalize(self, provider_result):
+        self.finalizations.append(provider_result)
+        return {"finalized": True}
+
+    def stop(self, *, suppress_errors: bool = False) -> None:
+        self.stops.append(suppress_errors)
+
+
+class _FailingBindingBridge(_FakeRawBridge):
+    @property
+    def runtime_binding(self):
+        raise RuntimeError("binding failed")
+
+
+class _FailingFinalizeBridge(_FakeRawBridge):
+    def finalize(self, provider_result):
+        self.finalizations.append(provider_result)
+        raise RuntimeError("finalize failed")
+
+
+def _pending_candidate(*, world_id: str, branch_id: str) -> LeanCandidateV1:
+    authority = {
+        "items": [
+            {
+                "item_key": "hana_answers",
+                "owner_id": "character:hana_hanezawa",
+                "kind": "dialogue_intent",
+                "summary": "Hana answers and returns the floor.",
+            }
+        ],
+        "durable_changes": [],
+        "presence_changes": [],
+        "resulting_public_state": "The conversation remains open.",
+        "unresolved_threads": ["Ted may respond."],
+        "stopping_boundary": "Stop with the floor returned to Ted.",
+    }
+    authority_json = canonical_json(authority)
+    prose = "Hana answers, then leaves Ted room to respond."
+    writer_receipt = PiWriterReceiptV1(
+        schema_version=PiWriterReceiptV1.SCHEMA_VERSION,
+        route=SceneRoute.ORDINARY,
+        provider="test-provider",
+        model="test-model",
+        pi_version="test-pi",
+        session_id_sha256=text_sha256("session-1"),
+        parent_session_id_sha256=None,
+        request_sha256=text_sha256("request-1"),
+        output_sha256=text_sha256(prose),
+        provider_operations=1,
+        tool_call_count=0,
+        failed_tool_call_count=0,
+        input_tokens=10,
+        cached_input_tokens=0,
+        output_tokens=5,
+        reasoning_tokens=0,
+        duration_ms=1,
+        finish_status="stop",
+        rehydrated=False,
+    )
+    return LeanCandidateV1(
+        schema_version=LeanCandidateV1.SCHEMA_VERSION,
+        request_id="request-1",
+        candidate_id="candidate-1",
+        turn_id="turn-1",
+        world_id=world_id,
+        branch_id=branch_id,
+        scene_id="scene-entryway",
+        generation=1,
+        parent_accepted_turn_id=None,
+        accepted_head_before_sha256=None,
+        exact_user_source="Hello?",
+        exact_user_source_sha256=text_sha256("Hello?"),
+        route=SceneRoute.ORDINARY,
+        primary_authority_kind="codex_sequence",
+        primary_authority_json=authority_json,
+        primary_authority_sha256=text_sha256(authority_json),
+        writer_view_manifest_sha256=text_sha256("writer-view-1"),
+        story_text=prose,
+        story_text_sha256=text_sha256(prose),
+        writer_receipt=writer_receipt,
+    )
 
 
 class AcceptedGenesisCatalogTests(unittest.TestCase):
@@ -78,7 +179,13 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
     def tearDown(self) -> None:
         self.temporary.cleanup()
 
-    def _new_chat(self, *, chat_id: str = "chat-a", world_id: str = "world-a", branch_id: str = "main"):
+    def _new_chat(
+        self,
+        *,
+        chat_id: str = "chat-a",
+        world_id: str = "world-a",
+        branch_id: str = "main",
+    ):
         return self.manager.create_new_chat(
             NewChatWorkspaceRequestV1(
                 chat_id=chat_id,
@@ -92,6 +199,12 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
         first = self._new_chat()
         before = _raw_manifest(first.branch_root)
 
+        self.assertEqual(
+            first.branch_root,
+            self.runtime_root
+            / f"world-{text_sha256('world-a')[:24]}"
+            / f"branch-{text_sha256('main')[:24]}",
+        )
         self.assertEqual(first.genesis_pin.revision_number, 2)
         self.assertEqual(
             _json(first.branch_root / "ACTIVE" / "WORLD_STATE.json")["branch_id"],
@@ -121,12 +234,62 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
         self.assertEqual(opened.workspace_sha256, first.workspace_sha256)
         self.assertEqual(_raw_manifest(opened.branch_root), before)
 
+    def test_context_loader_groups_exact_genesis_records_by_real_ids(self) -> None:
+        workspace = self._new_chat()
+        first = self.manager.load_genesis_context_mappings(workspace)
+        restarted = PiSceneWorldWorkspaceManager(self.runtime_root, GENESIS_ROOT)
+        second = restarted.load_genesis_context_mappings(workspace)
+
+        self.assertEqual(first.mappings_sha256, second.mappings_sha256)
+        self.assertEqual(
+            set(first.seed_mapping_fields()),
+            {
+                "genesis_revision",
+                "characters",
+                "relationships",
+                "relevant_memories",
+            },
+        )
+        self.assertIn("character:sakura_hanezawa", first.characters)
+        self.assertIn("character:hana_hanezawa", first.characters)
+        self.assertNotIn("character:sakura", first.characters)
+        self.assertNotIn("character:hana", first.characters)
+        self.assertIn("character:sakura_hanezawa", first.relationships)
+        self.assertIn("character:sakura_hanezawa", first.relevant_memories)
+        for category in (
+            first.characters,
+            first.relationships,
+            first.relevant_memories,
+        ):
+            for character_id, grouped in category.items():
+                self.assertTrue(character_id.startswith("character:"))
+                self.assertEqual(
+                    set(grouped),
+                    {"character_id", "genesis_record_projections"},
+                )
+                self.assertEqual(grouped["character_id"], character_id)
+                self.assertTrue(grouped["genesis_record_projections"])
+
+        sakura_group = first.characters["character:sakura_hanezawa"]
+        exact_projection = next(
+            _json(path)
+            for path in sorted(
+                (workspace.branch_root / "ACTIVE" / "GenesisRecords").rglob(
+                    "*.json"
+                )
+            )
+            if _json(path) in sakura_group["genesis_record_projections"]
+        )
+        self.assertIn(
+            exact_projection, sakura_group["genesis_record_projections"]
+        )
+
     def test_invalid_identity_and_cross_chat_open_fail_closed(self) -> None:
         self._new_chat()
         with self.assertRaises(ContractValidationError):
             self.manager.create_new_chat(
                 NewChatWorkspaceRequestV1(
-                    chat_id="../chat-b",
+                    chat_id="",
                     world_id="world-b",
                     branch_id="main",
                     settings={},
@@ -134,6 +297,24 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
             )
         with self.assertRaises(PermissionError):
             self.manager.open(chat_id="chat-b", world_id="world-a", branch_id="main")
+
+    def test_path_like_world_and_branch_ids_are_hash_confined(self) -> None:
+        workspace = self._new_chat(
+            chat_id="chat/path-like",
+            world_id="../outside-world",
+            branch_id="..\\outside-branch",
+        )
+
+        self.assertTrue(workspace.branch_root.is_relative_to(self.runtime_root))
+        self.assertNotIn("outside-world", workspace.branch_root.parts)
+        self.assertNotIn("outside-branch", workspace.branch_root.parts)
+        self.assertEqual(
+            _json(workspace.branch_root / "BRANCH_IDENTITY.json"),
+            {
+                "world_id": "../outside-world",
+                "branch_id": "..\\outside-branch",
+            },
+        )
 
     def test_failed_seed_is_not_published(self) -> None:
         with self.assertRaises(CanonicalizationError):
@@ -160,7 +341,14 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
             target = parent.branch_root / relative
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(raw)
-        omitted = frozenset({"WORKSPACE.json", "ACTIVE/WORLD_STATE.json"})
+        omitted = frozenset(
+            {
+                "WORKSPACE.json",
+                "BRANCH_IDENTITY.json",
+                "ACTIVE/WORLD_STATE.json",
+                "FORK_REBINDING.json",
+            }
+        )
         inherited = _raw_manifest(parent.branch_root, omitted=omitted)
 
         request = ForkChatWorkspaceRequestV1(
@@ -214,6 +402,89 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
                     child_branch_id="fork-001",
                 )
             )
+
+    def test_lean_store_pending_acceptance_and_session_are_forked_safely(self) -> None:
+        parent = self.manager.create_new_chat(
+            NewChatWorkspaceRequestV1(
+                chat_id="chat-store",
+                world_id="world-test",
+                branch_id="branch-main",
+                settings={"autonomy": "both"},
+            )
+        )
+        store = LeanSceneStore(self.runtime_root)
+        accepted = store.accept(
+            _pending_candidate(world_id="world-test", branch_id="branch-main")
+        )
+        session_path = parent.branch_root / "pi-session-cache"
+        session_path.mkdir()
+        store.promote_pi_session(
+            accepted, session_id="session-1", session_path=session_path
+        )
+        provisional = parent.branch_root / "PROVISIONAL" / "canon-1.json"
+        provisional.parent.mkdir(parents=True)
+        provisional.write_text('{"status":"provisional"}', encoding="utf-8")
+        settings = parent.branch_root / "ACTIVE" / "Settings" / "extra.json"
+        settings.write_text('{"depth":"auto"}', encoding="utf-8")
+        parent_head_before = store.load_head(
+            world_id="world-test", branch_id="branch-main"
+        )
+
+        child = self.manager.fork_chat(
+            ForkChatWorkspaceRequestV1(
+                parent_chat_id="chat-store",
+                world_id="world-test",
+                parent_branch_id="branch-main",
+                child_chat_id="chat-store-fork",
+                child_branch_id="branch-fork",
+            )
+        )
+        child_head = store.load_head(
+            world_id="world-test", branch_id="branch-fork"
+        )
+        parent_head_after = store.load_head(
+            world_id="world-test", branch_id="branch-main"
+        )
+
+        self.assertEqual(child_head.accepted_turn_id, accepted.accepted_turn_id)
+        self.assertEqual(child_head.receipt.exact_accepted_prose, accepted.exact_accepted_prose)
+        self.assertEqual(child_head.receipt.branch_id, "branch-fork")
+        self.assertNotEqual(child_head.accepted_head_sha256, accepted.receipt_sha256)
+        self.assertEqual(
+            _json(child.branch_root / "BRANCH_HEAD_CACHE.json")[
+                "accepted_head_sha256"
+            ],
+            child_head.accepted_head_sha256,
+        )
+        self.assertEqual(
+            parent_head_after.accepted_head_sha256,
+            parent_head_before.accepted_head_sha256,
+        )
+        self.assertEqual(
+            (child.branch_root / "PROVISIONAL" / "canon-1.json").read_bytes(),
+            provisional.read_bytes(),
+        )
+        self.assertEqual(
+            (child.branch_root / "ACTIVE" / "Settings" / "extra.json").read_bytes(),
+            settings.read_bytes(),
+        )
+        self.assertIsNone(
+            store.load_accepted_pi_session(
+                world_id="world-test", branch_id="branch-fork"
+            )
+        )
+        self.assertTrue(
+            (
+                child.branch_root
+                / "sessions"
+                / "FORK_SOURCE_ACCEPTED_SESSION.json"
+            ).is_file()
+        )
+        self.assertIsNotNone(
+            store.load_accepted_pi_session(
+                world_id="world-test", branch_id="branch-main"
+            )
+        )
 
     def test_tampered_workspace_or_genesis_is_rejected_on_restart(self) -> None:
         workspace = self._new_chat()
@@ -275,7 +546,83 @@ class PiSceneWorldWorkspaceTests(unittest.TestCase):
         self.assertEqual(
             exact["content"]["genesis_revision_id"], first.genesis_pin.revision_id
         )
-        self.assertIsInstance(factory.bridge(turn_id="turn-002"), ContinuousWorldMcpBridge)
+        self.assertIsInstance(
+            factory.bridge(turn_id="turn-002"), RequestBoundWorldMcpBridge
+        )
+
+    def test_request_bound_bridge_is_lazy_one_use_and_always_stops(self) -> None:
+        workspace = self._new_chat()
+        raw_bridges: list[_FakeRawBridge] = []
+
+        def create_raw(dispatcher):
+            bridge = _FakeRawBridge(dispatcher)
+            raw_bridges.append(bridge)
+            return bridge
+
+        request_bridge = self.manager.mcp_factory(
+            workspace, raw_bridge_factory=create_raw
+        ).bridge(turn_id="turn-001", maximum_calls=3)
+        self.assertEqual(raw_bridges, [])
+        self.assertEqual(request_bridge.runtime_binding, "fake-runtime-binding")
+        self.assertEqual(request_bridge.runtime_binding, "fake-runtime-binding")
+        self.assertEqual(len(raw_bridges), 1)
+        self.assertEqual(raw_bridges[0].starts, 1)
+
+        self.assertEqual(request_bridge.finalize(object()), {"finalized": True})
+        self.assertEqual(raw_bridges[0].stops, [False])
+        with self.assertRaisesRegex(StateConflictError, "terminal"):
+            _ = request_bridge.runtime_binding
+        with self.assertRaisesRegex(StateConflictError, "terminal"):
+            request_bridge.finalize(object())
+
+    def test_request_bound_bridge_is_terminal_after_binding_or_finalize_failure(self) -> None:
+        workspace = self._new_chat()
+        factory_calls = 0
+
+        def fail_factory():
+            nonlocal factory_calls
+            factory_calls += 1
+            raise RuntimeError("factory failed")
+
+        factory_failure = RequestBoundWorldMcpBridge(fail_factory)
+        with self.assertRaisesRegex(RuntimeError, "factory failed"):
+            _ = factory_failure.runtime_binding
+        with self.assertRaisesRegex(StateConflictError, "terminal"):
+            _ = factory_failure.runtime_binding
+        self.assertEqual(factory_calls, 1)
+
+        binding_bridges: list[_FailingBindingBridge] = []
+
+        def create_binding_failure(dispatcher):
+            bridge = _FailingBindingBridge(dispatcher)
+            binding_bridges.append(bridge)
+            return bridge
+
+        binding_failure = self.manager.mcp_factory(
+            workspace, raw_bridge_factory=create_binding_failure
+        ).bridge(turn_id="turn-binding-failure")
+        with self.assertRaisesRegex(RuntimeError, "binding failed"):
+            _ = binding_failure.runtime_binding
+        self.assertEqual(binding_bridges[0].stops, [True])
+        with self.assertRaisesRegex(StateConflictError, "terminal"):
+            _ = binding_failure.runtime_binding
+
+        finalize_bridges: list[_FailingFinalizeBridge] = []
+
+        def create_finalize_failure(dispatcher):
+            bridge = _FailingFinalizeBridge(dispatcher)
+            finalize_bridges.append(bridge)
+            return bridge
+
+        finalize_failure = self.manager.mcp_factory(
+            workspace, raw_bridge_factory=create_finalize_failure
+        ).bridge(turn_id="turn-finalize-failure")
+        self.assertEqual(finalize_failure.runtime_binding, "fake-runtime-binding")
+        with self.assertRaisesRegex(RuntimeError, "finalize failed"):
+            finalize_failure.finalize(object())
+        self.assertEqual(finalize_bridges[0].stops, [False])
+        with self.assertRaisesRegex(StateConflictError, "terminal"):
+            _ = finalize_failure.runtime_binding
 
     @unittest.skipUnless(hasattr(os, "symlink"), "symlink API unavailable")
     def test_fork_rejects_linked_parent_content_when_supported(self) -> None:
