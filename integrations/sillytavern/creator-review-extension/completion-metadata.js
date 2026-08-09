@@ -265,15 +265,18 @@ function normalizeValidation(value, completion) {
             2_000,
         ),
     };
-    const flags = Array.isArray(source.review_flags)
-        ? source.review_flags.map(item => (
+    const rawFlags = Array.isArray(source.review_flags)
+        ? source.review_flags
+        : Array.isArray(semantic.review_flags)
+            ? semantic.review_flags
+            : [];
+    const flags = rawFlags.map(item => (
             plainObject(item)
                 ? [item.flag_code ?? item.code, item.concise_explanation ?? item.summary]
                     .filter(Boolean)
                     .join(': ')
                 : item
-        ))
-        : [];
+        ));
     const normalized = {
         owner: boundedText(source.owner, 160),
         status: boundedText(
