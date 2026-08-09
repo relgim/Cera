@@ -50,6 +50,7 @@ ADULT_RECORDER_SYSTEM_PROMPT = """You are CERA's post-Accept adult continuity Re
 
 
 MAX_TOOL_CALLS_PER_INVOCATION = 1
+SUCCESSFUL_FINISH_STATUSES = frozenset({"stop"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -200,6 +201,7 @@ class PiSceneAdapter:
             )
         try:
             parsed = _parse_pi_json_stream(process.stdout)
+            _validate_pi_completion(parsed)
             self.operation_ledger.assert_completed(
                 invocation_id,
                 parsed_operations=parsed.provider_operations,
@@ -331,6 +333,23 @@ class _ParsedPiStream:
     reasoning_tokens: int
     finish_status: str
     event_count: int
+
+
+def _validate_pi_completion(parsed: _ParsedPiStream) -> None:
+    """Fail closed unless Pi proved the exact bounded context protocol."""
+
+    if parsed.tool_call_count != MAX_TOOL_CALLS_PER_INVOCATION:
+        raise StateConflictError(
+            "Pi Scene must load the approved context exactly once "
+            f"(observed={parsed.tool_call_count})"
+        )
+    if parsed.failed_tool_call_count:
+        raise StateConflictError("Pi Scene context loading failed")
+    if parsed.finish_status.casefold() not in SUCCESSFUL_FINISH_STATUSES:
+        raise StateConflictError(
+            "Pi Scene did not reach a normal terminal stop "
+            f"(finish_status={parsed.finish_status})"
+        )
 
 
 def _parse_pi_json_stream(stdout: str) -> _ParsedPiStream:
