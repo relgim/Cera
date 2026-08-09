@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Protocol
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 
 from .contracts import (
     BoundSemanticValidationV1,
@@ -42,6 +46,10 @@ class FreshLunaValidatorSession:
         request: SemanticValidationRequestV1,
         custody: SemanticValidationCustodyV1,
     ) -> BoundSemanticValidationV1:
+        assert_provider_dispatch_allowed(
+            "semantic_validation.session.validate",
+            external_provider_boundary=is_external_provider_boundary(self._backend),
+        )
         if self._used or self._archived:
             raise StateConflictError("candidate Luna Validator session is single-use")
         self._used = True

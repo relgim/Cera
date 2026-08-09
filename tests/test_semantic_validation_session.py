@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from dataclasses import dataclass, field
+from unittest.mock import patch
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.semantic_validation import (
@@ -85,6 +86,20 @@ class SemanticValidationSessionTests(unittest.TestCase):
         request = _request()
         with self.assertRaisesRegex(ContractValidationError, "remains resumable"):
             FreshLunaValidatorFactory(backend).validate(request, _custody(request))
+
+    def test_dispatch_guard_blocks_before_single_use_state_changes(self) -> None:
+        from cera.semantic_validation.session import FreshLunaValidatorSession
+
+        backend = _FakeLunaBackend(_pass())
+        backend.external_provider_boundary = True
+        request = _request()
+        session = FreshLunaValidatorSession(backend, "thread:luna-guarded")
+        with patch.dict("os.environ", {"CERA_PROVIDER_DISPATCH_DISABLED": "1"}):
+            with self.assertRaisesRegex(StateConflictError, "dispatch is disabled"):
+                session.validate(request, _custody(request))
+        backend.external_provider_boundary = False
+        result = session.validate(request, _custody(request))
+        self.assertEqual(result.verdict, _pass())
 
     def test_route_is_luna_xhigh_without_retry_or_fallback(self) -> None:
         route = luna_validator_route()
