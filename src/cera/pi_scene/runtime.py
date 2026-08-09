@@ -160,7 +160,10 @@ class LeanPiSceneCoordinator:
                 review.semantic_validation is not None
                 and review.semantic_validation.verdict.verdict is SemanticVerdict.PASS
             ):
-                return self.accept(review.review_id).review
+                return self.accept(
+                    review.review_id,
+                    acceptance_action="automatic_accept",
+                ).review
             if (
                 review.semantic_validation is not None
                 and review.semantic_validation.verdict.automatic_repair_eligible
@@ -264,7 +267,10 @@ class LeanPiSceneCoordinator:
             successor.semantic_validation is not None
             and successor.semantic_validation.verdict.verdict is SemanticVerdict.PASS
         ):
-            accepted = self.accept(successor.review_id).review
+            accepted = self.accept(
+                successor.review_id,
+                acceptance_action="automatic_accept",
+            ).review
             self._decisions[review.review_id] = replace(
                 decision,
                 result=replace(decision.result, successor=accepted),
@@ -339,15 +345,27 @@ class LeanPiSceneCoordinator:
         review_id: str,
         *,
         allow_replay: bool = False,
+        acceptance_action: str = "accept",
     ) -> LeanDecisionResultV1:
         with self._lock:
             if type(allow_replay) is not bool:
                 raise ContractValidationError("Accept replay flag must be boolean")
-            request_sha256 = decision_request_sha256(action="accept")
+            if acceptance_action not in {
+                "accept",
+                "automatic_accept",
+                "provisional_accept",
+            }:
+                raise ContractValidationError("Accept action is invalid")
+            decision_action = (
+                "accept_provisional"
+                if acceptance_action == "provisional_accept"
+                else "accept"
+            )
+            request_sha256 = decision_request_sha256(action=decision_action)
             if allow_replay:
                 replay = self._replay_decision(
                     review_id,
-                    action="accept",
+                    action=decision_action,
                     request_sha256=request_sha256,
                 )
                 if replay is not None:
@@ -356,6 +374,7 @@ class LeanPiSceneCoordinator:
             accepted = self.store.accept(
                 review.candidate,
                 semantic_validation=review.semantic_validation,
+                acceptance_action=acceptance_action,
             )
             # The review becomes terminal immediately after the immutable
             # receipt. Any later session or Recorder exception therefore
@@ -389,7 +408,7 @@ class LeanPiSceneCoordinator:
                 operational_warnings=tuple(warnings),
             )
             self._decisions[review_id] = DecisionReplayV1(
-                action="accept",
+                action=decision_action,
                 request_sha256=request_sha256,
                 result=result,
             )
@@ -532,7 +551,10 @@ class LeanPiSceneCoordinator:
                 successor.semantic_validation is not None
                 and successor.semantic_validation.verdict.verdict is SemanticVerdict.PASS
             ):
-                accepted = self.accept(successor.review_id).review
+                accepted = self.accept(
+                    successor.review_id,
+                    acceptance_action="automatic_accept",
+                ).review
                 result = replace(result, successor=accepted)
                 self._decisions[review.review_id] = replace(decision, result=result)
                 self._persist_review_state()
@@ -603,7 +625,10 @@ class LeanPiSceneCoordinator:
                 successor.semantic_validation is not None
                 and successor.semantic_validation.verdict.verdict is SemanticVerdict.PASS
             ):
-                accepted = self.accept(successor.review_id).review
+                accepted = self.accept(
+                    successor.review_id,
+                    acceptance_action="automatic_accept",
+                ).review
                 result = replace(result, successor=accepted)
                 self._decisions[review.review_id] = replace(decision, result=result)
                 self._persist_review_state()
@@ -622,12 +647,17 @@ class LeanPiSceneCoordinator:
             self._reviews[review_id] = terminal
             accepted_decision = self._decisions.get(review_id)
             if accepted_decision is None:
+                decision_action = (
+                    "accept_provisional"
+                    if review.accepted_receipt.creator_action == "provisional_accept"
+                    else "accept"
+                )
                 accepted_decision = DecisionReplayV1(
-                    action="accept",
-                    request_sha256=decision_request_sha256(action="accept"),
+                    action=decision_action,
+                    request_sha256=decision_request_sha256(action=decision_action),
                     result=LeanDecisionResultV1(review=terminal),
                 )
-            elif accepted_decision.action != "accept":
+            elif accepted_decision.action not in {"accept", "accept_provisional"}:
                 raise StateConflictError(
                     "recording repair review has a conflicting decision receipt"
                 )

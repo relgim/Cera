@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.schema import from_mapping
 from cera.serialization import text_sha256
-
-from .contracts import AdultCodexProjectionV1, AdultCodexProjectionV2
 
 from ._branch_state_models import (
     RECORDING_STATUSES,
@@ -18,9 +17,10 @@ from ._branch_state_models import (
     AdultPublicContinuityV1,
     DurableBranchChangeV1,
     PresenceChangeV1,
+    ProvisionalCanonLineageEntryV1,
     require_sha,
 )
-
+from .contracts import AdultCodexProjectionV1, AdultCodexProjectionV2
 
 _ALLOWED_PAYLOAD_FIELDS = frozenset(
     {
@@ -29,6 +29,7 @@ _ALLOWED_PAYLOAD_FIELDS = frozenset(
         "recording_status",
         "ordinary_record",
         "adult_projection",
+        "provisional_canon",
     }
 )
 
@@ -53,6 +54,10 @@ def accepted_event_from_payload(payload: Mapping[str, Any]) -> AcceptedBranchEve
         raise AssertionError("accepted outer receipt hash stopped being text")
 
     common = _common_fields(receipt, receipt_sha256=receipt_sha256)
+    common["provisional_canon_entry"] = _provisional_canon_entry(
+        payload,
+        accepted_turn_id=str(common["accepted_turn_id"]),
+    )
     if common["route"] == "ordinary":
         return _ordinary_event(
             payload,
@@ -285,7 +290,7 @@ def _adult_event(
                 source_kind="adult_codex_projection",
             )
         )
-    presence = ()
+    presence: tuple[PresenceChangeV1, ...] = ()
     if isinstance(decoded, AdultCodexProjectionV2):
         event_order = {
             value.event_key: index for index, value in enumerate(decoded.items)
@@ -341,6 +346,31 @@ def _pending_event(common: Mapping[str, Any]) -> AcceptedBranchEventV1:
         unresolved_threads=(),
         adult_public_continuity=(),
         derived_state_complete=False,
+    )
+
+
+def _provisional_canon_entry(
+    payload: Mapping[str, Any],
+    *,
+    accepted_turn_id: str,
+) -> ProvisionalCanonLineageEntryV1 | None:
+    value = payload.get("provisional_canon")
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise ContractValidationError("provisional canon projection is invalid")
+    if set(value) != {"provisional_canon_id", "status", "authority_id"}:
+        raise ContractValidationError("provisional canon projection fields changed")
+    return ProvisionalCanonLineageEntryV1(
+        lineage_entry_id=f"{accepted_turn_id}:provisional",
+        provisional_canon_id=_mapping_text(
+            value,
+            "provisional_canon_id",
+            "provisional canon",
+        ),
+        parent_lineage_entry_id=None,
+        status=_mapping_text(value, "status", "provisional canon"),
+        authority_id=_mapping_text(value, "authority_id", "provisional canon"),
     )
 
 

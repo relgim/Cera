@@ -7,6 +7,8 @@ from dataclasses import replace
 from pathlib import Path
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.pi_scene.context import AcceptedBranchContextProvider, initial_hana_seed
+from cera.pi_scene.contracts import SceneRoute
 from cera.pi_scene.store import LeanSceneStore
 from cera.semantic_validation import (
     BoundSemanticValidationV1,
@@ -139,6 +141,59 @@ class PiSceneSemanticAcceptanceTests(unittest.TestCase):
             accepted = store.accept(candidate)
             self.assertEqual(accepted.primary_authority_kind, "codex_sequence")
             self.assertFalse((_turn_dir(Path(temporary)) / "SEMANTIC_VALIDATION.json").exists())
+
+    def test_rejected_candidate_can_only_enter_as_explicit_provisional_canon(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            store = LeanSceneStore(root)
+            candidate = _qualified_candidate()
+            rejected = _validation(candidate, verdict=SemanticVerdict.REJECT)
+            accepted = store.accept(
+                candidate,
+                semantic_validation=rejected,
+                acceptance_action="provisional_accept",
+            )
+            self.assertEqual(accepted.creator_action, "provisional_accept")
+            provisional_path = _turn_dir(root) / "PROVISIONAL_CANON.json"
+            self.assertTrue(provisional_path.is_file())
+            payload = LeanSceneStore(root).accepted_branch_payloads(
+                world_id=candidate.world_id,
+                branch_id=candidate.branch_id,
+            )[0]
+            self.assertEqual(
+                payload["provisional_canon"]["provisional_canon_id"],
+                f"provisional:{candidate.candidate_sha256[:24]}",
+            )
+            seed = replace(
+                initial_hana_seed(),
+                world_id=candidate.world_id,
+                branch_id=candidate.branch_id,
+                scene_id=candidate.scene_id,
+            )
+            next_turn = AcceptedBranchContextProvider(store, seed)(
+                SceneRoute.ORDINARY,
+                "Continue.",
+                (),
+            )
+            self.assertEqual(
+                next_turn.current_state["provisional_canon_lineage"][0][
+                    "provisional_canon_id"
+                ],
+                f"provisional:{candidate.candidate_sha256[:24]}",
+            )
+
+            with tempfile.TemporaryDirectory() as second:
+                other = LeanSceneStore(Path(second))
+                other_candidate = _qualified_candidate()
+                with self.assertRaisesRegex(
+                    ContractValidationError,
+                    "verdict does not authorize",
+                ):
+                    other.accept(
+                        other_candidate,
+                        semantic_validation=_validation(other_candidate),
+                        acceptance_action="provisional_accept",
+                    )
 
 
 if __name__ == "__main__":

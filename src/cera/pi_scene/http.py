@@ -179,6 +179,12 @@ class PiSceneHttpAdapter:
         try:
             if action == "accept":
                 decision = self.coordinator.accept(review_id, allow_replay=True)
+            elif action == "accept_provisional":
+                decision = self.coordinator.accept(
+                    review_id,
+                    allow_replay=True,
+                    acceptance_action="provisional_accept",
+                )
             elif action == "decline":
                 decision = self.coordinator.decline(review_id, allow_replay=True)
             elif action == "regenerate":
@@ -251,6 +257,10 @@ class PiSceneHttpAdapter:
             }
         )
         rejected = validation is not None and validation.verdict.verdict.value == "reject"
+        provisional_canon = (
+            review.accepted_receipt is not None
+            and review.accepted_receipt.creator_action == "provisional_accept"
+        )
         return {
             "schema_version": "cera.pi_scene.review.v1",
             "review_id": review.review_id,
@@ -266,6 +276,13 @@ class PiSceneHttpAdapter:
             "warnings_block_accept": False,
             "recording_status": status,
             "story_state_committed": review.accepted_receipt is not None,
+            "canon_status": (
+                "provisional"
+                if provisional_canon
+                else "accepted"
+                if review.accepted_receipt is not None
+                else "unaccepted"
+            ),
             "semantic_validation": validation_payload,
             "request_controls": (
                 None
@@ -347,6 +364,10 @@ class PiSceneHttpAdapter:
             if review.recording_attempt is None
             else review.recording_attempt.status.value
         )
+        provisional_canon = (
+            review.accepted_receipt is not None
+            and review.accepted_receipt.creator_action == "provisional_accept"
+        )
         review_status = (
             "accepted"
             if committed
@@ -377,6 +398,9 @@ class PiSceneHttpAdapter:
                 "provisional": not committed,
                 "status": review_status,
                 "story_state_committed": committed,
+                "canon_status": (
+                    "provisional" if provisional_canon else "accepted" if committed else None
+                ),
                 "provisional_review_id": None if committed else review.review_id,
                 "review_url": f"/v1/cera/reviews/{review.review_id}",
                 "candidate_id": candidate.candidate_id,

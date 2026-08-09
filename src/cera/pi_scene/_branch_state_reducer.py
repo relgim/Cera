@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import replace
-from typing import Any, Mapping, Sequence
+from typing import Any
 
 from cera.errors import StateConflictError
 
@@ -131,6 +132,10 @@ class BranchStateReducerV1:
             raise StateConflictError(
                 "recording reconciliation introduced a new pending turn"
             )
+        if rebuilt.provisional_canon_lineage != checkpoint.provisional_canon_lineage:
+            raise StateConflictError(
+                "recording reconciliation changed provisional-canon lineage"
+            )
         return replace(
             rebuilt,
             branch_id=checkpoint.branch_id,
@@ -248,7 +253,10 @@ class BranchStateReducerV1:
                 checkpoint.adult_public_continuity + event.adult_public_continuity
             ),
             accepted_lineage=checkpoint.accepted_lineage + (event.accepted_lineage_entry,),
-            provisional_canon_lineage=checkpoint.provisional_canon_lineage,
+            provisional_canon_lineage=_append_event_provisional(
+                checkpoint.provisional_canon_lineage,
+                event,
+            ),
             pending_ordinary_recording_turn_ids=(
                 checkpoint.pending_ordinary_recording_turn_ids
             ),
@@ -291,6 +299,10 @@ class BranchStateReducerV1:
             last_accepted_turn_id=event.accepted_turn_id,
             last_accepted_receipt_sha256=event.receipt_sha256,
             accepted_lineage=checkpoint.accepted_lineage + (event.accepted_lineage_entry,),
+            provisional_canon_lineage=_append_event_provisional(
+                checkpoint.provisional_canon_lineage,
+                event,
+            ),
             pending_ordinary_recording_turn_ids=pending_ordinary,
             pending_adult_projection_turn_ids=pending_adult,
         )
@@ -390,15 +402,31 @@ class BranchStateReducerV1:
                 "visibility": "branch_internal_unspecified",
                 "concise_change": value,
             }
-        for value in event.adult_public_continuity:
-            memories[f"adult:{event.accepted_order:08d}:{value.event_key}"] = {
-                "accepted_turn_id": value.accepted_turn_id,
-                "event_key": value.event_key,
+        for continuity in event.adult_public_continuity:
+            memories[f"adult:{event.accepted_order:08d}:{continuity.event_key}"] = {
+                "accepted_turn_id": continuity.accepted_turn_id,
+                "event_key": continuity.event_key,
                 "authority": "accepted_adult_filtered_projection",
                 "visibility": "public",
-                "non_explicit_summary": value.non_explicit_summary,
-                "lasting_story_meaning": value.lasting_story_meaning,
+                "non_explicit_summary": continuity.non_explicit_summary,
+                "lasting_story_meaning": continuity.lasting_story_meaning,
             }
+
+
+def _append_event_provisional(
+    lineage: tuple[ProvisionalCanonLineageEntryV1, ...],
+    event: AcceptedBranchEventV1,
+) -> tuple[ProvisionalCanonLineageEntryV1, ...]:
+    entry = event.provisional_canon_entry
+    if entry is None:
+        return lineage
+    if any(
+        value.lineage_entry_id == entry.lineage_entry_id
+        or value.provisional_canon_id == entry.provisional_canon_id
+        for value in lineage
+    ):
+        raise StateConflictError("accepted provisional-canon identity was reused")
+    return lineage + (entry,)
 
 
 def _durable_change_mapping(value: DurableBranchChangeV1) -> dict[str, Any]:

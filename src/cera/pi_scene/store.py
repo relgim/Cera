@@ -325,6 +325,7 @@ class LeanSceneStore:
         candidate: LeanCandidateV1,
         *,
         semantic_validation: BoundSemanticValidationV1 | None = None,
+        acceptance_action: str = "accept",
     ) -> LeanAcceptedTurnReceiptV1:
         """Publish phase one exactly once; identical recovery is read-only."""
 
@@ -346,7 +347,11 @@ class LeanSceneStore:
             if candidate.accepted_head_before_sha256 != head.accepted_head_sha256:
                 raise StateConflictError("candidate accepted-head binding is stale")
 
-            _validate_candidate_qualification(candidate, semantic_validation)
+            _validate_candidate_qualification(
+                candidate,
+                semantic_validation,
+                acceptance_action=acceptance_action,
+            )
             receipt = LeanAcceptedTurnReceiptV1(
                 schema_version=LeanAcceptedTurnReceiptV1.SCHEMA_VERSION,
                 accepted_turn_id=candidate.turn_id,
@@ -366,7 +371,7 @@ class LeanSceneStore:
                 primary_authority_sha256=candidate.primary_authority_sha256,
                 writer_view_manifest_sha256=candidate.writer_view_manifest_sha256,
                 writer_receipt=candidate.writer_receipt,
-                creator_action="accept",
+                creator_action=acceptance_action,
                 warnings=candidate.warnings,
                 initial_recording_status=RecordingStatus.PROJECTION_PENDING,
                 candidate_sha256=candidate.candidate_sha256,
@@ -381,6 +386,17 @@ class LeanSceneStore:
                     _write_new_json(
                         stage / "SEMANTIC_VALIDATION.json",
                         _semantic_validation_artifact(
+                            candidate=candidate,
+                            validation=semantic_validation,
+                            acceptance_action=acceptance_action,
+                        ),
+                    )
+                if acceptance_action == "provisional_accept":
+                    if semantic_validation is None:  # guarded above
+                        raise AssertionError("provisional acceptance lost validation")
+                    _write_new_json(
+                        stage / "PROVISIONAL_CANON.json",
+                        _provisional_canon_artifact(
                             candidate=candidate,
                             validation=semantic_validation,
                         ),
@@ -919,6 +935,7 @@ class LeanSceneStore:
                         "receipt": to_primitive(receipt),
                         "recording_status": head.status.value,
                     }
+                    _attach_provisional_payload(item, turn_dir=turn_dir, receipt=receipt)
                     output.append(item)
                     continue
                 bundle = recovered
@@ -938,6 +955,7 @@ class LeanSceneStore:
                 item["adult_projection"] = to_primitive(bundle.adult_projection)
             if adult_full and bundle.adult_full_record is not None:
                 item["adult_full_record"] = to_primitive(bundle.adult_full_record)
+            _attach_provisional_payload(item, turn_dir=turn_dir, receipt=receipt)
             output.append(item)
         return tuple(output)
 
@@ -1081,19 +1099,42 @@ def _turn_directory_name(receipt: LeanAcceptedTurnReceiptV1) -> str:
 def _validate_candidate_qualification(
     candidate: LeanCandidateV1,
     validation: BoundSemanticValidationV1 | None,
+    *,
+    acceptance_action: str,
 ) -> None:
+    if acceptance_action not in {
+        "accept",
+        "automatic_accept",
+        "provisional_accept",
+    }:
+        raise ContractValidationError("candidate acceptance action is invalid")
     requires_validation = (
         candidate.route is SceneRoute.ORDINARY
         and candidate.primary_authority_kind == "codex_cognition_plan"
     )
     if not requires_validation:
+        if acceptance_action == "provisional_accept":
+            raise ContractValidationError(
+                "provisional acceptance requires a rejected semantic candidate"
+            )
         if validation is not None:
             raise ContractValidationError("semantic validation cannot qualify this candidate route")
         return
     if validation is None:
         raise ContractValidationError("cognition candidate requires a passing semantic validation")
-    if validation.verdict.verdict is not SemanticVerdict.PASS:
-        raise ContractValidationError("rejected semantic validation cannot authorize Accept")
+    expected_verdict = (
+        SemanticVerdict.REJECT
+        if acceptance_action == "provisional_accept"
+        else SemanticVerdict.PASS
+    )
+    if validation.verdict.verdict is not expected_verdict:
+        if acceptance_action != "provisional_accept":
+            raise ContractValidationError(
+                "rejected semantic validation cannot authorize Accept"
+            )
+        raise ContractValidationError(
+            "semantic validation verdict does not authorize this acceptance action"
+        )
     custody = validation.custody
     request = validation.request
     if (
@@ -1114,12 +1155,36 @@ def _semantic_validation_artifact(
     *,
     candidate: LeanCandidateV1,
     validation: BoundSemanticValidationV1,
+    acceptance_action: str,
 ) -> dict[str, Any]:
-    _validate_candidate_qualification(candidate, validation)
+    _validate_candidate_qualification(
+        candidate,
+        validation,
+        acceptance_action=acceptance_action,
+    )
     body = {
         "schema_version": "cera.pi_scene.semantic_acceptance.v1",
         "candidate_sha256": candidate.candidate_sha256,
         "validation": to_primitive(validation),
+    }
+    return {**body, "artifact_sha256": canonical_sha256(body)}
+
+
+def _provisional_canon_artifact(
+    *,
+    candidate: LeanCandidateV1,
+    validation: BoundSemanticValidationV1,
+) -> dict[str, Any]:
+    if validation.verdict.verdict is not SemanticVerdict.REJECT:
+        raise ContractValidationError("provisional canon requires a rejected candidate")
+    body = {
+        "schema_version": "cera.pi_scene.provisional_canon.v1",
+        "provisional_canon_id": f"provisional:{candidate.candidate_sha256[:24]}",
+        "candidate_id": candidate.candidate_id,
+        "candidate_sha256": candidate.candidate_sha256,
+        "validation_binding_sha256": validation.binding_sha256,
+        "status": "unresolved",
+        "working_assumption": "accepted_candidate_events_are_provisionally_true",
     }
     return {**body, "artifact_sha256": canonical_sha256(body)}
 
@@ -1135,7 +1200,7 @@ def _verify_semantic_validation_artifact(
         and receipt.primary_authority_kind == "codex_cognition_plan"
     )
     if not requires_validation:
-        if path.exists():
+        if path.exists() or (turn_dir / "PROVISIONAL_CANON.json").exists():
             raise StateConflictError(
                 "accepted turn has an unauthorized semantic-validation artifact"
             )
@@ -1166,8 +1231,13 @@ def _verify_semantic_validation_artifact(
     )
     request = validation.request
     custody = validation.custody
+    expected_verdict = (
+        SemanticVerdict.REJECT
+        if receipt.creator_action == "provisional_accept"
+        else SemanticVerdict.PASS
+    )
     if (
-        validation.verdict.verdict is not SemanticVerdict.PASS
+        validation.verdict.verdict is not expected_verdict
         or custody.world_id != receipt.world_id
         or custody.branch_id != receipt.branch_id
         or custody.accepted_head_sha256 != receipt.parent_accepted_head_sha256
@@ -1176,6 +1246,52 @@ def _verify_semantic_validation_artifact(
         or canonical_json(request.cognition_plan) != receipt.primary_authority_json
     ):
         raise StateConflictError("stored semantic validation changed accepted authority")
+    provisional_path = turn_dir / "PROVISIONAL_CANON.json"
+    if receipt.creator_action == "provisional_accept":
+        _verify_provisional_canon_artifact(
+            provisional_path,
+            receipt=receipt,
+            validation=validation,
+        )
+    elif provisional_path.exists():
+        raise StateConflictError("ordinary accepted turn has unauthorized provisional canon")
+
+
+def _verify_provisional_canon_artifact(
+    path: Path,
+    *,
+    receipt: LeanAcceptedTurnReceiptV1,
+    validation: BoundSemanticValidationV1,
+) -> None:
+    if not path.is_file() or path.is_symlink():
+        raise StateConflictError("provisional acceptance lacks its canon artifact")
+    payload = _read_json(path)
+    expected = {
+        "schema_version",
+        "provisional_canon_id",
+        "candidate_id",
+        "candidate_sha256",
+        "validation_binding_sha256",
+        "status",
+        "working_assumption",
+        "artifact_sha256",
+    }
+    if set(payload) != expected:
+        raise StateConflictError("provisional-canon artifact fields changed")
+    body = {key: payload[key] for key in payload if key != "artifact_sha256"}
+    if (
+        payload["schema_version"] != "cera.pi_scene.provisional_canon.v1"
+        or payload["candidate_id"] != validation.custody.candidate_id
+        or payload["candidate_sha256"] != receipt.candidate_sha256
+        or payload["validation_binding_sha256"] != validation.binding_sha256
+        or payload["status"] != "unresolved"
+        or payload["working_assumption"]
+        != "accepted_candidate_events_are_provisionally_true"
+        or payload["provisional_canon_id"]
+        != f"provisional:{receipt.candidate_sha256[:24]}"
+        or payload["artifact_sha256"] != canonical_sha256(body)
+    ):
+        raise StateConflictError("provisional-canon artifact binding changed")
 
 
 def _load_current_pi_session(
@@ -1236,10 +1352,28 @@ def _reducer_payload(value: Mapping[str, Any]) -> dict[str, Any]:
         "accepted_receipt_sha256": receipt.receipt_sha256,
         "recording_status": value.get("recording_status"),
     }
-    for name in ("ordinary_record", "adult_projection"):
+    for name in ("ordinary_record", "adult_projection", "provisional_canon"):
         if name in value:
             output[name] = value[name]
     return output
+
+
+def _attach_provisional_payload(
+    item: dict[str, Any],
+    *,
+    turn_dir: Path,
+    receipt: LeanAcceptedTurnReceiptV1,
+) -> None:
+    path = turn_dir / "PROVISIONAL_CANON.json"
+    if receipt.creator_action == "provisional_accept":
+        payload = _read_json(path)
+        item["provisional_canon"] = {
+            "provisional_canon_id": payload["provisional_canon_id"],
+            "status": payload["status"],
+            "authority_id": payload["candidate_sha256"],
+        }
+    elif path.exists():
+        raise StateConflictError("non-provisional turn contains provisional canon")
 
 
 def _validate_receipt_chain(

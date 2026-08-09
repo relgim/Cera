@@ -332,8 +332,12 @@ class LeanAcceptedTurnReceiptV1:
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("accepted-turn receipt schema changed")
-        if self.creator_action != "accept":
-            raise ContractValidationError("accepted-turn receipt requires creator Accept")
+        if self.creator_action not in {
+            "accept",
+            "automatic_accept",
+            "provisional_accept",
+        }:
+            raise ContractValidationError("accepted-turn receipt action is invalid")
         if self.initial_recording_status is not RecordingStatus.PROJECTION_PENDING:
             raise ContractValidationError("accepted turn must begin projection-pending")
         for field_name in (

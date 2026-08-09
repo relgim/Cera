@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
-from typing import Any, ClassVar, Mapping, Protocol, Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from typing import Any, ClassVar, Protocol, cast
 
 from cera.errors import ContractValidationError
 from cera.schema import from_mapping
 from cera.serialization import canonical_json, canonical_sha256, re_is_sha256, text_sha256
-
 
 ROUTES = frozenset({"ordinary", "adult"})
 RECORDING_STATUSES = frozenset({"projection_pending", "pending_repair", "complete"})
@@ -314,6 +314,7 @@ class AcceptedBranchEventV1:
     receipt_sha256: str
     route: str
     candidate_sha256: str
+    provisional_canon_entry: ProvisionalCanonLineageEntryV1 | None
     presence_changes: tuple[PresenceChangeV1, ...]
     durable_changes: tuple[DurableBranchChangeV1, ...]
     secondary_canon: tuple[str, ...]
@@ -339,6 +340,16 @@ class AcceptedBranchEventV1:
             require_sha(self.parent_accepted_head_sha256, "accepted event parent hash")
         require_sha(self.receipt_sha256, "accepted event receipt hash")
         require_sha(self.candidate_sha256, "accepted event candidate hash")
+        if self.provisional_canon_entry is not None and (
+            not isinstance(
+                self.provisional_canon_entry,
+                ProvisionalCanonLineageEntryV1,
+            )
+            or self.provisional_canon_entry.authority_id != self.candidate_sha256
+        ):
+            raise ContractValidationError(
+                "accepted provisional canon changed its candidate authority"
+            )
         if self.route not in ROUTES:
             raise ContractValidationError("accepted event route is invalid")
         unique_text(self.secondary_canon, "accepted secondary canon")
@@ -493,7 +504,7 @@ class BranchStateCheckpointV1:
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> BranchStateCheckpointV1:
-        return from_mapping(cls, value)
+        return cast(BranchStateCheckpointV1, from_mapping(cls, value))
 
 
 def records_from_mapping(

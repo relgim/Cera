@@ -224,6 +224,32 @@ class PiSceneSemanticRuntimeTests(unittest.TestCase):
             self.assertFalse(rejected_payload["cera"]["story_state_committed"])
             self.assertTrue(rejected_payload["cera"]["provisional"])
 
+    def test_creator_can_accept_a_rejected_candidate_only_as_provisional(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            coordinator, _, _ = _runtime(
+                root,
+                _SemanticValidator(SemanticVerdict.REJECT),
+            )
+            review = coordinator.start_ordinary(turn())
+            adapter = PiSceneHttpAdapter(
+                coordinator=coordinator,
+                session_id="session-test",
+                context_provider=lambda *_args: turn(),
+            )
+            result = adapter.decide(
+                review.review_id,
+                {"action": "accept_provisional"},
+            )
+            self.assertTrue(result["story_state_committed"])
+            self.assertEqual(result["review"]["canon_status"], "provisional")
+            accepted = coordinator.get_review(review.review_id)
+            assert accepted.accepted_receipt is not None
+            self.assertEqual(
+                accepted.accepted_receipt.creator_action,
+                "provisional_accept",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()

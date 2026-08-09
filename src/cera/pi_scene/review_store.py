@@ -256,8 +256,18 @@ class DurableReviewStateStore:
                         recording_attempt=self.scene_store.load_recording_attempt(accepted),
                     )
                     decisions[review.review_id] = DecisionReplayV1(
-                        action="accept",
-                        request_sha256=decision_request_sha256(action="accept"),
+                        action=(
+                            "accept_provisional"
+                            if accepted.creator_action == "provisional_accept"
+                            else "accept"
+                        ),
+                        request_sha256=decision_request_sha256(
+                            action=(
+                                "accept_provisional"
+                                if accepted.creator_action == "provisional_accept"
+                                else "accept"
+                            )
+                        ),
                         result=LeanDecisionResultV1(review=recovered),
                     )
                     if self.scene_store.recording_status(accepted) is not RecordingStatus.COMPLETE:
@@ -289,7 +299,7 @@ class DurableReviewStateStore:
                 raise StateConflictError(
                     "Pi Scene review state contains duplicate decision receipts"
                 )
-            if decision.action == "accept":
+            if decision.action in {"accept", "accept_provisional"}:
                 accepted = decision.result.review.accepted_receipt
                 if accepted is None:
                     raise StateConflictError("Accept decision omitted its receipt")
@@ -399,6 +409,7 @@ def decision_request_sha256(
         "regenerate",
         "replan",
         "automatic_repair",
+        "accept_provisional",
     }:
         raise ContractValidationError("Pi Scene decision action is invalid")
     return canonical_sha256(
@@ -653,6 +664,7 @@ def _decision_from_state_payload(
             "regenerate",
             "replan",
             "automatic_repair",
+            "accept_provisional",
         }
         or not isinstance(request_sha256, str)
         or not re.fullmatch(r"[0-9a-f]{64}", request_sha256)
@@ -669,6 +681,7 @@ def _decision_from_state_payload(
     )
     expected_state = {
         "accept": LeanReviewState.ACCEPTED,
+        "accept_provisional": LeanReviewState.ACCEPTED,
         "decline": LeanReviewState.DECLINED,
         "regenerate": LeanReviewState.REGENERATED,
         "replan": LeanReviewState.REPLANNED,
