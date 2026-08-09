@@ -35,6 +35,8 @@ from cera.pi_scene.contracts import (
     RecordingStatus,
     SceneRoute,
 )
+from cera.pi_scene.full_model_adult_runtime import FullModelAdultRuntimeFactory
+from cera.pi_scene.full_model_controller import FullModelSceneController
 from cera.pi_scene.full_model_runtime import (
     BranchBoundCognitionPlannerBackend,
     CognitionSessionFactory,
@@ -104,6 +106,7 @@ class LivePiSceneRuntime:
     deepseek_ledger: PiProviderOperationLedger
     readable_debug: ReadablePiSceneDebugLog
     world_resolver: PiSceneChatWorldResolver
+    full_model_controller: FullModelSceneController
 
     def close(self) -> None:
         self.stack.close()
@@ -437,6 +440,18 @@ def build_live_runtime(
             planner_resolver=planner_registry.resolve,
             semantic_validator=semantic_validator,
         )
+        adult_runtime = FullModelAdultRuntimeFactory(
+            store=store,
+            pi_adapter=pi,
+            catalog_root=ROOT / "adult" / "catalog" / "adult_craft_v1",
+            protected_runtime_root=runtime_root / "protected_adult",
+        )
+        full_model_controller = FullModelSceneController(
+            ordinary=coordinator,
+            store=store,
+            adult_orchestrator_factory=adult_runtime.orchestrator,
+            adult_context_provider=adult_runtime.execution_context,
+        )
         return LivePiSceneRuntime(
             stack=stack,
             coordinator=coordinator,
@@ -445,6 +460,7 @@ def build_live_runtime(
             deepseek_ledger=deepseek_ledger,
             readable_debug=readable_debug,
             world_resolver=world_resolver,
+            full_model_controller=full_model_controller,
         )
     except BaseException:
         stack.close()
