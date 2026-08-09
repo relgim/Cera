@@ -501,6 +501,9 @@ class PiSceneLeanTests(unittest.TestCase):
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
         self.assertIn("first response item", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("response_start_contract", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("completed cause left implicit", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Transient staging may begin only after", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("one deletion test", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("not a prose checklist", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
@@ -580,12 +583,21 @@ class PiSceneLeanTests(unittest.TestCase):
                     "response_authority_path": "RESPONSE_SEQUENCE.json",
                     "response_item_keys": ["hana_answers"],
                     "response_start_item_key": "hana_answers",
+                    "response_start_contract_path": (
+                        "RESPONSE_SEQUENCE.json#response_start_contract"
+                    ),
                     "source_contribution_status": "already_supplied_context_only",
                 },
             )
             self.assertEqual(
                 authority_order["presentation_contract"]["first_visible_beat"],
                 "response_start_item",
+            )
+            self.assertEqual(
+                authority_order["presentation_contract"][
+                    "response_start_contract_path"
+                ],
+                "RESPONSE_SEQUENCE.json#response_start_contract",
             )
             self.assertEqual(
                 sorted(path.name for path in view.root.iterdir())[-1],
@@ -738,6 +750,17 @@ class PiSceneLeanTests(unittest.TestCase):
                     "termination_constraint": (
                         "Stop with the floor returned to Ted."
                     ),
+                },
+            )
+            self.assertEqual(
+                response_sequence["response_start_contract"],
+                {
+                    "item_key": "hana_response",
+                    "owner_id": "character:hana",
+                    "first_clause": "advance_response_item_only",
+                    "completed_source_reference": "implicit_only",
+                    "lead_in": "none",
+                    "transient_staging": "after_first_response_clause",
                 },
             )
             self.assertNotIn("resulting_public_state", response_sequence)

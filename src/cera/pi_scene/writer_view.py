@@ -210,7 +210,7 @@ class WriterViewMaterializer:
         _write_json(
             root / "zz_CURRENT_TURN_AUTHORITY.json",
             {
-                "schema_version": "cera.pi_scene.writer_authority_order.v3",
+                "schema_version": "cera.pi_scene.writer_authority_order.v4",
                 "current_route": source.route.value,
                 "current_purpose": source.purpose,
                 "current_source_path": "USER_PROMPT.txt",
@@ -237,6 +237,11 @@ class WriterViewMaterializer:
                     {
                         "completed_source_usage": "context_only_never_render",
                         "first_visible_beat": "response_start_item",
+                        "response_start_contract_path": (
+                            "RESPONSE_SEQUENCE.json#response_start_contract"
+                            if source.route is SceneRoute.ORDINARY
+                            else None
+                        ),
                         "resulting_state_usage": "postcondition_not_prose_checklist",
                         "transient_detail_test": (
                             "Deleting an invented detail must change neither causality, "
@@ -536,12 +541,23 @@ def _ordinary_authority_projection(
         "source_contribution_status": "already_supplied_context_only",
         "response_item_keys": response,
         "response_start_item_key": response[0],
+        "response_start_contract_path": (
+            "RESPONSE_SEQUENCE.json#response_start_contract"
+        ),
         "response_authority_path": "RESPONSE_SEQUENCE.json",
         "postcondition_authority_path": "RESPONSE_SEQUENCE.json#postconditions",
     }
     response_projection = {
-        "schema_version": "cera.pi_scene.response_sequence.v3",
+        "schema_version": "cera.pi_scene.response_sequence.v4",
         "response_start_item_key": response[0],
+        "response_start_contract": {
+            "item_key": response[0],
+            "owner_id": response_items[0].get("owner_id"),
+            "first_clause": "advance_response_item_only",
+            "completed_source_reference": "implicit_only",
+            "lead_in": "none",
+            "transient_staging": "after_first_response_clause",
+        },
         "items": response_items,
         "durable_changes": response_durable_changes,
         "presence_changes": response_presence_changes,
