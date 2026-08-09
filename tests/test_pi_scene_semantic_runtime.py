@@ -174,6 +174,23 @@ class PiSceneSemanticRuntimeTests(unittest.TestCase):
             restarted, _, _ = _runtime(root, validator)
             recovered = restarted.get_review(accepted.review_id)
             self.assertEqual(recovered.state, LeanReviewState.ACCEPTED)
+            attempts = restarted.provider_operation_attempts(recovered)
+            self.assertEqual(len(attempts), 2)
+            self.assertEqual(attempts[0].state, LeanReviewState.REPAIRED)
+            self.assertEqual(
+                attempts[0].candidate.candidate_id,
+                recovered.result.repaired_from_candidate_id,
+            )
+            self.assertEqual(attempts[1], recovered)
+
+    def test_provider_operation_attempts_are_one_for_an_unrepaired_pass(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            coordinator, _, _ = _runtime(
+                Path(temporary),
+                _SemanticValidator(SemanticVerdict.PASS),
+            )
+            accepted = coordinator.start_ordinary(turn())
+            self.assertEqual(coordinator.provider_operation_attempts(accepted), (accepted,))
 
     def test_regenerate_reruns_the_logic_owner_before_the_writer(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

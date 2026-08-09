@@ -499,6 +499,52 @@ class LeanPiSceneCoordinator:
                 return replay.result.review
             raise StateConflictError("unknown Pi Scene review")
 
+    def provider_operation_attempts(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> tuple[LeanReviewRecordV1, ...]:
+        """Return the durable first-pass/repair chain for response accounting.
+
+        A critical automatic repair is a second complete Writer and Validator
+        attempt.  The accepted successor remains the story authority, while
+        the terminal predecessor remains immutable review evidence.  Keeping
+        this lookup on the coordinator lets HTTP and qualification reporting
+        count both attempts after restart without adding provider bookkeeping
+        to the model-authored contracts.
+        """
+
+        with self._lock:
+            durable = self._reviews.get(review.review_id)
+            if durable != review:
+                raise StateConflictError("Pi Scene response review is not durable")
+            predecessor_id = review.result.repaired_from_candidate_id
+            if predecessor_id is None:
+                return (review,)
+            durable_reviews = {value.review_id: value for value in self._reviews.values()}
+            for decision in self._decisions.values():
+                durable_reviews[decision.result.review.review_id] = decision.result.review
+                if decision.result.successor is not None:
+                    durable_reviews[decision.result.successor.review_id] = decision.result.successor
+            matches = tuple(
+                value
+                for value in durable_reviews.values()
+                if value.candidate.candidate_id == predecessor_id
+            )
+            if len(matches) != 1:
+                raise StateConflictError("Pi Scene repair predecessor is ambiguous")
+            predecessor = matches[0]
+            if (
+                predecessor.state != LeanReviewState.REPAIRED
+                or predecessor.result.repaired_from_candidate_id is not None
+                or predecessor.candidate.world_id != review.candidate.world_id
+                or predecessor.candidate.branch_id != review.candidate.branch_id
+                or predecessor.candidate.turn_id != review.candidate.turn_id
+                or predecessor.candidate.generation != review.candidate.generation
+                or predecessor.candidate.exact_user_source != review.candidate.exact_user_source
+            ):
+                raise StateConflictError("Pi Scene repair predecessor custody changed")
+            return (predecessor, review)
+
     def unresolved_review(
         self,
         *,
