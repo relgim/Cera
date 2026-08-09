@@ -276,7 +276,14 @@ class LeanPiSceneCoordinator:
                 decision,
                 result=replace(decision.result, successor=accepted),
             )
-            self._persist_review_state()
+            try:
+                self._persist_review_state()
+            except Exception:
+                # The successor Accept is already immutable story truth.  A
+                # trailing predecessor-replay snapshot is recoverable
+                # bookkeeping and must not turn a successful turn into a
+                # false uncommitted transport error.
+                pass
             return accepted
         return successor
 
@@ -558,7 +565,13 @@ class LeanPiSceneCoordinator:
                 ).review
                 result = replace(result, successor=accepted)
                 self._decisions[review.review_id] = replace(decision, result=result)
-                self._persist_review_state()
+                try:
+                    self._persist_review_state()
+                except Exception:
+                    result = replace(
+                        result,
+                        operational_warnings=("review_state_cleanup_pending",),
+                    )
             return result
 
     def replan(
@@ -632,7 +645,13 @@ class LeanPiSceneCoordinator:
                 ).review
                 result = replace(result, successor=accepted)
                 self._decisions[review.review_id] = replace(decision, result=result)
-                self._persist_review_state()
+                try:
+                    self._persist_review_state()
+                except Exception:
+                    result = replace(
+                        result,
+                        operational_warnings=("review_state_cleanup_pending",),
+                    )
             return result
 
     def repair_recording(self, review_id: str) -> LeanDecisionResultV1:
