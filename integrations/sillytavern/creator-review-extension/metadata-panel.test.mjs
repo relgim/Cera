@@ -7,7 +7,121 @@ import { pathToFileURL } from 'node:url';
 
 const sourceRoot = path.dirname(new URL(import.meta.url).pathname.replace(/^\/(?:[A-Za-z]:)/, value => value.slice(1)));
 
-async function loadExtension() {
+class TestElement {
+    constructor(tagName) {
+        this.tagName = String(tagName).toUpperCase();
+        this.children = [];
+        this.parentElement = null;
+        this.id = '';
+        this.className = '';
+        this.textContent = '';
+        this.disabled = false;
+        this.listeners = new Map();
+    }
+
+    get nextSibling() {
+        if (!this.parentElement) return null;
+        const index = this.parentElement.children.indexOf(this);
+        return this.parentElement.children[index + 1] ?? null;
+    }
+
+    set innerHTML(value) {
+        this.children = [];
+        this.textContent = String(value);
+    }
+
+    append(...children) {
+        for (const child of children) this.appendChild(child);
+    }
+
+    appendChild(child) {
+        if (child.parentElement) child.remove();
+        child.parentElement = this;
+        this.children.push(child);
+        return child;
+    }
+
+    insertBefore(child, reference) {
+        if (child.parentElement) child.remove();
+        child.parentElement = this;
+        const index = reference ? this.children.indexOf(reference) : -1;
+        if (index < 0) this.children.push(child);
+        else this.children.splice(index, 0, child);
+        return child;
+    }
+
+    remove() {
+        if (!this.parentElement) return;
+        const index = this.parentElement.children.indexOf(this);
+        if (index >= 0) this.parentElement.children.splice(index, 1);
+        this.parentElement = null;
+    }
+
+    addEventListener(type, handler) {
+        const handlers = this.listeners.get(type) ?? [];
+        handlers.push(handler);
+        this.listeners.set(type, handlers);
+    }
+
+    async click() {
+        if (this.disabled) return;
+        for (const handler of this.listeners.get('click') ?? []) await handler({ target: this });
+    }
+
+    querySelector(selector) {
+        return this.querySelectorAll(selector)[0] ?? null;
+    }
+
+    querySelectorAll(selector) {
+        const matches = [];
+        for (const child of this.children) {
+            if (matchesSimpleSelector(child, selector)) matches.push(child);
+            matches.push(...child.querySelectorAll(selector));
+        }
+        return matches;
+    }
+}
+
+class TestDocument {
+    constructor() {
+        this.body = new TestElement('body');
+        const wrapper = new TestElement('main');
+        const sendForm = new TestElement('form');
+        sendForm.id = 'send_form';
+        wrapper.appendChild(sendForm);
+        this.body.appendChild(wrapper);
+    }
+
+    createElement(tagName) { return new TestElement(tagName); }
+    querySelector(selector) {
+        if (matchesSimpleSelector(this.body, selector)) return this.body;
+        return this.body.querySelector(selector);
+    }
+}
+
+function matchesSimpleSelector(element, selector) {
+    if (selector.startsWith('#') && !selector.includes(' ')) return element.id === selector.slice(1);
+    if (selector.startsWith('.') && !selector.includes(' ')) {
+        return element.className.split(/\s+/).includes(selector.slice(1));
+    }
+    if (/^[a-z]+$/i.test(selector)) return element.tagName === selector.toUpperCase();
+    return false;
+}
+
+function buttonByText(documentValue, text) {
+    return documentValue.body.querySelectorAll('button')
+        .find(button => button.textContent === text) ?? null;
+}
+
+function retryStore(storage) {
+    return JSON.parse(storage.get('cera_transport_retry_receipts_v1') ?? '{}');
+}
+
+async function loadExtension({
+    initialStorage = {},
+    initialChat = [],
+    fetchImpl = undefined,
+} = {}) {
     const root = await mkdtemp(path.join(tmpdir(), 'cera-metadata-panel-'));
     const extension = path.join(
         root,
@@ -22,28 +136,51 @@ async function loadExtension() {
     await writeFile(path.join(root, 'package.json'), '{"type":"module"}\n');
     await writeFile(
         path.join(root, 'public', 'script.js'),
-        `export const chat = [];
-export const characters = [];
-export const this_chid = 0;
+        `export const chat = ${JSON.stringify(initialChat)};
+export const characters = [{ name: 'Sakura' }];
+export let this_chid = 0;
+let currentChatId = 'test-chat';
+const handlers = new Map();
+let failedSavesRemaining = 0;
+export const testState = {
+  activateCount: 0, deactivateCount: 0, addCount: 0, saveCount: 0
+};
 export const event_types = {
   APP_READY: 'APP_READY', MESSAGE_RECEIVED: 'MESSAGE_RECEIVED',
   CHARACTER_MESSAGE_RENDERED: 'CHARACTER_MESSAGE_RENDERED',
   CHAT_CHANGED: 'CHAT_CHANGED', GENERATION_ENDED: 'GENERATION_ENDED'
 };
-export const eventSource = { on() {} };
-export function addOneMessage() {}
-export function activateSendButtons() {}
-export function deactivateSendButtons() {}
-export function getCurrentChatId() { return 'test-chat'; }
+export const eventSource = {
+  on(type, handler) {
+    const values = handlers.get(type) ?? [];
+    values.push(handler);
+    handlers.set(type, values);
+  },
+  async emit(type, ...args) {
+    for (const handler of handlers.get(type) ?? []) await handler(...args);
+  }
+};
+export function __setChatId(value) { currentChatId = value; }
+export function __failNextSaves(count = 1) { failedSavesRemaining = count; }
+export function addOneMessage() { testState.addCount += 1; }
+export function activateSendButtons() { testState.activateCount += 1; }
+export function deactivateSendButtons() { testState.deactivateCount += 1; }
+export function getCurrentChatId() { return currentChatId; }
 export function getMessageTimeStamp() { return 'test-time'; }
 export function getRequestHeaders() { return {}; }
-export async function saveChatConditional() {}
+export async function saveChatConditional() {
+  testState.saveCount += 1;
+  if (failedSavesRemaining > 0) {
+    failedSavesRemaining -= 1;
+    throw new Error('simulated chat save interruption');
+  }
+}
 export function updateMessageBlock() {}
 `,
     );
     await writeFile(
         path.join(root, 'public', 'scripts', 'openai.js'),
-        `export const oai_settings = { custom_include_headers: '' };\n`,
+        `export const oai_settings = { custom_include_headers: 'Authorization: Bearer ${'a'.repeat(43)}' };\n`,
     );
     for (const name of [
         'index.js',
@@ -66,13 +203,98 @@ export function updateMessageBlock() {}
     globalThis.CustomEvent = TestCustomEvent;
     globalThis.window = new EventTarget();
     globalThis.window.ceraCompletionMetadataQueue = [];
-    globalThis.localStorage = { getItem() { return null; }, setItem() {} };
-    globalThis.document = { querySelector() { return null; } };
+    const storage = new Map(Object.entries(initialStorage));
+    globalThis.localStorage = {
+        getItem(key) { return storage.has(key) ? storage.get(key) : null; },
+        setItem(key, value) { storage.set(key, String(value)); },
+        removeItem(key) { storage.delete(key); },
+    };
+    const testDocument = new TestDocument();
+    globalThis.document = testDocument;
+    if (fetchImpl) globalThis.fetch = fetchImpl;
     const module = await import(`${pathToFileURL(path.join(extension, 'index.js')).href}?v=${Date.now()}`);
+    const scriptModule = await import(
+        `${pathToFileURL(path.join(root, 'public', 'script.js')).href}`
+    );
     const metadataModule = await import(
         `${pathToFileURL(path.join(extension, 'completion-metadata.js')).href}?v=${Date.now()}`
     );
-    return { module, metadataModule, root };
+    return {
+        module,
+        metadataModule,
+        root,
+        scriptModule,
+        storage,
+        testDocument,
+    };
+}
+
+function eligibleTransportFailure({
+    retryCharacter = 'b',
+    requestCharacter = 'a',
+    proofCharacter = 'c',
+} = {}) {
+    const retryId = `retry-${retryCharacter.repeat(64)}`;
+    return {
+        status: 'error',
+        story_state_committed: false,
+        error: {
+            schema_version: 'cera.error.v1',
+            error_code: 'CERA_PROVIDER_TRANSPORT_FAILED',
+            request_id: `request-${requestCharacter.repeat(64)}`,
+            story_state_committed: false,
+            retry_mode: 'manual_transport',
+            provider_operation_submitted: true,
+            accepted_state_changed: false,
+            fallback_used: false,
+            next_action: 'use_transport_retry',
+            retry_transport_enabled: true,
+            transport_retry: {
+                schema_version: 'cera.pi_scene.transport_retry.v1',
+                retry_id: retryId,
+                retry_url: `/v1/cera/transport-retries/${retryId}`,
+                method: 'POST',
+                eligible: true,
+                automatic: false,
+                effect_proof_sha256: proofCharacter.repeat(64),
+            },
+        },
+    };
+}
+
+function transportRetryCompletion(failure) {
+    return {
+        id: 'chatcmpl-cera-retry',
+        choices: [{ message: { content: 'Sakura answers once.' } }],
+        cera: {
+            profile_id: 'cera.pi_scene.lean.v1',
+            request_id: failure.error.request_id,
+            candidate_id: 'candidate:transport-retry-terminal',
+            route_mode: 'ordinary',
+            provisional: false,
+            status: 'accepted',
+            story_state_committed: true,
+        },
+    };
+}
+
+function transportRetryStatus(failure, state, extra = {}) {
+    return {
+        schema_version: 'cera.pi_scene.transport_retry_status.v1',
+        retry_id: failure.error.transport_retry.retry_id,
+        request_id: failure.error.request_id,
+        state,
+        effect_proof_sha256: failure.error.transport_retry.effect_proof_sha256,
+        retry_transport_enabled: state === 'eligible' || state === 'superseded',
+        ...extra,
+    };
+}
+
+function jsonResponse(payload, status = 200) {
+    return new Response(JSON.stringify(payload), {
+        status,
+        headers: { 'Content-Type': 'application/json' },
+    });
 }
 
 test('full-model metadata is allowlisted and protected adult prose is never queued', async () => {
@@ -385,6 +607,351 @@ test('manual transport retry is gated by the complete zero-effect backend proof'
         }), null);
     } finally {
         await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('transport Retry receipt survives reload, blocks sends, and remains isolated per chat', async () => {
+    const first = await loadExtension();
+    let second = null;
+    try {
+        const sentinel = 'PROMPT-PROSE-MUST-NOT-BE-PERSISTED';
+        const failure = eligibleTransportFailure();
+        failure.error.prompt = sentinel;
+        failure.error.debug_log_path = 'D:\\private\\debug.md';
+        assert.equal(window.ceraCaptureTransportFailure(failure), true);
+        assert.equal(first.scriptModule.testState.deactivateCount, 1);
+        const stored = retryStore(first.storage);
+        assert.equal(stored.schema_version, 'cera.sillytavern.transport_retry_store.v1');
+        assert.equal(stored.entries.length, 1);
+        assert.equal(stored.entries[0].phase, 'eligible');
+        assert.equal(JSON.stringify(stored).includes(sentinel), false);
+        assert.equal(JSON.stringify(stored).includes('debug.md'), false);
+        assert.ok(first.testDocument.querySelector('#cera_transport_retry_panel'));
+
+        second = await loadExtension({ initialStorage: Object.fromEntries(first.storage) });
+        await second.scriptModule.eventSource.emit(second.scriptModule.event_types.APP_READY);
+        assert.ok(second.testDocument.querySelector('#cera_transport_retry_panel'));
+        assert.ok(second.scriptModule.testState.deactivateCount >= 1);
+
+        second.scriptModule.__setChatId('different-chat');
+        await second.scriptModule.eventSource.emit(second.scriptModule.event_types.CHAT_CHANGED);
+        assert.equal(second.testDocument.querySelector('#cera_transport_retry_panel'), null);
+        assert.ok(second.scriptModule.testState.activateCount >= 1);
+        assert.equal(retryStore(second.storage).entries.length, 1);
+
+        second.scriptModule.__setChatId('test-chat');
+        await second.scriptModule.eventSource.emit(second.scriptModule.event_types.CHAT_CHANGED);
+        assert.ok(second.testDocument.querySelector('#cera_transport_retry_panel'));
+        assert.ok(second.scriptModule.testState.deactivateCount >= 2);
+    } finally {
+        await rm(first.root, { recursive: true, force: true });
+        if (second) await rm(second.root, { recursive: true, force: true });
+    }
+});
+
+test('retry status normalizer closes all five backend states and rejects extra authority', async () => {
+    const { root } = await loadExtension();
+    try {
+        const actions = await import(
+            `${pathToFileURL(path.join(
+                root,
+                'public/scripts/extensions/third-party/cera-creator-review/review-actions.js',
+            )).href}?v=${Date.now()}`
+        );
+        const failure = eligibleTransportFailure();
+        const action = failure.error.transport_retry;
+        const completion = transportRetryCompletion(failure);
+        const successorId = `retry-${'f'.repeat(64)}`;
+        const statuses = [
+            transportRetryStatus(failure, 'eligible', { transport_retry: action }),
+            transportRetryStatus(failure, 'in_progress', { phase: 'authorized' }),
+            transportRetryStatus(failure, 'succeeded', {
+                completion,
+                completion_sha256: '1'.repeat(64),
+            }),
+            transportRetryStatus(failure, 'superseded', {
+                superseded_by_retry_id: successorId,
+                transport_retry: {
+                    ...action,
+                    retry_id: successorId,
+                    retry_url: `/v1/cera/transport-retries/${successorId}`,
+                    effect_proof_sha256: '2'.repeat(64),
+                },
+            }),
+            transportRetryStatus(failure, 'blocked', {
+                blocked_reason_code: 'effect_state_changed',
+            }),
+        ];
+        for (const status of statuses) {
+            assert.deepEqual(actions.normalizeTransportRetryStatus(status), status);
+        }
+        assert.equal(actions.normalizeTransportRetryStatus({
+            ...statuses[0],
+            automatic_retry: true,
+        }), null);
+        assert.equal(actions.normalizeTransportRetryStatus({
+            ...statuses[4],
+            retry_transport_enabled: true,
+        }), null);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('proxy 502 after POST becomes unknown and only GET may reconcile it', async () => {
+    const failure = eligibleTransportFailure();
+    const calls = [];
+    const responses = [
+        jsonResponse({
+            error: {
+                message: 'SillyTavern could not reach the local CERA service.',
+                type: 'cera_error',
+                code: 'cera_loopback_unavailable',
+                stage: 'sillytavern_cera_review_proxy',
+                retryable: false,
+                fallback_used: false,
+            },
+        }, 502),
+        jsonResponse({
+            error: {
+                message: 'SillyTavern could not reach the local CERA service.',
+                type: 'cera_error',
+                code: 'cera_loopback_unavailable',
+                stage: 'sillytavern_cera_review_proxy',
+                retryable: false,
+                fallback_used: false,
+            },
+        }, 502),
+        jsonResponse(transportRetryStatus(failure, 'in_progress', {
+            phase: 'dispatch_started',
+        })),
+    ];
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            calls.push({ url, options });
+            return responses.shift();
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureTransportFailure(failure), true);
+        await buttonByText(loaded.testDocument, 'Retry transport').click();
+        assert.deepEqual(calls.map(call => call.options.method), ['POST', 'GET']);
+        assert.equal(retryStore(loaded.storage).entries[0].phase, 'unknown');
+        assert.equal(buttonByText(loaded.testDocument, 'Retry transport'), null);
+
+        await buttonByText(loaded.testDocument, 'Check retry status').click();
+        assert.deepEqual(calls.map(call => call.options.method), ['POST', 'GET', 'GET']);
+        assert.equal(calls.filter(call => call.options.method === 'POST').length, 1);
+        assert.equal(retryStore(loaded.storage).entries[0].phase, 'in_progress');
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('chat switch during POST cannot append or rewrite another chat receipt', async () => {
+    const firstFailure = eligibleTransportFailure();
+    const secondFailure = eligibleTransportFailure({
+        retryCharacter: '4',
+        requestCharacter: '5',
+        proofCharacter: '6',
+    });
+    let resolvePost;
+    const postResponse = new Promise(resolve => { resolvePost = resolve; });
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({ fetchImpl: async () => postResponse });
+    try {
+        assert.equal(window.ceraCaptureTransportFailure(firstFailure), true);
+        const pendingClick = buttonByText(loaded.testDocument, 'Retry transport').click();
+        loaded.scriptModule.__setChatId('different-chat');
+        await loaded.scriptModule.eventSource.emit(loaded.scriptModule.event_types.CHAT_CHANGED);
+        assert.equal(window.ceraCaptureTransportFailure(secondFailure), true);
+        resolvePost(jsonResponse(transportRetryCompletion(firstFailure)));
+        await pendingClick;
+
+        assert.equal(loaded.scriptModule.chat.length, 0);
+        const stored = retryStore(loaded.storage).entries;
+        assert.equal(stored.length, 2);
+        assert.equal(
+            stored.find(entry => entry.chat_key.includes('different-chat')).receipt.retry_id,
+            secondFailure.error.transport_retry.retry_id,
+        );
+        assert.equal(
+            stored.find(entry => entry.chat_key.includes('test-chat')).phase,
+            'in_progress',
+        );
+        assert.ok(buttonByText(loaded.testDocument, 'Retry transport'));
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('authenticated blocked status clears the action without another dispatch', async () => {
+    const failure = eligibleTransportFailure();
+    const responses = [
+        jsonResponse({ status: 'error', error: { error_code: 'CERA_STATE_CONFLICT' } }, 409),
+        jsonResponse(transportRetryStatus(failure, 'blocked', {
+            blocked_reason_code: 'provider_ledger_changed',
+        })),
+    ];
+    const methods = [];
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            methods.push(options.method);
+            return responses.shift();
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureTransportFailure(failure), true);
+        await buttonByText(loaded.testDocument, 'Retry transport').click();
+        assert.deepEqual(methods, ['POST', 'GET']);
+        assert.equal(retryStore(loaded.storage).entries.length, 0);
+        assert.equal(buttonByText(loaded.testDocument, 'Retry transport'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Check retry status'), null);
+        assert.ok(loaded.scriptModule.testState.activateCount >= 1);
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('superseded status exposes only the backend-issued successor manual action', async () => {
+    const failure = eligibleTransportFailure();
+    const successorId = `retry-${'7'.repeat(64)}`;
+    const successorAction = {
+        ...failure.error.transport_retry,
+        retry_id: successorId,
+        retry_url: `/v1/cera/transport-retries/${successorId}`,
+        effect_proof_sha256: '8'.repeat(64),
+    };
+    const responses = [
+        jsonResponse({
+            error: {
+                message: 'SillyTavern could not reach the local CERA service.',
+                type: 'cera_error',
+                code: 'cera_loopback_unavailable',
+                stage: 'sillytavern_cera_review_proxy',
+                retryable: false,
+                fallback_used: false,
+            },
+        }, 502),
+        jsonResponse(transportRetryStatus(failure, 'superseded', {
+            superseded_by_retry_id: successorId,
+            transport_retry: successorAction,
+        })),
+    ];
+    const methods = [];
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            methods.push(options.method);
+            return responses.shift();
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureTransportFailure(failure), true);
+        await buttonByText(loaded.testDocument, 'Retry transport').click();
+        assert.deepEqual(methods, ['POST', 'GET']);
+        const state = retryStore(loaded.storage).entries[0];
+        assert.equal(state.phase, 'eligible');
+        assert.equal(state.receipt.retry_id, successorId);
+        assert.ok(buttonByText(loaded.testDocument, 'Retry transport'));
+        assert.equal(methods.filter(method => method === 'POST').length, 1);
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('save interruption after push reconciles one terminal completion without duplication', async () => {
+    const failure = eligibleTransportFailure();
+    const completion = transportRetryCompletion(failure);
+    const calls = [];
+    const responses = [
+        jsonResponse(completion),
+        jsonResponse(transportRetryStatus(failure, 'succeeded', {
+            completion,
+            completion_sha256: 'd'.repeat(64),
+        })),
+    ];
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            calls.push({ url, options });
+            return responses.shift();
+        },
+    });
+    try {
+        loaded.scriptModule.__failNextSaves(1);
+        assert.equal(window.ceraCaptureTransportFailure(failure), true);
+        await buttonByText(loaded.testDocument, 'Retry transport').click();
+        assert.deepEqual(calls.map(call => call.options.method), ['POST', 'GET']);
+        assert.equal(loaded.scriptModule.chat.length, 1);
+        assert.equal(loaded.scriptModule.testState.addCount, 1);
+        assert.equal(loaded.scriptModule.testState.saveCount, 2);
+        assert.equal(
+            loaded.scriptModule.chat[0].extra.cera_creator_review
+                .transport_retry_completion.retry_id,
+            failure.error.transport_retry.retry_id,
+        );
+        assert.equal(retryStore(loaded.storage).entries.length, 0);
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('reload plus succeeded status deduplicates a completion retained after save ambiguity', async () => {
+    const failure = eligibleTransportFailure();
+    const completion = transportRetryCompletion(failure);
+    const unavailable = {
+        error: {
+            message: 'SillyTavern could not reach the local CERA service.',
+            type: 'cera_error',
+            code: 'cera_loopback_unavailable',
+            stage: 'sillytavern_cera_review_proxy',
+            retryable: false,
+            fallback_used: false,
+        },
+    };
+    const originalFetch = globalThis.fetch;
+    const firstResponses = [jsonResponse(completion), jsonResponse(unavailable, 502)];
+    const first = await loadExtension({
+        fetchImpl: async () => firstResponses.shift(),
+    });
+    let second = null;
+    try {
+        first.scriptModule.__failNextSaves(1);
+        assert.equal(window.ceraCaptureTransportFailure(failure), true);
+        await buttonByText(first.testDocument, 'Retry transport').click();
+        assert.equal(first.scriptModule.chat.length, 1);
+        assert.equal(retryStore(first.storage).entries[0].phase, 'completion_received');
+
+        const status = transportRetryStatus(failure, 'succeeded', {
+            completion,
+            completion_sha256: 'e'.repeat(64),
+        });
+        second = await loadExtension({
+            initialStorage: Object.fromEntries(first.storage),
+            initialChat: structuredClone(first.scriptModule.chat),
+            fetchImpl: async () => jsonResponse(status),
+        });
+        await second.scriptModule.eventSource.emit(second.scriptModule.event_types.APP_READY);
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+            if (retryStore(second.storage).entries?.length === 0) break;
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        assert.equal(second.scriptModule.chat.length, 1);
+        assert.equal(second.scriptModule.testState.addCount, 0);
+        assert.equal(second.scriptModule.testState.saveCount, 1);
+        assert.equal(retryStore(second.storage).entries.length, 0);
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(first.root, { recursive: true, force: true });
+        if (second) await rm(second.root, { recursive: true, force: true });
     }
 });
 

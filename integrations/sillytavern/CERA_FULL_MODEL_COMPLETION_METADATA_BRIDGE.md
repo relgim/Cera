@@ -57,10 +57,28 @@ derives or repairs a review ID.
 valid backend-issued request ID, and an exact eligible retry object whose URL
 matches its stable retry ID. One click posts the exact empty JSON object to the
 same-origin review relay. There is no automatic retry, fallback, result merge,
-or client-derived retry identity. A successful retry is inserted as one normal
-completion; another proven zero-effect transport failure may supply a new
-manual retry ID. Ambiguous, pending, generic, or accepted-effect failures never
-receive the button.
+or client-derived retry identity. Before that click, the extension persists a
+closed receipt containing only the current chat key, request/retry identifiers,
+effect proof, action fields, and lifecycle phase. It stores no prompt, response
+prose, raw error, provider detail, or debug path. The current chat's normal send
+controls remain disabled until the receipt reaches a terminal state; switching
+chats neither leaks nor discards another chat's receipt.
+
+After a POST transport failure or exact relay `cera_loopback_unavailable` 502,
+the outcome is unknown. The client never interprets that as a terminal failure
+and never posts the action again. It reconciles the same retry ID with an
+authenticated, read-only GET. Only the exact
+`cera.pi_scene.transport_retry_status.v1` states `eligible`, `in_progress`,
+`succeeded`, `superseded`, and `blocked` are accepted. `eligible` and
+`superseded` may expose one backend-issued manual action; every other state has
+no provider-dispatch button.
+
+A successful retry is inserted as one normal completion. Its stable retry,
+request, and completion identities are saved beside the assistant message. The
+receipt is retained until the chat save succeeds, and replayed status is
+deduplicated before any message push. Another proven zero-effect transport
+failure may supply a new manual retry ID. Ambiguous, pending, generic, or
+accepted-effect failures never receive the button.
 
 The relay applies the same closed projection to an error returned by the retry
 itself. A normal OpenAI-compatible completion passes through unchanged. An

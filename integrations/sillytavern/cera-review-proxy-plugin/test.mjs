@@ -11,6 +11,7 @@ import {
     normalizeTransportRetryBody,
     normalizeTransportRetryId,
     projectTransportRetryPayload,
+    projectTransportRetryStatusPayload,
     reviewUpstreamUrl,
     transportRetryUpstreamUrl,
 } from './index.js';
@@ -27,6 +28,7 @@ test('plugin registers only the narrow CERA relay routes', async () => {
         ['GET', '/health', 'function'],
         ['GET', '/v1/cera/reviews/:reviewId', 'function'],
         ['POST', '/v1/cera/reviews/:reviewId/decision', 'function'],
+        ['GET', '/v1/cera/transport-retries/:retryId', 'function'],
         ['POST', '/v1/cera/transport-retries/:retryId', 'function'],
     ]);
 });
@@ -90,6 +92,120 @@ test('transport retry projection removes raw paths and rejects incomplete proofs
     assert.equal('transport_retry' in ambiguous.error, false);
 });
 
+test('transport retry status projection accepts only the five closed lifecycle states', () => {
+    const retryId = `retry-${'1'.repeat(64)}`;
+    const successorId = `retry-${'2'.repeat(64)}`;
+    const common = {
+        schema_version: 'cera.pi_scene.transport_retry_status.v1',
+        retry_id: retryId,
+        request_id: `request-${'3'.repeat(64)}`,
+        effect_proof_sha256: '4'.repeat(64),
+    };
+    const action = {
+        schema_version: 'cera.pi_scene.transport_retry.v1',
+        retry_id: retryId,
+        retry_url: `/v1/cera/transport-retries/${retryId}`,
+        method: 'POST',
+        eligible: true,
+        automatic: false,
+        effect_proof_sha256: common.effect_proof_sha256,
+    };
+    const completion = {
+        id: 'completion:test',
+        choices: [{ message: { content: 'A terminal result.' } }],
+        cera: { profile_id: 'cera.pi_scene.lean.v1', request_id: common.request_id },
+    };
+    const values = [
+        {
+            ...common,
+            state: 'eligible',
+            retry_transport_enabled: true,
+            transport_retry: action,
+        },
+        {
+            ...common,
+            state: 'in_progress',
+            retry_transport_enabled: false,
+            phase: 'dispatch_started',
+        },
+        {
+            ...common,
+            state: 'succeeded',
+            retry_transport_enabled: false,
+            completion,
+            completion_sha256: '5'.repeat(64),
+        },
+        {
+            ...common,
+            state: 'superseded',
+            retry_transport_enabled: true,
+            superseded_by_retry_id: successorId,
+            transport_retry: {
+                ...action,
+                retry_id: successorId,
+                retry_url: `/v1/cera/transport-retries/${successorId}`,
+                effect_proof_sha256: '6'.repeat(64),
+            },
+        },
+        {
+            ...common,
+            state: 'blocked',
+            retry_transport_enabled: false,
+            blocked_reason_code: 'dispatch_state_ambiguous',
+        },
+    ];
+    for (const value of values) {
+        assert.deepEqual(projectTransportRetryStatusPayload(value), value);
+    }
+    assert.throws(() => projectTransportRetryStatusPayload({
+        ...values[0],
+        hidden_path: 'D:\\private\\receipt.json',
+    }));
+    assert.throws(() => projectTransportRetryStatusPayload({
+        ...values[1],
+        retry_transport_enabled: true,
+    }));
+    assert.throws(() => projectTransportRetryStatusPayload({
+        ...values[3],
+        superseded_by_retry_id: retryId,
+    }));
+    assert.throws(() => projectTransportRetryStatusPayload({
+        ...values[4],
+        blocked_reason_code: 'generic_failure',
+    }));
+});
+
+test('transport retry status projection sanitizes the exact authenticated not-found envelope', () => {
+    const value = {
+        status: 'error',
+        story_state_committed: false,
+        error: {
+            schema_version: 'cera.error.v1',
+            error_code: 'CERA_TRANSPORT_RETRY_NOT_FOUND',
+            message: 'The transport Retry identity is unavailable.',
+            trace_id: 'trace:private-local-id',
+            request_id: null,
+            branch_id: null,
+            generation_id: null,
+            stage: 'pi_scene_http',
+            story_state_committed: false,
+            retry_mode: 'not_applicable',
+            details: [],
+            fallback_used: false,
+            provider_operation_submitted: false,
+            accepted_state_changed: false,
+            next_action: 'check_transport_retry_identity',
+            debug_log_path: null,
+            retry_transport_enabled: false,
+        },
+    };
+    const projected = projectTransportRetryStatusPayload(value);
+    assert.equal(projected.error.error_code, 'CERA_TRANSPORT_RETRY_NOT_FOUND');
+    assert.equal(projected.error.retry_transport_enabled, false);
+    assert.equal(JSON.stringify(projected).includes('private-local-id'), false);
+    assert.equal('trace_id' in projected.error, false);
+});
+
 test('transport retry route forwards one authenticated empty POST and preserves status', async () => {
     const routes = new Map();
     const router = {
@@ -139,6 +255,55 @@ test('transport retry route forwards one authenticated empty POST and preserves 
     assert.equal(responsePayload.error.retry_transport_enabled, false);
     assert.equal(responsePayload.error.error_code, 'CERA_TRANSPORT_RETRY_NOT_AVAILABLE');
     assert.equal('transport_retry' in responsePayload.error, false);
+});
+
+test('transport retry status route forwards one authenticated GET without dispatch', async () => {
+    const routes = new Map();
+    const router = {
+        get(path, handler) { routes.set(`GET ${path}`, handler); },
+        post() {},
+    };
+    await init(router);
+    const retryId = `retry-${'7'.repeat(64)}`;
+    const status = {
+        schema_version: 'cera.pi_scene.transport_retry_status.v1',
+        retry_id: retryId,
+        request_id: `request-${'8'.repeat(64)}`,
+        state: 'in_progress',
+        effect_proof_sha256: '9'.repeat(64),
+        retry_transport_enabled: false,
+        phase: 'owner_rotated',
+    };
+    const calls = [];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+        calls.push({ url, options });
+        return new Response(JSON.stringify(status), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        });
+    };
+    let responseStatus = null;
+    let responsePayload = null;
+    const response = {
+        headersSent: false,
+        set() { return this; },
+        status(value) { responseStatus = value; return this; },
+        json(value) { responsePayload = value; return this; },
+    };
+    try {
+        await routes.get('GET /v1/cera/transport-retries/:retryId')({
+            params: { retryId },
+            get() { return `Bearer ${'a'.repeat(43)}`; },
+        }, response);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].options.method, 'GET');
+    assert.equal(calls[0].options.body, undefined);
+    assert.equal(responseStatus, 200);
+    assert.deepEqual(responsePayload, status);
 });
 
 test('review authorization accepts only a bounded bearer credential', () => {

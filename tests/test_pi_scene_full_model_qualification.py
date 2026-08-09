@@ -913,9 +913,18 @@ class FullModelQualificationTests(unittest.TestCase):
             extension = root / "extension"
             proxy.mkdir()
             extension.mkdir()
-            (proxy / "index.js").write_text("proxy", encoding="utf-8")
+            (proxy / "index.js").write_text(
+                "router.get('/v1/cera/transport-retries/:retryId');"
+                "cera.pi_scene.transport_retry_status.v1",
+                encoding="utf-8",
+            )
             (proxy / "package.json").write_text("{}", encoding="utf-8")
-            (extension / "index.js").write_text("extension", encoding="utf-8")
+            (extension / "index.js").write_text(
+                "cera_transport_retry_receipts_v1;"
+                "restoreTransportRetryForCurrentChat({ reconcile: true });"
+                "transport_retry_completion",
+                encoding="utf-8",
+            )
             target = root / "target"
             manifest = stage_qualification_sillytavern(
                 source,
@@ -935,6 +944,17 @@ class FullModelQualificationTests(unittest.TestCase):
                 (target / "public/scripts/extensions/third-party/unapproved/index.js").exists()
             )
             self.assertTrue((target / "plugins/cera-review-proxy/index.js").is_file())
+            staged_proxy = (target / "plugins/cera-review-proxy/index.js").read_text(
+                encoding="utf-8"
+            )
+            self.assertIn("/v1/cera/transport-retries/:retryId", staged_proxy)
+            self.assertIn("cera.pi_scene.transport_retry_status.v1", staged_proxy)
+            staged_extension = (
+                target / "public/scripts/extensions/third-party/cera-creator-review/index.js"
+            ).read_text(encoding="utf-8")
+            self.assertIn("cera_transport_retry_receipts_v1", staged_extension)
+            self.assertIn("restoreTransportRetryForCurrentChat", staged_extension)
+            self.assertIn("transport_retry_completion", staged_extension)
             openai = (target / "public/scripts/openai.js").read_text(encoding="utf-8")
             self.assertIn("window.ceraCaptureCompletionMetadata(data.cera)", openai)
             self.assertEqual(openai.count("window.ceraCaptureTransportFailure(data)"), 1)

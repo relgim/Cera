@@ -3,11 +3,25 @@ const MAX_UPSTREAM_BYTES = 2_000_000;
 const GET_TIMEOUT_MS = 10_000;
 const DECISION_TIMEOUT_MS = 900_000;
 const TRANSPORT_RETRY_TIMEOUT_MS = 4_200_000;
+const TRANSPORT_RETRY_STATUS_SCHEMA = 'cera.pi_scene.transport_retry_status.v1';
 const REVIEW_ID_PATTERN = /^(?:[a-z][a-z0-9_]{0,31}:[A-Za-z0-9._-]{1,160}|review-[a-f0-9]{28})$/;
 const TRANSPORT_RETRY_ID_PATTERN = /^retry-[a-f0-9]{64}$/;
 const REQUEST_ID_PATTERN = /^request-[a-f0-9]{64}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const AUTHORIZATION_PATTERN = /^Bearer [A-Za-z0-9._~-]{24,512}$/;
+const TRANSPORT_RETRY_PROGRESS_PHASES = new Set([
+    'authorized',
+    'owner_rotated',
+    'dispatch_started',
+]);
+const TRANSPORT_RETRY_BLOCKED_REASONS = new Set([
+    'effect_state_changed',
+    'route_or_context_changed',
+    'provider_ledger_changed',
+    'owner_rotation_failed',
+    'dispatch_state_ambiguous',
+    'durable_request_progressed',
+]);
 const DECISION_ACTIONS = new Set([
     'accept',
     'accept_provisional',
@@ -222,6 +236,204 @@ export function projectTransportRetryPayload(value) {
     };
 }
 
+function projectTransportRetryAction(value) {
+    if (
+        !value
+        || typeof value !== 'object'
+        || Array.isArray(value)
+        || !exactKeys(value, [
+            'automatic',
+            'effect_proof_sha256',
+            'eligible',
+            'method',
+            'retry_id',
+            'retry_url',
+            'schema_version',
+        ])
+        || value.schema_version !== 'cera.pi_scene.transport_retry.v1'
+        || !TRANSPORT_RETRY_ID_PATTERN.test(value.retry_id)
+        || value.retry_url !== `/v1/cera/transport-retries/${value.retry_id}`
+        || value.method !== 'POST'
+        || value.eligible !== true
+        || value.automatic !== false
+        || !SHA256_PATTERN.test(value.effect_proof_sha256)
+    ) throw new TypeError('CERA transport retry action is invalid');
+    return {
+        schema_version: value.schema_version,
+        retry_id: value.retry_id,
+        retry_url: value.retry_url,
+        method: 'POST',
+        eligible: true,
+        automatic: false,
+        effect_proof_sha256: value.effect_proof_sha256,
+    };
+}
+
+/** Closed projection of the authenticated read-only retry reconciliation API. */
+export function projectTransportRetryStatusPayload(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+        throw new TypeError('CERA transport retry status is invalid');
+    }
+    const notFound = projectTransportRetryNotFound(value);
+    if (notFound) return notFound;
+    const commonKeys = [
+        'effect_proof_sha256',
+        'request_id',
+        'retry_id',
+        'retry_transport_enabled',
+        'schema_version',
+        'state',
+    ];
+    if (
+        value.schema_version !== TRANSPORT_RETRY_STATUS_SCHEMA
+        || !TRANSPORT_RETRY_ID_PATTERN.test(value.retry_id)
+        || !REQUEST_ID_PATTERN.test(value.request_id)
+        || !SHA256_PATTERN.test(value.effect_proof_sha256)
+        || typeof value.retry_transport_enabled !== 'boolean'
+    ) throw new TypeError('CERA transport retry status is invalid');
+
+    let stateFields;
+    if (value.state === 'eligible') {
+        if (!exactKeys(value, [...commonKeys, 'transport_retry'])) {
+            throw new TypeError('CERA transport retry eligible status is invalid');
+        }
+        const action = projectTransportRetryAction(value.transport_retry);
+        if (
+            value.retry_transport_enabled !== true
+            || action.retry_id !== value.retry_id
+            || action.effect_proof_sha256 !== value.effect_proof_sha256
+        ) throw new TypeError('CERA transport retry eligible status is invalid');
+        stateFields = { transport_retry: action };
+    } else if (value.state === 'in_progress') {
+        if (
+            !exactKeys(value, [...commonKeys, 'phase'])
+            || value.retry_transport_enabled !== false
+            || !TRANSPORT_RETRY_PROGRESS_PHASES.has(value.phase)
+        ) throw new TypeError('CERA transport retry progress status is invalid');
+        stateFields = { phase: value.phase };
+    } else if (value.state === 'succeeded') {
+        if (
+            !exactKeys(value, [...commonKeys, 'completion', 'completion_sha256'])
+            || value.retry_transport_enabled !== false
+            || !value.completion
+            || typeof value.completion !== 'object'
+            || Array.isArray(value.completion)
+            || !SHA256_PATTERN.test(value.completion_sha256)
+        ) throw new TypeError('CERA transport retry success status is invalid');
+        stateFields = {
+            completion: value.completion,
+            completion_sha256: value.completion_sha256,
+        };
+    } else if (value.state === 'superseded') {
+        if (!exactKeys(value, [
+            ...commonKeys,
+            'superseded_by_retry_id',
+            'transport_retry',
+        ])) throw new TypeError('CERA transport retry superseded status is invalid');
+        const action = projectTransportRetryAction(value.transport_retry);
+        if (
+            value.retry_transport_enabled !== true
+            || !TRANSPORT_RETRY_ID_PATTERN.test(value.superseded_by_retry_id)
+            || value.superseded_by_retry_id === value.retry_id
+            || action.retry_id !== value.superseded_by_retry_id
+        ) throw new TypeError('CERA transport retry superseded status is invalid');
+        stateFields = {
+            superseded_by_retry_id: value.superseded_by_retry_id,
+            transport_retry: action,
+        };
+    } else if (value.state === 'blocked') {
+        if (
+            !exactKeys(value, [...commonKeys, 'blocked_reason_code'])
+            || value.retry_transport_enabled !== false
+            || !TRANSPORT_RETRY_BLOCKED_REASONS.has(value.blocked_reason_code)
+        ) throw new TypeError('CERA transport retry blocked status is invalid');
+        stateFields = { blocked_reason_code: value.blocked_reason_code };
+    } else {
+        throw new TypeError('CERA transport retry status state is invalid');
+    }
+    return {
+        schema_version: TRANSPORT_RETRY_STATUS_SCHEMA,
+        retry_id: value.retry_id,
+        request_id: value.request_id,
+        state: value.state,
+        effect_proof_sha256: value.effect_proof_sha256,
+        retry_transport_enabled: value.retry_transport_enabled,
+        ...stateFields,
+    };
+}
+
+function projectTransportRetryNotFound(value) {
+    const error = value?.error;
+    if (
+        !exactKeys(value, ['error', 'status', 'story_state_committed'])
+        || value.status !== 'error'
+        || value.story_state_committed !== false
+        || !error
+        || typeof error !== 'object'
+        || Array.isArray(error)
+        || !exactKeys(error, [
+            'accepted_state_changed',
+            'branch_id',
+            'debug_log_path',
+            'details',
+            'error_code',
+            'fallback_used',
+            'generation_id',
+            'message',
+            'next_action',
+            'provider_operation_submitted',
+            'request_id',
+            'retry_mode',
+            'retry_transport_enabled',
+            'schema_version',
+            'stage',
+            'story_state_committed',
+            'trace_id',
+        ])
+        || error.schema_version !== 'cera.error.v1'
+        || error.error_code !== 'CERA_TRANSPORT_RETRY_NOT_FOUND'
+        || error.message !== 'The transport Retry identity is unavailable.'
+        || typeof error.trace_id !== 'string'
+        || error.trace_id.length < 1
+        || error.trace_id.length > 240
+        || error.request_id !== null
+        || error.branch_id !== null
+        || error.generation_id !== null
+        || error.stage !== 'pi_scene_http'
+        || error.story_state_committed !== false
+        || error.retry_mode !== 'not_applicable'
+        || !Array.isArray(error.details)
+        || error.details.length !== 0
+        || error.fallback_used !== false
+        || error.provider_operation_submitted !== false
+        || error.accepted_state_changed !== false
+        || error.next_action !== 'check_transport_retry_identity'
+        || error.debug_log_path !== null
+        || error.retry_transport_enabled !== false
+    ) return null;
+    return {
+        status: 'error',
+        story_state_committed: false,
+        error: {
+            schema_version: 'cera.error.v1',
+            error_code: 'CERA_TRANSPORT_RETRY_NOT_FOUND',
+            message: 'The transport Retry identity is unavailable.',
+            stage: 'pi_scene_http',
+            story_state_committed: false,
+            retry_mode: 'not_applicable',
+            fallback_used: false,
+            provider_operation_submitted: false,
+            accepted_state_changed: false,
+            next_action: 'check_transport_retry_identity',
+            retry_transport_enabled: false,
+        },
+    };
+}
+
+function exactKeys(value, keys) {
+    return Object.keys(value).sort().join(',') === [...keys].sort().join(',');
+}
+
 function safeProxyError(response, status, code, message) {
     if (response.headersSent) return;
     response.status(status).json({
@@ -335,6 +547,30 @@ export async function init(router) {
                 response,
                 authorizationFailure ? 401 : 400,
                 authorizationFailure ? 'cera_review_authorization_invalid' : 'cera_review_decision_invalid',
+                error.message,
+            );
+        }
+    });
+
+    router.get('/v1/cera/transport-retries/:retryId', async (request, response) => {
+        try {
+            await forwardJson(
+                response,
+                transportRetryUpstreamUrl(request.params.retryId),
+                {
+                    timeoutMs: GET_TIMEOUT_MS,
+                    authorization: request.get('X-Cera-Authorization'),
+                    projectPayload: projectTransportRetryStatusPayload,
+                },
+            );
+        } catch (error) {
+            const authorizationFailure = error.message === 'CERA review authorization is invalid';
+            safeProxyError(
+                response,
+                authorizationFailure ? 401 : 400,
+                authorizationFailure
+                    ? 'cera_review_authorization_invalid'
+                    : 'cera_transport_retry_invalid',
                 error.message,
             );
         }

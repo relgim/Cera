@@ -23,10 +23,14 @@ import {
 import { appendCreatorTrace, renderCompletionPanel } from './creator-trace-panel.js';
 import {
     acceptedRegenerateSuccessor,
+    normalizePersistedTransportRetryState,
     normalizeReprojectionRequired,
+    normalizeTransportRetryCompletionMarker,
     normalizeTransportRetryFailure,
+    normalizeTransportRetryStatus,
     provisionalAcceptanceCommitted,
     provisionalAcceptEnabled,
+    transportRetryReceipt,
 } from './review-actions.js';
 
 const API_ROOT = '/api/plugins/cera-review';
@@ -42,6 +46,10 @@ const TERMINAL_REVIEW_STATES = Object.freeze([
     'awaiting_feedback',
 ]);
 const CONTROL_STORAGE_KEY = 'cera_creator_controls_v1';
+const TRANSPORT_RETRY_STORAGE_KEY = 'cera_transport_retry_receipts_v1';
+const TRANSPORT_RETRY_STORE_SCHEMA = 'cera.sillytavern.transport_retry_store.v1';
+const TRANSPORT_RETRY_STATE_SCHEMA = 'cera.sillytavern.transport_retry_state.v1';
+const TRANSPORT_RETRY_COMPLETION_SCHEMA = 'cera.sillytavern.transport_retry_completion.v1';
 const READABILITY_KEY = 'vera_cast_readability';
 const DEFAULT_SPEAKER_COLORS = Object.freeze({
     hana: '#E7A6B2',
@@ -62,9 +70,9 @@ const DEFAULT_CONTROLS = Object.freeze({
 
 let completionMetadata = null;
 const polling = new Map();
-let transportRetryFailure = null;
-let transportRetryContext = null;
+let transportRetryState = null;
 let transportRetryInFlight = false;
+let transportRetryStatusInFlight = false;
 
 window.ceraCreatorControls = () => ({ ...readControls() });
 window.ceraCaptureCompletionMetadata = value => captureCompletionMetadata(value);
@@ -72,7 +80,7 @@ window.ceraCaptureTransportFailure = value => captureTransportFailure(value);
 
 eventSource.on(event_types.APP_READY, () => {
     installControlBar();
-    renderTransportRetryControl();
+    restoreTransportRetryForCurrentChat({ reconcile: true });
 });
 
 window.addEventListener(COMPLETION_EVENT, event => {
@@ -147,32 +155,182 @@ function takeCompletionMetadata() {
 
 function captureTransportFailure(value) {
     const failure = normalizeTransportRetryFailure(value);
-    if (!failure) return false;
-    transportRetryFailure = structuredClone(failure);
-    transportRetryContext = {
-        character_id: this_chid,
-        chat_id: String(getCurrentChatId() ?? ''),
-    };
+    const receipt = transportRetryReceipt(failure);
+    const chatKey = currentTransportRetryChatKey();
+    if (!failure || !receipt || !chatKey) return false;
+    const existing = readTransportRetryEntries()
+        .find(entry => entry.chat_key === chatKey);
+    if (existing) {
+        transportRetryState = existing;
+        deactivateSendButtons();
+        if (existing.receipt.retry_id !== receipt.retry_id) {
+            renderTransportRetryControl({
+                phase: 'unknown',
+                detail: 'A prior transport Retry receipt is still unresolved for this chat. Its read-only status must be checked first.',
+            });
+            return false;
+        }
+        renderTransportRetryControl();
+        if (existing.phase !== 'eligible') void reconcileTransportRetry();
+        return true;
+    }
+    const nextState = makeTransportRetryState(chatKey, receipt, 'eligible');
+    if (!nextState) return false;
+    transportRetryState = nextState;
     transportRetryInFlight = false;
+    deactivateSendButtons();
+    if (!persistTransportRetryState(nextState)) {
+        renderTransportRetryControl({
+            phase: 'terminal',
+            detail: 'CERA could not store the safe retry receipt for this chat, so the provider Retry was not enabled.',
+            allowAction: false,
+        });
+        return true;
+    }
     renderTransportRetryControl();
     return true;
 }
 
 function transportRetryContextIsCurrent() {
-    return Boolean(
-        transportRetryContext
-        && transportRetryContext.character_id === this_chid
-        && transportRetryContext.chat_id === String(getCurrentChatId() ?? ''),
+    return transportRetryOperationIsCurrent(
+        transportRetryState?.chat_key,
+        transportRetryState?.receipt,
     );
 }
 
+function transportRetryOperationIsCurrent(chatKey, receipt = null) {
+    return Boolean(
+        chatKey
+        && transportRetryState?.chat_key === chatKey
+        && currentTransportRetryChatKey() === chatKey
+        && (
+            !receipt
+            || (
+                transportRetryState.receipt.retry_id === receipt.retry_id
+                && transportRetryState.receipt.request_id === receipt.request_id
+            )
+        ),
+    );
+}
+
+function currentTransportRetryChatKey() {
+    const chatId = String(getCurrentChatId() ?? '');
+    const characterId = String(this_chid ?? 'group');
+    if (
+        !chatId
+        || chatId.length > 480
+        || characterId.length > 24
+        || /[\u0000-\u001f\u007f]/.test(chatId)
+        || /[\u0000-\u001f\u007f]/.test(characterId)
+    ) return null;
+    return JSON.stringify([characterId, chatId]);
+}
+
+function makeTransportRetryState(
+    chatKey,
+    receipt,
+    phase,
+    completionIdentityValue = null,
+) {
+    return normalizePersistedTransportRetryState({
+        schema_version: TRANSPORT_RETRY_STATE_SCHEMA,
+        chat_key: chatKey,
+        phase,
+        post_dispatched: phase !== 'eligible',
+        receipt: structuredClone(receipt),
+        completion_identity: completionIdentityValue,
+    });
+}
+
+function readTransportRetryEntries() {
+    try {
+        const value = JSON.parse(localStorage.getItem(TRANSPORT_RETRY_STORAGE_KEY) ?? '{}');
+        if (
+            !value
+            || typeof value !== 'object'
+            || Array.isArray(value)
+            || Object.keys(value).sort().join(',') !== 'entries,schema_version'
+            || value.schema_version !== TRANSPORT_RETRY_STORE_SCHEMA
+            || !Array.isArray(value.entries)
+        ) return [];
+        return value.entries
+            .map(normalizePersistedTransportRetryState)
+            .filter(Boolean);
+    } catch {
+        return [];
+    }
+}
+
+function writeTransportRetryEntries(entries) {
+    try {
+        const normalized = entries
+            .map(normalizePersistedTransportRetryState)
+            .filter(Boolean);
+        localStorage.setItem(TRANSPORT_RETRY_STORAGE_KEY, JSON.stringify({
+            schema_version: TRANSPORT_RETRY_STORE_SCHEMA,
+            entries: normalized,
+        }));
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function persistTransportRetryState(state) {
+    const normalized = normalizePersistedTransportRetryState(state);
+    if (!normalized) return false;
+    const entries = readTransportRetryEntries()
+        .filter(entry => entry.chat_key !== normalized.chat_key);
+    entries.push(normalized);
+    const stored = writeTransportRetryEntries(entries);
+    if (stored) transportRetryState = structuredClone(normalized);
+    return stored;
+}
+
+function clearTransportRetryState(retryId = null, chatKey = transportRetryState?.chat_key) {
+    const state = transportRetryState;
+    if (!chatKey) return false;
+    const entries = readTransportRetryEntries();
+    const remaining = entries.filter(entry => !(
+        entry.chat_key === chatKey
+        && (!retryId || entry.receipt.retry_id === retryId)
+    ));
+    const removed = remaining.length !== entries.length;
+    if (removed) writeTransportRetryEntries(remaining);
+    if (
+        state?.chat_key === chatKey
+        && (!retryId || state.receipt.retry_id === retryId)
+    ) {
+        transportRetryState = null;
+        document.querySelector('#cera_transport_retry_panel')?.remove();
+    }
+    return removed;
+}
+
+function restoreTransportRetryForCurrentChat({ reconcile = false } = {}) {
+    const chatKey = currentTransportRetryChatKey();
+    transportRetryState = chatKey
+        ? readTransportRetryEntries().find(entry => entry.chat_key === chatKey) ?? null
+        : null;
+    document.querySelector('#cera_transport_retry_panel')?.remove();
+    if (!transportRetryState) {
+        syncSendButtons();
+        return;
+    }
+    deactivateSendButtons();
+    renderTransportRetryControl();
+    if (reconcile && transportRetryState.phase !== 'eligible') {
+        void reconcileTransportRetry();
+    }
+}
+
 function renderTransportRetryControl({
-    phase = 'ready',
+    phase = transportRetryState?.phase ?? 'eligible',
     detail = null,
     allowAction = true,
 } = {}) {
     document.querySelector('#cera_transport_retry_panel')?.remove();
-    if (!transportRetryFailure && phase !== 'terminal') return;
+    if (!transportRetryState && phase !== 'terminal') return;
     const controls = document.querySelector('#cera_creator_controls');
     const sendForm = document.querySelector('#send_form');
     const anchor = controls ?? sendForm;
@@ -184,8 +342,10 @@ function renderTransportRetryControl({
 
     const heading = document.createElement('div');
     heading.className = 'cera-review-heading';
-    heading.textContent = phase === 'pending'
+    heading.textContent = ['in_progress', 'completion_received'].includes(phase)
         ? 'CERA TRANSPORT RETRY IN PROGRESS'
+        : phase === 'unknown'
+            ? 'CERA TRANSPORT RETRY RESULT UNKNOWN'
         : phase === 'terminal'
             ? 'CERA TRANSPORT RETRY STOPPED'
             : 'CERA TRANSPORT RETRY AVAILABLE';
@@ -193,17 +353,34 @@ function renderTransportRetryControl({
     const status = document.createElement('div');
     status.className = 'cera-review-status';
     status.textContent = detail ?? (
-        phase === 'pending'
-            ? 'Retrying the exact durable request. No output will be merged.'
-            : 'The provider transport ended before any candidate, review, recording, or accepted effect was created.'
+        phase === 'in_progress'
+            ? 'The durable Retry was dispatched once. Status checks are read-only and cannot dispatch it again.'
+            : phase === 'completion_received'
+                ? 'The terminal completion was identified. CERA is waiting for the chat save to finish before clearing the receipt.'
+                : phase === 'unknown'
+                    ? 'The browser could not prove the POST result. Only a read-only status check is available; no second dispatch will occur.'
+                    : 'The original zero-effect transport failure remains recorded. One manual Retry is available.'
     );
     panel.append(heading, status);
 
-    if (allowAction && transportRetryFailure && phase !== 'pending') {
+    if (
+        allowAction
+        && transportRetryState
+        && transportRetryContextIsCurrent()
+        && !transportRetryInFlight
+        && !transportRetryStatusInFlight
+    ) {
         const actions = document.createElement('div');
         actions.className = 'cera-review-actions';
-        const label = phase === 'unknown' ? 'Check retry result' : 'Retry transport';
-        actions.append(actionButton(label, false, () => retryTransport()));
+        if (phase === 'eligible') {
+            actions.append(actionButton('Retry transport', false, () => retryTransport()));
+        } else if (['in_progress', 'unknown', 'completion_received'].includes(phase)) {
+            actions.append(actionButton(
+                'Check retry status',
+                false,
+                () => reconcileTransportRetry(),
+            ));
+        }
         panel.appendChild(actions);
     }
     anchor.parentElement.insertBefore(panel, anchor.nextSibling);
@@ -212,7 +389,9 @@ function renderTransportRetryControl({
 async function retryTransport() {
     if (
         transportRetryInFlight
-        || !transportRetryFailure
+        || !transportRetryState
+        || transportRetryState.phase !== 'eligible'
+        || transportRetryState.post_dispatched
         || !transportRetryContextIsCurrent()
     ) {
         renderTransportRetryControl({
@@ -224,43 +403,188 @@ async function retryTransport() {
     }
     transportRetryInFlight = true;
     deactivateSendButtons();
-    renderTransportRetryControl({ phase: 'pending', allowAction: false });
-    const attempted = structuredClone(transportRetryFailure);
+    const attempted = structuredClone(transportRetryState.receipt);
+    const attemptedChatKey = transportRetryState.chat_key;
+    const dispatchedState = makeTransportRetryState(
+        attemptedChatKey,
+        attempted,
+        'in_progress',
+    );
+    if (!dispatchedState || !persistTransportRetryState(dispatchedState)) {
+        transportRetryInFlight = false;
+        renderTransportRetryControl({
+            phase: 'terminal',
+            detail: 'CERA could not durably mark this Retry as dispatched, so no provider request was sent.',
+            allowAction: false,
+        });
+        return;
+    }
+    renderTransportRetryControl({ phase: 'in_progress', allowAction: false });
     try {
         const result = await requestJson(attempted.retry_url, {
             method: 'POST',
             body: {},
         });
-        await appendTransportRetryCompletion(result);
-        transportRetryFailure = null;
-        transportRetryContext = null;
-        document.querySelector('#cera_transport_retry_panel')?.remove();
+        await appendTransportRetryCompletion(result, attempted, attemptedChatKey);
     } catch (error) {
         const nextFailure = normalizeTransportRetryFailure(error?.payload);
-        if (nextFailure) {
-            transportRetryFailure = structuredClone(nextFailure);
+        const nextReceipt = transportRetryReceipt(nextFailure);
+        if (nextReceipt && transportRetryOperationIsCurrent(attemptedChatKey, attempted)) {
+            const nextState = makeTransportRetryState(
+                attemptedChatKey,
+                nextReceipt,
+                'eligible',
+            );
+            if (nextState) persistTransportRetryState(nextState);
             renderTransportRetryControl({
                 detail: 'The retry also ended in a proven zero-effect transport failure. A new manual retry is available.',
             });
-        } else if (error instanceof CeraReviewRequestError && error.kind === 'transport') {
+        } else if (transportRetryOperationIsCurrent(attemptedChatKey, attempted)) {
+            const current = transportRetryState;
+            if (current.phase !== 'completion_received') {
+                const unknownState = makeTransportRetryState(
+                    current.chat_key,
+                    attempted,
+                    'unknown',
+                );
+                if (unknownState) persistTransportRetryState(unknownState);
+            }
+            const proxyUnavailable = isProxyLoopbackUnavailable(error);
             renderTransportRetryControl({
-                phase: 'unknown',
-                detail: 'The browser could not read the retry result. Use the same durable retry ID to reconcile it; CERA will not dispatch it twice.',
-            });
-        } else {
-            renderTransportRetryControl({
-                phase: 'terminal',
-                detail: 'CERA did not prove that another provider retry is safe. No additional retry was offered.',
+                phase: transportRetryState?.phase ?? 'unknown',
+                detail: proxyUnavailable
+                    ? 'The same-origin relay could not read the POST result. CERA will reconcile this Retry ID with a read-only GET and will not dispatch it again.'
+                    : 'The POST did not yield an authoritative terminal result. CERA will reconcile this Retry ID with a read-only GET and will not dispatch it again.',
                 allowAction: false,
             });
+            await reconcileTransportRetry();
         }
-        if (!hasPendingReview()) activateSendButtons();
     } finally {
         transportRetryInFlight = false;
+        if (transportRetryContextIsCurrent()) renderTransportRetryControl();
     }
 }
 
-async function appendTransportRetryCompletion(result) {
+async function reconcileTransportRetry() {
+    if (
+        transportRetryStatusInFlight
+        || !transportRetryState
+        || !transportRetryContextIsCurrent()
+    ) return;
+    transportRetryStatusInFlight = true;
+    deactivateSendButtons();
+    const attempted = structuredClone(transportRetryState.receipt);
+    const attemptedChatKey = transportRetryState.chat_key;
+    renderTransportRetryControl({
+        phase: transportRetryState.phase,
+        detail: 'Checking the durable Retry status. This read-only request cannot contact the provider.',
+        allowAction: false,
+    });
+    try {
+        const rawStatus = await requestJson(attempted.retry_url);
+        const status = normalizeTransportRetryStatus(rawStatus);
+        if (
+            !status
+            || status.retry_id !== attempted.retry_id
+            || status.request_id !== attempted.request_id
+            || status.effect_proof_sha256 !== attempted.effect_proof_sha256
+        ) {
+            throw new CeraReviewRequestError(
+                'invalid_response',
+                'CERA returned a retry status that did not match the durable receipt.',
+            );
+        }
+        if (!transportRetryOperationIsCurrent(attemptedChatKey, attempted)) return;
+        if (status.state === 'eligible') {
+            const receipt = transportRetryReceipt({
+                request_id: status.request_id,
+                ...status.transport_retry,
+            });
+            const nextState = makeTransportRetryState(
+                attemptedChatKey,
+                receipt,
+                'eligible',
+            );
+            if (!nextState || !persistTransportRetryState(nextState)) {
+                throw new CeraReviewRequestError(
+                    'storage',
+                    'CERA could not persist the reconciled Retry receipt.',
+                );
+            }
+        } else if (status.state === 'in_progress') {
+            const nextState = makeTransportRetryState(
+                attemptedChatKey,
+                attempted,
+                'in_progress',
+            );
+            if (nextState) persistTransportRetryState(nextState);
+        } else if (status.state === 'succeeded') {
+            await appendTransportRetryCompletion(
+                status.completion,
+                attempted,
+                attemptedChatKey,
+            );
+        } else if (status.state === 'superseded') {
+            const receipt = transportRetryReceipt({
+                request_id: status.request_id,
+                ...status.transport_retry,
+            });
+            const nextState = makeTransportRetryState(
+                attemptedChatKey,
+                receipt,
+                'eligible',
+            );
+            if (!nextState || !persistTransportRetryState(nextState)) {
+                throw new CeraReviewRequestError(
+                    'storage',
+                    'CERA could not persist the successor Retry receipt.',
+                );
+            }
+        } else if (status.state === 'blocked') {
+            clearTransportRetryState(attempted.retry_id, attemptedChatKey);
+            renderTransportRetryControl({
+                phase: 'terminal',
+                detail: `CERA blocked this Retry because its durable effect state changed (${status.blocked_reason_code}). No provider request was sent.`,
+                allowAction: false,
+            });
+            syncSendButtons();
+        }
+    } catch (error) {
+        if (isTransportRetryNotFound(error)) {
+            clearTransportRetryState(attempted.retry_id, attemptedChatKey);
+            if (currentTransportRetryChatKey() === attemptedChatKey) {
+                renderTransportRetryControl({
+                    phase: 'terminal',
+                    detail: 'CERA could not resolve this durable Retry identity. No provider request was sent.',
+                    allowAction: false,
+                });
+                syncSendButtons();
+            }
+        } else if (transportRetryOperationIsCurrent(attemptedChatKey, attempted)) {
+            const current = transportRetryState;
+            const phase = current.phase === 'completion_received'
+                ? 'completion_received'
+                : 'unknown';
+            const nextState = makeTransportRetryState(
+                current.chat_key,
+                current.receipt,
+                phase,
+                phase === 'completion_received' ? current.completion_identity : null,
+            );
+            if (nextState) persistTransportRetryState(nextState);
+            renderTransportRetryControl({
+                phase,
+                detail: 'The Retry status is still unavailable. The receipt remains stored; another read-only status check is available.',
+                allowAction: false,
+            });
+        }
+    } finally {
+        transportRetryStatusInFlight = false;
+        if (transportRetryContextIsCurrent()) renderTransportRetryControl();
+    }
+}
+
+async function appendTransportRetryCompletion(result, receipt, chatKey) {
     const storyText = result?.choices?.[0]?.message?.content;
     const completion = normalizeCompletionMetadata(result?.cera);
     if (typeof storyText !== 'string' || !storyText.trim() || !completion) {
@@ -269,47 +593,145 @@ async function appendTransportRetryCompletion(result) {
             'CERA returned an invalid transport retry completion.',
         );
     }
-    if (!transportRetryContextIsCurrent()) {
+    const identity = completionIdentity(completion);
+    if (!identity || !transportRetryOperationIsCurrent(chatKey, receipt)) {
         throw new CeraReviewRequestError(
             'context_changed',
             'The active chat changed while CERA was retrying.',
         );
     }
+    const completionState = makeTransportRetryState(
+        chatKey,
+        receipt,
+        'completion_received',
+        identity,
+    );
+    if (!completionState || !persistTransportRetryState(completionState)) {
+        throw new CeraReviewRequestError(
+            'storage',
+            'CERA could not retain the Retry receipt before saving the completion.',
+        );
+    }
     const reviewId = validReviewId(completion.provisional_review_id)
         ? completion.provisional_review_id
         : null;
-    const message = {
-        name: characters[this_chid]?.name ?? 'CERA',
-        is_user: false,
-        is_system: false,
-        send_date: getMessageTimeStamp(),
-        mes: storyText,
-        extra: {
-            [META_KEY]: {
-                review_id: reviewId,
-                candidate_id: completion.candidate_id,
-                state: completion.status,
-                provisional: Boolean(completion.provisional && reviewId),
-                completion: structuredClone(completion),
+    const marker = normalizeTransportRetryCompletionMarker({
+        schema_version: TRANSPORT_RETRY_COMPLETION_SCHEMA,
+        retry_id: receipt.retry_id,
+        request_id: receipt.request_id,
+        completion_identity: identity,
+    });
+    if (!marker) {
+        throw new CeraReviewRequestError(
+            'invalid_response',
+            'CERA returned an invalid completion identity for this Retry.',
+        );
+    }
+    let messageId = findTransportRetryCompletion(marker);
+    let inserted = false;
+    if (messageId === -1) {
+        const message = {
+            name: characters[this_chid]?.name ?? 'CERA',
+            is_user: false,
+            is_system: false,
+            send_date: getMessageTimeStamp(),
+            mes: storyText,
+            extra: {
+                [META_KEY]: {
+                    review_id: reviewId,
+                    candidate_id: completion.candidate_id,
+                    state: completion.status,
+                    provisional: Boolean(completion.provisional && reviewId),
+                    completion: structuredClone(completion),
+                    transport_retry_completion: marker,
+                },
             },
-        },
-    };
-    chat.push(message);
-    const messageId = chat.length - 1;
-    addOneMessage(message);
+        };
+        chat.push(message);
+        messageId = chat.length - 1;
+        inserted = true;
+        addOneMessage(message);
+    } else {
+        chat[messageId].extra ??= {};
+        chat[messageId].extra[META_KEY] ??= {};
+        chat[messageId].extra[META_KEY].transport_retry_completion = marker;
+    }
     await saveChatConditional();
-    await eventSource.emit(event_types.MESSAGE_RECEIVED, messageId, 'cera_transport_retry');
-    await eventSource.emit(
-        event_types.CHARACTER_MESSAGE_RENDERED,
-        messageId,
-        'cera_transport_retry',
-    );
+    clearTransportRetryState(receipt.retry_id, chatKey);
+    if (inserted && currentTransportRetryChatKey() === chatKey) {
+        await eventSource.emit(event_types.MESSAGE_RECEIVED, messageId, 'cera_transport_retry');
+        await eventSource.emit(
+            event_types.CHARACTER_MESSAGE_RENDERED,
+            messageId,
+            'cera_transport_retry',
+        );
+    }
+    if (currentTransportRetryChatKey() !== chatKey) return;
     renderStoredCompletionMetadata(messageId);
-    if (message.extra[META_KEY].provisional) {
+    if (chat[messageId]?.extra?.[META_KEY]?.provisional) {
         await resumeReview(messageId);
     } else {
-        activateSendButtons();
+        syncSendButtons();
     }
+}
+
+function findTransportRetryCompletion(marker) {
+    for (let index = 0; index < chat.length; index += 1) {
+        const stored = chat[index]?.extra?.[META_KEY];
+        const rawMarker = stored?.transport_retry_completion;
+        const normalizedMarker = normalizeTransportRetryCompletionMarker(rawMarker);
+        if (rawMarker?.retry_id === marker.retry_id && !normalizedMarker) {
+            throw new CeraReviewRequestError(
+                'identity_conflict',
+                'The chat contains a malformed completion marker for this Retry.',
+            );
+        }
+        if (
+            normalizedMarker?.retry_id === marker.retry_id
+            || (
+                normalizedMarker?.request_id === marker.request_id
+                && normalizedMarker?.completion_identity === marker.completion_identity
+            )
+        ) {
+            if (
+                normalizedMarker.request_id !== marker.request_id
+                || normalizedMarker.completion_identity !== marker.completion_identity
+            ) {
+                throw new CeraReviewRequestError(
+                    'identity_conflict',
+                    'The durable Retry identity conflicts with the saved assistant message.',
+                );
+            }
+            return index;
+        }
+        const normalizedCompletion = normalizeCompletionMetadata(stored?.completion);
+        if (completionIdentity(normalizedCompletion) === marker.completion_identity) return index;
+    }
+    return -1;
+}
+
+function isProxyLoopbackUnavailable(error) {
+    return Boolean(
+        error instanceof CeraReviewRequestError
+        && error.kind === 'server'
+        && error.status === 502
+        && error.payload?.error?.code === 'cera_loopback_unavailable'
+        && error.payload?.error?.stage === 'sillytavern_cera_review_proxy'
+        && error.payload?.error?.retryable === false
+        && error.payload?.error?.fallback_used === false,
+    );
+}
+
+function isTransportRetryNotFound(error) {
+    return Boolean(
+        error instanceof CeraReviewRequestError
+        && error.status === 404
+        && error.payload?.status === 'error'
+        && error.payload?.story_state_committed === false
+        && error.payload?.error?.schema_version === 'cera.error.v1'
+        && error.payload?.error?.error_code === 'CERA_TRANSPORT_RETRY_NOT_FOUND'
+        && error.payload?.error?.retry_transport_enabled === false,
+    );
 }
 
 eventSource.on(event_types.CHAT_CHANGED, () => {
@@ -320,16 +742,12 @@ eventSource.on(event_types.CHAT_CHANGED, () => {
             void resumeReview(index);
         }
     }
-    if (transportRetryFailure && transportRetryContextIsCurrent()) {
-        renderTransportRetryControl();
-    } else {
-        document.querySelector('#cera_transport_retry_panel')?.remove();
-    }
+    restoreTransportRetryForCurrentChat({ reconcile: true });
 });
 
 eventSource.on(event_types.GENERATION_ENDED, async () => {
     await attachPendingMetadata(chat.length - 1);
-    if (hasPendingReview()) deactivateSendButtons();
+    syncSendButtons();
 });
 
 async function resumeReview(messageId) {
@@ -453,11 +871,12 @@ function describeReviewRequestError(error) {
 }
 
 class CeraReviewRequestError extends Error {
-    constructor(kind, message, payload = null) {
+    constructor(kind, message, payload = null, status = null) {
         super(message);
         this.name = 'CeraReviewRequestError';
         this.kind = kind;
         this.payload = payload;
+        this.status = status;
     }
 }
 
@@ -803,7 +1222,7 @@ function markCanonical(messageId, result = null, { canonStatus = 'accepted' } = 
     void saveChatConditional();
     panelFor(messageId)?.classList.add('cera-review-finished');
     renderStoredCompletionMetadata(messageId);
-    activateSendButtons();
+    syncSendButtons();
 }
 
 function storeReprojectionRequired(messageId, outcome) {
@@ -863,7 +1282,7 @@ function removeProvisionalMessage(messageId) {
     chat.splice(messageId, 1);
     document.querySelector(`#chat .mes[mesid="${messageId}"]`)?.remove();
     void saveChatConditional();
-    if (!hasPendingReview()) activateSendButtons();
+    syncSendButtons();
 }
 
 function updateStoredState(messageId, review) {
@@ -1011,6 +1430,11 @@ function hasPendingReview() {
     return chat.some(message => message?.extra?.[META_KEY]?.provisional);
 }
 
+function syncSendButtons() {
+    if (hasPendingReview() || transportRetryState) deactivateSendButtons();
+    else activateSendButtons();
+}
+
 async function requestJson(path, options = {}) {
     const headers = getRequestHeaders();
     headers['X-Cera-Authorization'] = ceraAuthorizationHeader();
@@ -1045,6 +1469,7 @@ async function requestJson(path, options = {}) {
             'server',
             `${prefix}${failure.message ?? `HTTP ${response.status}`}`,
             payload,
+            response.status,
         );
     }
     return payload;

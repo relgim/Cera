@@ -302,6 +302,48 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertIn("/v1/cera/transport-retries/:retryId", proxy)
         self.assertIn("normalizeTransportRetryBody", proxy)
 
+    def test_transport_retry_lifecycle_is_persisted_reconciled_and_deduplicated(self) -> None:
+        extension = (
+            REPOSITORY_ROOT
+            / "integrations"
+            / "sillytavern"
+            / "creator-review-extension"
+            / "index.js"
+        ).read_text(encoding="utf-8")
+        actions = (
+            REPOSITORY_ROOT
+            / "integrations"
+            / "sillytavern"
+            / "creator-review-extension"
+            / "review-actions.js"
+        ).read_text(encoding="utf-8")
+        proxy = (
+            REPOSITORY_ROOT
+            / "integrations"
+            / "sillytavern"
+            / "cera-review-proxy-plugin"
+            / "index.js"
+        ).read_text(encoding="utf-8")
+        self.assertIn("cera_transport_retry_receipts_v1", extension)
+        self.assertIn("restoreTransportRetryForCurrentChat({ reconcile: true })", extension)
+        self.assertIn("isProxyLoopbackUnavailable(error)", extension)
+        self.assertIn("await reconcileTransportRetry()", extension)
+        self.assertIn("transport_retry_completion: marker", extension)
+        self.assertLess(
+            extension.index(
+                "await saveChatConditional();",
+                extension.index("async function appendTransportRetryCompletion"),
+            ),
+            extension.index(
+                "clearTransportRetryState(receipt.retry_id, chatKey)",
+                extension.index("async function appendTransportRetryCompletion"),
+            ),
+        )
+        self.assertIn("cera.pi_scene.transport_retry_status.v1", actions)
+        self.assertIn("normalizePersistedTransportRetryState", actions)
+        self.assertIn("router.get('/v1/cera/transport-retries/:retryId'", proxy)
+        self.assertIn("projectTransportRetryStatusPayload", proxy)
+
     def test_openai_bridge_routes_all_cera_metadata_through_closed_projection(self) -> None:
         openai = (SILLYTAVERN_ROOT / "public" / "scripts" / "openai.js").read_text(
             encoding="utf-8"

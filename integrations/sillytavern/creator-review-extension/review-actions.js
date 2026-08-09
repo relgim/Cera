@@ -10,10 +10,32 @@ const REQUIRED_ARTIFACTS = Object.freeze([
     'route_transition',
 ]);
 const TRANSPORT_RETRY_SCHEMA = 'cera.pi_scene.transport_retry.v1';
+const TRANSPORT_RETRY_STATUS_SCHEMA = 'cera.pi_scene.transport_retry_status.v1';
+const TRANSPORT_RETRY_STATE_SCHEMA = 'cera.sillytavern.transport_retry_state.v1';
+const TRANSPORT_RETRY_COMPLETION_SCHEMA = 'cera.sillytavern.transport_retry_completion.v1';
 const TRANSPORT_FAILURE_CODE = 'CERA_PROVIDER_TRANSPORT_FAILED';
 const REQUEST_ID_PATTERN = /^request-[a-f0-9]{64}$/;
 const TRANSPORT_RETRY_ID_PATTERN = /^retry-[a-f0-9]{64}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
+const TRANSPORT_RETRY_PHASES = new Set([
+    'eligible',
+    'in_progress',
+    'unknown',
+    'completion_received',
+]);
+const BACKEND_PROGRESS_PHASES = new Set([
+    'authorized',
+    'owner_rotated',
+    'dispatch_started',
+]);
+const BLOCKED_REASON_CODES = new Set([
+    'effect_state_changed',
+    'route_or_context_changed',
+    'provider_ledger_changed',
+    'owner_rotation_failed',
+    'dispatch_state_ambiguous',
+    'durable_request_progressed',
+]);
 
 /** A retry identity is backend-issued; the browser never derives one. */
 export function validTransportRetryId(value) {
@@ -76,8 +98,221 @@ export function normalizeTransportRetryFailure(value) {
     };
 }
 
+/** Project the backend action object without retaining provider/error prose. */
+export function normalizeTransportRetryAction(value) {
+    if (!plainObject(value) || !exactKeys(value, [
+        'automatic',
+        'effect_proof_sha256',
+        'eligible',
+        'method',
+        'retry_id',
+        'retry_url',
+        'schema_version',
+    ])) return null;
+    if (
+        value.schema_version !== TRANSPORT_RETRY_SCHEMA
+        || !validTransportRetryId(value.retry_id)
+        || value.retry_url !== `/v1/cera/transport-retries/${value.retry_id}`
+        || value.method !== 'POST'
+        || value.eligible !== true
+        || value.automatic !== false
+        || !SHA256_PATTERN.test(value.effect_proof_sha256)
+    ) return null;
+    return structuredClone(value);
+}
+
+/** Safe durable receipt. It contains identifiers/proof only, never prompt or response prose. */
+export function normalizeTransportRetryReceipt(value) {
+    if (!plainObject(value) || !exactKeys(value, [
+        'automatic',
+        'effect_proof_sha256',
+        'eligible',
+        'method',
+        'request_id',
+        'retry_id',
+        'retry_url',
+        'schema_version',
+    ])) return null;
+    if (!REQUEST_ID_PATTERN.test(value.request_id)) return null;
+    const action = normalizeTransportRetryAction({
+        schema_version: value.schema_version,
+        retry_id: value.retry_id,
+        retry_url: value.retry_url,
+        method: value.method,
+        eligible: value.eligible,
+        automatic: value.automatic,
+        effect_proof_sha256: value.effect_proof_sha256,
+    });
+    return action ? { request_id: value.request_id, ...action } : null;
+}
+
+export function transportRetryReceipt(value) {
+    if (!plainObject(value)) return null;
+    return normalizeTransportRetryReceipt({
+        schema_version: value.schema_version,
+        request_id: value.request_id,
+        retry_id: value.retry_id,
+        retry_url: value.retry_url,
+        method: value.method,
+        eligible: value.eligible,
+        automatic: value.automatic,
+        effect_proof_sha256: value.effect_proof_sha256,
+    });
+}
+
+/** Closed browser-persistence record for one SillyTavern chat. */
+export function normalizePersistedTransportRetryState(value) {
+    if (!plainObject(value) || !exactKeys(value, [
+        'chat_key',
+        'completion_identity',
+        'phase',
+        'post_dispatched',
+        'receipt',
+        'schema_version',
+    ])) return null;
+    if (
+        value.schema_version !== TRANSPORT_RETRY_STATE_SCHEMA
+        || typeof value.chat_key !== 'string'
+        || value.chat_key.length < 1
+        || value.chat_key.length > 520
+        || /[\u0000-\u001f\u007f]/.test(value.chat_key)
+        || !TRANSPORT_RETRY_PHASES.has(value.phase)
+        || typeof value.post_dispatched !== 'boolean'
+        || (value.completion_identity !== null && !validCompletionIdentity(value.completion_identity))
+    ) return null;
+    const receipt = normalizeTransportRetryReceipt(value.receipt);
+    if (!receipt) return null;
+    if (value.phase === 'eligible' && value.post_dispatched) return null;
+    if (value.phase !== 'eligible' && !value.post_dispatched) return null;
+    if (value.phase === 'completion_received' && value.completion_identity === null) return null;
+    if (value.phase !== 'completion_received' && value.completion_identity !== null) return null;
+    return {
+        schema_version: TRANSPORT_RETRY_STATE_SCHEMA,
+        chat_key: value.chat_key,
+        phase: value.phase,
+        post_dispatched: value.post_dispatched,
+        receipt,
+        completion_identity: value.completion_identity,
+    };
+}
+
+/** Stable marker stored beside one assistant message for append deduplication. */
+export function normalizeTransportRetryCompletionMarker(value) {
+    if (!plainObject(value) || !exactKeys(value, [
+        'completion_identity',
+        'request_id',
+        'retry_id',
+        'schema_version',
+    ])) return null;
+    if (
+        value.schema_version !== TRANSPORT_RETRY_COMPLETION_SCHEMA
+        || !validTransportRetryId(value.retry_id)
+        || !REQUEST_ID_PATTERN.test(value.request_id)
+        || !validCompletionIdentity(value.completion_identity)
+    ) return null;
+    return { ...value };
+}
+
+/** Validate the authenticated, read-only backend reconciliation response. */
+export function normalizeTransportRetryStatus(value) {
+    if (!plainObject(value)) return null;
+    const commonKeys = [
+        'effect_proof_sha256',
+        'request_id',
+        'retry_id',
+        'retry_transport_enabled',
+        'schema_version',
+        'state',
+    ];
+    if (
+        value.schema_version !== TRANSPORT_RETRY_STATUS_SCHEMA
+        || !validTransportRetryId(value.retry_id)
+        || !REQUEST_ID_PATTERN.test(value.request_id)
+        || !SHA256_PATTERN.test(value.effect_proof_sha256)
+        || typeof value.retry_transport_enabled !== 'boolean'
+    ) return null;
+
+    let normalized;
+    if (value.state === 'eligible') {
+        if (!exactKeys(value, [...commonKeys, 'transport_retry'])) return null;
+        const action = normalizeTransportRetryAction(value.transport_retry);
+        if (
+            !action
+            || value.retry_transport_enabled !== true
+            || action.retry_id !== value.retry_id
+            || action.effect_proof_sha256 !== value.effect_proof_sha256
+        ) return null;
+        normalized = { transport_retry: action };
+    } else if (value.state === 'in_progress') {
+        if (
+            !exactKeys(value, [...commonKeys, 'phase'])
+            || value.retry_transport_enabled !== false
+            || !BACKEND_PROGRESS_PHASES.has(value.phase)
+        ) return null;
+        normalized = { phase: value.phase };
+    } else if (value.state === 'succeeded') {
+        if (
+            !exactKeys(value, [...commonKeys, 'completion', 'completion_sha256'])
+            || value.retry_transport_enabled !== false
+            || !plainObject(value.completion)
+            || !SHA256_PATTERN.test(value.completion_sha256)
+        ) return null;
+        normalized = {
+            completion: structuredClone(value.completion),
+            completion_sha256: value.completion_sha256,
+        };
+    } else if (value.state === 'superseded') {
+        if (!exactKeys(value, [
+            ...commonKeys,
+            'superseded_by_retry_id',
+            'transport_retry',
+        ])) return null;
+        const action = normalizeTransportRetryAction(value.transport_retry);
+        if (
+            value.retry_transport_enabled !== true
+            || !validTransportRetryId(value.superseded_by_retry_id)
+            || value.superseded_by_retry_id === value.retry_id
+            || !action
+            || action.retry_id !== value.superseded_by_retry_id
+        ) return null;
+        normalized = {
+            superseded_by_retry_id: value.superseded_by_retry_id,
+            transport_retry: action,
+        };
+    } else if (value.state === 'blocked') {
+        if (
+            !exactKeys(value, [...commonKeys, 'blocked_reason_code'])
+            || value.retry_transport_enabled !== false
+            || !BLOCKED_REASON_CODES.has(value.blocked_reason_code)
+        ) return null;
+        normalized = { blocked_reason_code: value.blocked_reason_code };
+    } else {
+        return null;
+    }
+    return {
+        schema_version: TRANSPORT_RETRY_STATUS_SCHEMA,
+        retry_id: value.retry_id,
+        request_id: value.request_id,
+        state: value.state,
+        effect_proof_sha256: value.effect_proof_sha256,
+        retry_transport_enabled: value.retry_transport_enabled,
+        ...normalized,
+    };
+}
+
 function plainObject(value) {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function exactKeys(value, keys) {
+    return Object.keys(value).sort().join(',') === [...keys].sort().join(',');
+}
+
+function validCompletionIdentity(value) {
+    return typeof value === 'string'
+        && value.length > 0
+        && value.length <= 240
+        && !/[\u0000-\u001f\u007f]/.test(value);
 }
 
 /** The backend, rather than the UI, owns provisional-accept availability. */
