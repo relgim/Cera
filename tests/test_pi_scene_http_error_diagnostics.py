@@ -22,7 +22,11 @@ class PiSceneHttpErrorDiagnosticsTests(unittest.TestCase):
         self.assertFalse(error["provider_operation_submitted"])
         self.assertEqual(error["trace_id"], "trace:fixed")
         self.assertEqual(error["next_action"], "correct_the_reported_request_field")
-        self.assertIn("adult craft mode is invalid", error["details"][0])
+        self.assertNotIn("adult craft mode is invalid", str(error))
+        self.assertEqual(
+            error["details"],
+            ["Technical detail is available in the local debug log."],
+        )
         self.assertEqual(error["debug_log_path"], r"D:\runtime\debug\entry.md")
 
 

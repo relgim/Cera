@@ -667,7 +667,14 @@ def _typed_error_payload(
         "stage": "pi_scene_http",
         "story_state_committed": story_state_committed,
         "retry_mode": retry_mode,
-        "details": ([] if technical_detail is None else [technical_detail]),
+        # Exact exception text can contain local paths, provider fragments, or
+        # protected story material.  It belongs only in the local readable
+        # debug entry named below, never in the HTTP response.
+        "details": (
+            []
+            if technical_detail is None
+            else ["Technical detail is available in the local debug log."]
+        ),
         "fallback_used": False,
         "provider_operation_submitted": False,
         "accepted_state_changed": story_state_committed,
