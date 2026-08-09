@@ -453,6 +453,7 @@ def _ordinary_authority_projection(
         raise ContractValidationError("ordinary Writer authority requires ordered items")
     supplied: list[str] = []
     response: list[str] = []
+    constraint: list[str] = []
     response_change_keys: set[str] = set()
     item_by_key: dict[str, Mapping[str, Any]] = {}
     seen: set[str] = set()
@@ -470,6 +471,8 @@ def _ordinary_authority_projection(
             raise ContractValidationError("ordinary Writer source binding is invalid")
         if claim_keys or exact_quotes:
             supplied.append(item_key)
+        elif item.get("kind") == "stopping_boundary":
+            constraint.append(item_key)
         else:
             response.append(item_key)
             durable_change_keys = item.get("durable_change_keys", [])
@@ -486,18 +489,25 @@ def _ordinary_authority_projection(
     source_anchors: dict[str, str] = {}
     for item_key in response:
         item = item_by_key[item_key]
+        owner_response_semantics = item.get("owner_response_semantics")
+        semantics_source = "owner_response_semantics"
+        if not isinstance(owner_response_semantics, str) or not owner_response_semantics.strip():
+            owner_response_semantics = item.get("concise_meaning", item.get("summary"))
+            semantics_source = "legacy_concise_meaning"
+        if not isinstance(owner_response_semantics, str) or not owner_response_semantics.strip():
+            raise ContractValidationError("ordinary response item omits owner semantics")
         projected = {
             key: item[key]
             for key in (
                 "item_key",
                 "kind",
                 "owner_id",
-                "concise_meaning",
                 "causal_parent_item_key",
                 "durable_change_keys",
             )
             if key in item
         }
+        projected["owner_response_semantics"] = owner_response_semantics
         canonical_parent = item.get("causal_parent_item_key")
         completed_source_anchor_key = None
         if canonical_parent in supplied_set:
@@ -517,6 +527,7 @@ def _ordinary_authority_projection(
                     "causal_parent_item_key"
                 ),
                 "completed_source_anchor_key": completed_source_anchor_key,
+                "response_semantics_source": semantics_source,
             }
         )
     durable_changes = primary_authority.get("durable_changes", [])
@@ -548,15 +559,18 @@ def _ordinary_authority_projection(
         "postcondition_authority_path": "RESPONSE_SEQUENCE.json#postconditions",
     }
     response_projection = {
-        "schema_version": "cera.pi_scene.response_sequence.v4",
+        "schema_version": "cera.pi_scene.response_sequence.v5",
         "response_start_item_key": response[0],
         "response_start_contract": {
-            "item_key": response[0],
-            "owner_id": response_items[0].get("owner_id"),
-            "first_clause": "advance_response_item_only",
-            "completed_source_reference": "implicit_only",
-            "lead_in": "none",
-            "transient_staging": "after_first_response_clause",
+            "response_start_item_key": response[0],
+            "response_start_owner_id": response_items[0].get("owner_id"),
+            "response_start_kind": response_items[0].get("kind"),
+            "completed_source_anchor_key": response_items[0].get(
+                "completed_source_anchor_key"
+            ),
+            "realization_mode": "owner_response_after_completed_source",
+            "completed_source_rendering": "implicit_cause_only",
+            "pre_response_narration": "forbidden",
         },
         "items": response_items,
         "durable_changes": response_durable_changes,
@@ -579,6 +593,7 @@ def _ordinary_authority_projection(
         "canonical_primary_sha256": canonical_sha256(primary_authority),
         "response_projection_sha256": canonical_sha256(response_projection),
         "excluded_source_item_keys": supplied,
+        "constraint_item_keys": constraint,
         "source_anchor_bindings": [
             {
                 "canonical_source_item_key": source_key,

@@ -22,6 +22,7 @@ from cera.sequence_first.contracts import (
     SequenceDraftV1,
     SequenceFirstTurnSemanticInputV1,
     Visibility,
+    ItemKind,
 )
 
 from .runtime import PlannerTurnInputV1, PlannerTurnOutputV1
@@ -64,6 +65,7 @@ class RetainedCodexPlannerAdapter:
         semantic_input = _semantic_input(request)
         sequence = self.session.plan(semantic_input)
         semantic_input.validate_intended(sequence)
+        _validate_owner_response_semantics(sequence)
         self.last_semantic_input = semantic_input
         if self.readable_debug is not None:
             self.readable_debug.write(
@@ -79,6 +81,25 @@ class RetainedCodexPlannerAdapter:
             sequence=to_primitive(sequence),
             provider_operations=1,
         )
+
+
+def _validate_owner_response_semantics(sequence: SequenceDraftV1) -> None:
+    for item in sequence.items:
+        supplied = bool(
+            item.protected_user_claim_keys or item.protected_user_exact_quotes
+        )
+        if supplied or item.kind is ItemKind.STOPPING_BOUNDARY:
+            if item.owner_response_semantics is not None:
+                raise ContractValidationError(
+                    "supplied-source and stopping items require null owner-response semantics"
+                )
+            continue
+        if not isinstance(item.owner_response_semantics, str) or not (
+            item.owner_response_semantics.strip()
+        ):
+            raise ContractValidationError(
+                "response item requires owner-response semantics"
+            )
 
 
 def _semantic_input(request: PlannerTurnInputV1) -> SequenceFirstTurnSemanticInputV1:

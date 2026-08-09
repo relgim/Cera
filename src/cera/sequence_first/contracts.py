@@ -261,6 +261,7 @@ class SequenceItemV1:
     item_key: str
     kind: ItemKind
     concise_meaning: str
+    owner_response_semantics: str | None = None
     owner_id: str | None = None
     causal_parent_item_key: str | None = None
     evidence_keys: tuple[str, ...] = ()
@@ -283,6 +284,12 @@ class SequenceItemV1:
     def __post_init__(self) -> None:
         _key(self.item_key, "sequence_item.item_key")
         _text(self.concise_meaning, "sequence_item.concise_meaning", maximum=2_000)
+        if self.owner_response_semantics is not None:
+            _text(
+                self.owner_response_semantics,
+                "sequence_item.owner_response_semantics",
+                maximum=2_000,
+            )
         if self.kind in self.OWNER_REQUIRED and self.owner_id is None:
             raise ContractValidationError(f"{self.kind.value} item requires an owner")
         if self.owner_id is not None:
@@ -333,7 +340,7 @@ class PresenceChangeV1:
 class SequenceDraftV1:
     """Provider-authored semantic sequence with no Python custody fields."""
 
-    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.sequence_draft.v4"
+    SCHEMA_VERSION: ClassVar[str] = "cera.sequence_first.sequence_draft.v5"
 
     items: tuple[SequenceItemV1, ...]
     durable_changes: tuple[DurableChangeV1, ...]

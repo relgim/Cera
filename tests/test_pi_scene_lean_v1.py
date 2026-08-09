@@ -127,6 +127,7 @@ class FakeSequencePlannerSession:
                     item_key="hana_answers",
                     kind=ItemKind.DIALOGUE_INTENT,
                     concise_meaning="Hana answers and returns the floor to Ted.",
+                    owner_response_semantics="Hana answers and returns the floor to Ted.",
                     owner_id="character:hana",
                     evidence_keys=("source:current",),
                 ),
@@ -718,14 +719,14 @@ class PiSceneLeanTests(unittest.TestCase):
                     encoding="utf-8"
                 )
             )["realization_scope"]
-            self.assertEqual(scope["response_item_keys"], ["hana_response", "return_floor"])
+            self.assertEqual(scope["response_item_keys"], ["hana_response"])
             self.assertEqual(scope["response_start_item_key"], "hana_response")
             response_sequence = json.loads(
                 (view.root / "RESPONSE_SEQUENCE.json").read_text(encoding="utf-8")
             )
             self.assertEqual(
                 [item["item_key"] for item in response_sequence["items"]],
-                ["hana_response", "return_floor"],
+                ["hana_response"],
             )
             self.assertEqual(
                 response_sequence["items"][0]["causal_parent_item_key"],
@@ -755,18 +756,21 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(
                 response_sequence["response_start_contract"],
                 {
-                    "item_key": "hana_response",
-                    "owner_id": "character:hana",
-                    "first_clause": "advance_response_item_only",
-                    "completed_source_reference": "implicit_only",
-                    "lead_in": "none",
-                    "transient_staging": "after_first_response_clause",
+                    "response_start_item_key": "hana_response",
+                    "response_start_owner_id": "character:hana",
+                    "response_start_kind": "dialogue_intent",
+                    "completed_source_anchor_key": source_anchor,
+                    "realization_mode": "owner_response_after_completed_source",
+                    "completed_source_rendering": "implicit_cause_only",
+                    "pre_response_narration": "forbidden",
                 },
             )
             self.assertNotIn("resulting_public_state", response_sequence)
             self.assertNotIn("unresolved_threads", response_sequence)
             self.assertNotIn("stopping_boundary", response_sequence)
             for item in response_sequence["items"]:
+                self.assertIn("owner_response_semantics", item)
+                self.assertNotIn("concise_meaning", item)
                 self.assertNotIn("evidence_keys", item)
                 self.assertNotIn("planner_item_keys", item)
                 self.assertNotIn("protected_user_claim_keys", item)
@@ -806,6 +810,7 @@ class PiSceneLeanTests(unittest.TestCase):
                     }
                 ],
             )
+            self.assertEqual(provenance["constraint_item_keys"], ["return_floor"])
             self.assertEqual(
                 provenance["response_item_mappings"][0],
                 {
@@ -813,6 +818,7 @@ class PiSceneLeanTests(unittest.TestCase):
                     "canonical_item_key": "hana_response",
                     "completed_source_anchor_key": source_anchor,
                     "projected_causal_parent_item_key": None,
+                    "response_semantics_source": "legacy_concise_meaning",
                 },
             )
             visible_bytes = "\n".join(
