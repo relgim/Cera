@@ -18,6 +18,16 @@ from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 
 from .contracts import RecordingStatus, SceneRoute
+from .full_model_controller import (
+    AcceptedAdultTurnV1,
+    FullModelSceneController,
+    RejectedAdultTurnV1,
+)
+from .full_model_http import (
+    adult_completion_payload,
+    adult_journal_progress,
+    recover_adult_journal_response,
+)
 from .http_contracts import (
     PI_SCENE_ADULT_MODEL,
     PI_SCENE_AUTO_MODEL,
@@ -47,6 +57,7 @@ RequestContextProvider = Callable[
     LeanSceneTurnInputV1,
 ]
 LogicRouteResolver = Callable[[LeanSceneTurnInputV1], SceneRoute]
+
 
 class PiSceneCommittedStateError(RuntimeError):
     """Reporting/delivery failed after authoritative Accept already committed."""
@@ -87,6 +98,7 @@ class PiSceneHttpAdapter:
         readable_debug: ReadablePiSceneDebugLog | None = None,
         request_journal: PiSceneRequestJournal | None = None,
         logic_route_resolver: LogicRouteResolver | None = None,
+        full_model_controller: FullModelSceneController | None = None,
     ) -> None:
         legacy = request_context_provider is None
         if legacy:
@@ -107,6 +119,11 @@ class PiSceneHttpAdapter:
         self.readable_debug = readable_debug
         self.request_journal = request_journal
         self.logic_route_resolver = logic_route_resolver
+        self.full_model_controller = full_model_controller
+        if self.full_model_controller is not None and self.logic_route_resolver is None:
+            raise ContractValidationError(
+                "full-model HTTP requires accepted logic-route resolution"
+            )
 
     @property
     def status(self) -> dict[str, Any]:
@@ -164,12 +181,51 @@ class PiSceneHttpAdapter:
             controls=request.controls,
         )
         request_journal = self._durable_request_journal()
-        resolution = request_journal.begin(binding)
+        try:
+            resolution = request_journal.begin(binding)
+        except RequestReplayPendingError:
+            if self.full_model_controller is None:
+                raise
+            recovered = self.full_model_controller.recover_committed_adult(
+                request_id=binding.request_id,
+                turn=turn,
+            )
+            if recovered is None:
+                raise
+            progress = adult_journal_progress(
+                recovered,
+                controls_sha256=binding.controls_sha256,
+            )
+            try:
+                request_journal.bind_progress(binding, progress)
+                response = self._adult_completion_response_with_debug(recovered)
+                request_journal.complete(binding, response)
+            except Exception as exc:
+                raise PiSceneCommittedStateError(
+                    "CERA recovered accepted adult story state but could not "
+                    "terminalize its durable response"
+                ) from exc
+            return response
         if resolution.replayed:
             if resolution.terminal_response is None:
                 raise StateConflictError("Pi Scene terminal replay omitted its response")
             return dict(resolution.terminal_response)
         if resolution.review_progress is not None:
+            if resolution.review_progress.get("schema_version") == (
+                "cera.pi_scene.http_adult_progress.v1"
+            ):
+                controller = self.full_model_controller
+                if controller is None:
+                    raise StateConflictError("adult request replay lacks its full-model controller")
+                response = recover_adult_journal_response(
+                    controller=controller,
+                    request=request,
+                    turn=turn,
+                    binding_request_id=binding.request_id,
+                    progress=resolution.review_progress,
+                )
+                request_journal.complete(binding, response)
+                return response
             review = self._recover_journal_review(
                 request=request,
                 turn=turn,
@@ -197,11 +253,43 @@ class PiSceneHttpAdapter:
                         world_id=turn.world_id,
                         branch_id=turn.branch_id,
                     )
-                review = (
-                    self.coordinator.start_ordinary(turn)
-                    if request.route is SceneRoute.ORDINARY
-                    else self.coordinator.start_adult(turn)
-                )
+                if self.full_model_controller is not None and request.automatic_route:
+                    outcome = self.full_model_controller.complete(
+                        request_id=binding.request_id,
+                        turn=turn,
+                    )
+                    if isinstance(outcome, (AcceptedAdultTurnV1, RejectedAdultTurnV1)):
+                        progress = adult_journal_progress(
+                            outcome,
+                            controls_sha256=binding.controls_sha256,
+                        )
+                        try:
+                            request_journal.bind_progress(binding, progress)
+                        except Exception as exc:
+                            if isinstance(outcome, AcceptedAdultTurnV1):
+                                raise PiSceneCommittedStateError(
+                                    "CERA accepted the adult story state but could not "
+                                    "bind its durable request progress"
+                                ) from exc
+                            raise
+                        response = self._adult_completion_response_with_debug(outcome)
+                        try:
+                            request_journal.complete(binding, response)
+                        except Exception as exc:
+                            if isinstance(outcome, AcceptedAdultTurnV1):
+                                raise PiSceneCommittedStateError(
+                                    "CERA accepted the adult story state but could not "
+                                    "terminalize its request replay journal"
+                                ) from exc
+                            raise
+                        return response
+                    review = outcome
+                else:
+                    review = (
+                        self.coordinator.start_ordinary(turn)
+                        if request.route is SceneRoute.ORDINARY
+                        else self.coordinator.start_adult(turn)
+                    )
         try:
             request_journal.bind_review(binding, self._journal_review_progress(review))
         except Exception as exc:
@@ -242,9 +330,32 @@ class PiSceneHttpAdapter:
                 if debug_entry is not None:
                     response["cera"]["debug_log_path"] = str(debug_entry)
             except Exception:
-                response["cera"]["operational_warnings"] = [
-                    "readable_debug_write_failed"
-                ]
+                response["cera"]["operational_warnings"] = ["readable_debug_write_failed"]
+        return response
+
+    def _adult_completion_response_with_debug(
+        self,
+        outcome: AcceptedAdultTurnV1 | RejectedAdultTurnV1,
+    ) -> dict[str, Any]:
+        response = adult_completion_payload(outcome)
+        if self.readable_debug is not None:
+            try:
+                debug_entry = self.readable_debug.write(
+                    stage="adult-scene-filter-result",
+                    identity=outcome.outcome.prepared.operation_id,
+                    protected=True,
+                    sections={
+                        "Exact user input": (
+                            outcome.outcome.prepared.scene_request.exact_current_source
+                        ),
+                        "Protected adult result": outcome,
+                        "Visible story prose": outcome.exact_story_prose,
+                    },
+                )
+                if debug_entry is not None:
+                    response["cera"]["debug_log_path"] = str(debug_entry)
+            except Exception:
+                response["cera"]["operational_warnings"] = ["readable_debug_write_failed"]
         return response
 
     def get_review(self, review_id: str) -> dict[str, Any]:
@@ -289,10 +400,7 @@ class PiSceneHttpAdapter:
                 raise ContractValidationError("unknown Pi Scene creator action")
             result = self.decision_payload(action, decision)
         except Exception as exc:
-            if (
-                decision is not None
-                and decision.review.accepted_receipt is not None
-            ):
+            if decision is not None and decision.review.accepted_receipt is not None:
                 raise PiSceneCommittedStateError(
                     "Pi Scene accepted story state but could not render its decision response"
                 ) from exc
@@ -312,9 +420,7 @@ class PiSceneHttpAdapter:
                 if debug_entry is not None:
                     result["debug_log_path"] = str(debug_entry)
             except Exception:
-                result.setdefault("operational_warnings", []).append(
-                    "readable_debug_write_failed"
-                )
+                result.setdefault("operational_warnings", []).append("readable_debug_write_failed")
         return result
 
     def review_payload(self, review: LeanReviewRecordV1) -> dict[str, Any]:
@@ -337,9 +443,7 @@ class PiSceneHttpAdapter:
                     if validation.verdict.conflict is None
                     else to_primitive(validation.verdict.conflict)
                 ),
-                "review_flags": [
-                    to_primitive(value) for value in validation.verdict.review_flags
-                ],
+                "review_flags": [to_primitive(value) for value in validation.verdict.review_flags],
             }
         )
         rejected = validation is not None and validation.verdict.verdict.value == "reject"
@@ -376,13 +480,9 @@ class PiSceneHttpAdapter:
                 else to_primitive(review.turn_input.request_controls)
             ),
             "creator_guidance": (
-                None
-                if review.creator_guidance is None
-                else to_primitive(review.creator_guidance)
+                None if review.creator_guidance is None else to_primitive(review.creator_guidance)
             ),
-            "accept_enabled": (
-                review.state == LeanReviewState.REVIEW_READY and not rejected
-            ),
+            "accept_enabled": (review.state == LeanReviewState.REVIEW_READY and not rejected),
             "provisional_accept_enabled": (
                 review.state == LeanReviewState.REVIEW_READY and rejected
             ),
@@ -392,7 +492,8 @@ class PiSceneHttpAdapter:
                 review.state == LeanReviewState.REVIEW_READY
                 and candidate.route is SceneRoute.ORDINARY
             ),
-            "repair_recording_enabled": status in {
+            "repair_recording_enabled": status
+            in {
                 RecordingStatus.PROJECTION_PENDING.value,
                 RecordingStatus.PENDING_REPAIR.value,
             },
@@ -424,19 +525,13 @@ class PiSceneHttpAdapter:
             "retry_mode": "not_applicable",
             "review": self.review_payload(decision.review),
             "successor": (
-                None
-                if decision.successor is None
-                else self._completion_payload(decision.successor)
+                None if decision.successor is None else self._completion_payload(decision.successor)
             ),
             "operational_warnings": list(decision.operational_warnings),
         }
         if decision.review.accepted_receipt is not None:
-            body["accepted_receipt_sha256"] = (
-                decision.review.accepted_receipt.receipt_sha256
-            )
-            body["accepted_turn_id"] = (
-                decision.review.accepted_receipt.accepted_turn_id
-            )
+            body["accepted_receipt_sha256"] = decision.review.accepted_receipt.receipt_sha256
+            body["accepted_turn_id"] = decision.review.accepted_receipt.accepted_turn_id
         return body
 
     @staticmethod
@@ -446,20 +541,14 @@ class PiSceneHttpAdapter:
         validation = review.semantic_validation
         rejected = validation is not None and validation.verdict.verdict.value == "reject"
         recording_status = (
-            None
-            if review.recording_attempt is None
-            else review.recording_attempt.status.value
+            None if review.recording_attempt is None else review.recording_attempt.status.value
         )
         provisional_canon = (
             review.accepted_receipt is not None
             and review.accepted_receipt.creator_action == "provisional_accept"
         )
         review_status = (
-            "accepted"
-            if committed
-            else "validation_rejected"
-            if rejected
-            else "review_ready"
+            "accepted" if committed else "validation_rejected" if rejected else "review_ready"
         )
         return {
             "id": f"chatcmpl-cera-{candidate.candidate_sha256[:24]}",
@@ -510,17 +599,14 @@ class PiSceneHttpAdapter:
                     else {
                         "binding_sha256": validation.binding_sha256,
                         "verdict": validation.verdict.verdict.value,
-                        "automatic_repair_eligible": (
-                            validation.verdict.automatic_repair_eligible
-                        ),
+                        "automatic_repair_eligible": (validation.verdict.automatic_repair_eligible),
                         "conflict": (
                             None
                             if validation.verdict.conflict is None
                             else to_primitive(validation.verdict.conflict)
                         ),
                         "review_flags": [
-                            to_primitive(value)
-                            for value in validation.verdict.review_flags
+                            to_primitive(value) for value in validation.verdict.review_flags
                         ],
                     }
                 ),
@@ -565,9 +651,7 @@ class PiSceneHttpAdapter:
     def _journal_review_progress(review: LeanReviewRecordV1) -> dict[str, Any]:
         receipt = review.accepted_receipt
         recording_status = (
-            None
-            if review.recording_attempt is None
-            else review.recording_attempt.status.value
+            None if review.recording_attempt is None else review.recording_attempt.status.value
         )
         return {
             "schema_version": "cera.pi_scene.http_review_progress.v1",
@@ -578,9 +662,7 @@ class PiSceneHttpAdapter:
             "branch_id": review.candidate.branch_id,
             "route": review.candidate.route.value,
             "exact_user_source_sha256": text_sha256(review.turn_input.exact_user_source),
-            "controls_sha256": canonical_sha256(
-                to_primitive(review.turn_input.request_controls)
-            ),
+            "controls_sha256": canonical_sha256(to_primitive(review.turn_input.request_controls)),
             "review_state": review.state,
             "accepted_turn_id": None if receipt is None else receipt.accepted_turn_id,
             "accepted_receipt_sha256": None if receipt is None else receipt.receipt_sha256,

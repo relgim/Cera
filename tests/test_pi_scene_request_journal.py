@@ -12,6 +12,7 @@ from cera.errors import StateConflictError
 from cera.pi_scene.contracts import SceneRoute
 from cera.pi_scene.http import PiSceneCommittedStateError, PiSceneHttpAdapter
 from cera.pi_scene.http_contracts import (
+    PI_SCENE_AUTO_MODEL,
     PI_SCENE_ORDINARY_MODEL,
     PI_SCENE_PROFILE,
     LeanSceneRequestControlsV2,
@@ -114,6 +115,30 @@ def _adult_progress(binding, *, rejected: bool = False) -> dict[str, object]:
 
 
 class PiSceneRequestJournalTests(unittest.TestCase):
+    def test_automatic_request_identity_survives_post_accept_route_change(self) -> None:
+        payload = _payload("session-replay")
+        payload["model"] = PI_SCENE_AUTO_MODEL
+        ordinary = build_request_binding(
+            payload=payload,
+            session_id="session-replay",
+            world_id="world:test",
+            branch_id="branch:test",
+            route=SceneRoute.ORDINARY,
+            controls=_controls("session-replay"),
+        )
+        adult = build_request_binding(
+            payload=payload,
+            session_id="session-replay",
+            world_id="world:test",
+            branch_id="branch:test",
+            route=SceneRoute.ADULT,
+            controls=_controls("session-replay"),
+        )
+
+        self.assertEqual(adult, ordinary)
+        self.assertEqual(adult.route, SceneRoute.ORDINARY)
+        self.assertEqual(adult.route_intent, "automatic")
+
     def test_terminal_response_replays_exactly_after_restart(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

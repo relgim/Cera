@@ -129,6 +129,13 @@ def build_request_binding(
 
     request_bytes = canonical_bytes(payload)
     controls_payload = to_primitive(controls)
+    route_intent = _route_intent(payload)
+    # An automatic request is identified by the bytes the client actually sent,
+    # not by a route derived from mutable accepted state.  The dispatched route
+    # remains bound in the durable progress artifact.  This keeps a transport
+    # replay stable when the accepted adult result changes the route for the
+    # *next* user message.
+    identity_route = SceneRoute.ORDINARY if route_intent == "automatic" else route
     identity = {
         "schema_version": PiSceneRequestBindingV1.SCHEMA_VERSION,
         "normalized_request_sha256": bytes_sha256(request_bytes),
@@ -136,8 +143,8 @@ def build_request_binding(
         "session_id": session_id,
         "world_id": world_id,
         "branch_id": branch_id,
-        "route": route.value,
-        "route_intent": _route_intent(payload),
+        "route": identity_route.value,
+        "route_intent": route_intent,
         "controls": controls_payload,
         "controls_sha256": canonical_sha256(controls_payload),
     }
@@ -149,7 +156,7 @@ def build_request_binding(
         session_id=session_id,
         world_id=world_id,
         branch_id=branch_id,
-        route=route,
+        route=identity_route,
         route_intent=identity["route_intent"],
         controls=controls_payload,
         controls_sha256=identity["controls_sha256"],
