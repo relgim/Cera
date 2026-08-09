@@ -495,8 +495,15 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertNotIn("opening sentence", prompt.lower())
         self.assertIn("current turn wins", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("RESPONSE_SEQUENCE.json", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("not the realization checklist", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("realization_scope.already_supplied_item_keys", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn(
+            "outside the visible Writer realization context",
+            ORDINARY_WRITER_SYSTEM_PROMPT,
+        )
+        self.assertIn(
+            "realization_scope.already_supplied_item_keys",
+            ORDINARY_WRITER_SYSTEM_PROMPT,
+        )
+        self.assertIn("first response item", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn("consent_and_capacity", ADULT_WRITER_SYSTEM_PROMPT)
 
@@ -555,6 +562,10 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(
                 authority_order["canonical_primary_sequence_path"],
                 "PRIMARY_SEQUENCE.json",
+            )
+            self.assertEqual(
+                authority_order["writer_excluded_paths"],
+                ["PRIMARY_SEQUENCE.json"],
             )
             self.assertEqual(
                 authority_order["realization_scope"],
@@ -882,6 +893,7 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertNotIn("write", command)
             self.assertNotIn("edit", command)
             self.assertEqual(captured["environment"]["CERA_PI_MAX_TOOL_CALLS"], "1")
+            self.assertEqual(captured["environment"]["CERA_PI_PURPOSE"], "writer")
             self.assertEqual(result.output_text, "Final scene prose.")
             self.assertEqual(result.writer_receipt.provider_operations, 2)
             self.assertEqual(result.writer_receipt.input_tokens, 220)
@@ -895,6 +907,18 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(settings["retry"]["maxRetries"], 0)
             self.assertEqual(settings["retry"]["provider"]["maxRetries"], 0)
             self.assertFalse(settings["compaction"]["enabled"])
+
+    def test_pi_context_hides_python_custody_sequence_from_writer_only(self) -> None:
+        extension = (
+            Path(__file__).resolve().parents[1]
+            / "integrations"
+            / "pi"
+            / "cera-scene-view.ts"
+        ).read_text(encoding="utf-8")
+        self.assertIn('const PURPOSE_ENV = "CERA_PI_PURPOSE"', extension)
+        self.assertIn('new Set(["PRIMARY_SEQUENCE.json"])', extension)
+        self.assertIn('process.env[PURPOSE_ENV] === "writer"', extension)
+        self.assertIn("excluded from Writer access", extension)
 
     def test_writer_output_accepts_raw_prose_and_strict_legacy_envelope(self) -> None:
         self.assertEqual(

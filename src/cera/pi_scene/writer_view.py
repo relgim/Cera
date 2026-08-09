@@ -188,6 +188,11 @@ class WriterViewMaterializer:
                     else None
                 ),
                 "current_state_path": "CURRENT_STATE.json",
+                "writer_excluded_paths": (
+                    ["PRIMARY_SEQUENCE.json"]
+                    if source.route is SceneRoute.ORDINARY
+                    else []
+                ),
                 "precedence": [
                     "current_route_and_primary_authority",
                     "current_accepted_state",

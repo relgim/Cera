@@ -17,6 +17,15 @@ const MAX_CONTEXT_BYTES = 64 * 1024;
 const MAX_RESULTS = 80;
 const ROOT_ENV = "CERA_PI_VIEW_ROOT";
 const MAX_TOOL_CALLS_ENV = "CERA_PI_MAX_TOOL_CALLS";
+const PURPOSE_ENV = "CERA_PI_PURPOSE";
+const WRITER_EXCLUDED_PATHS = new Set(["PRIMARY_SEQUENCE.json"]);
+
+function isWriterExcluded(path: string): boolean {
+	return (
+		process.env[PURPOSE_ENV] === "writer" &&
+		WRITER_EXCLUDED_PATHS.has(path.replaceAll("\\", "/"))
+	);
+}
 
 function configuredRoot(): string {
 	const value = process.env[ROOT_ENV];
@@ -45,6 +54,9 @@ function normalizeRelative(value: string): string {
 async function confinedPath(value: string): Promise<{ root: string; target: string }> {
 	const root = await realpath(configuredRoot());
 	const normalized = normalizeRelative(value);
+	if (isWriterExcluded(normalized)) {
+		throw new Error("path is retained for Python custody and excluded from Writer access");
+	}
 	let lexical = root;
 	for (const part of normalized.split(sep)) {
 		lexical = resolve(lexical, part);
@@ -72,7 +84,10 @@ async function allFiles(root: string): Promise<string[]> {
 			const rel = relative(rootReal, target);
 			if (rel.startsWith(`..${sep}`) || isAbsolute(rel)) continue;
 			if (entry.isDirectory()) pending.push(target);
-			else if (entry.isFile()) output.push(rel.replaceAll(sep, "/"));
+			else if (entry.isFile()) {
+				const normalized = rel.replaceAll(sep, "/");
+				if (!isWriterExcluded(normalized)) output.push(normalized);
+			}
 		}
 	}
 	return output.sort();
@@ -167,6 +182,10 @@ export default function (pi: ExtensionAPI) {
 			if (!stats.isDirectory()) throw new Error("list target is not a directory");
 			const entries = (await readdir(target, { withFileTypes: true }))
 				.filter((entry) => !entry.isSymbolicLink())
+				.filter((entry) => {
+					const child = params.path ? `${params.path}/${entry.name}` : entry.name;
+					return !isWriterExcluded(child);
+				})
 				.map((entry) => `${entry.isDirectory() ? "directory" : "file"}\t${entry.name}`)
 				.sort()
 				.slice(0, MAX_RESULTS);
