@@ -186,12 +186,12 @@ class PiSceneRequestJournal:
                     review_progress=None,
                 )
 
-    def bind_review(
+    def bind_progress(
         self,
         binding: PiSceneRequestBindingV1,
         review_progress: Mapping[str, Any],
     ) -> None:
-        """Persist exact durable-review custody before response rendering."""
+        """Persist exact durable operation custody before response rendering."""
 
         progress = to_primitive(review_progress)
         if not isinstance(progress, dict):
@@ -210,9 +210,7 @@ class PiSceneRequestJournal:
                 "schema_version": self.SCHEMA_VERSION,
                 "binding": binding.to_payload(),
                 "status": "progressed",
-                "pre_dispatch_journal_sha256": self._pending_entry(binding)[
-                    "journal_sha256"
-                ],
+                "pre_dispatch_journal_sha256": self._pending_entry(binding)["journal_sha256"],
                 "review_progress": progress,
                 "terminal_response": None,
                 "terminal_response_sha256": None,
@@ -220,6 +218,15 @@ class PiSceneRequestJournal:
             progressed = {**body, "journal_sha256": canonical_sha256(body)}
             _atomic_write_json(path, progressed)
             self._read_entry(path, expected=binding)
+
+    def bind_review(
+        self,
+        binding: PiSceneRequestBindingV1,
+        review_progress: Mapping[str, Any],
+    ) -> None:
+        """Historical ordinary-review spelling retained for compatibility."""
+
+        self.bind_progress(binding, review_progress)
 
     def complete(
         self,
@@ -241,16 +248,12 @@ class PiSceneRequestJournal:
                     raise StateConflictError("Pi Scene terminal request response changed")
                 return
             if current["status"] != "progressed":
-                raise StateConflictError(
-                    "Pi Scene terminal response lacks durable review progress"
-                )
+                raise StateConflictError("Pi Scene terminal response lacks durable review progress")
             body = {
                 "schema_version": self.SCHEMA_VERSION,
                 "binding": binding.to_payload(),
                 "status": "terminal",
-                "pre_dispatch_journal_sha256": self._pending_entry(binding)[
-                    "journal_sha256"
-                ],
+                "pre_dispatch_journal_sha256": self._pending_entry(binding)["journal_sha256"],
                 "review_progress": current["review_progress"],
                 "terminal_response": response_payload,
                 "terminal_response_sha256": canonical_sha256(response_payload),
@@ -312,7 +315,13 @@ class PiSceneRequestJournal:
         )
 
     def _entry_path(self, binding: PiSceneRequestBindingV1) -> Path:
-        protected = "PROTECTED_ADULT" if binding.route is SceneRoute.ADULT else "ORDINARY"
+        protected = (
+            "PROTECTED_ADULT"
+            if binding.route is SceneRoute.ADULT
+            else "PROTECTED_AUTO"
+            if binding.route_intent == "automatic"
+            else "ORDINARY"
+        )
         path = (
             self.root
             / protected
@@ -475,6 +484,11 @@ def _validate_review_progress(
     progress: Any,
     binding: PiSceneRequestBindingV1,
 ) -> None:
+    if isinstance(progress, dict) and progress.get("schema_version") == (
+        "cera.pi_scene.http_adult_progress.v1"
+    ):
+        _validate_adult_progress(progress, binding)
+        return
     required = {
         "schema_version",
         "review_id",
@@ -524,6 +538,78 @@ def _validate_review_progress(
         progress["recording_status"], str
     ):
         raise StateConflictError("Pi Scene review-progress recording status is invalid")
+
+
+def _validate_adult_progress(
+    progress: dict[str, Any],
+    binding: PiSceneRequestBindingV1,
+) -> None:
+    required = {
+        "schema_version",
+        "request_id",
+        "candidate_id",
+        "operation_sha256",
+        "world_id",
+        "branch_id",
+        "actual_route",
+        "exact_user_source_sha256",
+        "controls_sha256",
+        "outcome_status",
+        "accepted_turn_id",
+        "accepted_receipt_sha256",
+        "promotion_bundle_sha256",
+        "protected_rejected_outcome",
+        "protected_rejected_outcome_sha256",
+    }
+    if set(progress) != required:
+        raise StateConflictError("Pi Scene adult request-progress shape changed")
+    if progress["request_id"] != binding.request_id:
+        raise StateConflictError("Pi Scene adult request identity changed")
+    if (
+        progress["world_id"] != binding.world_id
+        or progress["branch_id"] != binding.branch_id
+        or progress["actual_route"] != SceneRoute.ADULT.value
+        or progress["controls_sha256"] != binding.controls_sha256
+    ):
+        raise StateConflictError("Pi Scene adult request-progress custody changed")
+    if binding.route is not SceneRoute.ADULT and binding.route_intent != "automatic":
+        raise StateConflictError("Pi Scene adult result lacks protected route custody")
+    if not isinstance(progress["candidate_id"], str) or not progress["candidate_id"]:
+        raise StateConflictError("Pi Scene adult candidate identity is invalid")
+    for field_name in (
+        "operation_sha256",
+        "exact_user_source_sha256",
+        "controls_sha256",
+    ):
+        if not re_is_sha256(progress[field_name] or ""):
+            raise StateConflictError(f"Pi Scene adult {field_name} is invalid")
+    status = progress["outcome_status"]
+    accepted_values = (
+        progress["accepted_turn_id"],
+        progress["accepted_receipt_sha256"],
+        progress["promotion_bundle_sha256"],
+    )
+    rejected = progress["protected_rejected_outcome"]
+    rejected_sha = progress["protected_rejected_outcome_sha256"]
+    if status == "accepted":
+        if (
+            not isinstance(accepted_values[0], str)
+            or not re_is_sha256(accepted_values[1] or "")
+            or not re_is_sha256(accepted_values[2] or "")
+            or rejected is not None
+            or rejected_sha is not None
+        ):
+            raise StateConflictError("Pi Scene accepted adult progress is invalid")
+    elif status == "filter_rejected":
+        if (
+            any(value is not None for value in accepted_values)
+            or not isinstance(rejected, dict)
+            or not re_is_sha256(rejected_sha or "")
+            or canonical_sha256(rejected) != rejected_sha
+        ):
+            raise StateConflictError("Pi Scene rejected adult progress is invalid")
+    else:
+        raise StateConflictError("Pi Scene adult outcome status changed")
 
 
 def _atomic_write_json(path: Path, payload: Mapping[str, Any]) -> None:

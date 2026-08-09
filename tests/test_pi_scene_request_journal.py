@@ -22,6 +22,7 @@ from cera.pi_scene.request_journal import (
     build_request_binding,
 )
 from cera.semantic_validation import SemanticVerdict
+from cera.serialization import canonical_sha256
 
 from .test_pi_scene_lean_v1 import turn
 from .test_pi_scene_semantic_runtime import _runtime, _SemanticValidator
@@ -91,6 +92,27 @@ def _progress(binding) -> dict[str, object]:
     }
 
 
+def _adult_progress(binding, *, rejected: bool = False) -> dict[str, object]:
+    protected = {"schema_version": "protected-test.v1", "exact_story_prose": "private"}
+    return {
+        "schema_version": "cera.pi_scene.http_adult_progress.v1",
+        "request_id": binding.request_id,
+        "candidate_id": "candidate:adult:test",
+        "operation_sha256": "d" * 64,
+        "world_id": binding.world_id,
+        "branch_id": binding.branch_id,
+        "actual_route": "adult",
+        "exact_user_source_sha256": "e" * 64,
+        "controls_sha256": binding.controls_sha256,
+        "outcome_status": "filter_rejected" if rejected else "accepted",
+        "accepted_turn_id": None if rejected else "turn-adult-test",
+        "accepted_receipt_sha256": None if rejected else "f" * 64,
+        "promotion_bundle_sha256": None if rejected else "a" * 64,
+        "protected_rejected_outcome": protected if rejected else None,
+        "protected_rejected_outcome_sha256": (canonical_sha256(protected) if rejected else None),
+    }
+
+
 class PiSceneRequestJournalTests(unittest.TestCase):
     def test_terminal_response_replays_exactly_after_restart(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -137,6 +159,39 @@ class PiSceneRequestJournalTests(unittest.TestCase):
             adult = _binding(route=SceneRoute.ADULT)
             self.assertIn("ORDINARY", journal.entry_path(ordinary).parts)
             self.assertIn("PROTECTED_ADULT", journal.entry_path(adult).parts)
+
+    def test_automatic_route_journal_is_protected_before_logic_owner_resolution(self) -> None:
+        controls = _controls("chat-alpha")
+        payload = {**_payload("chat-alpha"), "model": "cera-alpha"}
+        binding = build_request_binding(
+            payload=payload,
+            session_id="chat-alpha",
+            world_id="world-alpha",
+            branch_id="branch-alpha",
+            route=SceneRoute.ORDINARY,
+            controls=controls,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            journal = PiSceneRequestJournal(Path(temporary))
+            self.assertIn("PROTECTED_AUTO", journal.entry_path(binding).parts)
+            journal.begin(binding)
+            journal.bind_progress(binding, _adult_progress(binding, rejected=True))
+            journal.complete(binding, {"status": "validation_rejected"})
+            replay = PiSceneRequestJournal(Path(temporary)).begin(binding)
+            self.assertTrue(replay.replayed)
+
+    def test_adult_progress_rejects_tampered_protected_outcome(self) -> None:
+        binding = _binding(route=SceneRoute.ADULT)
+        with tempfile.TemporaryDirectory() as temporary:
+            journal = PiSceneRequestJournal(Path(temporary))
+            journal.begin(binding)
+            progress = _adult_progress(binding, rejected=True)
+            progress["protected_rejected_outcome"] = {
+                "schema_version": "protected-test.v1",
+                "exact_story_prose": "tampered",
+            }
+            with self.assertRaisesRegex(StateConflictError, "rejected adult progress"):
+                journal.bind_progress(binding, progress)
 
     def test_canonical_request_bytes_ignore_object_key_order_only(self) -> None:
         controls = _controls("chat-alpha")
