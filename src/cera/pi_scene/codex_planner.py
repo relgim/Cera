@@ -8,6 +8,7 @@ Codex thread is a reasoning aid and never becomes branch authority.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, Mapping, Protocol
 
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
@@ -225,19 +226,36 @@ def _accepted_evidence(
         generation = receipt.get("generation")
         if type(generation) is not int or generation < 1:
             raise ContractValidationError("accepted evidence generation is invalid")
-        exact_prose = receipt.get("exact_accepted_prose")
-        primary_authority = receipt.get("primary_authority_json")
-        if not isinstance(exact_prose, str) or not isinstance(primary_authority, str):
-            raise ContractValidationError("accepted evidence custody fields are invalid")
+        route = receipt.get("route")
+        if route not in {"ordinary", "adult"}:
+            raise ContractValidationError("accepted evidence route is invalid")
+        accepted_prose_hash = _accepted_text_hash(
+            receipt,
+            text_field="exact_accepted_prose",
+            hash_field="exact_accepted_prose_sha256",
+            label="accepted prose",
+        )
+        primary_authority_hash = _accepted_text_hash(
+            receipt,
+            text_field="primary_authority_json",
+            hash_field="primary_authority_sha256",
+            label="primary authority",
+        )
+        public_receipt = {
+            "accepted_turn_id": receipt.get("accepted_turn_id"),
+            "generation": generation,
+            "route": route,
+            "exact_accepted_prose_sha256": accepted_prose_hash,
+            "primary_authority_sha256": primary_authority_hash,
+        }
+        # Exact prior user text is useful ordinary continuity, but protected
+        # adult source never belongs in the Codex evidence projection.
+        if route == "ordinary":
+            exact_source = receipt.get("exact_user_source")
+            if isinstance(exact_source, str):
+                public_receipt["exact_user_source"] = exact_source
         public_value = {
-            "receipt": {
-                "accepted_turn_id": receipt.get("accepted_turn_id"),
-                "generation": generation,
-                "route": receipt.get("route"),
-                "exact_user_source": receipt.get("exact_user_source"),
-                "exact_accepted_prose_sha256": text_sha256(exact_prose),
-                "primary_authority_sha256": text_sha256(primary_authority),
-            },
+            "receipt": public_receipt,
             "ordinary_record": value.get("ordinary_record"),
             "adult_projection": value.get("adult_projection"),
         }
@@ -250,6 +268,31 @@ def _accepted_evidence(
             )
         )
     return tuple(records)
+
+
+def _accepted_text_hash(
+    receipt: Mapping[str, Any],
+    *,
+    text_field: str,
+    hash_field: str,
+    label: str,
+) -> str:
+    """Accept full ordinary custody or a sanitized hash-only projection."""
+
+    exact = receipt.get(text_field)
+    stored_hash = receipt.get(hash_field)
+    if exact is not None:
+        if not isinstance(exact, str):
+            raise ContractValidationError(f"accepted {label} text is invalid")
+        actual_hash = text_sha256(exact)
+        if stored_hash is not None and stored_hash != actual_hash:
+            raise ContractValidationError(f"accepted {label} hash changed")
+        return actual_hash
+    if not isinstance(stored_hash, str) or not re.fullmatch(
+        r"[0-9a-f]{64}", stored_hash
+    ):
+        raise ContractValidationError(f"accepted {label} custody hash is invalid")
+    return stored_hash
 
 
 def _mapping_evidence(
