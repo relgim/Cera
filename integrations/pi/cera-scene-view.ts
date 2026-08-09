@@ -93,6 +93,36 @@ async function allFiles(root: string): Promise<string[]> {
 	return output.sort();
 }
 
+async function writerContextPacket(root: string): Promise<{ text: string; files: number }> {
+	const responsePath = "RESPONSE_SEQUENCE.json";
+	const controlPath = "zz_CURRENT_TURN_AUTHORITY.json";
+	const sourcePath = "USER_PROMPT.txt";
+	const semanticPaths = (await allFiles(root)).filter(
+		(path) => !["MANIFEST.json", responsePath, controlPath, sourcePath].includes(path),
+	);
+	const sections: string[] = [];
+	const add = async (label: string, path: string) => {
+		const target = (await confinedPath(path)).target;
+		const data = await readFile(target);
+		if (data.byteLength > MAX_READ_BYTES) throw new Error("context file exceeds the read bound");
+		sections.push(`===== ${label} =====\n${data.toString("utf8")}`);
+	};
+	await add("RESPONSE REALIZATION AUTHORITY | RESPONSE_SEQUENCE.json", responsePath);
+	await add("WRITER CONTROL | zz_CURRENT_TURN_AUTHORITY.json", controlPath);
+	await add(
+		"COMPLETED OFF-PAGE SOURCE | USER_PROMPT.txt | CONTEXT ONLY | DO NOT NARRATE, QUOTE, PARAPHRASE, OR STAGE",
+		sourcePath,
+	);
+	for (const path of semanticPaths) {
+		await add(`SUPPORTING ACCEPTED CONTEXT | ${path}`, path);
+	}
+	const text = sections.join("\n\n");
+	if (Buffer.byteLength(text, "utf8") > MAX_CONTEXT_BYTES) {
+		throw new Error("Writer view exceeds the context bound");
+	}
+	return { text, files: semanticPaths.length + 3 };
+}
+
 const toolGuidelines = [
 	"Use only the CERA Writer-view tools. They are confined to the current branch/candidate view.",
 	"Prefer one context call; Python already minimized the complete authoritative scene view.",
@@ -125,6 +155,17 @@ export default function (pi: ExtensionAPI) {
 		parameters: Type.Object({}),
 		async execute() {
 			const root = await realpath(configuredRoot());
+			if (process.env[PURPOSE_ENV] === "writer") {
+				const packet = await writerContextPacket(root);
+				return {
+					content: [{ type: "text", text: packet.text }] as TextContent[],
+					details: {
+						bytes: Buffer.byteLength(packet.text, "utf8"),
+						files: packet.files,
+						packet: "cera.writer_context_packet.v1",
+					},
+				};
+			}
 			const sections: string[] = [];
 			let totalBytes = 0;
 			for (const rel of await allFiles(root)) {

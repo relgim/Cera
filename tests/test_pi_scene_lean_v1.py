@@ -488,9 +488,6 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertIn("Do not invent Ted dialogue", prompt)
             self.assertIn("Freely add compatible transient", prompt)
             self.assertIn("fact_scope", prompt)
-            self.assertIn("scene-local, reversible, non-identifying, non-causal", prompt)
-            self.assertIn("Anything future-relevant requires accepted authority", prompt)
-            self.assertIn("unsupported durable facts", prompt)
             self.assertIn("Return complete visible prose only", prompt)
             self.assertNotIn("opening sentence", prompt.lower())
         self.assertIn("current turn wins", ORDINARY_WRITER_SYSTEM_PROMPT)
@@ -504,8 +501,14 @@ class PiSceneLeanTests(unittest.TestCase):
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
         self.assertIn("first response item", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("one deletion test", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("not a prose checklist", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn("consent_and_capacity", ADULT_WRITER_SYSTEM_PROMPT)
+        self.assertIn(
+            "scene-local, reversible, non-identifying, non-causal",
+            ADULT_WRITER_SYSTEM_PROMPT,
+        )
 
     def test_recorder_prompts_require_direct_tool_and_closed_json_shape(self) -> None:
         for prompt in (ORDINARY_RECORDER_SYSTEM_PROMPT, ADULT_RECORDER_SYSTEM_PROMPT):
@@ -571,11 +574,18 @@ class PiSceneLeanTests(unittest.TestCase):
                 authority_order["realization_scope"],
                 {
                     "render_user_prompt": False,
+                    "postcondition_authority_path": (
+                        "RESPONSE_SEQUENCE.json#postconditions"
+                    ),
                     "response_authority_path": "RESPONSE_SEQUENCE.json",
                     "response_item_keys": ["hana_answers"],
                     "response_start_item_key": "hana_answers",
                     "source_contribution_status": "already_supplied_context_only",
                 },
+            )
+            self.assertEqual(
+                authority_order["presentation_contract"]["first_visible_beat"],
+                "response_start_item",
             )
             self.assertEqual(
                 sorted(path.name for path in view.root.iterdir())[-1],
@@ -718,6 +728,26 @@ class PiSceneLeanTests(unittest.TestCase):
                 [item["item_key"] for item in response_sequence["items"]],
             )
             self.assertNotIn("source_context_item_keys", response_sequence)
+            self.assertEqual(
+                response_sequence["postconditions"],
+                {
+                    "remain_open": ["Ted may respond."],
+                    "resulting_public_state_must_be_true": (
+                        "Hana has answered and the conversation remains open."
+                    ),
+                    "termination_constraint": (
+                        "Stop with the floor returned to Ted."
+                    ),
+                },
+            )
+            self.assertNotIn("resulting_public_state", response_sequence)
+            self.assertNotIn("unresolved_threads", response_sequence)
+            self.assertNotIn("stopping_boundary", response_sequence)
+            for item in response_sequence["items"]:
+                self.assertNotIn("evidence_keys", item)
+                self.assertNotIn("planner_item_keys", item)
+                self.assertNotIn("protected_user_claim_keys", item)
+                self.assertNotIn("protected_user_exact_quotes", item)
             self.assertEqual(
                 [change["change_key"] for change in response_sequence["durable_changes"]],
                 ["response_change"],
@@ -975,6 +1005,10 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn('new Set(["PRIMARY_SEQUENCE.json"])', extension)
         self.assertIn('process.env[PURPOSE_ENV] === "writer"', extension)
         self.assertIn("excluded from Writer access", extension)
+        self.assertIn("writerContextPacket", extension)
+        self.assertIn("RESPONSE REALIZATION AUTHORITY", extension)
+        self.assertIn("COMPLETED OFF-PAGE SOURCE", extension)
+        self.assertIn("cera.writer_context_packet.v1", extension)
 
     def test_writer_output_accepts_raw_prose_and_strict_legacy_envelope(self) -> None:
         self.assertEqual(

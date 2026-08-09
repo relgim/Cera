@@ -233,6 +233,20 @@ class WriterViewMaterializer:
                     "they cannot replace, reopen, or extend the current turn authority."
                 ),
                 "realization_scope": realization_scope,
+                "presentation_contract": (
+                    {
+                        "completed_source_usage": "context_only_never_render",
+                        "first_visible_beat": "response_start_item",
+                        "resulting_state_usage": "postcondition_not_prose_checklist",
+                        "transient_detail_test": (
+                            "Deleting an invented detail must change neither causality, "
+                            "identity, accepted knowledge, nor any fact a later turn "
+                            "could rely on."
+                        ),
+                    }
+                    if source.purpose == "writer"
+                    else {"recording_phase": "accepted_prose_extraction_only"}
+                ),
                 "fact_scope": {
                     "authoritative_paths": [
                         "CURRENT_STATE.json",
@@ -467,7 +481,18 @@ def _ordinary_authority_projection(
     source_anchors: dict[str, str] = {}
     for item_key in response:
         item = item_by_key[item_key]
-        projected = dict(item)
+        projected = {
+            key: item[key]
+            for key in (
+                "item_key",
+                "kind",
+                "owner_id",
+                "concise_meaning",
+                "causal_parent_item_key",
+                "durable_change_keys",
+            )
+            if key in item
+        }
         canonical_parent = item.get("causal_parent_item_key")
         completed_source_anchor_key = None
         if canonical_parent in supplied_set:
@@ -512,22 +537,24 @@ def _ordinary_authority_projection(
         "response_item_keys": response,
         "response_start_item_key": response[0],
         "response_authority_path": "RESPONSE_SEQUENCE.json",
+        "postcondition_authority_path": "RESPONSE_SEQUENCE.json#postconditions",
     }
     response_projection = {
-        "schema_version": "cera.pi_scene.response_sequence.v2",
+        "schema_version": "cera.pi_scene.response_sequence.v3",
+        "response_start_item_key": response[0],
         "items": response_items,
         "durable_changes": response_durable_changes,
         "presence_changes": response_presence_changes,
-        "resulting_public_state": primary_authority.get("resulting_public_state"),
-        "unresolved_threads": primary_authority.get("unresolved_threads"),
-        "stopping_boundary": primary_authority.get("stopping_boundary"),
+        "postconditions": {
+            "resulting_public_state_must_be_true": primary_authority.get(
+                "resulting_public_state"
+            ),
+            "remain_open": primary_authority.get("unresolved_threads"),
+            "termination_constraint": primary_authority.get("stopping_boundary"),
+        },
     }
-    for field_name in (
-        "resulting_public_state",
-        "unresolved_threads",
-        "stopping_boundary",
-    ):
-        if response_projection[field_name] is None:
+    for field_name, value in response_projection["postconditions"].items():
+        if value is None:
             raise ContractValidationError(
                 f"ordinary Writer authority omits {field_name}"
             )
