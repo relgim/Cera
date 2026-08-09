@@ -16,10 +16,15 @@ from .prompting import (
     LUNA_VALIDATOR_PROFILE,
     build_luna_validation_prompt,
 )
+from .provider import CodexLunaSemanticValidatorBackend, luna_validator_route
 from .schema import semantic_verdict_json_schema
+from .session import FreshLunaValidatorFactory, FreshLunaValidatorSession
 
 __all__ = [
     "BoundSemanticValidationV1",
+    "CodexLunaSemanticValidatorBackend",
+    "FreshLunaValidatorFactory",
+    "FreshLunaValidatorSession",
     "LUNA_VALIDATOR_BASE_INSTRUCTIONS",
     "LUNA_VALIDATOR_PROFILE",
     "SemanticConflictClass",
@@ -31,5 +36,6 @@ __all__ = [
     "SemanticVerdict",
     "ValidationEvidenceV1",
     "build_luna_validation_prompt",
+    "luna_validator_route",
     "semantic_verdict_json_schema",
 ]
