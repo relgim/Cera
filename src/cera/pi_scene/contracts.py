@@ -18,19 +18,23 @@ from cera.serialization import canonical_json, canonical_sha256, re_is_sha256, t
 
 
 def _required(value: str, field_name: str) -> str:
-    if not isinstance(value, str) or not value.strip():
+    if type(value) is not str or not value.strip():
         raise ContractValidationError(f"{field_name} must be non-empty")
     return value
 
 
 def _sha(value: str, field_name: str) -> str:
-    if not re_is_sha256(value):
+    if type(value) is not str or not re_is_sha256(value):
         raise ContractValidationError(f"{field_name} must be a SHA-256 value")
     return value
 
 
 def _unique_nonempty(values: tuple[str, ...], field_name: str) -> tuple[str, ...]:
-    if len(values) != len(set(values)) or any(not value.strip() for value in values):
+    if (
+        type(values) is not tuple
+        or any(type(value) is not str or not value.strip() for value in values)
+        or len(values) != len(set(values))
+    ):
         raise ContractValidationError(f"{field_name} must contain unique non-empty values")
     return values
 
@@ -164,6 +168,8 @@ class PiWriterReceiptV1:
             raise ContractValidationError("Pi Writer receipt requires a provider operation")
         if self.cached_input_tokens > self.input_tokens:
             raise ContractValidationError("cached input exceeds total input")
+        if type(self.rehydrated) is not bool:
+            raise ContractValidationError("rehydrated must be boolean")
 
 
 @dataclass(frozen=True, slots=True)
@@ -494,8 +500,8 @@ class LeanRecordingAttemptV1:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("recording-attempt schema changed")
         _required(self.accepted_turn_id, "accepted_turn_id")
-        if type(self.attempt_number) is not int or self.attempt_number < 1:
-            raise ContractValidationError("recording attempt number must be positive")
+        if type(self.attempt_number) is not int or self.attempt_number < 0:
+            raise ContractValidationError("recording attempt number must be non-negative")
         _sha(self.recorder_request_sha256, "recorder_request_sha256")
         if type(self.provider_operations) is not int or self.provider_operations < 0:
             raise ContractValidationError("Recorder provider operation count is invalid")
@@ -508,7 +514,27 @@ class LeanRecordingAttemptV1:
             value = getattr(self, field_name)
             if value is not None:
                 _sha(value, field_name)
-        if self.status is RecordingStatus.PENDING_REPAIR:
+        if self.status is RecordingStatus.PROJECTION_PENDING:
+            if self.attempt_number != 0:
+                raise ContractValidationError(
+                    "projection-pending recording state must be attempt zero"
+                )
+            if self.provider_operations != 0 or any(
+                value is not None
+                for value in (
+                    self.recorder_output_sha256,
+                    self.failure_code,
+                    self.ordinary_record_sha256,
+                    self.adult_full_record_sha256,
+                    self.adult_projection_sha256,
+                )
+            ):
+                raise ContractValidationError(
+                    "projection-pending recording state has attempt metadata"
+                )
+        elif self.status is RecordingStatus.PENDING_REPAIR:
+            if self.attempt_number < 1:
+                raise ContractValidationError("failed recording attempt must be positive")
             _required(self.failure_code or "", "failure_code")
             if any(
                 value is not None
@@ -520,6 +546,8 @@ class LeanRecordingAttemptV1:
             ):
                 raise ContractValidationError("failed recording attempt cannot attach records")
         elif self.status is RecordingStatus.COMPLETE:
+            if self.attempt_number < 1:
+                raise ContractValidationError("complete recording attempt must be positive")
             if self.failure_code is not None or self.recorder_output_sha256 is None:
                 raise ContractValidationError("complete recording attempt has failure metadata")
             ordinary = self.ordinary_record_sha256 is not None
@@ -530,7 +558,7 @@ class LeanRecordingAttemptV1:
             if ordinary == adult:
                 raise ContractValidationError("complete recording attempt must attach one route shape")
         else:
-            raise ContractValidationError("recording attempts cannot remain projection-pending")
+            raise ContractValidationError("recording attempt status is invalid")
 
 
 def primary_item_keys(primary_authority_json: str) -> tuple[str, ...]:
