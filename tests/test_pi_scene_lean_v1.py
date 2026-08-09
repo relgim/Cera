@@ -560,6 +560,10 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("selected surface response", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("internal_causal_guidance", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("surface_realization_items", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Every surface item is independently mandatory", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("exact communicative proposition", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("does not substitute for it", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("separately keyed propositions", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("guides_surface_item_key", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("response_start_contract", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("completed cause implicit", ORDINARY_WRITER_SYSTEM_PROMPT)
@@ -1247,6 +1251,94 @@ class PiSceneLeanTests(unittest.TestCase):
                 response["response_start_contract"]["response_start_kind"],
                 "dialogue_intent",
             )
+
+    def test_atomic_dialogue_propositions_remain_distinct_surface_obligations(self) -> None:
+        with TemporaryDirectory() as temporary:
+            authority = sequence("acknowledge")
+            authority["items"] = [
+                {
+                    "item_key": "acknowledge",
+                    "owner_id": "character:hana",
+                    "kind": "dialogue_intent",
+                    "concise_meaning": "Hana acknowledges the immediate concern.",
+                    "owner_response_semantics": "Hana acknowledges the immediate concern.",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "express_appreciation",
+                    "owner_id": "character:hana",
+                    "kind": "dialogue_intent",
+                    "concise_meaning": "Hana expresses appreciation for being noticed.",
+                    "owner_response_semantics": "Hana expresses appreciation for being noticed.",
+                    "causal_parent_item_key": "acknowledge",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "offer_conversation",
+                    "owner_id": "character:hana",
+                    "kind": "dialogue_intent",
+                    "concise_meaning": "Hana asks whether Ted wants to keep talking.",
+                    "owner_response_semantics": "Hana asks whether Ted wants to keep talking.",
+                    "causal_parent_item_key": "express_appreciation",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "return_floor",
+                    "owner_id": None,
+                    "kind": "stopping_boundary",
+                    "concise_meaning": "Return the floor to Ted.",
+                    "owner_response_semantics": None,
+                    "causal_parent_item_key": "offer_conversation",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+            ]
+            view = WriterViewMaterializer(Path(temporary) / "views").materialize(
+                WriterViewInputV1(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                    scene_id="scene-dialogue",
+                    turn_id="turn-0001",
+                    candidate_id="candidate-atomic-dialogue",
+                    route=SceneRoute.ORDINARY,
+                    user_prompt="A supplied contribution.",
+                    primary_authority=authority,
+                    current_state={"public_scene_state": "Hana and Ted are present."},
+                    characters={"hana": {"name": "Hana", "age": 38}},
+                    relationships={},
+                    recent_prose=(),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            response = json.loads(
+                (view.root / "RESPONSE_SEQUENCE.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                [item["item_key"] for item in response["surface_realization_items"]],
+                ["acknowledge", "express_appreciation", "offer_conversation"],
+            )
+            self.assertEqual(
+                [
+                    item["owner_response_semantics"]
+                    for item in response["surface_realization_items"]
+                ],
+                [
+                    "Hana acknowledges the immediate concern.",
+                    "Hana expresses appreciation for being noticed.",
+                    "Hana asks whether Ted wants to keep talking.",
+                ],
+            )
+            self.assertEqual(response["response_start_item_key"], "acknowledge")
 
     def test_ownerless_world_surface_is_explicit_and_never_fabricates_owner(self) -> None:
         with TemporaryDirectory() as temporary:
