@@ -228,7 +228,10 @@ function normalizeRouteTransition(value, completion) {
         from_route: enumText(source.from_route ?? completion?.route_mode, ['ordinary', 'adult']),
         to_route: nextRoute,
         boundary_item_key: boundedText(source.boundary_item_key, 240),
-        non_graphic_handoff_summary: boundedText(source.non_graphic_handoff_summary, 2_000),
+        non_graphic_handoff_summary: boundedText(
+            source.non_graphic_handoff_summary ?? source.reason,
+            2_000,
+        ),
         character_effect_refs: boundedTextArray(source.character_effect_refs, 24, 240),
         return_condition: boundedText(source.return_condition, 1_500),
         return_to_codex: returnToCodex,
@@ -264,7 +267,11 @@ function normalizeValidation(value, completion) {
     };
     const flags = Array.isArray(source.review_flags)
         ? source.review_flags.map(item => (
-            plainObject(item) ? item.summary ?? item.code ?? item.flag_code : item
+            plainObject(item)
+                ? [item.flag_code ?? item.code, item.concise_explanation ?? item.summary]
+                    .filter(Boolean)
+                    .join(': ')
+                : item
         ))
         : [];
     const normalized = {

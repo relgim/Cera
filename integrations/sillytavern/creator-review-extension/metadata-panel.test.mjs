@@ -194,7 +194,18 @@ test('historical flat creator fields remain readable without weakening projectio
                 user_direction_disposition: 'proposed_outcome',
                 concise_effect: 'Character logic retained precedence.',
             }],
-            route_transition: { from_route: 'ordinary', to_route: 'adult' },
+            route_transition: {
+                from_route: 'ordinary',
+                to_route: 'adult',
+                reason: 'The accepted boundary changes the sole logic owner.',
+            },
+            semantic_validation: {
+                verdict: 'pass',
+                review_flags: [{
+                    flag_code: 'minor_style_note',
+                    concise_explanation: 'Visible for creator context.',
+                }],
+            },
             provisional_dependencies: [{
                 provisional_record_id: 'provisional:1',
                 assumed_value: 'true',
@@ -210,6 +221,14 @@ test('historical flat creator fields remain readable without weakening projectio
             'character:hana',
         );
         assert.equal(normalized.creator_trace.route_transition.to_route, 'adult');
+        assert.equal(
+            normalized.creator_trace.route_transition.non_graphic_handoff_summary,
+            'The accepted boundary changes the sole logic owner.',
+        );
+        assert.deepEqual(
+            normalized.creator_trace.validation.review_flags,
+            ['minor_style_note: Visible for creator context.'],
+        );
         assert.equal(normalized.creator_trace.provisional_dependencies.length, 1);
     } finally {
         await rm(root, { recursive: true, force: true });
