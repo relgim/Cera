@@ -2,16 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
 import json
 import os
-from pathlib import Path
 import re
-from typing import Any, ClassVar, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass, replace
+from pathlib import Path
+from typing import Any, ClassVar
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.schema import from_mapping
+from cera.semantic_validation import BoundSemanticValidationV1
 from cera.serialization import canonical_bytes, canonical_sha256, text_sha256, to_primitive
 
 from .contracts import (
@@ -49,7 +51,7 @@ class CreatorGuidanceV1:
             raise ContractValidationError("Pi Scene creator-guidance binding changed")
 
     @classmethod
-    def create(cls, *, action: str, text: str) -> "CreatorGuidanceV1":
+    def create(cls, *, action: str, text: str) -> CreatorGuidanceV1:
         return cls(
             schema_version=cls.SCHEMA_VERSION,
             action=action,
@@ -108,10 +110,26 @@ class LeanReviewRecordV1:
     accepted_receipt: LeanAcceptedTurnReceiptV1 | None = None
     recording_attempt: LeanRecordingAttemptV1 | None = None
     creator_guidance: CreatorGuidanceV1 | None = None
+    semantic_validation: BoundSemanticValidationV1 | None = None
 
     def __post_init__(self) -> None:
         if type(self.created_unix_seconds) is not int or self.created_unix_seconds < 0:
             raise ContractValidationError("Pi Scene review creation time is invalid")
+        validation = self.semantic_validation
+        if validation is not None:
+            candidate = self.candidate
+            custody = validation.custody
+            if (
+                candidate.route.value != "ordinary"
+                or candidate.primary_authority_kind != "codex_cognition_plan"
+                or custody.candidate_id != candidate.candidate_id
+                or custody.world_id != candidate.world_id
+                or custody.branch_id != candidate.branch_id
+                or custody.accepted_head_sha256 != candidate.accepted_head_before_sha256
+            ):
+                raise ContractValidationError(
+                    "Pi Scene semantic validation changed candidate custody"
+                )
 
     @property
     def candidate(self) -> LeanCandidateV1:
@@ -170,7 +188,7 @@ class DurableReviewStateStore:
             for review_id, decision in sorted(decisions.items())
         ]
         body = {
-            "schema_version": "cera.pi_scene.review_state.v4",
+            "schema_version": "cera.pi_scene.review_state.v5",
             "candidate_counter": candidate_counter,
             "reviews": review_values,
             "decisions": decision_values,
@@ -234,19 +252,14 @@ class DurableReviewStateStore:
                         review,
                         state=LeanReviewState.ACCEPTED,
                         accepted_receipt=accepted,
-                        recording_attempt=self.scene_store.load_recording_attempt(
-                            accepted
-                        ),
+                        recording_attempt=self.scene_store.load_recording_attempt(accepted),
                     )
                     decisions[review.review_id] = DecisionReplayV1(
                         action="accept",
                         request_sha256=decision_request_sha256(action="accept"),
                         result=LeanDecisionResultV1(review=recovered),
                     )
-                    if (
-                        self.scene_store.recording_status(accepted)
-                        is not RecordingStatus.COMPLETE
-                    ):
+                    if self.scene_store.recording_status(accepted) is not RecordingStatus.COMPLETE:
                         reviews[review.review_id] = recovered
                     stale = True
                     continue
@@ -347,14 +360,17 @@ class DurableReviewStateStore:
             "cera.pi_scene.review_state.v2",
             "cera.pi_scene.review_state.v3",
             "cera.pi_scene.review_state.v4",
+            "cera.pi_scene.review_state.v5",
         } or payload["state_sha256"] != canonical_sha256(body):
             raise StateConflictError("Pi Scene review state binding changed")
-        if (schema_version in {
-            "cera.pi_scene.review_state.v3",
-            "cera.pi_scene.review_state.v4",
-        }) != (
-            "decisions" in payload
-        ):
+        if (
+            schema_version
+            in {
+                "cera.pi_scene.review_state.v3",
+                "cera.pi_scene.review_state.v4",
+                "cera.pi_scene.review_state.v5",
+            }
+        ) != ("decisions" in payload):
             raise StateConflictError("Pi Scene review state schema fields changed")
         return payload
 
@@ -384,9 +400,7 @@ def decision_request_sha256(
             "action": action,
             "feedback": feedback,
             "force_rehydrate": force_rehydrate,
-            "turn_input_sha256": (
-                None if turn_input is None else canonical_sha256(turn_input)
-            ),
+            "turn_input_sha256": (None if turn_input is None else canonical_sha256(turn_input)),
         }
     )
 
@@ -398,8 +412,7 @@ def _accepted_matches_candidate(
     return (
         accepted.accepted_turn_id == candidate.turn_id
         and accepted.parent_accepted_turn_id == candidate.parent_accepted_turn_id
-        and accepted.parent_accepted_head_sha256
-        == candidate.accepted_head_before_sha256
+        and accepted.parent_accepted_head_sha256 == candidate.accepted_head_before_sha256
         and accepted.world_id == candidate.world_id
         and accepted.branch_id == candidate.branch_id
         and accepted.scene_id == candidate.scene_id
@@ -412,8 +425,7 @@ def _accepted_matches_candidate(
         and accepted.primary_authority_kind == candidate.primary_authority_kind
         and accepted.primary_authority_json == candidate.primary_authority_json
         and accepted.primary_authority_sha256 == candidate.primary_authority_sha256
-        and accepted.writer_view_manifest_sha256
-        == candidate.writer_view_manifest_sha256
+        and accepted.writer_view_manifest_sha256 == candidate.writer_view_manifest_sha256
         and accepted.writer_receipt == candidate.writer_receipt
         and accepted.warnings == candidate.warnings
         and accepted.candidate_sha256 == candidate.candidate_sha256
@@ -437,17 +449,16 @@ def _review_state_payload(
         "created_unix_seconds": review.created_unix_seconds,
         "state": review.state,
         "accepted_receipt": (
-            None
-            if review.accepted_receipt is None
-            else to_primitive(review.accepted_receipt)
+            None if review.accepted_receipt is None else to_primitive(review.accepted_receipt)
         ),
         "recording_attempt": (
-            None
-            if review.recording_attempt is None
-            else to_primitive(review.recording_attempt)
+            None if review.recording_attempt is None else to_primitive(review.recording_attempt)
         ),
         "creator_guidance": (
             None if review.creator_guidance is None else to_primitive(review.creator_guidance)
+        ),
+        "semantic_validation": (
+            None if review.semantic_validation is None else to_primitive(review.semantic_validation)
         ),
     }
 
@@ -471,11 +482,13 @@ def _review_from_state_payload(
         "recording_attempt",
     }
     current_fields = transitional_fields | {"created_unix_seconds"}
+    qualified_fields = current_fields | {"semantic_validation"}
     value_fields = set(value) if isinstance(value, Mapping) else set()
     if not isinstance(value, Mapping) or value_fields not in (
         legacy_fields,
         transitional_fields,
         current_fields,
+        qualified_fields,
     ):
         raise StateConflictError("Pi Scene persisted review fields changed")
     turn_value = value["turn_input"]
@@ -485,11 +498,7 @@ def _review_from_state_payload(
     turn = from_mapping(LeanSceneTurnInputV1, turn_value)
     result = from_mapping(LeanRunResultV1, result_value)
     guidance_value = value["creator_guidance"]
-    guidance = (
-        None
-        if guidance_value is None
-        else from_mapping(CreatorGuidanceV1, guidance_value)
-    )
+    guidance = None if guidance_value is None else from_mapping(CreatorGuidanceV1, guidance_value)
     is_legacy = value_fields == legacy_fields
     state = LeanReviewState.REVIEW_READY if is_legacy else value["state"]
     if state not in {
@@ -502,19 +511,19 @@ def _review_from_state_payload(
         raise StateConflictError("Pi Scene persisted review state is invalid")
     accepted_value = None if is_legacy else value["accepted_receipt"]
     attempt_value = None if is_legacy else value["recording_attempt"]
+    validation_value = value.get("semantic_validation")
     if accepted_value is not None and not isinstance(accepted_value, Mapping):
         raise StateConflictError("Pi Scene persisted accepted receipt is invalid")
     if attempt_value is not None and not isinstance(attempt_value, Mapping):
         raise StateConflictError("Pi Scene persisted recording attempt is invalid")
     accepted = (
-        None
-        if accepted_value is None
-        else from_mapping(LeanAcceptedTurnReceiptV1, accepted_value)
+        None if accepted_value is None else from_mapping(LeanAcceptedTurnReceiptV1, accepted_value)
     )
-    attempt = (
+    attempt = None if attempt_value is None else from_mapping(LeanRecordingAttemptV1, attempt_value)
+    validation = (
         None
-        if attempt_value is None
-        else from_mapping(LeanRecordingAttemptV1, attempt_value)
+        if validation_value is None
+        else from_mapping(BoundSemanticValidationV1, validation_value)
     )
     review_id = value["review_id"]
     session_id = value["pi_session_id"]
@@ -573,6 +582,7 @@ def _review_from_state_payload(
         accepted_receipt=accepted,
         recording_attempt=attempt,
         creator_guidance=guidance,
+        semantic_validation=validation,
     )
 
 
@@ -619,10 +629,9 @@ def _decision_from_state_payload(
     if not isinstance(value, Mapping) or set(value) != expected:
         raise StateConflictError("Pi Scene decision receipt fields changed")
     body = {key: value[key] for key in value if key != "decision_sha256"}
-    if (
-        value["schema_version"] != "cera.pi_scene.decision_receipt.v1"
-        or value["decision_sha256"] != canonical_sha256(body)
-    ):
+    if value["schema_version"] != "cera.pi_scene.decision_receipt.v1" or value[
+        "decision_sha256"
+    ] != canonical_sha256(body):
         raise StateConflictError("Pi Scene decision receipt binding changed")
     review_id = value["review_id"]
     action = value["action"]

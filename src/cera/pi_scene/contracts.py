@@ -7,11 +7,12 @@ never requested from DeepSeek.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from enum import StrEnum
 import json
 import re
-from typing import Any, ClassVar, Mapping
+from collections.abc import Mapping
+from dataclasses import dataclass
+from enum import StrEnum
+from typing import Any, ClassVar
 
 from cera.errors import ContractValidationError
 from cera.serialization import canonical_json, canonical_sha256, re_is_sha256, text_sha256
@@ -218,8 +219,11 @@ class LeanCandidateV1:
             _required(getattr(self, field_name), field_name)
         if type(self.generation) is not int or self.generation < 1:
             raise ContractValidationError("candidate generation must be positive")
-        if self.route is SceneRoute.ORDINARY and self.primary_authority_kind != "codex_sequence":
-            raise ContractValidationError("ordinary candidate requires Codex sequence authority")
+        if self.route is SceneRoute.ORDINARY and self.primary_authority_kind not in {
+            "codex_sequence",
+            "codex_cognition_plan",
+        }:
+            raise ContractValidationError("ordinary candidate requires Codex logic authority")
         if self.route is SceneRoute.ADULT and self.primary_authority_kind != "adult_handoff":
             raise ContractValidationError("adult candidate requires adult handoff authority")
         try:
@@ -273,7 +277,10 @@ class LeanRunResultV1:
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("lean run-result schema changed")
-        if type(self.planner_provider_operations) is not int or self.planner_provider_operations < 0:
+        if (
+            type(self.planner_provider_operations) is not int
+            or self.planner_provider_operations < 0
+        ):
             raise ContractValidationError("Planner operation count is invalid")
         if type(self.writer_provider_operations) is not int or self.writer_provider_operations < 1:
             raise ContractValidationError("Writer operation count is invalid")
@@ -334,9 +341,7 @@ class LeanAcceptedTurnReceiptV1:
             _required(getattr(self, field_name), field_name)
         if type(self.generation) is not int or self.generation < 1:
             raise ContractValidationError("accepted generation must be positive")
-        if (self.parent_accepted_turn_id is None) != (
-            self.parent_accepted_head_sha256 is None
-        ):
+        if (self.parent_accepted_turn_id is None) != (self.parent_accepted_head_sha256 is None):
             raise ContractValidationError("accepted parent identity and hash must agree")
         if self.parent_accepted_head_sha256 is not None:
             _sha(self.parent_accepted_head_sha256, "parent_accepted_head_sha256")
@@ -580,9 +585,7 @@ class AdultCodexProjectionV2:
                 raise ContractValidationError(
                     "adult presence change cites an unknown projection event"
                 )
-        if len({value.change_key for value in self.durable_effects}) != len(
-            self.durable_effects
-        ):
+        if len({value.change_key for value in self.durable_effects}) != len(self.durable_effects):
             raise ContractValidationError("adult durable change keys contain duplicates")
         _required(self.resulting_public_state, "resulting_public_state")
         _unique_nonempty(self.unresolved_threads, "unresolved_threads")
@@ -664,7 +667,9 @@ class LeanRecordingAttemptV1:
                 and self.adult_projection_sha256 is not None
             )
             if ordinary == adult:
-                raise ContractValidationError("complete recording attempt must attach one route shape")
+                raise ContractValidationError(
+                    "complete recording attempt must attach one route shape"
+                )
         else:
             raise ContractValidationError("recording attempt status is invalid")
 
@@ -695,9 +700,10 @@ def validate_ordinary_record(
         raise ContractValidationError("ordinary record cannot attach to adult turn")
     if record.primary_sequence_sha256 != accepted.primary_authority_sha256:
         raise ContractValidationError("Recorder rewrote the exact Codex sequence binding")
-    allowed = set(primary_item_keys(accepted.primary_authority_json))
     if tuple(record.realized_item_keys) != primary_item_keys(accepted.primary_authority_json):
-        raise ContractValidationError("ordinary record does not preserve every Planner item in order")
+        raise ContractValidationError(
+            "ordinary record does not preserve every Planner item in order"
+        )
 
 
 def validate_adult_records(
@@ -712,12 +718,12 @@ def validate_adult_records(
         raise ContractValidationError("adult record changed handoff authority")
     if projection.adult_full_record_sha256 != canonical_sha256(full):
         raise ContractValidationError("adult projection does not bind the full record")
-    event_keys = {value.event_key for value in full.events}
-    projection_keys = {value.event_key for value in projection.items}
     if tuple(value.event_key for value in projection.items) != tuple(
         value.event_key for value in full.events
     ):
-        raise ContractValidationError("adult projection does not preserve every full-record event in order")
+        raise ContractValidationError(
+            "adult projection does not preserve every full-record event in order"
+        )
 
 
 def canonical_authority(value: Mapping[str, Any]) -> tuple[str, str]:

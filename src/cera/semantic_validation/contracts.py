@@ -86,7 +86,7 @@ class ValidationEvidenceV1:
         _text(
             self.concise_authoritative_fact,
             "validation_evidence.concise_authoritative_fact",
-            maximum=2_000,
+            maximum=4_000,
         )
 
 

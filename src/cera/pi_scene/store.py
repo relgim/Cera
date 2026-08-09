@@ -7,18 +7,23 @@ Recorder or reporting failure cannot erase or recommit visible canon.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
-from pathlib import Path
 import re
 import shutil
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
 from threading import RLock
-from typing import Any, ClassVar, Mapping, Sequence, TypeVar
+from typing import Any, ClassVar
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.schema import from_mapping
+from cera.semantic_validation import (
+    BoundSemanticValidationV1,
+    SemanticVerdict,
+)
 from cera.serialization import (
     canonical_json,
     canonical_sha256,
@@ -40,9 +45,6 @@ from .contracts import (
     validate_adult_records,
     validate_ordinary_record,
 )
-
-
-_T = TypeVar("_T")
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,16 +136,13 @@ class _RecordingBundleManifestV1:
             "adult_projection_sha256",
         ):
             value = getattr(self, field_name)
-            if value is not None and (
-                type(value) is not str or not re_is_sha256(value)
-            ):
+            if value is not None and (type(value) is not str or not re_is_sha256(value)):
                 raise ContractValidationError(f"recording-bundle {field_name} is invalid")
         if type(self.attempt_sha256) is not str:
             raise ContractValidationError("recording-bundle attempt_sha256 is invalid")
         ordinary = self.ordinary_record_sha256 is not None
         adult = (
-            self.adult_full_record_sha256 is not None
-            and self.adult_projection_sha256 is not None
+            self.adult_full_record_sha256 is not None and self.adult_projection_sha256 is not None
         )
         if ordinary == adult:
             raise ContractValidationError("recording bundle must contain one route shape")
@@ -188,14 +187,11 @@ class _RecordingBundleManifestV2:
             "adult_projection_sha256",
         ):
             value = getattr(self, field_name)
-            if value is not None and (
-                type(value) is not str or not re_is_sha256(value)
-            ):
+            if value is not None and (type(value) is not str or not re_is_sha256(value)):
                 raise ContractValidationError(f"recording-bundle {field_name} is invalid")
         ordinary = self.ordinary_record_sha256 is not None
         adult = (
-            self.adult_full_record_sha256 is not None
-            and self.adult_projection_sha256 is not None
+            self.adult_full_record_sha256 is not None and self.adult_projection_sha256 is not None
         )
         if ordinary == adult:
             raise ContractValidationError("recording bundle must contain one route shape")
@@ -279,10 +275,7 @@ class LeanSceneStore:
         (root / "accepted").mkdir(exist_ok=True)
         (root / "sessions").mkdir(exist_ok=True)
         cache_path = root / "BRANCH_HEAD_CACHE.json"
-        if (
-            not cache_path.exists()
-            and not any((root / "accepted").glob("*/ACCEPTED_RECEIPT.json"))
-        ):
+        if not cache_path.exists() and not any((root / "accepted").glob("*/ACCEPTED_RECEIPT.json")):
             _atomic_write_json(
                 cache_path,
                 to_primitive(
@@ -327,7 +320,12 @@ class LeanSceneStore:
                 recording_status=self.recording_status(receipt),
             )
 
-    def accept(self, candidate: LeanCandidateV1) -> LeanAcceptedTurnReceiptV1:
+    def accept(
+        self,
+        candidate: LeanCandidateV1,
+        *,
+        semantic_validation: BoundSemanticValidationV1 | None = None,
+    ) -> LeanAcceptedTurnReceiptV1:
         """Publish phase one exactly once; identical recovery is read-only."""
 
         with self._lock:
@@ -335,7 +333,9 @@ class LeanSceneStore:
             existing = self._receipt_by_turn_id(branch_root, candidate.turn_id)
             if existing is not None:
                 if existing.candidate_sha256 != candidate.candidate_sha256:
-                    raise StateConflictError("accepted turn identity was reused by another candidate")
+                    raise StateConflictError(
+                        "accepted turn identity was reused by another candidate"
+                    )
                 return existing
 
             head = self.load_head(world_id=candidate.world_id, branch_id=candidate.branch_id)
@@ -346,6 +346,7 @@ class LeanSceneStore:
             if candidate.accepted_head_before_sha256 != head.accepted_head_sha256:
                 raise StateConflictError("candidate accepted-head binding is stale")
 
+            _validate_candidate_qualification(candidate, semantic_validation)
             receipt = LeanAcceptedTurnReceiptV1(
                 schema_version=LeanAcceptedTurnReceiptV1.SCHEMA_VERSION,
                 accepted_turn_id=candidate.turn_id,
@@ -376,6 +377,14 @@ class LeanSceneStore:
             stage.mkdir(parents=False, exist_ok=False)
             try:
                 _write_new_json(stage / "ACCEPTED_RECEIPT.json", to_primitive(receipt))
+                if semantic_validation is not None:
+                    _write_new_json(
+                        stage / "SEMANTIC_VALIDATION.json",
+                        _semantic_validation_artifact(
+                            candidate=candidate,
+                            validation=semantic_validation,
+                        ),
+                    )
                 _write_new_json(
                     stage / "RECORDING_HEAD.json",
                     _recording_head_payload(
@@ -694,9 +703,7 @@ class LeanSceneStore:
                 )
                 if existing.accepted_turn_id == accepted.accepted_turn_id:
                     if existing.session_id_sha256 != payload.session_id_sha256:
-                        raise StateConflictError(
-                            "accepted Pi session changed for the current head"
-                        )
+                        raise StateConflictError("accepted Pi session changed for the current head")
                     return existing
             _atomic_write_json(path, to_primitive(payload))
             return payload
@@ -937,7 +944,9 @@ class LeanSceneStore:
     def _load_receipts(self, branch_root: Path) -> list[LeanAcceptedTurnReceiptV1]:
         receipts: list[LeanAcceptedTurnReceiptV1] = []
         for path in sorted((branch_root / "accepted").glob("*/ACCEPTED_RECEIPT.json")):
-            receipts.append(_accepted_receipt_from_mapping(_read_json(path)))
+            receipt = _accepted_receipt_from_mapping(_read_json(path))
+            _verify_semantic_validation_artifact(path.parent, receipt=receipt)
+            receipts.append(receipt)
         receipts.sort(key=lambda value: value.generation)
         if len({value.generation for value in receipts}) != len(receipts):
             raise StateConflictError("accepted branch contains duplicate generations")
@@ -1060,16 +1069,113 @@ class LeanSceneStore:
             and value.receipt_sha256 == cache.accepted_head_sha256
             for value in receipts
         )
-        if (
-            not anchor_matches
-            or latest.generation != cache.generation + 1
-        ):
+        if not anchor_matches or latest.generation != cache.generation + 1:
             raise StateConflictError("accepted branch head cache conflicts with receipts")
         cls._write_branch_cache(branch_root, latest)
 
 
 def _turn_directory_name(receipt: LeanAcceptedTurnReceiptV1) -> str:
     return f"{receipt.generation:08d}-{text_sha256(receipt.accepted_turn_id)[:20]}"
+
+
+def _validate_candidate_qualification(
+    candidate: LeanCandidateV1,
+    validation: BoundSemanticValidationV1 | None,
+) -> None:
+    requires_validation = (
+        candidate.route is SceneRoute.ORDINARY
+        and candidate.primary_authority_kind == "codex_cognition_plan"
+    )
+    if not requires_validation:
+        if validation is not None:
+            raise ContractValidationError("semantic validation cannot qualify this candidate route")
+        return
+    if validation is None:
+        raise ContractValidationError("cognition candidate requires a passing semantic validation")
+    if validation.verdict.verdict is not SemanticVerdict.PASS:
+        raise ContractValidationError("rejected semantic validation cannot authorize Accept")
+    custody = validation.custody
+    request = validation.request
+    if (
+        custody.candidate_id != candidate.candidate_id
+        or custody.world_id != candidate.world_id
+        or custody.branch_id != candidate.branch_id
+        or custody.accepted_head_sha256 != candidate.accepted_head_before_sha256
+        or request.exact_current_source != candidate.exact_user_source
+        or request.exact_candidate_prose != candidate.story_text
+        or canonical_json(request.cognition_plan) != candidate.primary_authority_json
+    ):
+        raise ContractValidationError(
+            "semantic validation does not bind the exact cognition candidate"
+        )
+
+
+def _semantic_validation_artifact(
+    *,
+    candidate: LeanCandidateV1,
+    validation: BoundSemanticValidationV1,
+) -> dict[str, Any]:
+    _validate_candidate_qualification(candidate, validation)
+    body = {
+        "schema_version": "cera.pi_scene.semantic_acceptance.v1",
+        "candidate_sha256": candidate.candidate_sha256,
+        "validation": to_primitive(validation),
+    }
+    return {**body, "artifact_sha256": canonical_sha256(body)}
+
+
+def _verify_semantic_validation_artifact(
+    turn_dir: Path,
+    *,
+    receipt: LeanAcceptedTurnReceiptV1,
+) -> None:
+    path = turn_dir / "SEMANTIC_VALIDATION.json"
+    requires_validation = (
+        receipt.route is SceneRoute.ORDINARY
+        and receipt.primary_authority_kind == "codex_cognition_plan"
+    )
+    if not requires_validation:
+        if path.exists():
+            raise StateConflictError(
+                "accepted turn has an unauthorized semantic-validation artifact"
+            )
+        return
+    if not path.is_file() or path.is_symlink():
+        raise StateConflictError("accepted cognition turn lacks semantic-validation custody")
+    payload = _read_json(path)
+    expected = {
+        "schema_version",
+        "candidate_sha256",
+        "validation",
+        "artifact_sha256",
+    }
+    if set(payload) != expected:
+        raise StateConflictError("semantic-validation artifact fields changed")
+    body = {key: payload[key] for key in payload if key != "artifact_sha256"}
+    if (
+        payload["schema_version"] != "cera.pi_scene.semantic_acceptance.v1"
+        or payload["candidate_sha256"] != receipt.candidate_sha256
+        or payload["artifact_sha256"] != canonical_sha256(body)
+        or not isinstance(payload["validation"], Mapping)
+    ):
+        raise StateConflictError("semantic-validation artifact binding changed")
+    validation = _decode_stored(
+        BoundSemanticValidationV1,
+        payload["validation"],
+        "semantic validation",
+    )
+    request = validation.request
+    custody = validation.custody
+    if (
+        validation.verdict.verdict is not SemanticVerdict.PASS
+        or custody.world_id != receipt.world_id
+        or custody.branch_id != receipt.branch_id
+        or custody.accepted_head_sha256 != receipt.parent_accepted_head_sha256
+        or request.exact_current_source != receipt.exact_user_source
+        or request.exact_candidate_prose != receipt.exact_accepted_prose
+        or canonical_json(request.cognition_plan) != receipt.primary_authority_json
+    ):
+        raise StateConflictError("stored semantic validation changed accepted authority")
 
 
 def _load_current_pi_session(
@@ -1124,9 +1230,7 @@ def _reducer_payload(value: Mapping[str, Any]) -> dict[str, Any]:
     )
     projected_receipt = {name: primitive[name] for name in common_fields}
     if receipt.route is SceneRoute.ORDINARY:
-        projected_receipt["primary_authority_json"] = primitive[
-            "primary_authority_json"
-        ]
+        projected_receipt["primary_authority_json"] = primitive["primary_authority_json"]
     output: dict[str, Any] = {
         "receipt": projected_receipt,
         "accepted_receipt_sha256": receipt.receipt_sha256,
@@ -1220,9 +1324,7 @@ def _load_attempt_from_head(
     if head.attempt_number < 1 or head.attempt_sha256 is None:
         raise StateConflictError("recording head does not identify an immutable attempt")
     attempt = _recording_attempt_from_mapping(
-        _read_json(
-            turn_dir / f"RECORDING_ATTEMPT_{head.attempt_number:04d}.json"
-        )
+        _read_json(turn_dir / f"RECORDING_ATTEMPT_{head.attempt_number:04d}.json")
     )
     if attempt.accepted_turn_id != accepted.accepted_turn_id:
         raise StateConflictError("recording attempt changed accepted turn identity")
@@ -1258,11 +1360,7 @@ def _recover_orphan_recording_attempt(
         match = re.fullmatch(r"RECORDING_ATTEMPT_(\d{4})\.json", path.name)
         if match is not None:
             numbered.append((int(match.group(1)), path))
-    candidates = sorted(
-        (number, path)
-        for number, path in numbered
-        if number > head.attempt_number
-    )
+    candidates = sorted((number, path) for number, path in numbered if number > head.attempt_number)
     if not candidates:
         return None
     if len(candidates) != 1 or candidates[0][0] != head.attempt_number + 1:
@@ -1270,15 +1368,10 @@ def _recover_orphan_recording_attempt(
 
     number, path = candidates[0]
     attempt = _recording_attempt_from_mapping(_read_json(path))
-    if (
-        attempt.accepted_turn_id != accepted.accepted_turn_id
-        or attempt.attempt_number != number
-    ):
+    if attempt.accepted_turn_id != accepted.accepted_turn_id or attempt.attempt_number != number:
         raise StateConflictError("orphan recording attempt changed its identity")
     if attempt.status is not RecordingStatus.PENDING_REPAIR:
-        raise StateConflictError(
-            "orphan complete recording attempt is missing its atomic bundle"
-        )
+        raise StateConflictError("orphan complete recording attempt is missing its atomic bundle")
     _atomic_write_json(
         turn_dir / "RECORDING_HEAD.json",
         _recording_head_payload(
@@ -1311,11 +1404,7 @@ def _bundle_manifest(
     attempt = bundle.attempt
     if attempt.status is not RecordingStatus.COMPLETE:
         raise ContractValidationError("atomic recording bundle requires a complete attempt")
-    route = (
-        SceneRoute.ORDINARY
-        if bundle.ordinary_record is not None
-        else SceneRoute.ADULT
-    )
+    route = SceneRoute.ORDINARY if bundle.ordinary_record is not None else SceneRoute.ADULT
     manifest = _RecordingBundleManifestV2(
         schema_version=_RecordingBundleManifestV2.SCHEMA_VERSION,
         accepted_turn_id=attempt.accepted_turn_id,
@@ -1326,19 +1415,13 @@ def _bundle_manifest(
         attempt_sha256=canonical_sha256(attempt),
         route=route,
         ordinary_record_sha256=(
-            None
-            if bundle.ordinary_record is None
-            else canonical_sha256(bundle.ordinary_record)
+            None if bundle.ordinary_record is None else canonical_sha256(bundle.ordinary_record)
         ),
         adult_full_record_sha256=(
-            None
-            if bundle.adult_full_record is None
-            else canonical_sha256(bundle.adult_full_record)
+            None if bundle.adult_full_record is None else canonical_sha256(bundle.adult_full_record)
         ),
         adult_projection_sha256=(
-            None
-            if bundle.adult_projection is None
-            else canonical_sha256(bundle.adult_projection)
+            None if bundle.adult_projection is None else canonical_sha256(bundle.adult_projection)
         ),
     )
     if (
@@ -1420,8 +1503,7 @@ def _recover_atomic_recording_bundle(
     paths = sorted(
         path
         for path in turn_dir.glob("RECORDING_BUNDLE_*")
-        if path.is_dir()
-        and re.fullmatch(r"RECORDING_BUNDLE_\d{4}", path.name) is not None
+        if path.is_dir() and re.fullmatch(r"RECORDING_BUNDLE_\d{4}", path.name) is not None
     )
     if not paths:
         return None
@@ -1493,9 +1575,7 @@ def _materialize_recording_bundle_compatibility(
     allow_repair: bool,
 ) -> None:
     expected: dict[str, Mapping[str, Any]] = {
-        f"RECORDING_ATTEMPT_{bundle.attempt.attempt_number:04d}.json": to_primitive(
-            bundle.attempt
-        )
+        f"RECORDING_ATTEMPT_{bundle.attempt.attempt_number:04d}.json": to_primitive(bundle.attempt)
     }
     if bundle.ordinary_record is not None:
         if (turn_dir / "ADULT_FULL_RECORD.json").exists() or (
@@ -1509,17 +1589,13 @@ def _materialize_recording_bundle_compatibility(
         if (turn_dir / "ORDINARY_RECORD.json").exists():
             raise StateConflictError("adult turn contains an ordinary recording artifact")
         expected["ADULT_FULL_RECORD.json"] = to_primitive(bundle.adult_full_record)
-        expected["ADULT_CODEX_PROJECTION.json"] = to_primitive(
-            bundle.adult_projection
-        )
+        expected["ADULT_CODEX_PROJECTION.json"] = to_primitive(bundle.adult_projection)
     for name, payload in expected.items():
         path = turn_dir / name
         text = canonical_json(dict(payload))
         if not path.exists():
             if not allow_repair:
-                raise StateConflictError(
-                    f"recording compatibility artifact is missing: {name}"
-                )
+                raise StateConflictError(f"recording compatibility artifact is missing: {name}")
             _atomic_write_json(path, payload)
             continue
         try:
@@ -1533,9 +1609,7 @@ def _materialize_recording_bundle_compatibility(
         if existing == text:
             continue
         if not allow_repair:
-            raise StateConflictError(
-                f"recording compatibility artifact changed: {name}"
-            )
+            raise StateConflictError(f"recording compatibility artifact changed: {name}")
         _atomic_write_json(path, payload)
 
 
@@ -1601,17 +1675,14 @@ def _load_recording_bundle_directory(
         )
     else:
         raise StateConflictError("recording bundle manifest version is unsupported")
-    attempt = _recording_attempt_from_mapping(
-        _read_json(path / "RECORDING_ATTEMPT.json")
-    )
+    attempt = _recording_attempt_from_mapping(_read_json(path / "RECORDING_ATTEMPT.json"))
     if manifest.accepted_turn_id != accepted.accepted_turn_id:
         raise StateConflictError("recording bundle changed accepted turn identity")
     if manifest.route is not accepted.route:
         raise StateConflictError("recording bundle route differs from accepted turn")
     if isinstance(manifest, _RecordingBundleManifestV2) and (
         manifest.accepted_receipt_sha256 != accepted.receipt_sha256
-        or manifest.exact_accepted_prose_sha256
-        != accepted.exact_accepted_prose_sha256
+        or manifest.exact_accepted_prose_sha256 != accepted.exact_accepted_prose_sha256
         or manifest.primary_authority_sha256 != accepted.primary_authority_sha256
     ):
         raise StateConflictError("recording bundle accepted custody changed")
@@ -1774,11 +1845,11 @@ def _read_json(path: Path) -> dict[str, Any]:
     return value
 
 
-def _decode_stored(
-    model_type: type[_T],
+def _decode_stored[T](
+    model_type: type[T],
     value: Mapping[str, Any],
     label: str,
-) -> _T:
+) -> T:
     """Decode a closed durable DTO without primitive coercion."""
 
     try:

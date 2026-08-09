@@ -11,6 +11,12 @@ from threading import RLock
 from typing import Any, Protocol
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.semantic_validation import (
+    BoundSemanticValidationV1,
+    SemanticValidationCustodyV1,
+    SemanticValidationRequestV1,
+    SemanticVerdict,
+)
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 
 from .contracts import (
@@ -35,6 +41,7 @@ from .review_store import (
     LeanSceneTurnInputV1,
     decision_request_sha256,
 )
+from .semantic_bridge import build_semantic_validation_input
 from .store import (
     LeanSceneStore,
     adult_full_record_from_mapping,
@@ -64,6 +71,7 @@ class PlannerTurnOutputV1:
     sequence: Mapping[str, Any]
     provider_operations: int
     decision_bundle: Mapping[str, Any] | None = None
+    validation_evidence: tuple[Mapping[str, Any], ...] = ()
 
     def __post_init__(self) -> None:
         if not self.sequence:
@@ -76,6 +84,14 @@ class PlannerTurnOutputV1:
                 raise ContractValidationError(
                     "ordinary Planner decision bundle changed its exact sequence"
                 )
+
+
+class OrdinarySemanticValidatorPort(Protocol):
+    def validate(
+        self,
+        request: SemanticValidationRequestV1,
+        custody: SemanticValidationCustodyV1,
+    ) -> BoundSemanticValidationV1: ...
 
 
 class OrdinaryPlannerPort(Protocol):
@@ -99,6 +115,7 @@ class LeanPiSceneCoordinator:
         session_root: Path,
         recording_fault_injector: RecordingFaultInjector | None = None,
         planner_resolver: PlannerResolver | None = None,
+        semantic_validator: OrdinarySemanticValidatorPort | None = None,
     ) -> None:
         self.store = store
         self.planner = planner
@@ -108,6 +125,7 @@ class LeanPiSceneCoordinator:
         self.session_root.mkdir(parents=True, exist_ok=True)
         self._recording_fault_injector = recording_fault_injector
         self._planner_resolver = planner_resolver
+        self.semantic_validator = semantic_validator
         self._lock = RLock()
         self._review_state_store = DurableReviewStateStore(
             root=self.session_root,
@@ -149,7 +167,27 @@ class LeanPiSceneCoordinator:
                 primary_authority=(planned.decision_bundle or planned.sequence),
                 planner_provider_operations=planned.provider_operations,
             )
+            if review.candidate.primary_authority_kind == "codex_cognition_plan":
+                if self.semantic_validator is None:
+                    raise StateConflictError("cognition candidate requires the semantic Validator")
+                validation_request, validation_custody = build_semantic_validation_input(
+                    candidate=review.candidate,
+                    current_state=turn.current_state,
+                    validation_evidence=planned.validation_evidence,
+                )
+                review = replace(
+                    review,
+                    semantic_validation=self.semantic_validator.validate(
+                        validation_request,
+                        validation_custody,
+                    ),
+                )
             self._register_review(review)
+            if (
+                review.semantic_validation is not None
+                and review.semantic_validation.verdict.verdict is SemanticVerdict.PASS
+            ):
+                return self.accept(review.review_id).review
             return review
 
     def start_adult(self, turn: LeanSceneTurnInputV1) -> LeanReviewRecordV1:
@@ -205,6 +243,12 @@ class LeanPiSceneCoordinator:
             review_id = self._unresolved_by_branch.get((world_id, branch_id))
             if review_id is None:
                 return None
+            review = self._reviews[review_id]
+            if (
+                review.semantic_validation is not None
+                and review.semantic_validation.verdict.verdict is SemanticVerdict.REJECT
+            ):
+                return self.decline(review_id, allow_replay=True)
             return self.accept(review_id, allow_replay=True)
 
     def accept(
@@ -226,7 +270,10 @@ class LeanPiSceneCoordinator:
                 if replay is not None:
                     return replay
             review = self._current_review(review_id)
-            accepted = self.store.accept(review.candidate)
+            accepted = self.store.accept(
+                review.candidate,
+                semantic_validation=review.semantic_validation,
+            )
             # The review becomes terminal immediately after the immutable
             # receipt. Any later session or Recorder exception therefore
             # cannot authorize a second Accept.
@@ -675,8 +722,9 @@ class LeanPiSceneCoordinator:
             exact_user_source=turn.exact_user_source,
             exact_user_source_sha256=text_sha256(turn.exact_user_source),
             route=route,
-            primary_authority_kind=(
-                "codex_sequence" if route is SceneRoute.ORDINARY else "adult_handoff"
+            primary_authority_kind=_primary_authority_kind(
+                route=route,
+                primary_authority=primary_authority,
             ),
             primary_authority_json=authority_json,
             primary_authority_sha256=authority_sha,
@@ -1022,6 +1070,22 @@ def _controlled_current_state(
     if creator_guidance is not None:
         state["creator_control_guidance"] = to_primitive(creator_guidance)
     return state
+
+
+def _primary_authority_kind(
+    *,
+    route: SceneRoute,
+    primary_authority: Mapping[str, Any],
+) -> str:
+    if route is SceneRoute.ADULT:
+        return "adult_handoff"
+    if {
+        "sequence",
+        "decision_records",
+        "decision_item_links",
+    }.issubset(primary_authority):
+        return "codex_cognition_plan"
+    return "codex_sequence"
 
 
 def _require_exact_keys(
