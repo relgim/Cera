@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
-from dataclasses import replace
 import json
 import os
+import unittest
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
 from types import SimpleNamespace
-import unittest
 from unittest.mock import Mock, patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
-from cera.errors import StateConflictError
+import scripts.run_pi_scene_lean_server as launcher
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
+from cera.errors import StateConflictError
 from cera.pi_scene.context import initial_hana_seed
 from cera.pi_scene.contracts import RecordingStatus, SceneRoute
 from cera.pi_scene.http import (
@@ -25,19 +26,18 @@ from cera.pi_scene.http import (
     PiSceneServerConfigV1,
     build_pi_scene_server,
 )
+from cera.pi_scene.operation_ledger import PiProviderOperationLedger
+from cera.pi_scene.planner_state import PlannerThreadStateStore, PlannerThreadStateV1
 from cera.pi_scene.runtime import (
     LeanPiSceneCoordinator,
     LeanReviewState,
     LeanSceneRequestControlsV1,
 )
 from cera.pi_scene.store import LeanSceneStore
-from cera.pi_scene.operation_ledger import PiProviderOperationLedger
-from cera.pi_scene.planner_state import PlannerThreadStateStore, PlannerThreadStateV1
 from cera.pi_scene.writer_view import WriterViewMaterializer
-import scripts.run_pi_scene_lean_server as launcher
 from scripts.run_pi_scene_lean_server import (
-    _PiScenePlannerRegistry,
     _initialize_live_runtime_roots,
+    _PiScenePlannerRegistry,
     _seed_live_runtime_state,
     build_session_context_provider,
     default_planner_session_factory,
@@ -717,7 +717,7 @@ class PiSceneLauncherDurabilityTests(unittest.TestCase):
                 self.assertEqual(launcher.main(), 0)
             serve_call.assert_called_once_with(
                 root,
-                port=5127,
+                port=5101,
                 session_id="cera-pi-scene-test",
                 sol_ceiling=7,
                 deepseek_ceiling=19,

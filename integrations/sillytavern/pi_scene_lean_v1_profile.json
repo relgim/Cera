@@ -1,24 +1,42 @@
 {
   "profile_id": "cera.pi_scene.lean.v1",
   "production": false,
-  "endpoint": "http://127.0.0.1:5127/v1",
+  "endpoint": "http://127.0.0.1:5101/v1",
   "models": {
-    "ordinary": "cera-pi-scene-ordinary",
-    "adult": "cera-pi-scene-adult"
+    "automatic": "cera-alpha",
+    "ordinary_compatibility_only": "cera-pi-scene-ordinary",
+    "adult_compatibility_only": "cera-pi-scene-adult"
   },
   "stream": false,
-  "route": "pi_scene_lean",
-  "provider_mode": "retained_codex_planner_and_confined_pi_deepseek",
-  "creator_review_required": true,
-  "automatic_accept": false,
-  "validator_required": false,
+  "route": "pi_scene_full_model_automatic",
+  "route_owner": "python_accepted_branch_state",
+  "ordinary_logic_owner": "retained_codex_cognition",
+  "ordinary_writer": "confined_pi_deepseek",
+  "ordinary_validator": "fresh_luna_xhigh",
+  "adult_logic_and_prose_owner": "confined_pi_deepseek_adult_scene",
+  "adult_validator": "confined_pi_deepseek_adult_filter",
+  "creator_review_required": false,
+  "creator_review_available_on_reject": true,
+  "automatic_accept": "semantic_pass_only",
+  "validator_required": true,
   "reader_required": false,
   "ted_restrictions": "warn_only",
+  "character_autonomy_default": "both",
+  "adult_craft_mode": "retrieval_breadth_only_not_route_selection",
   "automatic_retry": false,
+  "maximum_critical_complete_repairs": 1,
   "fallback": false,
   "loopback_only": true,
   "authorization": "local_bearer_token_required",
   "approved_origin": "http://127.0.0.1:8000",
   "database_policy": "isolated_append_first_branch_store",
-  "custom_include_body_yaml": "cera_session_id: cera-pi-scene-test\ncera_profile_id: cera.pi_scene.lean.v1"
+  "readable_debug_directory": "<runtime-root>\\debug\\readable",
+  "protected_adult_debug_directory": "<runtime-root>\\debug\\readable\\PROTECTED_ADULT",
+  "request_controls": {
+    "transport": "typed_creator_review_extension_fields",
+    "session_id": "dynamic_per_sillytavern_chat",
+    "profile_id": "cera.pi_scene.lean.v1",
+    "character_autonomy_default": "both",
+    "adult_craft_mode_default": "off"
+  }
 }

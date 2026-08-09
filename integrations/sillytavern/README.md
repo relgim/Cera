@@ -27,10 +27,12 @@ The profile matches the exact card name or imported PNG avatar. It never points
 at Vera's port 5100 and has no automatic fallback. The host memory prompt is
 cleared while CERA is selected so Sera/Vera summaries cannot become CERA truth.
 
-The card is installed and parse-verified as `chara_card_v3`. The CERA-native
-OpenAI-compatible development adapter is implemented and qualified for local
-ordinary/relationship human testing on port 5101. CERA remains loopback-only,
-uses virtual model `cera-alpha`, and has no Vera or provider fallback.
+The card is installed and parse-verified as `chara_card_v3`. The current
+repository entrypoint exposes the full-model CERA route on loopback port 5101
+through virtual model `cera-alpha`. Python resolves the accepted branch's
+ordinary/adult logic owner before any provider dispatch; the two explicit
+route model IDs remain compatibility/test surfaces only. There is no Vera or
+provider fallback.
 SillyTavern's authenticated, CSRF-protected server owns a narrow review relay,
 so the same UI works at `127.0.0.1:8000`, `192.168.0.202:8000`, and from a
 same-network phone without publishing port 5101 to the LAN. The relay exposes
@@ -67,11 +69,24 @@ Start or reset the clean non-production world with:
 .\.venv\Scripts\python.exe scripts\reset_human_test_world.py --replace
 ```
 
-Start the adapter with:
+Start the full-model adapter from a clean runtime directory with a local bearer
+token of at least 24 characters:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\run_cera_sillytavern_server.py
+$env:CERA_PI_SCENE_TOKEN = '<local-random-token>'
+.\.venv\Scripts\python.exe scripts\run_pi_scene_lean_server.py serve `
+  --runtime-root D:\Cera\runtime\human-test `
+  --port 5101 `
+  --sol-ceiling <authorized-sol-limit> `
+  --deepseek-ceiling <authorized-deepseek-limit>
 ```
+
+At startup the adapter prints the endpoint, active model/profile, and the exact
+human-readable debug directory. The normal path is
+`<runtime-root>\debug\readable`; open `LATEST.md` for the newest operation or
+`INDEX.md` for the chronological list. Exact adult diagnostics remain locally
+isolated under `PROTECTED_ADULT` and must not enter ordinary model context,
+Git, or ordinary log exports.
 
 Start SillyTavern normally. Server plugins must remain enabled with automatic
 plugin updates disabled in the development installation. On another device on
@@ -85,18 +100,19 @@ The PC's LAN address can change after a router or DHCP change. When it does,
 use the PC's current IPv4 address with port 8000; the browser review transport
 itself is same-origin and needs no CERA endpoint change.
 
-The live development adapter currently supports the validated ordinary route.
-Adult ON/EX catalog and routing contracts remain provider-free and are not yet
-published through this human-test adapter. This is a manual-development gate,
-not a production route, public deployment, or route-promotion claim.
+Adult Off/On/Ex controls select only the breadth of craft/example retrieval.
+They never select the logic owner. Accepted branch state controls automatic
+ordinary/adult routing; the adult route uses the protected Adult Scene and
+Adult Filter pipeline. This remains a manual-development gate, not a public
+deployment or production route-promotion claim.
 
-The current client also installs the CERA creator-review extension. DeepSeek's
-structurally valid reply is shown as provisional while Sol performs an
-independent review. The panel then presents the Codex sequence, Sol
-severity/reason, and Accept, Correction/Adjustment, DeepSeek rewrite, Codex
-replan, and Decline actions. Provisional text is excluded from exports and
-durable story state. Accept makes no provider call and publishes the prepared
-package atomically.
+The current client also installs the CERA creator-review extension. An ordinary
+candidate that passes the independent Luna semantic check is accepted
+automatically; a rejected candidate remains inspectable through the review UI.
+An adult candidate is promoted atomically only after its separate Adult Filter
+produces the protected full record and safe projection. Rejected/provisional
+text is excluded from accepted continuity and ordinary exports. Creator
+decisions make no hidden scene-regeneration call.
 
 ## Verification
 

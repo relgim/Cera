@@ -51,6 +51,7 @@ from cera.pi_scene.http import (
 )
 from cera.pi_scene.http_contracts import (
     PI_SCENE_ADULT_MODEL,
+    PI_SCENE_AUTO_MODEL,
     PI_SCENE_ORDINARY_MODEL,
     PI_SCENE_PROFILE,
     LeanSceneRequestControlsV1,
@@ -216,6 +217,29 @@ class _ResolverOnlyOrdinaryPlanner:
         raise ContractValidationError(
             "full-model ordinary planning requires a chat-scoped Planner resolver"
         )
+
+
+def accepted_logic_route(
+    store: LeanSceneStore,
+    turn: LeanSceneTurnInputV1,
+) -> SceneRoute:
+    """Resolve the one automatic model from verified accepted branch state.
+
+    The SillyTavern request never selects the adult owner.  Its bootstrap turn
+    is rebuilt after this lookup when accepted state says the adult route is
+    active, before any provider can be dispatched.
+    """
+
+    route_state = store.current_logic_route(
+        world_id=turn.world_id,
+        branch_id=turn.branch_id,
+    )
+    try:
+        return SceneRoute(route_state.current_logic_route.value)
+    except (AttributeError, ValueError) as exc:
+        raise StateConflictError(
+            "accepted branch returned an unsupported logic route"
+        ) from exc
 
 
 def _initialize_live_runtime_roots(runtime_root: Path) -> tuple[Path, Path, Path]:
@@ -737,6 +761,11 @@ def run_live_smoke(
             session_id=session_id,
             context_provider=context,
             readable_debug=runtime.readable_debug,
+            logic_route_resolver=lambda turn: accepted_logic_route(
+                runtime.store,
+                turn,
+            ),
+            full_model_controller=runtime.full_model_controller,
         )
         server = build_pi_scene_server(
             adapter,
@@ -1119,6 +1148,38 @@ def serve(
             workspace_resolver=getattr(runtime, "world_resolver", None),
         ),
         readable_debug=runtime.readable_debug,
+        logic_route_resolver=lambda turn: accepted_logic_route(
+            runtime.store,
+            turn,
+        ),
+        full_model_controller=getattr(runtime, "full_model_controller", None),
+    )
+    readable_debug_root = getattr(
+        runtime.readable_debug,
+        "root",
+        (runtime_root / "debug" / "readable").resolve(),
+    )
+    protected_debug_name = getattr(
+        runtime.readable_debug,
+        "PROTECTED_DIRECTORY",
+        ReadablePiSceneDebugLog.PROTECTED_DIRECTORY,
+    )
+    print(
+        json.dumps(
+            {
+                "status": "cera_pi_scene_ready",
+                "endpoint": f"http://127.0.0.1:{port}/v1",
+                "model": PI_SCENE_AUTO_MODEL,
+                "profile_id": PI_SCENE_PROFILE,
+                "readable_debug_directory": str(readable_debug_root),
+                "readable_debug_latest": str(readable_debug_root / "LATEST.md"),
+                "protected_adult_debug_directory": str(
+                    readable_debug_root / protected_debug_name
+                ),
+            },
+            sort_keys=True,
+        ),
+        flush=True,
     )
     server = build_pi_scene_server(
         adapter,
@@ -1140,7 +1201,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("mode", choices=("live-smoke", "repair-existing-smoke", "serve"))
     parser.add_argument("--runtime-root", type=Path, required=True)
-    parser.add_argument("--port", type=int, default=5127)
+    parser.add_argument("--port", type=int, default=5101)
     parser.add_argument("--session-id", default="cera-pi-scene-test")
     parser.add_argument("--sillytavern-source", type=Path, default=DEFAULT_SILLYTAVERN)
     parser.add_argument("--sol-ceiling", type=int, default=12)
