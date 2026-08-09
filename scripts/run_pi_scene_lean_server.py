@@ -19,10 +19,11 @@ from threading import RLock, Thread
 from typing import Any
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
+from cera.cognition.prompting import COGNITION_PLANNER_BASE_INSTRUCTIONS
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.errors import ContractValidationError, StateConflictError
-from cera.pi_scene.codex_planner import RetainedCodexPlannerAdapter
+from cera.pi_scene.cognition_planner import RetainedCognitionPlannerAdapter
 from cera.pi_scene.context import (
     AcceptedBranchContextProvider,
     PiSceneContextSeedV1,
@@ -33,6 +34,13 @@ from cera.pi_scene.contracts import (
     LeanAcceptedTurnReceiptV1,
     RecordingStatus,
     SceneRoute,
+)
+from cera.pi_scene.full_model_runtime import (
+    BranchBoundCognitionPlannerBackend,
+    CognitionSessionFactory,
+    PathBudgetedCognitionDebugLog,
+    RetrievalDirectedCognitionPlanner,
+    default_cognition_session_factory,
 )
 from cera.pi_scene.http import (
     PiSceneHttpAdapter,
@@ -60,15 +68,22 @@ from cera.pi_scene.sillytavern_isolation import (
     verify_isolated_sillytavern,
 )
 from cera.pi_scene.store import LeanSceneStore
-from cera.pi_scene.world_planner import BranchBoundSequenceFirstPlannerBackend
 from cera.pi_scene.world_runtime import (
     PiSceneChatWorldResolver,
     new_chat_semantic_scope,
 )
 from cera.pi_scene.world_workspace import PiSceneWorldWorkspaceManager
 from cera.pi_scene.writer_view import WriterViewMaterializer
-from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
+from cera.semantic_validation import (
+    LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+    CodexLunaSemanticValidatorBackend,
+    FreshLunaValidatorFactory,
+)
 from cera.sequence_first.prompting import PLANNER_BASE_INSTRUCTIONS, PLANNER_PROFILE
 from cera.sequence_first.provider import SequenceFirstPlannerCodexBackend
 from cera.sequence_first.sessions import PersistentPlannerSession
@@ -100,8 +115,27 @@ PlannerSessionFactory = Callable[
 ]
 PlannerBackendFactory = Callable[
     [str, str, LeanSceneTurnInputV1],
-    SequenceFirstPlannerCodexBackend,
+    Any,
 ]
+CognitionBackendFactory = Callable[
+    [str, str, LeanSceneTurnInputV1, Any],
+    Any,
+]
+
+
+@dataclass(frozen=True, slots=True)
+class FullModelProviderComponents:
+    """Explicit provider seams used only by provider-free launcher tests.
+
+    Production construction leaves this unset and creates the concrete Codex,
+    Luna, and Pi adapters below.  Offline fakes must opt out of the external
+    dispatch classification explicitly.
+    """
+
+    planner_lifecycle: Any
+    luna_backend: Any
+    pi: Any
+    external_provider_boundary: bool
 
 
 def planner_thread_compatibility_sha256() -> str:
@@ -133,17 +167,17 @@ class _PiScenePlannerRegistry:
         self,
         builder: Callable[
             [str, str, LeanSceneTurnInputV1],
-            RetainedCodexPlannerAdapter,
+            Any,
         ],
     ) -> None:
         self._builder = builder
         self._active: dict[
             str,
-            tuple[str, str, str, RetainedCodexPlannerAdapter],
+            tuple[str, str, str, Any],
         ] = {}
         self._lock = RLock()
 
-    def resolve(self, turn: LeanSceneTurnInputV1) -> RetainedCodexPlannerAdapter:
+    def resolve(self, turn: LeanSceneTurnInputV1) -> Any:
         controls = turn.request_controls
         if controls is None:
             raise ContractValidationError(
@@ -157,9 +191,7 @@ class _PiScenePlannerRegistry:
                 turn.world_id,
                 turn.branch_id,
             ):
-                raise StateConflictError(
-                    "Pi Scene session resolved to a different world or branch"
-                )
+                raise StateConflictError("Pi Scene session resolved to a different world or branch")
             if active is not None and active[0] == effort:
                 return active[3]
             planner = self._builder(session_id, effort, turn)
@@ -170,6 +202,17 @@ class _PiScenePlannerRegistry:
                 planner,
             )
             return planner
+
+
+class _ResolverOnlyOrdinaryPlanner:
+    """Fail closed when live input omits the chat-scoped Planner controls."""
+
+    external_provider_boundary = False
+
+    def plan(self, _request: Any) -> Any:
+        raise ContractValidationError(
+            "full-model ordinary planning requires a chat-scoped Planner resolver"
+        )
 
 
 def _initialize_live_runtime_roots(runtime_root: Path) -> tuple[Path, Path, Path]:
@@ -190,49 +233,107 @@ def build_live_runtime(
     deepseek_per_invocation_ceiling: int = 6,
     seed_runtime_root: Path | None = None,
     inject_generation_two_recorder_failure: bool = False,
-    planner_session_factory: PlannerSessionFactory | None = None,
+    planner_session_factory: CognitionSessionFactory | None = None,
     planner_backend_factory: PlannerBackendFactory | None = None,
+    cognition_backend_factory: CognitionBackendFactory | None = None,
+    provider_components: FullModelProviderComponents | None = None,
 ) -> LivePiSceneRuntime:
-    assert_provider_dispatch_allowed("scripts.pi_scene_lean.live_runtime")
-    runtime_root, lifecycle_root, operation_root = _initialize_live_runtime_roots(
-        runtime_root
+    if planner_backend_factory is not None and cognition_backend_factory is not None:
+        raise ContractValidationError("only one custom cognition backend factory may be supplied")
+    assert_provider_dispatch_allowed(
+        "scripts.pi_scene_lean.live_runtime",
+        external_provider_boundary=(
+            True
+            if provider_components is None
+            else any(
+                is_external_provider_boundary(value)
+                for value in (
+                    provider_components,
+                    provider_components.planner_lifecycle,
+                    provider_components.luna_backend,
+                    provider_components.pi,
+                )
+            )
+        ),
     )
+    runtime_root, lifecycle_root, operation_root = _initialize_live_runtime_roots(runtime_root)
     if seed_runtime_root is not None:
         _seed_live_runtime_state(runtime_root, seed_runtime_root)
     stack = ExitStack()
     try:
-        from openai_codex import Codex, CodexConfig
-
-        codex = stack.enter_context(
-            Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={}))
-        )
-        account = codex.account()
-        if account.account is None:
-            raise StateConflictError("ChatGPT Codex account is unavailable")
         sol_ledger = ContinuousProviderCallLedger(
             (runtime_root / "SOL_PROVIDER_CALLS.jsonl").resolve(),
             maximum_calls=sol_ceiling,
         )
         # Parse any resumed ledger before constructing provider backends.
         _ = sol_ledger.dispatched_call_count
-        lifecycle = OpenAICodexStoredThreadBackend(
-            codex=codex,
-            model="gpt-5.6-sol",
-            cwd=str(lifecycle_root),
-            base_instructions=PLANNER_BASE_INSTRUCTIONS,
-            service_name="cera_pi_scene_planner",
-            service_tier="priority",
+        deepseek_ledger = PiProviderOperationLedger(
+            (runtime_root / "DEEPSEEK_PROVIDER_OPERATIONS.jsonl").resolve(),
+            maximum_operations=deepseek_ceiling,
+            maximum_operations_per_invocation=deepseek_per_invocation_ceiling,
         )
-        readable_debug_setting = os.environ.get(
-            "CERA_PI_SCENE_READABLE_DEBUG", "1"
-        ).strip().lower()
+        _ = deepseek_ledger.operation_count
+        readable_debug_setting = os.environ.get("CERA_PI_SCENE_READABLE_DEBUG", "1").strip().lower()
         readable_debug = ReadablePiSceneDebugLog(
             runtime_root / "debug" / "readable",
             enabled=readable_debug_setting not in {"0", "false", "off", "no"},
             max_entries=int(os.environ.get("CERA_PI_SCENE_READABLE_DEBUG_MAX", "200")),
         )
+        cognition_readable_debug = PathBudgetedCognitionDebugLog(readable_debug)
+        if provider_components is None:
+            from openai_codex import Codex, CodexConfig
+
+            codex = stack.enter_context(
+                Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={}))
+            )
+            account = codex.account()
+            if account.account is None:
+                raise StateConflictError("ChatGPT Codex account is unavailable")
+            planner_lifecycle_root = lifecycle_root / "planner"
+            luna_lifecycle_root = lifecycle_root / "luna"
+            planner_lifecycle_root.mkdir()
+            luna_lifecycle_root.mkdir()
+            planner_lifecycle = OpenAICodexStoredThreadBackend(
+                codex=codex,
+                model="gpt-5.6-sol",
+                cwd=str(planner_lifecycle_root),
+                base_instructions=COGNITION_PLANNER_BASE_INSTRUCTIONS,
+                service_name="cera_pi_scene_cognition_planner",
+                service_tier="priority",
+            )
+            luna_lifecycle = OpenAICodexStoredThreadBackend(
+                codex=codex,
+                model="gpt-5.6-luna",
+                cwd=str(luna_lifecycle_root),
+                base_instructions=LUNA_VALIDATOR_BASE_INSTRUCTIONS,
+                service_name="cera_pi_scene_semantic_validator",
+                service_tier="priority",
+            )
+            luna_evidence = ProviderOperationEvidenceStoreV1(
+                (runtime_root / "debug" / "semantic_validator").resolve(),
+                stage="pi_scene_luna_semantic_validator",
+            )
+            luna_backend = CodexLunaSemanticValidatorBackend(
+                lifecycle=luna_lifecycle,
+                workspace=operation_root / "semantic_validator",
+                call_ledger=sol_ledger,
+                operation_evidence=luna_evidence,
+            )
+            pi = PiSceneAdapter(
+                pi_executable=DEFAULT_PI,
+                extension_path=DEFAULT_EXTENSION,
+                pi_version="0.84.1",
+                operation_ledger=deepseek_ledger,
+                readable_debug=readable_debug,
+            )
+        else:
+            planner_lifecycle = provider_components.planner_lifecycle
+            luna_backend = provider_components.luna_backend
+            pi = provider_components.pi
+
+        semantic_validator = FreshLunaValidatorFactory(luna_backend)
         selected_session_factory = (
-            default_planner_session_factory(runtime_root)
+            default_cognition_session_factory(runtime_root)
             if planner_session_factory is None
             else planner_session_factory
         )
@@ -252,75 +353,60 @@ def build_live_runtime(
         def build_planner(
             session_id: str,
             effort: str,
-            turn: LeanSceneTurnInputV1 | None,
-        ) -> RetainedCodexPlannerAdapter:
+            turn: LeanSceneTurnInputV1,
+        ) -> RetrievalDirectedCognitionPlanner:
             session_digest = text_sha256(session_id)
             evidence = ProviderOperationEvidenceStoreV1(
-                (
-                    runtime_root
-                    / "debug"
-                    / "planner"
-                    / session_digest[:24]
-                    / effort
-                ).resolve(),
-                stage="pi_scene_lean_planner",
+                (runtime_root / "debug" / "planner" / session_digest[:24] / effort).resolve(),
+                stage="pi_scene_full_model_cognition_planner",
             )
-            if planner_backend_factory is None:
-                backend_workspace = (
-                    operation_root / "sessions" / session_digest[:24] / effort
+            controls = turn.request_controls
+            if controls is None:
+                raise ContractValidationError(
+                    "branch-bound cognition Planner requires typed request controls"
                 )
-                if turn is None:
-                    backend = SequenceFirstPlannerCodexBackend(
-                        lifecycle=lifecycle,
-                        workspace=backend_workspace,
-                        call_ledger=sol_ledger,
-                        operation_evidence=evidence,
-                    )
-                else:
-                    controls = turn.request_controls
-                    if controls is None:
-                        raise ContractValidationError(
-                            "branch-bound Planner requires typed request controls"
-                        )
-                    scope = world_resolver.resolve(controls)
-                    if (scope.world_id, scope.branch_id) != (
-                        turn.world_id,
-                        turn.branch_id,
-                    ):
-                        raise StateConflictError(
-                            "Planner world workspace differs from turn scope"
-                        )
-                    backend = BranchBoundSequenceFirstPlannerBackend(
-                        world_mcp_factory=workspace_manager.mcp_factory(
-                            scope.workspace
-                        ),
-                        lifecycle=lifecycle,
-                        workspace=backend_workspace,
-                        call_ledger=sol_ledger,
-                        operation_evidence=evidence,
-                    )
+            scope = world_resolver.resolve(controls)
+            if (scope.world_id, scope.branch_id) != (
+                turn.world_id,
+                turn.branch_id,
+            ):
+                raise StateConflictError(
+                    "cognition Planner world workspace differs from turn scope"
+                )
+            world_mcp_factory = workspace_manager.mcp_factory(scope.workspace)
+            backend_workspace = operation_root / "sessions" / session_digest[:24] / effort
+            if cognition_backend_factory is not None:
+                backend = cognition_backend_factory(
+                    session_id,
+                    effort,
+                    turn,
+                    world_mcp_factory,
+                )
+            elif planner_backend_factory is None:
+                backend = BranchBoundCognitionPlannerBackend(
+                    world_mcp_factory=world_mcp_factory,
+                    lifecycle=planner_lifecycle,
+                    workspace=backend_workspace,
+                    call_ledger=sol_ledger,
+                    operation_evidence=evidence,
+                )
             else:
-                if turn is None:
-                    raise ContractValidationError(
-                        "custom Planner backend requires a request turn"
-                    )
                 backend = planner_backend_factory(session_id, effort, turn)
             if backend.route.reasoning_effort != effort:
                 backend.route = replace(
                     backend.route,
-                    route_id=(
-                        f"cera_pi_scene_planner_{backend.route.model_name}_{effort}_v1"
-                    ),
+                    route_id=(f"cera_pi_scene_cognition_{backend.route.model_name}_{effort}_v1"),
                     reasoning_effort=effort,
                 )
             session = selected_session_factory(session_id, effort, backend)
-            return RetainedCodexPlannerAdapter(
-                session,
-                operation_evidence=evidence,
-                readable_debug=readable_debug,
+            return RetrievalDirectedCognitionPlanner(
+                RetainedCognitionPlannerAdapter(
+                    session,
+                    operation_evidence=evidence,
+                    readable_debug=cognition_readable_debug,
+                )
             )
 
-        planner = build_planner("cera-pi-scene-legacy", "medium", None)
         planner_registry = _PiScenePlannerRegistry(
             lambda session_id, effort, turn: build_planner(
                 session_id,
@@ -328,19 +414,7 @@ def build_live_runtime(
                 turn,
             )
         )
-        deepseek_ledger = PiProviderOperationLedger(
-            (runtime_root / "DEEPSEEK_PROVIDER_OPERATIONS.jsonl").resolve(),
-            maximum_operations=deepseek_ceiling,
-            maximum_operations_per_invocation=deepseek_per_invocation_ceiling,
-        )
-        _ = deepseek_ledger.operation_count
-        pi = PiSceneAdapter(
-            pi_executable=DEFAULT_PI,
-            extension_path=DEFAULT_EXTENSION,
-            pi_version="0.84.1",
-            operation_ledger=deepseek_ledger,
-            readable_debug=readable_debug,
-        )
+
         def fault(
             accepted: LeanAcceptedTurnReceiptV1,
             attempt_number: int,
@@ -355,12 +429,13 @@ def build_live_runtime(
 
         coordinator = LeanPiSceneCoordinator(
             store=store,
-            planner=planner,
+            planner=_ResolverOnlyOrdinaryPlanner(),
             writer_views=WriterViewMaterializer(runtime_root / "writer_views"),
             pi=pi,
             session_root=runtime_root / "pi_sessions",
             recording_fault_injector=fault,
             planner_resolver=planner_registry.resolve,
+            semantic_validator=semantic_validator,
         )
         return LivePiSceneRuntime(
             stack=stack,
@@ -394,14 +469,8 @@ def _seed_live_runtime_state(runtime_root: Path, seed_runtime_root: Path) -> Non
     planner_source = source_root / "planner_threads"
     if planner_source.exists():
         planner_target = target_root / "planner_threads"
-        if (
-            planner_source.is_symlink()
-            or not planner_source.is_dir()
-            or planner_target.exists()
-        ):
-            raise StateConflictError(
-                "live seed planner_threads is unavailable or occupied"
-            )
+        if planner_source.is_symlink() or not planner_source.is_dir() or planner_target.exists():
+            raise StateConflictError("live seed planner_threads is unavailable or occupied")
         if any(path.is_symlink() for path in planner_source.rglob("*")):
             raise StateConflictError("live seed planner_threads contains a symlink")
         shutil.copytree(planner_source, planner_target)
@@ -588,12 +657,9 @@ class _IsolatedSillyTavernClient:
         payload = {
             "chat_completion_source": "custom",
             "custom_url": cera_base.rstrip("/") + "/v1",
-            "custom_include_headers": (
-                f"Authorization: Bearer {authorization_token}"
-            ),
+            "custom_include_headers": (f"Authorization: Bearer {authorization_token}"),
             "custom_include_body": (
-                f"cera_session_id: {session_id}\n"
-                f"cera_profile_id: {PI_SCENE_PROFILE}"
+                f"cera_session_id: {session_id}\ncera_profile_id: {PI_SCENE_PROFILE}"
             ),
             "model": model,
             "messages": [{"role": "user", "content": source}],
@@ -687,7 +753,9 @@ def run_live_smoke(
         if not isinstance(text, str) or len(text.strip()) < 80:
             raise StateConflictError("live Pi Writer returned an unusable scene")
         lowered = text.lower()
-        if any(marker in lowered for marker in ("i can't help", "i cannot help", "unable to comply")):
+        if any(
+            marker in lowered for marker in ("i can't help", "i cannot help", "unable to comply")
+        ):
             raise StateConflictError("live Pi Writer returned a refusal")
         return value
 
@@ -842,9 +910,7 @@ def run_live_smoke(
             "route_transition": "ordinary-adult-adult-ordinary",
             "isolated_sillytavern_started": True,
             "isolated_sillytavern_routed_chat_completions": st_client.completed_requests,
-            "resumed_from_accepted_generation": (
-                None if resume_from_runtime_root is None else 2
-            ),
+            "resumed_from_accepted_generation": (None if resume_from_runtime_root is None else 2),
             "isolated_sillytavern_user_data_copied": st_manifest["user_data_copied"],
             "isolated_sillytavern_manifest_sha256": st_manifest["manifest_sha256"],
             "accepted_head_sha256": head.accepted_head_sha256,
@@ -939,9 +1005,7 @@ def repair_existing_smoke(runtime_root: Path) -> dict[str, Any]:
     if not (root / "isolated_sillytavern" / "cera-smoke-logs").is_dir():
         raise StateConflictError("existing smoke omitted SillyTavern launch evidence")
 
-    current_head = store.load_head(
-        world_id="world-pi-scene-smoke", branch_id="branch-main"
-    )
+    current_head = store.load_head(world_id="world-pi-scene-smoke", branch_id="branch-main")
     result = {
         "schema_version": "cera.pi_scene.live_smoke_evidence.v1",
         "status": "passed",
@@ -1092,9 +1156,7 @@ def main() -> int:
             session_id=args.session_id,
             sol_ceiling=args.sol_ceiling,
             deepseek_ceiling=args.deepseek_ceiling,
-            deepseek_per_invocation_ceiling=(
-                args.deepseek_per_invocation_ceiling
-            ),
+            deepseek_per_invocation_ceiling=(args.deepseek_per_invocation_ceiling),
             resume_from_runtime_root=args.resume_from_runtime_root,
         )
     return 0
