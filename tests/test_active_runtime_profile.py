@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import replace
 import json
-from pathlib import Path
 import subprocess
+import sys
 import unittest
+from dataclasses import replace
+from pathlib import Path
 
 from cera.active_runtime import ACTIVE_RUNTIME_PROFILE
 from cera.active_runtime_validation import (
     active_runtime_status,
     validate_active_runtime_bindings,
 )
-
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,7 +49,7 @@ class ActiveRuntimeProfileTests(unittest.TestCase):
     def test_profile_command_is_machine_readable_and_validated(self) -> None:
         completed = subprocess.run(
             [
-                str(ROOT / ".venv" / "Scripts" / "python.exe"),
+                sys.executable,
                 str(ROOT / "scripts" / "show_active_runtime_profile.py"),
             ],
             cwd=ROOT,

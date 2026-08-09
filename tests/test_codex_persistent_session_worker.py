@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from pathlib import Path
-from types import SimpleNamespace
 import json
 import tempfile
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 
 from cera.providers.codex_session_worker import _run_request, _validate_request
 
@@ -41,6 +41,8 @@ class FakeThread:
 
 
 class FakeCodex:
+    external_provider_boundary = False
+
     def __init__(self) -> None:
         self.start_calls = []
 
@@ -82,9 +84,7 @@ class CodexPersistentSessionWorkerTests(unittest.TestCase):
             second_request = request_for(Path(second), "second")
             compatibility = SimpleNamespace(
                 compatibility_id="cera.codex_sdk_completion_registration.v2",
-                source_sha256=(
-                    "8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1"
-                ),
+                source_sha256=("8fd316aa949d03812e935b0928e3767d0faa1d79701f599d97e66c0e46c679d1"),
                 buffered_early_completion_count=0,
                 pre_registered_turn_count=2,
             )
