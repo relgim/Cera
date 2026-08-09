@@ -488,14 +488,15 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertIn("Do not invent Ted dialogue", prompt)
             self.assertIn("Freely add compatible transient", prompt)
             self.assertIn("fact_scope", prompt)
-            self.assertIn("leave it generic or unspecified", prompt)
-            self.assertIn("unsupported durable history", prompt)
-            self.assertIn("institutional facts", prompt)
+            self.assertIn("scene-local, reversible, non-identifying, non-causal", prompt)
+            self.assertIn("Anything future-relevant requires accepted authority", prompt)
+            self.assertIn("unsupported durable facts", prompt)
             self.assertIn("Return complete visible prose only", prompt)
             self.assertNotIn("opening sentence", prompt.lower())
         self.assertIn("current turn wins", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("already_supplied_item_keys", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("response_item_key", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("RESPONSE_SEQUENCE.json", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("not the realization checklist", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("realization_scope.already_supplied_item_keys", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn("consent_and_capacity", ADULT_WRITER_SYSTEM_PROMPT)
 
@@ -549,13 +550,19 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(authority_order["current_route"], "ordinary")
             self.assertEqual(
                 authority_order["current_primary_authority_path"],
+                "RESPONSE_SEQUENCE.json",
+            )
+            self.assertEqual(
+                authority_order["canonical_primary_sequence_path"],
                 "PRIMARY_SEQUENCE.json",
             )
             self.assertEqual(
                 authority_order["realization_scope"],
                 {
                     "already_supplied_item_keys": [],
+                    "canonical_authority_path": "PRIMARY_SEQUENCE.json",
                     "render_user_prompt": False,
+                    "response_authority_path": "RESPONSE_SEQUENCE.json",
                     "response_item_keys": ["hana_answers"],
                     "response_start_item_key": "hana_answers",
                     "source_contribution_status": "already_supplied_context_only",
@@ -613,14 +620,17 @@ class PiSceneLeanTests(unittest.TestCase):
                     "summary": "The protected user's supplied action is entry state.",
                     "protected_user_claim_keys": ["current_request"],
                     "protected_user_exact_quotes": ["supplied source"],
+                    "durable_change_keys": ["source_change"],
                 },
                 {
                     "item_key": "hana_response",
                     "owner_id": "character:hana",
                     "kind": "dialogue_intent",
                     "summary": "Hana responds from her own perspective.",
+                    "causal_parent_item_key": "ted_source_action",
                     "protected_user_claim_keys": [],
                     "protected_user_exact_quotes": [],
+                    "durable_change_keys": ["response_change"],
                 },
                 {
                     "item_key": "return_floor",
@@ -629,6 +639,22 @@ class PiSceneLeanTests(unittest.TestCase):
                     "summary": "Return the floor to the protected user.",
                     "protected_user_claim_keys": [],
                     "protected_user_exact_quotes": [],
+                },
+            ]
+            authority["durable_changes"] = [
+                {"change_key": "source_change", "summary": "Source-bound effect."},
+                {"change_key": "response_change", "summary": "Response-bound effect."},
+            ]
+            authority["presence_changes"] = [
+                {
+                    "character_id": "character:ted",
+                    "direction": "enter",
+                    "effective_after_item_key": "ted_source_action",
+                },
+                {
+                    "character_id": "character:hana",
+                    "direction": "exit",
+                    "effective_after_item_key": "hana_response",
                 },
             ]
             view = WriterViewMaterializer(root / "views").materialize(
@@ -659,6 +685,33 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(scope["already_supplied_item_keys"], ["ted_source_action"])
             self.assertEqual(scope["response_item_keys"], ["hana_response", "return_floor"])
             self.assertEqual(scope["response_start_item_key"], "hana_response")
+            response_sequence = json.loads(
+                (view.root / "RESPONSE_SEQUENCE.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                [item["item_key"] for item in response_sequence["items"]],
+                ["hana_response", "return_floor"],
+            )
+            self.assertEqual(
+                response_sequence["items"][0]["causal_parent_item_key"],
+                "ted_source_action",
+            )
+            self.assertNotIn(
+                "ted_source_action",
+                [item["item_key"] for item in response_sequence["items"]],
+            )
+            self.assertNotIn("source_context_item_keys", response_sequence)
+            self.assertEqual(
+                [change["change_key"] for change in response_sequence["durable_changes"]],
+                ["response_change"],
+            )
+            self.assertEqual(
+                [
+                    change["effective_after_item_key"]
+                    for change in response_sequence["presence_changes"]
+                ],
+                ["hana_response"],
+            )
             self.assertEqual(
                 json.loads((view.root / "PRIMARY_SEQUENCE.json").read_text(encoding="utf-8")),
                 authority,

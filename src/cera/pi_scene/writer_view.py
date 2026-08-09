@@ -116,15 +116,17 @@ class WriterViewMaterializer:
 
     @staticmethod
     def _write_view(root: Path, source: WriterViewInputV1) -> None:
-        realization_scope = (
-            _ordinary_realization_scope(source.primary_authority)
-            if source.route is SceneRoute.ORDINARY
-            else {
+        if source.route is SceneRoute.ORDINARY:
+            realization_scope, response_sequence = _ordinary_authority_projection(
+                source.primary_authority
+            )
+        else:
+            realization_scope = {
                 "render_user_prompt": False,
                 "source_contribution_status": "already_supplied_context_only",
                 "response_authority_path": "ADULT_HANDOFF.json",
             }
-        )
+            response_sequence = None
         _write_text(root / "USER_PROMPT.txt", source.user_prompt)
         _write_json(
             root / "TURN.json",
@@ -158,6 +160,8 @@ class WriterViewMaterializer:
             ),
             source.primary_authority,
         )
+        if response_sequence is not None:
+            _write_json(root / "RESPONSE_SEQUENCE.json", response_sequence)
         _write_json(root / "CURRENT_STATE.json", source.current_state)
         _write_named_mapping(root / "characters", source.characters)
         _write_named_mapping(root / "relationships", source.relationships)
@@ -166,8 +170,8 @@ class WriterViewMaterializer:
         _write_named_mapping(root / "voice_examples", source.voice_examples)
         _write_json(root / "craft" / "index.json", source.craft_index)
         _write_numbered(root / "accepted_records", source.accepted_records)
-        primary_path = (
-            "PRIMARY_SEQUENCE.json"
+        realization_path = (
+            "RESPONSE_SEQUENCE.json"
             if source.route is SceneRoute.ORDINARY
             else "ADULT_HANDOFF.json"
         )
@@ -177,7 +181,12 @@ class WriterViewMaterializer:
                 "schema_version": "cera.pi_scene.writer_authority_order.v2",
                 "current_route": source.route.value,
                 "current_source_path": "USER_PROMPT.txt",
-                "current_primary_authority_path": primary_path,
+                "current_primary_authority_path": realization_path,
+                "canonical_primary_sequence_path": (
+                    "PRIMARY_SEQUENCE.json"
+                    if source.route is SceneRoute.ORDINARY
+                    else None
+                ),
                 "current_state_path": "CURRENT_STATE.json",
                 "precedence": [
                     "current_route_and_primary_authority",
@@ -199,13 +208,11 @@ class WriterViewMaterializer:
                         "accepted_records/",
                         "recent_prose/",
                     ],
-                    "unsupplied_fact_rule": (
-                        "Leave an absent setting, object-history, recurring-practice, "
-                        "institutional, or prior-relationship fact generic or unspecified."
-                    ),
-                    "transient_detail_rule": (
-                        "Creative detail may describe only compatible present appearance, "
-                        "sound, motion, atmosphere, gesture, and dialogue."
+                    "creative_detail_rule": (
+                        "Freely invented detail is allowed only when it is scene-local, "
+                        "reversible, non-identifying, non-causal, and unsafe for a future "
+                        "turn to rely on as fact. Anything future-relevant requires "
+                        "accepted authority."
                     ),
                 },
             },
@@ -318,12 +325,16 @@ def resolve_confined_path(
     return candidate
 
 
-def _ordinary_realization_scope(primary_authority: Mapping[str, Any]) -> dict[str, Any]:
+def _ordinary_authority_projection(
+    primary_authority: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
     items = primary_authority.get("items")
     if not isinstance(items, list) or not items:
         raise ContractValidationError("ordinary Writer authority requires ordered items")
     supplied: list[str] = []
     response: list[str] = []
+    response_items: list[dict[str, Any]] = []
+    response_change_keys: set[str] = set()
     seen: set[str] = set()
     for item in items:
         if not isinstance(item, Mapping):
@@ -340,15 +351,60 @@ def _ordinary_realization_scope(primary_authority: Mapping[str, Any]) -> dict[st
             supplied.append(item_key)
         else:
             response.append(item_key)
+            response_items.append(dict(item))
+            durable_change_keys = item.get("durable_change_keys", [])
+            if not isinstance(durable_change_keys, list):
+                raise ContractValidationError(
+                    "ordinary Writer durable-change binding is invalid"
+                )
+            response_change_keys.update(durable_change_keys)
     if not response:
         raise ContractValidationError("ordinary Writer authority has no response scope")
-    return {
+    durable_changes = primary_authority.get("durable_changes", [])
+    presence_changes = primary_authority.get("presence_changes", [])
+    if not isinstance(durable_changes, list) or not isinstance(presence_changes, list):
+        raise ContractValidationError("ordinary Writer sequence change list is invalid")
+    response_presence_changes = []
+    for change in presence_changes:
+        if not isinstance(change, Mapping):
+            raise ContractValidationError("ordinary Writer presence change is invalid")
+        if change.get("effective_after_item_key") in response:
+            response_presence_changes.append(dict(change))
+    response_durable_changes = []
+    for change in durable_changes:
+        if not isinstance(change, Mapping):
+            raise ContractValidationError("ordinary Writer durable change is invalid")
+        change_key = change.get("change_key")
+        if change_key in response_change_keys:
+            response_durable_changes.append(dict(change))
+    scope = {
         "render_user_prompt": False,
         "source_contribution_status": "already_supplied_context_only",
         "already_supplied_item_keys": supplied,
         "response_item_keys": response,
         "response_start_item_key": response[0],
+        "response_authority_path": "RESPONSE_SEQUENCE.json",
+        "canonical_authority_path": "PRIMARY_SEQUENCE.json",
     }
+    response_projection = {
+        "schema_version": "cera.pi_scene.response_sequence.v1",
+        "items": response_items,
+        "durable_changes": response_durable_changes,
+        "presence_changes": response_presence_changes,
+        "resulting_public_state": primary_authority.get("resulting_public_state"),
+        "unresolved_threads": primary_authority.get("unresolved_threads"),
+        "stopping_boundary": primary_authority.get("stopping_boundary"),
+    }
+    for field_name in (
+        "resulting_public_state",
+        "unresolved_threads",
+        "stopping_boundary",
+    ):
+        if response_projection[field_name] is None:
+            raise ContractValidationError(
+                f"ordinary Writer authority omits {field_name}"
+            )
+    return scope, response_projection
 
 
 def _write_named_mapping(root: Path, values: Mapping[str, Any]) -> None:
