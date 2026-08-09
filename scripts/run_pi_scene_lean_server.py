@@ -3,20 +3,20 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import ExitStack
-from dataclasses import dataclass, replace
-from http.cookiejar import CookieJar
 import json
 import os
-from pathlib import Path
-import re
 import secrets
 import shutil
 import socket
 import subprocess
-from threading import RLock, Thread
 import time
-from typing import Any, Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from contextlib import ExitStack
+from dataclasses import dataclass, replace
+from http.cookiejar import CookieJar
+from pathlib import Path
+from threading import RLock, Thread
+from typing import Any
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
@@ -29,23 +29,29 @@ from cera.pi_scene.context import (
     initial_hana_seed,
     initial_hanezawa_doorway_seed,
 )
-from cera.pi_scene.contracts import RecordingStatus, SceneRoute
+from cera.pi_scene.contracts import (
+    LeanAcceptedTurnReceiptV1,
+    RecordingStatus,
+    SceneRoute,
+)
 from cera.pi_scene.http import (
-    PI_SCENE_ADULT_MODEL,
-    PI_SCENE_ORDINARY_MODEL,
-    PI_SCENE_PROFILE,
     PiSceneHttpAdapter,
     PiSceneServerConfigV1,
     build_pi_scene_server,
+)
+from cera.pi_scene.http_contracts import (
+    PI_SCENE_ADULT_MODEL,
+    PI_SCENE_ORDINARY_MODEL,
+    PI_SCENE_PROFILE,
+    LeanSceneRequestControlsV1,
 )
 from cera.pi_scene.operation_ledger import PiProviderOperationLedger
 from cera.pi_scene.pi_adapter import PiSceneAdapter
 from cera.pi_scene.planner_state import PlannerThreadStateStore
 from cera.pi_scene.readable_debug import ReadablePiSceneDebugLog
+from cera.pi_scene.review_store import LeanSceneTurnInputV1
 from cera.pi_scene.runtime import (
     LeanPiSceneCoordinator,
-    LeanSceneRequestControlsV1,
-    LeanSceneTurnInputV1,
     repair_latest_ordinary_recording_from_output,
 )
 from cera.pi_scene.sillytavern_isolation import (
@@ -54,13 +60,18 @@ from cera.pi_scene.sillytavern_isolation import (
     verify_isolated_sillytavern,
 )
 from cera.pi_scene.store import LeanSceneStore
+from cera.pi_scene.world_planner import BranchBoundSequenceFirstPlannerBackend
+from cera.pi_scene.world_runtime import (
+    PiSceneChatWorldResolver,
+    new_chat_semantic_scope,
+)
+from cera.pi_scene.world_workspace import PiSceneWorldWorkspaceManager
 from cera.pi_scene.writer_view import WriterViewMaterializer
 from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
 from cera.sequence_first.prompting import PLANNER_BASE_INSTRUCTIONS, PLANNER_PROFILE
 from cera.sequence_first.provider import SequenceFirstPlannerCodexBackend
 from cera.sequence_first.sessions import PersistentPlannerSession
 from cera.serialization import canonical_bytes, canonical_sha256, text_sha256
-
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PI = Path(r"C:\Users\Ted\AppData\Roaming\npm\pi.cmd")
@@ -76,6 +87,7 @@ class LivePiSceneRuntime:
     sol_ledger: ContinuousProviderCallLedger
     deepseek_ledger: PiProviderOperationLedger
     readable_debug: ReadablePiSceneDebugLog
+    world_resolver: PiSceneChatWorldResolver
 
     def close(self) -> None:
         self.stack.close()
@@ -222,6 +234,18 @@ def build_live_runtime(
             if planner_session_factory is None
             else planner_session_factory
         )
+        accepted_world_root = runtime_root / "accepted_world"
+        store = LeanSceneStore(accepted_world_root)
+        workspace_manager = PiSceneWorldWorkspaceManager(
+            accepted_world_root,
+            (ROOT / "genesis" / "packages").resolve(),
+        )
+        world_resolver = PiSceneChatWorldResolver(
+            manager=workspace_manager,
+            store=store,
+            scope_root=runtime_root / "chat_scopes",
+            base_seed=initial_hanezawa_doorway_seed(),
+        )
 
         def build_planner(
             session_id: str,
@@ -239,16 +263,45 @@ def build_live_runtime(
                 ).resolve(),
                 stage="pi_scene_lean_planner",
             )
-            if planner_backend_factory is None or turn is None:
-                backend = SequenceFirstPlannerCodexBackend(
-                    lifecycle=lifecycle,
-                    workspace=(
-                        operation_root / "sessions" / session_digest[:24] / effort
-                    ),
-                    call_ledger=sol_ledger,
-                    operation_evidence=evidence,
+            if planner_backend_factory is None:
+                backend_workspace = (
+                    operation_root / "sessions" / session_digest[:24] / effort
                 )
+                if turn is None:
+                    backend = SequenceFirstPlannerCodexBackend(
+                        lifecycle=lifecycle,
+                        workspace=backend_workspace,
+                        call_ledger=sol_ledger,
+                        operation_evidence=evidence,
+                    )
+                else:
+                    controls = turn.request_controls
+                    if controls is None:
+                        raise ContractValidationError(
+                            "branch-bound Planner requires typed request controls"
+                        )
+                    scope = world_resolver.resolve(controls)
+                    if (scope.world_id, scope.branch_id) != (
+                        turn.world_id,
+                        turn.branch_id,
+                    ):
+                        raise StateConflictError(
+                            "Planner world workspace differs from turn scope"
+                        )
+                    backend = BranchBoundSequenceFirstPlannerBackend(
+                        world_mcp_factory=workspace_manager.mcp_factory(
+                            scope.workspace
+                        ),
+                        lifecycle=lifecycle,
+                        workspace=backend_workspace,
+                        call_ledger=sol_ledger,
+                        operation_evidence=evidence,
+                    )
             else:
+                if turn is None:
+                    raise ContractValidationError(
+                        "custom Planner backend requires a request turn"
+                    )
                 backend = planner_backend_factory(session_id, effort, turn)
             if backend.route.reasoning_effort != effort:
                 backend.route = replace(
@@ -286,9 +339,10 @@ def build_live_runtime(
             operation_ledger=deepseek_ledger,
             readable_debug=readable_debug,
         )
-        store = LeanSceneStore(runtime_root / "accepted_world")
-
-        def fault(accepted, attempt_number):
+        def fault(
+            accepted: LeanAcceptedTurnReceiptV1,
+            attempt_number: int,
+        ) -> str | None:
             if (
                 inject_generation_two_recorder_failure
                 and accepted.generation == 2
@@ -313,6 +367,7 @@ def build_live_runtime(
             sol_ledger=sol_ledger,
             deepseek_ledger=deepseek_ledger,
             readable_debug=readable_debug,
+            world_resolver=world_resolver,
         )
     except BaseException:
         stack.close()
@@ -364,19 +419,14 @@ def _seed_live_runtime_state(runtime_root: Path, seed_runtime_root: Path) -> Non
 def pi_scene_session_scope(session_id: str) -> tuple[str, str, str]:
     """Resolve one stable SillyTavern chat to isolated story identities."""
 
-    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,95}", session_id):
-        raise ContractValidationError("Pi Scene session scope identity is invalid")
-    digest = text_sha256(session_id)
-    return (
-        f"world-hanezawa-chat-{digest[:24]}",
-        f"branch-chat-{digest}",
-        f"scene-hanezawa-entryway-{digest[:24]}",
-    )
+    return new_chat_semantic_scope(session_id)
 
 
 def build_session_context_provider(
     store: LeanSceneStore,
     seed: PiSceneContextSeedV1,
+    *,
+    workspace_resolver: PiSceneChatWorldResolver | None = None,
 ) -> Callable[
     [
         SceneRoute,
@@ -394,6 +444,13 @@ def build_session_context_provider(
         messages: Sequence[Mapping[str, str]],
         controls: LeanSceneRequestControlsV1,
     ) -> LeanSceneTurnInputV1:
+        if workspace_resolver is not None:
+            return workspace_resolver.resolve_turn(
+                route=route,
+                source=source,
+                messages=messages,
+                controls=controls,
+            ).turn
         world_id, branch_id, scene_id = pi_scene_session_scope(controls.session_id)
         scoped_seed = replace(
             seed,
@@ -976,6 +1033,7 @@ def serve(
         request_context_provider=build_session_context_provider(
             runtime.store,
             initial_hanezawa_doorway_seed(),
+            workspace_resolver=getattr(runtime, "world_resolver", None),
         ),
         readable_debug=runtime.readable_debug,
     )

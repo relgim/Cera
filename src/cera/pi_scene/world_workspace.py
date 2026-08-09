@@ -10,23 +10,24 @@ archives the parent's soft provider session so it cannot cross branches.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import os
-from pathlib import Path
 import shutil
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass
+from pathlib import Path
 from threading import RLock
-from typing import Any, Callable, Mapping
+from typing import Any
 from uuid import uuid4
 
+from cera.continuous.sessions import ContinuousSessionRole
+from cera.continuous.world_mcp import (
+    WORLD_MCP_MAXIMUM_CALLS,
+    ContinuousWorldMcpBridge,
+    ContinuousWorldToolDispatcher,
+)
 from cera.errors import ContractValidationError, StateConflictError
 from cera.providers import CodexMcpRuntimeBinding
 from cera.serialization import canonical_sha256, to_primitive
-from cera.continuous.sessions import ContinuousSessionRole
-from cera.continuous.world_mcp import (
-    ContinuousWorldMcpBridge,
-    ContinuousWorldToolDispatcher,
-    WORLD_MCP_MAXIMUM_CALLS,
-)
 
 from ._world_workspace_files import (
     SHA256_PATTERN,
@@ -133,13 +134,16 @@ class BranchBoundWorldMcpFactory:
         return ContinuousWorldToolDispatcher(
             self.workspace.branch_root,
             ContinuousSessionRole.PLANNER,
+            world_id=self.workspace.world_id,
+            branch_id=self.workspace.branch_id,
             current_turn_id=turn_id,
             maximum_calls=maximum_calls,
+            require_private_search_scope=True,
         )
 
     def bridge(
         self, *, turn_id: str | None = None, maximum_calls: int = WORLD_MCP_MAXIMUM_CALLS
-    ) -> "RequestBoundWorldMcpBridge":
+    ) -> RequestBoundWorldMcpBridge:
         dispatcher = self.dispatcher(
             turn_id=turn_id, maximum_calls=maximum_calls
         )
@@ -200,10 +204,15 @@ class RequestBoundWorldMcpBridge:
         if self._bridge is not None:
             self._bridge.stop(suppress_errors=True)
 
-    def __enter__(self) -> "RequestBoundWorldMcpBridge":
+    def __enter__(self) -> RequestBoundWorldMcpBridge:
         return self
 
-    def __exit__(self, exc_type, exc, traceback) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None,
+        exc: object | None,
+        traceback: object | None,
+    ) -> None:
         del exc_type, exc, traceback
         self.abort()
 

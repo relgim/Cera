@@ -3,28 +3,27 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
 import hmac
-from importlib.metadata import version
 import json
-from pathlib import Path
 import secrets
 import socket
 import threading
 import time
-from typing import Any, ClassVar
+from dataclasses import dataclass
+from importlib.metadata import version
+from pathlib import Path
+from typing import Any
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.providers import CodexMcpRuntimeBinding
 from cera.serialization import canonical_sha256, domain_sha256, text_sha256
 
-from .sessions import ContinuousSessionRole, WorldPathAccessPolicyV1
 from .evidence import (
     EvidenceVisibility,
     RequestEvidenceBindingRegistry,
     RequestEvidenceBindingV1,
 )
-
+from .sessions import ContinuousSessionRole, WorldPathAccessPolicyV1
 
 WORLD_MCP_SDK_VERSION = "1.29.0"
 WORLD_MCP_SERVER_NAME = "cera_continuous_world"
@@ -55,9 +54,12 @@ class ContinuousWorldToolDispatcher:
         branch_root: Path,
         role: ContinuousSessionRole,
         *,
+        world_id: str | None = None,
+        branch_id: str | None = None,
         current_turn_id: str | None = None,
         maximum_calls: int = WORLD_MCP_MAXIMUM_CALLS,
         evidence_registry: RequestEvidenceBindingRegistry | None = None,
+        require_private_search_scope: bool = False,
     ) -> None:
         self.branch_root = branch_root.resolve()
         self.role = role
@@ -70,12 +72,67 @@ class ContinuousWorldToolDispatcher:
         self.policy = WorldPathAccessPolicyV1(str(self.branch_root))
         self.calls: list[ContinuousWorldToolCallV1] = []
         self.local_debug_calls: list[dict[str, Any]] = []
+        self.require_private_search_scope = require_private_search_scope
+        semantic_world_id, semantic_branch_id = self._semantic_identity(
+            world_id=world_id,
+            branch_id=branch_id,
+        )
         self.evidence_registry = evidence_registry or RequestEvidenceBindingRegistry(
-            world_id=self.branch_root.parent.name,
-            branch_id=self.branch_root.name,
+            world_id=semantic_world_id,
+            branch_id=semantic_branch_id,
             turn_id=current_turn_id or "request_lookup",
         )
+        if (
+            self.evidence_registry.world_id != semantic_world_id
+            or self.evidence_registry.branch_id != semantic_branch_id
+        ):
+            raise StateConflictError(
+                "continuous world evidence registry changed semantic branch scope"
+            )
         self._lock = threading.Lock()
+
+    def _semantic_identity(
+        self,
+        *,
+        world_id: str | None,
+        branch_id: str | None,
+    ) -> tuple[str, str]:
+        """Resolve semantic custody without treating hashed directories as IDs."""
+
+        if (world_id is None) != (branch_id is None):
+            raise ContractValidationError(
+                "continuous world semantic identity must be supplied together"
+            )
+        identity_path = self.branch_root / "BRANCH_IDENTITY.json"
+        identity: dict[str, Any] | None = None
+        if identity_path.is_file() and not identity_path.is_symlink():
+            raw = json.loads(identity_path.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict) or set(raw) != {"world_id", "branch_id"}:
+                raise StateConflictError("continuous world branch identity changed")
+            if not all(
+                isinstance(raw.get(name), str) and str(raw[name]).strip()
+                for name in ("world_id", "branch_id")
+            ):
+                raise StateConflictError("continuous world branch identity is invalid")
+            identity = raw
+        if world_id is not None and branch_id is not None:
+            if not world_id.strip() or not branch_id.strip():
+                raise ContractValidationError(
+                    "continuous world semantic identity is incomplete"
+                )
+            if identity is not None and identity != {
+                "world_id": world_id,
+                "branch_id": branch_id,
+            }:
+                raise PermissionError(
+                    "continuous world semantic identity does not match its branch root"
+                )
+            return world_id, branch_id
+        if identity is not None:
+            return str(identity["world_id"]), str(identity["branch_id"])
+        # Historical continuous-world fixtures predate BRANCH_IDENTITY.json.
+        # They use semantic directory names rather than Pi Scene hash keys.
+        return self.branch_root.parent.name, self.branch_root.name
 
     @property
     def binding_sha256(self) -> str:
@@ -83,6 +140,8 @@ class ContinuousWorldToolDispatcher:
             "cera.continuous_world_mcp.v1",
             {
                 "branch_root_sha256": text_sha256(str(self.branch_root).casefold()),
+                "world_id": self.evidence_registry.world_id,
+                "branch_id": self.evidence_registry.branch_id,
                 "role": self.role.value,
                 "current_turn_id": self.current_turn_id,
                 "tools": WORLD_MCP_TOOLS,
@@ -191,7 +250,10 @@ class ContinuousWorldToolDispatcher:
                 relative = path.relative_to(self.branch_root).as_posix()
                 if prefix and not relative.casefold().startswith(prefix.casefold()):
                     continue
-                rows.append(self._descriptor(path))
+                descriptor = self._visible_descriptor(path)
+                if descriptor is None:
+                    continue
+                rows.append(descriptor)
                 if len(rows) == limit:
                     return {"records": rows, "truncated": True}
         return {"records": rows, "truncated": False}
@@ -201,6 +263,7 @@ class ContinuousWorldToolDispatcher:
         terms: list[str],
         record_types: list[str] | None = None,
         limit: int = 20,
+        knowledge_owner_id: str | None = None,
     ) -> dict[str, Any]:
         if (
             not isinstance(terms, list)
@@ -208,6 +271,13 @@ class ContinuousWorldToolDispatcher:
             or not all(isinstance(value, str) and value.strip() for value in terms)
             or type(limit) is not int
             or not 1 <= limit <= 100
+            or (
+                knowledge_owner_id is not None
+                and (
+                    not isinstance(knowledge_owner_id, str)
+                    or not knowledge_owner_id.startswith("character:")
+                )
+            )
         ):
             raise ContractValidationError("continuous world search arguments are invalid")
         types = {value.casefold() for value in (record_types or [])}
@@ -219,11 +289,30 @@ class ContinuousWorldToolDispatcher:
                 record_type = relative.split("/", 2)[1].casefold() if "/" in relative else ""
                 if types and record_type not in types:
                     continue
+                descriptor = self._visible_descriptor(path)
+                if descriptor is None:
+                    continue
+                if (
+                    self.require_private_search_scope
+                    and (
+                        descriptor["visibility"]
+                        != EvidenceVisibility.PUBLIC.value
+                        or descriptor["source_visibility"] != "public"
+                    )
+                    and (
+                        descriptor["knowledge_owner_id"] is None
+                        or descriptor["knowledge_owner_id"] != knowledge_owner_id
+                    )
+                ):
+                    # Do not evaluate the query against another character's
+                    # private bytes.  This closes yes/no term-probing while
+                    # retaining explicit owner-scoped character lookup.
+                    continue
                 text = path.read_text(encoding="utf-8")
                 haystack = (relative + "\n" + text).casefold()
                 if not all(value in haystack for value in needles):
                     continue
-                row = self._descriptor(path)
+                row = descriptor
                 row["matched_terms"] = list(terms)
                 rows.append(row)
                 if len(rows) == limit:
@@ -238,30 +327,10 @@ class ContinuousWorldToolDispatcher:
         text = raw.decode("utf-8")
         descriptor = self._descriptor(target)
         content = json.loads(text) if target.suffix.casefold() == ".json" else text
-        visibility = EvidenceVisibility.PUBLIC
-        knowledge_owner_id = None
-        if isinstance(content, dict):
-            raw_visibility = str(content.get("visibility", "public")).casefold()
-            if raw_visibility in {"private", "character_private", "owner_private"}:
-                visibility = EvidenceVisibility.CHARACTER_PRIVATE
-                knowledge_owner_id = content.get("knowledge_owner_id") or content.get("owner_character_id")
-            elif raw_visibility in {"creator_private", "creator-only"}:
-                visibility = EvidenceVisibility.CREATOR_PRIVATE
-                knowledge_owner_id = content.get("knowledge_owner_id")
-            elif _record_type(target.relative_to(self.branch_root).as_posix()) in {
-                "characters",
-                "character_summaries",
-            }:
-                # Character state is owner-private unless the record explicitly
-                # declares a stronger visibility. Genesis-seeded character
-                # projections predate the visibility field but still contain
-                # their stable owner identity.
-                visibility = EvidenceVisibility.CHARACTER_PRIVATE
-                knowledge_owner_id = (
-                    content.get("knowledge_owner_id")
-                    or content.get("owner_character_id")
-                    or content.get("character_id")
-                )
+        visibility, knowledge_owner_id, source_visibility = self._visibility(
+            target,
+            content,
+        )
         if visibility is EvidenceVisibility.CREATOR_PRIVATE:
             raise PermissionError("creator-private evidence is not exposed to provider sessions")
         relative = target.relative_to(self.branch_root).as_posix()
@@ -285,6 +354,7 @@ class ContinuousWorldToolDispatcher:
         return {
             **descriptor,
             "content": content,
+            "source_visibility": source_visibility,
             "evidence_binding": _binding_descriptor(binding),
         }
 
@@ -292,16 +362,83 @@ class ContinuousWorldToolDispatcher:
         relative = path.relative_to(self.branch_root).as_posix()
         text = path.read_text(encoding="utf-8")
         revision = None
+        payload: object = text
         if path.suffix.casefold() == ".json":
             payload = json.loads(text)
             if isinstance(payload, dict):
                 revision = payload.get("_cera_revision")
+        visibility, owner_id, source_visibility = self._visibility(path, payload)
         return {
             "path": relative,
             "revision": revision,
             "byte_count": len(text.encode("utf-8")),
             "content_sha256": text_sha256(text),
+            "visibility": visibility.value,
+            "source_visibility": source_visibility,
+            "knowledge_owner_id": owner_id,
         }
+
+    def _visible_descriptor(self, path: Path) -> dict[str, Any] | None:
+        descriptor = self._descriptor(path)
+        if descriptor["visibility"] == EvidenceVisibility.CREATOR_PRIVATE.value:
+            return None
+        return descriptor
+
+    def _visibility(
+        self,
+        path: Path,
+        content: object,
+    ) -> tuple[EvidenceVisibility, str | None, str]:
+        raw_visibility = "public"
+        owner_id: object = None
+        if isinstance(content, dict):
+            raw_visibility = str(content.get("visibility", "public")).casefold()
+            owner_id = (
+                content.get("knowledge_owner_id")
+                or content.get("owner_character_id")
+                or content.get("character_id")
+            )
+            if owner_id is None:
+                record = content.get("record")
+                if isinstance(record, dict):
+                    raw_visibility = str(
+                        content.get("visibility", record.get("visibility", "public"))
+                    ).casefold()
+                    owner_id = record.get("owner_id")
+                    owners = record.get("knowledge_owner_ids")
+                    subjects = record.get("subject_ids")
+                    if owner_id is None and isinstance(owners, list) and len(owners) == 1:
+                        owner_id = owners[0]
+                    if owner_id is None and isinstance(subjects, list):
+                        character_subjects = [
+                            value
+                            for value in subjects
+                            if isinstance(value, str) and value.startswith("character:")
+                        ]
+                        if len(character_subjects) == 1:
+                            owner_id = character_subjects[0]
+        record_type = _record_type(path.relative_to(self.branch_root).as_posix())
+        if raw_visibility in {"creator_private", "creator-only"}:
+            return (
+                EvidenceVisibility.CREATOR_PRIVATE,
+                str(owner_id) if owner_id is not None else None,
+                raw_visibility,
+            )
+        if raw_visibility in {
+            "private",
+            "character_private",
+            "owner_private",
+            "system_private",
+        } or record_type in {"characters", "character_summaries", "current_character_dossiers"}:
+            if isinstance(owner_id, str) and owner_id.startswith("character:"):
+                return EvidenceVisibility.CHARACTER_PRIVATE, owner_id, raw_visibility
+            # System-private multi-owner/world records remain available only
+            # inside this already branch-confined role view.  The evidence DTO
+            # has no system-private variant, so retain the exact source label
+            # while using its public-shaped binding rather than inventing an
+            # NPC knowledge owner.
+            return EvidenceVisibility.PUBLIC, None, raw_visibility
+        return EvidenceVisibility.PUBLIC, None, raw_visibility
 
 
 class ContinuousWorldMcpBridge:
@@ -333,7 +470,7 @@ class ContinuousWorldMcpBridge:
             maximum_tool_calls=self.dispatcher.maximum_calls,
         )
 
-    def start(self) -> "ContinuousWorldMcpBridge":
+    def start(self) -> ContinuousWorldMcpBridge:
         if self._thread is not None:
             raise StateConflictError("continuous world MCP bridge cannot start twice")
         if version("mcp") != WORLD_MCP_SDK_VERSION:
@@ -392,10 +529,16 @@ class ContinuousWorldMcpBridge:
             terms: list[str],
             record_types: list[str] | None = None,
             limit: int = 20,
+            knowledge_owner_id: str | None = None,
         ) -> dict[str, Any]:
             return self.dispatcher.invoke(
                 "cera_world_search",
-                {"terms": terms, "record_types": record_types, "limit": limit},
+                {
+                    "terms": terms,
+                    "record_types": record_types,
+                    "limit": limit,
+                    "knowledge_owner_id": knowledge_owner_id,
+                },
             )
 
         @mcp.tool(name="cera_world_read", structured_output=True)
@@ -475,7 +618,7 @@ class ContinuousWorldMcpBridge:
             ],
         }
 
-    def __enter__(self) -> "ContinuousWorldMcpBridge":
+    def __enter__(self) -> ContinuousWorldMcpBridge:
         return self.start()
 
     def __exit__(self, exc_type, exc, _traceback) -> None:
