@@ -31,6 +31,13 @@ _FORBIDDEN_KEY_PARTS = (
     "session_token",
 )
 
+_FUTURE_RELIANCE_TEST = (
+    "An invented detail requires accepted authority when deleting it would change "
+    "causality, identity, relationship development, accepted knowledge, presence "
+    "or location authority, ownership or provenance, physical or private condition, "
+    "recurring practice, or anything a later turn could reasonably rely on."
+)
+
 
 @dataclass(frozen=True, slots=True)
 class WriterViewInputV1:
@@ -270,6 +277,15 @@ class WriterViewMaterializer:
                 },
             },
         )
+        if (
+            source.route is SceneRoute.ORDINARY
+            and source.purpose == "writer"
+            and response_sequence is not None
+        ):
+            _write_json(
+                root / "zz_RESPONSE_START_GATE.json",
+                _derived_response_start_gate(response_sequence),
+            )
 
         files: list[dict[str, Any]] = []
         for path in sorted(value for value in root.rglob("*") if value.is_file()):
@@ -316,8 +332,11 @@ def verify_writer_view(root: Path) -> MaterializedWriterViewV1:
         raise StateConflictError("Writer-view tool boundary changed")
     scope = manifest.get("scope")
     purpose = scope.get("purpose") if isinstance(scope, dict) else None
+    route = scope.get("route") if isinstance(scope, dict) else None
     if purpose not in {"writer", "recorder"}:
         raise StateConflictError("Writer-view purpose binding changed")
+    if route not in {SceneRoute.ORDINARY.value, SceneRoute.ADULT.value}:
+        raise StateConflictError("Writer-view route binding changed")
     entries = manifest.get("files")
     if not isinstance(entries, list):
         raise StateConflictError("Writer-view manifest file list is invalid")
@@ -342,6 +361,31 @@ def verify_writer_view(root: Path) -> MaterializedWriterViewV1:
     }
     if actual != listed:
         raise StateConflictError("Writer-view manifest occupancy changed")
+    start_gate_path = root / "zz_RESPONSE_START_GATE.json"
+    response_sequence_path = root / "RESPONSE_SEQUENCE.json"
+    if purpose == "writer" and route == SceneRoute.ORDINARY.value:
+        try:
+            response_sequence = json.loads(
+                response_sequence_path.read_text(encoding="utf-8")
+            )
+            start_gate = json.loads(start_gate_path.read_text(encoding="utf-8"))
+            expected_start_gate = _derived_response_start_gate(response_sequence)
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ContractValidationError) as exc:
+            raise StateConflictError(
+                "ordinary Writer response-start gate is unavailable or invalid"
+            ) from exc
+        if start_gate != expected_start_gate:
+            raise StateConflictError(
+                "derived response-start gate differs from RESPONSE_SEQUENCE"
+            )
+        if start_gate_path.read_text(encoding="utf-8") != canonical_json(
+            expected_start_gate
+        ):
+            raise StateConflictError("derived response-start gate is not canonical")
+    elif start_gate_path.exists() or response_sequence_path.exists():
+        raise StateConflictError(
+            "response-start execution focus exists outside ordinary Writer purpose"
+        )
     custody_bindings = manifest.get("custody_bindings")
     if not isinstance(custody_bindings, dict):
         raise StateConflictError("Writer-view custody binding is invalid")
@@ -412,6 +456,56 @@ def verify_writer_view(root: Path) -> MaterializedWriterViewV1:
         file_count=len(entries) + 1,
         purpose=purpose,
     )
+
+
+def _derived_response_start_gate(
+    response_sequence: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Copy the ordinary response start into a compact, noncanonical recency cue."""
+
+    items = response_sequence.get("items")
+    contract = response_sequence.get("response_start_contract")
+    if not isinstance(items, list) or not items or not isinstance(items[0], Mapping):
+        raise ContractValidationError("response-start gate requires a first response item")
+    if not isinstance(contract, Mapping):
+        raise ContractValidationError("response-start gate requires its typed contract")
+    first_item = items[0]
+    copied_fields = {
+        "response_start_item_key": contract.get("response_start_item_key"),
+        "response_start_owner_id": contract.get("response_start_owner_id"),
+        "response_start_kind": contract.get("response_start_kind"),
+        "realization_mode": contract.get("realization_mode"),
+        "completed_source_rendering": contract.get("completed_source_rendering"),
+        "pre_response_narration": contract.get("pre_response_narration"),
+    }
+    if any(value is None for value in copied_fields.values()):
+        raise ContractValidationError("response-start contract omits a copied gate field")
+    if (
+        response_sequence.get("response_start_item_key")
+        != copied_fields["response_start_item_key"]
+        or first_item.get("item_key") != copied_fields["response_start_item_key"]
+        or first_item.get("owner_id") != copied_fields["response_start_owner_id"]
+        or first_item.get("kind") != copied_fields["response_start_kind"]
+    ):
+        raise ContractValidationError("response-start contract differs from its first item")
+    owner_response_semantics = first_item.get("owner_response_semantics")
+    if (
+        not isinstance(owner_response_semantics, str)
+        or not owner_response_semantics.strip()
+    ):
+        raise ContractValidationError("response-start item omits owner response semantics")
+    return {
+        "schema_version": "cera.pi_scene.response_start_gate.v1",
+        "authority_class": "derived_noncanonical_execution_focus",
+        "canonical_authority_path": "RESPONSE_SEQUENCE.json",
+        **copied_fields,
+        "owner_response_semantics": owner_response_semantics,
+        "detail_boundary": {
+            "before_response_start": "none",
+            "after_response_start": "compatible_transient_only",
+            "future_reliance_test": _FUTURE_RELIANCE_TEST,
+        },
+    }
 
 
 def resolve_confined_path(

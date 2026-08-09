@@ -97,8 +97,12 @@ async function writerContextPacket(root: string): Promise<{ text: string; files:
 	const responsePath = "RESPONSE_SEQUENCE.json";
 	const controlPath = "zz_CURRENT_TURN_AUTHORITY.json";
 	const sourcePath = "USER_PROMPT.txt";
+	const startGatePath = "zz_RESPONSE_START_GATE.json";
 	const semanticPaths = (await allFiles(root)).filter(
-		(path) => !["MANIFEST.json", responsePath, controlPath, sourcePath].includes(path),
+		(path) =>
+			!["MANIFEST.json", responsePath, controlPath, sourcePath, startGatePath].includes(
+				path,
+			),
 	);
 	const sections: string[] = [];
 	const add = async (label: string, path: string) => {
@@ -116,11 +120,15 @@ async function writerContextPacket(root: string): Promise<{ text: string; files:
 	for (const path of semanticPaths) {
 		await add(`SUPPORTING ACCEPTED CONTEXT | ${path}`, path);
 	}
+	await add(
+		"FINAL RESPONSE START GATE | DERIVED NONCANONICAL EXECUTION FOCUS | zz_RESPONSE_START_GATE.json | BEGIN WITH OWNER RESPONSE NOW",
+		startGatePath,
+	);
 	const text = sections.join("\n\n");
 	if (Buffer.byteLength(text, "utf8") > MAX_CONTEXT_BYTES) {
 		throw new Error("Writer view exceeds the context bound");
 	}
-	return { text, files: semanticPaths.length + 3 };
+	return { text, files: semanticPaths.length + 4 };
 }
 
 const toolGuidelines = [
@@ -162,7 +170,7 @@ export default function (pi: ExtensionAPI) {
 					details: {
 						bytes: Buffer.byteLength(packet.text, "utf8"),
 						files: packet.files,
-						packet: "cera.writer_context_packet.v1",
+						packet: "cera.writer_context_packet.v2",
 					},
 				};
 			}

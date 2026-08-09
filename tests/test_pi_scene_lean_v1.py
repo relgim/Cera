@@ -505,6 +505,7 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("response_start_contract", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("completed cause left implicit", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Transient staging may begin only after", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("FINAL RESPONSE START GATE", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("one deletion test", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("not a prose checklist", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
@@ -600,9 +601,48 @@ class PiSceneLeanTests(unittest.TestCase):
                 ],
                 "RESPONSE_SEQUENCE.json#response_start_contract",
             )
+            start_gate = json.loads(
+                (view.root / "zz_RESPONSE_START_GATE.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(
+                start_gate["schema_version"],
+                "cera.pi_scene.response_start_gate.v1",
+            )
+            self.assertEqual(
+                start_gate["authority_class"],
+                "derived_noncanonical_execution_focus",
+            )
+            self.assertEqual(
+                start_gate["canonical_authority_path"],
+                "RESPONSE_SEQUENCE.json",
+            )
+            self.assertEqual(
+                start_gate["response_start_item_key"],
+                "hana_answers",
+            )
+            self.assertEqual(start_gate["response_start_owner_id"], "character:hana")
+            self.assertEqual(start_gate["response_start_kind"], "dialogue_intent")
+            self.assertEqual(
+                start_gate["owner_response_semantics"],
+                "Hana answers while preserving the conversational floor.",
+            )
+            self.assertEqual(
+                start_gate["realization_mode"],
+                "owner_response_after_completed_source",
+            )
+            self.assertEqual(
+                start_gate["completed_source_rendering"], "implicit_cause_only"
+            )
+            self.assertEqual(start_gate["pre_response_narration"], "forbidden")
+            self.assertIn(
+                "physical or private condition",
+                start_gate["detail_boundary"]["future_reliance_test"],
+            )
             self.assertEqual(
                 sorted(path.name for path in view.root.iterdir())[-1],
-                "zz_CURRENT_TURN_AUTHORITY.json",
+                "zz_RESPONSE_START_GATE.json",
             )
             with self.assertRaises(ContractValidationError):
                 resolve_confined_path(view.root, "../outside.txt")
@@ -644,6 +684,50 @@ class PiSceneLeanTests(unittest.TestCase):
                         accepted_records=(),
                     )
                 )
+
+    def test_response_start_gate_tamper_fails_closed_after_manifest_rebinding(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            view = WriterViewMaterializer(root / "views").materialize(
+                WriterViewInputV1(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                    scene_id="scene-kitchen",
+                    turn_id="turn-0001",
+                    candidate_id="candidate-gate-tamper",
+                    route=SceneRoute.ORDINARY,
+                    user_prompt="Continue.",
+                    primary_authority=sequence(),
+                    current_state={"public_scene_state": "Hana is present."},
+                    characters={"hana": {"name": "Hana", "age": 38}},
+                    relationships={},
+                    recent_prose=("Hana greeted Ted.",),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            gate_path = view.root / "zz_RESPONSE_START_GATE.json"
+            gate = json.loads(gate_path.read_text(encoding="utf-8"))
+            gate["response_start_owner_id"] = "character:mia"
+            gate_text = canonical_json(gate)
+            gate_path.write_text(gate_text, encoding="utf-8")
+            manifest_path = view.root / "MANIFEST.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            gate_entry = next(
+                entry
+                for entry in manifest["files"]
+                if entry["path"] == "zz_RESPONSE_START_GATE.json"
+            )
+            gate_entry["sha256"] = text_sha256(gate_text)
+            gate_entry["bytes"] = len(gate_text.encode("utf-8"))
+            manifest_path.write_text(canonical_json(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(
+                StateConflictError,
+                "derived response-start gate differs",
+            ):
+                verify_writer_view(view.root)
 
     def test_writer_view_separates_supplied_source_items_from_response_scope(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -828,6 +912,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertNotIn("The protected user's supplied action", visible_bytes)
             self.assertNotIn("ted_source_action", visible_bytes)
+            self.assertIn("zz_RESPONSE_START_GATE.json", visible_bytes)
 
     def test_isolated_sillytavern_copy_excludes_user_data_and_forces_loopback(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -1037,7 +1122,8 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("writerContextPacket", extension)
         self.assertIn("RESPONSE REALIZATION AUTHORITY", extension)
         self.assertIn("COMPLETED OFF-PAGE SOURCE", extension)
-        self.assertIn("cera.writer_context_packet.v1", extension)
+        self.assertIn("DERIVED NONCANONICAL EXECUTION FOCUS", extension)
+        self.assertIn("cera.writer_context_packet.v2", extension)
 
     def test_writer_output_accepts_raw_prose_and_strict_legacy_envelope(self) -> None:
         self.assertEqual(
