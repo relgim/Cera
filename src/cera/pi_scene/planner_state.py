@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import json
 import os
 from pathlib import Path
+import re
 from threading import RLock
 from typing import Callable
 from uuid import uuid4
@@ -207,8 +208,6 @@ def _validate_lookup(
 
 
 def _valid_session_id(value: object) -> bool:
-    if not isinstance(value, str) or not 1 <= len(value) <= 96:
-        return False
-    return value[0].isalnum() and all(
-        character.isalnum() or character in {"_", "-"} for character in value
-    )
+    return isinstance(value, str) and re.fullmatch(
+        r"[a-z0-9][a-z0-9_-]{0,95}", value
+    ) is not None

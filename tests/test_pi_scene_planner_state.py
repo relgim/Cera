@@ -109,6 +109,24 @@ class PlannerThreadStateStoreTests(unittest.TestCase):
                     compatibility_sha256=COMPATIBILITY,
                 )
 
+    def test_state_hash_tampering_fails_closed(self) -> None:
+        with TemporaryDirectory() as directory:
+            store = PlannerThreadStateStore(Path(directory))
+            state = PlannerThreadStateV1(
+                "chat-one", "medium", COMPATIBILITY, "thread-a"
+            )
+            store.persist(state)
+            path = next(Path(directory).rglob("PLANNER_THREAD_STATE.json"))
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            payload["thread_id"] = "thread-tampered"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(StateConflictError, "hash verification"):
+                store.load(
+                    session_id="chat-one",
+                    reasoning_effort="medium",
+                    compatibility_sha256=COMPATIBILITY,
+                )
+
     def test_compatibility_mismatch_does_not_reuse_thread(self) -> None:
         with TemporaryDirectory() as directory:
             store = PlannerThreadStateStore(Path(directory))
