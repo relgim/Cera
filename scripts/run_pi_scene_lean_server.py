@@ -4,18 +4,19 @@ from __future__ import annotations
 
 import argparse
 from contextlib import ExitStack
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from http.cookiejar import CookieJar
 import json
 import os
 from pathlib import Path
+import re
 import secrets
 import shutil
 import socket
 import subprocess
-from threading import Thread
+from threading import RLock, Thread
 import time
-from typing import Any
+from typing import Any, Callable, Mapping, Sequence
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
@@ -24,6 +25,7 @@ from cera.errors import ContractValidationError, StateConflictError
 from cera.pi_scene.codex_planner import RetainedCodexPlannerAdapter
 from cera.pi_scene.context import (
     AcceptedBranchContextProvider,
+    PiSceneContextSeedV1,
     initial_hana_seed,
     initial_hanezawa_doorway_seed,
 )
@@ -38,9 +40,12 @@ from cera.pi_scene.http import (
 )
 from cera.pi_scene.operation_ledger import PiProviderOperationLedger
 from cera.pi_scene.pi_adapter import PiSceneAdapter
+from cera.pi_scene.planner_state import PlannerThreadStateStore
 from cera.pi_scene.readable_debug import ReadablePiSceneDebugLog
 from cera.pi_scene.runtime import (
     LeanPiSceneCoordinator,
+    LeanSceneRequestControlsV1,
+    LeanSceneTurnInputV1,
     repair_latest_ordinary_recording_from_output,
 )
 from cera.pi_scene.sillytavern_isolation import (
@@ -51,10 +56,10 @@ from cera.pi_scene.sillytavern_isolation import (
 from cera.pi_scene.store import LeanSceneStore
 from cera.pi_scene.writer_view import WriterViewMaterializer
 from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
-from cera.sequence_first.prompting import PLANNER_BASE_INSTRUCTIONS
+from cera.sequence_first.prompting import PLANNER_BASE_INSTRUCTIONS, PLANNER_PROFILE
 from cera.sequence_first.provider import SequenceFirstPlannerCodexBackend
 from cera.sequence_first.sessions import PersistentPlannerSession
-from cera.serialization import canonical_bytes, canonical_sha256
+from cera.serialization import canonical_bytes, canonical_sha256, text_sha256
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -76,6 +81,84 @@ class LivePiSceneRuntime:
         self.stack.close()
 
 
+PlannerSessionFactory = Callable[
+    [str, str, SequenceFirstPlannerCodexBackend],
+    PersistentPlannerSession,
+]
+PlannerBackendFactory = Callable[
+    [str, str, LeanSceneTurnInputV1],
+    SequenceFirstPlannerCodexBackend,
+]
+
+
+def planner_thread_compatibility_sha256() -> str:
+    """Bind retained threads to the exact stable Planner contract."""
+
+    return canonical_sha256(
+        {
+            "schema_version": "cera.pi_scene.planner_thread_compatibility.v1",
+            "profile": PLANNER_PROFILE,
+            "base_instructions_sha256": text_sha256(PLANNER_BASE_INSTRUCTIONS),
+            "provider": "openai",
+            "model": "gpt-5.6-sol",
+            "adapter": "cera.pi_scene.retained_codex_planner.v1",
+        }
+    )
+
+
+def default_planner_session_factory(runtime_root: Path) -> PlannerSessionFactory:
+    state_store = PlannerThreadStateStore(runtime_root / "planner_threads")
+    return state_store.session_factory(
+        compatibility_sha256=planner_thread_compatibility_sha256(),
+    )
+
+
+class _PiScenePlannerRegistry:
+    """Keep one compatible retained Planner session per SillyTavern chat."""
+
+    def __init__(
+        self,
+        builder: Callable[
+            [str, str, LeanSceneTurnInputV1],
+            RetainedCodexPlannerAdapter,
+        ],
+    ) -> None:
+        self._builder = builder
+        self._active: dict[
+            str,
+            tuple[str, str, str, RetainedCodexPlannerAdapter],
+        ] = {}
+        self._lock = RLock()
+
+    def resolve(self, turn: LeanSceneTurnInputV1) -> RetainedCodexPlannerAdapter:
+        controls = turn.request_controls
+        if controls is None:
+            raise ContractValidationError(
+                "dynamic Pi Scene Planner resolution requires typed request controls"
+            )
+        session_id = controls.session_id
+        effort = controls.reasoning_effort
+        with self._lock:
+            active = self._active.get(session_id)
+            if active is not None and (active[1], active[2]) != (
+                turn.world_id,
+                turn.branch_id,
+            ):
+                raise StateConflictError(
+                    "Pi Scene session resolved to a different world or branch"
+                )
+            if active is not None and active[0] == effort:
+                return active[3]
+            planner = self._builder(session_id, effort, turn)
+            self._active[session_id] = (
+                effort,
+                turn.world_id,
+                turn.branch_id,
+                planner,
+            )
+            return planner
+
+
 def _initialize_live_runtime_roots(runtime_root: Path) -> tuple[Path, Path, Path]:
     root = runtime_root.resolve()
     root.mkdir(parents=True, exist_ok=False)
@@ -94,6 +177,8 @@ def build_live_runtime(
     deepseek_per_invocation_ceiling: int = 6,
     seed_runtime_root: Path | None = None,
     inject_generation_two_recorder_failure: bool = False,
+    planner_session_factory: PlannerSessionFactory | None = None,
+    planner_backend_factory: PlannerBackendFactory | None = None,
 ) -> LivePiSceneRuntime:
     runtime_root, lifecycle_root, operation_root = _initialize_live_runtime_roots(
         runtime_root
@@ -114,6 +199,8 @@ def build_live_runtime(
             (runtime_root / "SOL_PROVIDER_CALLS.jsonl").resolve(),
             maximum_calls=sol_ceiling,
         )
+        # Parse any resumed ledger before constructing provider backends.
+        _ = sol_ledger.dispatched_call_count
         lifecycle = OpenAICodexStoredThreadBackend(
             codex=codex,
             model="gpt-5.6-sol",
@@ -121,10 +208,6 @@ def build_live_runtime(
             base_instructions=PLANNER_BASE_INSTRUCTIONS,
             service_name="cera_pi_scene_planner",
             service_tier="priority",
-        )
-        planner_evidence = ProviderOperationEvidenceStoreV1(
-            (runtime_root / "debug" / "planner").resolve(),
-            stage="pi_scene_lean_planner",
         )
         readable_debug_setting = os.environ.get(
             "CERA_PI_SCENE_READABLE_DEBUG", "1"
@@ -134,24 +217,68 @@ def build_live_runtime(
             enabled=readable_debug_setting not in {"0", "false", "off", "no"},
             max_entries=int(os.environ.get("CERA_PI_SCENE_READABLE_DEBUG_MAX", "200")),
         )
-        planner_backend = SequenceFirstPlannerCodexBackend(
-            lifecycle=lifecycle,
-            workspace=operation_root,
-            call_ledger=sol_ledger,
-            operation_evidence=planner_evidence,
+        selected_session_factory = (
+            default_planner_session_factory(runtime_root)
+            if planner_session_factory is None
+            else planner_session_factory
         )
-        planner = RetainedCodexPlannerAdapter(
-            PersistentPlannerSession(
-                planner_backend
-            ),
-            operation_evidence=planner_evidence,
-            readable_debug=readable_debug,
+
+        def build_planner(
+            session_id: str,
+            effort: str,
+            turn: LeanSceneTurnInputV1 | None,
+        ) -> RetainedCodexPlannerAdapter:
+            session_digest = text_sha256(session_id)
+            evidence = ProviderOperationEvidenceStoreV1(
+                (
+                    runtime_root
+                    / "debug"
+                    / "planner"
+                    / session_digest[:24]
+                    / effort
+                ).resolve(),
+                stage="pi_scene_lean_planner",
+            )
+            if planner_backend_factory is None or turn is None:
+                backend = SequenceFirstPlannerCodexBackend(
+                    lifecycle=lifecycle,
+                    workspace=(
+                        operation_root / "sessions" / session_digest[:24] / effort
+                    ),
+                    call_ledger=sol_ledger,
+                    operation_evidence=evidence,
+                )
+            else:
+                backend = planner_backend_factory(session_id, effort, turn)
+            if backend.route.reasoning_effort != effort:
+                backend.route = replace(
+                    backend.route,
+                    route_id=(
+                        f"cera_pi_scene_planner_{backend.route.model_name}_{effort}_v1"
+                    ),
+                    reasoning_effort=effort,
+                )
+            session = selected_session_factory(session_id, effort, backend)
+            return RetainedCodexPlannerAdapter(
+                session,
+                operation_evidence=evidence,
+                readable_debug=readable_debug,
+            )
+
+        planner = build_planner("cera-pi-scene-legacy", "medium", None)
+        planner_registry = _PiScenePlannerRegistry(
+            lambda session_id, effort, turn: build_planner(
+                session_id,
+                effort,
+                turn,
+            )
         )
         deepseek_ledger = PiProviderOperationLedger(
             (runtime_root / "DEEPSEEK_PROVIDER_OPERATIONS.jsonl").resolve(),
             maximum_operations=deepseek_ceiling,
             maximum_operations_per_invocation=deepseek_per_invocation_ceiling,
         )
+        _ = deepseek_ledger.operation_count
         pi = PiSceneAdapter(
             pi_executable=DEFAULT_PI,
             extension_path=DEFAULT_EXTENSION,
@@ -177,6 +304,7 @@ def build_live_runtime(
             pi=pi,
             session_root=runtime_root / "pi_sessions",
             recording_fault_injector=fault,
+            planner_resolver=planner_registry.resolve,
         )
         return LivePiSceneRuntime(
             stack=stack,
@@ -192,6 +320,8 @@ def build_live_runtime(
 
 
 def _seed_live_runtime_state(runtime_root: Path, seed_runtime_root: Path) -> None:
+    if seed_runtime_root.is_symlink():
+        raise StateConflictError("live seed root must not be a symlink")
     source_root = seed_runtime_root.resolve()
     target_root = runtime_root.resolve()
     if source_root == target_root or target_root.is_relative_to(source_root):
@@ -199,11 +329,82 @@ def _seed_live_runtime_state(runtime_root: Path, seed_runtime_root: Path) -> Non
     for name in ("accepted_world", "pi_sessions"):
         source = source_root / name
         target = target_root / name
-        if not source.is_dir() or target.exists():
+        if source.is_symlink() or not source.is_dir() or target.exists():
             raise StateConflictError(f"live seed {name} is unavailable or occupied")
         if any(path.is_symlink() for path in source.rglob("*")):
             raise StateConflictError(f"live seed {name} contains a symlink")
         shutil.copytree(source, target)
+    planner_source = source_root / "planner_threads"
+    if planner_source.exists():
+        planner_target = target_root / "planner_threads"
+        if (
+            planner_source.is_symlink()
+            or not planner_source.is_dir()
+            or planner_target.exists()
+        ):
+            raise StateConflictError(
+                "live seed planner_threads is unavailable or occupied"
+            )
+        if any(path.is_symlink() for path in planner_source.rglob("*")):
+            raise StateConflictError("live seed planner_threads contains a symlink")
+        shutil.copytree(planner_source, planner_target)
+    for name in (
+        "SOL_PROVIDER_CALLS.jsonl",
+        "DEEPSEEK_PROVIDER_OPERATIONS.jsonl",
+    ):
+        source = source_root / name
+        target = target_root / name
+        if not source.exists():
+            continue
+        if source.is_symlink() or not source.is_file() or target.exists():
+            raise StateConflictError(f"live seed {name} is unavailable or occupied")
+        shutil.copy2(source, target)
+
+
+def pi_scene_session_scope(session_id: str) -> tuple[str, str, str]:
+    """Resolve one stable SillyTavern chat to isolated story identities."""
+
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,95}", session_id):
+        raise ContractValidationError("Pi Scene session scope identity is invalid")
+    digest = text_sha256(session_id)
+    return (
+        f"world-hanezawa-chat-{digest[:24]}",
+        f"branch-chat-{digest}",
+        f"scene-hanezawa-entryway-{digest[:24]}",
+    )
+
+
+def build_session_context_provider(
+    store: LeanSceneStore,
+    seed: PiSceneContextSeedV1,
+) -> Callable[
+    [
+        SceneRoute,
+        str,
+        Sequence[Mapping[str, str]],
+        LeanSceneRequestControlsV1,
+    ],
+    LeanSceneTurnInputV1,
+]:
+    """Build accepted context from the exact branch assigned to one chat."""
+
+    def provide(
+        route: SceneRoute,
+        source: str,
+        messages: Sequence[Mapping[str, str]],
+        controls: LeanSceneRequestControlsV1,
+    ) -> LeanSceneTurnInputV1:
+        world_id, branch_id, scene_id = pi_scene_session_scope(controls.session_id)
+        scoped_seed = replace(
+            seed,
+            world_id=world_id,
+            branch_id=branch_id,
+            scene_id=scene_id,
+        )
+        turn = AcceptedBranchContextProvider(store, scoped_seed)(route, source, messages)
+        return replace(turn, request_controls=controls)
+
+    return provide
 
 
 def _available_loopback_port() -> int:
@@ -747,19 +948,32 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return values
 
 
-def serve(runtime_root: Path, *, port: int, session_id: str) -> None:
+def serve(
+    runtime_root: Path,
+    *,
+    port: int,
+    session_id: str,
+    sol_ceiling: int,
+    deepseek_ceiling: int,
+    deepseek_per_invocation_ceiling: int,
+    resume_from_runtime_root: Path | None = None,
+) -> None:
+    # Retained only as a CLI compatibility argument. Request-level session IDs
+    # now resolve distinct worlds/branches and are the authoritative scope.
+    del session_id
     token = __import__("os").environ.get("CERA_PI_SCENE_TOKEN", "")
     if len(token) < 24:
         raise ContractValidationError("CERA_PI_SCENE_TOKEN must contain at least 24 characters")
     runtime = build_live_runtime(
         runtime_root,
-        sol_ceiling=12,
-        deepseek_ceiling=60,
+        sol_ceiling=sol_ceiling,
+        deepseek_ceiling=deepseek_ceiling,
+        deepseek_per_invocation_ceiling=deepseek_per_invocation_ceiling,
+        seed_runtime_root=resume_from_runtime_root,
     )
     adapter = PiSceneHttpAdapter(
         coordinator=runtime.coordinator,
-        session_id=session_id,
-        context_provider=AcceptedBranchContextProvider(
+        request_context_provider=build_session_context_provider(
             runtime.store,
             initial_hanezawa_doorway_seed(),
         ),
@@ -811,7 +1025,17 @@ def main() -> int:
     elif args.mode == "repair-existing-smoke":
         print(json.dumps(repair_existing_smoke(args.runtime_root), indent=2, sort_keys=True))
     else:
-        serve(args.runtime_root, port=args.port, session_id=args.session_id)
+        serve(
+            args.runtime_root,
+            port=args.port,
+            session_id=args.session_id,
+            sol_ceiling=args.sol_ceiling,
+            deepseek_ceiling=args.deepseek_ceiling,
+            deepseek_per_invocation_ceiling=(
+                args.deepseek_per_invocation_ceiling
+            ),
+            resume_from_runtime_root=args.resume_from_runtime_root,
+        )
     return 0
 
 

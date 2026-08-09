@@ -2,20 +2,28 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import hmac
 import json
 import re
-import time
 from typing import Any, Callable, Mapping, Sequence
 from urllib.parse import unquote, urlparse
+from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import text_sha256, to_primitive
 
 from .contracts import RecordingStatus, SceneRoute
+from .http_contracts import (
+    PI_SCENE_ADULT_MODEL,
+    PI_SCENE_ORDINARY_MODEL,
+    PI_SCENE_PROFILE,
+    LeanSceneRequestControlsV1,
+    PiSceneChatRequestV1,
+    parse_chat_request,
+)
 from .runtime import (
     LeanDecisionResultV1,
     LeanPiSceneCoordinator,
@@ -26,12 +34,14 @@ from .runtime import (
 from .readable_debug import ReadablePiSceneDebugLog
 
 
-PI_SCENE_ORDINARY_MODEL = "cera-pi-scene-ordinary"
-PI_SCENE_ADULT_MODEL = "cera-pi-scene-adult"
-PI_SCENE_PROFILE = "cera.pi_scene.lean.v1"
-
-
 ContextProvider = Callable[[SceneRoute, str, Sequence[Mapping[str, str]]], LeanSceneTurnInputV1]
+RequestContextProvider = Callable[
+    [SceneRoute, str, Sequence[Mapping[str, str]], LeanSceneRequestControlsV1],
+    LeanSceneTurnInputV1,
+]
+
+class PiSceneCommittedStateError(RuntimeError):
+    """Reporting/delivery failed after authoritative Accept already committed."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,15 +73,27 @@ class PiSceneHttpAdapter:
         self,
         *,
         coordinator: LeanPiSceneCoordinator,
-        session_id: str,
-        context_provider: ContextProvider,
+        session_id: str | None = None,
+        context_provider: ContextProvider | None = None,
+        request_context_provider: RequestContextProvider | None = None,
         readable_debug: ReadablePiSceneDebugLog | None = None,
     ) -> None:
-        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,95}", session_id):
-            raise ContractValidationError("Pi Scene HTTP session identity is invalid")
+        legacy = request_context_provider is None
+        if legacy:
+            if (
+                session_id is None
+                or not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,95}", session_id)
+                or context_provider is None
+            ):
+                raise ContractValidationError("Pi Scene legacy HTTP session binding is invalid")
+        elif session_id is not None or context_provider is not None:
+            raise ContractValidationError(
+                "Pi Scene dynamic session binding cannot include a static session"
+            )
         self.coordinator = coordinator
         self.session_id = session_id
         self.context_provider = context_provider
+        self.request_context_provider = request_context_provider
         self.readable_debug = readable_debug
 
     @property
@@ -89,28 +111,55 @@ class PiSceneHttpAdapter:
             "python_accepted_state_authoritative": True,
             "automatic_retry": False,
             "fallback": False,
+            "session_scope": (
+                "static_legacy" if self.request_context_provider is None else "per_chat_branch"
+            ),
         }
 
     def complete(self, payload: Mapping[str, Any]) -> dict[str, Any]:
-        route, messages, source = self._parse_chat_request(payload)
-        turn = self.context_provider(route, source, messages)
-        review = (
-            self.coordinator.start_ordinary(turn)
-            if route is SceneRoute.ORDINARY
-            else self.coordinator.start_adult(turn)
-        )
-        payload = self._completion_payload(review)
-        if self.readable_debug is not None:
-            self.readable_debug.write(
-                stage="creator-review-ready",
-                identity=review.review_id,
-                sections={
-                    "Exact user input": review.turn_input.exact_user_source,
-                    "Review state": self.review_payload(review),
-                    "Visible provisional prose": review.candidate.story_text,
-                },
+        request = self._parse_chat_request(payload)
+        turn = self._turn_for_request(request)
+        if request.controls.regeneration_key is not None:
+            review = self._regenerate_from_chat_request(request, turn)
+        else:
+            current = self.coordinator.unresolved_review(
+                world_id=turn.world_id,
+                branch_id=turn.branch_id,
             )
-        return payload
+            if current is not None and (
+                current.turn_input.exact_user_source == turn.exact_user_source
+                and current.turn_input.request_controls == turn.request_controls
+            ):
+                # Safe transport replay of the same still-provisional request.
+                review = current
+            else:
+                if current is not None:
+                    self.coordinator.accept_unresolved_for_new_turn(
+                        world_id=turn.world_id,
+                        branch_id=turn.branch_id,
+                    )
+                review = (
+                    self.coordinator.start_ordinary(turn)
+                    if request.route is SceneRoute.ORDINARY
+                    else self.coordinator.start_adult(turn)
+                )
+        response = self._completion_payload(review)
+        if self.readable_debug is not None:
+            try:
+                self.readable_debug.write(
+                    stage="creator-review-ready",
+                    identity=review.review_id,
+                    sections={
+                        "Exact user input": review.turn_input.exact_user_source,
+                        "Review state": self.review_payload(review),
+                        "Visible provisional prose": review.candidate.story_text,
+                    },
+                )
+            except Exception:
+                response["cera"]["operational_warnings"] = [
+                    "readable_debug_write_failed"
+                ]
+        return response
 
     def get_review(self, review_id: str) -> dict[str, Any]:
         return self.review_payload(self.coordinator.get_review(review_id))
@@ -123,33 +172,54 @@ class PiSceneHttpAdapter:
         force_rehydrate = payload.get("force_rehydrate", False)
         if type(force_rehydrate) is not bool:
             raise ContractValidationError("force_rehydrate must be boolean")
-        if action == "accept":
-            decision = self.coordinator.accept(review_id)
-        elif action == "decline":
-            decision = self.coordinator.decline(review_id)
-        elif action == "regenerate":
-            decision = self.coordinator.regenerate(
-                review_id,
-                feedback=feedback,
-                force_rehydrate=force_rehydrate,
-            )
-        elif action == "replan":
-            decision = self.coordinator.replan(review_id, feedback=feedback)
-        elif action == "repair_recording":
-            decision = self.coordinator.repair_recording(review_id)
-        else:
-            raise ContractValidationError("unknown Pi Scene creator action")
-        result = self.decision_payload(action, decision)
+        decision: LeanDecisionResultV1 | None = None
+        try:
+            if action == "accept":
+                decision = self.coordinator.accept(review_id, allow_replay=True)
+            elif action == "decline":
+                decision = self.coordinator.decline(review_id, allow_replay=True)
+            elif action == "regenerate":
+                decision = self.coordinator.regenerate(
+                    review_id,
+                    feedback=None if feedback == "" else feedback,
+                    force_rehydrate=force_rehydrate,
+                    allow_replay=True,
+                )
+            elif action == "replan":
+                decision = self.coordinator.replan(
+                    review_id,
+                    feedback=feedback,
+                    allow_replay=True,
+                )
+            elif action == "repair_recording":
+                decision = self.coordinator.repair_recording(review_id)
+            else:
+                raise ContractValidationError("unknown Pi Scene creator action")
+            result = self.decision_payload(action, decision)
+        except Exception as exc:
+            if (
+                decision is not None
+                and decision.review.accepted_receipt is not None
+            ):
+                raise PiSceneCommittedStateError(
+                    "Pi Scene accepted story state but could not render its decision response"
+                ) from exc
+            raise
         if self.readable_debug is not None:
-            self.readable_debug.write(
-                stage="creator-decision",
-                identity=review_id,
-                sections={
-                    "Creator action": action,
-                    "Creator feedback": feedback,
-                    "Persisted review state": result,
-                },
-            )
+            try:
+                self.readable_debug.write(
+                    stage="creator-decision",
+                    identity=review_id,
+                    sections={
+                        "Creator action": action,
+                        "Creator feedback": feedback,
+                        "Persisted review state": result,
+                    },
+                )
+            except Exception:
+                result.setdefault("operational_warnings", []).append(
+                    "readable_debug_write_failed"
+                )
         return result
 
     def review_payload(self, review: LeanReviewRecordV1) -> dict[str, Any]:
@@ -173,6 +243,17 @@ class PiSceneHttpAdapter:
             "warnings": [to_primitive(value) for value in candidate.warnings],
             "warnings_block_accept": False,
             "recording_status": status,
+            "story_state_committed": review.accepted_receipt is not None,
+            "request_controls": (
+                None
+                if review.turn_input.request_controls is None
+                else to_primitive(review.turn_input.request_controls)
+            ),
+            "creator_guidance": (
+                None
+                if review.creator_guidance is None
+                else to_primitive(review.creator_guidance)
+            ),
             "accept_enabled": review.state == LeanReviewState.REVIEW_READY,
             "decline_enabled": review.state == LeanReviewState.REVIEW_READY,
             "regenerate_enabled": review.state == LeanReviewState.REVIEW_READY,
@@ -202,13 +283,21 @@ class PiSceneHttpAdapter:
     ) -> dict[str, Any]:
         body = {
             "schema_version": "cera.pi_scene.review_decision.v1",
+            "status": (
+                "story_committed"
+                if decision.review.accepted_receipt is not None
+                else "review_transitioned"
+            ),
             "creator_action": action,
+            "story_state_committed": decision.review.accepted_receipt is not None,
+            "retry_mode": "not_applicable",
             "review": self.review_payload(decision.review),
             "successor": (
                 None
                 if decision.successor is None
                 else self._completion_payload(decision.successor)
             ),
+            "operational_warnings": list(decision.operational_warnings),
         }
         if decision.review.accepted_receipt is not None:
             body["accepted_receipt_sha256"] = (
@@ -225,7 +314,7 @@ class PiSceneHttpAdapter:
         return {
             "id": f"chatcmpl-cera-{candidate.candidate_sha256[:24]}",
             "object": "chat.completion",
-            "created": int(time.time()),
+            "created": review.created_unix_seconds,
             "model": (
                 PI_SCENE_ORDINARY_MODEL
                 if candidate.route is SceneRoute.ORDINARY
@@ -243,6 +332,8 @@ class PiSceneHttpAdapter:
                 "profile_id": PI_SCENE_PROFILE,
                 "route_mode": candidate.route.value,
                 "provisional": True,
+                "status": "review_ready",
+                "story_state_committed": False,
                 "provisional_review_id": review.review_id,
                 "review_url": f"/v1/cera/reviews/{review.review_id}",
                 "candidate_id": candidate.candidate_id,
@@ -250,6 +341,17 @@ class PiSceneHttpAdapter:
                 "warnings": [to_primitive(value) for value in candidate.warnings],
                 "warnings_block_accept": False,
                 "recording_status": None,
+                "request_controls": (
+                    None
+                    if review.turn_input.request_controls is None
+                    else to_primitive(review.turn_input.request_controls)
+                ),
+                "creator_guidance": (
+                    None
+                    if review.creator_guidance is None
+                    else to_primitive(review.creator_guidance)
+                ),
+                "operational_warnings": [],
                 "provider_operations": {
                     "planner": review.result.planner_provider_operations,
                     "writer": review.result.writer_provider_operations,
@@ -260,38 +362,95 @@ class PiSceneHttpAdapter:
     def _parse_chat_request(
         self,
         payload: Mapping[str, Any],
-    ) -> tuple[SceneRoute, tuple[Mapping[str, str], ...], str]:
-        if not isinstance(payload, Mapping):
-            raise ContractValidationError("chat completion body must be an object")
-        model = str(payload.get("model", ""))
-        if model == PI_SCENE_ORDINARY_MODEL:
-            route = SceneRoute.ORDINARY
-        elif model == PI_SCENE_ADULT_MODEL:
-            route = SceneRoute.ADULT
+    ) -> PiSceneChatRequestV1:
+        return parse_chat_request(
+            payload,
+            expected_session_id=self.session_id,
+        )
+
+    def _turn_for_request(self, request: PiSceneChatRequestV1) -> LeanSceneTurnInputV1:
+        if self.request_context_provider is None:
+            if self.context_provider is None:
+                raise StateConflictError("Pi Scene context provider is unavailable")
+            turn = self.context_provider(
+                request.route,
+                request.exact_user_source,
+                request.messages,
+            )
         else:
-            raise ContractValidationError("Pi Scene rejects model substitution")
-        if payload.get("stream", False) is not False:
-            raise ContractValidationError("Pi Scene requires non-streaming requests")
-        if payload.get("cera_profile_id") != PI_SCENE_PROFILE:
-            raise ContractValidationError("Pi Scene rejects profile substitution")
-        if payload.get("cera_session_id") != self.session_id:
-            raise ContractValidationError("Pi Scene rejects session substitution")
-        raw_messages = payload.get("messages")
-        if not isinstance(raw_messages, list) or not raw_messages:
-            raise ContractValidationError("Pi Scene requires chat messages")
-        messages: list[Mapping[str, str]] = []
-        for value in raw_messages:
-            if not isinstance(value, Mapping):
-                raise ContractValidationError("Pi Scene chat message is invalid")
-            role = value.get("role")
-            content = value.get("content")
-            if role not in {"system", "user", "assistant"} or not isinstance(content, str):
-                raise ContractValidationError("Pi Scene accepts text chat messages only")
-            messages.append({"role": str(role), "content": content})
-        sources = [value["content"] for value in messages if value["role"] == "user"]
-        if not sources:
-            raise ContractValidationError("Pi Scene request has no user source")
-        return route, tuple(messages), sources[-1]
+            turn = self.request_context_provider(
+                request.route,
+                request.exact_user_source,
+                request.messages,
+                request.controls,
+            )
+        if turn.request_controls is not None and turn.request_controls != request.controls:
+            raise StateConflictError("Pi Scene context provider changed request controls")
+        return replace(turn, request_controls=request.controls)
+
+    def _regenerate_from_chat_request(
+        self,
+        request: PiSceneChatRequestV1,
+        turn: LeanSceneTurnInputV1,
+    ) -> LeanReviewRecordV1:
+        current = self.coordinator.unresolved_review(
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+        )
+        if current is None:
+            raise StateConflictError(
+                "Pi Scene regeneration requires the current provisional review"
+            )
+        if current.candidate.route is not request.route:
+            raise StateConflictError("Pi Scene regeneration cannot change route")
+        prior_controls = current.turn_input.request_controls
+        if (
+            prior_controls == request.controls
+            and current.turn_input.exact_user_source == request.exact_user_source
+        ):
+            return current
+        if (
+            prior_controls is not None
+            and prior_controls.regeneration_key == request.controls.regeneration_key
+        ):
+            raise StateConflictError(
+                "Pi Scene regeneration key was reused with different request controls"
+            )
+        decision = self.coordinator.regenerate(
+            current.review_id,
+            turn_input=turn,
+        )
+        if decision.successor is None:
+            raise StateConflictError("Pi Scene regeneration omitted its successor")
+        return decision.successor
+
+
+def _typed_error_payload(
+    *,
+    error_code: str,
+    message: str,
+    story_state_committed: bool = False,
+    retry_mode: str = "not_applicable",
+) -> dict[str, Any]:
+    envelope = {
+        "schema_version": "cera.error.v1",
+        "error_code": error_code,
+        "message": message,
+        "trace_id": f"trace:{uuid4().hex}",
+        "request_id": None,
+        "branch_id": None,
+        "generation_id": None,
+        "stage": "pi_scene_http",
+        "story_state_committed": story_state_committed,
+        "retry_mode": retry_mode,
+        "details": [],
+        "fallback_used": False,
+    }
+    return {
+        "status": "error",
+        "story_state_committed": story_state_committed,
+        "error": envelope,
+    }
 
 
 def build_pi_scene_server(
@@ -318,10 +477,22 @@ def build_pi_scene_server(
 
         def do_GET(self) -> None:
             if not self._authorized():
-                self._json(HTTPStatus.UNAUTHORIZED, {"error": {"code": "unauthorized"}})
+                self._json(
+                    HTTPStatus.UNAUTHORIZED,
+                    _typed_error_payload(
+                        error_code="CERA_HTTP_UNAUTHORIZED",
+                        message="Pi Scene local authorization is required.",
+                    ),
+                )
                 return
             if not self._origin_allowed(optional=True):
-                self._json(HTTPStatus.FORBIDDEN, {"error": {"code": "origin_forbidden"}})
+                self._json(
+                    HTTPStatus.FORBIDDEN,
+                    _typed_error_payload(
+                        error_code="CERA_HTTP_ORIGIN_FORBIDDEN",
+                        message="Pi Scene rejected the request origin.",
+                    ),
+                )
                 return
             path = urlparse(self.path).path
             if path in {"/health", "/v1/health"}:
@@ -354,20 +525,41 @@ def build_pi_scene_server(
             if review_id is not None:
                 self._guarded(lambda: adapter.get_review(review_id))
                 return
-            self._json(HTTPStatus.NOT_FOUND, {"error": {"code": "not_found"}})
+            self._json(
+                HTTPStatus.NOT_FOUND,
+                _typed_error_payload(
+                    error_code="CERA_HTTP_NOT_FOUND",
+                    message="The Pi Scene endpoint was not found.",
+                ),
+            )
 
         def do_POST(self) -> None:
             if not self._authorized():
-                self._json(HTTPStatus.UNAUTHORIZED, {"error": {"code": "unauthorized"}})
+                self._json(
+                    HTTPStatus.UNAUTHORIZED,
+                    _typed_error_payload(
+                        error_code="CERA_HTTP_UNAUTHORIZED",
+                        message="Pi Scene local authorization is required.",
+                    ),
+                )
                 return
             if not self._origin_allowed(optional=True):
-                self._json(HTTPStatus.FORBIDDEN, {"error": {"code": "origin_forbidden"}})
+                self._json(
+                    HTTPStatus.FORBIDDEN,
+                    _typed_error_payload(
+                        error_code="CERA_HTTP_ORIGIN_FORBIDDEN",
+                        message="Pi Scene rejected the request origin.",
+                    ),
+                )
                 return
             content_type = self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower()
             if content_type != "application/json":
                 self._json(
                     HTTPStatus.UNSUPPORTED_MEDIA_TYPE,
-                    {"error": {"code": "json_content_type_required"}},
+                    _typed_error_payload(
+                        error_code="CERA_INTAKE_INVALID",
+                        message="Pi Scene requires an application/json request body.",
+                    ),
                 )
                 return
             path = urlparse(self.path).path
@@ -383,7 +575,13 @@ def build_pi_scene_server(
             if review_id is not None:
                 self._guarded(lambda: adapter.decide(review_id, payload))
                 return
-            self._json(HTTPStatus.NOT_FOUND, {"error": {"code": "not_found"}})
+            self._json(
+                HTTPStatus.NOT_FOUND,
+                _typed_error_payload(
+                    error_code="CERA_HTTP_NOT_FOUND",
+                    message="The Pi Scene endpoint was not found.",
+                ),
+            )
 
         def _guarded(self, operation: Callable[[], Mapping[str, Any]]) -> None:
             try:
@@ -392,17 +590,44 @@ def build_pi_scene_server(
                 self._error(exc)
 
         def _error(self, exc: Exception) -> None:
+            if isinstance(exc, PiSceneCommittedStateError):
+                status = HTTPStatus.INTERNAL_SERVER_ERROR
+                code = "CERA_DELIVERY_AFTER_COMMIT_FAILED"
+                message = "Accepted story state was retained, but response delivery failed."
+                committed = True
+                retry_mode = "manual_after_review"
+            elif isinstance(exc, StateConflictError):
+                status = HTTPStatus.CONFLICT
+                code = "CERA_STATE_CONFLICT"
+                message = "The request conflicts with the current Pi Scene review or branch state."
+                committed = False
+                retry_mode = "manual_after_review"
+            elif isinstance(exc, ContractValidationError):
+                status = HTTPStatus.UNPROCESSABLE_ENTITY
+                code = "CERA_INTAKE_INVALID"
+                message = "The Pi Scene request failed contract validation."
+                committed = False
+                retry_mode = "not_applicable"
+            elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError, ValueError)):
+                status = HTTPStatus.BAD_REQUEST
+                code = "CERA_INTAKE_INVALID"
+                message = "The Pi Scene request body is invalid."
+                committed = False
+                retry_mode = "not_applicable"
+            else:
+                status = HTTPStatus.INTERNAL_SERVER_ERROR
+                code = "CERA_INTERNAL_ERROR"
+                message = "The Pi Scene request failed internally."
+                committed = False
+                retry_mode = "manual_after_review"
             self._json(
-                HTTPStatus.BAD_REQUEST,
-                {
-                    "error": {
-                        "type": "cera_error",
-                        "code": type(exc).__name__,
-                        "message": str(exc) or "Pi Scene request failed",
-                        "retryable": False,
-                        "fallback_used": False,
-                    }
-                },
+                status,
+                _typed_error_payload(
+                    error_code=code,
+                    message=message,
+                    story_state_committed=committed,
+                    retry_mode=retry_mode,
+                ),
             )
 
         def _authorized(self) -> bool:

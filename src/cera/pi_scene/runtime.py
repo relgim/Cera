@@ -6,10 +6,11 @@ from dataclasses import dataclass, replace
 import json
 from pathlib import Path
 from threading import RLock
+import time
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import canonical_sha256, text_sha256
+from cera.serialization import canonical_sha256, text_sha256, to_primitive
 
 from .contracts import (
     AdultCodexProjectionV1,
@@ -24,6 +25,17 @@ from .contracts import (
     canonical_authority,
 )
 from .pi_adapter import PiSceneAdapter, PiSceneInvocationResultV1, PiSceneInvocationV1
+from .http_contracts import LeanSceneRequestControlsV1
+from .review_store import (
+    CreatorGuidanceV1,
+    DecisionReplayV1,
+    DurableReviewStateStore,
+    LeanDecisionResultV1,
+    LeanReviewRecordV1,
+    LeanReviewState,
+    LeanSceneTurnInputV1,
+    decision_request_sha256,
+)
 from .store import (
     LeanSceneStore,
     adult_full_record_from_mapping,
@@ -44,6 +56,8 @@ class PlannerTurnInputV1:
     relationships: Mapping[str, Mapping[str, Any]]
     relevant_memories: Mapping[str, Mapping[str, Any]]
     accepted_records: tuple[Mapping[str, Any], ...]
+    request_controls: "LeanSceneRequestControlsV1 | None" = None
+    creator_guidance: "CreatorGuidanceV1 | None" = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,61 +76,8 @@ class OrdinaryPlannerPort(Protocol):
     def plan(self, request: PlannerTurnInputV1) -> PlannerTurnOutputV1: ...
 
 
-@dataclass(frozen=True, slots=True)
-class LeanSceneTurnInputV1:
-    world_id: str
-    branch_id: str
-    scene_id: str
-    exact_user_source: str
-    current_state: Mapping[str, Any]
-    characters: Mapping[str, Mapping[str, Any]]
-    relationships: Mapping[str, Mapping[str, Any]]
-    recent_prose: Sequence[Mapping[str, Any] | str]
-    relevant_memories: Mapping[str, Mapping[str, Any]]
-    voice_examples: Mapping[str, Mapping[str, Any] | str]
-    craft_index: Mapping[str, Any]
-    adult_handoff: Mapping[str, Any] | None = None
-
-    def __post_init__(self) -> None:
-        for field_name in ("world_id", "branch_id", "scene_id", "exact_user_source"):
-            value = getattr(self, field_name)
-            if not isinstance(value, str) or not value.strip():
-                raise ContractValidationError(f"turn input {field_name} is empty")
-        if not self.current_state:
-            raise ContractValidationError("turn input requires current accepted state")
-
-
-class LeanReviewState(str):
-    REVIEW_READY = "review_ready"
-    ACCEPTED = "accepted"
-    DECLINED = "declined"
-    REGENERATED = "regenerated"
-    REPLANNED = "replanned"
-
-
-@dataclass(frozen=True, slots=True)
-class LeanReviewRecordV1:
-    review_id: str
-    turn_input: LeanSceneTurnInputV1
-    result: LeanRunResultV1
-    pi_session_id: str
-    pi_session_dir: Path
-    state: str = LeanReviewState.REVIEW_READY
-    accepted_receipt: LeanAcceptedTurnReceiptV1 | None = None
-    recording_attempt: LeanRecordingAttemptV1 | None = None
-
-    @property
-    def candidate(self) -> LeanCandidateV1:
-        return self.result.candidate
-
-
-@dataclass(frozen=True, slots=True)
-class LeanDecisionResultV1:
-    review: LeanReviewRecordV1
-    successor: LeanReviewRecordV1 | None = None
-
-
 RecordingFaultInjector = Callable[[LeanAcceptedTurnReceiptV1, int], str | None]
+PlannerResolver = Callable[[LeanSceneTurnInputV1], OrdinaryPlannerPort]
 
 
 class LeanPiSceneCoordinator:
@@ -131,6 +92,7 @@ class LeanPiSceneCoordinator:
         pi: PiSceneAdapter,
         session_root: Path,
         recording_fault_injector: RecordingFaultInjector | None = None,
+        planner_resolver: PlannerResolver | None = None,
     ) -> None:
         self.store = store
         self.planner = planner
@@ -139,59 +101,124 @@ class LeanPiSceneCoordinator:
         self.session_root = session_root.resolve()
         self.session_root.mkdir(parents=True, exist_ok=True)
         self._recording_fault_injector = recording_fault_injector
-        self._reviews: dict[str, LeanReviewRecordV1] = {}
-        self._unresolved_by_branch: dict[tuple[str, str], str] = {}
-        self._candidate_counter = 0
+        self._planner_resolver = planner_resolver
         self._lock = RLock()
+        self._review_state_store = DurableReviewStateStore(
+            root=self.session_root,
+            scene_store=self.store,
+        )
+        recovered = self._review_state_store.load()
+        self._reviews = dict(recovered.reviews)
+        self._unresolved_by_branch = dict(recovered.unresolved_by_branch)
+        self._decisions = dict(recovered.decisions)
+        self._candidate_counter = recovered.candidate_counter
 
     def start_ordinary(self, turn: LeanSceneTurnInputV1) -> LeanReviewRecordV1:
         with self._lock:
             self._require_no_unresolved(turn.world_id, turn.branch_id)
-            accepted_records = self.store.recent_accepted_payloads(
+            accepted_records = self.store.recent_ordinary_context_payloads(
                 world_id=turn.world_id,
                 branch_id=turn.branch_id,
-                adult_full=False,
             )
-            planned = self.planner.plan(
+            planned = self._planner_for(turn).plan(
                 PlannerTurnInputV1(
                     world_id=turn.world_id,
                     branch_id=turn.branch_id,
                     scene_id=turn.scene_id,
                     exact_user_source=turn.exact_user_source,
-                    current_state=turn.current_state,
+                    current_state=_controlled_current_state(
+                        turn,
+                        creator_guidance=None,
+                    ),
                     characters=turn.characters,
                     relationships=turn.relationships,
                     relevant_memories=turn.relevant_memories,
                     accepted_records=accepted_records,
+                    request_controls=turn.request_controls,
                 )
             )
-            return self._generate(
+            review = self._prepare_review(
                 turn,
                 route=SceneRoute.ORDINARY,
                 primary_authority=planned.sequence,
                 planner_provider_operations=planned.provider_operations,
             )
+            self._register_review(review)
+            return review
 
     def start_adult(self, turn: LeanSceneTurnInputV1) -> LeanReviewRecordV1:
         with self._lock:
             self._require_no_unresolved(turn.world_id, turn.branch_id)
             if turn.adult_handoff is None or not turn.adult_handoff:
                 raise ContractValidationError("adult route requires an authorized handoff")
-            return self._generate(
+            review = self._prepare_review(
                 turn,
                 route=SceneRoute.ADULT,
                 primary_authority=turn.adult_handoff,
                 planner_provider_operations=0,
             )
+            self._register_review(review)
+            return review
 
     def get_review(self, review_id: str) -> LeanReviewRecordV1:
-        try:
-            return self._reviews[review_id]
-        except KeyError as exc:
-            raise StateConflictError("unknown Pi Scene review") from exc
-
-    def accept(self, review_id: str) -> LeanDecisionResultV1:
         with self._lock:
+            if review_id in self._reviews:
+                return self._reviews[review_id]
+            replay = self._decisions.get(review_id)
+            if replay is not None:
+                return replay.result.review
+            raise StateConflictError("unknown Pi Scene review")
+
+    def unresolved_review(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+    ) -> LeanReviewRecordV1 | None:
+        """Return the current provisional review without performing model work."""
+
+        with self._lock:
+            review_id = self._unresolved_by_branch.get((world_id, branch_id))
+            return None if review_id is None else self._reviews[review_id]
+
+    def accept_unresolved_for_new_turn(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+    ) -> LeanDecisionResultV1 | None:
+        """Commit the prior published candidate before a later chat message.
+
+        Published review-ready candidates have already passed every hard
+        structural contract. Current Ted flags are explicitly advisory; a
+        future typed blocker must prevent publication or be handled here as a
+        Decline before it can become automatic story state.
+        """
+
+        with self._lock:
+            review_id = self._unresolved_by_branch.get((world_id, branch_id))
+            if review_id is None:
+                return None
+            return self.accept(review_id, allow_replay=True)
+
+    def accept(
+        self,
+        review_id: str,
+        *,
+        allow_replay: bool = False,
+    ) -> LeanDecisionResultV1:
+        with self._lock:
+            if type(allow_replay) is not bool:
+                raise ContractValidationError("Accept replay flag must be boolean")
+            request_sha256 = decision_request_sha256(action="accept")
+            if allow_replay:
+                replay = self._replay_decision(
+                    review_id,
+                    action="accept",
+                    request_sha256=request_sha256,
+                )
+                if replay is not None:
+                    return replay
             review = self._current_review(review_id)
             accepted = self.store.accept(review.candidate)
             # The review becomes terminal immediately after the immutable
@@ -206,20 +233,77 @@ class LeanPiSceneCoordinator:
             self._unresolved_by_branch.pop(
                 (review.candidate.world_id, review.candidate.branch_id), None
             )
-            recording = self._record_after_accept(terminal)
+            warnings: list[str] = []
+            try:
+                self._persist_review_state()
+            except Exception:
+                # Story truth is already committed. A stale provisional snapshot
+                # is reconciled against the accepted head on restart, so this is
+                # an operational warning rather than a false failed-Accept result.
+                warnings.append("review_state_cleanup_pending")
+            try:
+                recording = self._record_after_accept(terminal)
+            except Exception:
+                recording = None
+                warnings.append("recording_state_pending")
             terminal = replace(terminal, recording_attempt=recording)
             self._reviews[review_id] = terminal
-            return LeanDecisionResultV1(review=terminal)
+            result = LeanDecisionResultV1(
+                review=terminal,
+                operational_warnings=tuple(warnings),
+            )
+            self._decisions[review_id] = DecisionReplayV1(
+                action="accept",
+                request_sha256=request_sha256,
+                result=result,
+            )
+            try:
+                # Retain accepted review custody only while its derived
+                # recording still needs repair. A complete recording retires
+                # the durable UI review on this same atomic snapshot.
+                self._persist_review_state()
+            except Exception:
+                if "review_state_cleanup_pending" not in warnings:
+                    warnings.append("review_state_cleanup_pending")
+                result = replace(result, operational_warnings=tuple(warnings))
+                self._decisions[review_id] = replace(
+                    self._decisions[review_id],
+                    result=result,
+                )
+            return result
 
-    def decline(self, review_id: str) -> LeanDecisionResultV1:
+    def decline(
+        self,
+        review_id: str,
+        *,
+        allow_replay: bool = False,
+    ) -> LeanDecisionResultV1:
         with self._lock:
+            if type(allow_replay) is not bool:
+                raise ContractValidationError("Decline replay flag must be boolean")
+            request_sha256 = decision_request_sha256(action="decline")
+            if allow_replay:
+                replay = self._replay_decision(
+                    review_id,
+                    action="decline",
+                    request_sha256=request_sha256,
+                )
+                if replay is not None:
+                    return replay
             review = self._current_review(review_id)
             terminal = replace(review, state=LeanReviewState.DECLINED)
-            self._reviews[review_id] = terminal
-            self._unresolved_by_branch.pop(
-                (review.candidate.world_id, review.candidate.branch_id), None
+            result = LeanDecisionResultV1(review=terminal)
+            self._commit_review_transition(
+                review,
+                terminal=terminal,
+                successor=None,
+                decision=DecisionReplayV1(
+                    action="decline",
+                    request_sha256=request_sha256,
+                    result=result,
+                ),
             )
-            return LeanDecisionResultV1(review=terminal)
+            return result
 
     def regenerate(
         self,
@@ -227,24 +311,51 @@ class LeanPiSceneCoordinator:
         *,
         feedback: str | None = None,
         force_rehydrate: bool = False,
+        turn_input: LeanSceneTurnInputV1 | None = None,
+        allow_replay: bool = False,
     ) -> LeanDecisionResultV1:
         with self._lock:
+            if feedback is not None:
+                if not isinstance(feedback, str):
+                    raise ContractValidationError("Regenerate feedback must be text")
+                if not feedback.strip():
+                    raise ContractValidationError("Regenerate feedback is empty")
+            if type(force_rehydrate) is not bool:
+                raise ContractValidationError("Regenerate rehydrate flag must be boolean")
+            if type(allow_replay) is not bool:
+                raise ContractValidationError("Regenerate replay flag must be boolean")
+            request_sha256 = decision_request_sha256(
+                action="regenerate",
+                feedback=feedback,
+                force_rehydrate=force_rehydrate,
+                turn_input=turn_input,
+            )
+            if allow_replay:
+                replay = self._replay_decision(
+                    review_id,
+                    action="regenerate",
+                    request_sha256=request_sha256,
+                )
+                if replay is not None:
+                    return replay
             review = self._current_review(review_id)
-            if feedback is not None and not feedback.strip():
-                raise ContractValidationError("Regenerate feedback is empty")
-            terminal = replace(review, state=LeanReviewState.REGENERATED)
-            self._reviews[review_id] = terminal
-            self._unresolved_by_branch.pop(
-                (review.candidate.world_id, review.candidate.branch_id), None
+            replacement_turn = review.turn_input
+            if turn_input is not None:
+                self._validate_regeneration_turn(review, turn_input)
+                replacement_turn = turn_input
+            guidance = (
+                None
+                if feedback is None
+                else CreatorGuidanceV1.create(action="regenerate", text=feedback)
             )
             authority = json.loads(review.candidate.primary_authority_json)
-            successor = self._generate(
-                review.turn_input,
+            successor = self._prepare_review(
+                replacement_turn,
                 route=review.candidate.route,
                 primary_authority=authority,
                 planner_provider_operations=0,
                 regenerated_from_candidate_id=review.candidate.candidate_id,
-                feedback=feedback,
+                creator_guidance=guidance,
                 force_rehydrate=force_rehydrate,
             )
             if (
@@ -254,55 +365,95 @@ class LeanPiSceneCoordinator:
                 != review.candidate.primary_authority_sha256
             ):
                 raise StateConflictError("Regenerate changed the exact primary authority")
-            return LeanDecisionResultV1(review=terminal, successor=successor)
+            terminal = replace(review, state=LeanReviewState.REGENERATED)
+            result = LeanDecisionResultV1(review=terminal, successor=successor)
+            self._commit_review_transition(
+                review,
+                terminal=terminal,
+                successor=successor,
+                decision=DecisionReplayV1(
+                    action="regenerate",
+                    request_sha256=request_sha256,
+                    result=result,
+                ),
+            )
+            return result
 
     def replan(
         self,
         review_id: str,
         *,
         feedback: str | None = None,
+        allow_replay: bool = False,
     ) -> LeanDecisionResultV1:
         with self._lock:
+            if feedback is not None and not isinstance(feedback, str):
+                raise ContractValidationError("Replan feedback must be text")
+            if type(allow_replay) is not bool:
+                raise ContractValidationError("Replan replay flag must be boolean")
+            normalized_feedback = "" if feedback is None else feedback
+            request_sha256 = decision_request_sha256(
+                action="replan",
+                feedback=normalized_feedback,
+            )
+            if allow_replay:
+                replay = self._replay_decision(
+                    review_id,
+                    action="replan",
+                    request_sha256=request_sha256,
+                )
+                if replay is not None:
+                    return replay
             review = self._current_review(review_id)
             if review.candidate.route is not SceneRoute.ORDINARY:
                 raise ContractValidationError("adult route does not use a Codex replan")
-            if feedback is not None and not feedback.strip():
-                raise ContractValidationError("Replan feedback is empty")
-            terminal = replace(review, state=LeanReviewState.REPLANNED)
-            self._reviews[review_id] = terminal
-            self._unresolved_by_branch.pop(
-                (review.candidate.world_id, review.candidate.branch_id), None
+            guidance = CreatorGuidanceV1.create(
+                action="replan",
+                text=normalized_feedback,
             )
-            accepted_records = self.store.recent_accepted_payloads(
+            accepted_records = self.store.recent_ordinary_context_payloads(
                 world_id=review.turn_input.world_id,
                 branch_id=review.turn_input.branch_id,
-                adult_full=False,
             )
-            source = review.turn_input.exact_user_source
-            if feedback:
-                source = f"{source}\n\nCreator replan guidance: {feedback}"
-            planned = self.planner.plan(
+            planned = self._planner_for(review.turn_input).plan(
                 PlannerTurnInputV1(
                     world_id=review.turn_input.world_id,
                     branch_id=review.turn_input.branch_id,
                     scene_id=review.turn_input.scene_id,
-                    exact_user_source=source,
-                    current_state=review.turn_input.current_state,
+                    exact_user_source=review.turn_input.exact_user_source,
+                    current_state=_controlled_current_state(
+                        review.turn_input,
+                        creator_guidance=guidance,
+                    ),
                     characters=review.turn_input.characters,
                     relationships=review.turn_input.relationships,
                     relevant_memories=review.turn_input.relevant_memories,
                     accepted_records=accepted_records,
+                    request_controls=review.turn_input.request_controls,
+                    creator_guidance=guidance,
                 )
             )
-            successor = self._generate(
+            successor = self._prepare_review(
                 review.turn_input,
                 route=SceneRoute.ORDINARY,
                 primary_authority=planned.sequence,
                 planner_provider_operations=planned.provider_operations,
                 replanned_from_candidate_id=review.candidate.candidate_id,
-                feedback=feedback,
+                creator_guidance=guidance,
             )
-            return LeanDecisionResultV1(review=terminal, successor=successor)
+            terminal = replace(review, state=LeanReviewState.REPLANNED)
+            result = LeanDecisionResultV1(review=terminal, successor=successor)
+            self._commit_review_transition(
+                review,
+                terminal=terminal,
+                successor=successor,
+                decision=DecisionReplayV1(
+                    action="replan",
+                    request_sha256=request_sha256,
+                    result=result,
+                ),
+            )
+            return result
 
     def repair_recording(self, review_id: str) -> LeanDecisionResultV1:
         with self._lock:
@@ -315,7 +466,32 @@ class LeanPiSceneCoordinator:
             recording = self._record_after_accept(review)
             terminal = replace(review, recording_attempt=recording)
             self._reviews[review_id] = terminal
-            return LeanDecisionResultV1(review=terminal)
+            accepted_decision = self._decisions.get(review_id)
+            if accepted_decision is None:
+                accepted_decision = DecisionReplayV1(
+                    action="accept",
+                    request_sha256=decision_request_sha256(action="accept"),
+                    result=LeanDecisionResultV1(review=terminal),
+                )
+            elif accepted_decision.action != "accept":
+                raise StateConflictError(
+                    "recording repair review has a conflicting decision receipt"
+                )
+            else:
+                accepted_decision = replace(
+                    accepted_decision,
+                    result=replace(accepted_decision.result, review=terminal),
+                )
+            self._decisions[review_id] = accepted_decision
+            warnings: tuple[str, ...] = ()
+            try:
+                self._persist_review_state()
+            except Exception:
+                warnings = ("review_state_cleanup_pending",)
+            return LeanDecisionResultV1(
+                review=terminal,
+                operational_warnings=warnings,
+            )
 
     def repair_latest_recording(
         self,
@@ -377,7 +553,7 @@ class LeanPiSceneCoordinator:
                 failure_code=f"recorder_runtime:{type(exc).__name__}",
             )
 
-    def _generate(
+    def _prepare_review(
         self,
         turn: LeanSceneTurnInputV1,
         *,
@@ -386,12 +562,13 @@ class LeanPiSceneCoordinator:
         planner_provider_operations: int,
         regenerated_from_candidate_id: str | None = None,
         replanned_from_candidate_id: str | None = None,
-        feedback: str | None = None,
+        creator_guidance: CreatorGuidanceV1 | None = None,
         force_rehydrate: bool = False,
     ) -> LeanReviewRecordV1:
         head = self.store.load_head(world_id=turn.world_id, branch_id=turn.branch_id)
-        self._candidate_counter += 1
+        candidate_counter = self._reserve_candidate_counter()
         authority_json, authority_sha = canonical_authority(primary_authority)
+        turn_context_sha256 = canonical_sha256(turn)
         identity = canonical_sha256(
             {
                 "world_id": turn.world_id,
@@ -401,16 +578,25 @@ class LeanPiSceneCoordinator:
                 "source_sha256": text_sha256(turn.exact_user_source),
                 "primary_authority_sha256": authority_sha,
                 "route": route.value,
-                "candidate_counter": self._candidate_counter,
+                "turn_context_sha256": turn_context_sha256,
+                "creator_guidance_sha256": (
+                    None if creator_guidance is None else canonical_sha256(creator_guidance)
+                ),
+                "candidate_counter": candidate_counter,
             }
         )
         candidate_id = f"candidate-{identity[:28]}"
         turn_id = f"turn-{head.generation + 1:04d}-{text_sha256(turn.exact_user_source)[:12]}"
-        accepted_records = self.store.recent_accepted_payloads(
-            world_id=turn.world_id,
-            branch_id=turn.branch_id,
-            adult_full=route is SceneRoute.ADULT,
-        )
+        if route is SceneRoute.ADULT:
+            accepted_records = self.store.recent_adult_context_payloads(
+                world_id=turn.world_id,
+                branch_id=turn.branch_id,
+            )
+        else:
+            accepted_records = self.store.recent_ordinary_context_payloads(
+                world_id=turn.world_id,
+                branch_id=turn.branch_id,
+            )
         writer_records = _writer_context_records(accepted_records)
         view = self.writer_views.materialize(
             WriterViewInputV1(
@@ -422,7 +608,10 @@ class LeanPiSceneCoordinator:
                 route=route,
                 user_prompt=turn.exact_user_source,
                 primary_authority=primary_authority,
-                current_state=turn.current_state,
+                current_state=_controlled_current_state(
+                    turn,
+                    creator_guidance=creator_guidance,
+                ),
                 characters=turn.characters,
                 relationships=turn.relationships,
                 recent_prose=turn.recent_prose,
@@ -437,11 +626,6 @@ class LeanPiSceneCoordinator:
             "Call context exactly once, use its complete confined Writer view, "
             "then produce the complete scene now without another tool call."
         )
-        if feedback:
-            prompt += (
-                " Produce a fresh complete replacement while considering this "
-                f"noncanonical creator guidance: {feedback}"
-            )
         accepted_session = self.store.load_accepted_pi_session(
             world_id=turn.world_id,
             branch_id=turn.branch_id,
@@ -454,6 +638,9 @@ class LeanPiSceneCoordinator:
             # Pi forks retain prior role/system history. Cross-route soft
             # continuity is rehydrated from accepted Python state instead.
             accepted_session = None
+        # A missing/stale accepted session is the Pi adapter's natural fresh
+        # rehydration path. Keep ``force_rehydrate`` false when no parent
+        # exists because an explicit reset is valid only with a parent proof.
         pi_result = self.pi.invoke(
             PiSceneInvocationV1(
                 route=route,
@@ -510,10 +697,121 @@ class LeanPiSceneCoordinator:
             result=result,
             pi_session_id=pi_result.session_id,
             pi_session_dir=pi_result.session_dir,
+            created_unix_seconds=int(time.time()),
+            creator_guidance=creator_guidance,
         )
-        self._reviews[review_id] = review
-        self._unresolved_by_branch[(turn.world_id, turn.branch_id)] = review_id
         return review
+
+    def _planner_for(self, turn: LeanSceneTurnInputV1) -> OrdinaryPlannerPort:
+        if self._planner_resolver is None or turn.request_controls is None:
+            return self.planner
+        planner = self._planner_resolver(turn)
+        if not callable(getattr(planner, "plan", None)):
+            raise ContractValidationError("Pi Scene Planner resolver returned an invalid port")
+        return planner
+
+    def _reserve_candidate_counter(self) -> int:
+        self._candidate_counter += 1
+        try:
+            self._persist_review_state()
+        except Exception:
+            self._candidate_counter -= 1
+            raise
+        return self._candidate_counter
+
+    def _register_review(self, review: LeanReviewRecordV1) -> None:
+        key = (review.candidate.world_id, review.candidate.branch_id)
+        if review.review_id in self._reviews or key in self._unresolved_by_branch:
+            raise StateConflictError("Pi Scene review identity is already occupied")
+        prior_reviews = dict(self._reviews)
+        prior_unresolved = dict(self._unresolved_by_branch)
+        self._reviews[review.review_id] = review
+        self._unresolved_by_branch[key] = review.review_id
+        try:
+            self._persist_review_state()
+        except Exception:
+            self._reviews = prior_reviews
+            self._unresolved_by_branch = prior_unresolved
+            raise
+
+    def _commit_review_transition(
+        self,
+        prior: LeanReviewRecordV1,
+        *,
+        terminal: LeanReviewRecordV1,
+        successor: LeanReviewRecordV1 | None,
+        decision: DecisionReplayV1,
+    ) -> None:
+        key = (prior.candidate.world_id, prior.candidate.branch_id)
+        if self._unresolved_by_branch.get(key) != prior.review_id:
+            raise StateConflictError("Pi Scene review transition lost branch ownership")
+        if successor is not None and (
+            successor.state != LeanReviewState.REVIEW_READY
+            or (successor.candidate.world_id, successor.candidate.branch_id) != key
+            or successor.review_id in self._reviews
+        ):
+            raise StateConflictError("Pi Scene successor review identity is invalid")
+        if prior.review_id in self._decisions:
+            raise StateConflictError("Pi Scene review already has a decision receipt")
+
+        prior_reviews = dict(self._reviews)
+        prior_unresolved = dict(self._unresolved_by_branch)
+        prior_decisions = dict(self._decisions)
+        self._reviews[prior.review_id] = terminal
+        if successor is None:
+            self._unresolved_by_branch.pop(key, None)
+        else:
+            self._reviews[successor.review_id] = successor
+            self._unresolved_by_branch[key] = successor.review_id
+        self._decisions[prior.review_id] = decision
+        try:
+            self._persist_review_state()
+        except Exception:
+            self._reviews = prior_reviews
+            self._unresolved_by_branch = prior_unresolved
+            self._decisions = prior_decisions
+            raise
+
+    def _replay_decision(
+        self,
+        review_id: str,
+        *,
+        action: str,
+        request_sha256: str,
+    ) -> LeanDecisionResultV1 | None:
+        prior = self._decisions.get(review_id)
+        if prior is None:
+            return None
+        if prior.action != action:
+            raise StateConflictError(
+                f"Pi Scene review was already finalized by {prior.action}"
+            )
+        if prior.request_sha256 != request_sha256:
+            raise StateConflictError("Pi Scene decision replay request changed")
+        return prior.result
+
+    @staticmethod
+    def _validate_regeneration_turn(
+        review: LeanReviewRecordV1,
+        replacement: LeanSceneTurnInputV1,
+    ) -> None:
+        prior = replace(review.turn_input, request_controls=None)
+        incoming = replace(replacement, request_controls=None)
+        if incoming != prior:
+            raise StateConflictError(
+                "Pi Scene regeneration changed the bound story turn; "
+                "use Replan for semantic changes"
+            )
+        controls = replacement.request_controls
+        if controls is None or controls.regeneration_key is None:
+            raise ContractValidationError("Pi Scene regeneration requires its typed key")
+
+    def _persist_review_state(self) -> None:
+        self._review_state_store.persist(
+            candidate_counter=self._candidate_counter,
+            reviews=self._reviews,
+            decisions=self._decisions,
+        )
 
     def _record(self, review: LeanReviewRecordV1) -> LeanRecordingAttemptV1:
         accepted = review.accepted_receipt
@@ -570,7 +868,10 @@ class LeanPiSceneCoordinator:
             f"recent_prose/0001.txt prose against {primary_path}. "
             "Return only the route-specific semantic record fields; Python binds custody."
         )
-        if prior_attempt is not None:
+        if (
+            prior_attempt is not None
+            and prior_attempt.status is RecordingStatus.PENDING_REPAIR
+        ):
             prompt += (
                 " This is an explicit recording repair after typed failure "
                 f"{prior_attempt.failure_code}; return a fresh complete record."
@@ -664,7 +965,13 @@ class LeanPiSceneCoordinator:
                 recorder_output_sha256=invocation.writer_receipt.output_sha256,
                 provider_operations=invocation.writer_receipt.provider_operations,
             )
-        except (KeyError, TypeError, ValueError, json.JSONDecodeError, ContractValidationError) as exc:
+        except (
+            KeyError,
+            TypeError,
+            ValueError,
+            json.JSONDecodeError,
+            ContractValidationError,
+        ) as exc:
             return self.store.mark_recording_failure(
                 accepted,
                 recorder_request_sha256=invocation.writer_receipt.request_sha256,
@@ -696,6 +1003,32 @@ class LeanPiSceneCoordinator:
             raise ContractValidationError("Pi session directory escaped its root")
         path.mkdir(parents=True, exist_ok=True)
         return path
+
+
+def _controlled_current_state(
+    turn: LeanSceneTurnInputV1,
+    *,
+    creator_guidance: CreatorGuidanceV1 | None,
+) -> dict[str, Any]:
+    """Project UI controls as noncanonical constraints, never source evidence."""
+
+    state = dict(turn.current_state)
+    raw_boundaries = state.get("hard_boundaries", ())
+    if isinstance(raw_boundaries, (str, bytes)) or not isinstance(
+        raw_boundaries, (list, tuple)
+    ):
+        raise ContractValidationError("turn hard_boundaries must be an ordered list")
+    if any(not isinstance(value, str) or not value.strip() for value in raw_boundaries):
+        raise ContractValidationError("turn hard_boundaries contains invalid text")
+    state["hard_boundaries"] = list(raw_boundaries)
+
+    controls = turn.request_controls
+    if controls is not None:
+        state["request_controls"] = controls.model_visible
+
+    if creator_guidance is not None:
+        state["creator_control_guidance"] = to_primitive(creator_guidance)
+    return state
 
 
 def _require_exact_keys(
@@ -834,8 +1167,15 @@ def _writer_context_records(
         receipt = record.get("receipt")
         if not isinstance(receipt, Mapping):
             raise StateConflictError("accepted Writer context omitted its receipt")
+        route = receipt.get("route")
         prose = receipt.get("exact_accepted_prose")
-        if not isinstance(prose, str) or receipt.get(
+        if prose is None:
+            # The ordinary route receives only the non-explicit projection of
+            # an accepted adult turn. Its receipt hash remains available for
+            # chain custody, but exact adult prose must not cross to Codex.
+            if route != SceneRoute.ADULT.value or "adult_projection" not in record:
+                raise StateConflictError("accepted prose link changed")
+        elif not isinstance(prose, str) or receipt.get(
             "exact_accepted_prose_sha256"
         ) != text_sha256(prose):
             raise StateConflictError("accepted prose link changed")
