@@ -551,11 +551,14 @@ class LeanSceneStore:
         branch_id: str,
         limit: int = 6,
         adult_full: bool = False,
+        allow_pending: bool = False,
     ) -> tuple[dict[str, Any], ...]:
         if type(limit) is not int or not 1 <= limit <= 20:
             raise ContractValidationError("accepted context limit is invalid")
         if type(adult_full) is not bool:
             raise ContractValidationError("accepted context adult_full flag is invalid")
+        if type(allow_pending) is not bool:
+            raise ContractValidationError("accepted context allow_pending flag is invalid")
         with self._lock:
             branch_root = self._branch_root(world_id, branch_id)
             receipts = self._load_receipts(branch_root)
@@ -568,6 +571,7 @@ class LeanSceneStore:
                 branch_root,
                 receipts[-limit:],
                 adult_full=adult_full,
+                allow_pending=allow_pending,
             )
 
     def accepted_branch_payloads(
@@ -578,9 +582,10 @@ class LeanSceneStore:
     ) -> Sequence[Mapping[str, Any]]:
         """Return the whole verified branch in immutable receipt order.
 
-        This reducer-facing view never exposes the adult full record. Every
-        accepted turn must have a complete, hash-bound recording before any
-        payload is returned.
+        This reducer-facing view never exposes the adult full record. A
+        phase-one accepted receipt remains visible while its derived recording
+        is pending, but no unfinished derived field is promoted into the
+        payload. Consumers must keep the prior complete derived checkpoint.
         """
 
         with self._lock:
@@ -595,6 +600,7 @@ class LeanSceneStore:
                 branch_root,
                 receipts,
                 adult_full=False,
+                allow_pending=True,
             )
 
     @staticmethod
@@ -603,6 +609,7 @@ class LeanSceneStore:
         receipts: Sequence[LeanAcceptedTurnReceiptV1],
         *,
         adult_full: bool,
+        allow_pending: bool,
     ) -> tuple[dict[str, Any], ...]:
         output: list[dict[str, Any]] = []
         for receipt in receipts:
@@ -615,9 +622,22 @@ class LeanSceneStore:
                     head=head,
                 )
                 if recovered is None:
-                    raise StateConflictError(
-                        "accepted turn recording is incomplete and cannot enter context"
-                    )
+                    if not allow_pending:
+                        raise StateConflictError(
+                            "accepted turn recording is incomplete and cannot enter context"
+                        )
+                    if head.status is RecordingStatus.PENDING_REPAIR:
+                        _load_attempt_from_head(
+                            turn_dir,
+                            accepted=receipt,
+                            head=head,
+                        )
+                    item = {
+                        "receipt": to_primitive(receipt),
+                        "recording_status": head.status.value,
+                    }
+                    output.append(item)
+                    continue
                 bundle = recovered
             else:
                 bundle = _load_complete_recording_bundle(
@@ -625,7 +645,10 @@ class LeanSceneStore:
                     accepted=receipt,
                     head=head,
                 )
-            item: dict[str, Any] = {"receipt": to_primitive(receipt)}
+            item: dict[str, Any] = {
+                "receipt": to_primitive(receipt),
+                "recording_status": RecordingStatus.COMPLETE.value,
+            }
             if bundle.ordinary_record is not None:
                 item["ordinary_record"] = to_primitive(bundle.ordinary_record)
             if bundle.adult_projection is not None:

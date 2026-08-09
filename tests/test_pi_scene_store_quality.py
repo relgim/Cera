@@ -189,7 +189,7 @@ class PiSceneStoreQualityTests(unittest.TestCase):
                         branch_id="branch-main",
                     )
 
-    def test_phase_one_attempt_zero_is_restart_repairable_but_not_context(self) -> None:
+    def test_phase_one_attempt_zero_is_restart_repairable_and_explicitly_pending(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             store = LeanSceneStore(root)
@@ -203,11 +203,22 @@ class PiSceneStoreQualityTests(unittest.TestCase):
                     world_id="world-test",
                     branch_id="branch-main",
                 )
-            with self.assertRaises(StateConflictError):
-                store.accepted_branch_payloads(
-                    world_id="world-test",
-                    branch_id="branch-main",
+            pending_recent = store.recent_accepted_payloads(
+                world_id="world-test",
+                branch_id="branch-main",
+                allow_pending=True,
+            )[0]
+            pending_branch = store.accepted_branch_payloads(
+                world_id="world-test",
+                branch_id="branch-main",
+            )[0]
+            for payload in (pending_recent, pending_branch):
+                self.assertEqual(
+                    payload["recording_status"],
+                    RecordingStatus.PROJECTION_PENDING.value,
                 )
+                self.assertNotIn("ordinary_record", payload)
+                self.assertNotIn("adult_projection", payload)
 
             restarted = LeanSceneStore(root)
             record = _ordinary_record(accepted)
@@ -224,6 +235,21 @@ class PiSceneStoreQualityTests(unittest.TestCase):
                 branch_id="branch-main",
             )[0]
             self.assertEqual(payload["receipt"]["exact_accepted_prose"], "Accepted prose 1.")
+
+    def test_pending_adult_branch_payload_never_exposes_a_full_record(self) -> None:
+        with TemporaryDirectory() as temporary:
+            store = LeanSceneStore(Path(temporary))
+            store.accept(_candidate(route=SceneRoute.ADULT))
+            payload = store.accepted_branch_payloads(
+                world_id="world-test",
+                branch_id="branch-main",
+            )[0]
+            self.assertEqual(
+                payload["recording_status"],
+                RecordingStatus.PROJECTION_PENDING.value,
+            )
+            self.assertNotIn("adult_full_record", payload)
+            self.assertNotIn("adult_projection", payload)
 
     def test_complete_bundle_detects_root_and_bundle_tampering_on_read(self) -> None:
         for target in ("root", "bundle"):
