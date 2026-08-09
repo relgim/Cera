@@ -1,4 +1,4 @@
-const CERA_LOOPBACK_ROOT = 'http://127.0.0.1:5101';
+const DEFAULT_CERA_LOOPBACK_ROOT = 'http://127.0.0.1:5101';
 const MAX_UPSTREAM_BYTES = 2_000_000;
 const GET_TIMEOUT_MS = 10_000;
 const DECISION_TIMEOUT_MS = 900_000;
@@ -22,6 +22,40 @@ export const info = Object.freeze({
     name: 'CERA Review Loopback Relay',
     description: 'Relays narrow authenticated SillyTavern review requests to loopback-only CERA.',
 });
+
+export function normalizeLoopbackRoot(value) {
+    const candidate = value === undefined || value === null || value === ''
+        ? DEFAULT_CERA_LOOPBACK_ROOT
+        : value;
+    if (typeof candidate !== 'string' || candidate.length > 128) {
+        throw new TypeError('CERA review loopback root is invalid');
+    }
+    let parsed;
+    try {
+        parsed = new URL(candidate);
+    } catch {
+        throw new TypeError('CERA review loopback root is invalid');
+    }
+    if (
+        parsed.protocol !== 'http:'
+        || parsed.hostname !== '127.0.0.1'
+        || !parsed.port
+        || parsed.username
+        || parsed.password
+        || (parsed.pathname !== '/' && parsed.pathname !== '')
+        || parsed.search
+        || parsed.hash
+    ) {
+        throw new TypeError('CERA review loopback root is invalid');
+    }
+    const port = Number(parsed.port);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+        throw new TypeError('CERA review loopback root is invalid');
+    }
+    return `http://127.0.0.1:${port}`;
+}
+
+const CERA_LOOPBACK_ROOT = normalizeLoopbackRoot(process.env.CERA_REVIEW_LOOPBACK_ROOT);
 
 export function normalizeReviewId(value) {
     if (typeof value !== 'string' || !REVIEW_ID_PATTERN.test(value)) {
@@ -71,9 +105,13 @@ export function normalizeDecisionBody(value) {
     return normalized;
 }
 
-export function reviewUpstreamUrl(reviewId, { decision = false } = {}) {
+export function reviewUpstreamUrl(
+    reviewId,
+    { decision = false, loopbackRoot = CERA_LOOPBACK_ROOT } = {},
+) {
     const encoded = encodeURIComponent(normalizeReviewId(reviewId));
-    return `${CERA_LOOPBACK_ROOT}/v1/cera/reviews/${encoded}${decision ? '/decision' : ''}`;
+    const root = normalizeLoopbackRoot(loopbackRoot);
+    return `${root}/v1/cera/reviews/${encoded}${decision ? '/decision' : ''}`;
 }
 
 function safeProxyError(response, status, code, message) {

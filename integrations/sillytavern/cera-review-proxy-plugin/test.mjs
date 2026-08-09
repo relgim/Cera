@@ -6,6 +6,7 @@ import {
     init,
     normalizeAuthorization,
     normalizeDecisionBody,
+    normalizeLoopbackRoot,
     normalizeReviewId,
     reviewUpstreamUrl,
 } from './index.js';
@@ -48,6 +49,19 @@ test('review identities are validated and encoded without arbitrary proxying', (
         reviewUpstreamUrl('review-0123456789abcdef0123456789ab'),
         'http://127.0.0.1:5101/v1/cera/reviews/review-0123456789abcdef0123456789ab',
     );
+    assert.equal(normalizeLoopbackRoot('http://127.0.0.1:64321'), 'http://127.0.0.1:64321');
+    assert.equal(
+        reviewUpstreamUrl('review-0123456789abcdef0123456789ab', {
+            decision: true,
+            loopbackRoot: 'http://127.0.0.1:64321',
+        }),
+        'http://127.0.0.1:64321/v1/cera/reviews/review-0123456789abcdef0123456789ab/decision',
+    );
+    assert.throws(() => normalizeLoopbackRoot('https://127.0.0.1:5101'));
+    assert.throws(() => normalizeLoopbackRoot('http://localhost:5101'));
+    assert.throws(() => normalizeLoopbackRoot('http://127.0.0.1:5101/admin'));
+    assert.throws(() => normalizeLoopbackRoot('http://127.0.0.1:5101?target=other'));
+    assert.throws(() => normalizeLoopbackRoot('http://127.0.0.2:5101'));
     assert.throws(() => normalizeReviewId('../../admin'));
     assert.throws(() => normalizeReviewId('review_packet:abc/decision'));
     assert.throws(() => normalizeReviewId('review-0123456789abcdef0123456789a'));
