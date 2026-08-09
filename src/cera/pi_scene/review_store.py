@@ -231,7 +231,7 @@ class DurableReviewStateStore:
                     candidate.generation == head.generation + 1
                     and candidate.parent_accepted_turn_id == head.accepted_turn_id
                     and candidate.accepted_head_before_sha256 == head.accepted_head_sha256
-                ):
+                ) or _candidate_is_selected_head_sibling(candidate, head.receipt):
                     key = (candidate.world_id, candidate.branch_id)
                     if key in unresolved:
                         raise StateConflictError(
@@ -447,6 +447,25 @@ def _accepted_matches_candidate(
         and accepted.writer_receipt == candidate.writer_receipt
         and accepted.warnings == candidate.warnings
         and accepted.candidate_sha256 == candidate.candidate_sha256
+    )
+
+
+def _candidate_is_selected_head_sibling(
+    candidate: LeanCandidateV1,
+    selected: LeanAcceptedTurnReceiptV1 | None,
+) -> bool:
+    """Recognize an unaccepted Regenerate candidate without interpreting prose."""
+
+    return (
+        selected is not None
+        and candidate.world_id == selected.world_id
+        and candidate.branch_id == selected.branch_id
+        and candidate.scene_id == selected.scene_id
+        and candidate.generation == selected.generation
+        and candidate.parent_accepted_turn_id == selected.parent_accepted_turn_id
+        and candidate.accepted_head_before_sha256 == selected.parent_accepted_head_sha256
+        and candidate.exact_user_source == selected.exact_user_source
+        and candidate.candidate_sha256 != selected.candidate_sha256
     )
 
 

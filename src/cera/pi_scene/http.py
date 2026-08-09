@@ -641,9 +641,7 @@ class PiSceneHttpAdapter:
             branch_id=turn.branch_id,
         )
         if current is None:
-            raise StateConflictError(
-                "Pi Scene regeneration requires the current provisional review"
-            )
+            return self.coordinator.regenerate_accepted(turn)
         if current.candidate.route is not request.route:
             raise StateConflictError("Pi Scene regeneration cannot change route")
         prior_controls = current.turn_input.request_controls

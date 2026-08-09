@@ -35,6 +35,7 @@ from .contracts import (
     primary_item_keys,
 )
 from .http_contracts import LeanSceneRequestControlsV1
+from .lineage import LeanAcceptedRegenerationBaseV1
 from .pi_adapter import PiSceneAdapter, PiSceneInvocationV1
 from .review_store import (
     CreatorGuidanceV1,
@@ -177,10 +178,15 @@ class LeanPiSceneCoordinator:
         turn: LeanSceneTurnInputV1,
         *,
         creator_guidance: CreatorGuidanceV1 | None,
+        accepted_records_override: Sequence[Mapping[str, Any]] | None = None,
     ) -> PlannerTurnOutputV1:
-        accepted_records = self.store.recent_ordinary_context_payloads(
-            world_id=turn.world_id,
-            branch_id=turn.branch_id,
+        accepted_records = (
+            self.store.recent_ordinary_context_payloads(
+                world_id=turn.world_id,
+                branch_id=turn.branch_id,
+            )
+            if accepted_records_override is None
+            else tuple(accepted_records_override)
         )
         return self._planner_for(turn).plan(
             PlannerTurnInputV1(
@@ -200,6 +206,83 @@ class LeanPiSceneCoordinator:
                 creator_guidance=creator_guidance,
             )
         )
+
+    def regenerate_accepted(
+        self,
+        turn: LeanSceneTurnInputV1,
+    ) -> LeanReviewRecordV1:
+        """Generate a same-generation sibling from the exact pre-turn snapshot.
+
+        The selected accepted artifact remains authoritative until a qualified
+        replacement has been published and the active-lineage selector moves.
+        A rejected replacement therefore remains inspectable without changing
+        story state.
+        """
+
+        with self._lock:
+            self._require_no_unresolved(turn.world_id, turn.branch_id)
+            head = self.store.load_head(
+                world_id=turn.world_id,
+                branch_id=turn.branch_id,
+            )
+            replaced = head.receipt
+            if replaced is None:
+                raise StateConflictError("accepted Regenerate requires a selected turn")
+            prior = self._accepted_review_for_receipt(replaced)
+            if prior.candidate.route is not SceneRoute.ORDINARY:
+                raise StateConflictError(
+                    "accepted adult Regenerate belongs to the adult logic owner"
+                )
+            if (
+                turn.world_id != prior.turn_input.world_id
+                or turn.branch_id != prior.turn_input.branch_id
+                or turn.scene_id != prior.turn_input.scene_id
+                or turn.exact_user_source != prior.turn_input.exact_user_source
+            ):
+                raise StateConflictError(
+                    "accepted Regenerate changed the bound story turn; use Replan"
+                )
+            controls = turn.request_controls
+            if controls is None or controls.regeneration_key is None:
+                raise ContractValidationError("accepted Regenerate requires its typed key")
+            replacement_turn = replace(
+                prior.turn_input,
+                request_controls=controls,
+            )
+            base = self.store.regeneration_base(replaced)
+            prefix = self.store.regeneration_prefix_ordinary_context_payloads(base)
+            planned = self._plan_ordinary(
+                replacement_turn,
+                creator_guidance=None,
+                accepted_records_override=prefix,
+            )
+            successor = self._prepare_review(
+                replacement_turn,
+                route=SceneRoute.ORDINARY,
+                primary_authority=(planned.decision_bundle or planned.sequence),
+                planner_provider_operations=planned.provider_operations,
+                regenerated_from_candidate_id=prior.candidate.candidate_id,
+                replacement_base=base,
+            )
+            successor = self._validate_ordinary_review(
+                successor,
+                validation_evidence=planned.validation_evidence,
+            )
+            self._register_review(successor)
+            if (
+                successor.semantic_validation is not None
+                and successor.semantic_validation.verdict.verdict is SemanticVerdict.PASS
+            ):
+                return self.accept(
+                    successor.review_id,
+                    acceptance_action="automatic_accept",
+                ).review
+            if (
+                successor.semantic_validation is not None
+                and successor.semantic_validation.verdict.automatic_repair_eligible
+            ):
+                return self._repair_rejected_ordinary(successor)
+            return successor
 
     def _validate_ordinary_review(
         self,
@@ -234,6 +317,7 @@ class LeanPiSceneCoordinator:
         authority = json.loads(review.candidate.primary_authority_json)
         if not isinstance(authority, Mapping):
             raise StateConflictError("automatic repair lost the cognition authority")
+        replacement_base = self._replacement_base_for_candidate(review.candidate)
         successor = self._prepare_review(
             review.turn_input,
             route=SceneRoute.ORDINARY,
@@ -241,6 +325,7 @@ class LeanPiSceneCoordinator:
             planner_provider_operations=0,
             repaired_from_candidate_id=review.candidate.candidate_id,
             repair_validation=validation,
+            replacement_base=replacement_base,
         )
         successor = self._validate_ordinary_review(
             successor,
@@ -379,11 +464,28 @@ class LeanPiSceneCoordinator:
                 if replay is not None:
                     return replay
             review = self._current_review(review_id)
-            accepted = self.store.accept(
-                review.candidate,
-                semantic_validation=review.semantic_validation,
-                acceptance_action=acceptance_action,
+            head = self.store.load_head(
+                world_id=review.candidate.world_id,
+                branch_id=review.candidate.branch_id,
             )
+            if review.candidate.generation == head.generation:
+                replaced = head.receipt
+                if replaced is None:
+                    raise StateConflictError(
+                        "same-generation Accept has no selected replacement target"
+                    )
+                accepted = self.store.accept_replacement(
+                    review.candidate,
+                    replaced_receipt=replaced,
+                    semantic_validation=review.semantic_validation,
+                    acceptance_action=acceptance_action,
+                )
+            else:
+                accepted = self.store.accept(
+                    review.candidate,
+                    semantic_validation=review.semantic_validation,
+                    acceptance_action=acceptance_action,
+                )
             # The review becomes terminal immediately after the immutable
             # receipt. Any later session or Recorder exception therefore
             # cannot authorize a second Accept.
@@ -512,9 +614,16 @@ class LeanPiSceneCoordinator:
                 else CreatorGuidanceV1.create(action="regenerate", text=feedback)
             )
             if review.candidate.route is SceneRoute.ORDINARY:
+                replacement_base = self._replacement_base_for_candidate(review.candidate)
+                accepted_override = (
+                    None
+                    if replacement_base is None
+                    else self.store.regeneration_prefix_ordinary_context_payloads(replacement_base)
+                )
                 planned = self._plan_ordinary(
                     replacement_turn,
                     creator_guidance=guidance,
+                    accepted_records_override=accepted_override,
                 )
                 successor = self._prepare_review(
                     replacement_turn,
@@ -524,6 +633,7 @@ class LeanPiSceneCoordinator:
                     regenerated_from_candidate_id=review.candidate.candidate_id,
                     creator_guidance=guidance,
                     force_rehydrate=force_rehydrate,
+                    replacement_base=replacement_base,
                 )
                 successor = self._validate_ordinary_review(
                     successor,
@@ -606,9 +716,16 @@ class LeanPiSceneCoordinator:
                 action="replan",
                 text=normalized_feedback,
             )
+            replacement_base = self._replacement_base_for_candidate(review.candidate)
+            accepted_override = (
+                None
+                if replacement_base is None
+                else self.store.regeneration_prefix_ordinary_context_payloads(replacement_base)
+            )
             planned = self._plan_ordinary(
                 review.turn_input,
                 creator_guidance=guidance,
+                accepted_records_override=accepted_override,
             )
             successor = self._prepare_review(
                 review.turn_input,
@@ -617,6 +734,7 @@ class LeanPiSceneCoordinator:
                 planner_provider_operations=planned.provider_operations,
                 replanned_from_candidate_id=review.candidate.candidate_id,
                 creator_guidance=guidance,
+                replacement_base=replacement_base,
             )
             successor = self._validate_ordinary_review(
                 successor,
@@ -772,8 +890,23 @@ class LeanPiSceneCoordinator:
         creator_guidance: CreatorGuidanceV1 | None = None,
         force_rehydrate: bool = False,
         repair_validation: BoundSemanticValidationV1 | None = None,
+        replacement_base: LeanAcceptedRegenerationBaseV1 | None = None,
     ) -> LeanReviewRecordV1:
         head = self.store.load_head(world_id=turn.world_id, branch_id=turn.branch_id)
+        if replacement_base is None:
+            generation = head.generation + 1
+            parent_accepted_turn_id = head.accepted_turn_id
+            accepted_head_before_sha256 = head.accepted_head_sha256
+        else:
+            if (
+                replacement_base.world_id != turn.world_id
+                or replacement_base.branch_id != turn.branch_id
+                or head.accepted_head_sha256 != replacement_base.replaced_receipt_sha256
+            ):
+                raise StateConflictError("accepted Regenerate lost its selected lineage base")
+            generation = replacement_base.generation
+            parent_accepted_turn_id = replacement_base.parent_accepted_turn_id
+            accepted_head_before_sha256 = replacement_base.parent_accepted_head_sha256
         candidate_counter = self._reserve_candidate_counter()
         authority_json, authority_sha = canonical_authority(primary_authority)
         turn_context_sha256 = canonical_sha256(turn)
@@ -782,7 +915,7 @@ class LeanPiSceneCoordinator:
                 "world_id": turn.world_id,
                 "branch_id": turn.branch_id,
                 "scene_id": turn.scene_id,
-                "generation": head.generation + 1,
+                "generation": generation,
                 "source_sha256": text_sha256(turn.exact_user_source),
                 "primary_authority_sha256": authority_sha,
                 "route": route.value,
@@ -790,12 +923,23 @@ class LeanPiSceneCoordinator:
                 "creator_guidance_sha256": (
                     None if creator_guidance is None else canonical_sha256(creator_guidance)
                 ),
+                "accepted_regeneration_base_sha256": (
+                    None if replacement_base is None else replacement_base.binding_sha256
+                ),
                 "candidate_counter": candidate_counter,
             }
         )
         candidate_id = f"candidate-{identity[:28]}"
-        turn_id = f"turn-{head.generation + 1:04d}-{text_sha256(turn.exact_user_source)[:12]}"
-        if route is SceneRoute.ADULT:
+        turn_id = f"turn-{generation:04d}-{text_sha256(turn.exact_user_source)[:12]}"
+        if replacement_base is not None and route is SceneRoute.ORDINARY:
+            accepted_records = self.store.regeneration_prefix_ordinary_context_payloads(
+                replacement_base
+            )
+        elif replacement_base is not None:
+            accepted_records = self.store.regeneration_prefix_adult_context_payloads(
+                replacement_base
+            )
+        elif route is SceneRoute.ADULT:
             accepted_records = self.store.recent_adult_context_payloads(
                 world_id=turn.world_id,
                 branch_id=turn.branch_id,
@@ -835,6 +979,11 @@ class LeanPiSceneCoordinator:
             world_id=turn.world_id,
             branch_id=turn.branch_id,
         )
+        if replacement_base is not None:
+            # The current soft session belongs to the replaced sibling, not
+            # the sibling's parent. Rehydrate from the exact prefix instead of
+            # letting cache state become story authority.
+            accepted_session = None
         if (
             accepted_session is not None
             and not force_rehydrate
@@ -870,9 +1019,9 @@ class LeanPiSceneCoordinator:
             world_id=turn.world_id,
             branch_id=turn.branch_id,
             scene_id=turn.scene_id,
-            generation=head.generation + 1,
-            parent_accepted_turn_id=head.accepted_turn_id,
-            accepted_head_before_sha256=head.accepted_head_sha256,
+            generation=generation,
+            parent_accepted_turn_id=parent_accepted_turn_id,
+            accepted_head_before_sha256=accepted_head_before_sha256,
             exact_user_source=turn.exact_user_source,
             exact_user_source_sha256=text_sha256(turn.exact_user_source),
             route=route,
@@ -1186,6 +1335,56 @@ class LeanPiSceneCoordinator:
         if self._unresolved_by_branch.get(key) != review_id:
             raise StateConflictError("Pi Scene review is not the current branch review")
         return review
+
+    def _accepted_review_for_receipt(
+        self,
+        receipt: LeanAcceptedTurnReceiptV1,
+    ) -> LeanReviewRecordV1:
+        """Recover the exact accepted logic input retained for Regenerate."""
+
+        matches: dict[str, LeanReviewRecordV1] = {}
+        for review in self._reviews.values():
+            accepted = review.accepted_receipt
+            if accepted is not None and accepted.receipt_sha256 == receipt.receipt_sha256:
+                matches[review.review_id] = review
+        for decision in self._decisions.values():
+            for review in (decision.result.review, decision.result.successor):
+                if review is None or review.accepted_receipt is None:
+                    continue
+                if review.accepted_receipt.receipt_sha256 == receipt.receipt_sha256:
+                    matches[review.review_id] = review
+        if len(matches) != 1:
+            raise StateConflictError(
+                "selected accepted turn lacks unique Regenerate context custody"
+            )
+        review = next(iter(matches.values()))
+        if review.state != LeanReviewState.ACCEPTED or review.accepted_receipt != receipt:
+            raise StateConflictError("accepted Regenerate review custody changed")
+        return review
+
+    def _replacement_base_for_candidate(
+        self,
+        candidate: LeanCandidateV1,
+    ) -> LeanAcceptedRegenerationBaseV1 | None:
+        """Return the current selected sibling base, if this is a replacement."""
+
+        head = self.store.load_head(
+            world_id=candidate.world_id,
+            branch_id=candidate.branch_id,
+        )
+        if candidate.generation != head.generation:
+            return None
+        selected = head.receipt
+        if (
+            selected is None
+            or candidate.parent_accepted_turn_id != selected.parent_accepted_turn_id
+            or candidate.accepted_head_before_sha256 != selected.parent_accepted_head_sha256
+            or candidate.exact_user_source != selected.exact_user_source
+        ):
+            raise StateConflictError(
+                "same-generation candidate changed its selected replacement base"
+            )
+        return self.store.regeneration_base(selected)
 
     def _require_no_unresolved(self, world_id: str, branch_id: str) -> None:
         if (world_id, branch_id) in self._unresolved_by_branch:
