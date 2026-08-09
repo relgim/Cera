@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import Any, Protocol
 
 from cera.cognition import (
@@ -20,24 +19,11 @@ from cera.serialization import text_sha256, to_primitive
 
 from .codex_planner import build_sequence_semantic_input
 from .readable_debug import ReadablePiSceneDebugLog
-from .runtime import PlannerTurnInputV1
+from .runtime import PlannerTurnInputV1, PlannerTurnOutputV1
 
 
 class CognitionPlannerSessionPort(Protocol):
     def plan(self, context: CognitionTurnContextV1) -> CognitionPlanV1: ...
-
-
-@dataclass(frozen=True, slots=True)
-class CognitionPlannerTurnOutputV1:
-    sequence: Mapping[str, Any]
-    decision_bundle: Mapping[str, Any]
-    provider_operations: int
-
-    def __post_init__(self) -> None:
-        if not self.sequence or not self.decision_bundle:
-            raise ContractValidationError("cognition Planner returned an empty bundle")
-        if type(self.provider_operations) is not int or self.provider_operations < 1:
-            raise ContractValidationError("cognition Planner operation count is invalid")
 
 
 class RetainedCognitionPlannerAdapter:
@@ -56,7 +42,7 @@ class RetainedCognitionPlannerAdapter:
         self.last_context: CognitionTurnContextV1 | None = None
         self._turn_index = 0
 
-    def plan(self, request: PlannerTurnInputV1) -> CognitionPlannerTurnOutputV1:
+    def plan(self, request: PlannerTurnInputV1) -> PlannerTurnOutputV1:
         controls = request.request_controls
         if controls is None:
             raise ContractValidationError("full-model cognition requires typed request controls")
@@ -110,7 +96,7 @@ class RetainedCognitionPlannerAdapter:
                 },
             )
         primitive = to_primitive(plan)
-        return CognitionPlannerTurnOutputV1(
+        return PlannerTurnOutputV1(
             sequence=primitive["sequence"],
             decision_bundle=primitive,
             provider_operations=1,

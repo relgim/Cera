@@ -2,19 +2,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
 import json
+import time
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import RLock
-import time
-from typing import Any, Callable, Mapping, Protocol, Sequence
+from typing import Any, Protocol
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 
 from .contracts import (
-    AdultCodexProjectionV1,
-    AdultProjectionItemV1,
     LeanAcceptedTurnReceiptV1,
     LeanCandidateV1,
     LeanRecordingAttemptV1,
@@ -24,8 +23,8 @@ from .contracts import (
     advisory_ted_warnings,
     canonical_authority,
 )
-from .pi_adapter import PiSceneAdapter, PiSceneInvocationResultV1, PiSceneInvocationV1
 from .http_contracts import LeanSceneRequestControlsV1
+from .pi_adapter import PiSceneAdapter, PiSceneInvocationV1
 from .review_store import (
     CreatorGuidanceV1,
     DecisionReplayV1,
@@ -56,20 +55,27 @@ class PlannerTurnInputV1:
     relationships: Mapping[str, Mapping[str, Any]]
     relevant_memories: Mapping[str, Mapping[str, Any]]
     accepted_records: tuple[Mapping[str, Any], ...]
-    request_controls: "LeanSceneRequestControlsV1 | None" = None
-    creator_guidance: "CreatorGuidanceV1 | None" = None
+    request_controls: LeanSceneRequestControlsV1 | None = None
+    creator_guidance: CreatorGuidanceV1 | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class PlannerTurnOutputV1:
     sequence: Mapping[str, Any]
     provider_operations: int
+    decision_bundle: Mapping[str, Any] | None = None
 
     def __post_init__(self) -> None:
         if not self.sequence:
             raise ContractValidationError("ordinary Planner returned no sequence")
         if type(self.provider_operations) is not int or self.provider_operations < 1:
             raise ContractValidationError("ordinary Planner operation count is invalid")
+        if self.decision_bundle is not None:
+            nested = self.decision_bundle.get("sequence")
+            if not isinstance(nested, Mapping) or dict(nested) != dict(self.sequence):
+                raise ContractValidationError(
+                    "ordinary Planner decision bundle changed its exact sequence"
+                )
 
 
 class OrdinaryPlannerPort(Protocol):
@@ -140,7 +146,7 @@ class LeanPiSceneCoordinator:
             review = self._prepare_review(
                 turn,
                 route=SceneRoute.ORDINARY,
-                primary_authority=planned.sequence,
+                primary_authority=(planned.decision_bundle or planned.sequence),
                 planner_provider_operations=planned.provider_operations,
             )
             self._register_review(review)
@@ -436,7 +442,7 @@ class LeanPiSceneCoordinator:
             successor = self._prepare_review(
                 review.turn_input,
                 route=SceneRoute.ORDINARY,
-                primary_authority=planned.sequence,
+                primary_authority=(planned.decision_bundle or planned.sequence),
                 planner_provider_operations=planned.provider_operations,
                 replanned_from_candidate_id=review.candidate.candidate_id,
                 creator_guidance=guidance,
@@ -523,9 +529,7 @@ class LeanPiSceneCoordinator:
             raise StateConflictError("Recorder recovery requires an accepted turn")
         operations_before = _pi_operation_count(self.pi)
         attempt_number = (
-            1
-            if review.recording_attempt is None
-            else review.recording_attempt.attempt_number + 1
+            1 if review.recording_attempt is None else review.recording_attempt.attempt_number + 1
         )
         try:
             self.store.promote_pi_session(
@@ -783,9 +787,7 @@ class LeanPiSceneCoordinator:
         if prior is None:
             return None
         if prior.action != action:
-            raise StateConflictError(
-                f"Pi Scene review was already finalized by {prior.action}"
-            )
+            raise StateConflictError(f"Pi Scene review was already finalized by {prior.action}")
         if prior.request_sha256 != request_sha256:
             raise StateConflictError("Pi Scene decision replay request changed")
         return prior.result
@@ -825,11 +827,7 @@ class LeanPiSceneCoordinator:
         turn_input: LeanSceneTurnInputV1,
         prior_attempt: LeanRecordingAttemptV1 | None,
     ) -> LeanRecordingAttemptV1:
-        attempt_number = (
-            1
-            if prior_attempt is None
-            else prior_attempt.attempt_number + 1
-        )
+        attempt_number = 1 if prior_attempt is None else prior_attempt.attempt_number + 1
         primary_authority = json.loads(accepted.primary_authority_json)
         if not isinstance(primary_authority, dict):
             raise ContractValidationError("Recorder primary authority is invalid")
@@ -868,10 +866,7 @@ class LeanPiSceneCoordinator:
             f"recent_prose/0001.txt prose against {primary_path}. "
             "Return only the route-specific semantic record fields; Python binds custody."
         )
-        if (
-            prior_attempt is not None
-            and prior_attempt.status is RecordingStatus.PENDING_REPAIR
-        ):
+        if prior_attempt is not None and prior_attempt.status is RecordingStatus.PENDING_REPAIR:
             prompt += (
                 " This is an explicit recording repair after typed failure "
                 f"{prior_attempt.failure_code}; return a fresh complete record."
@@ -1014,9 +1009,7 @@ def _controlled_current_state(
 
     state = dict(turn.current_state)
     raw_boundaries = state.get("hard_boundaries", ())
-    if isinstance(raw_boundaries, (str, bytes)) or not isinstance(
-        raw_boundaries, (list, tuple)
-    ):
+    if isinstance(raw_boundaries, (str, bytes)) or not isinstance(raw_boundaries, (list, tuple)):
         raise ContractValidationError("turn hard_boundaries must be an ordered list")
     if any(not isinstance(value, str) or not value.strip() for value in raw_boundaries):
         raise ContractValidationError("turn hard_boundaries contains invalid text")
@@ -1100,9 +1093,7 @@ def _attach_ordinary_payload(
             "relationship_changes": _string_array(
                 payload["relationship_changes"], "relationship_changes"
             ),
-            "knowledge_changes": _string_array(
-                payload["knowledge_changes"], "knowledge_changes"
-            ),
+            "knowledge_changes": _string_array(payload["knowledge_changes"], "knowledge_changes"),
             "durable_changes": _string_array(payload["durable_changes"], "durable_changes"),
             "unresolved_threads": _string_array(
                 payload["unresolved_threads"], "unresolved_threads"

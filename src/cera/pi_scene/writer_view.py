@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
-from pathlib import Path
 import re
 import shutil
-from typing import Any, Mapping, Sequence
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import canonical_json, canonical_sha256, text_sha256
 from cera.sequence_first.contracts import SequenceItemV1
+from cera.serialization import canonical_json, canonical_sha256, text_sha256
 
 from .contracts import SceneRoute
-
 
 _FORBIDDEN_KEY_PARTS = (
     "api_key",
@@ -137,8 +137,8 @@ class WriterViewMaterializer:
     def _write_view(root: Path, custody_root: Path, source: WriterViewInputV1) -> None:
         custody_bindings: dict[str, str] = {}
         if source.route is SceneRoute.ORDINARY and source.purpose == "writer":
-            realization_scope, response_sequence, provenance = (
-                _ordinary_authority_projection(source.primary_authority)
+            realization_scope, response_sequence, provenance = _ordinary_authority_projection(
+                source.primary_authority
             )
             _write_json(
                 custody_root / "CANONICAL_SEQUENCE.json",
@@ -153,12 +153,14 @@ class WriterViewMaterializer:
                 "response_projection_sha256": canonical_sha256(response_sequence),
                 "projection_provenance_sha256": canonical_sha256(provenance),
             }
+            decision_projection = _ordinary_decision_projection(source.primary_authority)
         elif source.route is SceneRoute.ORDINARY:
             realization_scope = {
                 "recording_phase": "post_accept_only",
                 "primary_authority_path": "PRIMARY_SEQUENCE.json",
             }
             response_sequence = None
+            decision_projection = None
         else:
             realization_scope = {
                 "render_user_prompt": "writer_selected_under_handoff",
@@ -166,6 +168,7 @@ class WriterViewMaterializer:
                 "response_authority_path": "ADULT_HANDOFF.json",
             }
             response_sequence = None
+            decision_projection = None
         _write_text(root / "USER_PROMPT.txt", source.user_prompt)
         _write_json(
             root / "TURN.json",
@@ -204,6 +207,8 @@ class WriterViewMaterializer:
             )
         if response_sequence is not None:
             _write_json(root / "RESPONSE_SEQUENCE.json", response_sequence)
+        if decision_projection is not None:
+            _write_json(root / "DECISION_BUNDLE.json", decision_projection)
         _write_json(root / "CURRENT_STATE.json", source.current_state)
         _write_named_mapping(root / "characters", source.characters)
         _write_named_mapping(root / "relationships", source.relationships)
@@ -231,11 +236,13 @@ class WriterViewMaterializer:
                 "current_primary_authority_path": realization_path,
                 "canonical_primary_sequence_custody": (
                     "python_and_post_accept_recorder_only"
-                    if source.route is SceneRoute.ORDINARY
-                    and source.purpose == "writer"
+                    if source.route is SceneRoute.ORDINARY and source.purpose == "writer"
                     else "current_visible_authority"
                 ),
                 "current_state_path": "CURRENT_STATE.json",
+                "decision_context_path": (
+                    "DECISION_BUNDLE.json" if decision_projection is not None else None
+                ),
                 "precedence": [
                     "current_accepted_state_baseline",
                     "current_primary_authority_changes_and_postconditions",
@@ -363,9 +370,7 @@ def verify_writer_view(root: Path) -> MaterializedWriterViewV1:
     response_sequence_path = root / "RESPONSE_SEQUENCE.json"
     if purpose == "writer" and route == SceneRoute.ORDINARY.value:
         try:
-            json.loads(
-                response_sequence_path.read_text(encoding="utf-8")
-            )
+            json.loads(response_sequence_path.read_text(encoding="utf-8"))
         except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise StateConflictError(
                 "ordinary Writer response authority is unavailable or invalid"
@@ -413,26 +418,19 @@ def verify_writer_view(root: Path) -> MaterializedWriterViewV1:
             raise StateConflictError("Writer-view custody occupancy changed")
         canonical_value = json.loads(canonical_path.read_text(encoding="utf-8"))
         provenance_value = json.loads(provenance_path.read_text(encoding="utf-8"))
-        response_value = json.loads(
-            (root / "RESPONSE_SEQUENCE.json").read_text(encoding="utf-8")
-        )
-        if canonical_sha256(canonical_value) != custody_bindings[
-            "canonical_primary_sha256"
-        ]:
+        response_value = json.loads((root / "RESPONSE_SEQUENCE.json").read_text(encoding="utf-8"))
+        if canonical_sha256(canonical_value) != custody_bindings["canonical_primary_sha256"]:
             raise StateConflictError("canonical Planner custody hash changed")
-        if canonical_sha256(response_value) != custody_bindings[
-            "response_projection_sha256"
-        ]:
+        if canonical_sha256(response_value) != custody_bindings["response_projection_sha256"]:
             raise StateConflictError("response projection custody hash changed")
-        if canonical_sha256(provenance_value) != custody_bindings[
-            "projection_provenance_sha256"
-        ]:
+        if canonical_sha256(provenance_value) != custody_bindings["projection_provenance_sha256"]:
             raise StateConflictError("projection provenance custody hash changed")
-        if provenance_value.get("canonical_primary_sha256") != custody_bindings[
-            "canonical_primary_sha256"
-        ] or provenance_value.get("response_projection_sha256") != custody_bindings[
-            "response_projection_sha256"
-        ]:
+        if (
+            provenance_value.get("canonical_primary_sha256")
+            != custody_bindings["canonical_primary_sha256"]
+            or provenance_value.get("response_projection_sha256")
+            != custody_bindings["response_projection_sha256"]
+        ):
             raise StateConflictError("projection provenance binding changed")
     elif (root.parent / "custody").exists():
         raise StateConflictError("non-Writer view unexpectedly contains custody artifacts")
@@ -482,7 +480,8 @@ def resolve_confined_path(
 def _ordinary_authority_projection(
     primary_authority: Mapping[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
-    items = primary_authority.get("items")
+    sequence_authority = _ordinary_sequence_authority(primary_authority)
+    items = sequence_authority.get("items")
     if not isinstance(items, list) or not items:
         raise ContractValidationError("ordinary Writer authority requires ordered items")
     supplied: list[str] = []
@@ -511,9 +510,7 @@ def _ordinary_authority_projection(
             response.append(item_key)
             durable_change_keys = item.get("durable_change_keys", [])
             if not isinstance(durable_change_keys, list):
-                raise ContractValidationError(
-                    "ordinary Writer durable-change binding is invalid"
-                )
+                raise ContractValidationError("ordinary Writer durable-change binding is invalid")
             response_change_keys.update(durable_change_keys)
     if not response:
         raise ContractValidationError("ordinary Writer authority has no response scope")
@@ -617,8 +614,7 @@ def _ordinary_authority_projection(
         if source_ancestor is not None:
             source_anchor_key = source_anchors.setdefault(
                 source_ancestor,
-                "source-anchor-"
-                + canonical_sha256(item_by_key[source_ancestor])[:20],
+                "source-anchor-" + canonical_sha256(item_by_key[source_ancestor])[:20],
             )
             projected["source_anchor_key"] = source_anchor_key
         if canonical_parent in supplied_set:
@@ -628,15 +624,13 @@ def _ordinary_authority_projection(
             {
                 "canonical_item_key": item_key,
                 "canonical_causal_parent_item_key": canonical_parent,
-                "projected_causal_parent_item_key": projected.get(
-                    "causal_parent_item_key"
-                ),
+                "projected_causal_parent_item_key": projected.get("causal_parent_item_key"),
                 "source_anchor_key": source_anchor_key,
                 "response_semantics_source": semantics_source,
             }
         )
-    durable_changes = primary_authority.get("durable_changes", [])
-    presence_changes = primary_authority.get("presence_changes", [])
+    durable_changes = sequence_authority.get("durable_changes", [])
+    presence_changes = sequence_authority.get("presence_changes", [])
     if not isinstance(durable_changes, list) or not isinstance(presence_changes, list):
         raise ContractValidationError("ordinary Writer sequence change list is invalid")
     response_presence_changes = []
@@ -671,18 +665,14 @@ def _ordinary_authority_projection(
         "durable_changes": response_durable_changes,
         "presence_changes": response_presence_changes,
         "postconditions": {
-            "resulting_public_state_must_be_true": primary_authority.get(
-                "resulting_public_state"
-            ),
-            "remain_open": primary_authority.get("unresolved_threads"),
-            "termination_constraint": primary_authority.get("stopping_boundary"),
+            "resulting_public_state_must_be_true": sequence_authority.get("resulting_public_state"),
+            "remain_open": sequence_authority.get("unresolved_threads"),
+            "termination_constraint": sequence_authority.get("stopping_boundary"),
         },
     }
     for field_name, value in response_projection["postconditions"].items():
         if value is None:
-            raise ContractValidationError(
-                f"ordinary Writer authority omits {field_name}"
-            )
+            raise ContractValidationError(f"ordinary Writer authority omits {field_name}")
     provenance = {
         "schema_version": "cera.pi_scene.response_projection_provenance.v3",
         "canonical_primary_sha256": canonical_sha256(primary_authority),
@@ -699,6 +689,58 @@ def _ordinary_authority_projection(
         "response_item_mappings": response_mappings,
     }
     return scope, response_projection, provenance
+
+
+def _ordinary_sequence_authority(
+    primary_authority: Mapping[str, Any],
+) -> Mapping[str, Any]:
+    nested = primary_authority.get("sequence")
+    if nested is None:
+        return primary_authority
+    if not isinstance(nested, Mapping):
+        raise ContractValidationError("ordinary cognition sequence is invalid")
+    return nested
+
+
+def _ordinary_decision_projection(
+    primary_authority: Mapping[str, Any],
+) -> dict[str, Any] | None:
+    records = primary_authority.get("decision_records")
+    links = primary_authority.get("decision_item_links")
+    if records is None and links is None:
+        return None
+    if not isinstance(records, list) or not isinstance(links, list):
+        raise ContractValidationError("ordinary cognition decision bundle is invalid")
+    projected_records: list[dict[str, Any]] = []
+    allowed = (
+        "decision_key",
+        "owner_id",
+        "perceived_event_meaning",
+        "personal_and_social_meaning",
+        "response_layers",
+        "selected_intent",
+        "concise_decision_basis",
+        "material_pressures",
+        "autonomy_application",
+        "anticipated_immediate_effect",
+        "close_alternative",
+        "uncertainty",
+    )
+    for value in records:
+        if not isinstance(value, Mapping):
+            raise ContractValidationError("ordinary cognition decision is invalid")
+        projected_records.append({key: value[key] for key in allowed if key in value})
+    provisional = primary_authority.get("provisional_dependencies", [])
+    route_transition = primary_authority.get("route_transition")
+    if not isinstance(provisional, list):
+        raise ContractValidationError("ordinary cognition provisional scope is invalid")
+    return {
+        "schema_version": "cera.pi_scene.writer_decision_projection.v1",
+        "decision_records": projected_records,
+        "decision_item_links": links,
+        "provisional_dependencies": provisional,
+        "route_transition": route_transition,
+    }
 
 
 def _write_named_mapping(root: Path, values: Mapping[str, Any]) -> None:
