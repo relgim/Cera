@@ -1,25 +1,29 @@
 from __future__ import annotations
 
-from dataclasses import replace
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
-from tempfile import TemporaryDirectory
 import unittest
+from dataclasses import replace
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from cera.continuous.evidence import (
     StableAcceptedContextReferenceStore,
     build_character_summary_envelope,
+)
+from cera.continuous.path_policy import (
+    CONTINUOUS_WINDOWS_LEGACY_PATH_MAX_CHARACTERS,
 )
 from cera.continuous.runtime import (
     ContinuousShadowTurnCoordinator,
     ContinuousTurnRequestV1,
 )
 from cera.continuous.sessions import (
-    ContinuousSessionCoordinator,
     ContinuousReconstructionAcceptedTurnV1,
+    ContinuousSessionCoordinator,
     ContinuousSessionReconstructionBundleV1,
     ContinuousSessionRole,
     InMemoryContinuousStoredSessionPort,
@@ -27,10 +31,8 @@ from cera.continuous.sessions import (
 from cera.continuous.world import ContinuousWorldStore
 from cera.creator_review.models import CreatorReviewAction
 from cera.errors import StateConflictError
-from cera.serialization import canonical_bytes, canonical_sha256, text_sha256
 from cera.registry import build_schema_registry
-from cera.serialization import to_primitive
-
+from cera.serialization import canonical_bytes, canonical_sha256, text_sha256, to_primitive
 from tests.test_continuous_corrections import (
     _AcceptingReaderStage,
     _QueueStage,
@@ -277,8 +279,22 @@ class ContinuousBranchMaterializationTests(unittest.TestCase):
         child_branch = "c" + ("x" * 95)
         parent_root = self.world.branch_root("world-test", "main")
         child_root = self.world.branch_root("world-test", child_branch)
+        planned_receipt = (
+            child_root
+            / "BRANCH_MATERIALIZATION"
+            / (("0" * 64) + ".json")
+        ).resolve()
+        forced_limit = len(str(planned_receipt)) - 1
+        self.assertEqual(CONTINUOUS_WINDOWS_LEGACY_PATH_MAX_CHARACTERS, 248)
         parent_tree_before = self.world.tree_sha256(parent_root)
-        with self.assertRaisesRegex(StateConflictError, "legacy path budget"):
+        with (
+            patch(
+                "cera.continuous.path_policy."
+                "CONTINUOUS_WINDOWS_LEGACY_PATH_MAX_CHARACTERS",
+                forced_limit,
+            ),
+            self.assertRaisesRegex(StateConflictError, "legacy path budget"),
+        ):
             self.runtime.materialize_planner_branch(
                 target_compatibility=self._target(child_branch)
             )
