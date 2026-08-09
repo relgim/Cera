@@ -279,6 +279,23 @@ class SequenceItemV1:
             ItemKind.REMOTE_COMMUNICATION,
         }
     )
+    INTERNAL_CAUSAL_GUIDANCE_KINDS: ClassVar[frozenset[ItemKind]] = frozenset(
+        {
+            ItemKind.PRIVATE_STATE,
+            ItemKind.PERCEPTION,
+            ItemKind.KNOWLEDGE_CHANGE,
+            ItemKind.RELATIONSHIP_CHANGE,
+        }
+    )
+    SURFACE_REALIZATION_KINDS: ClassVar[frozenset[ItemKind]] = frozenset(
+        {
+            ItemKind.ACTION,
+            ItemKind.DIALOGUE_INTENT,
+            ItemKind.REMOTE_COMMUNICATION,
+            ItemKind.MATERIAL_CONTINUITY,
+            ItemKind.SCENE_TRANSITION,
+        }
+    )
     OWNER_REQUIRED: ClassVar[frozenset[ItemKind]] = RESPONDER_KINDS
 
     def __post_init__(self) -> None:

@@ -121,7 +121,7 @@ async function writerContextPacket(root: string): Promise<{ text: string; files:
 		await add(`SUPPORTING ACCEPTED CONTEXT | ${path}`, path);
 	}
 	await add(
-		"FINAL RESPONSE START GATE | DERIVED NONCANONICAL EXECUTION FOCUS | zz_RESPONSE_START_GATE.json | BEGIN WITH OWNER RESPONSE NOW",
+		"FINAL RESPONSE START GATE | DERIVED NONCANONICAL EXECUTION FOCUS | zz_RESPONSE_START_GATE.json | BEGIN WITH THE SELECTED SURFACE RESPONSE NOW",
 		startGatePath,
 	);
 	const text = sections.join("\n\n");
@@ -170,7 +170,7 @@ export default function (pi: ExtensionAPI) {
 					details: {
 						bytes: Buffer.byteLength(packet.text, "utf8"),
 						files: packet.files,
-						packet: "cera.writer_context_packet.v2",
+						packet: "cera.writer_context_packet.v4",
 					},
 				};
 			}

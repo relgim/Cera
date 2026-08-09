@@ -53,8 +53,8 @@ from .prompting import (
 )
 
 
-SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v9"
-SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v8"
+SEQUENCE_FIRST_PLANNER_ADAPTER = "cera.sequence_first.planner_adapter.v10"
+SEQUENCE_FIRST_PLANNER_PROMPT = "cera.sequence_first.planner_prompt.v9"
 SEQUENCE_FIRST_VALIDATOR_ADAPTER = "cera.sequence_first.validator_adapter.v13"
 SEQUENCE_FIRST_VALIDATOR_PROMPT = "cera.sequence_first.validator_prompt.v12"
 SEQUENCE_FIRST_VALIDATOR_PROVIDER_SCHEMA = ValidatorProviderDecisionV1.SCHEMA_VERSION

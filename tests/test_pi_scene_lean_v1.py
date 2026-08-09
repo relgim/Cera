@@ -414,6 +414,62 @@ class PiSceneLeanTests(unittest.TestCase):
             ),
         )
 
+    def test_retained_planner_rejects_internal_only_sequence_before_writer(self) -> None:
+        class InternalOnlyPlannerSession:
+            def plan(self, semantic_input):
+                return SequenceDraftV1(
+                    items=(
+                        SequenceItemV1(
+                            item_key="hana_private_choice",
+                            kind=ItemKind.PRIVATE_STATE,
+                            concise_meaning="Hana privately chooses how to answer.",
+                            owner_response_semantics=(
+                                "Hana privately chooses how to answer."
+                            ),
+                            owner_id="character:hana",
+                            evidence_keys=("source:current",),
+                        ),
+                        SequenceItemV1(
+                            item_key="return_floor",
+                            kind=ItemKind.STOPPING_BOUNDARY,
+                            concise_meaning="Return the floor to Ted.",
+                            causal_parent_item_key="hana_private_choice",
+                            evidence_keys=("source:current",),
+                        ),
+                    ),
+                    durable_changes=(),
+                    presence_changes=(),
+                    resulting_public_state="Ted and Hana remain in the room.",
+                    unresolved_threads=("Ted may respond.",),
+                    stopping_boundary="Stop before Ted's next response.",
+                )
+
+        adapter = RetainedCodexPlannerAdapter(InternalOnlyPlannerSession())
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "surface-realizable item",
+        ):
+            adapter.plan(
+                PlannerTurnInputV1(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                    scene_id="scene-room",
+                    exact_user_source="Continue the scene.",
+                    current_state={
+                        "accepted_present_character_ids": [
+                            "character:ted",
+                            "character:hana",
+                        ],
+                        "public_scene_state": "Ted and Hana remain in the room.",
+                        "unresolved_threads": ["Ted may respond."],
+                    },
+                    characters={"character:hana": {"name": "Hana", "age": 38}},
+                    relationships={},
+                    relevant_memories={},
+                    accepted_records=(),
+                )
+            )
+
     def test_human_readable_debug_log_keeps_labeled_inputs_and_outputs_together(self) -> None:
         with TemporaryDirectory() as temporary:
             debug = ReadablePiSceneDebugLog(Path(temporary) / "readable")
@@ -501,9 +557,12 @@ class PiSceneLeanTests(unittest.TestCase):
             "completed_source_anchor_key",
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
-        self.assertIn("first response item", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("selected surface response", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("internal_causal_guidance", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("surface_realization_items", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("guides_surface_item_key", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("response_start_contract", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("completed cause left implicit", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("completed cause implicit", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Transient staging may begin only after", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("FINAL RESPONSE START GATE", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("one deletion test", ORDINARY_WRITER_SYSTEM_PROMPT)
@@ -566,6 +625,10 @@ class PiSceneLeanTests(unittest.TestCase):
                     encoding="utf-8"
                 )
             )
+            self.assertEqual(
+                authority_order["schema_version"],
+                "cera.pi_scene.writer_authority_order.v6",
+            )
             self.assertEqual(authority_order["current_route"], "ordinary")
             self.assertEqual(
                 authority_order["current_primary_authority_path"],
@@ -582,8 +645,10 @@ class PiSceneLeanTests(unittest.TestCase):
                     "postcondition_authority_path": (
                         "RESPONSE_SEQUENCE.json#postconditions"
                     ),
+                    "internal_guidance_item_keys": [],
                     "response_authority_path": "RESPONSE_SEQUENCE.json",
                     "response_item_keys": ["hana_answers"],
+                    "surface_realization_item_keys": ["hana_answers"],
                     "response_start_item_key": "hana_answers",
                     "response_start_contract_path": (
                         "RESPONSE_SEQUENCE.json#response_start_contract"
@@ -608,7 +673,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 start_gate["schema_version"],
-                "cera.pi_scene.response_start_gate.v1",
+                "cera.pi_scene.response_start_gate.v3",
             )
             self.assertEqual(
                 start_gate["authority_class"],
@@ -623,14 +688,16 @@ class PiSceneLeanTests(unittest.TestCase):
                 "hana_answers",
             )
             self.assertEqual(start_gate["response_start_owner_id"], "character:hana")
+            self.assertEqual(start_gate["response_start_scope"], "character")
             self.assertEqual(start_gate["response_start_kind"], "dialogue_intent")
+            self.assertEqual(start_gate["item_projection_role"], "surface_realization")
             self.assertEqual(
                 start_gate["owner_response_semantics"],
                 "Hana answers while preserving the conversational floor.",
             )
             self.assertEqual(
                 start_gate["realization_mode"],
-                "owner_response_after_completed_source",
+                "surface_response_after_completed_source",
             )
             self.assertEqual(
                 start_gate["completed_source_rendering"], "implicit_cause_only"
@@ -804,25 +871,42 @@ class PiSceneLeanTests(unittest.TestCase):
                 )
             )["realization_scope"]
             self.assertEqual(scope["response_item_keys"], ["hana_response"])
+            self.assertEqual(scope["internal_guidance_item_keys"], [])
+            self.assertEqual(
+                scope["surface_realization_item_keys"], ["hana_response"]
+            )
             self.assertEqual(scope["response_start_item_key"], "hana_response")
             response_sequence = json.loads(
                 (view.root / "RESPONSE_SEQUENCE.json").read_text(encoding="utf-8")
             )
             self.assertEqual(
-                [item["item_key"] for item in response_sequence["items"]],
-                ["hana_response"],
+                response_sequence["schema_version"],
+                "cera.pi_scene.response_sequence.v7",
             )
             self.assertEqual(
-                response_sequence["items"][0]["causal_parent_item_key"],
+                [
+                    item["item_key"]
+                    for item in response_sequence["surface_realization_items"]
+                ],
+                ["hana_response"],
+            )
+            self.assertEqual(response_sequence["internal_causal_guidance"], [])
+            self.assertEqual(
+                response_sequence["surface_realization_items"][0][
+                    "causal_parent_item_key"
+                ],
                 None,
             )
-            source_anchor = response_sequence["items"][0][
+            source_anchor = response_sequence["surface_realization_items"][0][
                 "completed_source_anchor_key"
             ]
             self.assertRegex(source_anchor, r"^completed-source-[0-9a-f]{20}$")
             self.assertNotIn(
                 "ted_source_action",
-                [item["item_key"] for item in response_sequence["items"]],
+                [
+                    item["item_key"]
+                    for item in response_sequence["surface_realization_items"]
+                ],
             )
             self.assertNotIn("source_context_item_keys", response_sequence)
             self.assertEqual(
@@ -841,10 +925,12 @@ class PiSceneLeanTests(unittest.TestCase):
                 response_sequence["response_start_contract"],
                 {
                     "response_start_item_key": "hana_response",
+                    "response_start_scope": "character",
                     "response_start_owner_id": "character:hana",
                     "response_start_kind": "dialogue_intent",
                     "completed_source_anchor_key": source_anchor,
-                    "realization_mode": "owner_response_after_completed_source",
+                    "causal_anchor_mode": "completed_source_direct",
+                    "realization_mode": "surface_response_after_completed_source",
                     "completed_source_rendering": "implicit_cause_only",
                     "pre_response_narration": "forbidden",
                 },
@@ -852,8 +938,10 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertNotIn("resulting_public_state", response_sequence)
             self.assertNotIn("unresolved_threads", response_sequence)
             self.assertNotIn("stopping_boundary", response_sequence)
-            for item in response_sequence["items"]:
+            for item in response_sequence["surface_realization_items"]:
                 self.assertIn("owner_response_semantics", item)
+                self.assertEqual(item["projection_role"], "surface_realization")
+                self.assertEqual(item["response_scope"], "character")
                 self.assertNotIn("concise_meaning", item)
                 self.assertNotIn("evidence_keys", item)
                 self.assertNotIn("planner_item_keys", item)
@@ -886,6 +974,10 @@ class PiSceneLeanTests(unittest.TestCase):
                 ).read_text(encoding="utf-8")
             )
             self.assertEqual(
+                provenance["schema_version"],
+                "cera.pi_scene.response_projection_provenance.v2",
+            )
+            self.assertEqual(
                 provenance["source_anchor_bindings"],
                 [
                     {
@@ -914,6 +1006,300 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertNotIn("ted_source_action", visible_bytes)
             self.assertIn("zz_RESPONSE_START_GATE.json", visible_bytes)
 
+    def test_private_state_is_subtext_and_visible_action_owns_response_start(self) -> None:
+        with TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            authority = sequence("ted_source_action")
+            authority["items"] = [
+                {
+                    "item_key": "ted_source_action",
+                    "owner_id": "character:ted",
+                    "kind": "action",
+                    "concise_meaning": "Ted completes the supplied action.",
+                    "owner_response_semantics": None,
+                    "protected_user_claim_keys": ["current_request"],
+                    "protected_user_exact_quotes": ["supplied source"],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "hana_internal_response",
+                    "owner_id": "character:hana",
+                    "kind": "private_state",
+                    "concise_meaning": "Hana decides on a restrained response.",
+                    "owner_response_semantics": (
+                        "Hana privately chooses a restrained and receptive response."
+                    ),
+                    "causal_parent_item_key": "ted_source_action",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "hana_visible_response",
+                    "owner_id": "character:hana",
+                    "kind": "action",
+                    "concise_meaning": "Hana visibly softens her expression.",
+                    "owner_response_semantics": (
+                        "Hana's expression softens with restrained appreciation."
+                    ),
+                    "causal_parent_item_key": "hana_internal_response",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "return_floor",
+                    "owner_id": None,
+                    "kind": "stopping_boundary",
+                    "concise_meaning": "Return the floor to Ted.",
+                    "owner_response_semantics": None,
+                    "causal_parent_item_key": "hana_visible_response",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+            ]
+            view = WriterViewMaterializer(root / "views").materialize(
+                WriterViewInputV1(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                    scene_id="scene-private",
+                    turn_id="turn-0001",
+                    candidate_id="candidate-subtext-start",
+                    route=SceneRoute.ORDINARY,
+                    user_prompt="A supplied source contribution.",
+                    primary_authority=authority,
+                    current_state={"public_scene_state": "Two adults are present."},
+                    characters={"hana": {"name": "Hana", "age": 38}},
+                    relationships={},
+                    recent_prose=(),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            response = json.loads(
+                (view.root / "RESPONSE_SEQUENCE.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                [item["item_key"] for item in response["internal_causal_guidance"]],
+                ["hana_internal_response"],
+            )
+            self.assertEqual(
+                response["internal_causal_guidance"][0]["projection_role"],
+                "internal_causal_guidance",
+            )
+            self.assertEqual(
+                response["internal_causal_guidance"][0]["guides_surface_item_key"],
+                "hana_visible_response",
+            )
+            self.assertEqual(
+                [item["item_key"] for item in response["surface_realization_items"]],
+                ["hana_visible_response"],
+            )
+            self.assertEqual(
+                response["surface_realization_items"][0]["guided_by_item_keys"],
+                ["hana_internal_response"],
+            )
+            self.assertEqual(response["response_start_item_key"], "hana_visible_response")
+            self.assertEqual(
+                response["response_start_contract"]["response_start_kind"], "action"
+            )
+            gate = json.loads(
+                (view.root / "zz_RESPONSE_START_GATE.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(gate["response_start_item_key"], "hana_visible_response")
+            self.assertEqual(gate["item_projection_role"], "surface_realization")
+            self.assertEqual(gate["response_start_scope"], "character")
+            self.assertEqual(
+                gate["causal_anchor_mode"],
+                "completed_source_via_internal_guidance",
+            )
+            self.assertEqual(
+                gate["owner_response_semantics"],
+                "Hana's expression softens with restrained appreciation.",
+            )
+
+            authority["items"] = [
+                authority["items"][0],
+                authority["items"][1],
+                authority["items"][3],
+            ]
+            with self.assertRaisesRegex(
+                ContractValidationError, "no surface-realizable response item"
+            ):
+                WriterViewMaterializer(root / "invalid-views").materialize(
+                    WriterViewInputV1(
+                        world_id="world-test",
+                        branch_id="branch-main",
+                        scene_id="scene-private",
+                        turn_id="turn-0002",
+                        candidate_id="candidate-subtext-only",
+                        route=SceneRoute.ORDINARY,
+                        user_prompt="A supplied source contribution.",
+                        primary_authority=authority,
+                        current_state={"public_scene_state": "Two adults are present."},
+                        characters={"hana": {"name": "Hana", "age": 38}},
+                        relationships={},
+                        recent_prose=(),
+                        relevant_memories={},
+                        voice_examples={},
+                        craft_index={},
+                        accepted_records=(),
+                    )
+                )
+
+    def test_multiple_internal_items_map_to_earliest_reachable_dialogue(self) -> None:
+        with TemporaryDirectory() as temporary:
+            authority = sequence("source_action")
+            authority["items"] = [
+                {
+                    "item_key": "source_action",
+                    "owner_id": "character:ted",
+                    "kind": "action",
+                    "concise_meaning": "Ted completes the supplied action.",
+                    "owner_response_semantics": None,
+                    "protected_user_claim_keys": ["current_request"],
+                    "protected_user_exact_quotes": ["supplied source"],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "hana_perceives",
+                    "owner_id": "character:hana",
+                    "kind": "perception",
+                    "concise_meaning": "Hana recognizes the immediate implication.",
+                    "owner_response_semantics": "Hana recognizes the immediate implication.",
+                    "causal_parent_item_key": "source_action",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "hana_decides",
+                    "owner_id": "character:hana",
+                    "kind": "private_state",
+                    "concise_meaning": "Hana chooses a direct answer.",
+                    "owner_response_semantics": "Hana privately chooses a direct answer.",
+                    "causal_parent_item_key": "hana_perceives",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "hana_answers",
+                    "owner_id": "character:hana",
+                    "kind": "dialogue_intent",
+                    "concise_meaning": "Hana gives the direct answer.",
+                    "owner_response_semantics": "Hana gives a concise direct answer.",
+                    "causal_parent_item_key": "hana_decides",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "return_floor",
+                    "owner_id": None,
+                    "kind": "stopping_boundary",
+                    "concise_meaning": "Return the floor to Ted.",
+                    "owner_response_semantics": None,
+                    "causal_parent_item_key": "hana_answers",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+            ]
+            view = WriterViewMaterializer(Path(temporary) / "views").materialize(
+                WriterViewInputV1(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                    scene_id="scene-dialogue",
+                    turn_id="turn-0001",
+                    candidate_id="candidate-dialogue-guidance",
+                    route=SceneRoute.ORDINARY,
+                    user_prompt="A supplied contribution.",
+                    primary_authority=authority,
+                    current_state={"public_scene_state": "Hana and Ted are present."},
+                    characters={"hana": {"name": "Hana", "age": 38}},
+                    relationships={},
+                    recent_prose=(),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            response = json.loads(
+                (view.root / "RESPONSE_SEQUENCE.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                [
+                    item["guides_surface_item_key"]
+                    for item in response["internal_causal_guidance"]
+                ],
+                ["hana_answers", "hana_answers"],
+            )
+            self.assertEqual(
+                response["surface_realization_items"][0]["guided_by_item_keys"],
+                ["hana_perceives", "hana_decides"],
+            )
+            self.assertEqual(
+                response["response_start_contract"]["response_start_kind"],
+                "dialogue_intent",
+            )
+
+    def test_ownerless_world_surface_is_explicit_and_never_fabricates_owner(self) -> None:
+        with TemporaryDirectory() as temporary:
+            authority = sequence("world_changes")
+            authority["items"] = [
+                {
+                    "item_key": "world_changes",
+                    "owner_id": None,
+                    "kind": "material_continuity",
+                    "concise_meaning": "The switched lamp dims.",
+                    "owner_response_semantics": "The lamp's light visibly dims.",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+                {
+                    "item_key": "stop_after_change",
+                    "owner_id": None,
+                    "kind": "stopping_boundary",
+                    "concise_meaning": "Stop after the visible change.",
+                    "owner_response_semantics": None,
+                    "causal_parent_item_key": "world_changes",
+                    "protected_user_claim_keys": [],
+                    "protected_user_exact_quotes": [],
+                    "durable_change_keys": [],
+                },
+            ]
+            view = WriterViewMaterializer(Path(temporary) / "views").materialize(
+                WriterViewInputV1(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                    scene_id="scene-world",
+                    turn_id="turn-0001",
+                    candidate_id="candidate-world-start",
+                    route=SceneRoute.ORDINARY,
+                    user_prompt="Continue the visible change.",
+                    primary_authority=authority,
+                    current_state={"public_scene_state": "A lamp is on."},
+                    characters={},
+                    relationships={},
+                    recent_prose=(),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
+                )
+            )
+            gate = json.loads(
+                (view.root / "zz_RESPONSE_START_GATE.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(gate["response_start_scope"], "world")
+            self.assertIsNone(gate["response_start_owner_id"])
+            self.assertEqual(gate["response_start_kind"], "material_continuity")
     def test_isolated_sillytavern_copy_excludes_user_data_and_forces_loopback(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -1123,7 +1509,7 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("RESPONSE REALIZATION AUTHORITY", extension)
         self.assertIn("COMPLETED OFF-PAGE SOURCE", extension)
         self.assertIn("DERIVED NONCANONICAL EXECUTION FOCUS", extension)
-        self.assertIn("cera.writer_context_packet.v2", extension)
+        self.assertIn("cera.writer_context_packet.v4", extension)
 
     def test_writer_output_accepts_raw_prose_and_strict_legacy_envelope(self) -> None:
         self.assertEqual(

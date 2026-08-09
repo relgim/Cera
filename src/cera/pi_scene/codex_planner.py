@@ -20,6 +20,7 @@ from cera.sequence_first.contracts import (
     EvidenceRecordV1,
     ProtectedSourceClaimV1,
     SequenceDraftV1,
+    SequenceItemV1,
     SequenceFirstTurnSemanticInputV1,
     Visibility,
     ItemKind,
@@ -84,6 +85,7 @@ class RetainedCodexPlannerAdapter:
 
 
 def _validate_owner_response_semantics(sequence: SequenceDraftV1) -> None:
+    surface_response_count = 0
     for item in sequence.items:
         supplied = bool(
             item.protected_user_claim_keys or item.protected_user_exact_quotes
@@ -100,6 +102,12 @@ def _validate_owner_response_semantics(sequence: SequenceDraftV1) -> None:
             raise ContractValidationError(
                 "response item requires owner-response semantics"
             )
+        if item.kind in SequenceItemV1.SURFACE_REALIZATION_KINDS:
+            surface_response_count += 1
+    if surface_response_count == 0:
+        raise ContractValidationError(
+            "ordinary response requires a surface-realizable item after internal subtext"
+        )
 
 
 def _semantic_input(request: PlannerTurnInputV1) -> SequenceFirstTurnSemanticInputV1:
