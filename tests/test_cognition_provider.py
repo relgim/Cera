@@ -34,6 +34,8 @@ def _context() -> CognitionTurnContextV1:
 
 @dataclass
 class _FakeBackend:
+    external_provider_boundary = False
+
     result: CognitionPlanV1
     thread_id: str = "thread:cognition"
     resumable: bool = True

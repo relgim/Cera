@@ -13,8 +13,8 @@ import os
 
 from cera.errors import StateConflictError
 
-
 PROVIDER_DISPATCH_DISABLED_ENV = "CERA_PROVIDER_DISPATCH_DISABLED"
+EXTERNAL_PROVIDER_BOUNDARY_ATTRIBUTE = "external_provider_boundary"
 _DISABLED_VALUE = "1"
 
 
@@ -44,8 +44,29 @@ def assert_provider_dispatch_allowed(
 
     if not isinstance(boundary, str) or not boundary.strip():
         raise StateConflictError("provider dispatch boundary identity is empty")
+    if type(external_provider_boundary) is not bool:
+        raise StateConflictError(
+            f"external provider boundary classification must be a literal boolean at {boundary}"
+        )
     if external_provider_boundary and provider_dispatch_disabled():
         raise StateConflictError(
             "external provider dispatch is disabled by "
             f"{PROVIDER_DISPATCH_DISABLED_ENV} at {boundary}"
         )
+
+
+def is_external_provider_boundary(owner: object) -> bool:
+    """Classify a provider-shaped owner, failing closed when it is unmarked.
+
+    Concrete production adapters retain the default external classification.
+    Only repository-owned offline fakes may explicitly expose the literal
+    marker ``external_provider_boundary = False``.
+    """
+
+    marker = getattr(owner, EXTERNAL_PROVIDER_BOUNDARY_ATTRIBUTE, True)
+    if type(marker) is not bool:
+        raise StateConflictError(
+            "provider boundary marker must be a literal boolean at "
+            f"{type(owner).__module__}.{type(owner).__qualname__}"
+        )
+    return marker

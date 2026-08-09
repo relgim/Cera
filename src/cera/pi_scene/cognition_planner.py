@@ -15,6 +15,10 @@ from cera.cognition import (
 )
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.errors import ContractValidationError
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.serialization import text_sha256, to_primitive
 
 from .codex_planner import build_sequence_semantic_input
@@ -46,6 +50,10 @@ class RetainedCognitionPlannerAdapter:
         controls = request.request_controls
         if controls is None:
             raise ContractValidationError("full-model cognition requires typed request controls")
+        assert_provider_dispatch_allowed(
+            "pi_scene.cognition_planner.plan",
+            external_provider_boundary=is_external_provider_boundary(self.session),
+        )
         if self.operation_evidence is not None:
             self._turn_index += 1
             self.operation_evidence.begin_turn(

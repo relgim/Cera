@@ -114,6 +114,8 @@ def realized_from(intended: SequenceDraftV1) -> SequenceDraftV1:
 
 
 class PlannerFake:
+    external_provider_boundary = False
+
     def __init__(self, plans: list[SequenceDraftV1]) -> None:
         self.plans = plans
         self.inputs = []
@@ -124,6 +126,8 @@ class PlannerFake:
 
 
 class WriterFake:
+    external_provider_boundary = False
+
     def __init__(self, prose: str = "Hana asks Ted what he would like to do next.") -> None:
         self.prose = prose
         self.calls = 0
@@ -160,6 +164,8 @@ class ValidatorSessionFake:
 
 
 class ValidatorFactoryFake:
+    external_provider_boundary = False
+
     def __init__(self, *, reject: bool = False, quote: str | None = None) -> None:
         self.reject = reject
         self.quote = quote
@@ -191,6 +197,8 @@ class RetryingValidatorSessionFake:
 
 
 class RetryingValidatorFactoryFake:
+    external_provider_boundary = False
+
     def __init__(self) -> None:
         self.sessions = []
 
@@ -201,6 +209,8 @@ class RetryingValidatorFactoryFake:
 
 
 class ReaderFake:
+    external_provider_boundary = False
+
     def __init__(self) -> None:
         self.calls = 0
 

@@ -8,13 +8,15 @@ from pathlib import Path
 import sys
 import time
 
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
+from cera.serialization import text_sha256, to_primitive
+
 from .codex_worker import _runtime_config_and_environment, _safe_error_text
 from .codex_observability import (
     CodexOperationTelemetryV1,
     CodexToolTimingV1,
     CodexUsageAccumulator,
 )
-from cera.serialization import text_sha256, to_primitive
 
 
 def _validate_request(request: dict) -> None:
@@ -53,6 +55,7 @@ def _validate_request(request: dict) -> None:
 
 
 def main() -> int:
+    assert_provider_dispatch_allowed("providers.codex.stored_turn_worker.sdk_start")
     request: dict | None = None
     stage = "request_decode"
     try:

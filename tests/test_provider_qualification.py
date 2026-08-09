@@ -46,6 +46,12 @@ ACTIVE_VERIFIER_PROMPT_VERSION = (
 from cera.registry import build_schema_registry
 from cera.runtime.failure import PrivacySafeReceiptPayload
 from cera.serialization import canonical_json, canonical_sha256, to_primitive
+from tests.provider_fakes import (
+    OfflineDeepSeekChatTransport,
+    OfflinePersistentNoMcpCodexRunner,
+    OfflineStoredCodexThreadRunner,
+    OfflineSubprocessCodexRunner,
+)
 from cera.providers.codex import _SubprocessCodexRunner, _codex_transport_json
 from cera.providers.codex_sdk_compat import (
     CODEX_SDK_COMPATIBILITY_ID,
@@ -153,6 +159,8 @@ class RecordingOpener:
 
 
 class StaticCodexRunner:
+    external_provider_boundary = False
+
     def __init__(
         self,
         *,
@@ -255,7 +263,7 @@ class ProviderQualificationTests(unittest.TestCase):
             return_value=FailedProcess(),
         ):
             with self.assertRaises(ProviderTransportError) as caught:
-                _SubprocessCodexRunner().run(
+                OfflineSubprocessCodexRunner().run(
                     route=codex_reasoner_candidate(),
                     prompt="Return a bounded test object.",
                     output_schema=codex_transport_probe_output_schema(),
@@ -285,7 +293,7 @@ class ProviderQualificationTests(unittest.TestCase):
             return_value=FailedBeforeDispatchProcess(),
         ):
             with self.assertRaises(ProviderTransportError):
-                _SubprocessCodexRunner(service_tier="priority").run(
+                OfflineSubprocessCodexRunner(service_tier="priority").run(
                     route=codex_reasoner_candidate(
                         model="gpt-5.6-luna",
                         effort="max",
@@ -321,7 +329,7 @@ class ProviderQualificationTests(unittest.TestCase):
             side_effect=create_process,
         ):
             with self.assertRaises(ProviderTransportError) as caught:
-                StoredCodexThreadRunner("stored-thread-51").run(
+                OfflineStoredCodexThreadRunner("stored-thread-51").run(
                     route=codex_reasoner_candidate(),
                     prompt="Return a bounded test object.",
                     output_schema=codex_transport_probe_output_schema(),
@@ -391,7 +399,7 @@ class ProviderQualificationTests(unittest.TestCase):
                 return 0
 
         process = Process()
-        runner = PersistentNoMcpCodexRunner()
+        runner = OfflinePersistentNoMcpCodexRunner()
         schema = codex_transport_probe_output_schema()
         with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second, tempfile.TemporaryDirectory() as third, patch(
             "cera.providers.codex.subprocess.Popen", return_value=process
@@ -500,7 +508,7 @@ class ProviderQualificationTests(unittest.TestCase):
                 return 0
 
         processes = (Process(12345, 2), Process(12346, 1))
-        runner = PersistentNoMcpCodexRunner()
+        runner = OfflinePersistentNoMcpCodexRunner()
         schema = codex_transport_probe_output_schema()
         with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second, tempfile.TemporaryDirectory() as third, patch(
             "cera.providers.codex.subprocess.Popen",
@@ -556,7 +564,7 @@ class ProviderQualificationTests(unittest.TestCase):
             def poll(self):
                 return None
 
-        runner = PersistentNoMcpCodexRunner()
+        runner = OfflinePersistentNoMcpCodexRunner()
         with tempfile.TemporaryDirectory() as directory, patch(
             "cera.providers.codex.subprocess.Popen", return_value=Process()
         ), patch(
@@ -623,7 +631,7 @@ class ProviderQualificationTests(unittest.TestCase):
                 return None
 
         process = Process()
-        runner = PersistentNoMcpCodexRunner()
+        runner = OfflinePersistentNoMcpCodexRunner()
         schema = codex_transport_probe_output_schema()
         with tempfile.TemporaryDirectory() as first, tempfile.TemporaryDirectory() as second, tempfile.TemporaryDirectory() as third, patch(
             "cera.providers.codex.subprocess.Popen",
@@ -660,7 +668,7 @@ class ProviderQualificationTests(unittest.TestCase):
         )
 
     def test_persistent_codex_runner_rejects_request_bound_mcp(self) -> None:
-        runner = PersistentNoMcpCodexRunner()
+        runner = OfflinePersistentNoMcpCodexRunner()
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaises(ProviderTransportError):
                 runner.run(
@@ -697,7 +705,7 @@ class ProviderQualificationTests(unittest.TestCase):
             "cera.providers.codex._terminate_codex_worker_tree"
         ) as terminate:
             with self.assertRaises(ProviderTransportError) as caught:
-                _SubprocessCodexRunner().run(
+                OfflineSubprocessCodexRunner().run(
                     route=codex_reasoner_candidate(),
                     prompt="Return a bounded test object.",
                     output_schema=codex_transport_probe_output_schema(),
@@ -777,8 +785,11 @@ class ProviderQualificationTests(unittest.TestCase):
                 },
             }
         )
-        transport = DeepSeekChatTransport(
-            deepseek_route(), opener=opener, environment={"DEEPSEEK_API_KEY": "dummy"}
+        transport = OfflineDeepSeekChatTransport(
+            deepseek_route(),
+            opener=opener,
+            environment={"DEEPSEEK_API_KEY": "dummy"},
+            external_provider_boundary=False,
         )
         result = transport.invoke(
             (
@@ -821,10 +832,11 @@ class ProviderQualificationTests(unittest.TestCase):
                 },
             }
         )
-        transport = DeepSeekChatTransport(
+        transport = OfflineDeepSeekChatTransport(
             deepseek_route(),
             opener=opener,
             environment={"DEEPSEEK_API_KEY": "dummy"},
+            external_provider_boundary=False,
         )
         with self.assertRaises(ProviderTransportError) as caught:
             transport.invoke(
@@ -893,10 +905,11 @@ class ProviderQualificationTests(unittest.TestCase):
                         },
                     }
                 )
-                transport = DeepSeekChatTransport(
+                transport = OfflineDeepSeekChatTransport(
                     deepseek_route(),
                     opener=opener,
                     environment={"DEEPSEEK_API_KEY": "dummy"},
+                    external_provider_boundary=False,
                 )
                 with self.assertRaises(ProviderTransportError) as caught:
                     transport.invoke((DeepSeekMessage("user", "Probe."),))
@@ -916,8 +929,11 @@ class ProviderQualificationTests(unittest.TestCase):
                 )
 
     def test_deepseek_missing_key_and_model_drift_fail_without_retry(self) -> None:
-        missing = DeepSeekChatTransport(
-            deepseek_route(), opener=RecordingOpener({}), environment={}
+        missing = OfflineDeepSeekChatTransport(
+            deepseek_route(),
+            opener=RecordingOpener({}),
+            environment={},
+            external_provider_boundary=False,
         )
         with self.assertRaises(ProviderTransportError) as caught:
             missing.invoke((DeepSeekMessage("user", "Probe."),))
@@ -931,8 +947,11 @@ class ProviderQualificationTests(unittest.TestCase):
                 "usage": {},
             }
         )
-        drift = DeepSeekChatTransport(
-            deepseek_route(), opener=opener, environment={"DEEPSEEK_API_KEY": "dummy"}
+        drift = OfflineDeepSeekChatTransport(
+            deepseek_route(),
+            opener=opener,
+            environment={"DEEPSEEK_API_KEY": "dummy"},
+            external_provider_boundary=False,
         )
         with self.assertRaises(ProviderTransportError) as caught:
             drift.invoke((DeepSeekMessage("user", "Probe."),))
@@ -947,8 +966,11 @@ class ProviderQualificationTests(unittest.TestCase):
             calls += 1
             raise urllib.error.URLError("offline")
 
-        transport = DeepSeekChatTransport(
-            deepseek_route(), opener=fail, environment={"DEEPSEEK_API_KEY": "dummy"}
+        transport = OfflineDeepSeekChatTransport(
+            deepseek_route(),
+            opener=fail,
+            environment={"DEEPSEEK_API_KEY": "dummy"},
+            external_provider_boundary=False,
         )
         with self.assertRaises(ProviderTransportError) as caught:
             transport.invoke((DeepSeekMessage("user", "Probe."),))
@@ -987,6 +1009,8 @@ class ProviderQualificationTests(unittest.TestCase):
         self.assertEqual(runner.calls, 1)
 
         class FailingRunner:
+            external_provider_boundary = False
+
             def __init__(self) -> None:
                 self.calls = 0
 

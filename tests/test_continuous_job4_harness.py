@@ -96,6 +96,10 @@ from cera.providers import (
 from cera.providers.codex import CodexWorkerResult
 from cera.providers.codex import _SubprocessCodexRunner
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
+from tests.provider_fakes import (
+    OfflineDeepSeekChatTransport,
+    OfflineSubprocessCodexRunner,
+)
 from tests.test_continuous_world import (
     composer_draft,
     package,
@@ -192,6 +196,8 @@ def terminalized_detail(
 
 
 class _Transport:
+    external_provider_boundary = False
+
     route = SimpleNamespace()
 
     def __init__(self) -> None:
@@ -217,6 +223,8 @@ class _ScriptedTelemetry:
 
 
 class _ScriptedCodexTransport:
+    external_provider_boundary = False
+
     def __init__(self, route, thread_id: str, produce) -> None:
         self.route = route
         self.runner = SimpleNamespace(provider_thread_id=thread_id)
@@ -258,6 +266,8 @@ class _ScriptedCodexTransport:
 
 
 class _ScriptedDeepSeekTransport:
+    external_provider_boundary = False
+
     def __init__(self, produce) -> None:
         self.route = continuous_deepseek_route()
         self._produce = produce
@@ -1673,6 +1683,8 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
 
     def test_actual_codex_and_deepseek_transports_mark_submission_boundary(self) -> None:
         class Runner:
+            external_provider_boundary = False
+
             def __init__(self, output: str) -> None:
                 self.output = output
 
@@ -1743,10 +1755,11 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
         def timed_out(*_args, **_kwargs):
             raise TimeoutError("fake timeout")
 
-        deepseek = DeepSeekChatTransport(
+        deepseek = OfflineDeepSeekChatTransport(
             continuous_deepseek_route(),
             opener=timed_out,
             environment={"DEEPSEEK_API_KEY": "fake-key"},
+            external_provider_boundary=False,
         )
         with self.assertRaises(ProviderTransportError):
             deepseek.invoke(
@@ -1761,8 +1774,8 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             workspace = Path(directory).resolve()
             with self.assertRaises(ProviderTransportError) as raised:
-                _SubprocessCodexRunner(
-                    worker_module="tests.fixtures.codex_progress_worker"
+                OfflineSubprocessCodexRunner(
+                    worker_module="tests.fixtures.codex_progress_worker",
                 ).run(
                     route=continuous_planner_route(),
                     prompt="provider-free fixture",
@@ -1799,7 +1812,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             route = replace(
                 continuous_planner_route(), timeout_seconds=timeout_seconds
             )
-            return _SubprocessCodexRunner(
+            return OfflineSubprocessCodexRunner(
                 worker_module="tests.fixtures.codex_stage_matrix_worker",
                 provider_thread_id="fixture-thread",
             ).run(
@@ -1858,7 +1871,7 @@ class ContinuousJob4HarnessTests(unittest.TestCase):
             workspace.mkdir()
             ledger = ContinuousProviderCallLedger(root / "calls.jsonl")
             route = replace(continuous_planner_route(), timeout_seconds=1)
-            runner = _SubprocessCodexRunner(
+            runner = OfflineSubprocessCodexRunner(
                 worker_module="tests.fixtures.codex_stage_matrix_worker",
                 provider_thread_id="fixture-thread",
             )

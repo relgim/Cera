@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import os
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 from unittest.mock import patch
 
 from cera.continuous.call_ledger import ContinuousProviderCallLedger
@@ -28,9 +28,7 @@ class ProviderDispatchGuardTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop(PROVIDER_DISPATCH_DISABLED_ENV, None)
             self.assertFalse(provider_dispatch_disabled())
-            self.assertIsNone(
-                assert_provider_dispatch_allowed("test.normal-runtime")
-            )
+            self.assertIsNone(assert_provider_dispatch_allowed("test.normal-runtime"))
 
     def test_malformed_guard_value_fails_closed(self) -> None:
         with patch.dict(
@@ -57,16 +55,20 @@ class ProviderDispatchGuardTests(unittest.TestCase):
                 workspace=root / "planner-workspace",
                 call_ledger=ledger,
             )
-            with patch.dict(
-                os.environ,
-                {PROVIDER_DISPATCH_DISABLED_ENV: "1"},
-                clear=False,
-            ), patch.object(
-                OpenAICodexStoredThreadBackend,
-                "start_stored_thread",
-            ) as start_thread, patch(
-                "cera.sequence_first.provider.CodexSDKTransport",
-            ) as transport:
+            with (
+                patch.dict(
+                    os.environ,
+                    {PROVIDER_DISPATCH_DISABLED_ENV: "1"},
+                    clear=False,
+                ),
+                patch.object(
+                    OpenAICodexStoredThreadBackend,
+                    "start_stored_thread",
+                ) as start_thread,
+                patch(
+                    "cera.sequence_first.provider.CodexSDKTransport",
+                ) as transport,
+            ):
                 with self.assertRaisesRegex(
                     StateConflictError,
                     "external provider dispatch is disabled",

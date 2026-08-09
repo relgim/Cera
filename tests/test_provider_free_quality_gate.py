@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import importlib.util
 import os
-from pathlib import Path
 import sys
 import unittest
-
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "run_provider_free_quality_gate.py"
@@ -23,7 +22,8 @@ class ProviderFreeQualityGateTests(unittest.TestCase):
     def test_checkout_import_is_exact_and_credentials_are_removed(self) -> None:
         module = _load_runner()
         prior_path = list(sys.path)
-        prior_key = os.environ.get("OPENAI_API_KEY")
+        prior_environment = dict(os.environ)
+        prior_dont_write_bytecode = sys.dont_write_bytecode
         try:
             os.environ["OPENAI_API_KEY"] = "must-not-survive"
             package = module._configure_checkout()
@@ -31,10 +31,9 @@ class ProviderFreeQualityGateTests(unittest.TestCase):
             self.assertNotIn("OPENAI_API_KEY", os.environ)
         finally:
             sys.path[:] = prior_path
-            if prior_key is None:
-                os.environ.pop("OPENAI_API_KEY", None)
-            else:
-                os.environ["OPENAI_API_KEY"] = prior_key
+            os.environ.clear()
+            os.environ.update(prior_environment)
+            sys.dont_write_bytecode = prior_dont_write_bytecode
 
     def test_compile_gate_includes_source_tests_and_scripts(self) -> None:
         module = _load_runner()

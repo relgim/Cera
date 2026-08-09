@@ -89,6 +89,10 @@ from cera.continuous.provider import (
     continuous_planner_route,
     continuous_validator_route,
 )
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.continuous.sessions import (
     ContinuousReconstructionAcceptedTurnV1,
     ContinuousSessionCompatibilityV1,
@@ -349,6 +353,10 @@ class StablePrefixTransport:
         self.transport = transport
         self.route = transport.route
         self.stable = stable
+
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self.transport)
 
     def invoke(self, prompt: str, **kwargs):
         prefix = self.stable + "\n\n"
@@ -1128,6 +1136,7 @@ class JobHarness:
         return CodexContinuousReaderPort(
             lambda: self.reader_transport_factory(workspace),
             call_ledger=self.call_ledger,
+            external_provider_boundary=not self.scripted_provider_free,
         ).review(prompt, writer_story_text=writer_story_text)
 
     def _create_workspace(self, workspace: Path, operation: str) -> None:
@@ -2978,6 +2987,10 @@ def main() -> int:
     if not (cycle / "receipts" / "TRIGGER_SENT.json").is_file():
         raise SystemExit("Job 4 cannot start before the Pro trigger receipt")
 
+    assert_provider_dispatch_allowed(
+        "scripts.continuous_job4.transaction_begin",
+        external_provider_boundary=not scripted_provider_free,
+    )
     # This is the first mutable operation after immutable authorization.  Every
     # later setup, execution, cleanup, and publication operation is owned by
     # this one-shot transaction.

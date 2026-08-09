@@ -77,6 +77,8 @@ class _ScriptedTelemetry:
 class ScriptedCodexTransport:
     """Provider-shaped transport that only returns a frozen local DTO."""
 
+    external_provider_boundary = False
+
     def __init__(self, route, thread_id: str, produce) -> None:
         self.route = route
         self.runner = SimpleNamespace(provider_thread_id=thread_id)
@@ -117,6 +119,8 @@ class ScriptedCodexTransport:
 
 class ScriptedDeepSeekTransport:
     """DeepSeek-shaped transport with no network or provider client."""
+
+    external_provider_boundary = False
 
     def __init__(self, produce) -> None:
         self.route = continuous_deepseek_route()

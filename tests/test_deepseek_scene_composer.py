@@ -33,6 +33,7 @@ from cera.providers import (
 )
 from cera.serialization import canonical_json, text_sha256, to_primitive
 import tests.test_composer as composer_support
+from tests.provider_fakes import OfflineDeepSeekChatTransport
 from tests.structural_v2_fixtures import (
     composition_draft_v6_from_submission,
 )
@@ -184,10 +185,11 @@ class DeepSeekSceneComposerTests(unittest.TestCase):
 
     def port_for(self, response: dict):
         opener = RecordingOpener(response)
-        transport = DeepSeekChatTransport(
+        transport = OfflineDeepSeekChatTransport(
             deepseek_composer_candidate(),
             opener=opener,
             environment={"DEEPSEEK_API_KEY": "dummy"},
+            external_provider_boundary=False,
         )
         return DeepSeekSceneComposerPort(transport), opener
 
@@ -343,10 +345,11 @@ class DeepSeekSceneComposerTests(unittest.TestCase):
         request = self.request_with_context("thinking-enabled-probe")
         response = self.response_for(request, "thinking-enabled-probe")
         opener = RecordingOpener(response)
-        transport = DeepSeekChatTransport(
+        transport = OfflineDeepSeekChatTransport(
             deepseek_composer_candidate(),
             opener=opener,
             environment={"DEEPSEEK_API_KEY": "dummy"},
+            external_provider_boundary=False,
         )
         self.coordinator.execute(
             request,
@@ -361,17 +364,19 @@ class DeepSeekSceneComposerTests(unittest.TestCase):
         disabled_opener = RecordingOpener(response)
         enabled_opener = RecordingOpener(response)
         disabled = DeepSeekSceneComposerPort(
-            DeepSeekChatTransport(
+            OfflineDeepSeekChatTransport(
                 deepseek_composer_candidate(),
                 opener=disabled_opener,
                 environment={"DEEPSEEK_API_KEY": "dummy"},
+                external_provider_boundary=False,
             )
         ).compose(request)
         enabled = DeepSeekSceneComposerPort(
-            DeepSeekChatTransport(
+            OfflineDeepSeekChatTransport(
                 deepseek_composer_candidate(),
                 opener=enabled_opener,
                 environment={"DEEPSEEK_API_KEY": "dummy"},
+                external_provider_boundary=False,
             ),
             thinking_enabled=True,
         ).compose(request)
@@ -702,10 +707,11 @@ class DeepSeekSceneComposerTests(unittest.TestCase):
             calls += 1
             raise urllib.error.URLError("offline")
 
-        transport = DeepSeekChatTransport(
+        transport = OfflineDeepSeekChatTransport(
             deepseek_composer_candidate(),
             opener=fail,
             environment={"DEEPSEEK_API_KEY": "dummy"},
+            external_provider_boundary=False,
         )
         with self.assertRaises(ComposerExecutionFailure) as caught:
             self.coordinator.execute(request, DeepSeekSceneComposerPort(transport))
@@ -741,10 +747,11 @@ class DeepSeekSceneComposerTests(unittest.TestCase):
             )
 
         port = DeepSeekSceneComposerPort(
-            DeepSeekChatTransport(
+            OfflineDeepSeekChatTransport(
                 deepseek_composer_candidate(),
                 opener=incomplete,
                 environment={"DEEPSEEK_API_KEY": "dummy"},
+                external_provider_boundary=False,
             )
         )
         with self.assertRaises(ComposerExecutionFailure) as caught:

@@ -1012,6 +1012,8 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         captured: dict[str, object] = {}
 
         class Transport:
+            external_provider_boundary = False
+
             route = continuous_validator_route(model="gpt-5.6-sol", effort="medium")
             runner = SimpleNamespace(provider_thread_id="thread:identity-schema-test")
 
@@ -1074,6 +1076,8 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         payload["package_id"] = "package:changed_by_provider"
 
         class Transport:
+            external_provider_boundary = False
+
             route = continuous_validator_route(model="gpt-5.6-sol", effort="medium")
             runner = SimpleNamespace(provider_thread_id="thread:identity-mismatch-test")
 
@@ -1121,6 +1125,8 @@ class ContinuousValidatorSchemaSurfaceTests(unittest.TestCase):
         payload["decision"]["complete_final_sequence"]["schema_version"] = "provider-authored"
 
         class Transport:
+            external_provider_boundary = False
+
             route = continuous_validator_route(model="gpt-5.6-sol", effort="medium")
             runner = SimpleNamespace(provider_thread_id="thread:raw-capture-test")
 

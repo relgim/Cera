@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from cera.errors import StateConflictError
+from cera.provider_dispatch_guard import is_external_provider_boundary
 from cera.reasoner_session.codex_stored import StoredThreadBackend
 from cera.serialization import text_sha256
 
@@ -25,6 +26,10 @@ class CodexContinuousStoredSessionPort:
         self.backend = backend
         self.provider_calls = 0
         self.operations: list[tuple[str, str]] = []
+
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self.backend)
 
     def create(
         self,

@@ -17,6 +17,10 @@ import re
 from typing import Any, Callable, ClassVar, Mapping, Protocol, runtime_checkable
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.schema import from_mapping
 from cera.serialization import (
     bytes_sha256,
@@ -2276,6 +2280,8 @@ class ContinuousStoredSessionPort(Protocol):
 class InMemoryContinuousStoredSessionPort:
     """Provider-free stored-thread seam with physical-thread continuity."""
 
+    external_provider_boundary = False
+
     def __init__(self) -> None:
         self._counter = 0
         self._valid: set[str] = set()
@@ -2637,6 +2643,10 @@ class ContinuousSessionCoordinator:
             raise StateConflictError("continuous provider session was never created")
         if not isinstance(reason, str) or not reason.strip():
             raise ContractValidationError("continuous archive reason is required")
+        assert_provider_dispatch_allowed(
+            "continuous.session.archive",
+            external_provider_boundary=is_external_provider_boundary(self.port),
+        )
         handle = self.handle
         self._terminally_archived = True
 

@@ -5,6 +5,10 @@ from __future__ import annotations
 from typing import Callable, Protocol
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 
 from .contracts import (
     ProviderReferenceScopeV1,
@@ -57,6 +61,10 @@ class PersistentPlannerSession:
     def thread_id(self) -> str | None:
         return self._thread_id
 
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self._backend)
+
     def plan(self, semantic_input: SequenceFirstTurnSemanticInputV1) -> SequenceDraftV1:
         if self._thread_id is None:
             thread_id = self._backend.start_stored_thread(
@@ -102,6 +110,10 @@ class FreshCandidateValidatorFactory:
     def __init__(self, backend: ValidatorThreadBackendPort) -> None:
         self._backend = backend
 
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self._backend)
+
     def create_sequence_first_validator(self) -> "FreshCandidateValidatorSession":
         thread_id = self._backend.start_fresh_thread(
             base_instructions=VALIDATOR_BASE_INSTRUCTIONS,
@@ -121,6 +133,10 @@ class FreshCandidateValidatorSession:
         self,
         request: SequenceFirstValidatorInputV1,
     ) -> ValidatorDecisionV1:
+        assert_provider_dispatch_allowed(
+            "sequence_first.validator_session.validate",
+            external_provider_boundary=is_external_provider_boundary(self._backend),
+        )
         if self._used or self._archived:
             raise StateConflictError("candidate Validator session is single-use")
         self._used = True

@@ -27,6 +27,7 @@ from cera.composer import (
     DeepSeekSceneComposerPort,
 )
 from cera.kernel import TurnKernel
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.providers import (
     CodexExecRunner,
     CodexSDKTransport,
@@ -129,6 +130,7 @@ def safe_failure(exc: Exception) -> dict[str, Any]:
 
 
 def verify_luna_capability(codex) -> dict[str, Any]:
+    assert_provider_dispatch_allowed("scripts.luna_max_fast.models_query")
     response = codex.models(include_hidden=True)
     model = next(
         (

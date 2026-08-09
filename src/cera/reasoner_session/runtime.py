@@ -19,6 +19,7 @@ from cera.composer import ArtifactPublicationMode
 from cera.contracts import BehavioralTurnControls
 from cera.errors import ErrorCode
 from cera.ids import IdKind, TypedId, deterministic_id
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.providers import (
     CodexSDKTransport,
     ProviderTransportError,
@@ -154,6 +155,9 @@ class NativeStoredReasonerSessionRuntime:
             self._port = session_port
             return
 
+        assert_provider_dispatch_allowed(
+            "reasoner_session.native_runtime.sdk_start"
+        )
         from openai_codex import Codex, CodexConfig
 
         self._codex_context = Codex(

@@ -21,6 +21,7 @@ from cera.providers import CodexSDKTransport, codex_reasoner_candidate
 from cera.providers.codex import CodexWorkerResult
 from cera.providers.codex_sdk_compat import install_early_turn_completion_buffer
 from cera.providers.codex_worker import _BASE_INSTRUCTIONS_BY_ROLE
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.reasoner import CodexSceneReasonerPort
 from cera.reasoner.codex import build_codex_reasoner_packet, build_codex_reasoner_prompt
 from cera.runtime import HanezawaHumanTestWorld
@@ -101,6 +102,8 @@ class SplitPromptTransport:
 class ForkingSessionRunner:
     """One ephemeral root turn followed by candidate-fork attempts."""
 
+    external_provider_boundary = True
+
     def __init__(self, *, workspace: Path, stable_instructions: str) -> None:
         self.workspace = workspace
         self.stable_instructions = stable_instructions
@@ -115,6 +118,7 @@ class ForkingSessionRunner:
         self.root_dispatched = False
 
     def __enter__(self) -> "ForkingSessionRunner":
+        assert_provider_dispatch_allowed("scripts.branch_bound_reasoner.provider_runtime")
         from openai_codex import Codex, CodexConfig
 
         self._codex_context = Codex(
@@ -132,6 +136,7 @@ class ForkingSessionRunner:
             self._codex_context.__exit__(exc_type, exc, traceback)
 
     def start_root(self, route) -> None:
+        assert_provider_dispatch_allowed("scripts.branch_bound_reasoner.thread_start")
         from openai_codex.api import ApprovalMode
 
         assert self.codex is not None
@@ -153,6 +158,7 @@ class ForkingSessionRunner:
         self.thread_start_count = 1
 
     def fork_candidate(self, route) -> tuple[str, str]:
+        assert_provider_dispatch_allowed("scripts.branch_bound_reasoner.thread_fork")
         from openai_codex.api import ApprovalMode
 
         assert self.codex is not None and self.accepted_thread is not None
@@ -184,6 +190,7 @@ class ForkingSessionRunner:
         self.active_thread = None
 
     def run(self, *, route, prompt, output_schema, workspace, mcp_binding):
+        assert_provider_dispatch_allowed("scripts.branch_bound_reasoner.thread_run")
         from openai_codex.api import ReasoningEffort
 
         if mcp_binding is not None:

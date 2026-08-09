@@ -357,6 +357,8 @@ def inconclusive_reader() -> ReaderVerdictV1:
 
 
 class PlannerFake:
+    external_provider_boundary = False
+
     def __init__(self, output: SequenceDraftV1) -> None:
         self.output = output
         self.calls = 0
@@ -369,6 +371,8 @@ class PlannerFake:
 
 
 class WriterFake:
+    external_provider_boundary = False
+
     def __init__(self, outputs: list[str | Exception]) -> None:
         self.outputs = outputs
         self.calls = 0
@@ -400,6 +404,8 @@ class ValidatorSessionFake:
 
 
 class ValidatorFactoryFake:
+    external_provider_boundary = False
+
     def __init__(self, decisions: list[ValidatorDecisionV1]) -> None:
         self.decisions = decisions
         self.sessions: list[ValidatorSessionFake] = []
@@ -425,6 +431,8 @@ class FailingValidatorSessionFake:
 
 
 class FailingValidatorFactoryFake:
+    external_provider_boundary = False
+
     def __init__(self) -> None:
         self.sessions: list[FailingValidatorSessionFake] = []
 
@@ -435,6 +443,8 @@ class FailingValidatorFactoryFake:
 
 
 class ReaderFake:
+    external_provider_boundary = False
+
     def __init__(self, outputs: list[ReaderVerdictV1]) -> None:
         self.outputs = outputs
         self.calls = 0
@@ -1601,6 +1611,8 @@ class SequenceFirstPipelineTests(unittest.TestCase):
 
 class SequenceFirstSessionTests(unittest.TestCase):
     class StoredLifecycleFake:
+        external_provider_boundary = False
+
         def __init__(self, base_instructions: str, prefix: str) -> None:
             self.base_instructions = base_instructions
             self.prefix = prefix
@@ -1622,6 +1634,8 @@ class SequenceFirstSessionTests(unittest.TestCase):
             return thread_id in self.started and thread_id not in self.archived
 
     class CodexTransportFake:
+        external_provider_boundary = False
+
         captured_schemas = []
         captured_workspaces = []
 
@@ -1718,6 +1732,8 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
 
     class PlannerBackend:
+        external_provider_boundary = False
+
         def __init__(self) -> None:
             self.starts = []
             self.prompts = []
@@ -1740,6 +1756,8 @@ class SequenceFirstSessionTests(unittest.TestCase):
             return True
 
     class ValidatorBackend:
+        external_provider_boundary = False
+
         def __init__(self) -> None:
             self.starts = []
             self.prompts = []
@@ -2644,6 +2662,8 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
 
         class RejectingTransport:
+            external_provider_boundary = False
+
             captured_schema = None
 
             def __init__(self, route, *, workspace: Path, runner) -> None:

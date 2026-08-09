@@ -58,6 +58,8 @@ ident = reasoner_test_support.ident
 
 
 class StaticReasonerRunner:
+    external_provider_boundary = False
+
     def __init__(
         self,
         outcome: ReasonerOutcome,
@@ -96,6 +98,8 @@ class StaticReasonerRunner:
 
 
 class FailingReasonerRunner:
+    external_provider_boundary = False
+
     def __init__(self) -> None:
         self.calls = 0
 

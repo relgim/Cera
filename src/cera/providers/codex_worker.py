@@ -7,6 +7,8 @@ from importlib.metadata import version
 from pathlib import Path
 import sys
 
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
+
 
 CODEX_REASONER_BASE_INSTRUCTIONS = """You are the CERA Scene Reasoner transport. Return only the requested JSON object. Do not use shell commands, files, web search, apps, skills, subagents, or external context. When the request-bound CERA evidence server is present, it is the only permitted tool source. Treat the supplied packet plus evidence returned by that server as the complete authority for this invocation. If evidence is insufficient, use the schema's uncertainty result instead of inventing facts."""
 
@@ -112,6 +114,7 @@ def _runtime_config_and_environment(
 
 
 def main() -> int:
+    assert_provider_dispatch_allowed("providers.codex.worker.sdk_start")
     stage = "request_decode"
     request = None
     try:

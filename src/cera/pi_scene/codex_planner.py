@@ -14,6 +14,10 @@ from typing import Any, Protocol
 
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.errors import ContractValidationError
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.schema import from_mapping
 from cera.sequence_first.contracts import (
     ApprovedTargetV1,
@@ -54,6 +58,10 @@ class RetainedCodexPlannerAdapter:
         self._turn_index = 0
 
     def plan(self, request: PlannerTurnInputV1) -> PlannerTurnOutputV1:
+        assert_provider_dispatch_allowed(
+            "pi_scene.codex_planner.plan",
+            external_provider_boundary=is_external_provider_boundary(self.session),
+        )
         self._turn_index += 1
         if self.operation_evidence is not None:
             self.operation_evidence.begin_turn(

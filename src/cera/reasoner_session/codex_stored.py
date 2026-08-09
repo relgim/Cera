@@ -14,6 +14,10 @@ from typing import Any, Protocol, runtime_checkable
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.serialization import text_sha256
 
 from .models import (
@@ -98,6 +102,8 @@ class OpenAICodexStoredThreadBackend:
     an ID whose empty rollout cannot be resumed from a later process.
     """
 
+    external_provider_boundary = True
+
     codex: Any
     model: str
     cwd: str
@@ -121,18 +127,29 @@ class OpenAICodexStoredThreadBackend:
             raise ContractValidationError(
                 "stored Codex service tier must be priority or omitted"
             )
-        if not self._session_epoch_id:
-            self._session_epoch_id = f"codex-app-server:{uuid4()}"
         if version("openai-codex") != self.transport_version:
             raise StateConflictError(
                 "installed Codex SDK does not match stored-thread compatibility"
             )
+        assert_provider_dispatch_allowed(
+            "reasoner_session.codex_stored.session_identity",
+            external_provider_boundary=self._external_provider_boundary(),
+        )
+        if not self._session_epoch_id:
+            self._session_epoch_id = f"codex-app-server:{uuid4()}"
 
     @property
     def session_epoch_id(self) -> str:
         return self._session_epoch_id
 
+    def _external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self)
+
     def start_stored_thread(self) -> str:
+        assert_provider_dispatch_allowed(
+            "reasoner_session.codex_stored.thread_start",
+            external_provider_boundary=self._external_provider_boundary(),
+        )
         from openai_codex.api import ApprovalMode
 
         thread = self.codex.thread_start(
@@ -150,6 +167,10 @@ class OpenAICodexStoredThreadBackend:
         return thread_id
 
     def fork_stored_thread(self, parent_thread_id: str) -> str:
+        assert_provider_dispatch_allowed(
+            "reasoner_session.codex_stored.thread_fork",
+            external_provider_boundary=self._external_provider_boundary(),
+        )
         from openai_codex.api import ApprovalMode
 
         thread = self.codex.thread_fork(
@@ -167,6 +188,10 @@ class OpenAICodexStoredThreadBackend:
         return thread_id
 
     def resume_stored_thread(self, thread_id: str) -> bool:
+        assert_provider_dispatch_allowed(
+            "reasoner_session.codex_stored.thread_resume",
+            external_provider_boundary=self._external_provider_boundary(),
+        )
         from openai_codex.api import ApprovalMode
 
         try:
@@ -206,6 +231,10 @@ class OpenAICodexStoredThreadBackend:
 
         if not isinstance(text, str) or not text.strip():
             raise ContractValidationError("stored Codex injected context is empty")
+        assert_provider_dispatch_allowed(
+            "reasoner_session.codex_stored.thread_inject_items",
+            external_provider_boundary=self._external_provider_boundary(),
+        )
         client = getattr(self.codex, "_client", None)
         request = getattr(client, "request", None)
         if not callable(request):
@@ -230,6 +259,10 @@ class OpenAICodexStoredThreadBackend:
         )
 
     def archive_stored_thread(self, thread_id: str) -> None:
+        assert_provider_dispatch_allowed(
+            "reasoner_session.codex_stored.thread_archive",
+            external_provider_boundary=self._external_provider_boundary(),
+        )
         self.codex.thread_archive(thread_id)
 
     def archive_stored_leaf(self, thread_id: str) -> None:
@@ -237,7 +270,7 @@ class OpenAICodexStoredThreadBackend:
         # reliable with its current local state database.  Archival is the
         # supported terminal isolation operation: archived leaves cannot be
         # resumed or selected as accepted ancestry.
-        self.codex.thread_archive(thread_id)
+        self.archive_stored_thread(thread_id)
 
     def stored_thread_is_selectable(self, thread_id: str) -> bool:
         """Return whether the app server still exposes a thread as active.
@@ -247,6 +280,10 @@ class OpenAICodexStoredThreadBackend:
         unknown outcome cannot be presented as verified archival.
         """
 
+        assert_provider_dispatch_allowed(
+            "reasoner_session.codex_stored.thread_list",
+            external_provider_boundary=self._external_provider_boundary(),
+        )
         cursor: str | None = None
         while True:
             response = self.codex.thread_list(
@@ -263,6 +300,10 @@ class OpenAICodexStoredThreadBackend:
                 return False
 
     def _materialize_thread(self, thread_id: str, *, role: str) -> None:
+        assert_provider_dispatch_allowed(
+            "reasoner_session.codex_stored.thread_set_name",
+            external_provider_boundary=self._external_provider_boundary(),
+        )
         client = getattr(self.codex, "_client", None)
         set_name = getattr(client, "thread_set_name", None)
         if not callable(set_name):

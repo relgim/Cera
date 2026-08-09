@@ -242,6 +242,8 @@ def _all_property_paths(value: object, path: str = "$"):
 
 
 class _Transport:
+    external_provider_boundary = False
+
     def __init__(self, *, route, payload: dict, thread_id: str) -> None:
         self.route = route
         self.payload = payload
@@ -844,6 +846,7 @@ class RuntimeModelV3ReaderHashCustodyTests(unittest.TestCase):
                 ),
                 call_ledger=ledger,
                 raw_result_observer=observed.append,
+                external_provider_boundary=False,
             )
             result = port.review(
                 "The prompt is not the byte-custody input.",

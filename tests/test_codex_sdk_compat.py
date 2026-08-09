@@ -60,7 +60,7 @@ class SimulatedPostResponseCompletionClient:
 class CodexSdkCompatibilityTests(unittest.TestCase):
     def test_early_completion_is_replayed_after_turn_start_registration(self) -> None:
         client = SimulatedEarlyCompletionClient()
-        codex = SimpleNamespace(_client=client)
+        codex = SimpleNamespace(_client=client, external_provider_boundary=False)
         state = install_early_turn_completion_buffer(codex)
         response = client.turn_start("thread:one", "prompt", params={})
         notification = client._router.next_turn_notification(response.turn.id)
@@ -72,7 +72,7 @@ class CodexSdkCompatibilityTests(unittest.TestCase):
 
     def test_returned_turn_is_registered_before_post_response_completion(self) -> None:
         client = SimulatedPostResponseCompletionClient()
-        codex = SimpleNamespace(_client=client)
+        codex = SimpleNamespace(_client=client, external_provider_boundary=False)
         state = install_early_turn_completion_buffer(codex)
         response = client.turn_start("thread:one", "prompt", params={})
 
@@ -94,7 +94,7 @@ class CodexSdkCompatibilityTests(unittest.TestCase):
 
     def test_unowned_early_completion_keeps_sdk_default_discard_behavior(self) -> None:
         client = SimulatedEarlyCompletionClient()
-        codex = SimpleNamespace(_client=client)
+        codex = SimpleNamespace(_client=client, external_provider_boundary=False)
         install_early_turn_completion_buffer(codex)
         turn = completed_turn("turn:unowned")
         client._router.route_notification(
@@ -113,7 +113,7 @@ class CodexSdkCompatibilityTests(unittest.TestCase):
 
     def test_changed_sdk_router_source_fails_closed(self) -> None:
         client = SimulatedEarlyCompletionClient()
-        codex = SimpleNamespace(_client=client)
+        codex = SimpleNamespace(_client=client, external_provider_boundary=False)
         with patch(
             "cera.providers.codex_sdk_compat.inspect.getsource",
             return_value="changed",

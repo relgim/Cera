@@ -11,7 +11,10 @@ from dataclasses import replace
 from pathlib import Path
 
 from cera.errors import ContractValidationError
-from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.schema import from_mapping
 from cera.serialization import text_sha256
 from cera.providers.codex import CodexSDKTransport, StoredCodexThreadRunner
@@ -512,13 +515,14 @@ class SequenceFirstPlannerCodexBackend:
         self._operation_index = 0
         self.last_provider_result: ContinuousProviderResultV1 | None = None
 
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self.lifecycle)
+
     def start_stored_thread(self, *, base_instructions: str, profile: str) -> str:
         assert_provider_dispatch_allowed(
             "sequence_first.planner.thread_start",
-            external_provider_boundary=isinstance(
-                self.lifecycle,
-                OpenAICodexStoredThreadBackend,
-            ),
+            external_provider_boundary=is_external_provider_boundary(self.lifecycle),
         )
         if profile != PLANNER_PROFILE or base_instructions != PLANNER_BASE_INSTRUCTIONS:
             raise ContractValidationError("sequence-first Planner profile changed")
@@ -537,10 +541,7 @@ class SequenceFirstPlannerCodexBackend:
     ) -> SequenceDraftV1:
         assert_provider_dispatch_allowed(
             "sequence_first.planner.turn",
-            external_provider_boundary=isinstance(
-                self.lifecycle,
-                OpenAICodexStoredThreadBackend,
-            ),
+            external_provider_boundary=is_external_provider_boundary(self.lifecycle),
         )
         self._operation_index += 1
         operation_workspace = _operation_workspace(
@@ -647,13 +648,14 @@ class SequenceFirstValidatorCodexBackend:
         self._operation_index = 0
         self.last_provider_result: ContinuousProviderResultV1 | None = None
 
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self.lifecycle)
+
     def start_fresh_thread(self, *, base_instructions: str, profile: str) -> str:
         assert_provider_dispatch_allowed(
             "sequence_first.validator.thread_start",
-            external_provider_boundary=isinstance(
-                self.lifecycle,
-                OpenAICodexStoredThreadBackend,
-            ),
+            external_provider_boundary=is_external_provider_boundary(self.lifecycle),
         )
         if profile != VALIDATOR_PROFILE or base_instructions != VALIDATOR_BASE_INSTRUCTIONS:
             raise ContractValidationError("sequence-first Validator profile changed")
@@ -673,10 +675,7 @@ class SequenceFirstValidatorCodexBackend:
     ) -> ValidatorDecisionV1:
         assert_provider_dispatch_allowed(
             "sequence_first.validator.turn",
-            external_provider_boundary=isinstance(
-                self.lifecycle,
-                OpenAICodexStoredThreadBackend,
-            ),
+            external_provider_boundary=is_external_provider_boundary(self.lifecycle),
         )
         self._operation_index += 1
         operation_workspace = _operation_workspace(
@@ -794,13 +793,14 @@ class SequenceFirstReaderCodexPort:
         self._operation_index = 0
         self.last_provider_result: ContinuousProviderResultV1 | None = None
 
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self.lifecycle)
+
     def read(self, request: SequenceFirstReaderInputV1) -> ReaderVerdictV1:
         assert_provider_dispatch_allowed(
             "sequence_first.reader.turn",
-            external_provider_boundary=isinstance(
-                self.lifecycle,
-                OpenAICodexStoredThreadBackend,
-            ),
+            external_provider_boundary=is_external_provider_boundary(self.lifecycle),
         )
         planner_item_keys = tuple(
             item.item_key for item in request.intended_sequence.items
@@ -927,6 +927,10 @@ class SequenceFirstDeepSeekWriterPort:
     ) -> None:
         self.composer = composer
         self.operation_evidence = operation_evidence
+
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self.composer)
 
     def write(
         self,

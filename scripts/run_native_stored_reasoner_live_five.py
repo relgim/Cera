@@ -32,6 +32,7 @@ from cera.providers import (
     codex_reasoner_candidate,
 )
 from cera.providers.codex_worker import _BASE_INSTRUCTIONS_BY_ROLE
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.reasoner import (
     CodexSceneReasonerPort,
     ReasonerCoordinator,
@@ -182,6 +183,7 @@ def canary_snapshot() -> EvidenceSnapshot:
 def stored_backend(
     *, workspace: Path, base_instructions: str
 ) -> Iterator[OpenAICodexStoredThreadBackend]:
+    assert_provider_dispatch_allowed("scripts.native_stored_reasoner.provider_runtime")
     from openai_codex import Codex, CodexConfig
 
     with Codex(CodexConfig(config_overrides=("mcp_servers={}",), env={})) as codex:

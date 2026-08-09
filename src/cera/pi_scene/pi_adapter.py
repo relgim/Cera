@@ -20,7 +20,10 @@ from typing import Callable, Mapping, Sequence
 from uuid import NAMESPACE_URL, uuid5
 
 from cera.errors import ContractValidationError, StateConflictError
-from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.serialization import canonical_sha256, text_sha256
 
 from .contracts import PiWriterReceiptV1, SceneRoute
@@ -100,6 +103,8 @@ ProcessRunner = Callable[
 class PiSceneAdapter:
     """One invocation, zero automatic retries, exact operation accounting."""
 
+    external_provider_boundary = True
+
     def __init__(
         self,
         *,
@@ -120,7 +125,6 @@ class PiSceneAdapter:
         self.provider = provider
         self.model = model
         self.timeout_seconds = timeout_seconds
-        self._external_process_runner = process_runner is None
         self._process_runner = process_runner or _run_process
         self.readable_debug = readable_debug
         if not self.pi_executable.is_file():
@@ -135,7 +139,7 @@ class PiSceneAdapter:
     def invoke(self, request: PiSceneInvocationV1) -> PiSceneInvocationResultV1:
         assert_provider_dispatch_allowed(
             "pi_scene.invoke",
-            external_provider_boundary=self._external_process_runner,
+            external_provider_boundary=is_external_provider_boundary(self),
         )
         view = verify_writer_view(request.view.root)
         if view.manifest_sha256 != request.view.manifest_sha256:
@@ -563,6 +567,10 @@ def _run_process(
     timeout_seconds: int,
     on_stdout_line: Callable[[str], None],
 ) -> _ProcessResult:
+    assert_provider_dispatch_allowed(
+        "pi_scene.process_runner",
+        external_provider_boundary=True,
+    )
     command_list = _native_command(command)
     stdout_lines: list[str] = []
     stderr_lines: list[str] = []

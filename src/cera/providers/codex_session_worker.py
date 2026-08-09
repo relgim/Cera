@@ -14,6 +14,11 @@ from pathlib import Path
 import sys
 from typing import Any
 
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
+
 
 _PROTOCOL_VERSION = "cera.codex_persistent_no_mcp.v1"
 _BASE_INSTRUCTIONS_BY_ROLE = {
@@ -122,6 +127,10 @@ def _run_request(
     sequence: int,
     compatibility_state,
 ) -> dict[str, Any]:
+    assert_provider_dispatch_allowed(
+        "providers.codex.session_worker.request",
+        external_provider_boundary=is_external_provider_boundary(codex),
+    )
     from openai_codex.api import ApprovalMode, ReasoningEffort
 
     _validate_request(request)
@@ -189,6 +198,7 @@ def _run_request(
 
 
 def main() -> int:
+    assert_provider_dispatch_allowed("providers.codex.session_worker.sdk_start")
     request: dict[str, Any] | None = None
     stage = "sdk_import"
     try:

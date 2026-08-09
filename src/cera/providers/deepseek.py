@@ -13,6 +13,10 @@ import urllib.request
 from cera.errors import ContractValidationError, ErrorCode
 from cera.evaluation import EvaluationRole
 from cera.ids import IdKind, deterministic_id
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.serialization import canonical_json, text_sha256
 
 from .models import (
@@ -42,6 +46,8 @@ class DeepSeekMessage:
 
 
 class DeepSeekChatTransport:
+    external_provider_boundary = True
+
     def __init__(
         self,
         route: LiveProviderRoute,
@@ -55,6 +61,11 @@ class DeepSeekChatTransport:
         self._opener = opener
         self._environment = os.environ if environment is None else environment
 
+    def external_provider_boundary_active(self) -> bool:
+        """Return whether this transport owns the production HTTP boundary."""
+
+        return is_external_provider_boundary(self)
+
     def invoke(
         self,
         messages: tuple[DeepSeekMessage, ...],
@@ -67,6 +78,10 @@ class DeepSeekChatTransport:
             raise ContractValidationError("DeepSeek invocation requires messages")
         if output_mode is ProviderOutputMode.JSON_SCHEMA:
             raise ContractValidationError("DeepSeek Chat transport does not claim strict JSON Schema")
+        assert_provider_dispatch_allowed(
+            "providers.deepseek.chat_completions",
+            external_provider_boundary=self.external_provider_boundary_active(),
+        )
         key_name = self.route.credential_environment_variable
         assert key_name is not None
         api_key = self._environment.get(key_name)

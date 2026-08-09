@@ -56,6 +56,7 @@ from cera.ingress import RawTurnEnvelope, RawTurnIngressFacade
 from cera.kernel import PreflightAuthority, RequestedContentClass, TurnKernel
 from cera.reasoner import SeedDossierAssembler
 from cera.providers.codex_worker import _BASE_INSTRUCTIONS_BY_ROLE
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.reasoner_session import OpenAICodexStoredThreadBackend
 from cera.runtime import HanezawaContinuousManualWorld
 from cera.schema import from_mapping
@@ -802,6 +803,8 @@ def _read_signed_record(
 class FileBackedScriptedContinuousSessionPort:
     """Provider-free stored-thread seam that survives a real process restart."""
 
+    external_provider_boundary = False
+
     def __init__(self, path: Path) -> None:
         self.path = path.resolve()
         self._lock = Lock()
@@ -1538,6 +1541,10 @@ def build_provider_backed_manual_adapter(
         )
         return adapter, harness, ExitStack()
 
+    assert_provider_dispatch_allowed(
+        "scripts.continuous_manual.provider_runtime",
+        external_provider_boundary=True,
+    )
     activation = _manual_provider_activation()
     if activation is None:
         raise RuntimeError("provider-backed adapter lacks activation authority")
@@ -2132,6 +2139,13 @@ def start_manual_root(root: Path) -> dict[str, Any]:
     status = manual_status(root, verify_execution=False)
     if status["status"] != "stopped" or status["port_open"]:
         raise RuntimeError("continuous manual service is not cleanly stopped")
+    assert_provider_dispatch_allowed(
+        "scripts.continuous_manual.child_process",
+        external_provider_boundary=(
+            _ACTIVE_ROUTE is PROVIDER_BACKED_MANUAL_ROUTE
+            and _ACTIVE_TRANSPORT_MODE == "external_provider"
+        ),
+    )
     process_instance_id = canonical_sha256(
         {
             "root": str(root),
@@ -2497,6 +2511,13 @@ def main(argv: list[str] | None = None) -> int:
     elif args.command == "pending-review":
         result = pending_review_status(args.root)
     elif args.command == "submit":
+        assert_provider_dispatch_allowed(
+            "scripts.continuous_manual.sillytavern_completion",
+            external_provider_boundary=(
+                _ACTIVE_ROUTE is PROVIDER_BACKED_MANUAL_ROUTE
+                and _ACTIVE_TRANSPORT_MODE == "external_provider"
+            ),
+        )
         _require_running_manual_root(args.root)
         _manifest, identity = _load_root(args.root)
         status, result = _http_json(

@@ -15,6 +15,8 @@ from cera.sequence_first.provider import sequence_first_writer_route
 
 class ProviderOperationEvidenceTests(unittest.TestCase):
     class DeepSeekTransportFake:
+        external_provider_boundary = False
+
         def __init__(self) -> None:
             self.route = sequence_first_writer_route()
 

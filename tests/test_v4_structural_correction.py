@@ -33,6 +33,7 @@ from cera.runtime import LiveShapedTurnFailure, LiveShapedTurnPipeline, TurnStag
 from cera.serialization import domain_sha256, text_sha256
 
 import tests.test_live_shaped_pipeline as live_support
+from tests.provider_fakes import OfflineDeepSeekChatTransport
 from scripts.run_live_story_qualification import QualificationCase, failure_record
 
 
@@ -188,10 +189,11 @@ class V4ComposerAndEvidenceTests(unittest.TestCase):
         args = self.support.ordinary_case("v4-receipt-export")
         bad_opener = InvalidOccurrenceOpener()
         bad_composer = DeepSeekSceneComposerPort(
-            DeepSeekChatTransport(
+            OfflineDeepSeekChatTransport(
                 deepseek_composer_candidate(),
                 opener=bad_opener,
                 environment={"DEEPSEEK_API_KEY": "dummy"},
+                external_provider_boundary=False,
             )
         )
         journal = TurnStageAuditJournal(self.support.real.sandbox.store)

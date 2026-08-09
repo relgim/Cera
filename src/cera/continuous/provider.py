@@ -17,6 +17,10 @@ from cera.creator_review.models import (
     ReviewIssueOwner,
 )
 from cera.errors import ContractValidationError
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.providers import (
     CodexSDKTransport,
     DeepSeekChatTransport,
@@ -5623,6 +5627,12 @@ class ContinuousProviderResultV1:
     physical_session_sha256: str | None = None
 
 
+def _transport_external_provider_boundary(transport: object) -> bool:
+    """Classify provider-shaped transports through the fail-closed marker."""
+
+    return is_external_provider_boundary(transport)
+
+
 class CodexContinuousPlannerPort:
     def __init__(
         self,
@@ -5645,6 +5655,12 @@ class CodexContinuousPlannerPort:
         protected_user_id: str | None = None,
         protected_user_source_claim_keys: tuple[str, ...] = (),
     ) -> ContinuousProviderResultV1:
+        assert_provider_dispatch_allowed(
+            "continuous.planner.plan",
+            external_provider_boundary=_transport_external_provider_boundary(
+                self.transport
+            ),
+        )
         self._operation_index += 1
         route = self.transport.route
         # All local schema and MCP construction completes before the provider
@@ -5729,6 +5745,12 @@ class CodexContinuousValidatorPort:
         expected_world_id: str | None = None,
         expected_branch_id: str | None = None,
     ) -> ContinuousProviderResultV1:
+        assert_provider_dispatch_allowed(
+            "continuous.validator.validate",
+            external_provider_boundary=_transport_external_provider_boundary(
+                self.transport
+            ),
+        )
         self._operation_index += 1
         route = self.transport.route
         output_schema = continuous_semantic_validator_draft_json_schema()
@@ -5931,6 +5953,12 @@ class CodexContinuousCompactValidatorPort:
         expected_branch_id: str | None = None,
         expected_planner_beat_keys: tuple[str, ...] | None = None,
     ) -> ContinuousProviderResultV1:
+        assert_provider_dispatch_allowed(
+            "continuous.compact_validator.validate",
+            external_provider_boundary=_transport_external_provider_boundary(
+                self.transport
+            ),
+        )
         self._operation_index += 1
         route = self.transport.route
         output_schema = self.output_schema_builder()
@@ -6076,8 +6104,16 @@ class CodexContinuousReaderPort:
         *,
         call_ledger: ContinuousProviderCallLedger,
         raw_result_observer: Callable[[dict[str, Any]], None] | None = None,
+        external_provider_boundary: bool | None = None,
     ) -> None:
         self.transport_factory = transport_factory
+        self.external_provider_boundary = (
+            is_external_provider_boundary(transport_factory)
+            if external_provider_boundary is None
+            else external_provider_boundary
+        )
+        if type(self.external_provider_boundary) is not bool:
+            raise ContractValidationError("Reader boundary marker must be boolean")
         self.call_ledger = call_ledger
         self.raw_result_observer = raw_result_observer
         self._operation_index = 0
@@ -6088,8 +6124,16 @@ class CodexContinuousReaderPort:
         *,
         writer_story_text: str,
     ) -> ContinuousProviderResultV1:
-        self._operation_index += 1
+        assert_provider_dispatch_allowed(
+            "continuous.reader.transport_factory",
+            external_provider_boundary=self.external_provider_boundary,
+        )
         transport = self.transport_factory()
+        assert_provider_dispatch_allowed(
+            "continuous.reader.review",
+            external_provider_boundary=_transport_external_provider_boundary(transport),
+        )
+        self._operation_index += 1
         route = transport.route
         allowed = {
             ("gpt-5.6-sol", "medium"),
@@ -6156,6 +6200,10 @@ class DeepSeekContinuousComposerPort:
         self.call_ledger = call_ledger
         self._operation_index = 0
 
+    @property
+    def external_provider_boundary(self) -> bool:
+        return _transport_external_provider_boundary(self.transport)
+
     def compose(
         self,
         prompt: str,
@@ -6166,6 +6214,12 @@ class DeepSeekContinuousComposerPort:
         operation_evidence_prompt_version: str | None = None,
         operation_evidence_schema_version: str | None = None,
     ) -> ContinuousProviderResultV1:
+        assert_provider_dispatch_allowed(
+            "continuous.composer.compose",
+            external_provider_boundary=_transport_external_provider_boundary(
+                self.transport
+            ),
+        )
         schema = continuous_scene_writer_draft_json_schema()
         messages = (
             DeepSeekMessage(

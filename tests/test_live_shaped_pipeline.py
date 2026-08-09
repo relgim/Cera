@@ -125,6 +125,7 @@ from cera.serialization import canonical_json, domain_sha256, text_sha256, to_pr
 from cera.storage import SQLiteAuthorityStore
 import tests.test_codex_scene_reasoner as codex_support
 import tests.test_real_genesis_integration as real_support
+from tests.provider_fakes import OfflineDeepSeekChatTransport
 
 
 class FakeHTTPResponse:
@@ -358,10 +359,11 @@ class LiveShapedPipelineTests(unittest.TestCase):
         )
         deepseek_opener = PacketDrivenDeepSeekOpener()
         composer_port = DeepSeekSceneComposerPort(
-            DeepSeekChatTransport(
+            OfflineDeepSeekChatTransport(
                 deepseek_composer_candidate(),
                 opener=deepseek_opener,
                 environment={"DEEPSEEK_API_KEY": "dummy"},
+                external_provider_boundary=False,
             )
         )
         return (
@@ -646,10 +648,11 @@ class LiveShapedPipelineTests(unittest.TestCase):
         )
         opener = PacketDrivenDeepSeekOpener()
         composer_port = DeepSeekSceneComposerPort(
-            DeepSeekChatTransport(
+            OfflineDeepSeekChatTransport(
                 deepseek_composer_candidate(),
                 opener=opener,
                 environment={"DEEPSEEK_API_KEY": "dummy"},
+                external_provider_boundary=False,
             )
         )
         return reasoner_request, reasoner_port, plan, composer_port, runner, opener, exact_marker
@@ -1117,10 +1120,11 @@ class LiveShapedPipelineTests(unittest.TestCase):
             raise urllib.error.URLError("offline")
 
         args[3] = DeepSeekSceneComposerPort(
-            DeepSeekChatTransport(
+            OfflineDeepSeekChatTransport(
                 deepseek_composer_candidate(),
                 opener=fail,
                 environment={"DEEPSEEK_API_KEY": "dummy"},
+                external_provider_boundary=False,
             )
         )
         before = tuple(
@@ -1167,10 +1171,11 @@ class LiveShapedPipelineTests(unittest.TestCase):
             )
 
         args[3] = DeepSeekSceneComposerPort(
-            DeepSeekChatTransport(
+            OfflineDeepSeekChatTransport(
                 deepseek_composer_candidate(),
                 opener=incomplete,
                 environment={"DEEPSEEK_API_KEY": "dummy"},
+                external_provider_boundary=False,
             )
         )
         with self.assertRaises(ComposerExecutionFailure) as caught:

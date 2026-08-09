@@ -23,6 +23,10 @@ import threading
 from typing import Any
 
 from cera.errors import ContractValidationError
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.serialization import text_sha256
 
 
@@ -60,6 +64,11 @@ def install_early_turn_completion_buffer(
 ) -> CodexSdkCompatibilityState:
     """Install the version/hash-pinned completion-buffering shim."""
 
+    external_provider_boundary = is_external_provider_boundary(codex)
+    assert_provider_dispatch_allowed(
+        "providers.codex.sdk_compatibility_install",
+        external_provider_boundary=external_provider_boundary,
+    )
     if version("openai-codex") != SUPPORTED_SDK_VERSION:
         raise ContractValidationError(
             "Codex SDK compatibility shim does not support this SDK version"
@@ -100,6 +109,10 @@ def install_early_turn_completion_buffer(
         input_items: Any,
         params: Any = None,
     ) -> Any:
+        assert_provider_dispatch_allowed(
+            "providers.codex.sdk_turn_start",
+            external_provider_boundary=external_provider_boundary,
+        )
         with in_flight_lock:
             if thread_id in in_flight_thread_ids:
                 raise ContractValidationError(

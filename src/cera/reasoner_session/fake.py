@@ -35,6 +35,8 @@ class _FakeThread:
 class InMemoryReasonerSessionPort:
     """Models app-server create/fork/inject/resume without a provider call."""
 
+    external_provider_boundary = False
+
     def __init__(self) -> None:
         self._sequence = 0
         self._threads: dict[str, _FakeThread] = {}

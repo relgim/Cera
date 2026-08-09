@@ -18,6 +18,7 @@ from cera.reasoner_session import (
     SessionTurnMode,
 )
 from cera.serialization import text_sha256
+from tests.provider_fakes import OfflineOpenAICodexStoredThreadBackend
 from cera.providers.codex_worker import _runtime_config_and_environment
 
 
@@ -255,7 +256,7 @@ class CodexStoredThreadSessionTests(unittest.TestCase):
 
     def test_openai_backend_materializes_non_ephemeral_threads_and_archives_leaf(self) -> None:
         codex = _FakeCodex()
-        backend = OpenAICodexStoredThreadBackend(
+        backend = OfflineOpenAICodexStoredThreadBackend(
             codex=codex,
             model="gpt-5.6-sol",
             cwd=r"D:\AIChatBot\Cera\.tmp\stored-test",
@@ -291,7 +292,7 @@ class CodexStoredThreadSessionTests(unittest.TestCase):
             raise RuntimeError("Invalid request: thread is archived")
 
         codex.thread_resume = archived_resume
-        backend = OpenAICodexStoredThreadBackend(
+        backend = OfflineOpenAICodexStoredThreadBackend(
             codex=codex,
             model="gpt-5.6-sol",
             cwd=r"D:\AIChatBot\Cera\.tmp\stored-test",

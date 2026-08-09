@@ -13,7 +13,10 @@ from cera.continuous.call_ledger import (
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.continuous.provider import ContinuousProviderResultV1
 from cera.errors import ContractValidationError
-from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.providers.codex import CodexSDKTransport, StoredCodexThreadRunner
 from cera.providers.models import LiveProviderRoute, ProviderCallResult
 from cera.providers.routes import codex_reasoner_candidate
@@ -29,13 +32,6 @@ from .validation import CognitionValidationContextV1, validate_cognition_plan
 
 COGNITION_PLANNER_ADAPTER = "cera.cognition.codex_planner_adapter.v1"
 COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v1"
-
-
-def _external_provider_boundary(value: object) -> bool:
-    """Fail closed unless a repository-owned fake explicitly opts out."""
-
-    marker = getattr(value, "external_provider_boundary_active", None)
-    return bool(marker()) if callable(marker) else True
 
 
 def cognition_planner_route() -> LiveProviderRoute:
@@ -75,7 +71,7 @@ class CodexCognitionPlannerBackend:
     def start_stored_thread(self, *, base_instructions: str, profile: str) -> str:
         assert_provider_dispatch_allowed(
             "cognition.planner.thread_start",
-            external_provider_boundary=_external_provider_boundary(self.lifecycle),
+            external_provider_boundary=is_external_provider_boundary(self.lifecycle),
         )
         if (
             profile != COGNITION_PLANNER_PROFILE
@@ -98,7 +94,7 @@ class CodexCognitionPlannerBackend:
     ) -> CognitionPlanV1:
         assert_provider_dispatch_allowed(
             "cognition.planner.turn",
-            external_provider_boundary=_external_provider_boundary(self.lifecycle),
+            external_provider_boundary=is_external_provider_boundary(self.lifecycle),
         )
         self._operation_index += 1
         operation_workspace = self.workspace / (

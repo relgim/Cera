@@ -17,6 +17,10 @@ from urllib.parse import urlparse
 
 from cera.errors import ContractValidationError, ErrorCode
 from cera.ids import IdKind, deterministic_id
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.serialization import canonical_json, text_sha256
 from cera.schema import from_mapping
 
@@ -42,6 +46,10 @@ from .codex_exec_contract import (
     CODEX_CLI_EXEC_CONTRACT_SHA256,
 )
 from .codex_observability import CodexOperationTelemetryV1
+
+
+def _runner_external_provider_boundary(runner: object) -> bool:
+    return is_external_provider_boundary(runner)
 
 
 @dataclass(frozen=True, slots=True)
@@ -243,6 +251,15 @@ class CodexSDKTransport:
         self.workspace = workspace
         self.runner = runner or _SubprocessCodexRunner()
 
+    def external_provider_boundary_active(self) -> bool:
+        """Return whether the bound runner owns a concrete provider process."""
+
+        return _runner_external_provider_boundary(self.runner)
+
+    @property
+    def external_provider_boundary(self) -> bool:
+        return self.external_provider_boundary_active()
+
     def invoke(
         self,
         prompt: str,
@@ -260,6 +277,10 @@ class CodexSDKTransport:
             raise ContractValidationError("Codex invocation requires a prompt")
         if not isinstance(output_schema, dict) or not output_schema:
             raise ContractValidationError("Codex invocation requires an output schema")
+        assert_provider_dispatch_allowed(
+            "providers.codex.sdk_transport",
+            external_provider_boundary=self.external_provider_boundary_active(),
+        )
         projection = project_provider_output_schema(
             output_schema,
             ProviderSchemaDialect.OPENAI_STRUCTURED_OUTPUT_V1,
@@ -547,6 +568,8 @@ def _codex_transport_json(value: Any) -> str:
 
 
 class _SubprocessCodexRunner:
+    external_provider_boundary = True
+
     def __init__(
         self,
         *,
@@ -580,6 +603,10 @@ class _SubprocessCodexRunner:
         on_worker_preflight: Callable[[], None] | None = None,
         on_provider_submit: Callable[[], None] | None = None,
     ) -> CodexWorkerResult:
+        assert_provider_dispatch_allowed(
+            "providers.codex.subprocess_runner",
+            external_provider_boundary=is_external_provider_boundary(self),
+        )
         progress_path = _initialize_codex_worker_progress(workspace)
         request_payload = {
                 "model": route.model_name,
@@ -747,6 +774,7 @@ class PersistentNoMcpCodexRunner:
 
     PROTOCOL_VERSION = "cera.codex_persistent_no_mcp.v1"
     QUALIFIED_MAX_REQUESTS_PER_PROCESS = 2
+    external_provider_boundary = True
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
@@ -785,6 +813,10 @@ class PersistentNoMcpCodexRunner:
         on_worker_preflight: Callable[[], None] | None = None,
         on_provider_submit: Callable[[], None] | None = None,
     ) -> CodexWorkerResult:
+        assert_provider_dispatch_allowed(
+            "providers.codex.persistent_runner",
+            external_provider_boundary=is_external_provider_boundary(self),
+        )
         if mcp_binding is not None:
             raise ProviderTransportError(
                 ErrorCode.REASONER_CONTRACT_INVALID,
@@ -982,6 +1014,10 @@ class PersistentNoMcpCodexRunner:
             self._current_process_submission_count = 0
 
     def _ensure_process(self) -> subprocess.Popen[str]:
+        assert_provider_dispatch_allowed(
+            "providers.codex.persistent_process_start",
+            external_provider_boundary=is_external_provider_boundary(self),
+        )
         if self._process is not None and self._process.poll() is None:
             if (
                 self._current_process_submission_count

@@ -28,6 +28,7 @@ from cera.providers.codex_exec_contract import (
     CODEX_CLI_EXEC_CONTRACT_SHA256,
     CODEX_CLI_EXEC_VERSION,
 )
+from tests.provider_fakes import OfflineCodexExecRunner
 
 
 def _success_jsonl(*, item_type: str = "agent_message") -> str:
@@ -136,7 +137,7 @@ class CodexExecRunnerTests(unittest.TestCase):
             transport = CodexStructuredOutputTransport(
                 route,
                 workspace=workspace,
-                runner=CodexExecRunner(),
+                runner=OfflineCodexExecRunner(),
             )
             result = transport.invoke(
                 "Verify only this synthetic candidate.",
@@ -181,7 +182,7 @@ class CodexExecRunnerTests(unittest.TestCase):
         self.assertTrue(workspace_empty)
 
     def test_runner_rejects_mcp_and_unpinned_route_before_dispatch(self) -> None:
-        runner = CodexExecRunner()
+        runner = OfflineCodexExecRunner()
         route = codex_cli_realization_verifier_candidate()
         with tempfile.TemporaryDirectory() as directory, patch(
             "cera.providers.codex_exec.subprocess.Popen"
@@ -221,7 +222,7 @@ class CodexExecRunnerTests(unittest.TestCase):
             "cera.providers.codex_exec._terminate_codex_worker_tree"
         ) as terminate:
             with self.assertRaises(ProviderTransportError) as caught:
-                CodexExecRunner().run(
+                OfflineCodexExecRunner().run(
                     route=codex_cli_realization_verifier_candidate(),
                     prompt="probe",
                     output_schema=codex_transport_probe_output_schema(),
@@ -247,7 +248,7 @@ class CodexExecRunnerTests(unittest.TestCase):
             side_effect=FailedProcess,
         ):
             with self.assertRaises(ProviderTransportError) as caught:
-                CodexExecRunner().run(
+                OfflineCodexExecRunner().run(
                     route=codex_cli_realization_verifier_candidate(),
                     prompt="probe",
                     output_schema=codex_transport_probe_output_schema(),
@@ -270,7 +271,7 @@ class CodexExecRunnerTests(unittest.TestCase):
             side_effect=MutatingProcess,
         ):
             with self.assertRaises(ProviderTransportError) as caught:
-                CodexExecRunner().run(
+                OfflineCodexExecRunner().run(
                     route=codex_cli_realization_verifier_candidate(),
                     prompt="probe",
                     output_schema=codex_transport_probe_output_schema(),

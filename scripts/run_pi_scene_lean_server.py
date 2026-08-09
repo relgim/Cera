@@ -67,6 +67,7 @@ from cera.pi_scene.world_runtime import (
 )
 from cera.pi_scene.world_workspace import PiSceneWorldWorkspaceManager
 from cera.pi_scene.writer_view import WriterViewMaterializer
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
 from cera.sequence_first.prompting import PLANNER_BASE_INSTRUCTIONS, PLANNER_PROFILE
 from cera.sequence_first.provider import SequenceFirstPlannerCodexBackend
@@ -192,6 +193,7 @@ def build_live_runtime(
     planner_session_factory: PlannerSessionFactory | None = None,
     planner_backend_factory: PlannerBackendFactory | None = None,
 ) -> LivePiSceneRuntime:
+    assert_provider_dispatch_allowed("scripts.pi_scene_lean.live_runtime")
     runtime_root, lifecycle_root, operation_root = _initialize_live_runtime_roots(
         runtime_root
     )
@@ -582,6 +584,7 @@ class _IsolatedSillyTavernClient:
         source: str,
         session_id: str,
     ) -> dict[str, Any]:
+        assert_provider_dispatch_allowed("scripts.pi_scene_lean.sillytavern_completion")
         payload = {
             "chat_completion_source": "custom",
             "custom_url": cera_base.rstrip("/") + "/v1",

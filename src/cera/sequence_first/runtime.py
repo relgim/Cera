@@ -8,6 +8,10 @@ from typing import Protocol
 from cera.errors import ContractValidationError
 from cera.continuous.operation_evidence import ProviderOperationEvidenceStoreV1
 from cera.serialization import canonical_sha256, text_sha256
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 
 from .contracts import (
     BoundSequenceV1,
@@ -143,6 +147,18 @@ class SequenceFirstCoordinator:
         request: SequenceFirstTurnRequestV1,
     ) -> SequenceFirstRunResultV1:
         semantics = request.semantic_input
+        assert_provider_dispatch_allowed(
+            "sequence_first.coordinator.generate",
+            external_provider_boundary=any(
+                is_external_provider_boundary(owner)
+                for owner in (
+                    self._planner,
+                    self._writer,
+                    self._validator_factory,
+                    self._reader,
+                )
+            ),
+        )
         if self._operation_evidence is not None:
             self._operation_evidence.begin_turn(request.custody.turn_id)
         intended = self._planner.plan(semantics)

@@ -64,6 +64,7 @@ from cera.pi_scene.writer_view import (
 )
 from cera.pi_scene.readable_debug import ReadablePiSceneDebugLog
 from cera.serialization import canonical_json, canonical_sha256, text_sha256
+from tests.provider_fakes import OfflinePiSceneAdapter
 from cera.sequence_first.contracts import (
     ItemKind,
     SequenceDraftV1,
@@ -116,6 +117,8 @@ class FakePlanner:
 
 
 class FakeSequencePlannerSession:
+    external_provider_boundary = False
+
     def __init__(self) -> None:
         self.calls = []
 
@@ -149,6 +152,8 @@ class FakeOperationEvidence:
 
 
 class FakePi:
+    external_provider_boundary = False
+
     def __init__(self) -> None:
         self.calls: list[PiSceneInvocationV1] = []
         self.writer_outputs: list[str] = []
@@ -416,6 +421,8 @@ class PiSceneLeanTests(unittest.TestCase):
 
     def test_retained_planner_rejects_internal_only_sequence_before_writer(self) -> None:
         class InternalOnlyPlannerSession:
+            external_provider_boundary = False
+
             def plan(self, semantic_input):
                 return SequenceDraftV1(
                     items=(
@@ -1791,7 +1798,7 @@ class PiSceneLeanTests(unittest.TestCase):
                 (root / "provider_operations.jsonl").resolve(),
                 maximum_operations=60,
             )
-            adapter = PiSceneAdapter(
+            adapter = OfflinePiSceneAdapter(
                 pi_executable=executable,
                 extension_path=extension,
                 pi_version="0.84.1",

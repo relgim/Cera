@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Protocol
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.provider_dispatch_guard import is_external_provider_boundary
 from cera.sequence_first.contracts import ProviderReferenceScopeV1
 
 from .contracts import CognitionPlanV1, CognitionTurnContextV1
@@ -50,6 +51,10 @@ class PersistentCognitionPlannerSession:
     @property
     def thread_id(self) -> str | None:
         return self._thread_id
+
+    @property
+    def external_provider_boundary(self) -> bool:
+        return is_external_provider_boundary(self._backend)
 
     def plan(self, context: CognitionTurnContextV1) -> CognitionPlanV1:
         if self._thread_id is None:

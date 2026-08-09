@@ -61,6 +61,8 @@ FIXTURE_PATH = (
 
 
 class _FixturePlannerTransport:
+    external_provider_boundary = False
+
     def __init__(self, payload: dict[str, object]) -> None:
         self.route = continuous_planner_route(effort="medium")
         self.runner = SimpleNamespace(provider_thread_id="fixture-planner-thread")

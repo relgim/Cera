@@ -40,6 +40,8 @@ from cera.serialization import text_sha256
 
 
 class StaticVerifierRunner:
+    external_provider_boundary = False
+
     def __init__(self, payload: dict[str, object]) -> None:
         self.payload = payload
         self.calls = 0

@@ -70,6 +70,8 @@ class _ContextSource(AcceptedBranchContextSource):
 
 
 class _CapturingPlannerSession:
+    external_provider_boundary = False
+
     def __init__(self) -> None:
         self.semantic_input = None
 

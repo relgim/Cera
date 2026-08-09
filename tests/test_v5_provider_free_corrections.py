@@ -58,6 +58,7 @@ from cera.serialization import canonical_json, domain_sha256
 import tests.test_composer as composer_support
 import tests.test_deepseek_scene_composer as deepseek_support
 import tests.test_live_shaped_pipeline as live_support
+from tests.provider_fakes import OfflineDeepSeekChatTransport
 from tests.test_v4_structural_correction import AnchoredProtectedUserRejectingVerifier
 from scripts.run_live_story_qualification import QualificationRejectedCandidateReviewStore
 
@@ -244,10 +245,11 @@ class V5ProviderContractTests(unittest.TestCase):
         from_mapping(DeepSeekCompositionDraftV3, response)
         opener = deepseek_support.RecordingOpener(response)
         port = DeepSeekSceneComposerPort(
-            DeepSeekChatTransport(
+            OfflineDeepSeekChatTransport(
                 deepseek_composer_candidate(),
                 opener=opener,
                 environment={"DEEPSEEK_API_KEY": "dummy"},
+                external_provider_boundary=False,
             )
         )
         with self.assertRaises(ComposerExecutionFailure) as caught:

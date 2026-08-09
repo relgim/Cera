@@ -53,6 +53,7 @@ from cera.continuous.thread_lineage import ContinuousThreadLineageLedger
 from cera.continuous.world import ContinuousWorldStore
 from cera.creator_review import CreatorReviewAction
 from cera.providers.codex_worker import _BASE_INSTRUCTIONS_BY_ROLE
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.reasoner_session import OpenAICodexStoredThreadBackend
 from cera.serialization import (
     bytes_sha256,
@@ -1529,6 +1530,9 @@ def _build_campaign_harness(
             "scripted_provider_free": True,
         }
     elif transport_mode == "external_provider":
+        assert_provider_dispatch_allowed(
+            "scripts.continuous_v3_campaign.provider_runtime"
+        )
         from openai_codex import Codex, CodexConfig
 
         codex = provider_stack.enter_context(
@@ -1642,6 +1646,10 @@ def run_single(args: argparse.Namespace) -> int:
         raise ValueError("child command differs from its campaign configuration")
     if run_root.exists():
         raise FileExistsError("refusing to overwrite immutable run evidence")
+    assert_provider_dispatch_allowed(
+        "scripts.continuous_v3_campaign.single_run",
+        external_provider_boundary=args.transport_mode == "external_provider",
+    )
     run_root.mkdir(parents=True)
     result_path = run_root / "RUN_RESULT.json"
     copied_db = run_root / "hanezawa_disposable.sqlite3"
@@ -1891,6 +1899,10 @@ def run_campaign(args: argparse.Namespace) -> int:
     campaign_root = args.runtime_root.resolve()
     if campaign_root.exists():
         raise FileExistsError("refusing to overwrite immutable campaign evidence")
+    assert_provider_dispatch_allowed(
+        "scripts.continuous_v3_campaign.child_process",
+        external_provider_boundary=args.transport_mode == "external_provider",
+    )
     manifest = execution_manifest(
         source_db,
         cycle=cycle,

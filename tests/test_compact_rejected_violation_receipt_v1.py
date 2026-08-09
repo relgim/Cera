@@ -651,6 +651,8 @@ class CompactRejectedViolationReceiptV1Tests(unittest.TestCase):
         captured: dict[str, object] = {}
 
         class Transport:
+            external_provider_boundary = False
+
             route = continuous_compact_validator_v2_route(
                 model="gpt-5.6-sol", effort="medium"
             )

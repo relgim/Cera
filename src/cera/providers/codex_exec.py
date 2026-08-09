@@ -18,6 +18,10 @@ import time
 from typing import Any
 
 from cera.errors import ErrorCode
+from cera.provider_dispatch_guard import (
+    assert_provider_dispatch_allowed,
+    is_external_provider_boundary,
+)
 from cera.serialization import canonical_json
 
 from .codex import (
@@ -48,6 +52,8 @@ _REDACTED_ENVIRONMENT_KEYS = frozenset(
 class CodexExecRunner:
     """Run one ChatGPT-authenticated Codex request in one CLI process."""
 
+    external_provider_boundary = True
+
     def __init__(self) -> None:
         self.process_launch_count = 0
         self.request_submission_count = 0
@@ -61,6 +67,10 @@ class CodexExecRunner:
         workspace: Path,
         mcp_binding: CodexMcpRuntimeBinding | None,
     ) -> CodexWorkerResult:
+        assert_provider_dispatch_allowed(
+            "providers.codex.cli_exec",
+            external_provider_boundary=is_external_provider_boundary(self),
+        )
         if mcp_binding is not None:
             raise ProviderTransportError(
                 ErrorCode.REASONER_CONTRACT_INVALID,

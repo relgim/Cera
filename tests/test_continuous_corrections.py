@@ -1532,6 +1532,8 @@ class ContinuousCallAccountingTests(unittest.TestCase):
         )
 
         class Transport:
+            external_provider_boundary = False
+
             def __init__(self) -> None:
                 self.route = route
                 self.runner = SimpleNamespace(provider_thread_id="stored-planner-1")
@@ -1573,6 +1575,8 @@ class ContinuousCallAccountingTests(unittest.TestCase):
         )
 
         class Transport:
+            external_provider_boundary = False
+
             def __init__(self) -> None:
                 self.route = route
                 self.runner = SimpleNamespace(provider_thread_id="stored-planner-2")
@@ -1623,6 +1627,8 @@ class ContinuousCallAccountingTests(unittest.TestCase):
         )
 
         class Transport:
+            external_provider_boundary = False
+
             def __init__(self) -> None:
                 self.route = route
                 self.runner = SimpleNamespace(provider_thread_id="stored-validator-1")
@@ -1662,6 +1668,8 @@ class ContinuousCallAccountingTests(unittest.TestCase):
         )
 
         class Transport:
+            external_provider_boundary = False
+
             def __init__(self) -> None:
                 self.route = route
 
@@ -1685,6 +1693,8 @@ class ContinuousCallAccountingTests(unittest.TestCase):
         )
 
         class Transport:
+            external_provider_boundary = False
+
             def __init__(self) -> None:
                 self.route = route
                 self.runner = SimpleNamespace(provider_thread_id="stored-planner-mcp")

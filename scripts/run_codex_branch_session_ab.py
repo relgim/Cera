@@ -27,6 +27,7 @@ from cera.providers import CodexSDKTransport, codex_reasoner_candidate
 from cera.providers.codex import CodexWorkerResult
 from cera.providers.codex_sdk_compat import install_early_turn_completion_buffer
 from cera.providers.codex_worker import _BASE_INSTRUCTIONS_BY_ROLE
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.reasoner import CodexSceneReasonerPort
 from cera.reasoner.codex import (
     build_codex_reasoner_packet,
@@ -190,6 +191,8 @@ def codex_config() -> dict[str, Any]:
 class InProcessSessionRunner:
     """One app-server process with selectable fresh or continued thread policy."""
 
+    external_provider_boundary = True
+
     def __init__(
         self,
         *,
@@ -218,6 +221,7 @@ class InProcessSessionRunner:
             self.thread_invalidation_count += 1
 
     def __enter__(self) -> "InProcessSessionRunner":
+        assert_provider_dispatch_allowed("scripts.codex_branch_session.provider_runtime")
         from openai_codex import Codex, CodexConfig
 
         self._codex_context = Codex(
@@ -235,6 +239,7 @@ class InProcessSessionRunner:
             self._codex_context.__exit__(exc_type, exc, traceback)
 
     def _start_thread(self, route):
+        assert_provider_dispatch_allowed("scripts.codex_branch_session.thread_start")
         from openai_codex.api import ApprovalMode
 
         assert self.codex is not None
@@ -263,6 +268,7 @@ class InProcessSessionRunner:
         workspace: Path,
         mcp_binding,
     ) -> CodexWorkerResult:
+        assert_provider_dispatch_allowed("scripts.codex_branch_session.thread_run")
         from openai_codex.api import ReasoningEffort
 
         if mcp_binding is not None:
