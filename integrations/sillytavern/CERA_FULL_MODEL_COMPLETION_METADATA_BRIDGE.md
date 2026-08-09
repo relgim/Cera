@@ -71,7 +71,14 @@ authenticated, read-only GET. Only the exact
 `cera.pi_scene.transport_retry_status.v1` states `eligible`, `in_progress`,
 `succeeded`, `superseded`, and `blocked` are accepted. `eligible` and
 `superseded` may expose one backend-issued manual action; every other state has
-no provider-dispatch button.
+no provider-dispatch button. A `succeeded` completion is usable only when its
+nested CERA request ID exactly matches the durable receipt/status request ID;
+an identity mismatch remains unresolved and never appends story output.
+
+The exact authenticated not-found envelope may contain a null or bounded local
+debug-log path. The relay validates that field as part of the closed envelope
+but always projects it away, together with the trace and all other local
+diagnostic details.
 
 A successful retry is inserted as one normal completion. Its stable retry,
 request, and completion identities are saved beside the assistant message. The

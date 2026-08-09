@@ -587,10 +587,15 @@ async function reconcileTransportRetry() {
 async function appendTransportRetryCompletion(result, receipt, chatKey) {
     const storyText = result?.choices?.[0]?.message?.content;
     const completion = normalizeCompletionMetadata(result?.cera);
-    if (typeof storyText !== 'string' || !storyText.trim() || !completion) {
+    if (
+        typeof storyText !== 'string'
+        || !storyText.trim()
+        || !completion
+        || completion.request_id !== receipt.request_id
+    ) {
         throw new CeraReviewRequestError(
             'invalid_response',
-            'CERA returned an invalid transport retry completion.',
+            'CERA returned a transport retry completion that did not match the durable request.',
         );
     }
     const identity = completionIdentity(completion);

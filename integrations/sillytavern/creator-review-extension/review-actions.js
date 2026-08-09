@@ -255,6 +255,8 @@ export function normalizeTransportRetryStatus(value) {
             !exactKeys(value, [...commonKeys, 'completion', 'completion_sha256'])
             || value.retry_transport_enabled !== false
             || !plainObject(value.completion)
+            || !plainObject(value.completion.cera)
+            || value.completion.cera.request_id !== value.request_id
             || !SHA256_PATTERN.test(value.completion_sha256)
         ) return null;
         normalized = {

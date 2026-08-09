@@ -329,6 +329,7 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertIn("isProxyLoopbackUnavailable(error)", extension)
         self.assertIn("await reconcileTransportRetry()", extension)
         self.assertIn("transport_retry_completion: marker", extension)
+        self.assertIn("completion.request_id !== receipt.request_id", extension)
         self.assertLess(
             extension.index(
                 "await saveChatConditional();",
@@ -343,6 +344,7 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertIn("normalizePersistedTransportRetryState", actions)
         self.assertIn("router.get('/v1/cera/transport-retries/:retryId'", proxy)
         self.assertIn("projectTransportRetryStatusPayload", proxy)
+        self.assertIn("value.completion.cera.request_id !== value.request_id", proxy)
 
     def test_openai_bridge_routes_all_cera_metadata_through_closed_projection(self) -> None:
         openai = (SILLYTAVERN_ROOT / "public" / "scripts" / "openai.js").read_text(

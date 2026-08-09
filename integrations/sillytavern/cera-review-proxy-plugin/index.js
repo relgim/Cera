@@ -318,6 +318,10 @@ export function projectTransportRetryStatusPayload(value) {
             || !value.completion
             || typeof value.completion !== 'object'
             || Array.isArray(value.completion)
+            || !value.completion.cera
+            || typeof value.completion.cera !== 'object'
+            || Array.isArray(value.completion.cera)
+            || value.completion.cera.request_id !== value.request_id
             || !SHA256_PATTERN.test(value.completion_sha256)
         ) throw new TypeError('CERA transport retry success status is invalid');
         stateFields = {
@@ -408,7 +412,14 @@ function projectTransportRetryNotFound(value) {
         || error.provider_operation_submitted !== false
         || error.accepted_state_changed !== false
         || error.next_action !== 'check_transport_retry_identity'
-        || error.debug_log_path !== null
+        || (
+            error.debug_log_path !== null
+            && (
+                typeof error.debug_log_path !== 'string'
+                || error.debug_log_path.length > 2_000
+                || /[\u0000-\u001f\u007f]/.test(error.debug_log_path)
+            )
+        )
         || error.retry_transport_enabled !== false
     ) return null;
     return {

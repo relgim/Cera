@@ -173,6 +173,13 @@ test('transport retry status projection accepts only the five closed lifecycle s
         ...values[4],
         blocked_reason_code: 'generic_failure',
     }));
+    assert.throws(() => projectTransportRetryStatusPayload({
+        ...values[2],
+        completion: {
+            ...completion,
+            cera: { ...completion.cera, request_id: `request-${'0'.repeat(64)}` },
+        },
+    }));
 });
 
 test('transport retry status projection sanitizes the exact authenticated not-found envelope', () => {
@@ -195,7 +202,7 @@ test('transport retry status projection sanitizes the exact authenticated not-fo
             provider_operation_submitted: false,
             accepted_state_changed: false,
             next_action: 'check_transport_retry_identity',
-            debug_log_path: null,
+            debug_log_path: 'D:\\private\\retry-status.md',
             retry_transport_enabled: false,
         },
     };
@@ -203,7 +210,13 @@ test('transport retry status projection sanitizes the exact authenticated not-fo
     assert.equal(projected.error.error_code, 'CERA_TRANSPORT_RETRY_NOT_FOUND');
     assert.equal(projected.error.retry_transport_enabled, false);
     assert.equal(JSON.stringify(projected).includes('private-local-id'), false);
+    assert.equal(JSON.stringify(projected).includes('retry-status.md'), false);
     assert.equal('trace_id' in projected.error, false);
+    assert.equal('debug_log_path' in projected.error, false);
+    assert.throws(() => projectTransportRetryStatusPayload({
+        ...value,
+        error: { ...value.error, debug_log_path: 'x'.repeat(2_001) },
+    }));
 });
 
 test('transport retry route forwards one authenticated empty POST and preserves status', async () => {

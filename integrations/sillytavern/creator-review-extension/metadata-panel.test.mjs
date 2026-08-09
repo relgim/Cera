@@ -693,6 +693,16 @@ test('retry status normalizer closes all five backend states and rejects extra a
             ...statuses[4],
             retry_transport_enabled: true,
         }), null);
+        assert.equal(actions.normalizeTransportRetryStatus({
+            ...statuses[2],
+            completion: {
+                ...completion,
+                cera: {
+                    ...completion.cera,
+                    request_id: `request-${'9'.repeat(64)}`,
+                },
+            },
+        }), null);
     } finally {
         await rm(root, { recursive: true, force: true });
     }
@@ -782,6 +792,46 @@ test('chat switch during POST cannot append or rewrite another chat receipt', as
             'in_progress',
         );
         assert.ok(buttonByText(loaded.testDocument, 'Retry transport'));
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('POST and GET completions with a mismatched CERA request identity never append', async () => {
+    const failure = eligibleTransportFailure();
+    const completion = transportRetryCompletion(failure);
+    const mismatched = {
+        ...completion,
+        cera: {
+            ...completion.cera,
+            request_id: `request-${'9'.repeat(64)}`,
+        },
+    };
+    const responses = [
+        jsonResponse(mismatched),
+        jsonResponse(transportRetryStatus(failure, 'succeeded', {
+            completion: mismatched,
+            completion_sha256: '0'.repeat(64),
+        })),
+    ];
+    const methods = [];
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            methods.push(options.method);
+            return responses.shift();
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureTransportFailure(failure), true);
+        await buttonByText(loaded.testDocument, 'Retry transport').click();
+        assert.deepEqual(methods, ['POST', 'GET']);
+        assert.equal(loaded.scriptModule.chat.length, 0);
+        assert.equal(loaded.scriptModule.testState.addCount, 0);
+        assert.equal(retryStore(loaded.storage).entries[0].phase, 'unknown');
+        assert.equal(buttonByText(loaded.testDocument, 'Retry transport'), null);
+        assert.ok(buttonByText(loaded.testDocument, 'Check retry status'));
     } finally {
         globalThis.fetch = originalFetch;
         await rm(loaded.root, { recursive: true, force: true });
