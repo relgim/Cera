@@ -86,9 +86,7 @@ class PersistentCognitionPlannerSession:
             "last_available_evidence_refs",
             reference_scope.evidence_keys,
         )
-        if not isinstance(dynamic, tuple) or any(
-            not isinstance(value, str) for value in dynamic
-        ):
+        if not isinstance(dynamic, tuple) or any(not isinstance(value, str) for value in dynamic):
             raise StateConflictError("cognition backend evidence scope changed shape")
         if not dynamic:
             dynamic = reference_scope.evidence_keys
