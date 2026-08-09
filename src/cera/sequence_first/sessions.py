@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from typing import Callable, Protocol
 
 from cera.errors import ContractValidationError, StateConflictError
 
@@ -40,9 +40,18 @@ class PlannerThreadBackendPort(Protocol):
 class PersistentPlannerSession:
     """Install stable Planner instructions once, then submit only turn deltas."""
 
-    def __init__(self, backend: PlannerThreadBackendPort) -> None:
+    def __init__(
+        self,
+        backend: PlannerThreadBackendPort,
+        *,
+        restored_thread_id: str | None = None,
+        persist_thread_id: Callable[[str], None] | None = None,
+    ) -> None:
+        if restored_thread_id is not None and not restored_thread_id.strip():
+            raise ContractValidationError("restored Planner thread identity is empty")
         self._backend = backend
-        self._thread_id: str | None = None
+        self._thread_id = restored_thread_id
+        self._persist_thread_id = persist_thread_id
 
     @property
     def thread_id(self) -> str | None:
@@ -50,10 +59,17 @@ class PersistentPlannerSession:
 
     def plan(self, semantic_input: SequenceFirstTurnSemanticInputV1) -> SequenceDraftV1:
         if self._thread_id is None:
-            self._thread_id = self._backend.start_stored_thread(
+            thread_id = self._backend.start_stored_thread(
                 base_instructions=PLANNER_BASE_INSTRUCTIONS,
                 profile=PLANNER_PROFILE,
             )
+            if not isinstance(thread_id, str) or not thread_id.strip():
+                raise ContractValidationError(
+                    "persistent Planner backend returned an empty thread identity"
+                )
+            if self._persist_thread_id is not None:
+                self._persist_thread_id(thread_id)
+            self._thread_id = thread_id
         elif not self._backend.is_resumable(self._thread_id):
             raise StateConflictError("persistent Planner thread is not resumable")
         return self._backend.run_planner_turn(
