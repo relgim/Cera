@@ -7,6 +7,7 @@ from typing import Any
 from cera.errors import StateConflictError
 from cera.sequence_first.contracts import ProviderReferenceScopeV1, SequenceDraftV1
 from cera.sequence_first.provider import SequenceFirstPlannerCodexBackend
+from cera.serialization import text_sha256
 
 from .world_workspace import BranchBoundWorldMcpFactory
 
@@ -28,6 +29,7 @@ class BranchBoundSequenceFirstPlannerBackend(SequenceFirstPlannerCodexBackend):
     ) -> None:
         super().__init__(world_bridge=None, **kwargs)
         self.world_mcp_factory = world_mcp_factory
+        self._retrieval_request_index = 0
 
     def run_planner_turn(
         self,
@@ -38,7 +40,16 @@ class BranchBoundSequenceFirstPlannerBackend(SequenceFirstPlannerCodexBackend):
     ) -> SequenceDraftV1:
         if self.world_bridge is not None:
             raise StateConflictError("Planner retained a prior request MCP bridge")
-        bridge = self.world_mcp_factory.bridge()
+        self._retrieval_request_index += 1
+        bridge = self.world_mcp_factory.bridge(
+            request_id=(
+                "sequence_request_"
+                + text_sha256(
+                    f"{thread_id}:{self._retrieval_request_index}:{prompt}"
+                )[:24]
+            ),
+            private_character_ids=reference_scope.known_character_ids,
+        )
         self.world_bridge = bridge
         try:
             return super().run_planner_turn(

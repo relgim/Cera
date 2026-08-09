@@ -31,7 +31,7 @@ from .provider_schema import cognition_plan_json_schema
 from .validation import CognitionValidationContextV1, validate_cognition_plan
 
 COGNITION_PLANNER_ADAPTER = "cera.cognition.codex_planner_adapter.v1"
-COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v1"
+COGNITION_PLANNER_PROMPT = "cera.cognition.codex_planner_prompt.v2"
 
 
 def cognition_planner_route() -> LiveProviderRoute:
@@ -67,6 +67,7 @@ class CodexCognitionPlannerBackend:
         self.route = cognition_planner_route()
         self._operation_index = 0
         self.last_provider_result: ContinuousProviderResultV1 | None = None
+        self.last_available_evidence_refs: tuple[str, ...] = ()
 
     def start_stored_thread(self, *, base_instructions: str, profile: str) -> str:
         assert_provider_dispatch_allowed(
@@ -96,6 +97,7 @@ class CodexCognitionPlannerBackend:
             "cognition.planner.turn",
             external_provider_boundary=is_external_provider_boundary(self.lifecycle),
         )
+        self.last_available_evidence_refs = reference_scope.evidence_keys
         self._operation_index += 1
         operation_workspace = self.workspace / (
             f"cognition_planner_operation_{self._operation_index:04d}"
@@ -133,6 +135,10 @@ class CodexCognitionPlannerBackend:
             world_tool_debug = (
                 self.world_bridge.finalize(result) if self.world_bridge is not None else None
             )
+            dynamic_evidence_refs = _bound_world_evidence_refs(world_tool_debug)
+            available_evidence_refs = tuple(
+                dict.fromkeys((*reference_scope.evidence_keys, *dynamic_evidence_refs))
+            )
             plan = from_mapping(CognitionPlanV1, result.parsed_json or {})
             validate_cognition_plan(
                 plan,
@@ -140,10 +146,11 @@ class CodexCognitionPlannerBackend:
                 context=CognitionValidationContextV1(
                     autonomy_mode=context.autonomy_mode,
                     logic_route=context.logic_route,
-                    available_evidence_refs=reference_scope.evidence_keys,
+                    available_evidence_refs=available_evidence_refs,
                     available_provisional_record_ids=(context.available_provisional_record_ids),
                 ),
             )
+            self.last_available_evidence_refs = available_evidence_refs
             return ContinuousProviderResultV1(
                 value=plan,
                 provider_receipt=result.receipt,
@@ -189,3 +196,26 @@ class CodexCognitionPlannerBackend:
 
     def is_resumable(self, thread_id: str) -> bool:
         return self.lifecycle.resume_stored_thread(thread_id)
+
+
+def _bound_world_evidence_refs(value: object) -> tuple[str, ...]:
+    """Extract only Python-allocated bindings from this exact bridge result."""
+
+    if value is None:
+        return ()
+    if not isinstance(value, dict):
+        raise ContractValidationError("cognition world-tool receipt changed shape")
+    raw = value.get("evidence_bindings", ())
+    if not isinstance(raw, list | tuple):
+        raise ContractValidationError("cognition evidence bindings changed shape")
+    output: list[str] = []
+    for binding in raw:
+        if not isinstance(binding, dict) or binding.get("kind") != "world_record":
+            raise ContractValidationError("cognition evidence binding is invalid")
+        key = binding.get("binding_key")
+        if not isinstance(key, str) or not key.startswith("binding_record_"):
+            raise ContractValidationError("cognition evidence binding key is invalid")
+        output.append(key)
+    if len(output) != len(set(output)):
+        raise ContractValidationError("cognition evidence bindings contain duplicates")
+    return tuple(output)

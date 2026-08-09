@@ -78,16 +78,27 @@ class RetainedCognitionPlannerAdapter:
             available_provisional_record_ids=_provisional_ids(request.current_state),
         )
         plan = self.session.plan(context)
+        runtime_evidence_refs = getattr(
+            self.session,
+            "last_available_evidence_refs",
+            (),
+        )
+        if not isinstance(runtime_evidence_refs, tuple) or any(
+            not isinstance(value, str) for value in runtime_evidence_refs
+        ):
+            raise ContractValidationError("cognition session evidence scope changed shape")
+        if not runtime_evidence_refs:
+            runtime_evidence_refs = (
+                semantic_input.current_source_key,
+                *(value.evidence_key for value in semantic_input.evidence_records),
+            )
         validate_cognition_plan(
             plan,
             turn=semantic_input,
             context=CognitionValidationContextV1(
                 autonomy_mode=context.autonomy_mode,
                 logic_route=context.logic_route,
-                available_evidence_refs=(
-                    semantic_input.current_source_key,
-                    *(value.evidence_key for value in semantic_input.evidence_records),
-                ),
+                available_evidence_refs=runtime_evidence_refs,
                 available_provisional_record_ids=(context.available_provisional_record_ids),
             ),
         )

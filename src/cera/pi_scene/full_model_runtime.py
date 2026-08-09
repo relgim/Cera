@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping
 from dataclasses import replace
+from pathlib import Path
 from typing import Any, Protocol
 
 from cera.cognition import (
@@ -51,7 +52,7 @@ def cognition_thread_compatibility_sha256() -> str:
     route = cognition_planner_route()
     return canonical_sha256(
         {
-            "schema_version": "cera.pi_scene.cognition_thread_compatibility.v1",
+            "schema_version": "cera.pi_scene.cognition_thread_compatibility.v2",
             "profile": COGNITION_PLANNER_PROFILE,
             "base_instructions_sha256": text_sha256(COGNITION_PLANNER_BASE_INSTRUCTIONS),
             "cognition_plan_schema": CognitionPlanV1.SCHEMA_VERSION,
@@ -59,7 +60,7 @@ def cognition_thread_compatibility_sha256() -> str:
             "model": route.model_name,
             "adapter": COGNITION_PLANNER_ADAPTER,
             "prompt": COGNITION_PLANNER_PROMPT,
-            "world_tools": "cera.branch_bound_world_mcp.private_scoped.v1",
+            "world_tools": "cera.branch_bound_named_retrieval_mcp.v2",
         }
     )
 
@@ -113,6 +114,7 @@ class BranchBoundCognitionPlannerBackend(CodexCognitionPlannerBackend):
     ) -> None:
         super().__init__(world_bridge=None, **kwargs)
         self.world_mcp_factory = world_mcp_factory
+        self._retrieval_request_index = 0
 
     def run_cognition_turn(
         self,
@@ -124,7 +126,21 @@ class BranchBoundCognitionPlannerBackend(CodexCognitionPlannerBackend):
     ) -> CognitionPlanV1:
         if self.world_bridge is not None:
             raise StateConflictError("cognition Planner retained a prior request MCP bridge")
-        bridge = self.world_mcp_factory.bridge()
+        self._retrieval_request_index += 1
+        bridge = self.world_mcp_factory.bridge(
+            request_id=(
+                "cognition_request_"
+                + text_sha256(
+                    ":".join(
+                        (
+                            context.turn.current_source_key,
+                            str(self._retrieval_request_index),
+                        )
+                    )
+                )[:24]
+            ),
+            private_character_ids=reference_scope.known_character_ids,
+        )
         self.world_bridge = bridge
         try:
             return super().run_cognition_turn(
@@ -183,9 +199,11 @@ class PathBudgetedCognitionDebugLog(ReadablePiSceneDebugLog):
         stage: str,
         identity: str,
         sections: Mapping[str, Any],
-    ) -> None:
-        self.delegate.write(
+        protected: bool = False,
+    ) -> Path | None:
+        return self.delegate.write(
             stage=stage,
             identity=f"cognition-{text_sha256(identity)[:24]}",
             sections={"Exact runtime identity": identity, **sections},
+            protected=protected,
         )

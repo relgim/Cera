@@ -12,7 +12,7 @@ import time
 from dataclasses import dataclass
 from importlib.metadata import version
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.providers import CodexMcpRuntimeBinding
@@ -46,6 +46,17 @@ class ContinuousWorldToolCallV1:
     success: bool
 
 
+class AdditionalWorldToolHandler(Protocol):
+    """Optional typed extension that leaves historical generic tools intact."""
+
+    tool_names: tuple[str, ...]
+
+    @property
+    def binding_sha256(self) -> str: ...
+
+    def invoke(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]: ...
+
+
 class ContinuousWorldToolDispatcher:
     """Mechanical world lookup with role and current-candidate isolation."""
 
@@ -60,6 +71,8 @@ class ContinuousWorldToolDispatcher:
         maximum_calls: int = WORLD_MCP_MAXIMUM_CALLS,
         evidence_registry: RequestEvidenceBindingRegistry | None = None,
         require_private_search_scope: bool = False,
+        allowed_private_character_ids: tuple[str, ...] | None = None,
+        additional_tool_handler: AdditionalWorldToolHandler | None = None,
     ) -> None:
         self.branch_root = branch_root.resolve()
         self.role = role
@@ -73,6 +86,22 @@ class ContinuousWorldToolDispatcher:
         self.calls: list[ContinuousWorldToolCallV1] = []
         self.local_debug_calls: list[dict[str, Any]] = []
         self.require_private_search_scope = require_private_search_scope
+        if allowed_private_character_ids is not None and (
+            len(allowed_private_character_ids) != len(set(allowed_private_character_ids))
+            or any(
+                not isinstance(value, str) or not value.startswith("character:")
+                for value in allowed_private_character_ids
+            )
+        ):
+            raise ContractValidationError(
+                "continuous world private-character allowance is invalid"
+            )
+        self.allowed_private_character_ids = (
+            None
+            if allowed_private_character_ids is None
+            else frozenset(allowed_private_character_ids)
+        )
+        self.additional_tool_handler = additional_tool_handler
         semantic_world_id, semantic_branch_id = self._semantic_identity(
             world_id=world_id,
             branch_id=branch_id,
@@ -90,6 +119,23 @@ class ContinuousWorldToolDispatcher:
                 "continuous world evidence registry changed semantic branch scope"
             )
         self._lock = threading.Lock()
+
+    @property
+    def tool_names(self) -> tuple[str, ...]:
+        additional = (
+            ()
+            if self.additional_tool_handler is None
+            else self.additional_tool_handler.tool_names
+        )
+        if len(additional) != len(set(additional)) or set(additional).intersection(
+            WORLD_MCP_TOOLS
+        ):
+            raise StateConflictError("continuous world additional tool names changed")
+        # A typed request gets only its named semantic surface.  Historical
+        # callers with no extension retain the exact generic three-tool set.
+        # Mixing both would let a role bypass named-tool visibility policy by
+        # guessing a generic path.
+        return WORLD_MCP_TOOLS if not additional else additional
 
     def _semantic_identity(
         self,
@@ -136,21 +182,40 @@ class ContinuousWorldToolDispatcher:
 
     @property
     def binding_sha256(self) -> str:
+        payload: dict[str, Any] = {
+            "branch_root_sha256": text_sha256(str(self.branch_root).casefold()),
+            "world_id": self.evidence_registry.world_id,
+            "branch_id": self.evidence_registry.branch_id,
+            "role": self.role.value,
+            "current_turn_id": self.current_turn_id,
+            "tools": self.tool_names,
+            "maximum_calls": self.maximum_calls,
+        }
+        if (
+            self.allowed_private_character_ids is not None
+            or self.additional_tool_handler is not None
+        ):
+            payload.update(
+                {
+                    "private_character_ids": (
+                        None
+                        if self.allowed_private_character_ids is None
+                        else sorted(self.allowed_private_character_ids)
+                    ),
+                    "additional_binding_sha256": (
+                        None
+                        if self.additional_tool_handler is None
+                        else self.additional_tool_handler.binding_sha256
+                    ),
+                }
+            )
         return domain_sha256(
             "cera.continuous_world_mcp.v1",
-            {
-                "branch_root_sha256": text_sha256(str(self.branch_root).casefold()),
-                "world_id": self.evidence_registry.world_id,
-                "branch_id": self.evidence_registry.branch_id,
-                "role": self.role.value,
-                "current_turn_id": self.current_turn_id,
-                "tools": WORLD_MCP_TOOLS,
-                "maximum_calls": self.maximum_calls,
-            },
+            payload,
         )
 
     def invoke(self, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
-        if tool_name not in WORLD_MCP_TOOLS or not isinstance(arguments, dict):
+        if tool_name not in self.tool_names or not isinstance(arguments, dict):
             raise ContractValidationError("continuous world MCP request is invalid")
         started = time.perf_counter_ns()
         request_hash = canonical_sha256({"tool": tool_name, "arguments": arguments})
@@ -166,8 +231,14 @@ class ContinuousWorldToolDispatcher:
                     result = self._list(**arguments)
                 elif tool_name == "cera_world_search":
                     result = self._search(**arguments)
-                else:
+                elif tool_name == "cera_world_read":
                     result = self._read(**arguments)
+                else:
+                    if self.additional_tool_handler is None:
+                        raise ContractValidationError(
+                            "continuous world additional tool is unavailable"
+                        )
+                    result = self.additional_tool_handler.invoke(tool_name, arguments)
                 returned_bytes = len(
                     json.dumps(result, ensure_ascii=False, separators=(",", ":")).encode(
                         "utf-8"
@@ -195,6 +266,11 @@ class ContinuousWorldToolDispatcher:
                             result.get("evidence_binding")
                             if isinstance(result, dict)
                             else None
+                        ),
+                        "evidence_refs": (
+                            result.get("evidence_refs", [])
+                            if isinstance(result, dict)
+                            else []
                         ),
                     }
                 )
@@ -282,6 +358,14 @@ class ContinuousWorldToolDispatcher:
             raise ContractValidationError("continuous world search arguments are invalid")
         types = {value.casefold() for value in (record_types or [])}
         needles = tuple(value.casefold() for value in terms)
+        if (
+            knowledge_owner_id is not None
+            and self.allowed_private_character_ids is not None
+            and knowledge_owner_id not in self.allowed_private_character_ids
+        ):
+            # Reject the owner before any private path is opened or any query
+            # term is compared, closing cross-owner term probing.
+            raise PermissionError("continuous world private search owner is unauthorized")
         rows = []
         for root in self._allowed_roots():
             for path in sorted(value for value in root.rglob("*") if value.is_file()):
@@ -333,6 +417,12 @@ class ContinuousWorldToolDispatcher:
         )
         if visibility is EvidenceVisibility.CREATOR_PRIVATE:
             raise PermissionError("creator-private evidence is not exposed to provider sessions")
+        if (
+            visibility is EvidenceVisibility.CHARACTER_PRIVATE
+            and self.allowed_private_character_ids is not None
+            and knowledge_owner_id not in self.allowed_private_character_ids
+        ):
+            raise PermissionError("continuous world private record owner is unauthorized")
         relative = target.relative_to(self.branch_root).as_posix()
         read_operation_sha256 = canonical_sha256(
             {
@@ -462,7 +552,7 @@ class ContinuousWorldMcpBridge:
             url=self._url,
             bearer_token_environment_variable=WORLD_MCP_TOKEN_ENV,
             bearer_token=self._token,
-            enabled_tools=WORLD_MCP_TOOLS,
+            enabled_tools=self.dispatcher.tool_names,
             binding_sha256=self.dispatcher.binding_sha256,
             startup_timeout_seconds=10,
             tool_timeout_seconds=30,
@@ -490,7 +580,7 @@ class ContinuousWorldMcpBridge:
         expected_token = self._token
 
         class TokenVerifier:
-            async def verify_token(self, candidate: str):
+            async def verify_token(self, candidate: str) -> Any:
                 if not hmac.compare_digest(candidate, expected_token):
                     return None
                 return AccessToken(
@@ -518,32 +608,97 @@ class ContinuousWorldMcpBridge:
             ),
         )
 
-        @mcp.tool(name="cera_world_list", structured_output=True)
-        def world_list(prefix: str = "", limit: int = 100) -> dict[str, Any]:
-            return self.dispatcher.invoke(
-                "cera_world_list", {"prefix": prefix, "limit": limit}
-            )
+        if "cera_world_list" in self.dispatcher.tool_names:
 
-        @mcp.tool(name="cera_world_search", structured_output=True)
-        def world_search(
-            terms: list[str],
-            record_types: list[str] | None = None,
-            limit: int = 20,
-            knowledge_owner_id: str | None = None,
-        ) -> dict[str, Any]:
-            return self.dispatcher.invoke(
-                "cera_world_search",
-                {
-                    "terms": terms,
-                    "record_types": record_types,
-                    "limit": limit,
-                    "knowledge_owner_id": knowledge_owner_id,
-                },
-            )
+            @mcp.tool(name="cera_world_list", structured_output=True)
+            def world_list(prefix: str = "", limit: int = 100) -> dict[str, Any]:
+                return self.dispatcher.invoke(
+                    "cera_world_list", {"prefix": prefix, "limit": limit}
+                )
 
-        @mcp.tool(name="cera_world_read", structured_output=True)
-        def world_read(path: str) -> dict[str, Any]:
-            return self.dispatcher.invoke("cera_world_read", {"path": path})
+            @mcp.tool(name="cera_world_search", structured_output=True)
+            def world_search(
+                terms: list[str],
+                record_types: list[str] | None = None,
+                limit: int = 20,
+                knowledge_owner_id: str | None = None,
+            ) -> dict[str, Any]:
+                return self.dispatcher.invoke(
+                    "cera_world_search",
+                    {
+                        "terms": terms,
+                        "record_types": record_types,
+                        "limit": limit,
+                        "knowledge_owner_id": knowledge_owner_id,
+                    },
+                )
+
+            @mcp.tool(name="cera_world_read", structured_output=True)
+            def world_read(path: str) -> dict[str, Any]:
+                return self.dispatcher.invoke("cera_world_read", {"path": path})
+
+        if "get_turn_context" in self.dispatcher.tool_names:
+
+            @mcp.tool(name="get_turn_context", structured_output=True)
+            def get_turn_context(
+                character_ids: list[str] | None = None,
+            ) -> dict[str, Any]:
+                return self.dispatcher.invoke(
+                    "get_turn_context", {"character_ids": character_ids}
+                )
+
+            @mcp.tool(name="get_character_context", structured_output=True)
+            def get_character_context(character_id: str) -> dict[str, Any]:
+                return self.dispatcher.invoke(
+                    "get_character_context", {"character_id": character_id}
+                )
+
+            @mcp.tool(name="search_evidence", structured_output=True)
+            def search_evidence(
+                terms: list[str],
+                character_id: str | None = None,
+                limit: int = 20,
+            ) -> dict[str, Any]:
+                return self.dispatcher.invoke(
+                    "search_evidence",
+                    {
+                        "terms": terms,
+                        "character_id": character_id,
+                        "limit": limit,
+                    },
+                )
+
+            @mcp.tool(name="get_exact_record", structured_output=True)
+            def get_exact_record(record_id: str) -> dict[str, Any]:
+                return self.dispatcher.invoke(
+                    "get_exact_record", {"record_id": record_id}
+                )
+
+            @mcp.tool(name="get_relationship_context", structured_output=True)
+            def get_relationship_context(character_id: str) -> dict[str, Any]:
+                return self.dispatcher.invoke(
+                    "get_relationship_context", {"character_id": character_id}
+                )
+
+            @mcp.tool(name="get_memory_context", structured_output=True)
+            def get_memory_context(character_id: str) -> dict[str, Any]:
+                return self.dispatcher.invoke(
+                    "get_memory_context", {"character_id": character_id}
+                )
+
+            @mcp.tool(name="get_thread_context", structured_output=True)
+            def get_thread_context() -> dict[str, Any]:
+                return self.dispatcher.invoke("get_thread_context", {})
+
+            @mcp.tool(name="get_voice_examples", structured_output=True)
+            def get_voice_examples(character_id: str) -> dict[str, Any]:
+                return self.dispatcher.invoke(
+                    "get_voice_examples", {"character_id": character_id}
+                )
+
+            @mcp.tool(name="get_craft_context", structured_output=True)
+            def get_craft_context() -> dict[str, Any]:
+                return self.dispatcher.invoke("get_craft_context", {})
 
         server = uvicorn.Server(
             uvicorn.Config(
@@ -594,6 +749,16 @@ class ContinuousWorldMcpBridge:
             raise StateConflictError("continuous world MCP tool sequence changed")
         if any(value != WORLD_MCP_SERVER_NAME for value in provider_result.tool_server_names):
             raise StateConflictError("continuous world MCP server identity changed")
+        successful_binding_keys: set[str] = set()
+        for call in self.dispatcher.local_debug_calls:
+            binding = call.get("evidence_binding")
+            if isinstance(binding, dict) and isinstance(binding.get("binding_key"), str):
+                successful_binding_keys.add(str(binding["binding_key"]))
+            refs = call.get("evidence_refs", ())
+            if isinstance(refs, list | tuple):
+                successful_binding_keys.update(
+                    value for value in refs if isinstance(value, str)
+                )
         return {
             "binding_sha256": self.dispatcher.binding_sha256,
             "tool_call_count": len(self.dispatcher.calls),
@@ -615,13 +780,19 @@ class ContinuousWorldMcpBridge:
                 _binding_descriptor(value)
                 for value in self.dispatcher.evidence_registry.bindings
                 if value.relative_path is not None
+                and value.binding_key in successful_binding_keys
             ],
         }
 
     def __enter__(self) -> ContinuousWorldMcpBridge:
         return self.start()
 
-    def __exit__(self, exc_type, exc, _traceback) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None,
+        exc: object | None,
+        _traceback: object | None,
+    ) -> None:
         self.stop(suppress_errors=exc_type is not None)
 
 

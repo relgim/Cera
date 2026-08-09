@@ -15,6 +15,7 @@ from cera.cognition.prompting import (
     COGNITION_PLANNER_PROFILE,
 )
 from cera.cognition.provider_schema import cognition_plan_json_schema
+from cera.errors import StateConflictError
 from cera.pi_scene.cognition_planner import RetainedCognitionPlannerAdapter
 from cera.pi_scene.http_contracts import LeanSceneRequestControlsV1
 from cera.pi_scene.runtime import PlannerTurnInputV1
@@ -39,6 +40,7 @@ class _FakeBackend:
     result: CognitionPlanV1
     thread_id: str = "thread:cognition"
     resumable: bool = True
+    last_available_evidence_refs: tuple[str, ...] = ()
     starts: list[tuple[str, str]] = field(default_factory=list)
     calls: list[tuple[str, str, CognitionTurnContextV1]] = field(default_factory=list)
 
@@ -102,6 +104,27 @@ class CognitionProviderContractTests(unittest.TestCase):
         self.assertTrue(
             all(COGNITION_PLANNER_BASE_INSTRUCTIONS not in call[1] for call in backend.calls)
         )
+        self.assertEqual(session.last_available_evidence_refs, ("source:current",))
+
+    def test_dynamic_evidence_scope_is_append_only_for_one_session_call(self) -> None:
+        dynamic_key = "binding_record_0123456789abcdefabcd"
+        backend = _FakeBackend(
+            _plan(),
+            last_available_evidence_refs=("source:current", dynamic_key),
+        )
+        session = PersistentCognitionPlannerSession(backend)
+        session.plan(_context())
+        self.assertEqual(
+            session.last_available_evidence_refs,
+            ("source:current", dynamic_key),
+        )
+
+        missing_base = _FakeBackend(
+            _plan(),
+            last_available_evidence_refs=(dynamic_key,),
+        )
+        with self.assertRaisesRegex(StateConflictError, "not append-only"):
+            PersistentCognitionPlannerSession(missing_base).plan(_context())
 
     def test_pi_adapter_propagates_global_autonomy_into_cognition(self) -> None:
         backend = _FakeBackend(_plan())

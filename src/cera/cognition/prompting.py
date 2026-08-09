@@ -7,10 +7,18 @@ from cera.serialization import canonical_json
 
 from .contracts import CognitionTurnContextV1
 
-COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v1"
+COGNITION_PLANNER_PROFILE = "cera_full_model_cognition_planner_v2"
 
 COGNITION_PLANNER_BASE_INSTRUCTIONS = (
     PLANNER_BASE_INSTRUCTIONS
+    + " "
+    + "Use get_turn_context as the default bounded retrieval call. Expand only "
+    "when needed with get_character_context, search_evidence, get_exact_record, "
+    "relationship, memory, thread, voice, or craft context. A hard factual "
+    "decision should fetch its exact record when available. Cite only evidence "
+    "references actually returned during this operation; they expire with this "
+    "request. A truncated or omitted result is uncertainty, not proof that a "
+    "character lacks knowledge. "
     + " "
     + "Return one cognition plan that wraps the ordered sequence with compact, "
     "auditable material-decision records. For each materially relevant actor, "

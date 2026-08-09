@@ -4,6 +4,7 @@ import tempfile
 import unittest
 from dataclasses import dataclass, field
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from cera.cognition import (
@@ -118,7 +119,7 @@ class _WorldMcpFactory:
     def __init__(self) -> None:
         self.bridges: list[_Bridge] = []
 
-    def bridge(self) -> _Bridge:
+    def bridge(self, **_kwargs) -> _Bridge:
         bridge = _Bridge()
         self.bridges.append(bridge)
         return bridge
@@ -136,6 +137,12 @@ def _controls(session_id: str, *, effort: str = "medium") -> LeanSceneRequestCon
 class PiSceneFullModelLauncherTests(unittest.TestCase):
     def test_branch_cognition_backend_refreshes_mcp_per_retained_turn(self) -> None:
         factory = _WorldMcpFactory()
+        context = SimpleNamespace(
+            turn=SimpleNamespace(current_source_key="source:current")
+        )
+        reference_scope = SimpleNamespace(
+            known_character_ids=("character:sakura_hanezawa",)
+        )
         with tempfile.TemporaryDirectory() as temporary:
             backend = BranchBoundCognitionPlannerBackend(
                 world_mcp_factory=factory,  # type: ignore[arg-type]
@@ -152,14 +159,14 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
                 first = backend.run_cognition_turn(
                     thread_id="thread:one",
                     prompt="one",
-                    context=object(),  # type: ignore[arg-type]
-                    reference_scope=object(),  # type: ignore[arg-type]
+                    context=context,  # type: ignore[arg-type]
+                    reference_scope=reference_scope,  # type: ignore[arg-type]
                 )
                 second = backend.run_cognition_turn(
                     thread_id="thread:one",
                     prompt="two",
-                    context=object(),  # type: ignore[arg-type]
-                    reference_scope=object(),  # type: ignore[arg-type]
+                    context=context,  # type: ignore[arg-type]
+                    reference_scope=reference_scope,  # type: ignore[arg-type]
                 )
         self.assertIs(first, factory.bridges[0])
         self.assertIs(second, factory.bridges[1])
@@ -175,8 +182,8 @@ class PiSceneFullModelLauncherTests(unittest.TestCase):
                 backend.run_cognition_turn(
                     thread_id="thread:one",
                     prompt="three",
-                    context=object(),  # type: ignore[arg-type]
-                    reference_scope=object(),  # type: ignore[arg-type]
+                    context=context,  # type: ignore[arg-type]
+                    reference_scope=reference_scope,  # type: ignore[arg-type]
                 )
         self.assertEqual(factory.bridges[-1].aborts, 1)
         self.assertIsNone(backend.world_bridge)

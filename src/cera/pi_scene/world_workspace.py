@@ -19,6 +19,7 @@ from threading import RLock
 from typing import Any
 from uuid import uuid4
 
+from cera.continuous.evidence import RequestEvidenceBindingRegistry
 from cera.continuous.sessions import ContinuousSessionRole
 from cera.continuous.world_mcp import (
     WORLD_MCP_MAXIMUM_CALLS,
@@ -51,6 +52,13 @@ from .lineage import (
     accepted_object_directory_name,
     active_lineage_from_payload,
     active_lineage_payload,
+)
+from .retrieval import MAX_RETRIEVAL_CALLS, BranchRetrievalService
+from .retrieval_tools import (
+    BoundNamedRetrievalTools,
+    NamedRetrievalRequestBindingV1,
+    RetrievalProviderRole,
+    current_dossier_accepted_head,
 )
 from .store import LeanSceneStore
 
@@ -135,23 +143,77 @@ class BranchBoundWorldMcpFactory:
         self.raw_bridge_factory = raw_bridge_factory
 
     def dispatcher(
-        self, *, turn_id: str | None = None, maximum_calls: int = WORLD_MCP_MAXIMUM_CALLS
+        self,
+        *,
+        turn_id: str | None = None,
+        request_id: str | None = None,
+        role: RetrievalProviderRole = RetrievalProviderRole.PLANNER,
+        private_character_ids: tuple[str, ...] = (),
+        maximum_calls: int = WORLD_MCP_MAXIMUM_CALLS,
     ) -> ContinuousWorldToolDispatcher:
+        if request_id is None:
+            return ContinuousWorldToolDispatcher(
+                self.workspace.branch_root,
+                ContinuousSessionRole.PLANNER,
+                world_id=self.workspace.world_id,
+                branch_id=self.workspace.branch_id,
+                current_turn_id=turn_id,
+                maximum_calls=maximum_calls,
+                require_private_search_scope=True,
+            )
+        named_maximum = min(maximum_calls, MAX_RETRIEVAL_CALLS)
+        registry = RequestEvidenceBindingRegistry(
+            world_id=self.workspace.world_id,
+            branch_id=self.workspace.branch_id,
+            turn_id=request_id,
+        )
+        service = BranchRetrievalService(
+            self.workspace,
+            maximum_calls=named_maximum,
+        )
+        binding = NamedRetrievalRequestBindingV1(
+            schema_version=NamedRetrievalRequestBindingV1.SCHEMA_VERSION,
+            request_id=request_id,
+            world_id=self.workspace.world_id,
+            branch_id=self.workspace.branch_id,
+            accepted_head_sha256=current_dossier_accepted_head(service),
+            role=role,
+            private_character_ids=private_character_ids,
+            maximum_calls=named_maximum,
+        )
+        handler = BoundNamedRetrievalTools(
+            service,
+            binding=binding,
+            evidence_registry=registry,
+        )
         return ContinuousWorldToolDispatcher(
             self.workspace.branch_root,
             ContinuousSessionRole.PLANNER,
             world_id=self.workspace.world_id,
             branch_id=self.workspace.branch_id,
-            current_turn_id=turn_id,
-            maximum_calls=maximum_calls,
+            current_turn_id=request_id,
+            maximum_calls=named_maximum,
+            evidence_registry=registry,
             require_private_search_scope=True,
+            allowed_private_character_ids=private_character_ids,
+            additional_tool_handler=handler,
         )
 
     def bridge(
-        self, *, turn_id: str | None = None, maximum_calls: int = WORLD_MCP_MAXIMUM_CALLS
+        self,
+        *,
+        turn_id: str | None = None,
+        request_id: str | None = None,
+        role: RetrievalProviderRole = RetrievalProviderRole.PLANNER,
+        private_character_ids: tuple[str, ...] = (),
+        maximum_calls: int = WORLD_MCP_MAXIMUM_CALLS,
     ) -> RequestBoundWorldMcpBridge:
         dispatcher = self.dispatcher(
-            turn_id=turn_id, maximum_calls=maximum_calls
+            turn_id=turn_id,
+            request_id=request_id,
+            role=role,
+            private_character_ids=private_character_ids,
+            maximum_calls=maximum_calls,
         )
         return RequestBoundWorldMcpBridge(
             lambda: self.raw_bridge_factory(dispatcher)
@@ -767,6 +829,11 @@ class PiSceneWorldWorkspaceManager:
                 "parent_accepted_turn_id": child_parent_turn,
                 "parent_accepted_head_sha256": child_parent_sha256,
             }
+            child = LeanSceneStore.rebind_atomic_adult_fork_artifacts(
+                path.parent,
+                source_receipt_mapping=raw,
+                child_receipt_mapping=child,
+            )
             child_sha256 = canonical_sha256(child)
             write_json(path, child)
             self._rebind_selected_accepted_artifacts(
@@ -778,6 +845,10 @@ class PiSceneWorldWorkspaceManager:
             for changed_path in (
                 path.parent / "SEMANTIC_VALIDATION.json",
                 path.parent / "PROVISIONAL_CANON.json",
+                path.parent / "ADULT_ACCEPTANCE_ENVELOPE.json",
+                path.parent / "ADULT_PROMOTION_RECEIPT.json",
+                path.parent / "ADULT_ATOMIC_PROMOTION.json",
+                path.parent / "RECORDING_HEAD.json",
                 *path.parent.glob("RECORDING_BUNDLE_*/BUNDLE_MANIFEST.json"),
             ):
                 if changed_path.is_file():

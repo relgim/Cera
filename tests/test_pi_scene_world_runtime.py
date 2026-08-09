@@ -247,12 +247,15 @@ class BranchBoundPlannerBackendTests(unittest.TestCase):
             def __init__(self) -> None:
                 self.bridges = []
 
-            def bridge(self):
+            def bridge(self, **_kwargs):
                 value = _Bridge()
                 self.bridges.append(value)
                 return value
 
         factory = _Factory()
+        reference_scope = SimpleNamespace(
+            known_character_ids=("character:sakura_hanezawa",)
+        )
         with tempfile.TemporaryDirectory() as raw:
             backend = BranchBoundSequenceFirstPlannerBackend(
                 world_mcp_factory=factory,  # type: ignore[arg-type]
@@ -269,12 +272,12 @@ class BranchBoundPlannerBackendTests(unittest.TestCase):
                 first = backend.run_planner_turn(
                     thread_id="thread-1",
                     prompt="one",
-                    reference_scope=object(),  # type: ignore[arg-type]
+                    reference_scope=reference_scope,  # type: ignore[arg-type]
                 )
                 second = backend.run_planner_turn(
                     thread_id="thread-1",
                     prompt="two",
-                    reference_scope=object(),  # type: ignore[arg-type]
+                    reference_scope=reference_scope,  # type: ignore[arg-type]
                 )
         self.assertIs(first, factory.bridges[0])
         self.assertIs(second, factory.bridges[1])
@@ -290,7 +293,7 @@ class BranchBoundPlannerBackendTests(unittest.TestCase):
                 backend.run_planner_turn(
                     thread_id="thread-1",
                     prompt="three",
-                    reference_scope=object(),  # type: ignore[arg-type]
+                    reference_scope=reference_scope,  # type: ignore[arg-type]
                 )
         self.assertEqual(factory.bridges[-1].aborts, 1)
         self.assertIsNone(backend.world_bridge)

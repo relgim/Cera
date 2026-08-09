@@ -14,15 +14,17 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from threading import RLock
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import canonical_bytes, canonical_sha256, text_sha256, to_primitive
 
-from ._world_workspace_files import read_json_object
-from .review_store import LeanSceneTurnInputV1
-from .world_workspace import BranchWorldWorkspaceV1
+from ._world_workspace_files import is_link_or_reparse, read_json_object
+
+if TYPE_CHECKING:
+    from .review_store import LeanSceneTurnInputV1
+    from .world_workspace import BranchWorldWorkspaceV1
 
 DOSSIER_SCHEMA = "cera.pi_scene.current_character_dossier.v1"
 DOSSIER_INDEX_SCHEMA = "cera.pi_scene.current_character_dossier_index.v1"
@@ -31,6 +33,7 @@ MAX_RETRIEVAL_CALLS = 16
 MAX_TURN_CHARACTERS = 8
 MAX_SEARCH_TERMS = 8
 MAX_SEARCH_RESULTS = 20
+MAX_EXACT_RECORD_BYTES = 1_048_576
 
 
 @dataclass(frozen=True, slots=True)
@@ -262,6 +265,7 @@ class BranchRetrievalService:
                 # evaluates terms against system/character/creator-private bytes.
                 projections = self.workspace.branch_root / "ACTIVE" / "GenesisRecords"
                 for path in sorted(projections.rglob("*.json")):
+                    _assert_confined_record(path, self.workspace.branch_root)
                     projection = read_json_object(path, "Genesis projection")
                     if str(projection.get("visibility", "public")).casefold() != "public":
                         continue
@@ -286,6 +290,9 @@ class BranchRetrievalService:
             for path in sorted(
                 (self.workspace.branch_root / "ACTIVE" / "GenesisRecords").rglob("*.json")
             ):
+                _assert_confined_record(path, self.workspace.branch_root)
+                if path.stat().st_size > MAX_EXACT_RECORD_BYTES:
+                    raise StateConflictError("exact branch record exceeds its byte ceiling")
                 projection = read_json_object(path, "Genesis projection")
                 record = projection.get("record")
                 if not isinstance(record, dict) or record.get("record_id") != record_id:
@@ -448,6 +455,16 @@ def _record_descriptor(
         "path": path.relative_to(workspace.branch_root).as_posix(),
         "content_sha256": text_sha256(path.read_text(encoding="utf-8")),
     }
+
+
+def _assert_confined_record(path: Path, branch_root: Path) -> None:
+    resolved = path.resolve()
+    if (
+        not path.is_file()
+        or is_link_or_reparse(path)
+        or not resolved.is_relative_to(branch_root.resolve())
+    ):
+        raise PermissionError("branch retrieval record escaped its workspace")
 
 
 def _atomic_json(path: Path, payload: Mapping[str, Any]) -> None:

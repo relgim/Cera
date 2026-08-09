@@ -47,6 +47,7 @@ class PersistentCognitionPlannerSession:
         self._backend = backend
         self._thread_id = restored_thread_id
         self._persist_thread_id = persist_thread_id
+        self._last_available_evidence_refs: tuple[str, ...] = ()
 
     @property
     def thread_id(self) -> str | None:
@@ -55,6 +56,10 @@ class PersistentCognitionPlannerSession:
     @property
     def external_provider_boundary(self) -> bool:
         return is_external_provider_boundary(self._backend)
+
+    @property
+    def last_available_evidence_refs(self) -> tuple[str, ...]:
+        return self._last_available_evidence_refs
 
     def plan(self, context: CognitionTurnContextV1) -> CognitionPlanV1:
         if self._thread_id is None:
@@ -69,9 +74,25 @@ class PersistentCognitionPlannerSession:
             self._thread_id = thread_id
         elif not self._backend.is_resumable(self._thread_id):
             raise StateConflictError("persistent cognition thread is not resumable")
-        return self._backend.run_cognition_turn(
+        reference_scope = ProviderReferenceScopeV1.from_turn(context.turn)
+        plan = self._backend.run_cognition_turn(
             thread_id=self._thread_id,
             prompt=cognition_turn_prompt(context),
             context=context,
-            reference_scope=ProviderReferenceScopeV1.from_turn(context.turn),
+            reference_scope=reference_scope,
         )
+        dynamic = getattr(
+            self._backend,
+            "last_available_evidence_refs",
+            reference_scope.evidence_keys,
+        )
+        if not isinstance(dynamic, tuple) or any(
+            not isinstance(value, str) for value in dynamic
+        ):
+            raise StateConflictError("cognition backend evidence scope changed shape")
+        if not dynamic:
+            dynamic = reference_scope.evidence_keys
+        if dynamic[: len(reference_scope.evidence_keys)] != reference_scope.evidence_keys:
+            raise StateConflictError("cognition backend evidence scope is not append-only")
+        self._last_available_evidence_refs = dynamic
+        return plan
