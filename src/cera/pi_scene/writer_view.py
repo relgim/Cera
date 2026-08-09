@@ -468,7 +468,7 @@ def verify_writer_view(root: Path) -> MaterializedWriterViewV1:
 def _derived_response_start_gate(
     response_sequence: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Copy the ordinary response start into a compact, noncanonical recency cue."""
+    """Copy response start and ordered surface coverage into a terminal recency cue."""
 
     items = response_sequence.get("surface_realization_items")
     contract = response_sequence.get("response_start_contract")
@@ -531,13 +531,57 @@ def _derived_response_start_gate(
         or not owner_response_semantics.strip()
     ):
         raise ContractValidationError("response-start item omits owner response semantics")
+    ordered_surface_requirements: list[dict[str, Any]] = []
+    seen_requirement_keys: set[str] = set()
+    for item in items:
+        item_key = item.get("item_key")
+        response_scope = item.get("response_scope")
+        kind = item.get("kind")
+        semantics = item.get("owner_response_semantics")
+        owner = item.get("owner_id")
+        if (
+            not isinstance(item_key, str)
+            or not item_key.strip()
+            or item_key in seen_requirement_keys
+        ):
+            raise ContractValidationError(
+                "ordered surface requirement item key is invalid"
+            )
+        if not isinstance(kind, str) or not kind.strip():
+            raise ContractValidationError("ordered surface requirement kind is invalid")
+        if not isinstance(semantics, str) or not semantics.strip():
+            raise ContractValidationError(
+                "ordered surface requirement omits owner response semantics"
+            )
+        requirement = {
+            "item_key": item_key,
+            "response_scope": response_scope,
+            "kind": kind,
+            "owner_response_semantics": semantics,
+        }
+        if response_scope == "character":
+            if not isinstance(owner, str) or not owner.strip():
+                raise ContractValidationError(
+                    "character surface requirement requires an owner"
+                )
+            requirement["owner_id"] = owner
+        elif response_scope == "world":
+            if owner is not None:
+                raise ContractValidationError(
+                    "world surface requirement cannot fabricate an owner"
+                )
+        else:
+            raise ContractValidationError("ordered surface requirement scope is invalid")
+        seen_requirement_keys.add(item_key)
+        ordered_surface_requirements.append(requirement)
     return {
-        "schema_version": "cera.pi_scene.response_start_gate.v3",
+        "schema_version": "cera.pi_scene.response_start_gate.v4",
         "authority_class": "derived_noncanonical_execution_focus",
         "canonical_authority_path": "RESPONSE_SEQUENCE.json",
         **copied_fields,
         "item_projection_role": start_item["projection_role"],
         "owner_response_semantics": owner_response_semantics,
+        "ordered_surface_requirements": ordered_surface_requirements,
         "detail_boundary": {
             "before_response_start": "none",
             "after_response_start": "compatible_transient_only",

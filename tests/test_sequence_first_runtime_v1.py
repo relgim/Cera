@@ -1358,9 +1358,11 @@ class SequenceFirstPipelineTests(unittest.TestCase):
         for general_rule in (
             "Every dialogue item must state the communicative proposition",
             "do not merely say that the speaker answers",
-            "each independently required proposition a separate causally linked dialogue_intent item",
+            "every independently required proposition a separate causally linked dialogue_intent item",
+            "exactly one independently omissible communicative act",
             "separately omissible speech act",
             "one atomic proposition",
+            "Adjacent atomic items may be realized together as natural dialogue",
             "subjective or noncommittal proposition",
             "without inventing an objective material, relationship, presence, knowledge, or future-causal fact",
             "Keep exact prose open for the Writer",
@@ -2763,13 +2765,13 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_PLANNER_ADAPTER,
-            "cera.sequence_first.planner_adapter.v11",
+            "cera.sequence_first.planner_adapter.v12",
         )
         self.assertEqual(
             planner_route.prompt_version,
-            "cera.sequence_first.planner_prompt.v10",
+            "cera.sequence_first.planner_prompt.v11",
         )
-        self.assertTrue(planner_route.route_id.endswith("_v10"))
+        self.assertTrue(planner_route.route_id.endswith("_v11"))
         self.assertEqual(reader_route.adapter_id, SEQUENCE_FIRST_READER_ADAPTER)
         self.assertEqual(
             SEQUENCE_FIRST_READER_ADAPTER,

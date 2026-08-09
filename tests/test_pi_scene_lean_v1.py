@@ -564,6 +564,8 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("exact communicative proposition", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("does not substitute for it", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("separately keyed propositions", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("ordered_surface_requirements", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("may share one natural utterance", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("guides_surface_item_key", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("response_start_contract", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("completed cause implicit", ORDINARY_WRITER_SYSTEM_PROMPT)
@@ -677,7 +679,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 start_gate["schema_version"],
-                "cera.pi_scene.response_start_gate.v3",
+                "cera.pi_scene.response_start_gate.v4",
             )
             self.assertEqual(
                 start_gate["authority_class"],
@@ -698,6 +700,20 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(
                 start_gate["owner_response_semantics"],
                 "Hana answers while preserving the conversational floor.",
+            )
+            self.assertEqual(
+                start_gate["ordered_surface_requirements"],
+                [
+                    {
+                        "item_key": "hana_answers",
+                        "response_scope": "character",
+                        "owner_id": "character:hana",
+                        "kind": "dialogue_intent",
+                        "owner_response_semantics": (
+                            "Hana answers while preserving the conversational floor."
+                        ),
+                    }
+                ],
             )
             self.assertEqual(
                 start_gate["realization_mode"],
@@ -781,7 +797,9 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             gate_path = view.root / "zz_RESPONSE_START_GATE.json"
             gate = json.loads(gate_path.read_text(encoding="utf-8"))
-            gate["response_start_owner_id"] = "character:mia"
+            gate["ordered_surface_requirements"][0][
+                "owner_response_semantics"
+            ] = "Hana gives a different answer."
             gate_text = canonical_json(gate)
             gate_path.write_text(gate_text, encoding="utf-8")
             manifest_path = view.root / "MANIFEST.json"
@@ -1339,6 +1357,42 @@ class PiSceneLeanTests(unittest.TestCase):
                 ],
             )
             self.assertEqual(response["response_start_item_key"], "acknowledge")
+            self.assertEqual(
+                json.loads(
+                    (view.root / "zz_RESPONSE_START_GATE.json").read_text(
+                        encoding="utf-8"
+                    )
+                )["ordered_surface_requirements"],
+                [
+                    {
+                        "item_key": "acknowledge",
+                        "response_scope": "character",
+                        "owner_id": "character:hana",
+                        "kind": "dialogue_intent",
+                        "owner_response_semantics": (
+                            "Hana acknowledges the immediate concern."
+                        ),
+                    },
+                    {
+                        "item_key": "express_appreciation",
+                        "response_scope": "character",
+                        "owner_id": "character:hana",
+                        "kind": "dialogue_intent",
+                        "owner_response_semantics": (
+                            "Hana expresses appreciation for being noticed."
+                        ),
+                    },
+                    {
+                        "item_key": "offer_conversation",
+                        "response_scope": "character",
+                        "owner_id": "character:hana",
+                        "kind": "dialogue_intent",
+                        "owner_response_semantics": (
+                            "Hana asks whether Ted wants to keep talking."
+                        ),
+                    },
+                ],
+            )
 
     def test_ownerless_world_surface_is_explicit_and_never_fabricates_owner(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -1601,7 +1655,7 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn("RESPONSE REALIZATION AUTHORITY", extension)
         self.assertIn("COMPLETED OFF-PAGE SOURCE", extension)
         self.assertIn("DERIVED NONCANONICAL EXECUTION FOCUS", extension)
-        self.assertIn("cera.writer_context_packet.v4", extension)
+        self.assertIn("cera.writer_context_packet.v5", extension)
 
     def test_writer_output_accepts_raw_prose_and_strict_legacy_envelope(self) -> None:
         self.assertEqual(

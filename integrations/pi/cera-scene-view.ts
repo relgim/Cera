@@ -170,7 +170,7 @@ export default function (pi: ExtensionAPI) {
 					details: {
 						bytes: Buffer.byteLength(packet.text, "utf8"),
 						files: packet.files,
-						packet: "cera.writer_context_packet.v4",
+						packet: "cera.writer_context_packet.v5",
 					},
 				};
 			}
