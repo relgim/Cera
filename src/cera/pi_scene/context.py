@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
-from cera.errors import ContractValidationError
+from cera.errors import ContractValidationError, StateConflictError
+from cera.serialization import to_primitive
 
+from .branch_state import (
+    AcceptedBranchContextSource,
+    BranchStateReducerV1,
+    GenesisBranchStateV1,
+)
 from .contracts import SceneRoute
 from .runtime import LeanSceneTurnInputV1
-from .store import LeanSceneStore
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,9 +31,16 @@ class PiSceneContextSeedV1:
     ordinary_craft_index: Mapping[str, object]
     adult_craft_index: Mapping[str, object]
     adult_handoff: Mapping[str, object]
+    genesis_revision: str = "cera.pi_scene.context_seed.v1"
 
     def __post_init__(self) -> None:
-        for value in (self.world_id, self.branch_id, self.scene_id, self.public_scene_state):
+        for value in (
+            self.world_id,
+            self.branch_id,
+            self.scene_id,
+            self.public_scene_state,
+            self.genesis_revision,
+        ):
             if not isinstance(value, str) or not value.strip():
                 raise ContractValidationError("Pi Scene context seed is incomplete")
         if not self.accepted_present_character_ids:
@@ -40,9 +52,25 @@ class PiSceneContextSeedV1:
 class AcceptedBranchContextProvider:
     """Build each turn from immutable accepted receipts and derived records."""
 
-    def __init__(self, store: LeanSceneStore, seed: PiSceneContextSeedV1) -> None:
+    def __init__(
+        self,
+        store: AcceptedBranchContextSource,
+        seed: PiSceneContextSeedV1,
+    ) -> None:
         self.store = store
         self.seed = seed
+        self.reducer = BranchStateReducerV1(
+            GenesisBranchStateV1.from_mappings(
+                world_id=seed.world_id,
+                genesis_revision=seed.genesis_revision,
+                scene_id=seed.scene_id,
+                accepted_present_character_ids=seed.accepted_present_character_ids,
+                resulting_public_state=seed.public_scene_state,
+                characters=seed.characters,
+                relationships=seed.relationships,
+                memories=seed.relevant_memories,
+            )
+        )
 
     def __call__(
         self,
@@ -51,39 +79,95 @@ class AcceptedBranchContextProvider:
         messages: Sequence[Mapping[str, str]],
     ) -> LeanSceneTurnInputV1:
         del messages
-        accepted = self.store.recent_accepted_payloads(
-            world_id=self.seed.world_id,
+        accepted = tuple(
+            self.store.accepted_branch_payloads(
+                world_id=self.seed.world_id,
+                branch_id=self.seed.branch_id,
+            )
+        )
+        checkpoint = self.reducer.reduce(
             branch_id=self.seed.branch_id,
-            limit=6,
-            adult_full=False,
+            payloads=accepted,
+            scene_id=self.seed.scene_id,
         )
-        recent_prose = tuple(
-            value["receipt"]["exact_accepted_prose"]
-            for value in accepted
-            if isinstance(value.get("receipt"), Mapping)
-            and value["receipt"].get("route") == SceneRoute.ORDINARY.value
-            and isinstance(value["receipt"].get("exact_accepted_prose"), str)
+        if (
+            route is SceneRoute.ORDINARY
+            and checkpoint.pending_adult_projection_turn_ids
+        ):
+            raise StateConflictError(
+                "ordinary Codex continuity requires the pending adult projection"
+            )
+        recent = (
+            self.store.recent_ordinary_context_payloads(
+                world_id=self.seed.world_id,
+                branch_id=self.seed.branch_id,
+                limit=6,
+            )
+            if route is SceneRoute.ORDINARY
+            else self.store.recent_adult_context_payloads(
+                world_id=self.seed.world_id,
+                branch_id=self.seed.branch_id,
+                limit=6,
+            )
         )
-        public_state = self.seed.public_scene_state
-        unresolved: tuple[str, ...] = ()
-        if accepted:
-            latest = accepted[-1]
-            derived = latest.get("ordinary_record") or latest.get("adult_projection")
-            if isinstance(derived, Mapping):
-                candidate_state = derived.get("resulting_public_state")
-                if isinstance(candidate_state, str) and candidate_state.strip():
-                    public_state = candidate_state
-                candidate_threads = derived.get("unresolved_threads")
-                if isinstance(candidate_threads, list) and all(
-                    isinstance(value, str) and value.strip() for value in candidate_threads
-                ):
-                    unresolved = tuple(candidate_threads)
-        current_state = {
+        recent_prose_values: list[str] = []
+        for value in recent:
+            receipt = value.get("receipt")
+            if not isinstance(receipt, Mapping):
+                continue
+            accepted_prose = receipt.get("exact_accepted_prose")
+            if not isinstance(accepted_prose, str):
+                continue
+            # The store has already separated the ordinary/Codex-safe and
+            # protected-adult views.  Adult exact prose is reachable only
+            # through the DeepSeek-owner API and never through the reducer.
+            recent_prose_values.append(accepted_prose)
+        recent_prose = tuple(recent_prose_values)
+        current_state: dict[str, Any] = {
             "accepted_present_character_ids": list(
-                self.seed.accepted_present_character_ids
+                checkpoint.accepted_present_character_ids
             ),
-            "public_scene_state": public_state,
-            "unresolved_threads": list(unresolved),
+            "public_scene_state": checkpoint.resulting_public_state,
+            "unresolved_threads": list(checkpoint.unresolved_threads),
+            "durable_changes": [
+                to_primitive(value) for value in checkpoint.durable_changes
+            ],
+            "adult_public_continuity": [
+                to_primitive(value) for value in checkpoint.adult_public_continuity
+            ],
+            "accepted_lineage": {
+                "authority": "accepted_branch_only",
+                "accepted_entries": [
+                    to_primitive(value) for value in checkpoint.accepted_lineage
+                ],
+                "next_parent_accepted_turn_id": checkpoint.last_accepted_turn_id,
+                "next_parent_accepted_head_sha256": (
+                    checkpoint.last_accepted_receipt_sha256
+                ),
+            },
+            "provisional_canon_lineage": [
+                {
+                    "lineage_entry_id": value.lineage_entry_id,
+                    "provisional_canon_id": value.provisional_canon_id,
+                    "parent_lineage_entry_id": value.parent_lineage_entry_id,
+                    "status": value.status,
+                    "authority_id": value.authority_id,
+                }
+                for value in checkpoint.provisional_canon_lineage
+            ],
+            "branch_lineage": [
+                to_primitive(value) for value in checkpoint.branch_lineage
+            ],
+            "accepted_state_checkpoint_sha256": checkpoint.checkpoint_sha256,
+            "accepted_state_order": checkpoint.accepted_order,
+            "pending_ordinary_recording_turn_ids": list(
+                checkpoint.pending_ordinary_recording_turn_ids
+            ),
+            "pending_adult_projection_turn_ids": list(
+                checkpoint.pending_adult_projection_turn_ids
+            ),
+            "genesis_revision": checkpoint.genesis_revision,
+            "genesis_sha256": checkpoint.genesis_sha256,
             "hard_boundaries": [
                 "Respect the exact accepted branch and current conversational floor.",
             ],
@@ -91,13 +175,13 @@ class AcceptedBranchContextProvider:
         return LeanSceneTurnInputV1(
             world_id=self.seed.world_id,
             branch_id=self.seed.branch_id,
-            scene_id=self.seed.scene_id,
+            scene_id=checkpoint.scene_id,
             exact_user_source=source,
             current_state=current_state,
-            characters=self.seed.characters,
-            relationships=self.seed.relationships,
+            characters=checkpoint.character_mapping(),
+            relationships=checkpoint.relationship_mapping(),
             recent_prose=recent_prose,
-            relevant_memories=self.seed.relevant_memories,
+            relevant_memories=checkpoint.memory_mapping(),
             voice_examples=self.seed.voice_examples,
             craft_index=(
                 self.seed.ordinary_craft_index
