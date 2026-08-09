@@ -9,12 +9,13 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
-from cera.serialization import text_sha256, to_primitive
+from cera.serialization import canonical_sha256, text_sha256, to_primitive
 
 from .contracts import RecordingStatus, SceneRoute
 from .http_contracts import (
@@ -26,6 +27,11 @@ from .http_contracts import (
     parse_chat_request,
 )
 from .readable_debug import ReadablePiSceneDebugLog
+from .request_journal import (
+    PiSceneRequestJournal,
+    RequestReplayPendingError,
+    build_request_binding,
+)
 from .review_store import (
     LeanDecisionResultV1,
     LeanReviewRecordV1,
@@ -77,6 +83,7 @@ class PiSceneHttpAdapter:
         context_provider: ContextProvider | None = None,
         request_context_provider: RequestContextProvider | None = None,
         readable_debug: ReadablePiSceneDebugLog | None = None,
+        request_journal: PiSceneRequestJournal | None = None,
     ) -> None:
         legacy = request_context_provider is None
         if legacy:
@@ -95,6 +102,7 @@ class PiSceneHttpAdapter:
         self.context_provider = context_provider
         self.request_context_provider = request_context_provider
         self.readable_debug = readable_debug
+        self.request_journal = request_journal
 
     @property
     def status(self) -> dict[str, Any]:
@@ -122,6 +130,29 @@ class PiSceneHttpAdapter:
     def complete(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         request = self._parse_chat_request(payload)
         turn = self._turn_for_request(request)
+        binding = build_request_binding(
+            payload=payload,
+            session_id=request.controls.session_id,
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+            route=request.route,
+            controls=request.controls,
+        )
+        request_journal = self._durable_request_journal()
+        resolution = request_journal.begin(binding)
+        if resolution.replayed:
+            if resolution.terminal_response is None:
+                raise StateConflictError("Pi Scene terminal replay omitted its response")
+            return dict(resolution.terminal_response)
+        if resolution.review_progress is not None:
+            review = self._recover_journal_review(
+                request=request,
+                turn=turn,
+                progress=resolution.review_progress,
+            )
+            response = self._completion_response_with_debug(review)
+            request_journal.complete(binding, response)
+            return response
         if request.controls.regeneration_key is not None:
             review = self._regenerate_from_chat_request(request, turn)
         else:
@@ -146,6 +177,30 @@ class PiSceneHttpAdapter:
                     if request.route is SceneRoute.ORDINARY
                     else self.coordinator.start_adult(turn)
                 )
+        try:
+            request_journal.bind_review(binding, self._journal_review_progress(review))
+        except Exception as exc:
+            if review.accepted_receipt is not None:
+                raise PiSceneCommittedStateError(
+                    "Pi Scene accepted story state but could not bind its durable review"
+                ) from exc
+            raise
+        response = self._completion_response_with_debug(review)
+        try:
+            request_journal.complete(binding, response)
+        except Exception as exc:
+            if review.accepted_receipt is not None:
+                raise PiSceneCommittedStateError(
+                    "Pi Scene accepted story state but could not terminalize "
+                    "its request replay journal"
+                ) from exc
+            raise
+        return response
+
+    def _completion_response_with_debug(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> dict[str, Any]:
         response = self._completion_payload(review)
         if self.readable_debug is not None:
             try:
@@ -471,6 +526,66 @@ class PiSceneHttpAdapter:
             expected_session_id=self.session_id,
         )
 
+    def _durable_request_journal(self) -> PiSceneRequestJournal:
+        if self.request_journal is not None:
+            return self.request_journal
+        store = getattr(self.coordinator, "store", None)
+        root = getattr(store, "root", None)
+        if not isinstance(root, Path):
+            raise StateConflictError("Pi Scene durable request-journal root is unavailable")
+        self.request_journal = PiSceneRequestJournal(root / "http_request_journal")
+        return self.request_journal
+
+    @staticmethod
+    def _journal_review_progress(review: LeanReviewRecordV1) -> dict[str, Any]:
+        receipt = review.accepted_receipt
+        recording_status = (
+            None
+            if review.recording_attempt is None
+            else review.recording_attempt.status.value
+        )
+        return {
+            "schema_version": "cera.pi_scene.http_review_progress.v1",
+            "review_id": review.review_id,
+            "candidate_id": review.candidate.candidate_id,
+            "candidate_sha256": review.candidate.candidate_sha256,
+            "world_id": review.candidate.world_id,
+            "branch_id": review.candidate.branch_id,
+            "route": review.candidate.route.value,
+            "exact_user_source_sha256": text_sha256(review.turn_input.exact_user_source),
+            "controls_sha256": canonical_sha256(
+                to_primitive(review.turn_input.request_controls)
+            ),
+            "review_state": review.state,
+            "accepted_turn_id": None if receipt is None else receipt.accepted_turn_id,
+            "accepted_receipt_sha256": None if receipt is None else receipt.receipt_sha256,
+            "recording_status": recording_status,
+        }
+
+    def _recover_journal_review(
+        self,
+        *,
+        request: PiSceneChatRequestV1,
+        turn: LeanSceneTurnInputV1,
+        progress: Mapping[str, Any],
+    ) -> LeanReviewRecordV1:
+        review_id = progress.get("review_id")
+        if not isinstance(review_id, str):
+            raise StateConflictError("Pi Scene replay review identity is invalid")
+        review = self.coordinator.get_review(review_id)
+        if (
+            review.turn_input.exact_user_source != request.exact_user_source
+            or review.turn_input.request_controls != request.controls
+            or review.candidate.world_id != turn.world_id
+            or review.candidate.branch_id != turn.branch_id
+            or review.candidate.route is not request.route
+            or self._journal_review_progress(review) != dict(progress)
+        ):
+            raise StateConflictError(
+                "Pi Scene durable review no longer matches pending request custody"
+            )
+        return review
+
     def _turn_for_request(self, request: PiSceneChatRequestV1) -> LeanSceneTurnInputV1:
         if self.request_context_provider is None:
             if self.context_provider is None:
@@ -711,6 +826,16 @@ def build_pi_scene_server(
                 committed = True
                 retry_mode = "manual_after_review"
                 next_action = "check_current_review_before_retrying"
+            elif isinstance(exc, RequestReplayPendingError):
+                status = HTTPStatus.CONFLICT
+                code = "CERA_REQUEST_REPLAY_PENDING"
+                message = (
+                    "An identical request has non-terminal durable custody; "
+                    "provider redispatch was blocked."
+                )
+                committed = False
+                retry_mode = "manual_after_review"
+                next_action = "recover_the_exact_pending_request_before_redispatch"
             elif isinstance(exc, StateConflictError):
                 status = HTTPStatus.CONFLICT
                 code = "CERA_STATE_CONFLICT"
