@@ -265,6 +265,7 @@ class PiSceneAdapter:
             self.readable_debug.write(
                 stage=f"deepseek-{request.purpose}",
                 identity=request.candidate_id,
+                protected=request.route is SceneRoute.ADULT,
                 sections={
                     "Route": request.route.value,
                     "DeepSeek system prompt": system_prompt,

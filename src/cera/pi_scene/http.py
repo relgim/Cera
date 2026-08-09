@@ -149,15 +149,18 @@ class PiSceneHttpAdapter:
         response = self._completion_payload(review)
         if self.readable_debug is not None:
             try:
-                self.readable_debug.write(
+                debug_entry = self.readable_debug.write(
                     stage="creator-review-ready",
                     identity=review.review_id,
+                    protected=review.candidate.route is SceneRoute.ADULT,
                     sections={
                         "Exact user input": review.turn_input.exact_user_source,
                         "Review state": self.review_payload(review),
                         "Visible provisional prose": review.candidate.story_text,
                     },
                 )
+                if debug_entry is not None:
+                    response["cera"]["debug_log_path"] = str(debug_entry)
             except Exception:
                 response["cera"]["operational_warnings"] = [
                     "readable_debug_write_failed"
@@ -216,15 +219,18 @@ class PiSceneHttpAdapter:
             raise
         if self.readable_debug is not None:
             try:
-                self.readable_debug.write(
+                debug_entry = self.readable_debug.write(
                     stage="creator-decision",
                     identity=review_id,
+                    protected=decision.review.candidate.route is SceneRoute.ADULT,
                     sections={
                         "Creator action": action,
                         "Creator feedback": feedback,
                         "Persisted review state": result,
                     },
                 )
+                if debug_entry is not None:
+                    result["debug_log_path"] = str(debug_entry)
             except Exception:
                 result.setdefault("operational_warnings", []).append(
                     "readable_debug_write_failed"
