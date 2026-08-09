@@ -22,6 +22,7 @@ from cera.provider_dispatch_guard import (
 from cera.serialization import text_sha256, to_primitive
 
 from .codex_planner import build_sequence_semantic_input
+from .cognition_evidence import selected_validation_evidence
 from .readable_debug import ReadablePiSceneDebugLog
 from .runtime import PlannerTurnInputV1, PlannerTurnOutputV1
 
@@ -108,6 +109,13 @@ class RetainedCognitionPlannerAdapter:
             sequence=primitive["sequence"],
             decision_bundle=primitive,
             provider_operations=1,
+            validation_evidence=tuple(
+                to_primitive(value)
+                for value in selected_validation_evidence(
+                    plan=plan,
+                    turn=semantic_input,
+                )
+            ),
         )
 
 
@@ -119,7 +127,7 @@ def _provisional_ids(state: Mapping[str, Any]) -> tuple[str, ...]:
     for value in raw:
         if not isinstance(value, Mapping):
             raise ContractValidationError("provisional canon entry is not an object")
-        record_id = value.get("provisional_record_id")
+        record_id = value.get("provisional_canon_id")
         if not isinstance(record_id, str) or not record_id.strip():
             raise ContractValidationError("provisional canon entry has no identity")
         output.append(record_id)

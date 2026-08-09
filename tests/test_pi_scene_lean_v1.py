@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
-import unittest
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
@@ -29,18 +29,18 @@ from cera.pi_scene.http import (
     PiSceneServerConfigV1,
     build_pi_scene_server,
 )
+from cera.pi_scene.operation_ledger import PiProviderOperationLedger
 from cera.pi_scene.pi_adapter import (
     ADULT_RECORDER_SYSTEM_PROMPT,
     ADULT_WRITER_SYSTEM_PROMPT,
     ORDINARY_RECORDER_SYSTEM_PROMPT,
     ORDINARY_WRITER_SYSTEM_PROMPT,
-    PiSceneAdapter,
     PiSceneInvocationResultV1,
     PiSceneInvocationV1,
-    _ProcessResult,
     _parse_writer_output,
+    _ProcessResult,
 )
-from cera.pi_scene.operation_ledger import PiProviderOperationLedger
+from cera.pi_scene.readable_debug import ReadablePiSceneDebugLog
 from cera.pi_scene.runtime import (
     LeanPiSceneCoordinator,
     LeanReviewState,
@@ -62,18 +62,17 @@ from cera.pi_scene.writer_view import (
     resolve_confined_path,
     verify_writer_view,
 )
-from cera.pi_scene.readable_debug import ReadablePiSceneDebugLog
-from cera.serialization import canonical_json, canonical_sha256, text_sha256
-from tests.provider_fakes import OfflinePiSceneAdapter
 from cera.sequence_first.contracts import (
     ItemKind,
     SequenceDraftV1,
     SequenceItemV1,
 )
+from cera.serialization import canonical_json, canonical_sha256, text_sha256
 from scripts.run_pi_scene_lean_server import (
     _initialize_live_runtime_roots,
     _seed_live_runtime_state,
 )
+from tests.provider_fakes import OfflinePiSceneAdapter
 
 
 def sequence(label: str = "hana_answers") -> dict[str, object]:
@@ -1932,7 +1931,7 @@ class PiSceneLeanTests(unittest.TestCase):
             with self.assertRaisesRegex(StateConflictError, "forbidden automatic"):
                 ledger.assert_completed(forbidden, parsed_operations=0)
 
-    def test_ordinary_regenerate_reuses_sequence_and_accept_is_exactly_once(self) -> None:
+    def test_ordinary_regenerate_reruns_logic_and_accept_is_exactly_once(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             coordinator, planner, pi, store = self.make_runtime(root)
@@ -1942,11 +1941,15 @@ class PiSceneLeanTests(unittest.TestCase):
                 first.review_id,
                 feedback="Make the replacement more concise.",
             )
-            self.assertEqual(len(planner.calls), 1)
+            self.assertEqual(len(planner.calls), 2)
             self.assertIsNotNone(regenerated.successor)
             successor = regenerated.successor
             assert successor is not None
-            self.assertEqual(successor.candidate.primary_authority_json, first_authority)
+            self.assertNotEqual(successor.candidate.primary_authority_json, first_authority)
+            self.assertEqual(
+                planner.calls[1].creator_guidance.text,
+                "Make the replacement more concise.",
+            )
             accepted = coordinator.accept(successor.review_id).review
             self.assertEqual(accepted.state, LeanReviewState.ACCEPTED)
             self.assertEqual(
@@ -2462,7 +2465,7 @@ class PiSceneLeanTests(unittest.TestCase):
             regenerated = coordinator.regenerate(fourth.review_id, force_rehydrate=True)
             successor = regenerated.successor
             assert successor is not None
-            self.assertEqual(successor.candidate.primary_authority_sha256, original_authority)
+            self.assertNotEqual(successor.candidate.primary_authority_sha256, original_authority)
             coordinator.accept(successor.review_id)
 
             head = store.load_head(world_id="world-test", branch_id="branch-main")
@@ -2477,7 +2480,7 @@ class PiSceneLeanTests(unittest.TestCase):
                 ["ordinary", "adult", "adult", "ordinary"],
             )
             self.assertTrue(accepted[-1]["receipt"]["writer_receipt"]["rehydrated"])
-            self.assertEqual(len(planner.calls), 2)
+            self.assertEqual(len(planner.calls), 3)
             self.assertEqual(
                 [value.purpose for value in pi.calls].count("writer"),
                 5,

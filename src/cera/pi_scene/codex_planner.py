@@ -224,6 +224,11 @@ def _immediate_prior_ordinary_sequence(
         raise ContractValidationError("accepted ordinary sequence is invalid JSON") from exc
     if not isinstance(payload, Mapping):
         raise ContractValidationError("accepted ordinary sequence is not an object")
+    nested = payload.get("sequence")
+    if nested is not None:
+        if not isinstance(nested, Mapping):
+            raise ContractValidationError("accepted cognition plan sequence is invalid")
+        payload = nested
     return from_mapping(SequenceDraftV1, payload)
 
 

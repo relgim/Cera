@@ -124,7 +124,12 @@ class CognitionProviderContractTests(unittest.TestCase):
                     "hard_boundaries": [],
                     "approved_targets": [],
                     "durable_changes": [],
-                    "provisional_canon_lineage": [],
+                    "provisional_canon_lineage": [
+                        {
+                            "provisional_canon_id": "provisional:test-1",
+                            "status": "unresolved",
+                        }
+                    ],
                 },
                 characters={"character:sakura_hanezawa": {"name": "Sakura"}},
                 relationships={},
@@ -142,6 +147,11 @@ class CognitionProviderContractTests(unittest.TestCase):
             adapter.last_context.autonomy_mode,
             CharacterAutonomyMode.BOTH,
         )
+        self.assertEqual(
+            adapter.last_context.available_provisional_record_ids,
+            ("provisional:test-1",),
+        )
+        self.assertEqual(result.validation_evidence, ())
 
 
 if __name__ == "__main__":
