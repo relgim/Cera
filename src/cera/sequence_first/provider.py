@@ -11,6 +11,7 @@ from dataclasses import replace
 from pathlib import Path
 
 from cera.errors import ContractValidationError
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.schema import from_mapping
 from cera.serialization import text_sha256
 from cera.providers.codex import CodexSDKTransport, StoredCodexThreadRunner
@@ -512,6 +513,13 @@ class SequenceFirstPlannerCodexBackend:
         self.last_provider_result: ContinuousProviderResultV1 | None = None
 
     def start_stored_thread(self, *, base_instructions: str, profile: str) -> str:
+        assert_provider_dispatch_allowed(
+            "sequence_first.planner.thread_start",
+            external_provider_boundary=isinstance(
+                self.lifecycle,
+                OpenAICodexStoredThreadBackend,
+            ),
+        )
         if profile != PLANNER_PROFILE or base_instructions != PLANNER_BASE_INSTRUCTIONS:
             raise ContractValidationError("sequence-first Planner profile changed")
         if base_instructions not in self.lifecycle.base_instructions:
@@ -527,6 +535,13 @@ class SequenceFirstPlannerCodexBackend:
         prompt: str,
         reference_scope: ProviderReferenceScopeV1,
     ) -> SequenceDraftV1:
+        assert_provider_dispatch_allowed(
+            "sequence_first.planner.turn",
+            external_provider_boundary=isinstance(
+                self.lifecycle,
+                OpenAICodexStoredThreadBackend,
+            ),
+        )
         self._operation_index += 1
         operation_workspace = _operation_workspace(
             self.workspace,
@@ -633,6 +648,13 @@ class SequenceFirstValidatorCodexBackend:
         self.last_provider_result: ContinuousProviderResultV1 | None = None
 
     def start_fresh_thread(self, *, base_instructions: str, profile: str) -> str:
+        assert_provider_dispatch_allowed(
+            "sequence_first.validator.thread_start",
+            external_provider_boundary=isinstance(
+                self.lifecycle,
+                OpenAICodexStoredThreadBackend,
+            ),
+        )
         if profile != VALIDATOR_PROFILE or base_instructions != VALIDATOR_BASE_INSTRUCTIONS:
             raise ContractValidationError("sequence-first Validator profile changed")
         if base_instructions not in self.lifecycle.base_instructions:
@@ -649,6 +671,13 @@ class SequenceFirstValidatorCodexBackend:
         reference_scope: ProviderReferenceScopeV1,
         intended_sequence: SequenceDraftV1,
     ) -> ValidatorDecisionV1:
+        assert_provider_dispatch_allowed(
+            "sequence_first.validator.turn",
+            external_provider_boundary=isinstance(
+                self.lifecycle,
+                OpenAICodexStoredThreadBackend,
+            ),
+        )
         self._operation_index += 1
         operation_workspace = _operation_workspace(
             self.workspace,
@@ -766,6 +795,13 @@ class SequenceFirstReaderCodexPort:
         self.last_provider_result: ContinuousProviderResultV1 | None = None
 
     def read(self, request: SequenceFirstReaderInputV1) -> ReaderVerdictV1:
+        assert_provider_dispatch_allowed(
+            "sequence_first.reader.turn",
+            external_provider_boundary=isinstance(
+                self.lifecycle,
+                OpenAICodexStoredThreadBackend,
+            ),
+        )
         planner_item_keys = tuple(
             item.item_key for item in request.intended_sequence.items
         )

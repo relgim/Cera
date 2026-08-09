@@ -20,6 +20,7 @@ from typing import Callable, Mapping, Sequence
 from uuid import NAMESPACE_URL, uuid5
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.serialization import canonical_sha256, text_sha256
 
 from .contracts import PiWriterReceiptV1, SceneRoute
@@ -119,6 +120,7 @@ class PiSceneAdapter:
         self.provider = provider
         self.model = model
         self.timeout_seconds = timeout_seconds
+        self._external_process_runner = process_runner is None
         self._process_runner = process_runner or _run_process
         self.readable_debug = readable_debug
         if not self.pi_executable.is_file():
@@ -131,6 +133,10 @@ class PiSceneAdapter:
             raise ContractValidationError("Pi Scene adapter configuration is invalid")
 
     def invoke(self, request: PiSceneInvocationV1) -> PiSceneInvocationResultV1:
+        assert_provider_dispatch_allowed(
+            "pi_scene.invoke",
+            external_provider_boundary=self._external_process_runner,
+        )
         view = verify_writer_view(request.view.root)
         if view.manifest_sha256 != request.view.manifest_sha256:
             raise StateConflictError("Pi invocation Writer-view binding changed")

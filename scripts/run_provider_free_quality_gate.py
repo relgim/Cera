@@ -32,7 +32,16 @@ def _configure_checkout() -> Path:
     source_text = str(SOURCE_ROOT)
     if not sys.path or Path(sys.path[0]).resolve() != SOURCE_ROOT:
         sys.path.insert(0, source_text)
+    root_text = str(ROOT)
+    if not any(
+        Path(value or os.getcwd()).resolve() == ROOT
+        for value in sys.path
+    ):
+        sys.path.insert(1, root_text)
     import cera
+    from cera.provider_dispatch_guard import PROVIDER_DISPATCH_DISABLED_ENV
+
+    os.environ[PROVIDER_DISPATCH_DISABLED_ENV] = "1"
 
     package_root = Path(cera.__file__).resolve().parent
     expected = SOURCE_ROOT / "cera"
@@ -90,6 +99,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"cera_import={package_root}")
     print(f"compiled_python_files={compiled}")
     print("provider_credentials=removed")
+    print("provider_dispatch_guard=enabled")
     if arguments.compile_only:
         return 0
     result = unittest.TextTestRunner(verbosity=2).run(_suite(tuple(arguments.tests)))
