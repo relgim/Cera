@@ -1745,7 +1745,7 @@ class PiSceneLeanTests(unittest.TestCase):
                 "type": "message_end",
                 "message": {
                     "role": "assistant",
-                    "content": [{"type": "toolCall", "name": "read"}],
+                    "content": [{"type": "toolCall", "name": "context"}],
                     "usage": {"input": 100, "cacheRead": 20, "output": 5},
                     "stopReason": "toolUse",
                 },
@@ -1773,8 +1773,8 @@ class PiSceneLeanTests(unittest.TestCase):
                     {"type": "session", "id": "session-test"},
                     {"type": "turn_start"},
                     assistant_one,
-                    {"type": "tool_execution_start", "toolName": "read"},
-                    {"type": "tool_execution_end", "toolName": "read", "isError": False},
+                    {"type": "tool_execution_start", "toolName": "context"},
+                    {"type": "tool_execution_end", "toolName": "context", "isError": False},
                     {"type": "turn_start"},
                     assistant_two,
                 )

@@ -333,6 +333,8 @@ class _ParsedPiStream:
     reasoning_tokens: int
     finish_status: str
     event_count: int
+    completed_context_tool_calls: int = 1
+    tool_protocol_error_count: int = 0
 
 
 def _validate_pi_completion(parsed: _ParsedPiStream) -> None:
@@ -345,6 +347,13 @@ def _validate_pi_completion(parsed: _ParsedPiStream) -> None:
         )
     if parsed.failed_tool_call_count:
         raise StateConflictError("Pi Scene context loading failed")
+    if (
+        parsed.completed_context_tool_calls != MAX_TOOL_CALLS_PER_INVOCATION
+        or parsed.tool_protocol_error_count
+    ):
+        raise StateConflictError(
+            "Pi Scene did not prove one matched successful context completion"
+        )
     if parsed.finish_status.casefold() not in SUCCESSFUL_FINISH_STATUSES:
         raise StateConflictError(
             "Pi Scene did not reach a normal terminal stop "
@@ -358,6 +367,9 @@ def _parse_pi_json_stream(stdout: str) -> _ParsedPiStream:
     provider_operations = 0
     tool_call_count = 0
     failed_tool_call_count = 0
+    completed_context_tool_calls = 0
+    tool_protocol_error_count = 0
+    pending_tool: tuple[str, str | None] | None = None
     input_tokens = 0
     cached_input_tokens = 0
     output_tokens = 0
@@ -381,8 +393,39 @@ def _parse_pi_json_stream(stdout: str) -> _ParsedPiStream:
             session_id = value
         elif event.get("type") == "tool_execution_start":
             tool_call_count += 1
-        elif event.get("type") == "tool_execution_end" and event.get("isError") is True:
-            failed_tool_call_count += 1
+            name = event.get("toolName")
+            call_id = _tool_call_id(event)
+            if pending_tool is not None:
+                tool_protocol_error_count += 1
+            if not isinstance(name, str) or name != "context":
+                tool_protocol_error_count += 1
+            pending_tool = (name if isinstance(name, str) else "", call_id)
+        elif event.get("type") == "tool_execution_end":
+            name = event.get("toolName")
+            call_id = _tool_call_id(event)
+            valid_completion = pending_tool is not None
+            if pending_tool is None:
+                tool_protocol_error_count += 1
+            else:
+                start_name, start_id = pending_tool
+                if name != start_name or start_name != "context":
+                    tool_protocol_error_count += 1
+                    valid_completion = False
+                if (start_id is None) != (call_id is None) or (
+                    start_id is not None and call_id != start_id
+                ):
+                    tool_protocol_error_count += 1
+                    valid_completion = False
+            is_error = event.get("isError")
+            if type(is_error) is not bool:
+                tool_protocol_error_count += 1
+                valid_completion = False
+            elif is_error:
+                failed_tool_call_count += 1
+                valid_completion = False
+            if valid_completion:
+                completed_context_tool_calls += 1
+            pending_tool = None
         elif event.get("type") == "message_end":
             message = event.get("message")
             if not isinstance(message, dict) or message.get("role") != "assistant":
@@ -418,6 +461,8 @@ def _parse_pi_json_stream(stdout: str) -> _ParsedPiStream:
                 final_text = text
     if session_id is None:
         raise StateConflictError("Pi JSON event stream omitted the session header")
+    if pending_tool is not None:
+        tool_protocol_error_count += 1
     if provider_operations < 1:
         raise StateConflictError("Pi JSON event stream did not prove a provider operation")
     if cached_input_tokens > input_tokens:
@@ -434,7 +479,17 @@ def _parse_pi_json_stream(stdout: str) -> _ParsedPiStream:
         reasoning_tokens=reasoning_tokens,
         finish_status=finish_status,
         event_count=event_count,
+        completed_context_tool_calls=completed_context_tool_calls,
+        tool_protocol_error_count=tool_protocol_error_count,
     )
+
+
+def _tool_call_id(event: Mapping[str, object]) -> str | None:
+    for name in ("toolCallId", "tool_call_id", "callId", "call_id"):
+        value = event.get(name)
+        if value is not None:
+            return value if isinstance(value, str) and value.strip() else ""
+    return None
 
 
 def _parse_writer_output(output_text: str) -> str:
