@@ -32,6 +32,7 @@ from .contracts import (
     SceneRoute,
     advisory_ted_warnings,
     canonical_authority,
+    primary_item_keys,
 )
 from .http_contracts import LeanSceneRequestControlsV1
 from .pi_adapter import PiSceneAdapter, PiSceneInvocationV1
@@ -1273,12 +1274,7 @@ def _attach_ordinary_payload(
         },
         "ordinary Recorder",
     )
-    primary = json.loads(accepted.primary_authority_json)
-    if not isinstance(primary, dict):
-        raise ContractValidationError("ordinary primary authority is invalid")
-    items = primary.get("items")
-    if not isinstance(items, list):
-        raise ContractValidationError("ordinary primary authority shape changed")
+    item_keys = primary_item_keys(accepted.primary_authority_json)
     resulting_public_state = payload["resulting_public_state"]
     if not isinstance(resulting_public_state, str) or not resulting_public_state.strip():
         raise ContractValidationError("resulting_public_state must be non-empty text")
@@ -1286,7 +1282,7 @@ def _attach_ordinary_payload(
         {
             "schema_version": "cera.pi_scene.ordinary_record.v1",
             "primary_sequence_sha256": accepted.primary_authority_sha256,
-            "realized_item_keys": [value["item_key"] for value in items],
+            "realized_item_keys": list(item_keys),
             "secondary_canon": _secondary_canon_array(payload["secondary_canon"]),
             "resulting_public_state": resulting_public_state,
             "relationship_changes": _string_array(

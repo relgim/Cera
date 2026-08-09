@@ -534,20 +534,30 @@ def _typed_error_payload(
     message: str,
     story_state_committed: bool = False,
     retry_mode: str = "not_applicable",
+    technical_detail: str | None = None,
+    next_action: str = "check_configuration",
+    debug_log_path: str | None = None,
+    trace_id: str | None = None,
 ) -> dict[str, Any]:
+    if technical_detail is not None and not technical_detail.strip():
+        technical_detail = None
     envelope: dict[str, Any] = {
         "schema_version": "cera.error.v1",
         "error_code": error_code,
         "message": message,
-        "trace_id": f"trace:{uuid4().hex}",
+        "trace_id": trace_id or f"trace:{uuid4().hex}",
         "request_id": None,
         "branch_id": None,
         "generation_id": None,
         "stage": "pi_scene_http",
         "story_state_committed": story_state_committed,
         "retry_mode": retry_mode,
-        "details": [],
+        "details": ([] if technical_detail is None else [technical_detail]),
         "fallback_used": False,
+        "provider_operation_submitted": False,
+        "accepted_state_changed": story_state_committed,
+        "next_action": next_action,
+        "debug_log_path": debug_log_path,
     }
     return {
         "status": "error",
@@ -693,36 +703,60 @@ def build_pi_scene_server(
                 self._error(exc)
 
         def _error(self, exc: Exception) -> None:
+            technical_detail = f"{type(exc).__name__}: {exc}"
             if isinstance(exc, PiSceneCommittedStateError):
                 status = HTTPStatus.INTERNAL_SERVER_ERROR
                 code = "CERA_DELIVERY_AFTER_COMMIT_FAILED"
                 message = "Accepted story state was retained, but response delivery failed."
                 committed = True
                 retry_mode = "manual_after_review"
+                next_action = "check_current_review_before_retrying"
             elif isinstance(exc, StateConflictError):
                 status = HTTPStatus.CONFLICT
                 code = "CERA_STATE_CONFLICT"
                 message = "The request conflicts with the current Pi Scene review or branch state."
                 committed = False
                 retry_mode = "manual_after_review"
+                next_action = "check_current_review_or_branch_state"
             elif isinstance(exc, ContractValidationError):
                 status = HTTPStatus.UNPROCESSABLE_ENTITY
                 code = "CERA_INTAKE_INVALID"
                 message = "The Pi Scene request failed contract validation."
                 committed = False
                 retry_mode = "not_applicable"
+                next_action = "correct_the_reported_request_field"
             elif isinstance(exc, (json.JSONDecodeError, UnicodeDecodeError, ValueError)):
                 status = HTTPStatus.BAD_REQUEST
                 code = "CERA_INTAKE_INVALID"
                 message = "The Pi Scene request body is invalid."
                 committed = False
                 retry_mode = "not_applicable"
+                next_action = "send_valid_json_without_changing_story_state"
             else:
                 status = HTTPStatus.INTERNAL_SERVER_ERROR
                 code = "CERA_INTERNAL_ERROR"
                 message = "The Pi Scene request failed internally."
                 committed = False
                 retry_mode = "manual_after_review"
+                next_action = "open_the_debug_log_and_report_the_trace_id"
+            trace_id = f"trace:{uuid4().hex}"
+            debug_log_path = None
+            if adapter.readable_debug is not None:
+                try:
+                    debug_entry = adapter.readable_debug.write(
+                        stage="http-error",
+                        identity=trace_id,
+                        sections={
+                            "Stable error code": code,
+                            "User-facing message": message,
+                            "Exact local backend error": technical_detail,
+                            "Accepted state changed": committed,
+                            "Next action": next_action,
+                        },
+                    )
+                    debug_log_path = None if debug_entry is None else str(debug_entry)
+                except Exception:
+                    debug_log_path = None
             self._json(
                 status,
                 _typed_error_payload(
@@ -730,6 +764,10 @@ def build_pi_scene_server(
                     message=message,
                     story_state_committed=committed,
                     retry_mode=retry_mode,
+                    technical_detail=technical_detail,
+                    next_action=next_action,
+                    debug_log_path=debug_log_path,
+                    trace_id=trace_id,
                 ),
             )
 

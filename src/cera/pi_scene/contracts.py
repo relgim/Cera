@@ -15,6 +15,7 @@ from enum import StrEnum
 from typing import Any, ClassVar
 
 from cera.errors import ContractValidationError
+from cera.sequence_first.contracts import SequenceDraftV1
 from cera.serialization import canonical_json, canonical_sha256, re_is_sha256, text_sha256
 
 
@@ -690,10 +691,38 @@ def primary_item_keys(primary_authority_json: str) -> tuple[str, ...]:
     """Extract exact Planner item keys without interpreting narrative meaning."""
 
     data = json.loads(primary_authority_json)
-    values = data.get("items")
+    if not isinstance(data, Mapping):
+        raise ContractValidationError("Codex primary authority is not an object")
+    legacy_keys = {
+        "items",
+        "durable_changes",
+        "presence_changes",
+        "resulting_public_state",
+        "unresolved_threads",
+        "stopping_boundary",
+    }
+    if set(data) == legacy_keys:
+        sequence = data
+    elif data.get("schema_version") == SequenceDraftV1.SCHEMA_VERSION:
+        sequence = data
+    elif data.get("schema_version") == "cera.cognition.plan.v1":
+        expected = {
+            "schema_version",
+            "sequence",
+            "decision_records",
+            "decision_item_links",
+            "provisional_dependencies",
+            "route_transition",
+        }
+        if set(data) != expected or not isinstance(data.get("sequence"), Mapping):
+            raise ContractValidationError("Codex cognition authority shape changed")
+        sequence = data["sequence"]
+        if sequence.get("schema_version") != SequenceDraftV1.SCHEMA_VERSION:
+            raise ContractValidationError("Codex cognition sequence schema changed")
+    else:
+        raise ContractValidationError("Codex primary authority schema is unsupported")
+    values = sequence.get("items")
     if not isinstance(values, list):
-        # Historical SequenceDraftV1 serializes the ordered sequence as `items`.
-        # Reject rather than adding semantic aliases.
         raise ContractValidationError("Codex sequence does not expose ordered items")
     keys: list[str] = []
     for item in values:
