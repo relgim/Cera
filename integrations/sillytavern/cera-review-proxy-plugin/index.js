@@ -6,6 +6,7 @@ const REVIEW_ID_PATTERN = /^(?:[a-z][a-z0-9_]{0,31}:[A-Za-z0-9._-]{1,160}|review
 const AUTHORIZATION_PATTERN = /^Bearer [A-Za-z0-9._~-]{24,512}$/;
 const DECISION_ACTIONS = new Set([
     'accept',
+    'accept_provisional',
     'decline',
     'regenerate',
     'replan',

@@ -15,9 +15,10 @@ if (data?.cera && typeof window.ceraCaptureCompletionMetadata === 'function') {
 ```
 
 That same sync must copy `index.js`, `completion-metadata.js`,
-`creator-trace-panel.js`, `style.css`, and `manifest.json` from the
-repository-owned creator-review extension directory. The two small modules
-keep backend-data projection separate from DOM presentation.
+`creator-trace-panel.js`, `review-actions.js`, `style.css`, and `manifest.json`
+from the repository-owned creator-review extension directory. The small
+modules keep backend-data projection, typed review outcomes, and DOM
+presentation separate.
 
 The bridge must not clone, log, reshape, or persist the raw `data.cera`
 object. The creator-review extension owns a closed, bounded projection before
@@ -29,6 +30,12 @@ The extension accepts both automatically accepted and provisional CERA
 completions. A rejected candidate receives durable buttons only when the
 backend supplies a review ID matching `review-[a-f0-9]{28}`. The client never
 derives or repairs a review ID.
+
+`Accept as Provisional` is exposed only when the fetched review payload sets
+`provisional_accept_enabled` to the Boolean value `true`. An adult
+`reprojection_required` result remains visibly provisional and explicitly
+states that no story state was accepted or committed. It never reuses the
+ordinary committed-provisional path.
 
 The backend's optional `cera.creator_trace` projection has this safe shape:
 

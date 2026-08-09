@@ -42,7 +42,12 @@ export function updateMessageBlock() {}
         path.join(root, 'public', 'scripts', 'openai.js'),
         `export const oai_settings = { custom_include_headers: '' };\n`,
     );
-    for (const name of ['index.js', 'completion-metadata.js', 'creator-trace-panel.js']) {
+    for (const name of [
+        'index.js',
+        'completion-metadata.js',
+        'creator-trace-panel.js',
+        'review-actions.js',
+    ]) {
         await writeFile(
             path.join(extension, name),
             await readFile(path.join(sourceRoot, name), 'utf8'),
@@ -247,7 +252,69 @@ test('source presents collapsed trace and preserves creator actions', async () =
         'Provider operations',
         'Readable debug log',
     ]) assert.equal(panel.includes(marker), true, `missing panel marker: ${marker}`);
-    for (const marker of ["'Regenerate'", "'Replan'", "'Decline'"]) {
+    for (const marker of ["'Accept as Provisional'", "'Regenerate'", "'Replan'", "'Decline'"]) {
         assert.equal(source.includes(marker), true, `missing action marker: ${marker}`);
+    }
+    assert.equal(source.includes("if (!feedback && action !== 'replan')"), true);
+    assert.equal(panel.includes('CERA - PROVISIONAL CANON'), true);
+    assert.equal(panel.includes('not settled final truth'), true);
+});
+
+test('provisional acceptance is backend-gated and reprojection stays unaccepted', async () => {
+    const { root } = await loadExtension();
+    try {
+        const actions = await import(
+            `${pathToFileURL(path.join(
+                root,
+                'public',
+                'scripts',
+                'extensions',
+                'third-party',
+                'cera-creator-review',
+                'review-actions.js',
+            )).href}?v=${Date.now()}`
+        );
+        assert.equal(actions.provisionalAcceptEnabled({ provisional_accept_enabled: true }), true);
+        assert.equal(actions.provisionalAcceptEnabled({ provisional_accept_enabled: false }), false);
+        assert.equal(actions.provisionalAcceptEnabled({ provisional_accept_enabled: 'true' }), false);
+        assert.equal(actions.provisionalAcceptEnabled({
+            actions: { accept_provisional: true },
+        }), false);
+
+        const blocked = actions.normalizeReprojectionRequired({
+            schema_version: 'cera.pi_scene.adult_provisional_acceptance_blocked.v1',
+            review_id: 'review-0123456789abcdef0123456789ab',
+            disposition: 'reprojection_required',
+            reason_code: 'filter_rejection_has_no_promotable_projection',
+            required_artifacts: [
+                'protected_full_record',
+                'non_explicit_codex_projection',
+                'route_transition',
+            ],
+            story_state_committed: false,
+            accepted_effect_created: false,
+            accept_enabled: false,
+            next_action: 'protected_reprojection_provider_operation_required',
+            exact_story_prose: 'must not enter the UI projection',
+        });
+        assert.equal(blocked.disposition, 'reprojection_required');
+        assert.equal(blocked.story_state_committed, false);
+        assert.equal(blocked.accepted_effect_created, false);
+        assert.equal('exact_story_prose' in blocked, false);
+        assert.equal(actions.provisionalAcceptanceCommitted(blocked), false);
+        assert.equal(actions.provisionalAcceptanceCommitted({
+            story_state_committed: true,
+            review: { canon_status: 'provisional' },
+        }), true);
+        assert.equal(actions.provisionalAcceptanceCommitted({
+            story_state_committed: true,
+            review: { canon_status: 'accepted' },
+        }), false);
+        assert.equal(actions.normalizeReprojectionRequired({
+            ...blocked,
+            story_state_committed: true,
+        }), null);
+    } finally {
+        await rm(root, { recursive: true, force: true });
     }
 });

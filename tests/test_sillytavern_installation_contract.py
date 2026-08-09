@@ -32,6 +32,7 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
             "index.js",
             "completion-metadata.js",
             "creator-trace-panel.js",
+            "review-actions.js",
             "style.css",
             "manifest.json",
         ):
@@ -184,7 +185,12 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
             / "sillytavern"
             / "creator-review-extension"
         )
-        for name in ("index.js", "completion-metadata.js", "creator-trace-panel.js"):
+        for name in (
+            "index.js",
+            "completion-metadata.js",
+            "creator-trace-panel.js",
+            "review-actions.js",
+        ):
             result = subprocess.run(
                 [str(node), "--check", str(extension_root / name)],
                 cwd=REPOSITORY_ROOT,
@@ -208,6 +214,13 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertIn("CODEX SEQUENCE REALIZATION READY FOR CREATOR REVIEW", extension)
         self.assertIn("'Regenerate'", extension)
         self.assertIn("'Replan'", extension)
+        self.assertIn("'Accept as Provisional'", extension)
+        self.assertIn("provisionalAcceptEnabled(review)", extension)
+        self.assertIn("No story state was accepted or committed.", extension)
+        self.assertIn("if (!feedback && action !== 'replan')", extension)
+        self.assertIn("CERA - PROVISIONAL CANON", (
+            source_root / "creator-trace-panel.js"
+        ).read_text(encoding="utf-8"))
         self.assertIn("'Repair Recording'", extension)
         self.assertIn("'Decline'", extension)
         self.assertIn("'declined'", extension)
@@ -282,6 +295,7 @@ class SillyTavernInstallationContractTests(unittest.TestCase):
         self.assertIn("const normalizedAuthorization = normalizeAuthorization(authorization)", proxy)
         self.assertIn("Authorization: normalizedAuthorization", proxy)
         self.assertIn("authorization: request.get('X-Cera-Authorization')", proxy)
+        self.assertIn("'accept_provisional'", proxy)
 
     def test_openai_bridge_routes_all_cera_metadata_through_closed_projection(self) -> None:
         openai = (SILLYTAVERN_ROOT / "public" / "scripts" / "openai.js").read_text(

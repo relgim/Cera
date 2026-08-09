@@ -59,6 +59,10 @@ test('decision bodies retain only typed creator actions and bounded feedback', (
         action: 'accept',
         feedback: null,
     });
+    assert.deepEqual(normalizeDecisionBody({ action: 'accept_provisional' }), {
+        action: 'accept_provisional',
+        feedback: null,
+    });
     assert.deepEqual(normalizeDecisionBody({ action: 'false_positive' }), {
         action: 'false_positive',
         feedback: null,

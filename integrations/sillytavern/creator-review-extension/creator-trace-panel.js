@@ -3,15 +3,22 @@
 export function renderCompletionPanel(panel, completion, storedState, reviewIdIsValid) {
     panel.innerHTML = '';
     const accepted = completion.story_state_committed === true || storedState === 'accepted';
+    const provisionalCanon = accepted && completion.canon_status === 'provisional';
     const badge = document.createElement('div');
     badge.className = `cera-review-badge ${accepted ? 'cera-review-accepted' : 'cera-review-error'}`;
-    badge.textContent = accepted ? 'CERA - ACCEPTED' : 'CERA - NOT ACCEPTED';
+    badge.textContent = provisionalCanon
+        ? 'CERA - PROVISIONAL CANON'
+        : accepted
+            ? 'CERA - ACCEPTED'
+            : 'CERA - NOT ACCEPTED';
     panel.appendChild(badge);
 
     const heading = document.createElement('div');
     heading.className = 'cera-review-heading';
-    heading.textContent = accepted
-        ? `${displayRoute(completion.route_mode)} turn completed`
+    heading.textContent = provisionalCanon
+        ? `${displayRoute(completion.route_mode)} turn accepted as provisional canon`
+        : accepted
+            ? `${displayRoute(completion.route_mode)} turn completed`
         : `${displayRoute(completion.route_mode)} candidate requires attention`;
     panel.appendChild(heading);
 
@@ -19,8 +26,10 @@ export function renderCompletionPanel(panel, completion, storedState, reviewIdIs
     status.className = accepted
         ? 'cera-review-result cera-review-severity-good'
         : 'cera-review-result cera-review-severity-concern';
-    status.textContent = accepted
-        ? 'Accepted state and processing details are available below.'
+    status.textContent = provisionalCanon
+        ? 'The turn is committed as provisional canon, not settled final truth.'
+        : accepted
+            ? 'Accepted state and processing details are available below.'
         : reviewIdIsValid
             ? 'Use the durable creator-review actions below.'
             : 'The backend did not supply a valid durable review ID, so no action was fabricated.';

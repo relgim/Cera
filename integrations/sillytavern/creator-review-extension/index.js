@@ -18,6 +18,11 @@ import {
     validReviewId,
 } from './completion-metadata.js';
 import { appendCreatorTrace, renderCompletionPanel } from './creator-trace-panel.js';
+import {
+    normalizeReprojectionRequired,
+    provisionalAcceptanceCommitted,
+    provisionalAcceptEnabled,
+} from './review-actions.js';
 
 const API_ROOT = '/api/plugins/cera-review';
 const META_KEY = 'cera_creator_review';
@@ -191,6 +196,11 @@ function renderStoredCompletionMetadata(messageId) {
     if (!completion) return;
     const panel = panelFor(messageId);
     if (!panel) return;
+    const reprojection = normalizeReprojectionRequired(stored.action_outcome);
+    if (reprojection) {
+        renderReprojectionRequired(messageId, reprojection);
+        return;
+    }
     if (stored.provisional && validReviewId(stored.review_id)) {
         if (!panel.querySelector('.cera-trace-details')) appendCreatorTrace(panel, completion);
         return;
@@ -272,7 +282,9 @@ function renderReview(messageId, review) {
     const panel = panelFor(messageId);
     if (!panel) return;
     if (review.state === 'accepted') {
-        markCanonical(messageId);
+        markCanonical(messageId, review, {
+            canonStatus: review.canon_status === 'provisional' ? 'provisional' : 'accepted',
+        });
         return;
     }
     if (['rejected', 'declined'].includes(review.state)) {
@@ -332,6 +344,13 @@ function renderPiSceneReview(messageId, review, panel) {
         !review.accept_enabled,
         () => decide(messageId, review, 'accept'),
     ));
+    if (provisionalAcceptEnabled(review)) {
+        actions.append(actionButton(
+            'Accept as Provisional',
+            false,
+            () => decide(messageId, review, 'accept_provisional'),
+        ));
+    }
     if (review.regenerate_enabled) {
         actions.append(actionButton(
             'Regenerate',
@@ -487,6 +506,8 @@ async function decide(messageId, review, action, feedback = null) {
         messageId,
         action === 'accept'
             ? 'Processing...'
+            : action === 'accept_provisional'
+                ? 'Processing provisional acceptance...'
             : action === 'false_positive'
                 ? 'Recording false positive and accepting...'
                 : 'Applying creator feedback...',
@@ -500,6 +521,19 @@ async function decide(messageId, review, action, feedback = null) {
         if (acceptsCandidate) {
             markCanonical(messageId, result);
             return;
+        }
+        if (action === 'accept_provisional') {
+            const reprojection = normalizeReprojectionRequired(result);
+            if (reprojection) {
+                storeReprojectionRequired(messageId, reprojection);
+                renderReprojectionRequired(messageId, reprojection);
+                await saveChatConditional();
+                return;
+            }
+            if (provisionalAcceptanceCommitted(result)) {
+                markCanonical(messageId, result, { canonStatus: 'provisional' });
+                return;
+            }
         }
         const successor = result?.successor;
         const successorReviewId = successor?.cera?.provisional_review_id;
@@ -545,11 +579,13 @@ async function reconcileDecisionAfterError(messageId, reviewId) {
     }
 }
 
-function markCanonical(messageId, result = null) {
+function markCanonical(messageId, result = null, { canonStatus = 'accepted' } = {}) {
     const metadata = chat[messageId]?.extra?.[META_KEY];
     if (metadata) {
         metadata.provisional = false;
         metadata.state = 'accepted';
+        metadata.canon_status = canonStatus;
+        delete metadata.action_outcome;
         if (result?.artifact_id) metadata.artifact_id = result.artifact_id;
         if (result?.generation) metadata.generation = result.generation;
         if (result?.accepted_turn_id) metadata.accepted_turn_id = result.accepted_turn_id;
@@ -560,6 +596,7 @@ function markCanonical(messageId, result = null) {
             metadata.completion.provisional = false;
             metadata.completion.status = 'accepted';
             metadata.completion.story_state_committed = true;
+            metadata.completion.canon_status = canonStatus;
             if (result?.artifact_id) metadata.completion.artifact_id = result.artifact_id;
             if (result?.generation) metadata.completion.generation = result.generation;
             if (result?.accepted_turn_id) {
@@ -574,6 +611,58 @@ function markCanonical(messageId, result = null) {
     panelFor(messageId)?.classList.add('cera-review-finished');
     renderStoredCompletionMetadata(messageId);
     activateSendButtons();
+}
+
+function storeReprojectionRequired(messageId, outcome) {
+    const metadata = chat[messageId]?.extra?.[META_KEY];
+    if (!metadata) return;
+    metadata.provisional = true;
+    metadata.state = outcome.disposition;
+    metadata.action_outcome = structuredClone(outcome);
+    if (metadata.completion) {
+        metadata.completion.provisional = true;
+        metadata.completion.status = outcome.disposition;
+        metadata.completion.story_state_committed = false;
+    }
+}
+
+function renderReprojectionRequired(messageId, outcome) {
+    const panel = panelFor(messageId);
+    if (!panel) return;
+    panel.innerHTML = '';
+
+    const badge = document.createElement('div');
+    badge.className = 'cera-review-badge';
+    badge.textContent = 'CERA - PROVISIONAL';
+    panel.appendChild(badge);
+
+    const heading = document.createElement('div');
+    heading.className = 'cera-review-heading';
+    heading.textContent = 'PROVISIONAL ACCEPTANCE REQUIRES REPROJECTION';
+    panel.appendChild(heading);
+
+    const result = document.createElement('div');
+    result.className = 'cera-review-result cera-review-severity-concern';
+    result.textContent = 'No story state was accepted or committed.';
+    panel.appendChild(result);
+
+    const reason = document.createElement('div');
+    reason.className = 'cera-review-reason';
+    reason.textContent = 'CERA must create the protected record, non-explicit projection, and route transition before this candidate can become provisional canon.';
+    panel.appendChild(reason);
+
+    appendCreatorTrace(panel, chat[messageId]?.extra?.[META_KEY]?.completion);
+
+    if (validReviewId(outcome.review_id)) {
+        const actions = document.createElement('div');
+        actions.className = 'cera-review-actions';
+        actions.append(actionButton(
+            'Check CERA status',
+            false,
+            () => refreshReviewStatus(messageId, outcome.review_id),
+        ));
+        panel.appendChild(actions);
+    }
 }
 
 function removeProvisionalMessage(messageId) {
