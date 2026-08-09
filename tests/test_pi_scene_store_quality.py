@@ -219,6 +219,13 @@ class PiSceneStoreQualityTests(unittest.TestCase):
                 )
                 self.assertNotIn("ordinary_record", payload)
                 self.assertNotIn("adult_projection", payload)
+            self.assertIn("exact_accepted_prose", pending_recent["receipt"])
+            self.assertNotIn("exact_accepted_prose", pending_branch["receipt"])
+            self.assertNotIn("exact_user_source", pending_branch["receipt"])
+            self.assertEqual(
+                pending_branch["accepted_receipt_sha256"],
+                accepted.receipt_sha256,
+            )
 
             restarted = LeanSceneStore(root)
             record = _ordinary_record(accepted)
@@ -250,6 +257,24 @@ class PiSceneStoreQualityTests(unittest.TestCase):
             )
             self.assertNotIn("adult_full_record", payload)
             self.assertNotIn("adult_projection", payload)
+            self.assertNotIn("exact_accepted_prose", payload["receipt"])
+            self.assertNotIn("exact_user_source", payload["receipt"])
+            self.assertNotIn("primary_authority_json", payload["receipt"])
+
+            protected = store.recent_adult_context_payloads(
+                world_id="world-test",
+                branch_id="branch-main",
+            )[0]
+            self.assertEqual(
+                protected["receipt"]["exact_accepted_prose"],
+                "Accepted prose 1.",
+            )
+
+            with self.assertRaisesRegex(StateConflictError, "adult projection"):
+                store.recent_ordinary_context_payloads(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                )
 
     def test_complete_bundle_detects_root_and_bundle_tampering_on_read(self) -> None:
         for target in ("root", "bundle"):
@@ -461,6 +486,10 @@ class PiSceneStoreQualityTests(unittest.TestCase):
             self.assertIn("ordinary_record", payloads[0])
             self.assertIn("adult_projection", payloads[1])
             self.assertNotIn("adult_full_record", payloads[1])
+            self.assertNotIn("exact_accepted_prose", payloads[0]["receipt"])
+            self.assertNotIn("exact_accepted_prose", payloads[1]["receipt"])
+            self.assertIn("primary_authority_json", payloads[0]["receipt"])
+            self.assertNotIn("primary_authority_json", payloads[1]["receipt"])
 
 
 if __name__ == "__main__":

@@ -582,10 +582,11 @@ class LeanSceneStore:
     ) -> Sequence[Mapping[str, Any]]:
         """Return the whole verified branch in immutable receipt order.
 
-        This reducer-facing view never exposes the adult full record. A
-        phase-one accepted receipt remains visible while its derived recording
-        is pending, but no unfinished derived field is promoted into the
-        payload. Consumers must keep the prior complete derived checkpoint.
+        This reducer-facing view never exposes exact user source, exact accepted
+        prose, protected adult authority, or the adult full record. A phase-one
+        accepted receipt remains visible while its derived recording is
+        pending, but no unfinished derived field is promoted into the payload.
+        Consumers must keep the prior complete derived checkpoint.
         """
 
         with self._lock:
@@ -596,12 +597,68 @@ class LeanSceneStore:
                 world_id=world_id,
                 branch_id=branch_id,
             )
-            return self._accepted_payloads(
+            raw = self._accepted_payloads(
                 branch_root,
                 receipts,
                 adult_full=False,
                 allow_pending=True,
             )
+            return tuple(_reducer_payload(value) for value in raw)
+
+    def recent_ordinary_context_payloads(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+        limit: int = 6,
+    ) -> tuple[dict[str, Any], ...]:
+        """Return the ordinary route's exact bounded continuity view.
+
+        Ordinary accepted prose remains available. Adult turns are represented
+        only by their non-explicit projection; returning to Codex fails closed
+        while that projection is pending.
+        """
+
+        raw = self.recent_accepted_payloads(
+            world_id=world_id,
+            branch_id=branch_id,
+            limit=limit,
+            adult_full=False,
+            allow_pending=True,
+        )
+        output: list[dict[str, Any]] = []
+        for value in raw:
+            receipt = _payload_receipt(value)
+            if receipt.route is SceneRoute.ADULT:
+                if "adult_projection" not in value:
+                    raise StateConflictError(
+                        "ordinary continuity requires the pending adult projection"
+                    )
+                output.append(_reducer_payload(value))
+            else:
+                output.append(value)
+        return tuple(output)
+
+    def recent_adult_context_payloads(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+        limit: int = 6,
+    ) -> tuple[dict[str, Any], ...]:
+        """Return protected recent continuity for the DeepSeek adult owner.
+
+        This is the only context API that may return exact accepted adult prose
+        or a protected adult full record. It must never be passed to Codex.
+        """
+
+        return self.recent_accepted_payloads(
+            world_id=world_id,
+            branch_id=branch_id,
+            limit=limit,
+            adult_full=True,
+            allow_pending=True,
+        )
 
     @staticmethod
     def _accepted_payloads(
@@ -732,6 +789,53 @@ class LeanSceneStore:
 
 def _turn_directory_name(receipt: LeanAcceptedTurnReceiptV1) -> str:
     return f"{receipt.generation:08d}-{text_sha256(receipt.accepted_turn_id)[:20]}"
+
+
+def _payload_receipt(value: Mapping[str, Any]) -> LeanAcceptedTurnReceiptV1:
+    receipt = value.get("receipt")
+    if not isinstance(receipt, Mapping):
+        raise StateConflictError("accepted payload omitted its receipt")
+    return _accepted_receipt_from_mapping(receipt)
+
+
+def _reducer_payload(value: Mapping[str, Any]) -> dict[str, Any]:
+    """Remove exact source/prose and protected adult authority from state input."""
+
+    receipt = _payload_receipt(value)
+    primitive = to_primitive(receipt)
+    common_fields = (
+        "schema_version",
+        "accepted_turn_id",
+        "parent_accepted_turn_id",
+        "parent_accepted_head_sha256",
+        "world_id",
+        "branch_id",
+        "scene_id",
+        "generation",
+        "route",
+        "exact_user_source_sha256",
+        "exact_accepted_prose_sha256",
+        "primary_authority_kind",
+        "primary_authority_sha256",
+        "writer_view_manifest_sha256",
+        "creator_action",
+        "initial_recording_status",
+        "candidate_sha256",
+    )
+    projected_receipt = {name: primitive[name] for name in common_fields}
+    if receipt.route is SceneRoute.ORDINARY:
+        projected_receipt["primary_authority_json"] = primitive[
+            "primary_authority_json"
+        ]
+    output: dict[str, Any] = {
+        "receipt": projected_receipt,
+        "accepted_receipt_sha256": receipt.receipt_sha256,
+        "recording_status": value.get("recording_status"),
+    }
+    for name in ("ordinary_record", "adult_projection"):
+        if name in value:
+            output[name] = value[name]
+    return output
 
 
 def _validate_receipt_chain(
