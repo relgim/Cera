@@ -40,9 +40,24 @@ export function normalizeCompletionMetadata(value) {
         return_to_codex: optionalBoolean(value.return_to_codex),
         debug_log_path: boundedText(value.debug_log_path, 2_000),
         provider_operations: normalizeProviderOperations(value.provider_operations),
-        creator_trace: normalizeCreatorTrace(value.creator_trace, value),
+        creator_trace: normalizeCreatorTrace(creatorTraceInput(value), value),
     };
     return completionIdentity(normalized) ? normalized : null;
+}
+
+function creatorTraceInput(value) {
+    if (plainObject(value.creator_trace)) return value.creator_trace;
+    return {
+        logic_owner: value.logic_owner,
+        decision_records: value.decision_records,
+        autonomy: value.autonomy ?? value.autonomy_application,
+        route_transition: value.route_transition,
+        validation: value.validation,
+        recording: value.recording,
+        provisional_dependencies: value.provisional_dependencies,
+        provider_operations: value.provider_operations,
+        debug_log_path: value.debug_log_path,
+    };
 }
 
 export function normalizeCreatorTrace(value, completion) {
@@ -186,11 +201,12 @@ function normalizeCloseAlternative(value) {
 function normalizeAutonomy(value, fallbackMode) {
     const source = plainObject(value) ? value : {};
     const mode = enumText(source.mode ?? fallbackMode, ['off', 'mind', 'body', 'both']);
-    const applications = Array.isArray(source.applications)
-        ? source.applications.slice(0, 24).map(item => {
+    const rawApplications = Array.isArray(value) ? value : source.applications;
+    const applications = Array.isArray(rawApplications)
+        ? rawApplications.slice(0, 24).map(item => {
             if (!plainObject(item)) return null;
             const normalized = {
-                character_id: boundedText(item.character_id, 240),
+                character_id: boundedText(item.character_id ?? item.owner_id, 240),
                 mind_precedence_applied: optionalBoolean(item.mind_precedence_applied),
                 body_precedence_applied: optionalBoolean(item.body_precedence_applied),
                 user_direction_disposition: boundedText(item.user_direction_disposition, 160),

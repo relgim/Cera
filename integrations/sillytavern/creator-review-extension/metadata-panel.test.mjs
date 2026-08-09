@@ -162,6 +162,60 @@ test('durable actions require an exact backend review identity', async () => {
     }
 });
 
+test('historical flat creator fields remain readable without weakening projection', async () => {
+    const { metadataModule, root } = await loadExtension();
+    try {
+        const normalized = metadataModule.normalizeCompletionMetadata({
+            profile_id: 'cera.pi_scene.lean.v1',
+            candidate_id: 'candidate:flat-trace',
+            route_mode: 'ordinary',
+            logic_owner: 'codex_cognition',
+            status: 'accepted',
+            story_state_committed: true,
+            decision_records: [{
+                decision_key: 'decision-flat',
+                owner_id: 'character:hana',
+                selected_intent: 'Answer the current conversational floor.',
+                concise_decision_basis: 'Accepted state supports a direct response.',
+                autonomy_application: {
+                    mind_precedence_applied: true,
+                    body_precedence_applied: true,
+                    user_direction_disposition: 'proposed_outcome',
+                    concise_effect: 'Character logic retained precedence.',
+                },
+                causal_trigger_refs: ['source:current'],
+                decisive_factor_refs: ['record:accepted'],
+            }],
+            autonomy_application: [{
+                decision_key: 'decision-flat',
+                owner_id: 'character:hana',
+                mind_precedence_applied: true,
+                body_precedence_applied: true,
+                user_direction_disposition: 'proposed_outcome',
+                concise_effect: 'Character logic retained precedence.',
+            }],
+            route_transition: { from_route: 'ordinary', to_route: 'adult' },
+            provisional_dependencies: [{
+                provisional_record_id: 'provisional:1',
+                assumed_value: 'true',
+                concise_dependency: 'A provisional detail was used.',
+            }],
+            request_controls: { character_autonomy: 'both' },
+            provider_operations: { planner: 1, writer: 1, luna: 1, recorder: 1 },
+        });
+        assert.equal(normalized.creator_trace.decision_records.length, 1);
+        assert.equal(normalized.creator_trace.autonomy.mode, 'both');
+        assert.equal(
+            normalized.creator_trace.autonomy.applications[0].character_id,
+            'character:hana',
+        );
+        assert.equal(normalized.creator_trace.route_transition.to_route, 'adult');
+        assert.equal(normalized.creator_trace.provisional_dependencies.length, 1);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
 test('source presents collapsed trace and preserves creator actions', async () => {
     const source = await readFile(path.join(sourceRoot, 'index.js'), 'utf8');
     const panel = await readFile(path.join(sourceRoot, 'creator-trace-panel.js'), 'utf8');
