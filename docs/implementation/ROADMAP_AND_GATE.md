@@ -1,6 +1,18 @@
 # Implementation Roadmap and Authorization Gate
 
 **Status:** controlling ordered roadmap
+
+## 2026-08-09 full-model successor roadmap
+
+The next creator-authorized implementation must follow
+[`CERA_FULL_MODEL_DECISION_RATIONALE_ROADMAP_V1.md`](CERA_FULL_MODEL_DECISION_RATIONALE_ROADMAP_V1.md)
+for architecture, rational-decision processing, state/retrieval design,
+automatic acceptance, Regenerate/Replan behavior, provider roles, prompt
+efficiency, and qualification order. Conflicting route assumptions below are
+historical to their original queues. The successor roadmap does not itself
+grant provider-call, live-story, production, deployment, merge, remote, or push
+authority.
+
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
 ## Runtime Model V3 qualification gate (active)
 

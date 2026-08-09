@@ -567,6 +567,46 @@ HTTP security, and no-fallback strengths while replacing the unsafe seams.
    become hard truth.
 4. The DeepSeek-to-Codex filtered sequence is a mandatory tested continuity
    artifact across ordinary return, restart, and branch-fork workflows.
+5. A mixed prompt that crosses the adult-route boundary is routed as one
+   DeepSeek-owned visible candidate. Codex may return a pre-generation typed
+   handoff, but logic ownership does not split inside the response.
+6. The global autonomy default is `both`. Mind and body are precedence controls,
+   not absolute switches; sufficiently strong, evidence-supported pressure may
+   overcome a tendency when the logic owner finds that realistic.
+7. A normally valid candidate is accepted automatically after its required
+   semantic and deterministic checks pass. One complete automatic repair is
+   permitted for a critical authoritative defect. Continued failures remain
+   visible and may be accepted only as explicitly marked provisional canon.
+8. Regenerate reuses the exact accepted state, user source, controls, and
+   evidence revision, then asks the logic owner for another realistic complete
+   outcome. It may change the sequence only when another character-consistent
+   decision is genuinely plausible. Replan means the reasoning itself is being
+   challenged or deliberately changed.
+9. A provisional assumption becomes pinned for its dependent lineage. Every
+   dependent scene carries the originating provisional ID until explicit
+   confirmation, correction, rejection, or supersession.
+10. Concrete identity, birth, biological/legal family, and creator-declared
+    lore are creator-locked by default. Evolvable state changes through accepted
+    events. Hana is Mia's biological mother; Mia is Hana's biological daughter.
+11. A false narrative assertion that contradicts locked authority is a critical
+    correction. The literal user source remains preserved, but the false fact
+    does not become canon. The same text spoken as dialogue remains an in-world
+    claim that may be mistaken or deceptive.
+12. Every relevant material character decision and material subconscious
+    association is available to Ted in a collapsible SillyTavern view. CERA
+    stores concise evidence-linked rationale, not hidden chain-of-thought.
+13. Retained Codex sessions have a three-minute ordinary logic target. Tests do
+    not lower quality settings to meet it; they record stage-level latency and
+    explain material increases.
+14. Voice, craft, and adult examples are Genesis-owned, versioned, read-only
+    dependencies retrievable by concept or keyword. A world pins their manifest
+    and hashes. They never establish story canon or character preference.
+15. Runtime psychological pressures use qualitative evidence-linked categories,
+    not provider-authored decimal coefficients. Repeated behavior may create a
+    tendency or association, but stable-trait promotion requires explicit
+    review.
+16. The controlling implementation description for these decisions is
+    `docs/implementation/CERA_FULL_MODEL_DECISION_RATIONALE_ROADMAP_V1.md`.
 
 ## 14. Update discipline
 

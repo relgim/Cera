@@ -1,6 +1,19 @@
 # CERA Start-Reading Index
 
 **Status:** controlling index
+
+## 2026-08-09 C78 full-model roadmap
+
+For the next creator-authorized CERA implementation work, read
+[`implementation/CERA_FULL_MODEL_DECISION_RATIONALE_ROADMAP_V1.md`](implementation/CERA_FULL_MODEL_DECISION_RATIONALE_ROADMAP_V1.md)
+and
+[`handoff/CREATOR_DECISIONS_AND_LESSONS.md`](handoff/CREATOR_DECISIONS_AND_LESSONS.md)
+before the older runtime-route history below. The full-model roadmap records
+the current creator-directed architecture, cognition protocol, automatic
+acceptance, Regenerate semantics, retrieval design, and implementation order.
+It does not by itself authorize provider calls, live-story effects, deployment,
+or source implementation.
+
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
 ## Runtime Model V3 current authority
 

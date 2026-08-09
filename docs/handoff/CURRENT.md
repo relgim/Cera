@@ -1,6 +1,18 @@
 # Current CERA Handoff
 
 **Updated:** 2026-08-03
+
+## 2026-08-09 C78 planning handoff
+
+The current creator-directed target for the next full-model implementation is
+[`CERA_FULL_MODEL_DECISION_RATIONALE_ROADMAP_V1.md`](../implementation/CERA_FULL_MODEL_DECISION_RATIONALE_ROADMAP_V1.md).
+It incorporates the C78 custody/workspace corrections, the restored ordinary
+and adult semantic roles, and the Vera-derived decision-rationale protocol.
+The roadmap supersedes conflicting older assumptions about explicit normal
+Accept, prose-only Regenerate, recent-prose memory, and numeric psychological
+middleware. It is documentation authority only; a separate creator command is
+still required to begin source work or provider dispatch.
+
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
 ## Runtime Model V3 handoff (active)
 
