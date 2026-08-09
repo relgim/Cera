@@ -2765,13 +2765,13 @@ class SequenceFirstSessionTests(unittest.TestCase):
         )
         self.assertEqual(
             SEQUENCE_FIRST_PLANNER_ADAPTER,
-            "cera.sequence_first.planner_adapter.v12",
+            "cera.sequence_first.planner_adapter.v13",
         )
         self.assertEqual(
             planner_route.prompt_version,
-            "cera.sequence_first.planner_prompt.v11",
+            "cera.sequence_first.planner_prompt.v12",
         )
-        self.assertTrue(planner_route.route_id.endswith("_v11"))
+        self.assertTrue(planner_route.route_id.endswith("_v12"))
         self.assertEqual(reader_route.adapter_id, SEQUENCE_FIRST_READER_ADAPTER)
         self.assertEqual(
             SEQUENCE_FIRST_READER_ADAPTER,

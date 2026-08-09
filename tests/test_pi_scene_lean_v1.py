@@ -541,40 +541,28 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertIn("tool named context directly exactly once", prompt)
             self.assertIn("do not call a tool named invoke", prompt)
             self.assertIn("zz_CURRENT_TURN_AUTHORITY.json", prompt)
-            self.assertIn("Start from the NPC or world response", prompt)
             self.assertIn("Do not invent Ted dialogue", prompt)
-            self.assertIn("Freely add compatible transient", prompt)
             self.assertIn("fact_scope", prompt)
             self.assertIn("Return complete visible prose only", prompt)
             self.assertNotIn("opening sentence", prompt.lower())
-        self.assertIn("current turn wins", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("supplied story material and intended direction", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("not automatically a fully completed off-page event", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("You own chronology of presentation", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("Interiority may be explicit or implicit", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("RESPONSE_SEQUENCE.json", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn(
             "outside the Writer root",
             ORDINARY_WRITER_SYSTEM_PROMPT,
         )
-        self.assertIn(
-            "completed_source_anchor_key",
-            ORDINARY_WRITER_SYSTEM_PROMPT,
-        )
-        self.assertIn("selected surface response", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertNotIn("source_anchor_key", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("internal_causal_guidance", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("surface_realization_items", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("Every surface item is independently mandatory", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("exact communicative proposition", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("does not substitute for it", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("separately keyed propositions", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("ordered_surface_requirements", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("may share one natural utterance", ORDINARY_WRITER_SYSTEM_PROMPT)
+        self.assertIn("may share one utterance", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("guides_surface_item_key", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("response_start_contract", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("completed cause implicit", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("Transient staging may begin only after", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("FINAL RESPONSE START GATE", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("one deletion test", ORDINARY_WRITER_SYSTEM_PROMPT)
-        self.assertIn("not a prose checklist", ORDINARY_WRITER_SYSTEM_PROMPT)
         self.assertIn("Fully realize causal_direction", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn("consent_and_capacity", ADULT_WRITER_SYSTEM_PROMPT)
+        self.assertIn("You own presentation chronology", ADULT_WRITER_SYSTEM_PROMPT)
         self.assertIn(
             "scene-local, reversible, non-identifying, non-causal",
             ADULT_WRITER_SYSTEM_PROMPT,
@@ -633,7 +621,7 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 authority_order["schema_version"],
-                "cera.pi_scene.writer_authority_order.v6",
+                "cera.pi_scene.writer_authority_order.v7",
             )
             self.assertEqual(authority_order["current_route"], "ordinary")
             self.assertEqual(
@@ -647,7 +635,7 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(
                 authority_order["realization_scope"],
                 {
-                    "render_user_prompt": False,
+                    "render_user_prompt": "writer_selected_under_planner_adjudication",
                     "postcondition_authority_path": (
                         "RESPONSE_SEQUENCE.json#postconditions"
                     ),
@@ -655,82 +643,21 @@ class PiSceneLeanTests(unittest.TestCase):
                     "response_authority_path": "RESPONSE_SEQUENCE.json",
                     "response_item_keys": ["hana_answers"],
                     "surface_realization_item_keys": ["hana_answers"],
-                    "response_start_item_key": "hana_answers",
-                    "response_start_contract_path": (
-                        "RESPONSE_SEQUENCE.json#response_start_contract"
-                    ),
-                    "source_contribution_status": "already_supplied_context_only",
+                    "source_contribution_status": "planner_adjudicated_story_material",
+                    "presentation_chronology": "writer_selected_within_causal_authority",
                 },
             )
             self.assertEqual(
-                authority_order["presentation_contract"]["first_visible_beat"],
-                "response_start_item",
+                authority_order["presentation_contract"]["opening_location"],
+                "writer_selected",
             )
             self.assertEqual(
                 authority_order["presentation_contract"][
-                    "response_start_contract_path"
+                    "presentation_chronology"
                 ],
-                "RESPONSE_SEQUENCE.json#response_start_contract",
+                "writer_selected_within_causal_authority",
             )
-            start_gate = json.loads(
-                (view.root / "zz_RESPONSE_START_GATE.json").read_text(
-                    encoding="utf-8"
-                )
-            )
-            self.assertEqual(
-                start_gate["schema_version"],
-                "cera.pi_scene.response_start_gate.v4",
-            )
-            self.assertEqual(
-                start_gate["authority_class"],
-                "derived_noncanonical_execution_focus",
-            )
-            self.assertEqual(
-                start_gate["canonical_authority_path"],
-                "RESPONSE_SEQUENCE.json",
-            )
-            self.assertEqual(
-                start_gate["response_start_item_key"],
-                "hana_answers",
-            )
-            self.assertEqual(start_gate["response_start_owner_id"], "character:hana")
-            self.assertEqual(start_gate["response_start_scope"], "character")
-            self.assertEqual(start_gate["response_start_kind"], "dialogue_intent")
-            self.assertEqual(start_gate["item_projection_role"], "surface_realization")
-            self.assertEqual(
-                start_gate["owner_response_semantics"],
-                "Hana answers while preserving the conversational floor.",
-            )
-            self.assertEqual(
-                start_gate["ordered_surface_requirements"],
-                [
-                    {
-                        "item_key": "hana_answers",
-                        "response_scope": "character",
-                        "owner_id": "character:hana",
-                        "kind": "dialogue_intent",
-                        "owner_response_semantics": (
-                            "Hana answers while preserving the conversational floor."
-                        ),
-                    }
-                ],
-            )
-            self.assertEqual(
-                start_gate["realization_mode"],
-                "surface_response_after_completed_source",
-            )
-            self.assertEqual(
-                start_gate["completed_source_rendering"], "implicit_cause_only"
-            )
-            self.assertEqual(start_gate["pre_response_narration"], "forbidden")
-            self.assertIn(
-                "physical or private condition",
-                start_gate["detail_boundary"]["future_reliance_test"],
-            )
-            self.assertEqual(
-                sorted(path.name for path in view.root.iterdir())[-1],
-                "zz_RESPONSE_START_GATE.json",
-            )
+            self.assertFalse((view.root / "zz_RESPONSE_START_GATE.json").exists())
             with self.assertRaises(ContractValidationError):
                 resolve_confined_path(view.root, "../outside.txt")
             with self.assertRaises(ContractValidationError):
@@ -772,7 +699,7 @@ class PiSceneLeanTests(unittest.TestCase):
                     )
                 )
 
-    def test_response_start_gate_tamper_fails_closed_after_manifest_rebinding(self) -> None:
+    def test_response_projection_tamper_fails_closed_after_manifest_rebinding(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             view = WriterViewMaterializer(root / "views").materialize(
@@ -781,7 +708,7 @@ class PiSceneLeanTests(unittest.TestCase):
                     branch_id="branch-main",
                     scene_id="scene-kitchen",
                     turn_id="turn-0001",
-                    candidate_id="candidate-gate-tamper",
+                    candidate_id="candidate-response-tamper",
                     route=SceneRoute.ORDINARY,
                     user_prompt="Continue.",
                     primary_authority=sequence(),
@@ -795,26 +722,26 @@ class PiSceneLeanTests(unittest.TestCase):
                     accepted_records=(),
                 )
             )
-            gate_path = view.root / "zz_RESPONSE_START_GATE.json"
-            gate = json.loads(gate_path.read_text(encoding="utf-8"))
-            gate["ordered_surface_requirements"][0][
+            response_path = view.root / "RESPONSE_SEQUENCE.json"
+            response = json.loads(response_path.read_text(encoding="utf-8"))
+            response["surface_realization_items"][0][
                 "owner_response_semantics"
             ] = "Hana gives a different answer."
-            gate_text = canonical_json(gate)
-            gate_path.write_text(gate_text, encoding="utf-8")
+            response_text = canonical_json(response)
+            response_path.write_text(response_text, encoding="utf-8")
             manifest_path = view.root / "MANIFEST.json"
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            gate_entry = next(
+            response_entry = next(
                 entry
                 for entry in manifest["files"]
-                if entry["path"] == "zz_RESPONSE_START_GATE.json"
+                if entry["path"] == "RESPONSE_SEQUENCE.json"
             )
-            gate_entry["sha256"] = text_sha256(gate_text)
-            gate_entry["bytes"] = len(gate_text.encode("utf-8"))
+            response_entry["sha256"] = text_sha256(response_text)
+            response_entry["bytes"] = len(response_text.encode("utf-8"))
             manifest_path.write_text(canonical_json(manifest), encoding="utf-8")
             with self.assertRaisesRegex(
                 StateConflictError,
-                "derived response-start gate differs",
+                "response projection custody hash changed",
             ):
                 verify_writer_view(view.root)
 
@@ -897,13 +824,16 @@ class PiSceneLeanTests(unittest.TestCase):
             self.assertEqual(
                 scope["surface_realization_item_keys"], ["hana_response"]
             )
-            self.assertEqual(scope["response_start_item_key"], "hana_response")
+            self.assertEqual(
+                scope["presentation_chronology"],
+                "writer_selected_within_causal_authority",
+            )
             response_sequence = json.loads(
                 (view.root / "RESPONSE_SEQUENCE.json").read_text(encoding="utf-8")
             )
             self.assertEqual(
                 response_sequence["schema_version"],
-                "cera.pi_scene.response_sequence.v7",
+                "cera.pi_scene.response_sequence.v8",
             )
             self.assertEqual(
                 [
@@ -920,9 +850,9 @@ class PiSceneLeanTests(unittest.TestCase):
                 None,
             )
             source_anchor = response_sequence["surface_realization_items"][0][
-                "completed_source_anchor_key"
+                "source_anchor_key"
             ]
-            self.assertRegex(source_anchor, r"^completed-source-[0-9a-f]{20}$")
+            self.assertRegex(source_anchor, r"^source-anchor-[0-9a-f]{20}$")
             self.assertNotIn(
                 "ted_source_action",
                 [
@@ -943,20 +873,8 @@ class PiSceneLeanTests(unittest.TestCase):
                     ),
                 },
             )
-            self.assertEqual(
-                response_sequence["response_start_contract"],
-                {
-                    "response_start_item_key": "hana_response",
-                    "response_start_scope": "character",
-                    "response_start_owner_id": "character:hana",
-                    "response_start_kind": "dialogue_intent",
-                    "completed_source_anchor_key": source_anchor,
-                    "causal_anchor_mode": "completed_source_direct",
-                    "realization_mode": "surface_response_after_completed_source",
-                    "completed_source_rendering": "implicit_cause_only",
-                    "pre_response_narration": "forbidden",
-                },
-            )
+            self.assertNotIn("response_start_contract", response_sequence)
+            self.assertNotIn("response_start_item_key", response_sequence)
             self.assertNotIn("resulting_public_state", response_sequence)
             self.assertNotIn("unresolved_threads", response_sequence)
             self.assertNotIn("stopping_boundary", response_sequence)
@@ -997,14 +915,14 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertEqual(
                 provenance["schema_version"],
-                "cera.pi_scene.response_projection_provenance.v2",
+                "cera.pi_scene.response_projection_provenance.v3",
             )
             self.assertEqual(
                 provenance["source_anchor_bindings"],
                 [
                     {
                         "canonical_source_item_key": "ted_source_action",
-                        "completed_source_anchor_key": source_anchor,
+                        "source_anchor_key": source_anchor,
                     }
                 ],
             )
@@ -1014,7 +932,7 @@ class PiSceneLeanTests(unittest.TestCase):
                 {
                     "canonical_causal_parent_item_key": "ted_source_action",
                     "canonical_item_key": "hana_response",
-                    "completed_source_anchor_key": source_anchor,
+                    "source_anchor_key": source_anchor,
                     "projected_causal_parent_item_key": None,
                     "response_semantics_source": "legacy_concise_meaning",
                 },
@@ -1026,9 +944,9 @@ class PiSceneLeanTests(unittest.TestCase):
             )
             self.assertNotIn("The protected user's supplied action", visible_bytes)
             self.assertNotIn("ted_source_action", visible_bytes)
-            self.assertIn("zz_RESPONSE_START_GATE.json", visible_bytes)
+            self.assertNotIn("zz_RESPONSE_START_GATE.json", visible_bytes)
 
-    def test_private_state_is_subtext_and_visible_action_owns_response_start(self) -> None:
+    def test_private_state_and_visible_action_preserve_causality_without_opening_rule(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             authority = sequence("ted_source_action")
@@ -1124,53 +1042,48 @@ class PiSceneLeanTests(unittest.TestCase):
                 response["surface_realization_items"][0]["guided_by_item_keys"],
                 ["hana_internal_response"],
             )
-            self.assertEqual(response["response_start_item_key"], "hana_visible_response")
-            self.assertEqual(
-                response["response_start_contract"]["response_start_kind"], "action"
-            )
-            gate = json.loads(
-                (view.root / "zz_RESPONSE_START_GATE.json").read_text(encoding="utf-8")
-            )
-            self.assertEqual(gate["response_start_item_key"], "hana_visible_response")
-            self.assertEqual(gate["item_projection_role"], "surface_realization")
-            self.assertEqual(gate["response_start_scope"], "character")
-            self.assertEqual(
-                gate["causal_anchor_mode"],
-                "completed_source_via_internal_guidance",
-            )
-            self.assertEqual(
-                gate["owner_response_semantics"],
-                "Hana's expression softens with restrained appreciation.",
-            )
+            self.assertNotIn("response_start_item_key", response)
+            self.assertNotIn("response_start_contract", response)
+            self.assertFalse((view.root / "zz_RESPONSE_START_GATE.json").exists())
 
             authority["items"] = [
                 authority["items"][0],
                 authority["items"][1],
                 authority["items"][3],
             ]
-            with self.assertRaisesRegex(
-                ContractValidationError, "no surface-realizable response item"
-            ):
-                WriterViewMaterializer(root / "invalid-views").materialize(
-                    WriterViewInputV1(
-                        world_id="world-test",
-                        branch_id="branch-main",
-                        scene_id="scene-private",
-                        turn_id="turn-0002",
-                        candidate_id="candidate-subtext-only",
-                        route=SceneRoute.ORDINARY,
-                        user_prompt="A supplied source contribution.",
-                        primary_authority=authority,
-                        current_state={"public_scene_state": "Two adults are present."},
-                        characters={"hana": {"name": "Hana", "age": 38}},
-                        relationships={},
-                        recent_prose=(),
-                        relevant_memories={},
-                        voice_examples={},
-                        craft_index={},
-                        accepted_records=(),
-                    )
+            interior_view = WriterViewMaterializer(root / "interior-views").materialize(
+                WriterViewInputV1(
+                    world_id="world-test",
+                    branch_id="branch-main",
+                    scene_id="scene-private",
+                    turn_id="turn-0002",
+                    candidate_id="candidate-interior-only",
+                    route=SceneRoute.ORDINARY,
+                    user_prompt="A supplied source contribution.",
+                    primary_authority=authority,
+                    current_state={"public_scene_state": "Two adults are present."},
+                    characters={"hana": {"name": "Hana", "age": 38}},
+                    relationships={},
+                    recent_prose=(),
+                    relevant_memories={},
+                    voice_examples={},
+                    craft_index={},
+                    accepted_records=(),
                 )
+            )
+            interior_response = json.loads(
+                (interior_view.root / "RESPONSE_SEQUENCE.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            self.assertEqual(interior_response["surface_realization_items"], [])
+            self.assertEqual(
+                [
+                    item["item_key"]
+                    for item in interior_response["internal_causal_guidance"]
+                ],
+                ["hana_internal_response"],
+            )
 
     def test_multiple_internal_items_map_to_earliest_reachable_dialogue(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -1265,10 +1178,8 @@ class PiSceneLeanTests(unittest.TestCase):
                 response["surface_realization_items"][0]["guided_by_item_keys"],
                 ["hana_perceives", "hana_decides"],
             )
-            self.assertEqual(
-                response["response_start_contract"]["response_start_kind"],
-                "dialogue_intent",
-            )
+            self.assertNotIn("response_start_contract", response)
+            self.assertNotIn("response_start_item_key", response)
 
     def test_atomic_dialogue_propositions_remain_distinct_surface_obligations(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -1356,43 +1267,9 @@ class PiSceneLeanTests(unittest.TestCase):
                     "Hana asks whether Ted wants to keep talking.",
                 ],
             )
-            self.assertEqual(response["response_start_item_key"], "acknowledge")
-            self.assertEqual(
-                json.loads(
-                    (view.root / "zz_RESPONSE_START_GATE.json").read_text(
-                        encoding="utf-8"
-                    )
-                )["ordered_surface_requirements"],
-                [
-                    {
-                        "item_key": "acknowledge",
-                        "response_scope": "character",
-                        "owner_id": "character:hana",
-                        "kind": "dialogue_intent",
-                        "owner_response_semantics": (
-                            "Hana acknowledges the immediate concern."
-                        ),
-                    },
-                    {
-                        "item_key": "express_appreciation",
-                        "response_scope": "character",
-                        "owner_id": "character:hana",
-                        "kind": "dialogue_intent",
-                        "owner_response_semantics": (
-                            "Hana expresses appreciation for being noticed."
-                        ),
-                    },
-                    {
-                        "item_key": "offer_conversation",
-                        "response_scope": "character",
-                        "owner_id": "character:hana",
-                        "kind": "dialogue_intent",
-                        "owner_response_semantics": (
-                            "Hana asks whether Ted wants to keep talking."
-                        ),
-                    },
-                ],
-            )
+            self.assertNotIn("response_start_item_key", response)
+            self.assertNotIn("response_start_contract", response)
+            self.assertFalse((view.root / "zz_RESPONSE_START_GATE.json").exists())
 
     def test_ownerless_world_surface_is_explicit_and_never_fabricates_owner(self) -> None:
         with TemporaryDirectory() as temporary:
@@ -1440,12 +1317,15 @@ class PiSceneLeanTests(unittest.TestCase):
                     accepted_records=(),
                 )
             )
-            gate = json.loads(
-                (view.root / "zz_RESPONSE_START_GATE.json").read_text(encoding="utf-8")
+            response = json.loads(
+                (view.root / "RESPONSE_SEQUENCE.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(gate["response_start_scope"], "world")
-            self.assertIsNone(gate["response_start_owner_id"])
-            self.assertEqual(gate["response_start_kind"], "material_continuity")
+            world_item = response["surface_realization_items"][0]
+            self.assertEqual(world_item["response_scope"], "world")
+            self.assertIsNone(world_item["owner_id"])
+            self.assertEqual(world_item["kind"], "material_continuity")
+            self.assertFalse((view.root / "zz_RESPONSE_START_GATE.json").exists())
+
     def test_isolated_sillytavern_copy_excludes_user_data_and_forces_loopback(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -1652,10 +1532,10 @@ class PiSceneLeanTests(unittest.TestCase):
         self.assertIn('process.env[PURPOSE_ENV] === "writer"', extension)
         self.assertIn("excluded from Writer access", extension)
         self.assertIn("writerContextPacket", extension)
-        self.assertIn("RESPONSE REALIZATION AUTHORITY", extension)
-        self.assertIn("COMPLETED OFF-PAGE SOURCE", extension)
-        self.assertIn("DERIVED NONCANONICAL EXECUTION FOCUS", extension)
-        self.assertIn("cera.writer_context_packet.v5", extension)
+        self.assertIn("PLANNER-ADJUDICATED REALIZATION AUTHORITY", extension)
+        self.assertIn("USER-SUPPLIED STORY MATERIAL", extension)
+        self.assertNotIn("DERIVED NONCANONICAL EXECUTION FOCUS", extension)
+        self.assertIn("cera.writer_context_packet.v6", extension)
 
     def test_writer_output_accepts_raw_prose_and_strict_legacy_envelope(self) -> None:
         self.assertEqual(

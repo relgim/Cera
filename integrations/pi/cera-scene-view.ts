@@ -97,10 +97,9 @@ async function writerContextPacket(root: string): Promise<{ text: string; files:
 	const responsePath = "RESPONSE_SEQUENCE.json";
 	const controlPath = "zz_CURRENT_TURN_AUTHORITY.json";
 	const sourcePath = "USER_PROMPT.txt";
-	const startGatePath = "zz_RESPONSE_START_GATE.json";
 	const semanticPaths = (await allFiles(root)).filter(
 		(path) =>
-			!["MANIFEST.json", responsePath, controlPath, sourcePath, startGatePath].includes(
+			!["MANIFEST.json", responsePath, controlPath, sourcePath].includes(
 				path,
 			),
 	);
@@ -111,24 +110,23 @@ async function writerContextPacket(root: string): Promise<{ text: string; files:
 		if (data.byteLength > MAX_READ_BYTES) throw new Error("context file exceeds the read bound");
 		sections.push(`===== ${label} =====\n${data.toString("utf8")}`);
 	};
-	await add("RESPONSE REALIZATION AUTHORITY | RESPONSE_SEQUENCE.json", responsePath);
 	await add("WRITER CONTROL | zz_CURRENT_TURN_AUTHORITY.json", controlPath);
 	await add(
-		"COMPLETED OFF-PAGE SOURCE | USER_PROMPT.txt | CONTEXT ONLY | DO NOT NARRATE, QUOTE, PARAPHRASE, OR STAGE",
+		"USER-SUPPLIED STORY MATERIAL | USER_PROMPT.txt | PLANNER ADJUDICATES COMPLETION, ATTEMPT, INTERRUPTION, AND PENDING DIRECTION",
 		sourcePath,
 	);
 	for (const path of semanticPaths) {
 		await add(`SUPPORTING ACCEPTED CONTEXT | ${path}`, path);
 	}
 	await add(
-		"FINAL RESPONSE START GATE | DERIVED NONCANONICAL EXECUTION FOCUS | zz_RESPONSE_START_GATE.json | BEGIN WITH THE SELECTED SURFACE RESPONSE NOW",
-		startGatePath,
+		"PLANNER-ADJUDICATED REALIZATION AUTHORITY | RESPONSE_SEQUENCE.json | PRESENT WITH NARRATIVE FREEDOM",
+		responsePath,
 	);
 	const text = sections.join("\n\n");
 	if (Buffer.byteLength(text, "utf8") > MAX_CONTEXT_BYTES) {
 		throw new Error("Writer view exceeds the context bound");
 	}
-	return { text, files: semanticPaths.length + 4 };
+	return { text, files: semanticPaths.length + 3 };
 }
 
 const toolGuidelines = [
@@ -170,7 +168,7 @@ export default function (pi: ExtensionAPI) {
 					details: {
 						bytes: Buffer.byteLength(packet.text, "utf8"),
 						files: packet.files,
-						packet: "cera.writer_context_packet.v5",
+						packet: "cera.writer_context_packet.v6",
 					},
 				};
 			}

@@ -161,8 +161,8 @@ class WriterViewMaterializer:
             response_sequence = None
         else:
             realization_scope = {
-                "render_user_prompt": False,
-                "source_contribution_status": "already_supplied_context_only",
+                "render_user_prompt": "writer_selected_under_handoff",
+                "source_contribution_status": "handoff_adjudicated_story_material",
                 "response_authority_path": "ADULT_HANDOFF.json",
             }
             response_sequence = None
@@ -224,7 +224,7 @@ class WriterViewMaterializer:
         _write_json(
             root / "zz_CURRENT_TURN_AUTHORITY.json",
             {
-                "schema_version": "cera.pi_scene.writer_authority_order.v6",
+                "schema_version": "cera.pi_scene.writer_authority_order.v7",
                 "current_route": source.route.value,
                 "current_purpose": source.purpose,
                 "current_source_path": "USER_PROMPT.txt",
@@ -249,13 +249,10 @@ class WriterViewMaterializer:
                 "realization_scope": realization_scope,
                 "presentation_contract": (
                     {
-                        "completed_source_usage": "context_only_never_render",
-                        "first_visible_beat": "response_start_item",
-                        "response_start_contract_path": (
-                            "RESPONSE_SEQUENCE.json#response_start_contract"
-                            if source.route is SceneRoute.ORDINARY
-                            else None
-                        ),
+                        "source_usage": "planner_or_handoff_adjudicated_story_material",
+                        "opening_location": "writer_selected",
+                        "presentation_chronology": "writer_selected_within_causal_authority",
+                        "interiority": "explicit_or_implicit_writer_choice",
                         "resulting_state_usage": "postcondition_not_prose_checklist",
                         "transient_detail_test": (
                             "Deleting an invented detail must change neither causality, "
@@ -284,16 +281,6 @@ class WriterViewMaterializer:
                 },
             },
         )
-        if (
-            source.route is SceneRoute.ORDINARY
-            and source.purpose == "writer"
-            and response_sequence is not None
-        ):
-            _write_json(
-                root / "zz_RESPONSE_START_GATE.json",
-                _derived_response_start_gate(response_sequence),
-            )
-
         files: list[dict[str, Any]] = []
         for path in sorted(value for value in root.rglob("*") if value.is_file()):
             if path.is_symlink():
@@ -368,30 +355,21 @@ def verify_writer_view(root: Path) -> MaterializedWriterViewV1:
     }
     if actual != listed:
         raise StateConflictError("Writer-view manifest occupancy changed")
-    start_gate_path = root / "zz_RESPONSE_START_GATE.json"
     response_sequence_path = root / "RESPONSE_SEQUENCE.json"
     if purpose == "writer" and route == SceneRoute.ORDINARY.value:
         try:
-            response_sequence = json.loads(
+            json.loads(
                 response_sequence_path.read_text(encoding="utf-8")
             )
-            start_gate = json.loads(start_gate_path.read_text(encoding="utf-8"))
-            expected_start_gate = _derived_response_start_gate(response_sequence)
-        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ContractValidationError) as exc:
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise StateConflictError(
-                "ordinary Writer response-start gate is unavailable or invalid"
+                "ordinary Writer response authority is unavailable or invalid"
             ) from exc
-        if start_gate != expected_start_gate:
-            raise StateConflictError(
-                "derived response-start gate differs from RESPONSE_SEQUENCE"
-            )
-        if start_gate_path.read_text(encoding="utf-8") != canonical_json(
-            expected_start_gate
-        ):
-            raise StateConflictError("derived response-start gate is not canonical")
-    elif start_gate_path.exists() or response_sequence_path.exists():
+        if (root / "zz_RESPONSE_START_GATE.json").exists():
+            raise StateConflictError("rigid response-start gate is not permitted")
+    elif (root / "zz_RESPONSE_START_GATE.json").exists() or response_sequence_path.exists():
         raise StateConflictError(
-            "response-start execution focus exists outside ordinary Writer purpose"
+            "ordinary response authority exists outside ordinary Writer purpose"
         )
     custody_bindings = manifest.get("custody_bindings")
     if not isinstance(custody_bindings, dict):
@@ -463,131 +441,6 @@ def verify_writer_view(root: Path) -> MaterializedWriterViewV1:
         file_count=len(entries) + 1,
         purpose=purpose,
     )
-
-
-def _derived_response_start_gate(
-    response_sequence: Mapping[str, Any],
-) -> dict[str, Any]:
-    """Copy response start and ordered surface coverage into a terminal recency cue."""
-
-    items = response_sequence.get("surface_realization_items")
-    contract = response_sequence.get("response_start_contract")
-    if not isinstance(items, list) or not items or not all(
-        isinstance(item, Mapping) for item in items
-    ):
-        raise ContractValidationError("response-start gate requires surface items")
-    if not isinstance(contract, Mapping):
-        raise ContractValidationError("response-start gate requires its typed contract")
-    response_start_item_key = contract.get("response_start_item_key")
-    matching_start_items = [
-        item for item in items if item.get("item_key") == response_start_item_key
-    ]
-    if len(matching_start_items) != 1:
-        raise ContractValidationError("response-start gate cannot resolve its surface item")
-    start_item = matching_start_items[0]
-    copied_fields = {
-        "response_start_item_key": contract.get("response_start_item_key"),
-        "response_start_scope": contract.get("response_start_scope"),
-        "response_start_owner_id": contract.get("response_start_owner_id"),
-        "response_start_kind": contract.get("response_start_kind"),
-        "completed_source_anchor_key": contract.get("completed_source_anchor_key"),
-        "causal_anchor_mode": contract.get("causal_anchor_mode"),
-        "realization_mode": contract.get("realization_mode"),
-        "completed_source_rendering": contract.get("completed_source_rendering"),
-        "pre_response_narration": contract.get("pre_response_narration"),
-    }
-    required_non_null = {
-        key: value
-        for key, value in copied_fields.items()
-        if key not in {"response_start_owner_id", "completed_source_anchor_key"}
-    }
-    if any(value is None for value in required_non_null.values()):
-        raise ContractValidationError("response-start contract omits a copied gate field")
-    response_scope = copied_fields["response_start_scope"]
-    owner_id = copied_fields["response_start_owner_id"]
-    if response_scope == "character":
-        if not isinstance(owner_id, str) or not owner_id.strip():
-            raise ContractValidationError("character response start requires an owner")
-    elif response_scope == "world":
-        if owner_id is not None:
-            raise ContractValidationError("world response start cannot fabricate an owner")
-    else:
-        raise ContractValidationError("response-start scope is invalid")
-    if (
-        response_sequence.get("response_start_item_key")
-        != copied_fields["response_start_item_key"]
-        or start_item.get("item_key") != copied_fields["response_start_item_key"]
-        or start_item.get("response_scope") != copied_fields["response_start_scope"]
-        or start_item.get("owner_id") != copied_fields["response_start_owner_id"]
-        or start_item.get("kind") != copied_fields["response_start_kind"]
-        or start_item.get("completed_source_anchor_key")
-        != copied_fields["completed_source_anchor_key"]
-        or start_item.get("projection_role") != "surface_realization"
-    ):
-        raise ContractValidationError("response-start contract differs from its surface item")
-    owner_response_semantics = start_item.get("owner_response_semantics")
-    if (
-        not isinstance(owner_response_semantics, str)
-        or not owner_response_semantics.strip()
-    ):
-        raise ContractValidationError("response-start item omits owner response semantics")
-    ordered_surface_requirements: list[dict[str, Any]] = []
-    seen_requirement_keys: set[str] = set()
-    for item in items:
-        item_key = item.get("item_key")
-        response_scope = item.get("response_scope")
-        kind = item.get("kind")
-        semantics = item.get("owner_response_semantics")
-        owner = item.get("owner_id")
-        if (
-            not isinstance(item_key, str)
-            or not item_key.strip()
-            or item_key in seen_requirement_keys
-        ):
-            raise ContractValidationError(
-                "ordered surface requirement item key is invalid"
-            )
-        if not isinstance(kind, str) or not kind.strip():
-            raise ContractValidationError("ordered surface requirement kind is invalid")
-        if not isinstance(semantics, str) or not semantics.strip():
-            raise ContractValidationError(
-                "ordered surface requirement omits owner response semantics"
-            )
-        requirement = {
-            "item_key": item_key,
-            "response_scope": response_scope,
-            "kind": kind,
-            "owner_response_semantics": semantics,
-        }
-        if response_scope == "character":
-            if not isinstance(owner, str) or not owner.strip():
-                raise ContractValidationError(
-                    "character surface requirement requires an owner"
-                )
-            requirement["owner_id"] = owner
-        elif response_scope == "world":
-            if owner is not None:
-                raise ContractValidationError(
-                    "world surface requirement cannot fabricate an owner"
-                )
-        else:
-            raise ContractValidationError("ordered surface requirement scope is invalid")
-        seen_requirement_keys.add(item_key)
-        ordered_surface_requirements.append(requirement)
-    return {
-        "schema_version": "cera.pi_scene.response_start_gate.v4",
-        "authority_class": "derived_noncanonical_execution_focus",
-        "canonical_authority_path": "RESPONSE_SEQUENCE.json",
-        **copied_fields,
-        "item_projection_role": start_item["projection_role"],
-        "owner_response_semantics": owner_response_semantics,
-        "ordered_surface_requirements": ordered_surface_requirements,
-        "detail_boundary": {
-            "before_response_start": "none",
-            "after_response_start": "compatible_transient_only",
-            "future_reliance_test": _FUTURE_RELIANCE_TEST,
-        },
-    }
 
 
 def resolve_confined_path(
@@ -675,11 +528,6 @@ def _ordinary_authority_projection(
         raise ContractValidationError(
             "ordinary Writer authority has an unclassified response item kind"
         )
-    if not surface_response:
-        raise ContractValidationError(
-            "ordinary Writer authority has no surface-realizable response item"
-        )
-    response_start_item_key = surface_response[0]
     supplied_set = set(supplied)
     projected_by_key: dict[str, dict[str, Any]] = {}
     response_mappings: list[dict[str, Any]] = []
@@ -713,11 +561,8 @@ def _ordinary_authority_projection(
             ),
             None,
         )
-        if linked_surface is None:
-            raise ContractValidationError(
-                "internal causal guidance has no causally reachable surface item"
-            )
-        guidance_to_surface[guidance_key] = linked_surface
+        if linked_surface is not None:
+            guidance_to_surface[guidance_key] = linked_surface
 
     for item_key in response:
         item = item_by_key[item_key]
@@ -740,9 +585,10 @@ def _ordinary_authority_projection(
             if key in item
         }
         projected["owner_response_semantics"] = owner_response_semantics
-        if item_key in guidance_to_surface:
+        if item_key in internal_guidance:
             projected["projection_role"] = "internal_causal_guidance"
-            projected["guides_surface_item_key"] = guidance_to_surface[item_key]
+            if item_key in guidance_to_surface:
+                projected["guides_surface_item_key"] = guidance_to_surface[item_key]
         else:
             projected["projection_role"] = "surface_realization"
             projected["response_scope"] = (
@@ -754,7 +600,7 @@ def _ordinary_authority_projection(
                 if guidance_to_surface[guidance_key] == item_key
             ]
         canonical_parent = item.get("causal_parent_item_key")
-        completed_source_anchor_key = None
+        source_anchor_key = None
         source_ancestor = next(
             (
                 ancestor_key
@@ -764,12 +610,12 @@ def _ordinary_authority_projection(
             None,
         )
         if source_ancestor is not None:
-            completed_source_anchor_key = source_anchors.setdefault(
+            source_anchor_key = source_anchors.setdefault(
                 source_ancestor,
-                "completed-source-"
+                "source-anchor-"
                 + canonical_sha256(item_by_key[source_ancestor])[:20],
             )
-            projected["completed_source_anchor_key"] = completed_source_anchor_key
+            projected["source_anchor_key"] = source_anchor_key
         if canonical_parent in supplied_set:
             projected["causal_parent_item_key"] = None
         projected_by_key[item_key] = projected
@@ -780,7 +626,7 @@ def _ordinary_authority_projection(
                 "projected_causal_parent_item_key": projected.get(
                     "causal_parent_item_key"
                 ),
-                "completed_source_anchor_key": completed_source_anchor_key,
+                "source_anchor_key": source_anchor_key,
                 "response_semantics_source": semantics_source,
             }
         )
@@ -803,45 +649,18 @@ def _ordinary_authority_projection(
             response_durable_changes.append(dict(change))
     internal_guidance_items = [projected_by_key[item_key] for item_key in internal_guidance]
     surface_realization_items = [projected_by_key[item_key] for item_key in surface_response]
-    response_start_item = projected_by_key[response_start_item_key]
-    guided_start = response_start_item.get("guided_by_item_keys", [])
-    response_start_scope = response_start_item["response_scope"]
-    causal_anchor_mode = (
-        "completed_source_via_internal_guidance"
-        if guided_start
-        else "completed_source_direct"
-        if response_start_item.get("completed_source_anchor_key") is not None
-        else "canonical_response_chain"
-    )
     scope = {
-        "render_user_prompt": False,
-        "source_contribution_status": "already_supplied_context_only",
+        "render_user_prompt": "writer_selected_under_planner_adjudication",
+        "source_contribution_status": "planner_adjudicated_story_material",
         "response_item_keys": response,
         "internal_guidance_item_keys": internal_guidance,
         "surface_realization_item_keys": surface_response,
-        "response_start_item_key": response_start_item_key,
-        "response_start_contract_path": (
-            "RESPONSE_SEQUENCE.json#response_start_contract"
-        ),
         "response_authority_path": "RESPONSE_SEQUENCE.json",
         "postcondition_authority_path": "RESPONSE_SEQUENCE.json#postconditions",
+        "presentation_chronology": "writer_selected_within_causal_authority",
     }
     response_projection = {
-        "schema_version": "cera.pi_scene.response_sequence.v7",
-        "response_start_item_key": response_start_item_key,
-        "response_start_contract": {
-            "response_start_item_key": response_start_item_key,
-            "response_start_scope": response_start_scope,
-            "response_start_owner_id": response_start_item.get("owner_id"),
-            "response_start_kind": response_start_item.get("kind"),
-            "completed_source_anchor_key": response_start_item.get(
-                "completed_source_anchor_key"
-            ),
-            "causal_anchor_mode": causal_anchor_mode,
-            "realization_mode": "surface_response_after_completed_source",
-            "completed_source_rendering": "implicit_cause_only",
-            "pre_response_narration": "forbidden",
-        },
+        "schema_version": "cera.pi_scene.response_sequence.v8",
         "internal_causal_guidance": internal_guidance_items,
         "surface_realization_items": surface_realization_items,
         "durable_changes": response_durable_changes,
@@ -860,7 +679,7 @@ def _ordinary_authority_projection(
                 f"ordinary Writer authority omits {field_name}"
             )
     provenance = {
-        "schema_version": "cera.pi_scene.response_projection_provenance.v2",
+        "schema_version": "cera.pi_scene.response_projection_provenance.v3",
         "canonical_primary_sha256": canonical_sha256(primary_authority),
         "response_projection_sha256": canonical_sha256(response_projection),
         "excluded_source_item_keys": supplied,
@@ -868,7 +687,7 @@ def _ordinary_authority_projection(
         "source_anchor_bindings": [
             {
                 "canonical_source_item_key": source_key,
-                "completed_source_anchor_key": anchor_key,
+                "source_anchor_key": anchor_key,
             }
             for source_key, anchor_key in source_anchors.items()
         ],
