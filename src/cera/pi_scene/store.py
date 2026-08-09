@@ -304,6 +304,13 @@ class LeanSceneStore:
                 )
                 if recovered is not None:
                     return recovered.attempt.status
+                orphan = _recover_orphan_recording_attempt(
+                    turn_dir,
+                    accepted=accepted,
+                    head=head,
+                )
+                if orphan is not None:
+                    return orphan.status
             if head.status is RecordingStatus.COMPLETE:
                 _load_complete_recording_bundle(
                     turn_dir,
@@ -331,6 +338,13 @@ class LeanSceneStore:
                 )
                 if recovered is not None:
                     return recovered.attempt
+                orphan = _recover_orphan_recording_attempt(
+                    turn_dir,
+                    accepted=accepted,
+                    head=head,
+                )
+                if orphan is not None:
+                    return orphan
             if head.status is RecordingStatus.PROJECTION_PENDING:
                 return _phase_one_recording_state(accepted)
             if head.status is RecordingStatus.COMPLETE:
@@ -360,10 +374,35 @@ class LeanSceneStore:
             )
             if recovered is not None:
                 return recovered.attempt
+            orphan = _recover_orphan_recording_attempt(
+                turn_dir,
+                accepted=accepted,
+                head=head,
+            )
+            if orphan is not None:
+                if (
+                    orphan.recorder_request_sha256 == recorder_request_sha256
+                    and orphan.recorder_output_sha256 == recorder_output_sha256
+                    and orphan.provider_operations == provider_operations
+                    and orphan.failure_code == failure_code
+                ):
+                    return orphan
+                head = _read_recording_head(turn_dir, accepted=accepted)
             if head.status is RecordingStatus.COMPLETE:
                 raise StateConflictError("accepted turn recording is already complete")
             if head.status is RecordingStatus.PENDING_REPAIR:
-                _load_attempt_from_head(turn_dir, accepted=accepted, head=head)
+                prior = _load_attempt_from_head(
+                    turn_dir,
+                    accepted=accepted,
+                    head=head,
+                )
+                if (
+                    prior.recorder_request_sha256 == recorder_request_sha256
+                    and prior.recorder_output_sha256 == recorder_output_sha256
+                    and prior.provider_operations == provider_operations
+                    and prior.failure_code == failure_code
+                ):
+                    return prior
             attempt_number = self._next_recording_attempt(turn_dir)
             attempt = LeanRecordingAttemptV1(
                 schema_version=LeanRecordingAttemptV1.SCHEMA_VERSION,
@@ -400,6 +439,13 @@ class LeanSceneStore:
             if recovered is not None:
                 _require_ordinary_bundle_hash(recovered, record_sha256)
                 return recovered.attempt
+            orphan = _recover_orphan_recording_attempt(
+                turn_dir,
+                accepted=accepted,
+                head=head,
+            )
+            if orphan is not None:
+                head = _read_recording_head(turn_dir, accepted=accepted)
             if head.status is RecordingStatus.COMPLETE:
                 existing = _load_complete_recording_bundle(
                     turn_dir,
@@ -461,6 +507,13 @@ class LeanSceneStore:
             if recovered is not None:
                 _require_adult_bundle_hashes(recovered, full_sha, projection_sha)
                 return recovered.attempt
+            orphan = _recover_orphan_recording_attempt(
+                turn_dir,
+                accepted=accepted,
+                head=head,
+            )
+            if orphan is not None:
+                head = _read_recording_head(turn_dir, accepted=accepted)
             if head.status is RecordingStatus.COMPLETE:
                 existing = _load_complete_recording_bundle(
                     turn_dir,
@@ -506,20 +559,44 @@ class LeanSceneStore:
         *,
         session_id: str,
         session_path: Path,
-    ) -> AcceptedPiSessionV1:
-        """Promote only the session that produced an accepted candidate."""
+    ) -> AcceptedPiSessionV1 | None:
+        """Promote only the current head's accepted Writer session.
+
+        Pi continuity is a soft performance cache.  Recording repair for an
+        older accepted turn must therefore never move the cache behind the
+        authoritative accepted head.
+        """
 
         with self._lock:
             if text_sha256(session_id) != accepted.writer_receipt.session_id_sha256:
                 raise StateConflictError("accepted Pi session differs from Writer receipt")
+            self._accepted_turn_dir(accepted)
+            head = self.load_head(
+                world_id=accepted.world_id,
+                branch_id=accepted.branch_id,
+            )
+            branch_root = self._branch_root(accepted.world_id, accepted.branch_id)
+            path = branch_root / "sessions" / "ACCEPTED_SESSION.json"
+            if head.accepted_turn_id != accepted.accepted_turn_id:
+                return _load_current_pi_session(path, head=head)
             payload = AcceptedPiSessionV1(
                 accepted_turn_id=accepted.accepted_turn_id,
                 session_id=session_id,
                 session_path=str(session_path.resolve()),
                 session_id_sha256=text_sha256(session_id),
             )
-            branch_root = self._branch_root(accepted.world_id, accepted.branch_id)
-            path = branch_root / "sessions" / "ACCEPTED_SESSION.json"
+            if path.exists():
+                existing = _decode_stored(
+                    AcceptedPiSessionV1,
+                    _read_json(path),
+                    "accepted Pi session",
+                )
+                if existing.accepted_turn_id == accepted.accepted_turn_id:
+                    if existing.session_id_sha256 != payload.session_id_sha256:
+                        raise StateConflictError(
+                            "accepted Pi session changed for the current head"
+                        )
+                    return existing
             _atomic_write_json(path, to_primitive(payload))
             return payload
 
@@ -534,15 +611,8 @@ class LeanSceneStore:
             path = branch_root / "sessions" / "ACCEPTED_SESSION.json"
             if not path.exists():
                 return None
-            session = _decode_stored(
-                AcceptedPiSessionV1,
-                _read_json(path),
-                "accepted Pi session",
-            )
             head = self.load_head(world_id=world_id, branch_id=branch_id)
-            if session.accepted_turn_id != head.accepted_turn_id:
-                raise StateConflictError("accepted Pi session does not match branch head")
-            return session
+            return _load_current_pi_session(path, head=head)
 
     def recent_accepted_payloads(
         self,
@@ -679,6 +749,13 @@ class LeanSceneStore:
                     head=head,
                 )
                 if recovered is None:
+                    orphan = _recover_orphan_recording_attempt(
+                        turn_dir,
+                        accepted=receipt,
+                        head=head,
+                    )
+                    if orphan is not None:
+                        head = _read_recording_head(turn_dir, accepted=receipt)
                     if not allow_pending:
                         raise StateConflictError(
                             "accepted turn recording is incomplete and cannot enter context"
@@ -789,6 +866,25 @@ class LeanSceneStore:
 
 def _turn_directory_name(receipt: LeanAcceptedTurnReceiptV1) -> str:
     return f"{receipt.generation:08d}-{text_sha256(receipt.accepted_turn_id)[:20]}"
+
+
+def _load_current_pi_session(
+    path: Path,
+    *,
+    head: LeanAcceptedHeadV1,
+) -> AcceptedPiSessionV1 | None:
+    """Return a current soft cache entry; silently ignore a valid stale one."""
+
+    if not path.exists():
+        return None
+    session = _decode_stored(
+        AcceptedPiSessionV1,
+        _read_json(path),
+        "accepted Pi session",
+    )
+    if session.accepted_turn_id != head.accepted_turn_id:
+        return None
+    return session
 
 
 def _payload_receipt(value: Mapping[str, Any]) -> LeanAcceptedTurnReceiptV1:
@@ -933,6 +1029,70 @@ def _load_attempt_from_head(
     if attempt.status is not head.status:
         raise StateConflictError("recording attempt status differs from its head")
     return attempt
+
+
+def _recover_orphan_recording_attempt(
+    turn_dir: Path,
+    *,
+    accepted: LeanAcceptedTurnReceiptV1,
+    head: _RecordingHeadV1,
+) -> LeanRecordingAttemptV1 | None:
+    """Advance a head across one fully-written failed attempt after a crash.
+
+    Complete attempts are recovered through their atomic bundle instead.  A
+    gap, multiple candidates, or a different status is ambiguous and therefore
+    fails closed rather than inventing publication order.
+    """
+
+    if head.status is RecordingStatus.COMPLETE:
+        return None
+    if head.status is RecordingStatus.PENDING_REPAIR:
+        _load_attempt_from_head(turn_dir, accepted=accepted, head=head)
+
+    numbered: list[tuple[int, Path]] = []
+    for path in turn_dir.glob("RECORDING_ATTEMPT_*.json"):
+        match = re.fullmatch(r"RECORDING_ATTEMPT_(\d{4})\.json", path.name)
+        if match is not None:
+            numbered.append((int(match.group(1)), path))
+    candidates = sorted(
+        (number, path)
+        for number, path in numbered
+        if number > head.attempt_number
+    )
+    if not candidates:
+        return None
+    if len(candidates) != 1 or candidates[0][0] != head.attempt_number + 1:
+        raise StateConflictError("recording attempts have ambiguous orphan publication")
+
+    number, path = candidates[0]
+    attempt = _recording_attempt_from_mapping(_read_json(path))
+    if (
+        attempt.accepted_turn_id != accepted.accepted_turn_id
+        or attempt.attempt_number != number
+    ):
+        raise StateConflictError("orphan recording attempt changed its identity")
+    if attempt.status is not RecordingStatus.PENDING_REPAIR:
+        raise StateConflictError(
+            "orphan complete recording attempt is missing its atomic bundle"
+        )
+    _atomic_write_json(
+        turn_dir / "RECORDING_HEAD.json",
+        _recording_head_payload(
+            accepted_turn_id=accepted.accepted_turn_id,
+            status=attempt.status,
+            attempt_number=attempt.attempt_number,
+            attempt_sha256=canonical_sha256(attempt),
+        ),
+    )
+    recovered_head = _read_recording_head(turn_dir, accepted=accepted)
+    recovered = _load_attempt_from_head(
+        turn_dir,
+        accepted=accepted,
+        head=recovered_head,
+    )
+    if recovered != attempt:
+        raise StateConflictError("orphan recording attempt changed during recovery")
+    return recovered
 
 
 def _recording_bundle_path(turn_dir: Path, attempt_number: int) -> Path:
