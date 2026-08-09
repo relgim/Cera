@@ -132,7 +132,9 @@ class BranchStateReducerV1:
             raise StateConflictError(
                 "recording reconciliation introduced a new pending turn"
             )
-        if rebuilt.provisional_canon_lineage != checkpoint.provisional_canon_lineage:
+        if checkpoint.provisional_canon_lineage[
+            : len(rebuilt.provisional_canon_lineage)
+        ] != rebuilt.provisional_canon_lineage:
             raise StateConflictError(
                 "recording reconciliation changed provisional-canon lineage"
             )

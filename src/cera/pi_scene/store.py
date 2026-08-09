@@ -12,10 +12,10 @@ import os
 import re
 import shutil
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import RLock
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 from uuid import uuid4
 
 from cera.errors import ContractValidationError, StateConflictError
@@ -40,6 +40,7 @@ from .contracts import (
     LeanCandidateV1,
     LeanRecordingAttemptV1,
     OrdinarySceneRecordV1,
+    PiWriterReceiptV1,
     RecordingStatus,
     SceneRoute,
     validate_adult_records,
@@ -54,6 +55,14 @@ from .lineage import (
     receipt_sha_index,
     selected_receipt_chain,
 )
+
+if TYPE_CHECKING:
+    from cera.adult_pipeline.acceptance import AdultAcceptedTurnEnvelopeV1
+    from cera.adult_pipeline.contracts import (
+        AdultPromotionBundleV1,
+        AdultRouteStateSnapshotV1,
+        BoundAdultPromotionV1,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -212,6 +221,58 @@ _RecordingBundleManifest = _RecordingBundleManifestV1 | _RecordingBundleManifest
 
 
 @dataclass(frozen=True, slots=True)
+class _AtomicAdultPromotionManifestV1:
+    """Hash-only index for one pre-accept-filtered adult transaction.
+
+    The protected envelope is stored beside this manifest but is never copied
+    into ordinary context.  The separate projection file lets an ordinary
+    reader consume only Filter-approved non-explicit bytes.
+    """
+
+    SCHEMA_VERSION: ClassVar[str] = "cera.pi_scene.atomic_adult_promotion.v1"
+
+    schema_version: str
+    accepted_turn_id: str
+    accepted_receipt_sha256: str
+    envelope_sha256: str
+    promotion_bundle_sha256: str
+    protected_full_record_sha256: str
+    codex_projection_sha256: str
+    promotion_receipt_sha256: str
+    scene_session_binding_sha256: str
+    current_logic_route: str
+    return_to_codex: bool
+
+    def __post_init__(self) -> None:
+        if self.schema_version != self.SCHEMA_VERSION:
+            raise ContractValidationError("atomic adult promotion schema changed")
+        if type(self.accepted_turn_id) is not str or not self.accepted_turn_id.strip():
+            raise ContractValidationError("atomic adult accepted turn is invalid")
+        for field_name in (
+            "accepted_receipt_sha256",
+            "envelope_sha256",
+            "promotion_bundle_sha256",
+            "protected_full_record_sha256",
+            "codex_projection_sha256",
+            "promotion_receipt_sha256",
+            "scene_session_binding_sha256",
+        ):
+            value = getattr(self, field_name)
+            if type(value) is not str or not re_is_sha256(value):
+                raise ContractValidationError(
+                    f"atomic adult {field_name} is invalid"
+                )
+        if self.current_logic_route not in {"ordinary", "adult"}:
+            raise ContractValidationError("atomic adult next route is invalid")
+        if type(self.return_to_codex) is not bool:
+            raise ContractValidationError("atomic adult return flag is invalid")
+        if self.return_to_codex != (
+            self.current_logic_route == "ordinary"
+        ):
+            raise ContractValidationError("atomic adult route and return flag disagree")
+
+
+@dataclass(frozen=True, slots=True)
 class _CompleteRecordingBundle:
     attempt: LeanRecordingAttemptV1
     ordinary_record: OrdinarySceneRecordV1 | None = None
@@ -334,6 +395,64 @@ class LeanSceneStore:
                 recording_status=self.recording_status(receipt),
             )
 
+    def current_logic_route(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+    ) -> AdultRouteStateSnapshotV1:
+        """Reconstruct the current logic owner from verified accepted state."""
+
+        from cera.adult_pipeline.contracts import (
+            AdultNextRoute,
+            AdultRouteStateSnapshotV1,
+        )
+
+        with self._lock:
+            head = self.load_head(world_id=world_id, branch_id=branch_id)
+            if head.receipt is None:
+                return AdultRouteStateSnapshotV1(
+                    schema_version=AdultRouteStateSnapshotV1.SCHEMA_VERSION,
+                    world_id=world_id,
+                    branch_id=branch_id,
+                    accepted_head_sha256=None,
+                    current_logic_route=AdultNextRoute.ORDINARY,
+                    source_promotion_sha256=None,
+                )
+            branch_root = self._branch_root(world_id, branch_id)
+            turn_dir = _locate_accepted_turn_dir(branch_root, head.receipt)
+            atomic = _load_atomic_adult_promotion(turn_dir, accepted=head.receipt)
+            if atomic is not None:
+                _, manifest, _ = atomic
+                route = AdultNextRoute(manifest.current_logic_route)
+                source = manifest.promotion_bundle_sha256
+            else:
+                # Historical receipts have no explicit next-route artifact.
+                # Their verified route is the safest non-invented continuation
+                # state: ordinary stays ordinary; protected adult stays adult.
+                route = (
+                    AdultNextRoute.ADULT
+                    if head.receipt.route is SceneRoute.ADULT
+                    else AdultNextRoute.ORDINARY
+                )
+                source = head.receipt.receipt_sha256
+            return AdultRouteStateSnapshotV1(
+                schema_version=AdultRouteStateSnapshotV1.SCHEMA_VERSION,
+                world_id=world_id,
+                branch_id=branch_id,
+                accepted_head_sha256=head.accepted_head_sha256,
+                current_logic_route=route,
+                source_promotion_sha256=source,
+            )
+
+    def adult_promotion_port(
+        self,
+        envelope: AdultAcceptedTurnEnvelopeV1,
+    ) -> AdultEnvelopePromotionPort:
+        """Bind the bare-bundle protocol to one complete Python envelope."""
+
+        return AdultEnvelopePromotionPort(store=self, envelope=envelope)
+
     def load_active_lineage(
         self,
         *,
@@ -426,6 +545,91 @@ class LeanSceneStore:
                 allow_pending=allow_pending,
             )
 
+    def regeneration_prefix_ordinary_context_payloads(
+        self,
+        base: LeanAcceptedRegenerationBaseV1,
+        *,
+        limit: int = 6,
+    ) -> tuple[dict[str, Any], ...]:
+        """Codex-safe context from the exact pre-Regenerate selected prefix."""
+
+        with self._lock:
+            branch_root, prefix = self._regeneration_prefix_receipts(base)
+            raw = self._bounded_context_payloads(
+                branch_root,
+                prefix,
+                limit=limit,
+                adult_full=False,
+            )
+            output: list[dict[str, Any]] = []
+            for value in raw:
+                receipt = _payload_receipt(value)
+                if receipt.route is SceneRoute.ADULT:
+                    if "adult_projection" not in value:
+                        raise StateConflictError(
+                            "ordinary regeneration context requires the adult projection"
+                        )
+                    output.append(_reducer_payload(value))
+                else:
+                    output.append(value)
+            return tuple(output)
+
+    def regeneration_prefix_adult_context_payloads(
+        self,
+        base: LeanAcceptedRegenerationBaseV1,
+        *,
+        limit: int = 6,
+    ) -> tuple[dict[str, Any], ...]:
+        """Protected adult context from the exact pre-Regenerate prefix."""
+
+        with self._lock:
+            branch_root, prefix = self._regeneration_prefix_receipts(base)
+            return self._bounded_context_payloads(
+                branch_root,
+                prefix,
+                limit=limit,
+                adult_full=True,
+            )
+
+    def _regeneration_prefix_receipts(
+        self,
+        base: LeanAcceptedRegenerationBaseV1,
+    ) -> tuple[Path, list[LeanAcceptedTurnReceiptV1]]:
+        branch_root = self._branch_root(base.world_id, base.branch_id)
+        selected = self._load_receipts(branch_root)
+        if (
+            not selected
+            or selected[-1].receipt_sha256 != base.replaced_receipt_sha256
+            or tuple(value.receipt_sha256 for value in selected[:-1])
+            != base.selected_prefix_receipt_sha256s
+        ):
+            raise StateConflictError("regeneration base is no longer selected")
+        return branch_root, selected[:-1]
+
+    @staticmethod
+    def _bounded_context_payloads(
+        branch_root: Path,
+        receipts: Sequence[LeanAcceptedTurnReceiptV1],
+        *,
+        limit: int,
+        adult_full: bool,
+    ) -> tuple[dict[str, Any], ...]:
+        if type(limit) is not int or not 1 <= limit <= 20:
+            raise ContractValidationError("accepted context limit is invalid")
+        all_payloads = LeanSceneStore._accepted_payloads(
+            branch_root,
+            receipts,
+            adult_full=adult_full,
+            allow_pending=True,
+        )
+        tail_start = max(0, len(all_payloads) - limit)
+        return tuple(
+            value
+            for index, value in enumerate(all_payloads)
+            if index >= tail_start
+            or value.get("recording_status") != RecordingStatus.COMPLETE.value
+        )
+
     def load_accepted_turn_by_receipt_sha256(
         self,
         *,
@@ -447,6 +651,400 @@ class LeanSceneStore:
             if receipt.world_id != world_id or receipt.branch_id != branch_id:
                 raise StateConflictError("accepted receipt escaped its branch identity")
             return receipt
+
+    def promote_adult_acceptance_envelope(
+        self,
+        envelope: AdultAcceptedTurnEnvelopeV1,
+    ) -> BoundAdultPromotionV1:
+        """Atomically publish one fully filtered adult acceptance.
+
+        Provider-visible bundle bytes are insufficient for this transaction;
+        Python's full envelope supplies generation, parentage, exact source,
+        provider/session custody, and creator action.  No post-Accept Recorder
+        exists on this path.
+        """
+
+        from cera.adult_pipeline.acceptance import AdultAcceptedTurnEnvelopeV1
+        from cera.adult_pipeline.contracts import (
+            AdultAcceptedPromotionReceiptV1,
+            BoundAdultPromotionV1,
+        )
+
+        if type(envelope) is not AdultAcceptedTurnEnvelopeV1:
+            raise ContractValidationError(
+                "adult atomic promotion requires the full acceptance envelope"
+            )
+        if envelope.creator_action == "provisional_accept":
+            raise ContractValidationError(
+                "adult atomic promotion does not create provisional canon"
+            )
+        with self._lock:
+            branch_root = self._branch_root(envelope.world_id, envelope.branch_id)
+            head = self.load_head(
+                world_id=envelope.world_id,
+                branch_id=envelope.branch_id,
+            )
+            existing_matches = [
+                receipt
+                for receipt, _ in self._load_all_receipt_entries(branch_root)
+                if receipt.candidate_sha256 == envelope.envelope_sha256
+            ]
+            if len(existing_matches) > 1:
+                raise StateConflictError("adult acceptance occurs more than once")
+            if existing_matches:
+                existing = existing_matches[0]
+                turn_dir = _locate_accepted_turn_dir(branch_root, existing)
+                loaded = _load_atomic_adult_promotion(turn_dir, accepted=existing)
+                if loaded is None or loaded[0] != envelope:
+                    raise StateConflictError("stored adult acceptance differs from replay")
+                bound = loaded[2]
+                if head.accepted_head_sha256 == existing.receipt_sha256:
+                    if self._load_active_lineage_manifest(branch_root) is None:
+                        previous = LeanAcceptedHeadV1(
+                            world_id=existing.world_id,
+                            branch_id=existing.branch_id,
+                            generation=existing.generation - 1,
+                            accepted_turn_id=existing.parent_accepted_turn_id,
+                            accepted_head_sha256=(
+                                existing.parent_accepted_head_sha256
+                            ),
+                            receipt=None,
+                            recording_status=None,
+                        )
+                        self._select_receipt(
+                            branch_root,
+                            receipt=existing,
+                            previous=previous,
+                            switch_kind="append",
+                        )
+                    self._cache_adult_scene_session(branch_root, existing, envelope)
+                    return bound
+                if (
+                    existing.generation != head.generation + 1
+                    or existing.parent_accepted_turn_id != head.accepted_turn_id
+                    or existing.parent_accepted_head_sha256
+                    != head.accepted_head_sha256
+                ):
+                    raise StateConflictError(
+                        "stored adult acceptance is outside the selected lineage"
+                    )
+                self._select_receipt(
+                    branch_root,
+                    receipt=existing,
+                    previous=head,
+                    switch_kind="append",
+                )
+                self._cache_adult_scene_session(branch_root, existing, envelope)
+                return bound
+
+            if envelope.generation != head.generation + 1:
+                raise StateConflictError("adult acceptance generation changed")
+            if (
+                envelope.parent_accepted_turn_id != head.accepted_turn_id
+                or envelope.parent_accepted_head_sha256 != head.accepted_head_sha256
+                or envelope.promotion_bundle.accepted_head_before_sha256
+                != head.accepted_head_sha256
+            ):
+                raise StateConflictError("adult acceptance parent head changed")
+            receipt = _adult_receipt_from_envelope(envelope)
+            promotion_receipt = AdultAcceptedPromotionReceiptV1(
+                schema_version=AdultAcceptedPromotionReceiptV1.SCHEMA_VERSION,
+                accepted_turn_id=receipt.accepted_turn_id,
+                world_id=receipt.world_id,
+                branch_id=receipt.branch_id,
+                accepted_head_before_sha256=receipt.parent_accepted_head_sha256,
+                accepted_head_after_sha256=receipt.receipt_sha256,
+                promotion_bundle_sha256=canonical_sha256(envelope.promotion_bundle),
+                current_logic_route=envelope.promotion_bundle.next_route,
+                return_to_codex=envelope.promotion_bundle.return_to_codex,
+            )
+            bound = BoundAdultPromotionV1(
+                bundle=envelope.promotion_bundle,
+                receipt=promotion_receipt,
+            )
+            self._publish_atomic_adult_object(
+                branch_root,
+                envelope=envelope,
+                accepted=receipt,
+                bound=bound,
+            )
+            self._select_receipt(
+                branch_root,
+                receipt=receipt,
+                previous=head,
+                switch_kind="append",
+            )
+            self._cache_adult_scene_session(branch_root, receipt, envelope)
+            return bound
+
+    def load_promoted_adult_acceptance(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+        accepted_turn_id: str | None = None,
+        promotion_bundle_sha256: str | None = None,
+        request_id: str | None = None,
+    ) -> tuple[AdultAcceptedTurnEnvelopeV1, BoundAdultPromotionV1]:
+        """Recover one immutable adult envelope for journal/restart replay."""
+
+        identities = (
+            accepted_turn_id,
+            promotion_bundle_sha256,
+            request_id,
+        )
+        if sum(value is not None for value in identities) != 1:
+            raise ContractValidationError(
+                "adult promotion lookup requires exactly one identity"
+            )
+        if accepted_turn_id is not None and (
+            type(accepted_turn_id) is not str or not accepted_turn_id.strip()
+        ):
+            raise ContractValidationError("adult promotion turn identity is invalid")
+        if promotion_bundle_sha256 is not None and (
+            type(promotion_bundle_sha256) is not str
+            or not re_is_sha256(promotion_bundle_sha256)
+        ):
+            raise ContractValidationError("adult promotion hash is invalid")
+        if request_id is not None and (
+            type(request_id) is not str or not request_id.strip()
+        ):
+            raise ContractValidationError("adult promotion request identity is invalid")
+        with self._lock:
+            branch_root = self._branch_root(world_id, branch_id)
+            matches: list[
+                tuple[AdultAcceptedTurnEnvelopeV1, BoundAdultPromotionV1]
+            ] = []
+            for receipt, turn_dir in self._load_all_receipt_entries(branch_root):
+                loaded = _load_atomic_adult_promotion(turn_dir, accepted=receipt)
+                if loaded is None:
+                    continue
+                envelope, manifest, bound = loaded
+                if (
+                    accepted_turn_id is not None
+                    and receipt.accepted_turn_id == accepted_turn_id
+                ) or (
+                    promotion_bundle_sha256 is not None
+                    and manifest.promotion_bundle_sha256
+                    == promotion_bundle_sha256
+                ) or (
+                    request_id is not None
+                    and envelope.request_id == request_id
+                ):
+                    matches.append((envelope, bound))
+            if len(matches) != 1:
+                raise StateConflictError("adult promotion identity is not uniquely stored")
+            return matches[0]
+
+    @staticmethod
+    def rebind_atomic_adult_fork_artifacts(
+        turn_dir: Path,
+        *,
+        source_receipt_mapping: Mapping[str, Any],
+        child_receipt_mapping: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Rebind Python custody for a copied adult object during a fork.
+
+        Protected story/model bytes remain exact.  Only branch, parent-head,
+        candidate/envelope hashes, promotion receipt, manifest, and recording
+        head custody are rewritten in the unpublished child staging tree.
+        """
+
+        from cera.adult_pipeline.acceptance import AdultIntegratedExecutionV1
+        from cera.adult_pipeline.contracts import (
+            AdultAcceptedPromotionReceiptV1,
+            AdultFilterCustodyV1,
+            AdultFilterRequestV1,
+            AdultPipelineResultV1,
+            AdultSceneCustodyV1,
+            AdultSceneRequestV1,
+            BoundAdultFilterResultV1,
+            BoundAdultPromotionV1,
+            BoundAdultSceneCandidateV1,
+        )
+
+        source = _accepted_receipt_from_mapping(source_receipt_mapping)
+        loaded = _load_atomic_adult_promotion(turn_dir, accepted=source)
+        if loaded is None:
+            return dict(child_receipt_mapping)
+        envelope = loaded[0]
+        child = dict(child_receipt_mapping)
+        child_branch_id = child.get("branch_id")
+        child_parent_sha256 = child.get("parent_accepted_head_sha256")
+        if type(child_branch_id) is not str or not child_branch_id.strip():
+            raise StateConflictError("forked adult branch identity is invalid")
+        request = from_mapping(
+            AdultSceneRequestV1,
+            json.loads(envelope.primary_handoff_json),
+        )
+        scene_custody = AdultSceneCustodyV1(
+            schema_version=AdultSceneCustodyV1.SCHEMA_VERSION,
+            request_id=envelope.request_id,
+            candidate_id=envelope.candidate_id,
+            world_id=envelope.world_id,
+            branch_id=child_branch_id,
+            accepted_head_sha256=child_parent_sha256,
+            exact_source_sha256=envelope.exact_current_source_sha256,
+            scene_request_sha256=canonical_sha256(request),
+        )
+        scene = BoundAdultSceneCandidateV1(
+            request=request,
+            custody=scene_custody,
+            invocation=envelope.scene_invocation,
+        )
+        filter_request = AdultFilterRequestV1(
+            schema_version=AdultFilterRequestV1.SCHEMA_VERSION,
+            scene_request=request,
+            scene_output=envelope.scene_invocation.output,
+        )
+        filter_custody = AdultFilterCustodyV1(
+            schema_version=AdultFilterCustodyV1.SCHEMA_VERSION,
+            request_id=envelope.request_id,
+            candidate_id=envelope.candidate_id,
+            world_id=envelope.world_id,
+            branch_id=child_branch_id,
+            accepted_head_sha256=child_parent_sha256,
+            scene_candidate_sha256=scene.candidate_sha256,
+            filter_request_sha256=canonical_sha256(filter_request),
+        )
+        filtered = BoundAdultFilterResultV1(
+            request=filter_request,
+            custody=filter_custody,
+            invocation=envelope.filter_invocation,
+        )
+        result = AdultPipelineResultV1(scene=scene, filtered=filtered)
+        bundle = result.promotion_bundle()
+        execution_sha256 = AdultIntegratedExecutionV1(
+            result=result,
+            scene_session=envelope.scene_session,
+            filter_execution=envelope.filter_execution,
+        ).execution_sha256
+        child_envelope = replace(
+            envelope,
+            branch_id=child_branch_id,
+            parent_accepted_head_sha256=child_parent_sha256,
+            promotion_bundle=bundle,
+            pipeline_execution_sha256=execution_sha256,
+        )
+        child["candidate_sha256"] = child_envelope.envelope_sha256
+        child_receipt = _accepted_receipt_from_mapping(child)
+        promotion_receipt = AdultAcceptedPromotionReceiptV1(
+            schema_version=AdultAcceptedPromotionReceiptV1.SCHEMA_VERSION,
+            accepted_turn_id=child_receipt.accepted_turn_id,
+            world_id=child_receipt.world_id,
+            branch_id=child_receipt.branch_id,
+            accepted_head_before_sha256=child_receipt.parent_accepted_head_sha256,
+            accepted_head_after_sha256=child_receipt.receipt_sha256,
+            promotion_bundle_sha256=canonical_sha256(bundle),
+            current_logic_route=bundle.next_route,
+            return_to_codex=bundle.return_to_codex,
+        )
+        bound = BoundAdultPromotionV1(bundle=bundle, receipt=promotion_receipt)
+        manifest = _atomic_adult_manifest(
+            envelope=child_envelope,
+            accepted=child_receipt,
+            bound=bound,
+        )
+        _atomic_write_json(
+            turn_dir / "ADULT_ACCEPTANCE_ENVELOPE.json",
+            to_primitive(child_envelope),
+        )
+        _atomic_write_json(
+            turn_dir / "ADULT_PROMOTION_RECEIPT.json",
+            to_primitive(promotion_receipt),
+        )
+        _atomic_write_json(
+            turn_dir / "ADULT_ATOMIC_PROMOTION.json",
+            to_primitive(manifest),
+        )
+        _atomic_write_json(
+            turn_dir / "RECORDING_HEAD.json",
+            _recording_head_payload(
+                accepted_turn_id=child_receipt.accepted_turn_id,
+                status=RecordingStatus.COMPLETE,
+                attempt_number=1,
+                attempt_sha256=canonical_sha256(manifest),
+            ),
+        )
+        return child
+
+    def _publish_atomic_adult_object(
+        self,
+        branch_root: Path,
+        *,
+        envelope: AdultAcceptedTurnEnvelopeV1,
+        accepted: LeanAcceptedTurnReceiptV1,
+        bound: BoundAdultPromotionV1,
+    ) -> None:
+        final_dir = branch_root / "accepted" / _accepted_object_directory_name(accepted)
+        if final_dir.exists():
+            loaded = _load_atomic_adult_promotion(final_dir, accepted=accepted)
+            if loaded is None or loaded[0] != envelope or loaded[2] != bound:
+                raise StateConflictError("adult accepted object path is occupied")
+            return
+        manifest = _atomic_adult_manifest(
+            envelope=envelope,
+            accepted=accepted,
+            bound=bound,
+        )
+        stage = branch_root / f".accept-adult-{uuid4().hex}"
+        stage.mkdir(parents=False, exist_ok=False)
+        try:
+            _write_new_json(stage / "ACCEPTED_RECEIPT.json", to_primitive(accepted))
+            _write_new_json(
+                stage / "ADULT_ACCEPTANCE_ENVELOPE.json",
+                to_primitive(envelope),
+            )
+            _write_new_json(
+                stage / "ADULT_CODEX_PROJECTION.json",
+                to_primitive(envelope.promotion_bundle.codex_projection),
+            )
+            _write_new_json(
+                stage / "ADULT_PROMOTION_RECEIPT.json",
+                to_primitive(bound.receipt),
+            )
+            _write_new_json(
+                stage / "ADULT_ATOMIC_PROMOTION.json",
+                to_primitive(manifest),
+            )
+            _write_new_json(
+                stage / "RECORDING_HEAD.json",
+                _recording_head_payload(
+                    accepted_turn_id=accepted.accepted_turn_id,
+                    status=RecordingStatus.COMPLETE,
+                    attempt_number=1,
+                    attempt_sha256=canonical_sha256(manifest),
+                ),
+            )
+            os.replace(stage, final_dir)
+        except Exception:
+            if stage.exists():
+                shutil.rmtree(stage)
+            raise
+
+    @staticmethod
+    def _cache_adult_scene_session(
+        branch_root: Path,
+        accepted: LeanAcceptedTurnReceiptV1,
+        envelope: AdultAcceptedTurnEnvelopeV1,
+    ) -> None:
+        session = envelope.scene_session
+        payload = AcceptedPiSessionV1(
+            accepted_turn_id=accepted.accepted_turn_id,
+            session_id=session.session_id,
+            session_path=session.session_path,
+            session_id_sha256=session.session_id_sha256,
+            accepted_receipt_sha256=accepted.receipt_sha256,
+        )
+        try:
+            _atomic_write_json(
+                branch_root / "sessions" / "ACCEPTED_SESSION.json",
+                to_primitive(payload),
+            )
+        except Exception:
+            # The immutable accepted object contains the authoritative binding;
+            # this soft cache is reconstructed on its next verified load.
+            pass
 
     def accept(
         self,
@@ -711,6 +1309,18 @@ class LeanSceneStore:
         with self._lock:
             turn_dir = self._accepted_turn_dir(accepted)
             head = _read_recording_head(turn_dir, accepted=accepted)
+            atomic_adult = _load_atomic_adult_promotion(turn_dir, accepted=accepted)
+            if atomic_adult is not None:
+                manifest = atomic_adult[1]
+                if (
+                    head.status is not RecordingStatus.COMPLETE
+                    or head.attempt_number != 1
+                    or head.attempt_sha256 != canonical_sha256(manifest)
+                ):
+                    raise StateConflictError(
+                        "atomic adult recording head differs from its promotion"
+                    )
+                return RecordingStatus.COMPLETE
             if head.status is not RecordingStatus.COMPLETE:
                 recovered = _recover_atomic_recording_bundle(
                     turn_dir,
@@ -745,6 +1355,10 @@ class LeanSceneStore:
         with self._lock:
             turn_dir = self._accepted_turn_dir(accepted)
             head = _read_recording_head(turn_dir, accepted=accepted)
+            if _load_atomic_adult_promotion(turn_dir, accepted=accepted) is not None:
+                raise StateConflictError(
+                    "atomic adult acceptance has no post-Accept Recorder attempt"
+                )
             if head.status is not RecordingStatus.COMPLETE:
                 recovered = _recover_atomic_recording_bundle(
                     turn_dir,
@@ -781,6 +1395,10 @@ class LeanSceneStore:
     ) -> LeanRecordingAttemptV1:
         with self._lock:
             turn_dir = self._accepted_turn_dir(accepted)
+            if _load_atomic_adult_promotion(turn_dir, accepted=accepted) is not None:
+                raise StateConflictError(
+                    "atomic adult acceptance cannot enter Recorder repair"
+                )
             head = _read_recording_head(turn_dir, accepted=accepted)
             recovered = _recover_atomic_recording_bundle(
                 turn_dir,
@@ -844,6 +1462,10 @@ class LeanSceneStore:
         with self._lock:
             validate_ordinary_record(record, accepted=accepted)
             turn_dir = self._accepted_turn_dir(accepted)
+            if _load_atomic_adult_promotion(turn_dir, accepted=accepted) is not None:
+                raise StateConflictError(
+                    "atomic adult acceptance cannot enter ordinary Recorder"
+                )
             record_sha256 = canonical_sha256(record)
             head = _read_recording_head(turn_dir, accepted=accepted)
             recovered = _recover_atomic_recording_bundle(
@@ -911,6 +1533,10 @@ class LeanSceneStore:
         with self._lock:
             validate_adult_records(full, projection, accepted=accepted)
             turn_dir = self._accepted_turn_dir(accepted)
+            if _load_atomic_adult_promotion(turn_dir, accepted=accepted) is not None:
+                raise StateConflictError(
+                    "atomic adult acceptance has no post-Accept Recorder"
+                )
             full_sha = canonical_sha256(full)
             projection_sha = canonical_sha256(projection)
             head = _read_recording_head(turn_dir, accepted=accepted)
@@ -1032,16 +1658,35 @@ class LeanSceneStore:
         with self._lock:
             branch_root = self._branch_root(world_id, branch_id)
             path = branch_root / "sessions" / "ACCEPTED_SESSION.json"
-            if not path.exists():
-                return None
             head = self.load_head(world_id=world_id, branch_id=branch_id)
-            return _load_current_pi_session(
+            current = _load_current_pi_session(
                 path,
                 head=head,
                 allow_legacy_unbound=(
                     self._load_active_lineage_manifest(branch_root) is None
                 ),
             )
+            if current is not None or head.receipt is None:
+                return current
+            if (branch_root / "FORK_REBINDING.json").exists():
+                # The stored binding remains immutable execution evidence from
+                # the parent branch; a fork must rehydrate a fresh soft session
+                # instead of reusing that provider conversation.
+                return None
+            turn_dir = _locate_accepted_turn_dir(branch_root, head.receipt)
+            atomic = _load_atomic_adult_promotion(turn_dir, accepted=head.receipt)
+            if atomic is None:
+                return None
+            envelope = atomic[0]
+            session = AcceptedPiSessionV1(
+                accepted_turn_id=head.receipt.accepted_turn_id,
+                session_id=envelope.scene_session.session_id,
+                session_path=envelope.scene_session.session_path,
+                session_id_sha256=envelope.scene_session.session_id_sha256,
+                accepted_receipt_sha256=head.receipt.receipt_sha256,
+            )
+            _atomic_write_json(path, to_primitive(session))
+            return session
 
     def recent_accepted_payloads(
         self,
@@ -1212,6 +1857,30 @@ class LeanSceneStore:
         for receipt in receipts:
             turn_dir = _locate_accepted_turn_dir(branch_root, receipt)
             head = _read_recording_head(turn_dir, accepted=receipt)
+            atomic_adult = _load_atomic_adult_promotion(turn_dir, accepted=receipt)
+            if atomic_adult is not None:
+                envelope, manifest, _ = atomic_adult
+                if (
+                    head.status is not RecordingStatus.COMPLETE
+                    or head.attempt_number != 1
+                    or head.attempt_sha256 != canonical_sha256(manifest)
+                ):
+                    raise StateConflictError(
+                        "atomic adult recording head differs from its promotion"
+                    )
+                item: dict[str, Any] = {
+                    "receipt": to_primitive(receipt),
+                    "recording_status": RecordingStatus.COMPLETE.value,
+                    "adult_projection": to_primitive(
+                        envelope.promotion_bundle.codex_projection
+                    ),
+                }
+                if adult_full:
+                    item["adult_full_record"] = to_primitive(
+                        envelope.promotion_bundle.protected_full_record
+                    )
+                output.append(item)
+                continue
             if head.status is not RecordingStatus.COMPLETE:
                 recovered = _recover_atomic_recording_bundle(
                     turn_dir,
@@ -1277,9 +1946,11 @@ class LeanSceneStore:
                 _accepted_object_directory_name(receipt),
             }:
                 raise StateConflictError(
-                    "accepted receipt hash chain or object directory binding changed"
+                    "accepted branch head cache conflicts with receipt hash chain "
+                    "or object directory binding"
                 )
             _verify_semantic_validation_artifact(path.parent, receipt=receipt)
+            _load_atomic_adult_promotion(path.parent, accepted=receipt)
             if receipt.receipt_sha256 in seen_hashes:
                 raise StateConflictError("accepted receipt object occurs more than once")
             seen_hashes.add(receipt.receipt_sha256)
@@ -1492,6 +2163,30 @@ class LeanSceneStore:
         cls._write_branch_cache(branch_root, latest)
 
 
+@dataclass(frozen=True, slots=True)
+class AdultEnvelopePromotionPort:
+    """One-envelope adapter for the existing bare-bundle promotion protocol."""
+
+    store: LeanSceneStore
+    envelope: AdultAcceptedTurnEnvelopeV1
+
+    def current_logic_route(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+    ) -> AdultRouteStateSnapshotV1:
+        return self.store.current_logic_route(world_id=world_id, branch_id=branch_id)
+
+    def promote_adult_acceptance(
+        self,
+        bundle: AdultPromotionBundleV1,
+    ) -> BoundAdultPromotionV1:
+        if bundle != self.envelope.promotion_bundle:
+            raise StateConflictError("adult promotion port received another bundle")
+        return self.store.promote_adult_acceptance_envelope(self.envelope)
+
+
 def _turn_directory_name(receipt: LeanAcceptedTurnReceiptV1) -> str:
     """Historical linear-store directory name (read compatibility only)."""
 
@@ -1506,6 +2201,176 @@ def _accepted_object_directory_name(receipt: LeanAcceptedTurnReceiptV1) -> str:
         accepted_turn_id=receipt.accepted_turn_id,
         receipt_sha256=receipt.receipt_sha256,
     )
+
+
+def _adult_receipt_from_envelope(
+    envelope: AdultAcceptedTurnEnvelopeV1,
+) -> LeanAcceptedTurnReceiptV1:
+    scene_receipt = envelope.scene_invocation.receipt
+    writer_receipt = PiWriterReceiptV1(
+        schema_version=PiWriterReceiptV1.SCHEMA_VERSION,
+        route=SceneRoute.ADULT,
+        provider=scene_receipt.provider,
+        model=scene_receipt.model,
+        pi_version="adult-pipeline-v1",
+        session_id_sha256=scene_receipt.session_id_sha256,
+        parent_session_id_sha256=None,
+        request_sha256=scene_receipt.request_sha256,
+        output_sha256=envelope.promotion_bundle.exact_story_prose_sha256,
+        provider_operations=scene_receipt.provider_operations,
+        tool_call_count=0,
+        failed_tool_call_count=0,
+        input_tokens=0,
+        cached_input_tokens=0,
+        output_tokens=0,
+        reasoning_tokens=0,
+        duration_ms=0,
+        finish_status=scene_receipt.finish_status,
+        rehydrated=False,
+    )
+    return LeanAcceptedTurnReceiptV1(
+        schema_version=LeanAcceptedTurnReceiptV1.SCHEMA_VERSION,
+        accepted_turn_id=envelope.accepted_turn_id,
+        parent_accepted_turn_id=envelope.parent_accepted_turn_id,
+        parent_accepted_head_sha256=envelope.parent_accepted_head_sha256,
+        world_id=envelope.world_id,
+        branch_id=envelope.branch_id,
+        scene_id=envelope.scene_id,
+        generation=envelope.generation,
+        route=SceneRoute.ADULT,
+        exact_user_source=envelope.exact_current_source,
+        exact_user_source_sha256=envelope.exact_current_source_sha256,
+        exact_accepted_prose=envelope.promotion_bundle.exact_story_prose,
+        exact_accepted_prose_sha256=(
+            envelope.promotion_bundle.exact_story_prose_sha256
+        ),
+        primary_authority_kind=envelope.primary_handoff_kind,
+        primary_authority_json=envelope.primary_handoff_json,
+        primary_authority_sha256=envelope.primary_handoff_sha256,
+        writer_view_manifest_sha256=(
+            envelope.scene_writer_view_manifest_sha256
+        ),
+        writer_receipt=writer_receipt,
+        creator_action=envelope.creator_action,
+        warnings=(),
+        initial_recording_status=RecordingStatus.PROJECTION_PENDING,
+        candidate_sha256=envelope.envelope_sha256,
+    )
+
+
+def _atomic_adult_manifest(
+    *,
+    envelope: AdultAcceptedTurnEnvelopeV1,
+    accepted: LeanAcceptedTurnReceiptV1,
+    bound: BoundAdultPromotionV1,
+) -> _AtomicAdultPromotionManifestV1:
+    bundle = envelope.promotion_bundle
+    return _AtomicAdultPromotionManifestV1(
+        schema_version=_AtomicAdultPromotionManifestV1.SCHEMA_VERSION,
+        accepted_turn_id=accepted.accepted_turn_id,
+        accepted_receipt_sha256=accepted.receipt_sha256,
+        envelope_sha256=envelope.envelope_sha256,
+        promotion_bundle_sha256=canonical_sha256(bundle),
+        protected_full_record_sha256=canonical_sha256(bundle.protected_full_record),
+        codex_projection_sha256=canonical_sha256(bundle.codex_projection),
+        promotion_receipt_sha256=canonical_sha256(bound.receipt),
+        scene_session_binding_sha256=canonical_sha256(envelope.scene_session),
+        current_logic_route=bundle.next_route.value,
+        return_to_codex=bundle.return_to_codex,
+    )
+
+
+def _load_atomic_adult_promotion(
+    turn_dir: Path,
+    *,
+    accepted: LeanAcceptedTurnReceiptV1,
+) -> tuple[
+    AdultAcceptedTurnEnvelopeV1,
+    _AtomicAdultPromotionManifestV1,
+    BoundAdultPromotionV1,
+] | None:
+    """Verify one atomic adult object without returning protected bytes broadly."""
+
+    from cera.adult_pipeline.acceptance import AdultAcceptedTurnEnvelopeV1
+    from cera.adult_pipeline.contracts import (
+        AdultAcceptedPromotionReceiptV1,
+        BoundAdultPromotionV1,
+    )
+    from cera.adult_pipeline.contracts import (
+        AdultCodexProjectionV2 as PipelineAdultCodexProjectionV2,
+    )
+
+    paths = {
+        "manifest": turn_dir / "ADULT_ATOMIC_PROMOTION.json",
+        "envelope": turn_dir / "ADULT_ACCEPTANCE_ENVELOPE.json",
+        "projection": turn_dir / "ADULT_CODEX_PROJECTION.json",
+        "receipt": turn_dir / "ADULT_PROMOTION_RECEIPT.json",
+    }
+    present = {name for name, path in paths.items() if path.exists()}
+    if "manifest" not in present:
+        if present.intersection({"envelope", "receipt"}):
+            raise StateConflictError("atomic adult promotion artifact set is incomplete")
+        return None
+    if present != set(paths) or any(
+        not path.is_file() or path.is_symlink() for path in paths.values()
+    ):
+        raise StateConflictError("atomic adult promotion artifact set is incomplete")
+    manifest = _decode_stored(
+        _AtomicAdultPromotionManifestV1,
+        _read_json(paths["manifest"]),
+        "atomic adult promotion manifest",
+    )
+    envelope = _decode_stored(
+        AdultAcceptedTurnEnvelopeV1,
+        _read_json(paths["envelope"]),
+        "adult accepted-turn envelope",
+    )
+    projection = _decode_stored(
+        PipelineAdultCodexProjectionV2,
+        _read_json(paths["projection"]),
+        "adult Codex projection",
+    )
+    promotion_receipt = _decode_stored(
+        AdultAcceptedPromotionReceiptV1,
+        _read_json(paths["receipt"]),
+        "adult accepted-promotion receipt",
+    )
+    bound = BoundAdultPromotionV1(
+        bundle=envelope.promotion_bundle,
+        receipt=promotion_receipt,
+    )
+    expected = _atomic_adult_manifest(
+        envelope=envelope,
+        accepted=accepted,
+        bound=bound,
+    )
+    if manifest != expected:
+        raise StateConflictError("atomic adult promotion manifest binding changed")
+    if projection != envelope.promotion_bundle.codex_projection:
+        raise StateConflictError("atomic adult safe projection changed")
+    if (
+        accepted.route is not SceneRoute.ADULT
+        or accepted.accepted_turn_id != envelope.accepted_turn_id
+        or accepted.parent_accepted_turn_id != envelope.parent_accepted_turn_id
+        or accepted.parent_accepted_head_sha256
+        != envelope.parent_accepted_head_sha256
+        or accepted.world_id != envelope.world_id
+        or accepted.branch_id != envelope.branch_id
+        or accepted.scene_id != envelope.scene_id
+        or accepted.generation != envelope.generation
+        or accepted.exact_user_source != envelope.exact_current_source
+        or accepted.exact_accepted_prose
+        != envelope.promotion_bundle.exact_story_prose
+        or accepted.primary_authority_json != envelope.primary_handoff_json
+        or accepted.writer_view_manifest_sha256
+        != envelope.scene_writer_view_manifest_sha256
+        or accepted.writer_receipt.session_id_sha256
+        != envelope.scene_session.session_id_sha256
+        or accepted.candidate_sha256 != envelope.envelope_sha256
+        or accepted.creator_action != envelope.creator_action
+    ):
+        raise StateConflictError("adult accepted receipt differs from its envelope")
+    return envelope, manifest, bound
 
 
 def _locate_accepted_turn_dir(

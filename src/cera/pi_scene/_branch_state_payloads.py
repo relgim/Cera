@@ -208,6 +208,7 @@ def _adult_event(
 
     version = projection.get("schema_version")
     decoded: AdultCodexProjectionV1 | AdultCodexProjectionV2 | None = None
+    pipeline_decoded: Any | None = None
     if version is None:
         # Historical reducer fixtures predate the durable projection envelope.
         # They remain readable, but only the closed V1/V2 DTOs can carry new
@@ -250,20 +251,35 @@ def _adult_event(
                 decoded = from_mapping(AdultCodexProjectionV1, projection)
             elif version == AdultCodexProjectionV2.SCHEMA_VERSION:
                 decoded = from_mapping(AdultCodexProjectionV2, projection)
+            elif version == "cera.adult_pipeline.codex_projection.v2":
+                from cera.adult_pipeline.contracts import (
+                    AdultCodexProjectionV2 as PipelineAdultCodexProjectionV2,
+                )
+
+                pipeline_decoded = from_mapping(
+                    PipelineAdultCodexProjectionV2,
+                    projection,
+                )
             else:
                 raise ContractValidationError("adult projection version is unsupported")
         except (KeyError, TypeError, ValueError) as exc:
             raise ContractValidationError("adult filtered projection is invalid") from exc
+        source_items = (
+            pipeline_decoded.events
+            if pipeline_decoded is not None
+            else decoded.items
+        )
         item_values = tuple(
             (
                 value.event_key,
                 value.non_explicit_summary,
                 value.lasting_story_meaning,
             )
-            for value in decoded.items
+            for value in source_items
         )
-        resulting_public_state = decoded.resulting_public_state
-        unresolved_threads = decoded.unresolved_threads
+        result = pipeline_decoded if pipeline_decoded is not None else decoded
+        resulting_public_state = result.resulting_public_state
+        unresolved_threads = result.unresolved_threads
     accepted_turn_id = str(common["accepted_turn_id"])
     accepted_order = int(common["accepted_order"])
     public_items: list[AdultPublicContinuityV1] = []
@@ -319,6 +335,36 @@ def _adult_event(
                 source_kind="adult_codex_projection_v2",
             )
             for value in decoded.durable_effects
+        )
+    elif pipeline_decoded is not None:
+        event_order = {
+            value.event_key: index
+            for index, value in enumerate(pipeline_decoded.events)
+        }
+        presence = tuple(
+            PresenceChangeV1(
+                character_id=value.character_id,
+                direction=value.direction,
+                effective_after_item_key=value.effective_after_event_key,
+            )
+            for value in sorted(
+                pipeline_decoded.presence_changes,
+                key=lambda change: event_order[change.effective_after_event_key],
+            )
+        )
+        durable.extend(
+            DurableBranchChangeV1(
+                change_key=value.effect_key,
+                kind=value.effect_kind,
+                subject_ids=value.subject_ids,
+                concise_change=value.non_explicit_effect,
+                target_key=value.target_key,
+                visibility=value.visibility,
+                knowledge_owner_id=value.knowledge_owner_id,
+                accepted_turn_id=accepted_turn_id,
+                source_kind="adult_pipeline_codex_projection_v2",
+            )
+            for value in pipeline_decoded.durable_effects
         )
     return AcceptedBranchEventV1(
         **common,
