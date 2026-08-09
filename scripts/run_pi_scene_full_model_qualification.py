@@ -30,6 +30,7 @@ from typing import Any
 from urllib.error import HTTPError
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
+from cera.continuous.path_policy import preflight_windows_legacy_paths
 from cera.errors import ContractValidationError, StateConflictError
 from cera.pi_scene.context import initial_hanezawa_doorway_seed
 from cera.pi_scene.http import PiSceneHttpAdapter, PiSceneServerConfigV1, build_pi_scene_server
@@ -77,6 +78,28 @@ _CODEX_RUNTIME_DISTRIBUTIONS = (
     ("codex_cli_bin", "openai-codex-cli-bin"),
     ("mcp", "mcp"),
 )
+
+
+def _preflight_runtime_path_budget(output_root: Path) -> None:
+    """Reject a qualification root that cannot safely host request custody."""
+
+    journal_parent = (
+        output_root.resolve()
+        / "runtime-a"
+        / "accepted_world"
+        / "http_request_journal"
+        / "PROTECTED_ADULT"
+        / f"s-{'f' * 16}"
+        / f"w-{'f' * 16}"
+        / f"b-{'f' * 16}"
+    )
+    target = journal_parent / f"request-{'f' * 64}.json"
+    preflight_windows_legacy_paths(
+        target,
+        target.with_suffix(".claim"),
+        journal_parent / f".request-journal-{'f' * 32}.tmp",
+        label="qualification request journal",
+    )
 
 
 def _repository_artifacts(fixture_path: Path) -> dict[str, tuple[Path, ...]]:
@@ -427,6 +450,7 @@ def freeze(
     sillytavern_source: Path,
 ) -> dict[str, Any]:
     root = output_root.resolve()
+    _preflight_runtime_path_budget(root)
     if root.exists():
         raise StateConflictError("qualification output root already exists")
     _assert_clean_exact_repository(ROOT)

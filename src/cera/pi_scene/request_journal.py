@@ -624,10 +624,8 @@ def _validate_adult_progress(
         if not isinstance(repair, dict) or set(repair) != repair_fields:
             raise StateConflictError("Pi Scene adult repair-attempt shape changed")
         if (
-            re.fullmatch(r"review-[a-f0-9]{28}", repair["public_review_id"] or "")
-            is None
-            or repair["conflict_class"]
-            not in {value.value for value in AdultFilterConflictClass}
+            re.fullmatch(r"review-[a-f0-9]{28}", repair["public_review_id"] or "") is None
+            or repair["conflict_class"] not in {value.value for value in AdultFilterConflictClass}
             or not re_is_sha256(repair["operation_sha256"] or "")
             or not re_is_sha256(repair["outcome_sha256"] or "")
         ):
@@ -677,7 +675,11 @@ def _validate_adult_progress(
 
 def _atomic_write_json(path: Path, payload: Mapping[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+    # The journal target already contains the complete request digest. Repeating
+    # that long target name in the staging file can cross the legacy Windows
+    # path boundary even when the durable target itself is valid. Keep the
+    # collision-resistant staging identity independent from the target name.
+    temporary = path.parent / f".request-journal-{uuid4().hex}.tmp"
     data = canonical_bytes(payload) + b"\n"
     try:
         with temporary.open("xb") as handle:

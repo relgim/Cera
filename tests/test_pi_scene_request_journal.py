@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -339,6 +340,31 @@ class PiSceneRequestJournalTests(unittest.TestCase):
             path.with_suffix(".claim").write_text("pending\n", encoding="utf-8")
             with self.assertRaises(RequestReplayPendingError):
                 journal.begin(binding)
+
+    @unittest.skipUnless(os.name == "nt", "Windows path-boundary regression")
+    def test_long_valid_journal_target_writes_and_replays_atomically(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            target_root_length = 100
+            filler_size = target_root_length - len(str(base)) - 1
+            if filler_size < 1:
+                self.skipTest("temporary root is already too long for this regression")
+            journal = PiSceneRequestJournal(base / ("j" * filler_size))
+            binding = _binding()
+            target = journal.entry_path(binding)
+            self.assertGreaterEqual(len(str(target)), 240)
+            self.assertLess(len(str(target)), 260)
+
+            journal.begin(binding)
+            response = {"cera": {"status": "accepted"}}
+            journal.bind_review(binding, _progress(binding))
+            journal.complete(binding, response)
+            replay = PiSceneRequestJournal(journal.root).begin(binding)
+
+            self.assertTrue(target.is_file())
+            self.assertTrue(replay.replayed)
+            self.assertEqual(replay.terminal_response, response)
+            self.assertEqual(list(target.parent.glob(".request-journal-*.tmp")), [])
 
     def test_failed_atomic_terminal_replace_preserves_pending_state(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

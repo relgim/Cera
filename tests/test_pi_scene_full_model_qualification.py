@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import call, patch
 
+from cera.errors import StateConflictError
 from cera.pi_scene.qualification import (
     DEEPSEEK_HTTP_OPERATION_CEILING,
     DEEPSEEK_PER_INVOCATION_CEILING,
@@ -771,6 +772,7 @@ class FullModelQualificationTests(unittest.TestCase):
             source = _fake_sillytavern_source(root)
             output = root / "qualification"
             with (
+                patch.object(entrypoint, "_preflight_runtime_path_budget"),
                 patch.object(entrypoint, "_assert_clean_exact_repository"),
                 patch.object(
                     entrypoint,
@@ -821,6 +823,25 @@ class FullModelQualificationTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(Exception, "metadata bridge changed"):
                 verify_qualification_sillytavern(isolated)
+
+    def test_freeze_rejects_an_overlong_runtime_root_before_mutation(self) -> None:
+        entrypoint._preflight_runtime_path_budget(Path("D:/Cera/qv5"))
+        with tempfile.TemporaryDirectory() as temporary:
+            output = Path(temporary) / ("q" * 160)
+            with (
+                patch.object(entrypoint, "_assert_clean_exact_repository") as clean,
+                patch.object(entrypoint, "stage_qualification_sillytavern") as stage,
+            ):
+                with self.assertRaisesRegex(StateConflictError, "legacy path budget"):
+                    entrypoint.freeze(
+                        output_root=output,
+                        fixture_path=FIXTURES,
+                        qualification_id="qualification-overlong-root",
+                        sillytavern_source=Path(temporary) / "sillytavern",
+                    )
+            clean.assert_not_called()
+            stage.assert_not_called()
+            self.assertFalse(output.exists())
 
     def test_qualification_isolation_installs_only_repository_cera_integrations(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
