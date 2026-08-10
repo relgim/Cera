@@ -22,7 +22,7 @@ from cera.providers.models import LiveProviderRoute, ProviderCallResult
 from cera.providers.routes import codex_realization_verifier_candidate
 from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
 from cera.schema import from_mapping
-from cera.serialization import text_sha256
+from cera.serialization import canonical_sha256, text_sha256
 
 from .contracts import SemanticValidationRequestV1, SemanticValidationVerdictV1
 from .prompting import (
@@ -99,6 +99,8 @@ class CodexLunaSemanticValidatorBackend:
             "semantic_validation.luna.turn",
             external_provider_boundary=is_external_provider_boundary(self.lifecycle),
         )
+        if self.operation_evidence is not None:
+            self.operation_evidence.begin_turn(f"semantic-validation:{canonical_sha256(request)}")
         self._operation_index += 1
         operation_workspace = (
             self.workspace / f"luna_validation_operation_{self._operation_index:04d}"
