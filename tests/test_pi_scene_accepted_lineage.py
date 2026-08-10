@@ -33,7 +33,7 @@ from .test_pi_scene_semantic_runtime import (
 
 def _runtime_pair(root: Path):
     harness = lean_support.PiSceneLeanTests(
-        methodName="test_ordinary_regenerate_reruns_logic_and_accept_is_exactly_once"
+        methodName="test_ordinary_regenerate_reuses_logic_and_accept_is_exactly_once"
     )
     coordinator, _, _, store = harness.make_runtime(root)
     original = coordinator.start_ordinary(lean_support.turn())
@@ -424,7 +424,7 @@ class PiSceneAcceptedLineageTests(unittest.TestCase):
                     branch_id=replaced.branch_id,
                 )
 
-    def test_provisional_v2_is_neutral_and_both_dependent_assumptions_are_valid(self) -> None:
+    def test_provisional_v3_is_neutral_and_historical_v2_v1_remain_valid(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             coordinator, store, _ = _runtime(
@@ -438,13 +438,17 @@ class PiSceneAcceptedLineageTests(unittest.TestCase):
                 acceptance_action="provisional_accept",
             ).review
             assert accepted.accepted_receipt is not None
-            artifact_path = store._accepted_turn_dir(accepted.accepted_receipt) / "PROVISIONAL_CANON.json"
+            artifact_path = (
+                store._accepted_turn_dir(accepted.accepted_receipt)
+                / "PROVISIONAL_CANON.json"
+            )
             before = artifact_path.read_bytes()
             artifact = json.loads(before)
             self.assertEqual(
                 artifact["schema_version"],
-                "cera.pi_scene.provisional_canon.v2",
+                "cera.pi_scene.provisional_canon.v3",
             )
+            self.assertIsNone(artifact["reader_validation_sha256"])
             self.assertNotIn("working_assumption", artifact)
             provisional_id = artifact["provisional_canon_id"]
 
@@ -465,20 +469,45 @@ class PiSceneAcceptedLineageTests(unittest.TestCase):
                 )
                 self.assertEqual(artifact_path.read_bytes(), before)
 
-            historical_body = {
+            historical_v2_body = {
                 key: value
                 for key, value in artifact.items()
-                if key not in {"artifact_sha256", "resolution_policy"}
+                if key not in {"artifact_sha256", "reader_validation_sha256"}
             }
-            historical_body["schema_version"] = "cera.pi_scene.provisional_canon.v1"
-            historical_body[
-                "working_assumption"
-            ] = "accepted_candidate_events_are_provisionally_true"
+            historical_v2_body["schema_version"] = "cera.pi_scene.provisional_canon.v2"
             artifact_path.write_text(
                 json.dumps(
                     {
-                        **historical_body,
-                        "artifact_sha256": canonical_sha256(historical_body),
+                        **historical_v2_body,
+                        "artifact_sha256": canonical_sha256(historical_v2_body),
+                    }
+                ),
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                LeanSceneStore(root / "world")
+                .load_head(
+                    world_id=accepted.accepted_receipt.world_id,
+                    branch_id=accepted.accepted_receipt.branch_id,
+                )
+                .accepted_head_sha256,
+                accepted.accepted_receipt.receipt_sha256,
+            )
+
+            historical_v1_body = {
+                key: value
+                for key, value in historical_v2_body.items()
+                if key != "resolution_policy"
+            }
+            historical_v1_body["schema_version"] = "cera.pi_scene.provisional_canon.v1"
+            historical_v1_body["working_assumption"] = (
+                "accepted_candidate_events_are_provisionally_true"
+            )
+            artifact_path.write_text(
+                json.dumps(
+                    {
+                        **historical_v1_body,
+                        "artifact_sha256": canonical_sha256(historical_v1_body),
                     }
                 ),
                 encoding="utf-8",

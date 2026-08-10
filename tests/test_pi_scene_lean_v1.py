@@ -1931,7 +1931,7 @@ class PiSceneLeanTests(unittest.TestCase):
             with self.assertRaisesRegex(StateConflictError, "forbidden automatic"):
                 ledger.assert_completed(forbidden, parsed_operations=0)
 
-    def test_ordinary_regenerate_reruns_logic_and_accept_is_exactly_once(self) -> None:
+    def test_ordinary_regenerate_reuses_logic_and_accept_is_exactly_once(self) -> None:
         with TemporaryDirectory() as temporary:
             root = Path(temporary)
             coordinator, planner, pi, store = self.make_runtime(root)
@@ -1941,13 +1941,16 @@ class PiSceneLeanTests(unittest.TestCase):
                 first.review_id,
                 feedback="Make the replacement more concise.",
             )
-            self.assertEqual(len(planner.calls), 2)
+            self.assertEqual(len(planner.calls), 1)
             self.assertIsNotNone(regenerated.successor)
             successor = regenerated.successor
             assert successor is not None
-            self.assertNotEqual(successor.candidate.primary_authority_json, first_authority)
+            self.assertEqual(successor.candidate.primary_authority_json, first_authority)
+            self.assertEqual(successor.result.planner_provider_operations, 0)
+            self.assertIsNotNone(successor.creator_guidance)
+            assert successor.creator_guidance is not None
             self.assertEqual(
-                planner.calls[1].creator_guidance.text,
+                successor.creator_guidance.text,
                 "Make the replacement more concise.",
             )
             accepted = coordinator.accept(successor.review_id).review
@@ -2465,7 +2468,8 @@ class PiSceneLeanTests(unittest.TestCase):
             regenerated = coordinator.regenerate(fourth.review_id, force_rehydrate=True)
             successor = regenerated.successor
             assert successor is not None
-            self.assertNotEqual(successor.candidate.primary_authority_sha256, original_authority)
+            self.assertEqual(successor.candidate.primary_authority_sha256, original_authority)
+            self.assertEqual(successor.result.planner_provider_operations, 0)
             coordinator.accept(successor.review_id)
 
             head = store.load_head(world_id="world-test", branch_id="branch-main")
@@ -2480,7 +2484,7 @@ class PiSceneLeanTests(unittest.TestCase):
                 ["ordinary", "adult", "adult", "ordinary"],
             )
             self.assertTrue(accepted[-1]["receipt"]["writer_receipt"]["rehydrated"])
-            self.assertEqual(len(planner.calls), 3)
+            self.assertEqual(len(planner.calls), 2)
             self.assertEqual(
                 [value.purpose for value in pi.calls].count("writer"),
                 5,

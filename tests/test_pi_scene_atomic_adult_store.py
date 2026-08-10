@@ -331,7 +331,7 @@ class PiSceneAtomicAdultStoreTests(unittest.TestCase):
             store.promote_adult_acceptance_envelope(envelope)
 
             coordinator, _, _, _ = lean_support.PiSceneLeanTests(
-                methodName="test_ordinary_regenerate_reruns_logic_and_accept_is_exactly_once"
+                methodName="test_ordinary_regenerate_reuses_logic_and_accept_is_exactly_once"
             ).make_runtime(root)
             ordinary_turn = replace(
                 lean_support.turn(source="Continue after the protected event."),
