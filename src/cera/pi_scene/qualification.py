@@ -588,6 +588,16 @@ class QualificationCampaignRun:
                     retry_chains=retry_chains,
                 )
                 planner_latency = self._planner_latency_observations(operation_records)
+                total_http_latency_ms = (
+                    initial_response.duration_ms
+                    + (0 if retry_resolution is None else retry_resolution.duration_ms)
+                    + (0 if regeneration is None else regeneration.duration_ms)
+                )
+                provider_transport_duration_ms = sum(
+                    cast(int, operation["duration_ms"])
+                    for operation in operation_records
+                    if type(operation.get("duration_ms")) is int
+                )
                 for operation in operation_records:
                     self.parent.evidence.append(
                         {
@@ -625,9 +635,12 @@ class QualificationCampaignRun:
                     "accepted_turn_id": projection["accepted_turn_id"],
                     "accepted_receipt_sha256": projection["accepted_receipt_sha256"],
                     "provider_operations": projection["provider_operations"],
-                    "latency_ms": initial_response.duration_ms
-                    + (0 if retry_resolution is None else retry_resolution.duration_ms)
-                    + (0 if regeneration is None else regeneration.duration_ms),
+                    "latency_ms": total_http_latency_ms,
+                    "provider_transport_duration_ms": provider_transport_duration_ms,
+                    "non_provider_http_duration_ms": max(
+                        0,
+                        total_http_latency_ms - provider_transport_duration_ms,
+                    ),
                     "planner_latency": planner_latency,
                     **telemetry,
                 }
@@ -1260,6 +1273,14 @@ class QualificationCampaignRun:
                     cast(int, value["latency_ms"])
                     for value in self.results
                     if type(value.get("latency_ms")) is int
+                ],
+                failures=sum(value["status"] == "failed" for value in self.results),
+            ),
+            "non_provider_http_latency_summary": _latency_summary(
+                [
+                    cast(int, value["non_provider_http_duration_ms"])
+                    for value in self.results
+                    if type(value.get("non_provider_http_duration_ms")) is int
                 ],
                 failures=sum(value["status"] == "failed" for value in self.results),
             ),
@@ -2876,6 +2897,11 @@ def _provider_stage_latency_summary(
             for value in selected
             if type(value.get("duration_ms")) is int
         ]
+        prepared_durations = [
+            cast(int, value["prepared_to_terminal_duration_ms"])
+            for value in selected
+            if type(value.get("prepared_to_terminal_duration_ms")) is int
+        ]
         failures = sum(_provider_operation_failed(value) for value in selected)
         classes: dict[str, list[int]] = {}
         for value in selected:
@@ -2913,6 +2939,10 @@ def _provider_stage_latency_summary(
         result[stage] = {
             "operations_total": len(selected),
             **_latency_summary(durations, failures=failures),
+            "prepared_to_terminal": _latency_summary(
+                prepared_durations,
+                failures=failures,
+            ),
             "session_classes": {
                 name: _latency_summary(values, failures=0)
                 for name, values in sorted(classes.items())
@@ -2995,8 +3025,10 @@ def _provider_operation_records(delta: ProviderLedgerDeltaV1) -> list[dict[str, 
                 "charged": charged,
                 "terminal_state": terminal_state,
                 "started_at_utc": timing_start.get("recorded_at_utc"),
+                "prepared_at_utc": identity.get("recorded_at_utc"),
                 "completed_at_utc": terminal.get("recorded_at_utc"),
                 "duration_ms": _duration_ms(timing_start, terminal),
+                "prepared_to_terminal_duration_ms": _duration_ms(identity, terminal),
                 "provider_receipt_sha256": terminal.get("provider_receipt_sha256"),
                 "failure_receipt_sha256": terminal.get("failure_receipt_sha256"),
                 "call_events_sha256": canonical_sha256(events),
@@ -3041,11 +3073,16 @@ def _provider_operation_records(delta: ProviderLedgerDeltaV1) -> list[dict[str, 
                 "route": prepared.get("route"),
                 "model": "deepseek-via-confined-pi",
                 "session_identity_sha256": text_sha256(key[0]),
+                "prepared_at_utc": prepared.get("recorded_at_utc"),
                 "started_at_utc": started.get("recorded_at_utc"),
                 "completed_at_utc": (
                     None if timing_terminal is None else timing_terminal.get("recorded_at_utc")
                 ),
                 "duration_ms": _duration_ms(started, timing_terminal),
+                "prepared_to_terminal_duration_ms": _duration_ms(
+                    prepared,
+                    timing_terminal,
+                ),
                 "input_tokens": None if completed is None else completed.get("input_tokens"),
                 "cached_input_tokens": (
                     None if completed is None else completed.get("cached_input_tokens")

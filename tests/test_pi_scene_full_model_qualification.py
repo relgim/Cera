@@ -1062,10 +1062,18 @@ class FullModelQualificationTests(unittest.TestCase):
             self.assertEqual(stage_latency["adult_filter"]["operations_total"], 10)
             self.assertEqual(stage_latency["writer"]["average_duration_ms"], 0)
             self.assertEqual(
+                stage_latency["writer"]["prepared_to_terminal"]["average_duration_ms"],
+                0,
+            )
+            self.assertEqual(
                 stage_latency["writer"]["session_classes"]["fresh_rehydration"]["measured_samples"],
                 10,
             )
             self.assertEqual(backend["http_latency_summary"]["measured_samples"], 20)
+            self.assertEqual(
+                backend["non_provider_http_latency_summary"]["measured_samples"],
+                20,
+            )
             routes = [value["expected_route"] for value in backend["results"]]
             self.assertEqual(
                 routes, ["ordinary"] * 5 + ["adult"] * 5 + ["ordinary"] * 5 + ["adult"] * 5
