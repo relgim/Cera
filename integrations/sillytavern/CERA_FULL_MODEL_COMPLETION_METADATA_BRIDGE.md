@@ -89,6 +89,49 @@ deduplicated before any message push. Another proven zero-effect transport
 failure may supply a new manual retry ID. Ambiguous, pending, generic, or
 accepted-effect failures never receive the button.
 
+After the initial attempt and two bounded retry actions fail, the backend may
+return either HTTP 503 `CERA_PROVIDER_STAGE_RETRY_EXHAUSTED` or authenticated
+GET status `cera.pi_scene.transport_retry_status.v2` with state
+`attempts_exhausted`. Both carry the same exact nested
+`critical_provider_stage_failure` object with schema
+`cera.provider_stage_retry_exhausted.v1`. The closed object contains only:
+
+```text
+severity = critical
+provider = codex | deepseek
+model_family = sol | luna | deepseek_v4
+stage = planner | semantic_validator | writer | recorder | adult_scene | adult_filter
+maximum_attempts = 3
+attempts_total = 3
+retries_consumed = 2
+story_state_committed
+failed_stage_effect_committed = false
+provider_operations_observed_total
+provider_operations_conservative_total
+final_failure_class
+request_sha256
+stage_input_sha256
+attempt_chain_sha256
+terminal_evidence_sha256
+```
+
+The final failure class is one of `transport_timeout`,
+`provider_unavailable`, `provider_process_failed`,
+`provider_stream_incomplete`, `provider_completion_incomplete`,
+`provider_output_invalid`, or `dispatch_ambiguous`. The relay rejects extra
+fields, invalid provider/model/stage combinations, and mismatched story-state
+flags. It strips the outer message, trace, request-local diagnostics, details,
+debug path, and any provider/story prose before browser delivery.
+
+An exhausted state has no action, successor, or Retry button. The extension
+stores its hash/count-only projection per SillyTavern chat, restores a red
+critical panel after reload, and keeps normal sending disabled only for that
+chat/branch. Switching to an unrelated chat does not leak or discard the
+failure. Recorder exhaustion is the sole post-Accept case: the accepted
+assistant message receives the same safe marker and explicitly remains
+accepted while derived recording is incomplete. The other five stages are
+pre-Accept and require `story_state_committed=false`.
+
 The relay applies the same closed projection to an error returned by the retry
 itself. A normal OpenAI-compatible completion passes through unchanged. An
 ineligible or ambiguous error is reduced to a fixed no-retry envelope, so raw

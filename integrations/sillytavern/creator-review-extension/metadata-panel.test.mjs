@@ -117,6 +117,15 @@ function retryStore(storage) {
     return JSON.parse(storage.get('cera_transport_retry_receipts_v1') ?? '{}');
 }
 
+function providerFailureStore(storage) {
+    return JSON.parse(storage.get('cera_provider_stage_failures_v1') ?? '{}');
+}
+
+function elementText(element) {
+    if (!element) return '';
+    return [element.textContent, ...element.children.map(elementText)].join(' ');
+}
+
 async function loadExtension({
     initialStorage = {},
     initialChat = [],
@@ -287,6 +296,73 @@ function transportRetryStatus(failure, state, extra = {}) {
         effect_proof_sha256: failure.error.transport_retry.effect_proof_sha256,
         retry_transport_enabled: state === 'eligible' || state === 'superseded',
         ...extra,
+    };
+}
+
+function criticalProviderStageFailure({
+    stage = 'planner',
+    failureClass = 'transport_timeout',
+    storyStateCommitted = stage === 'recorder',
+} = {}) {
+    const bindings = {
+        planner: ['codex', 'sol'],
+        semantic_validator: ['codex', 'luna'],
+        writer: ['deepseek', 'deepseek_v4'],
+        recorder: ['deepseek', 'deepseek_v4'],
+        adult_scene: ['deepseek', 'deepseek_v4'],
+        adult_filter: ['deepseek', 'deepseek_v4'],
+    };
+    const [provider, modelFamily] = bindings[stage];
+    return {
+        schema_version: 'cera.provider_stage_retry_exhausted.v1',
+        severity: 'critical',
+        provider,
+        model_family: modelFamily,
+        stage,
+        maximum_attempts: 3,
+        attempts_total: 3,
+        retries_consumed: 2,
+        story_state_committed: storyStateCommitted,
+        failed_stage_effect_committed: false,
+        provider_operations_observed_total: 2,
+        provider_operations_conservative_total: 3,
+        final_failure_class: failureClass,
+        request_sha256: '1'.repeat(64),
+        stage_input_sha256: '2'.repeat(64),
+        attempt_chain_sha256: '3'.repeat(64),
+        terminal_evidence_sha256: '4'.repeat(64),
+    };
+}
+
+function exhaustedError(critical = criticalProviderStageFailure()) {
+    return {
+        status: 'error',
+        story_state_committed: critical.story_state_committed,
+        error: {
+            schema_version: 'cera.error.v1',
+            error_code: 'CERA_PROVIDER_STAGE_RETRY_EXHAUSTED',
+            message: 'CERA stopped after three failed attempts at one provider stage.',
+            story_state_committed: critical.story_state_committed,
+            retry_mode: 'exhausted',
+            provider_operation_submitted: true,
+            accepted_state_changed: critical.story_state_committed,
+            fallback_used: false,
+            next_action: 'report_critical_provider_failure',
+            retry_transport_enabled: false,
+            critical_provider_stage_failure: critical,
+        },
+    };
+}
+
+function exhaustedStatus(failure, critical = criticalProviderStageFailure()) {
+    return {
+        schema_version: 'cera.pi_scene.transport_retry_status.v2',
+        retry_id: failure.error.transport_retry.retry_id,
+        request_id: failure.error.request_id,
+        state: 'attempts_exhausted',
+        effect_proof_sha256: failure.error.transport_retry.effect_proof_sha256,
+        retry_transport_enabled: false,
+        critical_provider_stage_failure: critical,
     };
 }
 
@@ -705,6 +781,251 @@ test('retry status normalizer closes all five backend states and rejects extra a
         }), null);
     } finally {
         await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('critical provider-stage normalizers close six stages and seven failure classes', async () => {
+    const { root } = await loadExtension();
+    try {
+        const actions = await import(
+            `${pathToFileURL(path.join(
+                root,
+                'public/scripts/extensions/third-party/cera-creator-review/review-actions.js',
+            )).href}?v=${Date.now()}`
+        );
+        const stages = [
+            'planner',
+            'semantic_validator',
+            'writer',
+            'recorder',
+            'adult_scene',
+            'adult_filter',
+        ];
+        const failureClasses = [
+            'transport_timeout',
+            'provider_unavailable',
+            'provider_process_failed',
+            'provider_stream_incomplete',
+            'provider_completion_incomplete',
+            'provider_output_invalid',
+            'dispatch_ambiguous',
+        ];
+        for (const stage of stages) {
+            for (const failureClass of failureClasses) {
+                const critical = criticalProviderStageFailure({ stage, failureClass });
+                assert.deepEqual(actions.normalizeProviderStageRetryExhausted(critical), critical);
+                assert.deepEqual(
+                    actions.normalizeProviderStageRetryExhaustedError(exhaustedError(critical)),
+                    critical,
+                );
+            }
+        }
+        const failure = eligibleTransportFailure();
+        const critical = criticalProviderStageFailure({ stage: 'semantic_validator' });
+        const status = exhaustedStatus(failure, critical);
+        assert.deepEqual(actions.normalizeTransportRetryStatus(status), status);
+        assert.equal('transport_retry' in status, false);
+        assert.equal('superseded_by_retry_id' in status, false);
+
+        const base = criticalProviderStageFailure();
+        for (const mutation of [
+            { provider: 'deepseek' },
+            { model_family: 'sol-medium' },
+            { attempts_total: 2 },
+            { retries_consumed: 1 },
+            { failed_stage_effect_committed: true },
+            { provider_operations_conservative_total: 1 },
+            { final_failure_class: 'pretransport_failed' },
+            { raw_provider_output: 'PRIVATE OUTPUT' },
+        ]) {
+            assert.equal(actions.normalizeProviderStageRetryExhausted({
+                ...base,
+                ...mutation,
+            }), null);
+        }
+        assert.equal(actions.normalizeProviderStageRetryExhausted(
+            criticalProviderStageFailure({ stage: 'recorder', storyStateCommitted: false }),
+        ), null);
+        assert.equal(actions.normalizeProviderStageRetryExhaustedError({
+            ...exhaustedError(base),
+            debug_log_path: 'D:\\private\\debug.md',
+        }), null);
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('critical stage failure persists, blocks only its chat, and restores without Retry', async () => {
+    const first = await loadExtension();
+    let second = null;
+    try {
+        const failure = exhaustedError(criticalProviderStageFailure({
+            stage: 'adult_filter',
+            failureClass: 'provider_output_invalid',
+        }));
+        assert.equal(window.ceraCaptureTransportFailure(failure), true);
+        const panel = first.testDocument.querySelector('#cera_provider_stage_failure_panel');
+        assert.ok(panel);
+        assert.match(elementText(panel), /CRITICAL CERA FAILURE - DeepSeek Adult Filter/);
+        assert.match(elementText(panel), /failed after three attempts/);
+        assert.match(elementText(panel), /Safe failure details/);
+        assert.equal(buttonByText(first.testDocument, 'Retry transport'), null);
+        assert.equal(buttonByText(first.testDocument, 'Check retry status'), null);
+        assert.ok(first.scriptModule.testState.deactivateCount >= 1);
+        const stored = providerFailureStore(first.storage);
+        assert.equal(stored.schema_version, 'cera.sillytavern.provider_stage_failure_store.v1');
+        assert.equal(stored.entries.length, 1);
+        assert.equal(stored.entries[0].critical_provider_stage_failure.stage, 'adult_filter');
+        assert.equal(JSON.stringify(stored).includes('provider output'), false);
+        assert.equal(retryStore(first.storage).entries?.length ?? 0, 0);
+
+        second = await loadExtension({ initialStorage: Object.fromEntries(first.storage) });
+        await second.scriptModule.eventSource.emit(second.scriptModule.event_types.APP_READY);
+        assert.ok(second.testDocument.querySelector('#cera_provider_stage_failure_panel'));
+        assert.equal(buttonByText(second.testDocument, 'Retry transport'), null);
+
+        second.scriptModule.__setChatId('independent-chat');
+        await second.scriptModule.eventSource.emit(second.scriptModule.event_types.CHAT_CHANGED);
+        assert.equal(second.testDocument.querySelector('#cera_provider_stage_failure_panel'), null);
+        assert.ok(second.scriptModule.testState.activateCount >= 1);
+        assert.equal(providerFailureStore(second.storage).entries.length, 1);
+
+        second.scriptModule.__setChatId('test-chat');
+        await second.scriptModule.eventSource.emit(second.scriptModule.event_types.CHAT_CHANGED);
+        assert.ok(second.testDocument.querySelector('#cera_provider_stage_failure_panel'));
+        assert.ok(second.scriptModule.testState.deactivateCount >= 2);
+    } finally {
+        await rm(first.root, { recursive: true, force: true });
+        if (second) await rm(second.root, { recursive: true, force: true });
+    }
+});
+
+test('v2 exhausted GET terminalizes one retry chain without another POST', async () => {
+    const failure = eligibleTransportFailure();
+    const methods = [];
+    const responses = [
+        jsonResponse({
+            error: {
+                message: 'SillyTavern could not reach the local CERA service.',
+                type: 'cera_error',
+                code: 'cera_loopback_unavailable',
+                stage: 'sillytavern_cera_review_proxy',
+                retryable: false,
+                fallback_used: false,
+            },
+        }, 502),
+        jsonResponse(exhaustedStatus(failure, criticalProviderStageFailure({
+            stage: 'planner',
+            failureClass: 'provider_unavailable',
+        }))),
+    ];
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            methods.push(options.method);
+            return responses.shift();
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureTransportFailure(failure), true);
+        await buttonByText(loaded.testDocument, 'Retry transport').click();
+        assert.deepEqual(methods, ['POST', 'GET']);
+        assert.equal(methods.filter(method => method === 'POST').length, 1);
+        assert.equal(retryStore(loaded.storage).entries.length, 0);
+        assert.equal(providerFailureStore(loaded.storage).entries.length, 1);
+        assert.equal(buttonByText(loaded.testDocument, 'Retry transport'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Check retry status'), null);
+        assert.match(
+            elementText(loaded.testDocument.querySelector('#cera_provider_stage_failure_panel')),
+            /Codex Planner failed after three attempts/,
+        );
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('terminal HTTP 503 stops immediately without status polling or another Retry', async () => {
+    const failure = eligibleTransportFailure();
+    const methods = [];
+    const critical = criticalProviderStageFailure({
+        stage: 'writer',
+        failureClass: 'provider_process_failed',
+    });
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            methods.push(options.method);
+            return jsonResponse(exhaustedError(critical), 503);
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureTransportFailure(failure), true);
+        await buttonByText(loaded.testDocument, 'Retry transport').click();
+        assert.deepEqual(methods, ['POST']);
+        assert.equal(retryStore(loaded.storage).entries.length, 0);
+        assert.equal(providerFailureStore(loaded.storage).entries.length, 1);
+        assert.equal(buttonByText(loaded.testDocument, 'Retry transport'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Check retry status'), null);
+        assert.match(
+            elementText(loaded.testDocument.querySelector('#cera_provider_stage_failure_panel')),
+            /DeepSeek Writer failed after three attempts/,
+        );
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('Recorder exhaustion attaches to the accepted assistant and preserves acceptance wording', async () => {
+    const accepted = {
+        name: 'Sakura',
+        is_user: false,
+        is_system: false,
+        mes: 'Accepted story prose remains in the chat.',
+        extra: {
+            cera_creator_review: {
+                state: 'accepted',
+                completion: {
+                    profile_id: 'cera.pi_scene.lean.v1',
+                    request_id: 'request:accepted-recorder',
+                    candidate_id: 'candidate:accepted-recorder',
+                    route_mode: 'ordinary',
+                    provisional: false,
+                    status: 'accepted',
+                    story_state_committed: true,
+                },
+            },
+        },
+    };
+    const loaded = await loadExtension({ initialChat: [accepted] });
+    try {
+        const critical = criticalProviderStageFailure({
+            stage: 'recorder',
+            failureClass: 'provider_completion_incomplete',
+        });
+        assert.equal(window.ceraCaptureTransportFailure(exhaustedError(critical)), true);
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+            if (loaded.scriptModule.chat[0].extra.cera_creator_review
+                .provider_stage_retry_exhausted) break;
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        assert.deepEqual(
+            loaded.scriptModule.chat[0].extra.cera_creator_review
+                .provider_stage_retry_exhausted,
+            critical,
+        );
+        assert.equal(providerFailureStore(loaded.storage).entries[0].attached_message_index, 0);
+        const panelText = elementText(
+            loaded.testDocument.querySelector('#cera_provider_stage_failure_panel'),
+        );
+        assert.match(panelText, /DeepSeek Recorder failed after three attempts/);
+        assert.match(panelText, /assistant story remains accepted/);
+        assert.match(panelText, /recording is incomplete/);
+        assert.equal(buttonByText(loaded.testDocument, 'Retry transport'), null);
+        assert.ok(loaded.scriptModule.testState.saveCount >= 1);
+    } finally {
+        await rm(loaded.root, { recursive: true, force: true });
     }
 });
 

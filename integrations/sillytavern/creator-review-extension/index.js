@@ -24,6 +24,9 @@ import { appendCreatorTrace, renderCompletionPanel } from './creator-trace-panel
 import {
     acceptedRegenerateSuccessor,
     normalizePersistedTransportRetryState,
+    normalizeProviderStageFailureState,
+    normalizeProviderStageRetryExhausted,
+    normalizeProviderStageRetryExhaustedError,
     normalizeReprojectionRequired,
     normalizeTransportRetryCompletionMarker,
     normalizeTransportRetryFailure,
@@ -50,6 +53,9 @@ const TRANSPORT_RETRY_STORAGE_KEY = 'cera_transport_retry_receipts_v1';
 const TRANSPORT_RETRY_STORE_SCHEMA = 'cera.sillytavern.transport_retry_store.v1';
 const TRANSPORT_RETRY_STATE_SCHEMA = 'cera.sillytavern.transport_retry_state.v1';
 const TRANSPORT_RETRY_COMPLETION_SCHEMA = 'cera.sillytavern.transport_retry_completion.v1';
+const PROVIDER_STAGE_FAILURE_STORAGE_KEY = 'cera_provider_stage_failures_v1';
+const PROVIDER_STAGE_FAILURE_STORE_SCHEMA = 'cera.sillytavern.provider_stage_failure_store.v1';
+const PROVIDER_STAGE_FAILURE_STATE_SCHEMA = 'cera.sillytavern.provider_stage_failure_state.v1';
 const READABILITY_KEY = 'vera_cast_readability';
 const DEFAULT_SPEAKER_COLORS = Object.freeze({
     hana: '#E7A6B2',
@@ -73,6 +79,7 @@ const polling = new Map();
 let transportRetryState = null;
 let transportRetryInFlight = false;
 let transportRetryStatusInFlight = false;
+let providerStageFailureState = null;
 
 window.ceraCreatorControls = () => ({ ...readControls() });
 window.ceraCaptureCompletionMetadata = value => captureCompletionMetadata(value);
@@ -80,6 +87,7 @@ window.ceraCaptureTransportFailure = value => captureTransportFailure(value);
 
 eventSource.on(event_types.APP_READY, () => {
     installControlBar();
+    restoreProviderStageFailureForCurrentChat();
     restoreTransportRetryForCurrentChat({ reconcile: true });
 });
 
@@ -96,6 +104,7 @@ eventSource.on(event_types.CHARACTER_MESSAGE_RENDERED, async messageId => {
     await attachPendingMetadata(messageId, { resume: false });
     renderStoredSpeakerMarks(messageId);
     renderStoredCompletionMetadata(messageId);
+    renderProviderStageFailureAttachment(messageId);
     if (chat[messageId]?.extra?.[META_KEY]?.provisional) {
         await resumeReview(messageId);
     }
@@ -154,6 +163,9 @@ function takeCompletionMetadata() {
 }
 
 function captureTransportFailure(value) {
+    const exhausted = normalizeProviderStageRetryExhaustedError(value);
+    if (exhausted) return captureProviderStageFailure(exhausted);
+    if (providerStageFailureState?.chat_key === currentTransportRetryChatKey()) return false;
     const failure = normalizeTransportRetryFailure(value);
     const receipt = transportRetryReceipt(failure);
     const chatKey = currentTransportRetryChatKey();
@@ -189,6 +201,230 @@ function captureTransportFailure(value) {
     }
     renderTransportRetryControl();
     return true;
+}
+
+function captureProviderStageFailure(critical, chatKey = currentTransportRetryChatKey()) {
+    const normalized = normalizeProviderStageRetryExhausted(critical);
+    if (!normalized || !chatKey) return false;
+    const existing = readProviderStageFailureEntries()
+        .find(entry => entry.chat_key === chatKey);
+    if (existing) {
+        providerStageFailureState = existing;
+        deactivateSendButtons();
+        renderProviderStageFailureControl();
+        if (
+            existing.critical_provider_stage_failure.terminal_evidence_sha256
+            !== normalized.terminal_evidence_sha256
+        ) return false;
+        if (normalized.stage === 'recorder') void attachProviderStageFailureToAcceptedAssistant();
+        return true;
+    }
+    const attachedMessageIndex = normalized.stage === 'recorder'
+        ? findAcceptedAssistantMessageIndex()
+        : null;
+    const nextState = normalizeProviderStageFailureState({
+        schema_version: PROVIDER_STAGE_FAILURE_STATE_SCHEMA,
+        chat_key: chatKey,
+        critical_provider_stage_failure: normalized,
+        attached_message_index: attachedMessageIndex,
+    });
+    if (!nextState || !persistProviderStageFailureState(nextState)) return false;
+    providerStageFailureState = nextState;
+    clearTransportRetryState(null, chatKey);
+    deactivateSendButtons();
+    renderProviderStageFailureControl();
+    if (normalized.stage === 'recorder') void attachProviderStageFailureToAcceptedAssistant();
+    return true;
+}
+
+function readProviderStageFailureEntries() {
+    try {
+        const value = JSON.parse(localStorage.getItem(PROVIDER_STAGE_FAILURE_STORAGE_KEY) ?? '{}');
+        if (
+            !value
+            || typeof value !== 'object'
+            || Array.isArray(value)
+            || Object.keys(value).sort().join(',') !== 'entries,schema_version'
+            || value.schema_version !== PROVIDER_STAGE_FAILURE_STORE_SCHEMA
+            || !Array.isArray(value.entries)
+        ) return [];
+        return value.entries
+            .map(normalizeProviderStageFailureState)
+            .filter(Boolean);
+    } catch {
+        return [];
+    }
+}
+
+function writeProviderStageFailureEntries(entries) {
+    try {
+        const normalized = entries
+            .map(normalizeProviderStageFailureState)
+            .filter(Boolean);
+        localStorage.setItem(PROVIDER_STAGE_FAILURE_STORAGE_KEY, JSON.stringify({
+            schema_version: PROVIDER_STAGE_FAILURE_STORE_SCHEMA,
+            entries: normalized,
+        }));
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+function persistProviderStageFailureState(state) {
+    const normalized = normalizeProviderStageFailureState(state);
+    if (!normalized) return false;
+    const entries = readProviderStageFailureEntries()
+        .filter(entry => entry.chat_key !== normalized.chat_key);
+    entries.push(normalized);
+    const stored = writeProviderStageFailureEntries(entries);
+    if (stored) providerStageFailureState = structuredClone(normalized);
+    return stored;
+}
+
+function restoreProviderStageFailureForCurrentChat() {
+    const chatKey = currentTransportRetryChatKey();
+    providerStageFailureState = chatKey
+        ? readProviderStageFailureEntries().find(entry => entry.chat_key === chatKey) ?? null
+        : null;
+    document.querySelector('#cera_provider_stage_failure_panel')?.remove();
+    if (!providerStageFailureState) return;
+    clearTransportRetryState(null, chatKey);
+    deactivateSendButtons();
+    renderProviderStageFailureControl();
+    if (providerStageFailureState.critical_provider_stage_failure.stage === 'recorder') {
+        void attachProviderStageFailureToAcceptedAssistant();
+    }
+}
+
+function findAcceptedAssistantMessageIndex() {
+    for (let index = chat.length - 1; index >= 0; index -= 1) {
+        const message = chat[index];
+        if (!message || message.is_user) continue;
+        const stored = message.extra?.[META_KEY];
+        const completion = normalizeCompletionMetadata(stored?.completion);
+        if (completion?.story_state_committed === true || stored?.state === 'accepted') {
+            return index;
+        }
+    }
+    return null;
+}
+
+async function attachProviderStageFailureToAcceptedAssistant() {
+    const state = providerStageFailureState;
+    const critical = state?.critical_provider_stage_failure;
+    if (!state || critical?.stage !== 'recorder') return;
+    const messageIndex = state.attached_message_index ?? findAcceptedAssistantMessageIndex();
+    const message = messageIndex === null ? null : chat[messageIndex];
+    if (!message || message.is_user) return;
+    message.extra ??= {};
+    message.extra[META_KEY] ??= {};
+    const existing = normalizeProviderStageRetryExhausted(
+        message.extra[META_KEY].provider_stage_retry_exhausted,
+    );
+    if (
+        existing
+        && existing.terminal_evidence_sha256 !== critical.terminal_evidence_sha256
+    ) return;
+    message.extra[META_KEY].provider_stage_retry_exhausted = structuredClone(critical);
+    if (state.attached_message_index !== messageIndex) {
+        const updated = normalizeProviderStageFailureState({
+            ...state,
+            attached_message_index: messageIndex,
+        });
+        if (updated) persistProviderStageFailureState(updated);
+    }
+    try {
+        await saveChatConditional();
+    } catch {
+        return;
+    }
+    renderProviderStageFailureAttachment(messageIndex);
+}
+
+function renderProviderStageFailureControl() {
+    document.querySelector('#cera_provider_stage_failure_panel')?.remove();
+    const critical = providerStageFailureState?.critical_provider_stage_failure;
+    if (!critical) return;
+    const controls = document.querySelector('#cera_creator_controls');
+    const sendForm = document.querySelector('#send_form');
+    const anchor = controls ?? sendForm;
+    if (!anchor?.parentElement) return;
+    const panel = document.createElement('section');
+    panel.id = 'cera_provider_stage_failure_panel';
+    panel.className = 'cera-provider-stage-critical';
+    panel.role = 'alert';
+    appendProviderStageFailureContent(panel, critical, { attached: false });
+    anchor.parentElement.insertBefore(panel, anchor.nextSibling);
+}
+
+function renderProviderStageFailureAttachment(messageId) {
+    const raw = chat[messageId]?.extra?.[META_KEY]?.provider_stage_retry_exhausted;
+    const critical = normalizeProviderStageRetryExhausted(raw);
+    if (!critical || critical.stage !== 'recorder') return;
+    const message = document.querySelector(`#chat .mes[mesid="${messageId}"]`);
+    if (!message) return;
+    message.querySelector('.cera-provider-stage-critical-message')?.remove();
+    const panel = document.createElement('section');
+    panel.className = 'cera-provider-stage-critical cera-provider-stage-critical-message';
+    panel.role = 'alert';
+    appendProviderStageFailureContent(panel, critical, { attached: true });
+    (message.querySelector('.mes_block') ?? message).appendChild(panel);
+}
+
+function appendProviderStageFailureContent(panel, critical, { attached }) {
+    const providerLabel = critical.provider === 'codex' ? 'Codex' : 'DeepSeek';
+    const stageLabels = {
+        planner: 'Planner',
+        semantic_validator: 'Semantic Validator',
+        writer: 'Writer',
+        recorder: 'Recorder',
+        adult_scene: 'Adult Scene',
+        adult_filter: 'Adult Filter',
+    };
+    const stageLabel = stageLabels[critical.stage];
+    const heading = document.createElement('div');
+    heading.className = 'cera-review-heading cera-provider-stage-critical-heading';
+    heading.textContent = `CRITICAL CERA FAILURE - ${providerLabel} ${stageLabel}`;
+    const status = document.createElement('div');
+    status.className = 'cera-review-status';
+    status.textContent = critical.stage === 'recorder'
+        ? 'DeepSeek Recorder failed after three attempts. The assistant story remains accepted, but recording is incomplete. This branch is stopped pending repair.'
+        : `${providerLabel} ${stageLabel} failed after three attempts. CERA stopped this branch; no further Retry is available.`;
+    panel.append(heading, status);
+
+    const details = document.createElement('details');
+    details.className = 'cera-provider-stage-safe-details';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Safe failure details';
+    const facts = document.createElement('dl');
+    facts.className = 'cera-trace-facts';
+    const values = [
+        ['Provider', critical.provider],
+        ['Model family', critical.model_family],
+        ['Stage', critical.stage],
+        ['Attempts', `${critical.attempts_total} of ${critical.maximum_attempts}`],
+        ['Retries consumed', String(critical.retries_consumed)],
+        ['Observed operations', String(critical.provider_operations_observed_total)],
+        ['Conservative operations', String(critical.provider_operations_conservative_total)],
+        ['Failure class', critical.final_failure_class],
+        ['Story accepted', critical.story_state_committed ? 'yes' : 'no'],
+        ['Failed-stage effect committed', critical.failed_stage_effect_committed ? 'yes' : 'no'],
+        ['Request SHA-256', critical.request_sha256],
+        ['Stage input SHA-256', critical.stage_input_sha256],
+        ['Attempt chain SHA-256', critical.attempt_chain_sha256],
+        ['Terminal evidence SHA-256', critical.terminal_evidence_sha256],
+    ];
+    for (const [label, value] of values) {
+        const term = document.createElement('dt');
+        term.textContent = label;
+        const description = document.createElement('dd');
+        description.textContent = value;
+        facts.append(term, description);
+    }
+    details.append(summary, facts);
+    panel.appendChild(details);
+    if (attached) panel.className += ' cera-provider-stage-attached';
 }
 
 function transportRetryContextIsCurrent() {
@@ -309,6 +545,12 @@ function clearTransportRetryState(retryId = null, chatKey = transportRetryState?
 
 function restoreTransportRetryForCurrentChat({ reconcile = false } = {}) {
     const chatKey = currentTransportRetryChatKey();
+    if (providerStageFailureState?.chat_key === chatKey) {
+        transportRetryState = null;
+        document.querySelector('#cera_transport_retry_panel')?.remove();
+        deactivateSendButtons();
+        return;
+    }
     transportRetryState = chatKey
         ? readTransportRetryEntries().find(entry => entry.chat_key === chatKey) ?? null
         : null;
@@ -330,6 +572,7 @@ function renderTransportRetryControl({
     allowAction = true,
 } = {}) {
     document.querySelector('#cera_transport_retry_panel')?.remove();
+    if (providerStageFailureState?.chat_key === currentTransportRetryChatKey()) return;
     if (!transportRetryState && phase !== 'terminal') return;
     const controls = document.querySelector('#cera_creator_controls');
     const sendForm = document.querySelector('#send_form');
@@ -389,6 +632,7 @@ function renderTransportRetryControl({
 async function retryTransport() {
     if (
         transportRetryInFlight
+        || providerStageFailureState?.chat_key === currentTransportRetryChatKey()
         || !transportRetryState
         || transportRetryState.phase !== 'eligible'
         || transportRetryState.post_dispatched
@@ -427,6 +671,12 @@ async function retryTransport() {
         });
         await appendTransportRetryCompletion(result, attempted, attemptedChatKey);
     } catch (error) {
+        const exhausted = normalizeProviderStageRetryExhaustedError(error?.payload);
+        if (
+            exhausted
+            && transportRetryOperationIsCurrent(attemptedChatKey, attempted)
+            && captureProviderStageFailure(exhausted, attemptedChatKey)
+        ) return;
         const nextFailure = normalizeTransportRetryFailure(error?.payload);
         const nextReceipt = transportRetryReceipt(nextFailure);
         if (nextReceipt && transportRetryOperationIsCurrent(attemptedChatKey, attempted)) {
@@ -468,6 +718,7 @@ async function retryTransport() {
 async function reconcileTransportRetry() {
     if (
         transportRetryStatusInFlight
+        || providerStageFailureState?.chat_key === currentTransportRetryChatKey()
         || !transportRetryState
         || !transportRetryContextIsCurrent()
     ) return;
@@ -495,7 +746,17 @@ async function reconcileTransportRetry() {
             );
         }
         if (!transportRetryOperationIsCurrent(attemptedChatKey, attempted)) return;
-        if (status.state === 'eligible') {
+        if (status.state === 'attempts_exhausted') {
+            if (!captureProviderStageFailure(
+                status.critical_provider_stage_failure,
+                attemptedChatKey,
+            )) {
+                throw new CeraReviewRequestError(
+                    'storage',
+                    'CERA could not persist the terminal provider-stage failure.',
+                );
+            }
+        } else if (status.state === 'eligible') {
             const receipt = transportRetryReceipt({
                 request_id: status.request_id,
                 ...status.transport_retry,
@@ -743,15 +1004,20 @@ eventSource.on(event_types.CHAT_CHANGED, () => {
     for (let index = 0; index < chat.length; index += 1) {
         renderStoredCompletionMetadata(index);
         renderStoredSpeakerMarks(index);
+        renderProviderStageFailureAttachment(index);
         if (chat[index]?.extra?.[META_KEY]?.provisional) {
             void resumeReview(index);
         }
     }
+    restoreProviderStageFailureForCurrentChat();
     restoreTransportRetryForCurrentChat({ reconcile: true });
 });
 
 eventSource.on(event_types.GENERATION_ENDED, async () => {
     await attachPendingMetadata(chat.length - 1);
+    if (providerStageFailureState?.critical_provider_stage_failure.stage === 'recorder') {
+        await attachProviderStageFailureToAcceptedAssistant();
+    }
     syncSendButtons();
 });
 
@@ -1436,7 +1702,9 @@ function hasPendingReview() {
 }
 
 function syncSendButtons() {
-    if (hasPendingReview() || transportRetryState) deactivateSendButtons();
+    if (hasPendingReview() || transportRetryState || providerStageFailureState) {
+        deactivateSendButtons();
+    }
     else activateSendButtons();
 }
 

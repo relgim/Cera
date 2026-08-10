@@ -151,3 +151,33 @@
 }
 
 .cera-transport-retry .cera-review-heading { margin-top: 0; }
+
+.cera-provider-stage-critical {
+    margin: 0.45rem 0;
+    padding: 0.75rem;
+    border: 2px solid #ff4d5f;
+    border-radius: 0.45rem;
+    background: color-mix(in srgb, var(--SmartThemeBlurTintColor) 76%, #6b0010 24%);
+    box-shadow: 0 0 0.35rem color-mix(in srgb, #ff4d5f 45%, transparent);
+}
+
+.cera-provider-stage-critical-heading {
+    margin-top: 0;
+    color: #ff9aaa;
+    font-weight: 800;
+}
+
+.cera-provider-stage-safe-details {
+    margin-top: 0.65rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid color-mix(in srgb, #ff9aaa 45%, transparent);
+}
+
+.cera-provider-stage-safe-details > summary {
+    cursor: pointer;
+    font-weight: 650;
+}
+
+.cera-provider-stage-attached {
+    margin-top: 0.75rem;
+}

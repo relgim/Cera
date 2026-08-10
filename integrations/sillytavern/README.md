@@ -121,6 +121,16 @@ but an installed `openai.js` receives the widened bridge only at an explicitly
 authorized installation-sync boundary. Raw protected adult fields are never
 queued or duplicated by that bridge.
 
+The repository extension and review relay also understand the terminal
+provider-stage retry contract. After three failed attempts at one frozen stage,
+the current chat receives a persistent red critical panel with the provider,
+stage, attempt/count fields, closed failure class, and proof hashes. It has no
+Retry button and blocks further sends in that chat. A different chat remains
+independent. Recorder exhaustion attaches to the already accepted assistant
+message and says that story acceptance remains intact while recording is
+incomplete. No raw prompt, response, provider exception, protected prose, or
+local path is retained in this UI state.
+
 ## Verification
 
 The installed PNG was parsed with SillyTavern's own

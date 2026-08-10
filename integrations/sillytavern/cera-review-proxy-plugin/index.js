@@ -4,7 +4,10 @@ const GET_TIMEOUT_MS = 10_000;
 export const FULL_PIPELINE_TIMEOUT_MS = 4_200_000;
 const DECISION_TIMEOUT_MS = FULL_PIPELINE_TIMEOUT_MS;
 const TRANSPORT_RETRY_TIMEOUT_MS = FULL_PIPELINE_TIMEOUT_MS;
-const TRANSPORT_RETRY_STATUS_SCHEMA = 'cera.pi_scene.transport_retry_status.v1';
+const TRANSPORT_RETRY_STATUS_SCHEMA_V1 = 'cera.pi_scene.transport_retry_status.v1';
+const TRANSPORT_RETRY_STATUS_SCHEMA_V2 = 'cera.pi_scene.transport_retry_status.v2';
+const PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA = 'cera.provider_stage_retry_exhausted.v1';
+const PROVIDER_STAGE_RETRY_EXHAUSTED_CODE = 'CERA_PROVIDER_STAGE_RETRY_EXHAUSTED';
 const REVIEW_ID_PATTERN = /^(?:[a-z][a-z0-9_]{0,31}:[A-Za-z0-9._-]{1,160}|review-[a-f0-9]{28})$/;
 const TRANSPORT_RETRY_ID_PATTERN = /^retry-[a-f0-9]{64}$/;
 const REQUEST_ID_PATTERN = /^request-[a-f0-9]{64}$/;
@@ -23,6 +26,23 @@ const TRANSPORT_RETRY_BLOCKED_REASONS = new Set([
     'dispatch_state_ambiguous',
     'durable_request_progressed',
 ]);
+const PROVIDER_STAGE_FAILURE_CLASSES = new Set([
+    'transport_timeout',
+    'provider_unavailable',
+    'provider_process_failed',
+    'provider_stream_incomplete',
+    'provider_completion_incomplete',
+    'provider_output_invalid',
+    'dispatch_ambiguous',
+]);
+const PROVIDER_STAGE_MODEL_BINDINGS = Object.freeze({
+    planner: Object.freeze({ provider: 'codex', model_family: 'sol' }),
+    semantic_validator: Object.freeze({ provider: 'codex', model_family: 'luna' }),
+    writer: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
+    recorder: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
+    adult_scene: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
+    adult_filter: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
+});
 const DECISION_ACTIONS = new Set([
     'accept',
     'accept_provisional',
@@ -159,7 +179,85 @@ export function transportRetryUpstreamUrl(
     return `${root}/v1/cera/transport-retries/${encoded}`;
 }
 
+/**
+ * Project the terminal, provider-stage retry receipt.  The object is deliberately
+ * hash/count only: upstream exception text, paths, prompts, and provider output
+ * never cross the same-origin relay.
+ */
+export function projectProviderStageRetryExhausted(value) {
+    const keys = [
+        'attempt_chain_sha256',
+        'attempts_total',
+        'failed_stage_effect_committed',
+        'final_failure_class',
+        'maximum_attempts',
+        'model_family',
+        'provider',
+        'provider_operations_conservative_total',
+        'provider_operations_observed_total',
+        'request_sha256',
+        'retries_consumed',
+        'schema_version',
+        'severity',
+        'stage',
+        'stage_input_sha256',
+        'story_state_committed',
+        'terminal_evidence_sha256',
+    ];
+    if (!value || typeof value !== 'object' || Array.isArray(value) || !exactKeys(value, keys)) {
+        throw new TypeError('CERA provider stage retry exhaustion is invalid');
+    }
+    const binding = PROVIDER_STAGE_MODEL_BINDINGS[value.stage];
+    const observed = value.provider_operations_observed_total;
+    const conservative = value.provider_operations_conservative_total;
+    const recorder = value.stage === 'recorder';
+    if (
+        value.schema_version !== PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA
+        || value.severity !== 'critical'
+        || !binding
+        || value.provider !== binding.provider
+        || value.model_family !== binding.model_family
+        || value.maximum_attempts !== 3
+        || value.attempts_total !== 3
+        || value.retries_consumed !== 2
+        || typeof value.story_state_committed !== 'boolean'
+        || typeof value.failed_stage_effect_committed !== 'boolean'
+        || value.story_state_committed !== recorder
+        || value.failed_stage_effect_committed !== false
+        || !Number.isSafeInteger(observed)
+        || observed < 0
+        || !Number.isSafeInteger(conservative)
+        || conservative < observed
+        || !PROVIDER_STAGE_FAILURE_CLASSES.has(value.final_failure_class)
+        || !SHA256_PATTERN.test(value.request_sha256)
+        || !SHA256_PATTERN.test(value.stage_input_sha256)
+        || !SHA256_PATTERN.test(value.attempt_chain_sha256)
+        || !SHA256_PATTERN.test(value.terminal_evidence_sha256)
+    ) throw new TypeError('CERA provider stage retry exhaustion is invalid');
+    return {
+        schema_version: PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA,
+        severity: 'critical',
+        provider: value.provider,
+        model_family: value.model_family,
+        stage: value.stage,
+        maximum_attempts: 3,
+        attempts_total: 3,
+        retries_consumed: 2,
+        story_state_committed: value.story_state_committed,
+        failed_stage_effect_committed: false,
+        provider_operations_observed_total: observed,
+        provider_operations_conservative_total: conservative,
+        final_failure_class: value.final_failure_class,
+        request_sha256: value.request_sha256,
+        stage_input_sha256: value.stage_input_sha256,
+        attempt_chain_sha256: value.attempt_chain_sha256,
+        terminal_evidence_sha256: value.terminal_evidence_sha256,
+    };
+}
+
 export function projectTransportRetryPayload(value) {
+    const exhausted = projectProviderStageRetryExhaustedError(value);
+    if (exhausted) return exhausted;
     if (!value || typeof value !== 'object' || Array.isArray(value) || !value.error) {
         return value;
     }
@@ -237,6 +335,91 @@ export function projectTransportRetryPayload(value) {
     };
 }
 
+function projectProviderStageRetryExhaustedError(value) {
+    const error = value?.error;
+    if (
+        !exactKeys(value ?? {}, ['error', 'status', 'story_state_committed'])
+        || value.status !== 'error'
+        || typeof value.story_state_committed !== 'boolean'
+        || !error
+        || typeof error !== 'object'
+        || Array.isArray(error)
+        || !exactKeys(error, [
+            'accepted_state_changed',
+            'branch_id',
+            'critical_provider_stage_failure',
+            'debug_log_path',
+            'details',
+            'error_code',
+            'fallback_used',
+            'generation_id',
+            'message',
+            'next_action',
+            'provider_operation_submitted',
+            'request_id',
+            'retry_mode',
+            'retry_transport_enabled',
+            'schema_version',
+            'stage',
+            'story_state_committed',
+            'trace_id',
+        ])
+        || error.schema_version !== 'cera.error.v1'
+        || error.error_code !== PROVIDER_STAGE_RETRY_EXHAUSTED_CODE
+        || typeof error.message !== 'string'
+        || error.message.length < 1
+        || error.message.length > 500
+        || typeof error.trace_id !== 'string'
+        || error.trace_id.length < 1
+        || error.trace_id.length > 240
+        || (error.request_id !== null && !REQUEST_ID_PATTERN.test(error.request_id))
+        || error.branch_id !== null
+        || error.generation_id !== null
+        || error.stage !== 'pi_scene_http'
+        || error.story_state_committed !== value.story_state_committed
+        || error.retry_mode !== 'exhausted'
+        || !Array.isArray(error.details)
+        || error.details.some(item => typeof item !== 'string' || item.length > 500)
+        || error.fallback_used !== false
+        || typeof error.provider_operation_submitted !== 'boolean'
+        || error.accepted_state_changed !== value.story_state_committed
+        || error.next_action !== 'report_critical_provider_failure'
+        || (
+            error.debug_log_path !== null
+            && (
+                typeof error.debug_log_path !== 'string'
+                || error.debug_log_path.length > 2_000
+                || /[\u0000-\u001f\u007f]/.test(error.debug_log_path)
+            )
+        )
+        || error.retry_transport_enabled !== false
+    ) return null;
+    let critical;
+    try {
+        critical = projectProviderStageRetryExhausted(error.critical_provider_stage_failure);
+    } catch {
+        return null;
+    }
+    if (critical.story_state_committed !== value.story_state_committed) return null;
+    return {
+        status: 'error',
+        story_state_committed: critical.story_state_committed,
+        error: {
+            schema_version: 'cera.error.v1',
+            error_code: PROVIDER_STAGE_RETRY_EXHAUSTED_CODE,
+            message: 'CERA stopped after three failed attempts at one provider stage.',
+            story_state_committed: critical.story_state_committed,
+            retry_mode: 'exhausted',
+            provider_operation_submitted: error.provider_operation_submitted,
+            accepted_state_changed: critical.story_state_committed,
+            fallback_used: false,
+            next_action: 'report_critical_provider_failure',
+            retry_transport_enabled: false,
+            critical_provider_stage_failure: critical,
+        },
+    };
+}
+
 function projectTransportRetryAction(value) {
     if (
         !value
@@ -277,6 +460,9 @@ export function projectTransportRetryStatusPayload(value) {
     }
     const notFound = projectTransportRetryNotFound(value);
     if (notFound) return notFound;
+    if (value.schema_version === TRANSPORT_RETRY_STATUS_SCHEMA_V2) {
+        return projectExhaustedTransportRetryStatus(value);
+    }
     const commonKeys = [
         'effect_proof_sha256',
         'request_id',
@@ -286,7 +472,7 @@ export function projectTransportRetryStatusPayload(value) {
         'state',
     ];
     if (
-        value.schema_version !== TRANSPORT_RETRY_STATUS_SCHEMA
+        value.schema_version !== TRANSPORT_RETRY_STATUS_SCHEMA_V1
         || !TRANSPORT_RETRY_ID_PATTERN.test(value.retry_id)
         || !REQUEST_ID_PATTERN.test(value.request_id)
         || !SHA256_PATTERN.test(value.effect_proof_sha256)
@@ -357,13 +543,46 @@ export function projectTransportRetryStatusPayload(value) {
         throw new TypeError('CERA transport retry status state is invalid');
     }
     return {
-        schema_version: TRANSPORT_RETRY_STATUS_SCHEMA,
+        schema_version: TRANSPORT_RETRY_STATUS_SCHEMA_V1,
         retry_id: value.retry_id,
         request_id: value.request_id,
         state: value.state,
         effect_proof_sha256: value.effect_proof_sha256,
         retry_transport_enabled: value.retry_transport_enabled,
         ...stateFields,
+    };
+}
+
+function projectExhaustedTransportRetryStatus(value) {
+    const keys = [
+        'critical_provider_stage_failure',
+        'effect_proof_sha256',
+        'request_id',
+        'retry_id',
+        'retry_transport_enabled',
+        'schema_version',
+        'state',
+    ];
+    if (
+        !exactKeys(value, keys)
+        || value.schema_version !== TRANSPORT_RETRY_STATUS_SCHEMA_V2
+        || !TRANSPORT_RETRY_ID_PATTERN.test(value.retry_id)
+        || !REQUEST_ID_PATTERN.test(value.request_id)
+        || !SHA256_PATTERN.test(value.effect_proof_sha256)
+        || value.state !== 'attempts_exhausted'
+        || value.retry_transport_enabled !== false
+    ) throw new TypeError('CERA exhausted transport retry status is invalid');
+    const critical = projectProviderStageRetryExhausted(
+        value.critical_provider_stage_failure,
+    );
+    return {
+        schema_version: TRANSPORT_RETRY_STATUS_SCHEMA_V2,
+        retry_id: value.retry_id,
+        request_id: value.request_id,
+        state: 'attempts_exhausted',
+        effect_proof_sha256: value.effect_proof_sha256,
+        retry_transport_enabled: false,
+        critical_provider_stage_failure: critical,
     };
 }
 

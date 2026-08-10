@@ -10,10 +10,14 @@ const REQUIRED_ARTIFACTS = Object.freeze([
     'route_transition',
 ]);
 const TRANSPORT_RETRY_SCHEMA = 'cera.pi_scene.transport_retry.v1';
-const TRANSPORT_RETRY_STATUS_SCHEMA = 'cera.pi_scene.transport_retry_status.v1';
+const TRANSPORT_RETRY_STATUS_SCHEMA_V1 = 'cera.pi_scene.transport_retry_status.v1';
+const TRANSPORT_RETRY_STATUS_SCHEMA_V2 = 'cera.pi_scene.transport_retry_status.v2';
 const TRANSPORT_RETRY_STATE_SCHEMA = 'cera.sillytavern.transport_retry_state.v1';
 const TRANSPORT_RETRY_COMPLETION_SCHEMA = 'cera.sillytavern.transport_retry_completion.v1';
+const PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA = 'cera.provider_stage_retry_exhausted.v1';
+const PROVIDER_STAGE_FAILURE_STATE_SCHEMA = 'cera.sillytavern.provider_stage_failure_state.v1';
 const TRANSPORT_FAILURE_CODE = 'CERA_PROVIDER_TRANSPORT_FAILED';
+const PROVIDER_STAGE_RETRY_EXHAUSTED_CODE = 'CERA_PROVIDER_STAGE_RETRY_EXHAUSTED';
 const REQUEST_ID_PATTERN = /^request-[a-f0-9]{64}$/;
 const TRANSPORT_RETRY_ID_PATTERN = /^retry-[a-f0-9]{64}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
@@ -36,6 +40,23 @@ const BLOCKED_REASON_CODES = new Set([
     'dispatch_state_ambiguous',
     'durable_request_progressed',
 ]);
+const PROVIDER_STAGE_FAILURE_CLASSES = new Set([
+    'transport_timeout',
+    'provider_unavailable',
+    'provider_process_failed',
+    'provider_stream_incomplete',
+    'provider_completion_incomplete',
+    'provider_output_invalid',
+    'dispatch_ambiguous',
+]);
+const PROVIDER_STAGE_MODEL_BINDINGS = Object.freeze({
+    planner: Object.freeze({ provider: 'codex', model_family: 'sol' }),
+    semantic_validator: Object.freeze({ provider: 'codex', model_family: 'luna' }),
+    writer: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
+    recorder: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
+    adult_scene: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
+    adult_filter: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
+});
 
 /** A retry identity is backend-issued; the browser never derives one. */
 export function validTransportRetryId(value) {
@@ -213,9 +234,181 @@ export function normalizeTransportRetryCompletionMarker(value) {
     return { ...value };
 }
 
+/** Closed, hash-only terminal failure receipt shared by HTTP and GET status. */
+export function normalizeProviderStageRetryExhausted(value) {
+    if (!plainObject(value) || !exactKeys(value, [
+        'attempt_chain_sha256',
+        'attempts_total',
+        'failed_stage_effect_committed',
+        'final_failure_class',
+        'maximum_attempts',
+        'model_family',
+        'provider',
+        'provider_operations_conservative_total',
+        'provider_operations_observed_total',
+        'request_sha256',
+        'retries_consumed',
+        'schema_version',
+        'severity',
+        'stage',
+        'stage_input_sha256',
+        'story_state_committed',
+        'terminal_evidence_sha256',
+    ])) return null;
+    const binding = PROVIDER_STAGE_MODEL_BINDINGS[value.stage];
+    const observed = value.provider_operations_observed_total;
+    const conservative = value.provider_operations_conservative_total;
+    const recorder = value.stage === 'recorder';
+    if (
+        value.schema_version !== PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA
+        || value.severity !== 'critical'
+        || !binding
+        || value.provider !== binding.provider
+        || value.model_family !== binding.model_family
+        || value.maximum_attempts !== 3
+        || value.attempts_total !== 3
+        || value.retries_consumed !== 2
+        || typeof value.story_state_committed !== 'boolean'
+        || typeof value.failed_stage_effect_committed !== 'boolean'
+        || value.story_state_committed !== recorder
+        || value.failed_stage_effect_committed !== false
+        || !Number.isSafeInteger(observed)
+        || observed < 0
+        || !Number.isSafeInteger(conservative)
+        || conservative < observed
+        || !PROVIDER_STAGE_FAILURE_CLASSES.has(value.final_failure_class)
+        || !SHA256_PATTERN.test(value.request_sha256)
+        || !SHA256_PATTERN.test(value.stage_input_sha256)
+        || !SHA256_PATTERN.test(value.attempt_chain_sha256)
+        || !SHA256_PATTERN.test(value.terminal_evidence_sha256)
+    ) return null;
+    return {
+        schema_version: PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA,
+        severity: 'critical',
+        provider: value.provider,
+        model_family: value.model_family,
+        stage: value.stage,
+        maximum_attempts: 3,
+        attempts_total: 3,
+        retries_consumed: 2,
+        story_state_committed: value.story_state_committed,
+        failed_stage_effect_committed: false,
+        provider_operations_observed_total: observed,
+        provider_operations_conservative_total: conservative,
+        final_failure_class: value.final_failure_class,
+        request_sha256: value.request_sha256,
+        stage_input_sha256: value.stage_input_sha256,
+        attempt_chain_sha256: value.attempt_chain_sha256,
+        terminal_evidence_sha256: value.terminal_evidence_sha256,
+    };
+}
+
+/** Accept only the relay's prose/path-free HTTP 503 projection. */
+export function normalizeProviderStageRetryExhaustedError(value) {
+    if (
+        !plainObject(value)
+        || !exactKeys(value, ['error', 'status', 'story_state_committed'])
+        || value.status !== 'error'
+        || typeof value.story_state_committed !== 'boolean'
+        || !plainObject(value.error)
+        || !exactKeys(value.error, [
+            'accepted_state_changed',
+            'critical_provider_stage_failure',
+            'error_code',
+            'fallback_used',
+            'message',
+            'next_action',
+            'provider_operation_submitted',
+            'retry_mode',
+            'retry_transport_enabled',
+            'schema_version',
+            'story_state_committed',
+        ])
+        || value.error.schema_version !== 'cera.error.v1'
+        || value.error.error_code !== PROVIDER_STAGE_RETRY_EXHAUSTED_CODE
+        || value.error.message !== 'CERA stopped after three failed attempts at one provider stage.'
+        || value.error.story_state_committed !== value.story_state_committed
+        || value.error.retry_mode !== 'exhausted'
+        || typeof value.error.provider_operation_submitted !== 'boolean'
+        || value.error.accepted_state_changed !== value.story_state_committed
+        || value.error.fallback_used !== false
+        || value.error.next_action !== 'report_critical_provider_failure'
+        || value.error.retry_transport_enabled !== false
+    ) return null;
+    const critical = normalizeProviderStageRetryExhausted(
+        value.error.critical_provider_stage_failure,
+    );
+    return critical?.story_state_committed === value.story_state_committed
+        ? critical
+        : null;
+}
+
+/** Safe local persistence record for one terminal branch failure. */
+export function normalizeProviderStageFailureState(value) {
+    if (!plainObject(value) || !exactKeys(value, [
+        'attached_message_index',
+        'chat_key',
+        'critical_provider_stage_failure',
+        'schema_version',
+    ])) return null;
+    const critical = normalizeProviderStageRetryExhausted(
+        value.critical_provider_stage_failure,
+    );
+    if (
+        value.schema_version !== PROVIDER_STAGE_FAILURE_STATE_SCHEMA
+        || typeof value.chat_key !== 'string'
+        || value.chat_key.length < 1
+        || value.chat_key.length > 520
+        || /[\u0000-\u001f\u007f]/.test(value.chat_key)
+        || (
+            value.attached_message_index !== null
+            && (!Number.isSafeInteger(value.attached_message_index) || value.attached_message_index < 0)
+        )
+        || !critical
+        || (critical.stage !== 'recorder' && value.attached_message_index !== null)
+    ) return null;
+    return {
+        schema_version: PROVIDER_STAGE_FAILURE_STATE_SCHEMA,
+        chat_key: value.chat_key,
+        critical_provider_stage_failure: critical,
+        attached_message_index: value.attached_message_index,
+    };
+}
+
 /** Validate the authenticated, read-only backend reconciliation response. */
 export function normalizeTransportRetryStatus(value) {
     if (!plainObject(value)) return null;
+    if (value.schema_version === TRANSPORT_RETRY_STATUS_SCHEMA_V2) {
+        if (!exactKeys(value, [
+            'critical_provider_stage_failure',
+            'effect_proof_sha256',
+            'request_id',
+            'retry_id',
+            'retry_transport_enabled',
+            'schema_version',
+            'state',
+        ])) return null;
+        const critical = normalizeProviderStageRetryExhausted(
+            value.critical_provider_stage_failure,
+        );
+        if (
+            !validTransportRetryId(value.retry_id)
+            || !REQUEST_ID_PATTERN.test(value.request_id)
+            || !SHA256_PATTERN.test(value.effect_proof_sha256)
+            || value.state !== 'attempts_exhausted'
+            || value.retry_transport_enabled !== false
+            || !critical
+        ) return null;
+        return {
+            schema_version: TRANSPORT_RETRY_STATUS_SCHEMA_V2,
+            retry_id: value.retry_id,
+            request_id: value.request_id,
+            state: 'attempts_exhausted',
+            effect_proof_sha256: value.effect_proof_sha256,
+            retry_transport_enabled: false,
+            critical_provider_stage_failure: critical,
+        };
+    }
     const commonKeys = [
         'effect_proof_sha256',
         'request_id',
@@ -225,7 +418,7 @@ export function normalizeTransportRetryStatus(value) {
         'state',
     ];
     if (
-        value.schema_version !== TRANSPORT_RETRY_STATUS_SCHEMA
+        value.schema_version !== TRANSPORT_RETRY_STATUS_SCHEMA_V1
         || !validTransportRetryId(value.retry_id)
         || !REQUEST_ID_PATTERN.test(value.request_id)
         || !SHA256_PATTERN.test(value.effect_proof_sha256)
@@ -292,7 +485,7 @@ export function normalizeTransportRetryStatus(value) {
         return null;
     }
     return {
-        schema_version: TRANSPORT_RETRY_STATUS_SCHEMA,
+        schema_version: TRANSPORT_RETRY_STATUS_SCHEMA_V1,
         retry_id: value.retry_id,
         request_id: value.request_id,
         state: value.state,

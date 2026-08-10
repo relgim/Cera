@@ -11,11 +11,74 @@ import {
     normalizeReviewId,
     normalizeTransportRetryBody,
     normalizeTransportRetryId,
+    projectProviderStageRetryExhausted,
     projectTransportRetryPayload,
     projectTransportRetryStatusPayload,
     reviewUpstreamUrl,
     transportRetryUpstreamUrl,
 } from './index.js';
+
+function criticalProviderStageFailure({
+    stage = 'planner',
+    failureClass = 'transport_timeout',
+    storyStateCommitted = stage === 'recorder',
+} = {}) {
+    const bindings = {
+        planner: ['codex', 'sol'],
+        semantic_validator: ['codex', 'luna'],
+        writer: ['deepseek', 'deepseek_v4'],
+        recorder: ['deepseek', 'deepseek_v4'],
+        adult_scene: ['deepseek', 'deepseek_v4'],
+        adult_filter: ['deepseek', 'deepseek_v4'],
+    };
+    const [provider, modelFamily] = bindings[stage];
+    return {
+        schema_version: 'cera.provider_stage_retry_exhausted.v1',
+        severity: 'critical',
+        provider,
+        model_family: modelFamily,
+        stage,
+        maximum_attempts: 3,
+        attempts_total: 3,
+        retries_consumed: 2,
+        story_state_committed: storyStateCommitted,
+        failed_stage_effect_committed: false,
+        provider_operations_observed_total: 2,
+        provider_operations_conservative_total: 3,
+        final_failure_class: failureClass,
+        request_sha256: '1'.repeat(64),
+        stage_input_sha256: '2'.repeat(64),
+        attempt_chain_sha256: '3'.repeat(64),
+        terminal_evidence_sha256: '4'.repeat(64),
+    };
+}
+
+function exhaustedError(critical = criticalProviderStageFailure()) {
+    return {
+        status: 'error',
+        story_state_committed: critical.story_state_committed,
+        error: {
+            schema_version: 'cera.error.v1',
+            error_code: 'CERA_PROVIDER_STAGE_RETRY_EXHAUSTED',
+            message: 'RAW PROVIDER FAILURE PROSE',
+            trace_id: 'trace:private-local-id',
+            request_id: `request-${'5'.repeat(64)}`,
+            branch_id: null,
+            generation_id: null,
+            stage: 'pi_scene_http',
+            story_state_committed: critical.story_state_committed,
+            retry_mode: 'exhausted',
+            details: ['PRIVATE PROVIDER OUTPUT'],
+            fallback_used: false,
+            provider_operation_submitted: true,
+            accepted_state_changed: critical.story_state_committed,
+            next_action: 'report_critical_provider_failure',
+            debug_log_path: 'D:\\private\\provider-output.md',
+            retry_transport_enabled: false,
+            critical_provider_stage_failure: critical,
+        },
+    };
+}
 
 test('full-pipeline review decisions and transport retries share the outer safety ceiling', () => {
     assert.equal(FULL_PIPELINE_TIMEOUT_MS, 4_200_000);
@@ -95,6 +158,81 @@ test('transport retry projection removes raw paths and rejects incomplete proofs
     });
     assert.equal(ambiguous.error.retry_transport_enabled, false);
     assert.equal('transport_retry' in ambiguous.error, false);
+});
+
+test('terminal provider-stage projection is closed across all stages and failure classes', () => {
+    const stages = [
+        'planner',
+        'semantic_validator',
+        'writer',
+        'recorder',
+        'adult_scene',
+        'adult_filter',
+    ];
+    const failureClasses = [
+        'transport_timeout',
+        'provider_unavailable',
+        'provider_process_failed',
+        'provider_stream_incomplete',
+        'provider_completion_incomplete',
+        'provider_output_invalid',
+        'dispatch_ambiguous',
+    ];
+    for (const stage of stages) {
+        for (const failureClass of failureClasses) {
+            const value = criticalProviderStageFailure({ stage, failureClass });
+            assert.deepEqual(projectProviderStageRetryExhausted(value), value);
+        }
+    }
+
+    const base = criticalProviderStageFailure();
+    for (const mutation of [
+        { provider: 'deepseek' },
+        { model_family: 'sol-medium' },
+        { attempts_total: 2 },
+        { retries_consumed: 3 },
+        { failed_stage_effect_committed: true },
+        { provider_operations_conservative_total: 1 },
+        { final_failure_class: 'pretransport_failed' },
+        { terminal_evidence_sha256: 'not-a-hash' },
+        { raw_provider_output: 'private' },
+    ]) {
+        assert.throws(() => projectProviderStageRetryExhausted({ ...base, ...mutation }));
+    }
+    assert.throws(() => projectProviderStageRetryExhausted(
+        criticalProviderStageFailure({ stage: 'recorder', storyStateCommitted: false }),
+    ));
+});
+
+test('HTTP exhaustion projection strips paths and prose and never exposes Retry', () => {
+    const raw = exhaustedError();
+    const projected = projectTransportRetryPayload(raw);
+    assert.equal(projected.error.error_code, 'CERA_PROVIDER_STAGE_RETRY_EXHAUSTED');
+    assert.equal(projected.error.retry_mode, 'exhausted');
+    assert.equal(projected.error.retry_transport_enabled, false);
+    assert.equal(projected.error.next_action, 'report_critical_provider_failure');
+    assert.equal('transport_retry' in projected.error, false);
+    assert.equal(JSON.stringify(projected).includes('RAW PROVIDER FAILURE PROSE'), false);
+    assert.equal(JSON.stringify(projected).includes('PRIVATE PROVIDER OUTPUT'), false);
+    assert.equal(JSON.stringify(projected).includes('provider-output.md'), false);
+    assert.equal(JSON.stringify(projected).includes('private-local-id'), false);
+    assert.deepEqual(
+        projected.error.critical_provider_stage_failure,
+        raw.error.critical_provider_stage_failure,
+    );
+
+    const invalid = projectTransportRetryPayload({
+        ...raw,
+        error: {
+            ...raw.error,
+            critical_provider_stage_failure: {
+                ...raw.error.critical_provider_stage_failure,
+                hidden_prompt: 'must not project',
+            },
+        },
+    });
+    assert.equal(invalid.error.error_code, 'CERA_TRANSPORT_RETRY_NOT_AVAILABLE');
+    assert.equal(JSON.stringify(invalid).includes('must not project'), false);
 });
 
 test('transport retry status projection accepts only the five closed lifecycle states', () => {
@@ -187,6 +325,32 @@ test('transport retry status projection accepts only the five closed lifecycle s
     }));
 });
 
+test('v2 status projects attempts_exhausted without an action or successor', () => {
+    const value = {
+        schema_version: 'cera.pi_scene.transport_retry_status.v2',
+        retry_id: `retry-${'a'.repeat(64)}`,
+        request_id: `request-${'b'.repeat(64)}`,
+        state: 'attempts_exhausted',
+        effect_proof_sha256: 'c'.repeat(64),
+        retry_transport_enabled: false,
+        critical_provider_stage_failure: criticalProviderStageFailure({
+            stage: 'adult_filter',
+            failureClass: 'provider_output_invalid',
+        }),
+    };
+    assert.deepEqual(projectTransportRetryStatusPayload(value), value);
+    assert.equal('transport_retry' in projectTransportRetryStatusPayload(value), false);
+    assert.equal('superseded_by_retry_id' in projectTransportRetryStatusPayload(value), false);
+    assert.throws(() => projectTransportRetryStatusPayload({
+        ...value,
+        retry_transport_enabled: true,
+    }));
+    assert.throws(() => projectTransportRetryStatusPayload({
+        ...value,
+        successor_retry_id: `retry-${'d'.repeat(64)}`,
+    }));
+});
+
 test('transport retry status projection sanitizes the exact authenticated not-found envelope', () => {
     const value = {
         status: 'error',
@@ -273,6 +437,48 @@ test('transport retry route forwards one authenticated empty POST and preserves 
     assert.equal(responsePayload.error.retry_transport_enabled, false);
     assert.equal(responsePayload.error.error_code, 'CERA_TRANSPORT_RETRY_NOT_AVAILABLE');
     assert.equal('transport_retry' in responsePayload.error, false);
+});
+
+test('transport retry route preserves a sanitized terminal HTTP 503', async () => {
+    const routes = new Map();
+    const router = {
+        get() {},
+        post(path, handler) { routes.set(path, handler); },
+    };
+    await init(router);
+    const retryId = `retry-${'d'.repeat(64)}`;
+    const raw = exhaustedError(criticalProviderStageFailure({
+        stage: 'recorder',
+        failureClass: 'provider_stream_incomplete',
+    }));
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () => new Response(JSON.stringify(raw), {
+        status: 503,
+        headers: { 'Content-Type': 'application/json' },
+    });
+    let responseStatus = null;
+    let responsePayload = null;
+    const response = {
+        headersSent: false,
+        set() { return this; },
+        status(value) { responseStatus = value; return this; },
+        json(value) { responsePayload = value; return this; },
+    };
+    try {
+        await routes.get('/v1/cera/transport-retries/:retryId')({
+            params: { retryId },
+            body: {},
+            get() { return `Bearer ${'a'.repeat(43)}`; },
+        }, response);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+    assert.equal(responseStatus, 503);
+    assert.equal(responsePayload.story_state_committed, true);
+    assert.equal(responsePayload.error.retry_transport_enabled, false);
+    assert.equal(responsePayload.error.critical_provider_stage_failure.stage, 'recorder');
+    assert.equal(JSON.stringify(responsePayload).includes('RAW PROVIDER FAILURE PROSE'), false);
+    assert.equal(JSON.stringify(responsePayload).includes('provider-output.md'), false);
 });
 
 test('transport retry status route forwards one authenticated GET without dispatch', async () => {
