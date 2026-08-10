@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import sqlite3
+import unittest
 from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import unittest
 
 from cera.contracts import AcceptedStoryArtifact
 from cera.errors import StateConflictError, TransactionError
@@ -99,22 +99,18 @@ class SQLiteStoreTests(unittest.TestCase):
             artifact=artifact,
             authority_records=(record,),
             validation_receipt_ids=(artifact.validation_receipt_id,),
-            lookup_receipt_ids=(
-                ident(IdKind.LOOKUP_RECEIPT, f"lookup-{suffix}"),
-            ),
-            provider_receipt_ids=(
-                ident(IdKind.PROVIDER_RECEIPT, f"provider-{suffix}"),
-            ),
+            lookup_receipt_ids=(ident(IdKind.LOOKUP_RECEIPT, f"lookup-{suffix}"),),
+            provider_receipt_ids=(ident(IdKind.PROVIDER_RECEIPT, f"provider-{suffix}"),),
             replaces_artifact_id=replaces,
         )
 
     def test_store_enforces_wal_foreign_keys_and_versioned_migration(self) -> None:
         with closing(sqlite3.connect(self.database_path)) as connection:
             self.assertEqual(connection.execute("PRAGMA journal_mode").fetchone()[0], "wal")
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 18)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 19)
             self.assertEqual(
                 connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0],
-                18,
+                19,
             )
         self.assertEqual(self.store.integrity_check(), ("ok",))
         self.assertEqual(self.store.foreign_key_check(), ())
@@ -257,9 +253,13 @@ class SQLiteStoreTests(unittest.TestCase):
         )
         self.store.commit_turn(child_commit)
 
-        self.assertEqual(self.store.get_branch(self.branch_id).head_artifact_id, first.artifact.artifact_id)
+        self.assertEqual(
+            self.store.get_branch(self.branch_id).head_artifact_id, first.artifact.artifact_id
+        )
         self.assertEqual(self.store.get_branch(self.branch_id).generation, 1)
-        self.assertEqual(self.store.get_branch(child).head_artifact_id, child_commit.artifact.artifact_id)
+        self.assertEqual(
+            self.store.get_branch(child).head_artifact_id, child_commit.artifact.artifact_id
+        )
         self.assertEqual(self.store.get_branch(child).generation, 1)
 
     def test_append_only_triggers_and_backup(self) -> None:

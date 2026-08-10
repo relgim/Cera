@@ -6,8 +6,7 @@ import sqlite3
 
 from cera.errors import TransactionError
 
-
-CURRENT_SCHEMA_VERSION = 18
+CURRENT_SCHEMA_VERSION = 19
 
 
 _MIGRATION_1 = """
@@ -1001,6 +1000,217 @@ BEGIN SELECT RAISE(ABORT, 'provider thread custody events are append-only'); END
 """
 
 
+_MIGRATION_19 = """
+CREATE TABLE provider_stage_retry_chains (
+    chain_id TEXT PRIMARY KEY,
+    logical_key_sha256 TEXT NOT NULL UNIQUE,
+    provider TEXT NOT NULL CHECK (provider IN ('codex', 'deepseek')),
+    model_family TEXT NOT NULL CHECK (model_family IN ('sol', 'luna', 'deepseek_v4')),
+    stage TEXT NOT NULL CHECK (stage IN (
+        'planner', 'semantic_validator', 'writer', 'recorder',
+        'adult_scene', 'adult_filter'
+    )),
+    request_occurrence_sha256 TEXT NOT NULL,
+    request_sha256 TEXT NOT NULL,
+    stage_input_sha256 TEXT NOT NULL,
+    authority_sha256 TEXT NOT NULL,
+    story_state_committed INTEGER NOT NULL CHECK (story_state_committed IN (0, 1)),
+    identity_json TEXT NOT NULL,
+    identity_sha256 TEXT NOT NULL,
+    phase TEXT NOT NULL CHECK (phase IN (
+        'input_frozen', 'attempt_prepared', 'dispatch_started',
+        'awaiting_owner_retirement', 'owner_retired', 'result_frozen',
+        'downstream_intent_frozen', 'downstream_bound', 'succeeded',
+        'exhausted', 'blocked_ambiguous', 'recording_repair_required'
+    )),
+    input_checkpoint_sha256 TEXT NOT NULL,
+    result_checkpoint_sha256 TEXT,
+    downstream_intent_sha256 TEXT,
+    downstream_evidence_sha256 TEXT,
+    block_reason TEXT CHECK (block_reason IS NULL OR block_reason IN (
+        'input_changed', 'authority_changed', 'ledger_prefix_changed',
+        'owner_retirement_unproven', 'result_checkpoint_conflict',
+        'dispatch_custody_ambiguous'
+    )),
+    block_evidence_sha256 TEXT,
+    state_version INTEGER NOT NULL DEFAULT 1 CHECK (state_version > 0),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    CHECK (
+        (stage = 'planner' AND provider = 'codex' AND model_family = 'sol') OR
+        (stage = 'semantic_validator' AND provider = 'codex' AND model_family = 'luna') OR
+        (stage IN ('writer', 'recorder', 'adult_scene', 'adult_filter')
+            AND provider = 'deepseek' AND model_family = 'deepseek_v4')
+    ),
+    CHECK ((stage = 'recorder') = story_state_committed),
+    CHECK ((block_reason IS NULL) = (block_evidence_sha256 IS NULL)),
+    CHECK (
+        (phase = 'blocked_ambiguous' AND block_reason IS NOT NULL) OR
+        (phase != 'blocked_ambiguous' AND block_reason IS NULL)
+    )
+);
+
+CREATE TABLE provider_stage_retry_actions (
+    retry_action_sha256 TEXT PRIMARY KEY,
+    chain_id TEXT NOT NULL REFERENCES provider_stage_retry_chains(chain_id),
+    action_kind TEXT NOT NULL CHECK (action_kind = 'provider_retry'),
+    prior_attempt_number INTEGER NOT NULL CHECK (prior_attempt_number BETWEEN 1 AND 2),
+    resulting_attempt_number INTEGER NOT NULL CHECK (resulting_attempt_number BETWEEN 2 AND 3),
+    session_scope_sha256 TEXT NOT NULL,
+    ledger_prefix_before_sha256 TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(chain_id, resulting_attempt_number),
+    CHECK (resulting_attempt_number = prior_attempt_number + 1)
+);
+
+CREATE TABLE provider_stage_retry_checkpoints (
+    checkpoint_sha256 TEXT PRIMARY KEY,
+    chain_id TEXT NOT NULL REFERENCES provider_stage_retry_chains(chain_id),
+    checkpoint_kind TEXT NOT NULL CHECK (checkpoint_kind IN ('input', 'result')),
+    attempt_number INTEGER CHECK (attempt_number BETWEEN 1 AND 3),
+    blob_id_sha256 TEXT NOT NULL UNIQUE,
+    blob_custody_sha256 TEXT NOT NULL,
+    content_sha256 TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL CHECK (size_bytes BETWEEN 1 AND 9007199254740991),
+    evidence_sha256 TEXT NOT NULL,
+    checkpoint_json TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    CHECK (
+        (checkpoint_kind = 'input' AND attempt_number IS NULL) OR
+        (checkpoint_kind = 'result' AND attempt_number IS NOT NULL)
+    )
+);
+
+CREATE UNIQUE INDEX idx_provider_stage_retry_input_checkpoint
+ON provider_stage_retry_checkpoints(chain_id)
+WHERE checkpoint_kind = 'input';
+
+CREATE UNIQUE INDEX idx_provider_stage_retry_result_checkpoint
+ON provider_stage_retry_checkpoints(chain_id, attempt_number)
+WHERE checkpoint_kind = 'result';
+
+CREATE TABLE provider_stage_retry_attempts (
+    chain_id TEXT NOT NULL REFERENCES provider_stage_retry_chains(chain_id),
+    attempt_number INTEGER NOT NULL CHECK (attempt_number BETWEEN 1 AND 3),
+    retry_action_sha256 TEXT REFERENCES provider_stage_retry_actions(retry_action_sha256),
+    phase TEXT NOT NULL CHECK (phase IN (
+        'prepared', 'dispatch_started', 'failed', 'owner_retired', 'result_frozen'
+    )),
+    session_scope_sha256 TEXT NOT NULL,
+    ledger_prefix_before_sha256 TEXT NOT NULL,
+    invocation_reserved INTEGER NOT NULL DEFAULT 0 CHECK (invocation_reserved IN (0, 1)),
+    dispatch_evidence_sha256 TEXT,
+    ledger_prefix_after_sha256 TEXT,
+    provider_operations_observed INTEGER NOT NULL DEFAULT 0
+        CHECK (provider_operations_observed BETWEEN 0 AND 9007199254740991),
+    provider_operations_conservative INTEGER NOT NULL DEFAULT 0
+        CHECK (provider_operations_conservative BETWEEN 0 AND 9007199254740991),
+    duration_ms INTEGER CHECK (duration_ms BETWEEN 0 AND 9007199254740991),
+    input_tokens INTEGER CHECK (input_tokens BETWEEN 0 AND 9007199254740991),
+    cached_input_tokens INTEGER CHECK (cached_input_tokens BETWEEN 0 AND 9007199254740991),
+    output_tokens INTEGER CHECK (output_tokens BETWEEN 0 AND 9007199254740991),
+    reasoning_tokens INTEGER CHECK (reasoning_tokens BETWEEN 0 AND 9007199254740991),
+    failure_class TEXT CHECK (failure_class IS NULL OR failure_class IN (
+        'transport_timeout', 'provider_unavailable', 'provider_process_failed',
+        'provider_stream_incomplete', 'provider_completion_incomplete',
+        'provider_output_invalid', 'dispatch_ambiguous'
+    )),
+    failure_evidence_sha256 TEXT,
+    owner_retirement_evidence_sha256 TEXT,
+    result_checkpoint_sha256 TEXT REFERENCES provider_stage_retry_checkpoints(checkpoint_sha256),
+    attempt_json TEXT NOT NULL,
+    attempt_sha256 TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(chain_id, attempt_number),
+    UNIQUE(retry_action_sha256),
+    CHECK (
+        (attempt_number = 1 AND retry_action_sha256 IS NULL) OR
+        (attempt_number > 1 AND retry_action_sha256 IS NOT NULL)
+    ),
+    CHECK (provider_operations_conservative >= provider_operations_observed),
+    CHECK (cached_input_tokens IS NULL OR (
+        input_tokens IS NOT NULL AND cached_input_tokens <= input_tokens
+    ))
+);
+
+CREATE UNIQUE INDEX idx_provider_stage_retry_one_live_attempt
+ON provider_stage_retry_attempts(chain_id)
+WHERE phase IN ('prepared', 'dispatch_started', 'failed');
+
+CREATE TABLE provider_stage_retry_events (
+    chain_id TEXT NOT NULL REFERENCES provider_stage_retry_chains(chain_id),
+    sequence INTEGER NOT NULL CHECK (sequence > 0),
+    event_kind TEXT NOT NULL,
+    event_json TEXT NOT NULL,
+    event_sha256 TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(chain_id, sequence)
+);
+
+CREATE INDEX idx_provider_stage_retry_phase
+ON provider_stage_retry_chains(phase, updated_at, chain_id);
+
+CREATE TRIGGER provider_stage_retry_chain_identity_immutable
+BEFORE UPDATE OF chain_id, logical_key_sha256, provider, model_family, stage,
+    request_occurrence_sha256, request_sha256, stage_input_sha256,
+    authority_sha256, story_state_committed, identity_json, identity_sha256,
+    input_checkpoint_sha256, created_at
+ON provider_stage_retry_chains
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry chain identity is immutable'); END;
+
+CREATE TRIGGER provider_stage_retry_chain_terminal_immutable
+BEFORE UPDATE ON provider_stage_retry_chains
+WHEN OLD.phase IN ('succeeded', 'exhausted', 'recording_repair_required')
+BEGIN SELECT RAISE(ABORT, 'terminal provider-stage Retry chain is immutable'); END;
+
+CREATE TRIGGER provider_stage_retry_chains_no_delete
+BEFORE DELETE ON provider_stage_retry_chains
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry chains cannot be deleted'); END;
+
+CREATE TRIGGER provider_stage_retry_actions_no_update
+BEFORE UPDATE ON provider_stage_retry_actions
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry actions are append-only'); END;
+CREATE TRIGGER provider_stage_retry_actions_no_delete
+BEFORE DELETE ON provider_stage_retry_actions
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry actions are append-only'); END;
+
+CREATE TRIGGER provider_stage_retry_checkpoints_no_update
+BEFORE UPDATE ON provider_stage_retry_checkpoints
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry checkpoints are append-only'); END;
+CREATE TRIGGER provider_stage_retry_checkpoints_no_delete
+BEFORE DELETE ON provider_stage_retry_checkpoints
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry checkpoints are append-only'); END;
+
+CREATE TRIGGER provider_stage_retry_attempt_identity_immutable
+BEFORE UPDATE OF chain_id, attempt_number, retry_action_sha256,
+    session_scope_sha256, ledger_prefix_before_sha256, created_at
+ON provider_stage_retry_attempts
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry attempt identity is immutable'); END;
+
+CREATE TRIGGER provider_stage_retry_attempt_terminal_immutable
+BEFORE UPDATE ON provider_stage_retry_attempts
+WHEN OLD.phase IN ('owner_retired', 'result_frozen')
+    AND NOT (
+        OLD.phase = 'owner_retired'
+        AND OLD.failure_class = 'dispatch_ambiguous'
+        AND NEW.phase IN ('owner_retired', 'result_frozen')
+    )
+BEGIN SELECT RAISE(ABORT, 'terminal provider-stage Retry attempt is immutable'); END;
+
+CREATE TRIGGER provider_stage_retry_attempts_no_delete
+BEFORE DELETE ON provider_stage_retry_attempts
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry attempts cannot be deleted'); END;
+
+CREATE TRIGGER provider_stage_retry_events_no_update
+BEFORE UPDATE ON provider_stage_retry_events
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry events are append-only'); END;
+CREATE TRIGGER provider_stage_retry_events_no_delete
+BEFORE DELETE ON provider_stage_retry_events
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry events are append-only'); END;
+"""
+
+
 MIGRATIONS: dict[int, str] = {
     1: _MIGRATION_1,
     2: _MIGRATION_2,
@@ -1020,6 +1230,7 @@ MIGRATIONS: dict[int, str] = {
     16: _MIGRATION_16,
     17: _MIGRATION_17,
     18: _MIGRATION_18,
+    19: _MIGRATION_19,
 }
 
 

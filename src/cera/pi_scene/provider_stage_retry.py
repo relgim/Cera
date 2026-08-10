@@ -72,6 +72,7 @@ class ProviderStageRetryPhase(StrEnum):
     SUCCEEDED = "succeeded"
     EXHAUSTED = "exhausted"
     BLOCKED_AMBIGUOUS = "blocked_ambiguous"
+    RECORDING_REPAIR_REQUIRED = "recording_repair_required"
 
 
 class ProviderStageAttemptPhase(StrEnum):
@@ -98,6 +99,7 @@ class ProviderStageRecoveryAction(StrEnum):
     REPLAY_SUCCESS = "replay_success"
     REPORT_EXHAUSTED = "report_exhausted"
     REPORT_BLOCKED_AMBIGUOUS = "report_blocked_ambiguous"
+    REPORT_RECORDING_REPAIR_REQUIRED = "report_recording_repair_required"
 
 
 class ProviderStageTerminalDisposition(StrEnum):
@@ -421,25 +423,47 @@ class ProviderStageAttemptV1:
                 )
             )
             or self.provider_operations_observed != 0
-            or self.provider_operations_conservative != 0
+            or self.provider_operations_conservative != 1
         ):
-            raise ContractValidationError("dispatched provider-stage attempt is already terminal")
+            raise ContractValidationError(
+                "dispatched provider-stage attempt lacks one conservative reservation"
+            )
 
-    def _require_terminal_common(self) -> None:
-        if self.dispatch_evidence_sha256 is None or self.ledger_prefix_after_sha256 is None:
+    def _require_terminal_common(self, *, require_dispatch: bool = True) -> None:
+        if require_dispatch and self.dispatch_evidence_sha256 is None:
             raise ContractValidationError("terminal provider-stage attempt lacks dispatch custody")
+        if self.ledger_prefix_after_sha256 is None:
+            raise ContractValidationError("terminal provider-stage attempt lacks ledger custody")
         if self.duration_ms is None:
             raise ContractValidationError("provider-stage attempt duration is unavailable")
         _require_nonnegative_int(self.duration_ms, "provider-stage attempt duration")
 
     def _require_failed(self) -> None:
-        self._require_terminal_common()
+        pretransport = self.dispatch_evidence_sha256 is None
+        self._require_terminal_common(require_dispatch=not pretransport)
         if (
             self.failure_class is None
             or self.failure_evidence_sha256 is None
             or self.result_checkpoint_sha256 is not None
         ):
             raise ContractValidationError("failed provider-stage attempt has invalid disposition")
+        if pretransport and (
+            self.failure_class is ProviderStageFailureClass.DISPATCH_AMBIGUOUS
+            or self.provider_operations_observed != 0
+            or self.provider_operations_conservative != 0
+            or any(
+                value not in {None, 0}
+                for value in (
+                    self.input_tokens,
+                    self.cached_input_tokens,
+                    self.output_tokens,
+                    self.reasoning_tokens,
+                )
+            )
+        ):
+            raise ContractValidationError(
+                "pretransport provider-stage failure contains provider effects"
+            )
         if (
             self.failure_class is ProviderStageFailureClass.DISPATCH_AMBIGUOUS
             and self.provider_operations_conservative < 1
@@ -621,6 +645,7 @@ class ProviderStageRetryChainV1:
             ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT,
             ProviderStageRetryPhase.OWNER_RETIRED,
             ProviderStageRetryPhase.EXHAUSTED,
+            ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED,
         }
         if pre_result and (
             self.result_checkpoint is not None
@@ -668,7 +693,19 @@ class ProviderStageRetryChainV1:
         elif self.phase is ProviderStageRetryPhase.EXHAUSTED:
             valid = (
                 len(self.attempts) == MAXIMUM_PROVIDER_STAGE_ATTEMPTS
+                and self.identity.stage is not ProviderStage.RECORDER
                 and last.phase is ProviderStageAttemptPhase.OWNER_RETIRED
+                and last.failure_class is not ProviderStageFailureClass.DISPATCH_AMBIGUOUS
+                and self.result_checkpoint is None
+                and self.downstream_intent_sha256 is None
+                and self.downstream_evidence_sha256 is None
+            )
+        elif self.phase is ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED:
+            valid = (
+                self.identity.stage is ProviderStage.RECORDER
+                and len(self.attempts) == MAXIMUM_PROVIDER_STAGE_ATTEMPTS
+                and last.phase is ProviderStageAttemptPhase.OWNER_RETIRED
+                and last.failure_class is not ProviderStageFailureClass.DISPATCH_AMBIGUOUS
                 and self.result_checkpoint is None
                 and self.downstream_intent_sha256 is None
                 and self.downstream_evidence_sha256 is None
@@ -719,6 +756,13 @@ class ProviderStageRetryExhaustedV1:
         expected_provider, expected_model = _STAGE_OWNER[self.stage]
         if (self.provider, self.model_family) != (expected_provider, expected_model):
             raise ContractValidationError("provider-stage exhausted owner changed")
+        if (
+            self.stage is ProviderStage.RECORDER
+            or self.final_failure_class is ProviderStageFailureClass.DISPATCH_AMBIGUOUS
+        ):
+            raise ContractValidationError(
+                "Recorder repair or ambiguous custody cannot be reported as exhaustion"
+            )
         for count_value, field_name in (
             (self.maximum_attempts, "maximum attempts"),
             (self.attempts_total, "attempts total"),
@@ -731,7 +775,7 @@ class ProviderStageRetryExhaustedV1:
             or self.retries_consumed != MAXIMUM_PROVIDER_STAGE_ATTEMPTS - 1
         ):
             raise ContractValidationError("provider-stage exhausted attempt accounting changed")
-        if self.story_state_committed is not (self.stage is ProviderStage.RECORDER):
+        if self.story_state_committed is not False:
             raise ContractValidationError("provider-stage exhausted story boundary changed")
         if self.failed_stage_effect_committed is not False:
             raise ContractValidationError("failed provider stage cannot report a committed effect")

@@ -35,6 +35,7 @@ from cera.serialization import bytes_sha256, canonical_bytes, canonical_sha256, 
 from .provider_stage_retry import (
     MAXIMUM_PROVIDER_STAGE_ATTEMPTS,
     MAXIMUM_SAFE_INTEGER,
+    ProviderStage,
     ProviderStageAttemptPhase,
     ProviderStageAttemptV1,
     ProviderStageBlockReason,
@@ -219,6 +220,7 @@ class ProviderStageRetryStoreV1:
                 current,
                 phase=ProviderStageAttemptPhase.DISPATCH_STARTED,
                 dispatch_evidence_sha256=dispatch_evidence_sha256,
+                provider_operations_conservative=1,
             )
             updated = replace(
                 chain,
@@ -472,11 +474,7 @@ class ProviderStageRetryStoreV1:
                 phase=ProviderStageAttemptPhase.OWNER_RETIRED,
                 owner_retirement_evidence_sha256=retirement_evidence_sha256,
             )
-            if attempt_number == MAXIMUM_PROVIDER_STAGE_ATTEMPTS:
-                phase = ProviderStageRetryPhase.EXHAUSTED
-                block_reason = None
-                block_evidence = None
-            elif current.failure_class is ProviderStageFailureClass.DISPATCH_AMBIGUOUS:
+            if current.failure_class is ProviderStageFailureClass.DISPATCH_AMBIGUOUS:
                 # A dispatch with unknown completion is never retried.  Proving
                 # the owner stopped closes live custody but cannot prove that
                 # the previous provider operation did not complete.
@@ -489,6 +487,14 @@ class ProviderStageRetryStoreV1:
                         "retirement_evidence_sha256": retirement_evidence_sha256,
                     },
                 )
+            elif attempt_number == MAXIMUM_PROVIDER_STAGE_ATTEMPTS:
+                phase = (
+                    ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED
+                    if chain.identity.stage is ProviderStage.RECORDER
+                    else ProviderStageRetryPhase.EXHAUSTED
+                )
+                block_reason = None
+                block_evidence = None
             else:
                 phase = ProviderStageRetryPhase.OWNER_RETIRED
                 block_reason = None
@@ -594,6 +600,7 @@ class ProviderStageRetryStoreV1:
                 ProviderStageRetryPhase.DOWNSTREAM_BOUND,
                 ProviderStageRetryPhase.SUCCEEDED,
                 ProviderStageRetryPhase.EXHAUSTED,
+                ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED,
             }:
                 raise StateConflictError(
                     "provider-stage effect or terminal boundary cannot become no-effect block"
@@ -1138,6 +1145,7 @@ class ProviderStageRetryStoreV1:
         if previous.phase in {
             ProviderStageRetryPhase.SUCCEEDED,
             ProviderStageRetryPhase.EXHAUSTED,
+            ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED,
             ProviderStageRetryPhase.BLOCKED_AMBIGUOUS,
         }:
             raise StateConflictError("terminal provider-stage state has a successor")
@@ -1153,7 +1161,7 @@ class ProviderStageRetryStoreV1:
             same_attempts = current.attempts == previous.attempts
             retired_ambiguous = (
                 previous.phase is ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT
-                and len(previous.attempts) < MAXIMUM_PROVIDER_STAGE_ATTEMPTS
+                and len(previous.attempts) <= MAXIMUM_PROVIDER_STAGE_ATTEMPTS
                 and previous.attempts[-1].failure_class
                 is ProviderStageFailureClass.DISPATCH_AMBIGUOUS
                 and current.attempts[:-1] == previous.attempts[:-1]
@@ -1201,6 +1209,7 @@ class ProviderStageRetryStoreV1:
                 previous.attempts[-1],
                 phase=ProviderStageAttemptPhase.DISPATCH_STARTED,
                 dispatch_evidence_sha256=current.attempts[-1].dispatch_evidence_sha256,
+                provider_operations_conservative=1,
             )
             expected = replace(
                 previous,
@@ -1228,13 +1237,14 @@ class ProviderStageRetryStoreV1:
         elif (
             previous.phase is ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT
             and current.phase
-            in {ProviderStageRetryPhase.OWNER_RETIRED, ProviderStageRetryPhase.EXHAUSTED}
+            in {
+                ProviderStageRetryPhase.OWNER_RETIRED,
+                ProviderStageRetryPhase.EXHAUSTED,
+                ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED,
+            }
             and current.attempts[:-1] == previous.attempts[:-1]
-            and (
-                previous.attempts[-1].failure_class
-                is not ProviderStageFailureClass.DISPATCH_AMBIGUOUS
-                or current.phase is ProviderStageRetryPhase.EXHAUSTED
-            )
+            and previous.attempts[-1].failure_class
+            is not ProviderStageFailureClass.DISPATCH_AMBIGUOUS
         ):
             expected_attempt = replace(
                 previous.attempts[-1],

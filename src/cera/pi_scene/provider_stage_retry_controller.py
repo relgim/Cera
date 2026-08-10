@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
 
 from cera.errors import ContractValidationError
 
@@ -16,6 +17,7 @@ from .provider_stage_retry import (
     ProviderStageRetryRecoveryV1,
     ProviderStageRetryTerminalV1,
 )
+from .provider_stage_retry_port import ProviderStageRetryStorePort
 from .provider_stage_retry_store import ProviderStageRetryStoreV1
 
 
@@ -31,13 +33,16 @@ class ProviderStageRetryControllerV1:
         self,
         root: Path | None = None,
         *,
-        store: ProviderStageRetryStoreV1 | None = None,
+        store: ProviderStageRetryStorePort | None = None,
     ) -> None:
         if (root is None) == (store is None):
             raise ContractValidationError("provide exactly one provider-stage retry root or store")
         if store is None:
             assert root is not None
-            self.store = ProviderStageRetryStoreV1(root)
+            self.store = cast(
+                ProviderStageRetryStorePort,
+                ProviderStageRetryStoreV1(root),
+            )
         else:
             self.store = store
 
@@ -61,6 +66,24 @@ class ProviderStageRetryControllerV1:
             ledger_prefix_before_sha256=ledger_prefix_before_sha256,
         )
 
+    def accept_retry(
+        self,
+        chain_id: str,
+        *,
+        retry_action_sha256: str,
+        session_scope_sha256: str,
+        ledger_prefix_before_sha256: str,
+    ) -> ProviderStageRetryChainV1:
+        return self.store.accept_retry(
+            chain_id,
+            retry_action_sha256=retry_action_sha256,
+            session_scope_sha256=session_scope_sha256,
+            ledger_prefix_before_sha256=ledger_prefix_before_sha256,
+        )
+
+    def retry_actions_accepted(self, chain_id: str) -> int:
+        return self.store.retry_actions_accepted(chain_id)
+
     def mark_dispatch_started(
         self,
         chain_id: str,
@@ -72,6 +95,25 @@ class ProviderStageRetryControllerV1:
             chain_id,
             attempt_number=attempt_number,
             dispatch_evidence_sha256=dispatch_evidence_sha256,
+        )
+
+    def mark_pretransport_failed(
+        self,
+        chain_id: str,
+        *,
+        attempt_number: int,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        duration_ms: int,
+    ) -> ProviderStageRetryChainV1:
+        return self.store.mark_pretransport_failed(
+            chain_id,
+            attempt_number=attempt_number,
+            failure_class=failure_class,
+            failure_evidence_sha256=failure_evidence_sha256,
+            ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+            duration_ms=duration_ms,
         )
 
     def mark_attempt_failed(
@@ -187,6 +229,99 @@ class ProviderStageRetryControllerV1:
             evidence_sha256=evidence_sha256,
         )
 
+    def resolve_blocked_failure(
+        self,
+        chain_id: str,
+        *,
+        resolution_evidence_sha256: str,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        provider_operations_observed: int,
+        provider_operations_conservative: int,
+        duration_ms: int,
+        input_tokens: int | None = None,
+        cached_input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
+    ) -> ProviderStageRetryChainV1:
+        return self.store.resolve_blocked_failure(
+            chain_id,
+            resolution_evidence_sha256=resolution_evidence_sha256,
+            failure_class=failure_class,
+            failure_evidence_sha256=failure_evidence_sha256,
+            ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+            provider_operations_observed=provider_operations_observed,
+            provider_operations_conservative=provider_operations_conservative,
+            duration_ms=duration_ms,
+            input_tokens=input_tokens,
+            cached_input_tokens=cached_input_tokens,
+            output_tokens=output_tokens,
+            reasoning_tokens=reasoning_tokens,
+        )
+
+    def resolve_blocked_result(
+        self,
+        chain_id: str,
+        *,
+        resolution_evidence_sha256: str,
+        exact_result: bytes,
+        result_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        provider_operations_observed: int,
+        provider_operations_conservative: int,
+        duration_ms: int,
+        input_tokens: int | None = None,
+        cached_input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
+    ) -> ProviderStageRetryChainV1:
+        return self.store.resolve_blocked_result(
+            chain_id,
+            resolution_evidence_sha256=resolution_evidence_sha256,
+            exact_result=exact_result,
+            result_evidence_sha256=result_evidence_sha256,
+            ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+            provider_operations_observed=provider_operations_observed,
+            provider_operations_conservative=provider_operations_conservative,
+            duration_ms=duration_ms,
+            input_tokens=input_tokens,
+            cached_input_tokens=cached_input_tokens,
+            output_tokens=output_tokens,
+            reasoning_tokens=reasoning_tokens,
+        )
+
+    def resolve_blocked_recording_repair(
+        self,
+        chain_id: str,
+        *,
+        resolution_evidence_sha256: str,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        provider_operations_observed: int,
+        provider_operations_conservative: int,
+        duration_ms: int,
+        input_tokens: int | None = None,
+        cached_input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
+    ) -> ProviderStageRetryChainV1:
+        return self.store.resolve_blocked_recording_repair(
+            chain_id,
+            resolution_evidence_sha256=resolution_evidence_sha256,
+            failure_class=failure_class,
+            failure_evidence_sha256=failure_evidence_sha256,
+            ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+            provider_operations_observed=provider_operations_observed,
+            provider_operations_conservative=provider_operations_conservative,
+            duration_ms=duration_ms,
+            input_tokens=input_tokens,
+            cached_input_tokens=cached_input_tokens,
+            output_tokens=output_tokens,
+            reasoning_tokens=reasoning_tokens,
+        )
+
     def recover(self, chain_id: str) -> ProviderStageRetryRecoveryV1:
         """Reconcile durable result/terminal artifacts and name the next safe action."""
 
@@ -221,6 +356,9 @@ class ProviderStageRetryControllerV1:
             attempt_number = chain.attempts[-1].attempt_number
         elif chain.phase is ProviderStageRetryPhase.EXHAUSTED:
             action = ProviderStageRecoveryAction.REPORT_EXHAUSTED
+            attempt_number = chain.attempts[-1].attempt_number
+        elif chain.phase is ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED:
+            action = ProviderStageRecoveryAction.REPORT_RECORDING_REPAIR_REQUIRED
             attempt_number = chain.attempts[-1].attempt_number
         else:
             action = ProviderStageRecoveryAction.REPORT_BLOCKED_AMBIGUOUS

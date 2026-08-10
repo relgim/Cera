@@ -891,7 +891,7 @@ class ProviderStageRetryStoreTests(unittest.TestCase):
                 ledger_prefix_before_sha256=_sha("ledger:ambiguous"),
             )
 
-    def test_final_dispatch_ambiguity_exhausts_only_after_retirement(self) -> None:
+    def test_final_dispatch_ambiguity_blocks_only_after_retirement(self) -> None:
         controller, chain_id = self._begin()
         self._advance_to_attempt_three_dispatch(controller, chain_id)
         controller.mark_attempt_failed(
@@ -911,11 +911,11 @@ class ProviderStageRetryStoreTests(unittest.TestCase):
             retirement_evidence_sha256=_sha("retired:3"),
         )
         terminal = controller.terminal(chain_id)
-        self.assertIsInstance(terminal, ProviderStageRetryExhaustedV1)
-        assert isinstance(terminal, ProviderStageRetryExhaustedV1)
+        self.assertIsInstance(terminal, ProviderStageRetryBlockedV1)
+        assert isinstance(terminal, ProviderStageRetryBlockedV1)
         self.assertIs(
-            terminal.final_failure_class,
-            ProviderStageFailureClass.DISPATCH_AMBIGUOUS,
+            terminal.block_reason,
+            ProviderStageBlockReason.DISPATCH_CUSTODY_AMBIGUOUS,
         )
 
     def test_durable_staged_result_wins_over_later_failure_report(self) -> None:
