@@ -1,0 +1,605 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cera.local/provider-stage-retry/v1/status.schema.json",
+  "title": "ProviderStageRetryStatusV1",
+  "description": "Privacy-safe shared status for exactly one provider-stage occurrence. Semantic Regenerate and Replan are intentionally absent because they have separate identities and counters.",
+  "x-cera-schema-version": "cera.provider_stage_retry_status.v1",
+  "x-cera-python-name": "ProviderStageRetryStatusV1",
+  "x-cera-javascript-name": "ProviderStageRetryStatusV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "chain_id",
+    "provider",
+    "model_family",
+    "stage",
+    "state",
+    "maximum_attempts",
+    "stage_attempts_total",
+    "retry_actions_accepted",
+    "provider_operations_observed_total",
+    "provider_operations_conservative_total",
+    "story_state_committed",
+    "branch_preserved_at_last_accepted_head",
+    "failure_category",
+    "available_actions",
+    "technical_details"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cera.provider_stage_retry_status.v1",
+      "description": "Immutable shared status schema version."
+    },
+    "chain_id": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/chain_id"
+    },
+    "provider": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/provider"
+    },
+    "model_family": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/model_family"
+    },
+    "stage": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/stage"
+    },
+    "state": {
+      "type": "string",
+      "enum": [
+        "eligible",
+        "in_progress",
+        "succeeded",
+        "blocked_ambiguous",
+        "attempts_exhausted",
+        "recording_repair_required"
+      ],
+      "description": "User-visible state. blocked_ambiguous and attempts_exhausted are distinct."
+    },
+    "maximum_attempts": {
+      "const": 3,
+      "description": "Backend-authoritative ceiling: one initial attempt plus two manual Retry actions."
+    },
+    "stage_attempts_total": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "description": "Accepted executions for this exact branch, generation, stage, and stage occurrence."
+    },
+    "retry_actions_accepted": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "description": "Backend-accepted manual provider Retry actions for this occurrence only."
+    },
+    "provider_operations_observed_total": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Ledger-proven provider operations."
+    },
+    "provider_operations_conservative_total": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Observed operations plus unresolved possible operations."
+    },
+    "story_state_committed": {
+      "type": "boolean",
+      "description": "True only for Recorder, whose accepted story precedes recording."
+    },
+    "branch_preserved_at_last_accepted_head": {
+      "const": true,
+      "description": "The Retry chain never rolls back or replays the whole request."
+    },
+    "failure_category": {
+      "anyOf": [
+        {
+          "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/retryable_failure_category"
+        },
+        {
+          "const": "dispatch_ambiguous"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Safe closed failure category, or null when no failed attempt controls the state."
+    },
+    "available_actions": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "provider_retry",
+          "check_status",
+          "repair_recording",
+          "explicit_recovery"
+        ]
+      },
+      "description": "Concise UI actions. Semantic Regenerate and Replan use different DTO families."
+    },
+    "technical_details": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/technical_details",
+      "description": "Hashes and detailed identity for the collapsed Technical details section."
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/owner_binding"
+    },
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "state": {
+              "const": "eligible"
+            },
+            "failure_category": {
+              "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/retryable_failure_category"
+            },
+            "available_actions": {
+              "const": [
+                "provider_retry"
+              ]
+            }
+          },
+          "anyOf": [
+            {
+              "properties": {
+                "stage_attempts_total": {
+                  "const": 1
+                },
+                "retry_actions_accepted": {
+                  "const": 0
+                }
+              }
+            },
+            {
+              "properties": {
+                "stage_attempts_total": {
+                  "const": 2
+                },
+                "retry_actions_accepted": {
+                  "const": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "properties": {
+            "state": {
+              "const": "in_progress"
+            },
+            "stage_attempts_total": {
+              "minimum": 1
+            },
+            "failure_category": {
+              "type": "null"
+            },
+            "available_actions": {
+              "const": []
+            }
+          },
+          "$comment": "Counter relation is enforced by x-cera-invariants below."
+        },
+        {
+          "properties": {
+            "state": {
+              "const": "succeeded"
+            },
+            "stage_attempts_total": {
+              "minimum": 1
+            },
+            "provider_operations_observed_total": {
+              "minimum": 1
+            },
+            "failure_category": {
+              "type": "null"
+            },
+            "available_actions": {
+              "const": []
+            }
+          },
+          "$comment": "Counter relation is enforced by x-cera-invariants below."
+        },
+        {
+          "properties": {
+            "state": {
+              "const": "blocked_ambiguous"
+            },
+            "stage_attempts_total": {
+              "minimum": 1
+            },
+            "provider_operations_conservative_total": {
+              "minimum": 1
+            },
+            "failure_category": {
+              "const": "dispatch_ambiguous"
+            },
+            "available_actions": {
+              "const": [
+                "check_status"
+              ]
+            }
+          },
+          "$comment": "Counter relation is enforced by x-cera-invariants below."
+        },
+        {
+          "properties": {
+            "state": {
+              "const": "attempts_exhausted"
+            },
+            "stage": {
+              "enum": [
+                "planner",
+                "semantic_validator",
+                "writer",
+                "adult_scene",
+                "adult_filter"
+              ]
+            },
+            "stage_attempts_total": {
+              "const": 3
+            },
+            "retry_actions_accepted": {
+              "const": 2
+            },
+            "failure_category": {
+              "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/retryable_failure_category"
+            },
+            "available_actions": {
+              "const": [
+                "explicit_recovery"
+              ]
+            }
+          }
+        },
+        {
+          "properties": {
+            "state": {
+              "const": "recording_repair_required"
+            },
+            "stage": {
+              "const": "recorder"
+            },
+            "stage_attempts_total": {
+              "const": 3
+            },
+            "retry_actions_accepted": {
+              "const": 2
+            },
+            "failure_category": {
+              "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/retryable_failure_category"
+            },
+            "available_actions": {
+              "const": [
+                "repair_recording"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "x-cera-invariants": [
+    {
+      "op": "field_gte_field",
+      "left": "provider_operations_conservative_total",
+      "right": "provider_operations_observed_total",
+      "message": "conservative provider accounting undercounts observed operations"
+    },
+    {
+      "op": "allowed_field_pairs",
+      "fields": [
+        "stage_attempts_total",
+        "retry_actions_accepted"
+      ],
+      "allowed": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          2
+        ]
+      ],
+      "message": "stage attempts and accepted Retry actions do not identify one occurrence chain"
+    }
+  ],
+  "examples": [
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "provider": "codex",
+      "model_family": "sol",
+      "stage": "planner",
+      "state": "eligible",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 1,
+      "retry_actions_accepted": 0,
+      "provider_operations_observed_total": 1,
+      "provider_operations_conservative_total": 1,
+      "story_state_committed": false,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": "transport_timeout",
+      "available_actions": [
+        "provider_retry"
+      ],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "request_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "stage_input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "accepted_state_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "chain_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-1111111111111111111111111111111111111111111111111111111111111111",
+      "provider": "deepseek",
+      "model_family": "deepseek_v4",
+      "stage": "writer",
+      "state": "in_progress",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 2,
+      "retry_actions_accepted": 1,
+      "provider_operations_observed_total": 1,
+      "provider_operations_conservative_total": 1,
+      "story_state_committed": false,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": null,
+      "available_actions": [],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "request_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "stage_input_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "accepted_state_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "chain_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+      }
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-7777777777777777777777777777777777777777777777777777777777777777",
+      "provider": "codex",
+      "model_family": "luna",
+      "stage": "semantic_validator",
+      "state": "succeeded",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 1,
+      "retry_actions_accepted": 0,
+      "provider_operations_observed_total": 1,
+      "provider_operations_conservative_total": 1,
+      "story_state_committed": false,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": null,
+      "available_actions": [],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+        "request_sha256": "9999999999999999999999999999999999999999999999999999999999999999",
+        "stage_input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "accepted_state_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "chain_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      }
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "provider": "deepseek",
+      "model_family": "deepseek_v4",
+      "stage": "adult_scene",
+      "state": "blocked_ambiguous",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 1,
+      "retry_actions_accepted": 0,
+      "provider_operations_observed_total": 0,
+      "provider_operations_conservative_total": 1,
+      "story_state_committed": false,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": "dispatch_ambiguous",
+      "available_actions": [
+        "check_status"
+      ],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "request_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "stage_input_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "accepted_state_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+      }
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-4444444444444444444444444444444444444444444444444444444444444444",
+      "provider": "deepseek",
+      "model_family": "deepseek_v4",
+      "stage": "writer",
+      "state": "attempts_exhausted",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 3,
+      "retry_actions_accepted": 2,
+      "provider_operations_observed_total": 3,
+      "provider_operations_conservative_total": 3,
+      "story_state_committed": false,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": "provider_unavailable",
+      "available_actions": [
+        "explicit_recovery"
+      ],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "request_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+        "stage_input_sha256": "7777777777777777777777777777777777777777777777777777777777777777",
+        "accepted_state_sha256": "8888888888888888888888888888888888888888888888888888888888888888",
+        "chain_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
+      }
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "provider": "deepseek",
+      "model_family": "deepseek_v4",
+      "stage": "recorder",
+      "state": "recording_repair_required",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 3,
+      "retry_actions_accepted": 2,
+      "provider_operations_observed_total": 3,
+      "provider_operations_conservative_total": 3,
+      "story_state_committed": true,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": "provider_completion_incomplete",
+      "available_actions": [
+        "repair_recording"
+      ],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "request_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "stage_input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "accepted_state_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "chain_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      }
+    }
+  ],
+  "x-cera-negative-fixtures": [
+    {
+      "name": "fourth_attempt",
+      "base_example": 4,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/stage_attempts_total",
+          "value": 4
+        }
+      ]
+    },
+    {
+      "name": "recorder_mislabeled_exhausted",
+      "base_example": 5,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state",
+          "value": "attempts_exhausted"
+        },
+        {
+          "op": "replace",
+          "path": "/available_actions",
+          "value": [
+            "explicit_recovery"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ambiguity_offers_retry",
+      "base_example": 3,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/available_actions",
+          "value": [
+            "provider_retry"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "auth_is_not_retryable",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/failure_category",
+          "value": "authentication_failed"
+        }
+      ]
+    },
+    {
+      "name": "semantic_rejection_is_not_retryable",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/failure_category",
+          "value": "semantic_rejection"
+        }
+      ]
+    },
+    {
+      "name": "counter_scope_mismatch",
+      "base_example": 1,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/retry_actions_accepted",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "name": "success_without_attempt",
+      "base_example": 2,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/stage_attempts_total",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "name": "conservative_accounting_undercounts",
+      "base_example": 4,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/provider_operations_conservative_total",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "semantic_action_leaks_into_retry_status",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/available_actions",
+          "value": [
+            "regenerate"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "unknown_field",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "add",
+          "path": "/provider_output",
+          "value": "must not cross the safe status boundary"
+        }
+      ]
+    }
+  ]
+}

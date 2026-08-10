@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cera.local/provider-stage-retry/v1/compatibility_adapter.schema.json",
+  "title": "ProviderStageRetryCompatibilityAdapterV1",
+  "description": "Immutable metadata for the temporary Planner transport-status compatibility view. It describes an adapter boundary and grants no provider authority.",
+  "x-cera-schema-version": "cera.provider_stage_retry_compatibility_adapter.v1",
+  "x-cera-python-name": "ProviderStageRetryCompatibilityAdapterV1",
+  "x-cera-javascript-name": "ProviderStageRetryCompatibilityAdapterV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "adapter_id",
+    "direction",
+    "source_schema_versions",
+    "source_stage",
+    "target_schema_version",
+    "requires_authoritative_enrichment",
+    "provider_dispatch_authorized",
+    "counter_source",
+    "target_identity_scope",
+    "mapped_source_states",
+    "unmapped_source_states"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cera.provider_stage_retry_compatibility_adapter.v1",
+      "description": "Immutable compatibility metadata version."
+    },
+    "adapter_id": {
+      "const": "cera.planner_transport_retry_status_to_provider_stage_retry.v1",
+      "description": "Stable identity for the legacy Planner-only adapter."
+    },
+    "direction": {
+      "const": "legacy_to_shared",
+      "description": "The legacy Planner view may be projected into the shared contract after enrichment."
+    },
+    "source_schema_versions": {
+      "const": [
+        "cera.pi_scene.transport_retry_status.v1",
+        "cera.pi_scene.transport_retry_status.v2"
+      ],
+      "description": "Exact temporary Planner transport status versions accepted by this adapter."
+    },
+    "source_stage": {
+      "const": "planner",
+      "description": "The temporary source view is Planner-only and must never be reused for other stages."
+    },
+    "target_schema_version": {
+      "const": "cera.provider_stage_retry_status.v1",
+      "description": "Shared generic status target."
+    },
+    "requires_authoritative_enrichment": {
+      "const": true,
+      "description": "Branch, generation, unique stage occurrence, accepted boundary, and counters come only from the backend chain."
+    },
+    "provider_dispatch_authorized": {
+      "const": false,
+      "description": "Reading or applying compatibility metadata never authorizes provider transport."
+    },
+    "counter_source": {
+      "const": "authoritative_provider_stage_chain_only",
+      "description": "Chat-lifetime or browser-local counts cannot populate shared Retry counters."
+    },
+    "target_identity_scope": {
+      "const": [
+        "world",
+        "branch",
+        "generation",
+        "stage",
+        "stage_occurrence",
+        "accepted_state_boundary",
+        "frozen_input"
+      ],
+      "description": "Identity dimensions required before a shared status may be emitted."
+    },
+    "mapped_source_states": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eligible",
+        "in_progress",
+        "succeeded",
+        "attempts_exhausted"
+      ],
+      "properties": {
+        "eligible": {
+          "const": "eligible"
+        },
+        "in_progress": {
+          "const": "in_progress"
+        },
+        "succeeded": {
+          "const": "succeeded"
+        },
+        "attempts_exhausted": {
+          "const": "attempts_exhausted"
+        }
+      },
+      "description": "Only states with an unambiguous shared meaning are mapped directly."
+    },
+    "unmapped_source_states": {
+      "const": [
+        "blocked",
+        "superseded"
+      ],
+      "description": "Legacy states requiring provider-free authoritative reconciliation before shared projection."
+    }
+  },
+  "examples": [
+    {
+      "schema_version": "cera.provider_stage_retry_compatibility_adapter.v1",
+      "adapter_id": "cera.planner_transport_retry_status_to_provider_stage_retry.v1",
+      "direction": "legacy_to_shared",
+      "source_schema_versions": [
+        "cera.pi_scene.transport_retry_status.v1",
+        "cera.pi_scene.transport_retry_status.v2"
+      ],
+      "source_stage": "planner",
+      "target_schema_version": "cera.provider_stage_retry_status.v1",
+      "requires_authoritative_enrichment": true,
+      "provider_dispatch_authorized": false,
+      "counter_source": "authoritative_provider_stage_chain_only",
+      "target_identity_scope": [
+        "world",
+        "branch",
+        "generation",
+        "stage",
+        "stage_occurrence",
+        "accepted_state_boundary",
+        "frozen_input"
+      ],
+      "mapped_source_states": {
+        "eligible": "eligible",
+        "in_progress": "in_progress",
+        "succeeded": "succeeded",
+        "attempts_exhausted": "attempts_exhausted"
+      },
+      "unmapped_source_states": [
+        "blocked",
+        "superseded"
+      ]
+    }
+  ],
+  "x-cera-negative-fixtures": [
+    {
+      "name": "compatibility_metadata_authorizes_dispatch",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/provider_dispatch_authorized",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "legacy_counter_used",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/counter_source",
+          "value": "browser_chat_lifetime"
+        }
+      ]
+    },
+    {
+      "name": "planner_view_reused_for_writer",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/source_stage",
+          "value": "writer"
+        }
+      ]
+    },
+    {
+      "name": "blocked_mapped_without_reconciliation",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "add",
+          "path": "/mapped_source_states/blocked",
+          "value": "blocked_ambiguous"
+        }
+      ]
+    },
+    {
+      "name": "enrichment_not_required",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/requires_authoritative_enrichment",
+          "value": false
+        }
+      ]
+    }
+  ]
+}

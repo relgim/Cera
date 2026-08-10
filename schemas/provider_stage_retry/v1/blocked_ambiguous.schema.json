@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cera.local/provider-stage-retry/v1/blocked_ambiguous.schema.json",
+  "title": "ProviderStageRetryBlockedAmbiguousV1",
+  "description": "Hash-only reconcilable disposition snapshot while provider disposition or custody remains unresolved. Check Status or provider-free repair may advance it; the snapshot never authorizes another provider call.",
+  "x-cera-schema-version": "cera.provider_stage_retry_blocked_ambiguous.v1",
+  "x-cera-python-name": "ProviderStageRetryBlockedAmbiguousV1",
+  "x-cera-javascript-name": "ProviderStageRetryBlockedAmbiguousV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "severity",
+    "provider",
+    "model_family",
+    "stage",
+    "maximum_attempts",
+    "attempts_total",
+    "retries_consumed",
+    "story_state_committed",
+    "failed_stage_effect_committed",
+    "provider_operations_observed_total",
+    "provider_operations_conservative_total",
+    "block_reason",
+    "request_sha256",
+    "stage_input_sha256",
+    "attempt_chain_sha256",
+    "terminal_evidence_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cera.provider_stage_retry_blocked_ambiguous.v1",
+      "description": "Immutable blocked-ambiguity evidence version."
+    },
+    "severity": {
+      "const": "critical",
+      "description": "Stable fail-closed severity."
+    },
+    "provider": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/provider"
+    },
+    "model_family": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/model_family"
+    },
+    "stage": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/stage"
+    },
+    "maximum_attempts": {
+      "const": 3,
+      "description": "Backend-authoritative attempt ceiling; this state does not consume the remaining runway."
+    },
+    "attempts_total": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3,
+      "description": "Accepted stage executions before the chain became blocked."
+    },
+    "retries_consumed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "description": "Compatibility name for accepted Retry actions before the block."
+    },
+    "story_state_committed": {
+      "type": "boolean",
+      "description": "True only for Recorder because story acceptance precedes recording."
+    },
+    "failed_stage_effect_committed": {
+      "const": false,
+      "description": "The ambiguous owner has no authority to publish a late result."
+    },
+    "provider_operations_observed_total": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Ledger-proven provider operations."
+    },
+    "provider_operations_conservative_total": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991,
+      "description": "Observed operations plus unresolved possible operations."
+    },
+    "block_reason": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/block_reason",
+      "description": "Provider-free reconciliation reason."
+    },
+    "request_sha256": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/sha256"
+    },
+    "stage_input_sha256": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/sha256"
+    },
+    "attempt_chain_sha256": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/sha256"
+    },
+    "terminal_evidence_sha256": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/sha256"
+    }
+  },
+  "allOf": [
+    {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/owner_binding"
+    }
+  ],
+  "x-cera-invariants": [
+    {
+      "op": "field_gte_field",
+      "left": "provider_operations_conservative_total",
+      "right": "provider_operations_observed_total",
+      "message": "conservative provider accounting undercounts observed operations"
+    },
+    {
+      "op": "allowed_field_pairs",
+      "fields": [
+        "attempts_total",
+        "retries_consumed"
+      ],
+      "allowed": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          2
+        ]
+      ],
+      "message": "blocked attempt and Retry counters do not identify one occurrence chain"
+    }
+  ],
+  "examples": [
+    {
+      "schema_version": "cera.provider_stage_retry_blocked_ambiguous.v1",
+      "severity": "critical",
+      "provider": "deepseek",
+      "model_family": "deepseek_v4",
+      "stage": "adult_filter",
+      "maximum_attempts": 3,
+      "attempts_total": 2,
+      "retries_consumed": 1,
+      "story_state_committed": false,
+      "failed_stage_effect_committed": false,
+      "provider_operations_observed_total": 1,
+      "provider_operations_conservative_total": 2,
+      "block_reason": "dispatch_custody_ambiguous",
+      "request_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "stage_input_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "attempt_chain_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "terminal_evidence_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_blocked_ambiguous.v1",
+      "severity": "critical",
+      "provider": "deepseek",
+      "model_family": "deepseek_v4",
+      "stage": "recorder",
+      "maximum_attempts": 3,
+      "attempts_total": 1,
+      "retries_consumed": 0,
+      "story_state_committed": true,
+      "failed_stage_effect_committed": false,
+      "provider_operations_observed_total": 0,
+      "provider_operations_conservative_total": 1,
+      "block_reason": "owner_retirement_unproven",
+      "request_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "stage_input_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "attempt_chain_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+      "terminal_evidence_sha256": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+  ],
+  "x-cera-negative-fixtures": [
+    {
+      "name": "blocked_is_not_exhausted_counter",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/retries_consumed",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "recorder_story_not_preserved",
+      "base_example": 1,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/story_state_committed",
+          "value": false
+        }
+      ]
+    },
+    {
+      "name": "ambiguity_claims_failed_effect",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/failed_stage_effect_committed",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "ambiguity_not_conservatively_charged",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/provider_operations_conservative_total",
+          "value": 0
+        }
+      ]
+    },
+    {
+      "name": "unknown_block_reason",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/block_reason",
+          "value": "attempts_exhausted"
+        }
+      ]
+    }
+  ]
+}

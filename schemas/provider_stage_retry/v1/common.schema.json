@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json",
+  "title": "CERA provider-stage Retry V1 common definitions",
+  "description": "Shared closed definitions for provider-stage Retry contracts. This support schema is not itself a wire DTO.",
+  "x-cera-support-schema": true,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Lowercase SHA-256 digest."
+    },
+    "chain_id": {
+      "type": "string",
+      "pattern": "^stage-retry-[a-f0-9]{64}$",
+      "description": "Backend-issued identity for one branch, generation, stage, and unique stage occurrence."
+    },
+    "action_id": {
+      "type": "string",
+      "pattern": "^stage-action-[a-f0-9]{64}$",
+      "description": "Backend-issued identity for one provider-stage control action."
+    },
+    "provider": {
+      "type": "string",
+      "enum": [
+        "codex",
+        "deepseek"
+      ],
+      "description": "Provider family bound to the stage."
+    },
+    "model_family": {
+      "type": "string",
+      "enum": [
+        "sol",
+        "luna",
+        "deepseek_v4"
+      ],
+      "description": "Closed model family bound to the stage."
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "planner",
+        "semantic_validator",
+        "writer",
+        "recorder",
+        "adult_scene",
+        "adult_filter"
+      ],
+      "description": "Generic provider-stage name; it is not a Planner-only transport identity."
+    },
+    "retryable_failure_category": {
+      "type": "string",
+      "enum": [
+        "transport_timeout",
+        "provider_unavailable",
+        "provider_process_failed",
+        "provider_stream_incomplete",
+        "provider_completion_incomplete",
+        "provider_output_invalid"
+      ],
+      "description": "Closed, confirmed failure eligible for stage-local provider Retry. provider_output_invalid is limited to a deterministically malformed received envelope or protocol result whose fresh stochastic output may differ; it excludes authentication, invalid request, context size, unsupported parameters, configured output-limit truncation, semantic rejection, custody, and configuration failures."
+    },
+    "block_reason": {
+      "type": "string",
+      "enum": [
+        "input_changed",
+        "authority_changed",
+        "ledger_prefix_changed",
+        "owner_retirement_unproven",
+        "result_checkpoint_conflict",
+        "dispatch_custody_ambiguous"
+      ],
+      "description": "Provider-free reconciliation reason that forbids provider redispatch."
+    },
+    "owner_binding": {
+      "oneOf": [
+        {
+          "properties": {
+            "stage": {
+              "const": "planner"
+            },
+            "provider": {
+              "const": "codex"
+            },
+            "model_family": {
+              "const": "sol"
+            },
+            "story_state_committed": {
+              "const": false
+            }
+          }
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "semantic_validator"
+            },
+            "provider": {
+              "const": "codex"
+            },
+            "model_family": {
+              "const": "luna"
+            },
+            "story_state_committed": {
+              "const": false
+            }
+          }
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "writer"
+            },
+            "provider": {
+              "const": "deepseek"
+            },
+            "model_family": {
+              "const": "deepseek_v4"
+            },
+            "story_state_committed": {
+              "const": false
+            }
+          }
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "recorder"
+            },
+            "provider": {
+              "const": "deepseek"
+            },
+            "model_family": {
+              "const": "deepseek_v4"
+            },
+            "story_state_committed": {
+              "const": true
+            }
+          }
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "adult_scene"
+            },
+            "provider": {
+              "const": "deepseek"
+            },
+            "model_family": {
+              "const": "deepseek_v4"
+            },
+            "story_state_committed": {
+              "const": false
+            }
+          }
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "adult_filter"
+            },
+            "provider": {
+              "const": "deepseek"
+            },
+            "model_family": {
+              "const": "deepseek_v4"
+            },
+            "story_state_committed": {
+              "const": false
+            }
+          }
+        }
+      ]
+    },
+    "technical_details": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "request_occurrence_sha256",
+        "request_sha256",
+        "stage_input_sha256",
+        "accepted_state_sha256",
+        "chain_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "cera.provider_stage_retry_technical_details.v1",
+          "description": "Technical-detail projection version."
+        },
+        "request_occurrence_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Hash binding world, branch, generation, request, and unique occurrence."
+        },
+        "request_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Hash of the exact request identity."
+        },
+        "stage_input_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Hash of the exact frozen semantic stage input."
+        },
+        "accepted_state_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Hash of the proven-safe accepted-state boundary."
+        },
+        "chain_sha256": {
+          "$ref": "#/$defs/sha256",
+          "description": "Hash of the current durable Retry-chain state."
+        }
+      }
+    }
+  }
+}

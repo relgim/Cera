@@ -1,0 +1,305 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cera.local/provider-stage-retry/v1/action.schema.json",
+  "title": "ProviderStageRetryActionV1",
+  "description": "Closed control action for a provider-stage Retry chain. Regenerate and Replan are different DTO families and are never accepted here.",
+  "x-cera-schema-version": "cera.provider_stage_retry_action.v1",
+  "x-cera-python-name": "ProviderStageRetryActionV1",
+  "x-cera-javascript-name": "ProviderStageRetryActionV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "action_id",
+    "chain_id",
+    "action_family",
+    "action_kind",
+    "automatic",
+    "provider_dispatch_authorized",
+    "consumes_retry_action",
+    "retry_action_ordinal",
+    "whole_request_replay_authorized",
+    "provider_substitution_authorized",
+    "expected_chain_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cera.provider_stage_retry_action.v1",
+      "description": "Immutable action schema version."
+    },
+    "action_id": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/action_id"
+    },
+    "chain_id": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/chain_id"
+    },
+    "action_family": {
+      "const": "provider_stage_control",
+      "description": "Identity boundary separating provider-stage controls from semantic Regenerate and Replan."
+    },
+    "action_kind": {
+      "type": "string",
+      "enum": [
+        "provider_retry",
+        "check_status",
+        "repair_recording",
+        "explicit_recovery"
+      ],
+      "description": "Requested backend action. Only provider_retry may authorize provider transport."
+    },
+    "automatic": {
+      "type": "boolean",
+      "description": "Whether provider-free reconciliation may execute without a manual click."
+    },
+    "provider_dispatch_authorized": {
+      "type": "boolean",
+      "description": "True only for a backend-accepted manual provider_retry action."
+    },
+    "consumes_retry_action": {
+      "type": "boolean",
+      "description": "True only when this exact action consumes one of two Retry actions."
+    },
+    "retry_action_ordinal": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "One or two for provider Retry; null for provider-free control actions."
+    },
+    "whole_request_replay_authorized": {
+      "const": false,
+      "description": "A provider-stage action never replays the whole request."
+    },
+    "provider_substitution_authorized": {
+      "const": false,
+      "description": "A provider-stage action never permits fallback or model substitution."
+    },
+    "expected_chain_sha256": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/sha256",
+      "description": "Optimistic-concurrency binding to the exact durable chain state."
+    }
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "action_kind": {
+          "const": "provider_retry"
+        },
+        "automatic": {
+          "const": false
+        },
+        "provider_dispatch_authorized": {
+          "const": true
+        },
+        "consumes_retry_action": {
+          "const": true
+        },
+        "retry_action_ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2
+        }
+      }
+    },
+    {
+      "properties": {
+        "action_kind": {
+          "const": "check_status"
+        },
+        "automatic": {
+          "type": "boolean"
+        },
+        "provider_dispatch_authorized": {
+          "const": false
+        },
+        "consumes_retry_action": {
+          "const": false
+        },
+        "retry_action_ordinal": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "action_kind": {
+          "const": "repair_recording"
+        },
+        "automatic": {
+          "type": "boolean"
+        },
+        "provider_dispatch_authorized": {
+          "const": false
+        },
+        "consumes_retry_action": {
+          "const": false
+        },
+        "retry_action_ordinal": {
+          "type": "null"
+        }
+      }
+    },
+    {
+      "properties": {
+        "action_kind": {
+          "const": "explicit_recovery"
+        },
+        "automatic": {
+          "const": false
+        },
+        "provider_dispatch_authorized": {
+          "const": false
+        },
+        "consumes_retry_action": {
+          "const": false
+        },
+        "retry_action_ordinal": {
+          "type": "null"
+        }
+      }
+    }
+  ],
+  "examples": [
+    {
+      "schema_version": "cera.provider_stage_retry_action.v1",
+      "action_id": "stage-action-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "chain_id": "stage-retry-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "action_family": "provider_stage_control",
+      "action_kind": "provider_retry",
+      "automatic": false,
+      "provider_dispatch_authorized": true,
+      "consumes_retry_action": true,
+      "retry_action_ordinal": 1,
+      "whole_request_replay_authorized": false,
+      "provider_substitution_authorized": false,
+      "expected_chain_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_action.v1",
+      "action_id": "stage-action-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "chain_id": "stage-retry-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "action_family": "provider_stage_control",
+      "action_kind": "check_status",
+      "automatic": true,
+      "provider_dispatch_authorized": false,
+      "consumes_retry_action": false,
+      "retry_action_ordinal": null,
+      "whole_request_replay_authorized": false,
+      "provider_substitution_authorized": false,
+      "expected_chain_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_action.v1",
+      "action_id": "stage-action-1111111111111111111111111111111111111111111111111111111111111111",
+      "chain_id": "stage-retry-2222222222222222222222222222222222222222222222222222222222222222",
+      "action_family": "provider_stage_control",
+      "action_kind": "repair_recording",
+      "automatic": false,
+      "provider_dispatch_authorized": false,
+      "consumes_retry_action": false,
+      "retry_action_ordinal": null,
+      "whole_request_replay_authorized": false,
+      "provider_substitution_authorized": false,
+      "expected_chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_action.v1",
+      "action_id": "stage-action-4444444444444444444444444444444444444444444444444444444444444444",
+      "chain_id": "stage-retry-5555555555555555555555555555555555555555555555555555555555555555",
+      "action_family": "provider_stage_control",
+      "action_kind": "explicit_recovery",
+      "automatic": false,
+      "provider_dispatch_authorized": false,
+      "consumes_retry_action": false,
+      "retry_action_ordinal": null,
+      "whole_request_replay_authorized": false,
+      "provider_substitution_authorized": false,
+      "expected_chain_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
+    }
+  ],
+  "x-cera-negative-fixtures": [
+    {
+      "name": "automatic_provider_redispatch",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/automatic",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "third_retry_action",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/retry_action_ordinal",
+          "value": 3
+        }
+      ]
+    },
+    {
+      "name": "check_status_dispatches_provider",
+      "base_example": 1,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/provider_dispatch_authorized",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "regenerate_is_separate",
+      "base_example": 3,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/action_kind",
+          "value": "regenerate"
+        }
+      ]
+    },
+    {
+      "name": "replan_is_separate",
+      "base_example": 3,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/action_kind",
+          "value": "replan"
+        }
+      ]
+    },
+    {
+      "name": "whole_request_replay",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/whole_request_replay_authorized",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "provider_substitution",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/provider_substitution_authorized",
+          "value": true
+        }
+      ]
+    }
+  ]
+}
