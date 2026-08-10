@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
+from pathlib import Path
 from typing import Any
 
 from cera.errors import ErrorCode
@@ -35,8 +35,11 @@ from .codex_exec_contract import (
     CODEX_CLI_EXEC_TRANSPORT_NAME,
     CODEX_CLI_EXEC_VERSION,
 )
-from .models import LiveProviderRoute, ProviderTransportError
-
+from .models import (
+    LiveProviderRoute,
+    ProviderRetryableFailureCategory,
+    ProviderTransportError,
+)
 
 _ALLOWED_NON_TOOL_ITEM_TYPES = frozenset({"agent_message", "reasoning"})
 _REDACTED_ENVIRONMENT_KEYS = frozenset(
@@ -47,6 +50,22 @@ _REDACTED_ENVIRONMENT_KEYS = frozenset(
         "CERA_REQUEST_EVIDENCE_TOKEN",
     }
 )
+
+
+class _CodexExecProtocolError(ValueError):
+    """A deterministic violation of the closed CLI JSONL framing contract."""
+
+
+class _CodexExecReportedFailure(ValueError):
+    """A generic failed-turn event whose provider cause is not classified."""
+
+
+class _CodexExecCompletionIncomplete(ValueError):
+    """A cleanly ended stream without the required completed lifecycle."""
+
+
+class _CodexExecPolicyViolation(ValueError):
+    """A deterministic custody/tool violation that Retry must not mask."""
 
 
 class CodexExecRunner:
@@ -122,17 +141,31 @@ class CodexExecRunner:
                 )
             else:
                 popen_kwargs["start_new_session"] = True
-            process = subprocess.Popen(
-                command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.DEVNULL,
-                text=True,
-                encoding="utf-8",
-                cwd=workspace,
-                env=environment,
-                **popen_kwargs,
-            )
+            try:
+                process = subprocess.Popen(
+                    command,
+                    stdin=subprocess.PIPE,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                    encoding="utf-8",
+                    cwd=workspace,
+                    env=environment,
+                    **popen_kwargs,
+                )
+            except OSError as exc:
+                raise ProviderTransportError(
+                    ErrorCode.REASONER_UNAVAILABLE,
+                    "Codex CLI exec process could not start",
+                    safe_diagnostics=(
+                        f"transport:process_start:{type(exc).__name__}",
+                        "transport_mode:cli_exec_one_shot",
+                    ),
+                    external_provider_calls_observed=0,
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_PROCESS_FAILED
+                    ),
+                ) from None
             self.process_launch_count += 1
             self.request_submission_count += 1
             try:
@@ -151,6 +184,9 @@ class CodexExecRunner:
                         "transport_mode:cli_exec_one_shot",
                     ),
                     external_provider_calls_observed=1,
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT
+                    ),
                 ) from None
             if process.returncode != 0:
                 raise ProviderTransportError(
@@ -165,13 +201,76 @@ class CodexExecRunner:
                 )
             try:
                 thread_id, usage = _parse_codex_exec_jsonl(stdout)
-                output_text = output_path.read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError, ValueError):
+            except _CodexExecCompletionIncomplete:
+                raise ProviderTransportError(
+                    ErrorCode.REASONER_CONTRACT_INVALID,
+                    "Codex CLI exec completion lifecycle was incomplete",
+                    safe_diagnostics=(
+                        "transport:incomplete_cli_exec_lifecycle",
+                        "transport_mode:cli_exec_one_shot",
+                    ),
+                    external_provider_calls_observed=1,
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_COMPLETION_INCOMPLETE
+                    ),
+                ) from None
+            except (_CodexExecReportedFailure, _CodexExecPolicyViolation):
+                raise ProviderTransportError(
+                    ErrorCode.REASONER_CONTRACT_INVALID,
+                    "Codex CLI exec reported a non-retryable failure",
+                    safe_diagnostics=(
+                        "transport:nonretryable_cli_exec_failure",
+                        "transport_mode:cli_exec_one_shot",
+                    ),
+                    external_provider_calls_observed=1,
+                ) from None
+            except _CodexExecProtocolError:
                 raise ProviderTransportError(
                     ErrorCode.REASONER_CONTRACT_INVALID,
                     "Codex CLI exec returned invalid structured evidence",
                     safe_diagnostics=(
                         "transport:invalid_cli_exec_evidence",
+                        "transport_mode:cli_exec_one_shot",
+                    ),
+                    external_provider_calls_observed=1,
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                    ),
+                ) from None
+            try:
+                output_text = output_path.read_text(encoding="utf-8")
+            except FileNotFoundError:
+                raise ProviderTransportError(
+                    ErrorCode.REASONER_CONTRACT_INVALID,
+                    "Codex CLI exec did not publish a final response",
+                    safe_diagnostics=(
+                        "transport:missing_cli_exec_completion",
+                        "transport_mode:cli_exec_one_shot",
+                    ),
+                    external_provider_calls_observed=1,
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_COMPLETION_INCOMPLETE
+                    ),
+                ) from None
+            except UnicodeDecodeError:
+                raise ProviderTransportError(
+                    ErrorCode.REASONER_CONTRACT_INVALID,
+                    "Codex CLI exec final response violated UTF-8",
+                    safe_diagnostics=(
+                        "transport:invalid_cli_exec_completion_encoding",
+                        "transport_mode:cli_exec_one_shot",
+                    ),
+                    external_provider_calls_observed=1,
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                    ),
+                ) from None
+            except OSError:
+                raise ProviderTransportError(
+                    ErrorCode.REASONER_CONTRACT_INVALID,
+                    "Codex CLI exec final response could not be read",
+                    safe_diagnostics=(
+                        "transport:unreadable_cli_exec_completion",
                         "transport_mode:cli_exec_one_shot",
                     ),
                     external_provider_calls_observed=1,
@@ -211,7 +310,7 @@ class CodexExecRunner:
 
 def _resolve_and_validate_codex_binary() -> Path:
     try:
-        from codex_cli_bin import bundled_codex_path
+        from codex_cli_bin import bundled_codex_path  # type: ignore[import-untyped]
 
         binary = Path(bundled_codex_path()).resolve()
     except (ImportError, OSError):
@@ -324,27 +423,39 @@ def _parse_codex_exec_jsonl(value: str) -> tuple[str, dict[str, int]]:
         try:
             event = json.loads(raw_line)
         except json.JSONDecodeError:
-            raise ValueError("Codex CLI JSONL contained invalid JSON") from None
+            raise _CodexExecProtocolError(
+                "Codex CLI JSONL contained invalid JSON"
+            ) from None
         if not isinstance(event, dict):
-            raise ValueError("Codex CLI JSONL event must be an object")
+            raise _CodexExecProtocolError("Codex CLI JSONL event must be an object")
         event_type = event.get("type")
         if event_type == "thread.started":
             candidate = event.get("thread_id")
             if thread_id is not None or not isinstance(candidate, str) or not candidate:
-                raise ValueError("Codex CLI thread identity is invalid")
+                raise _CodexExecProtocolError("Codex CLI thread identity is invalid")
             thread_id = candidate
         elif event_type == "turn.started":
             turn_started += 1
+            if turn_started > 1:
+                raise _CodexExecProtocolError(
+                    "Codex CLI JSONL contained duplicate turn starts"
+                )
         elif event_type in {"item.started", "item.updated", "item.completed"}:
             item = event.get("item")
             item_type = item.get("type") if isinstance(item, dict) else None
             if item_type not in _ALLOWED_NON_TOOL_ITEM_TYPES:
-                raise ValueError("Codex CLI verifier attempted tool or state use")
+                raise _CodexExecPolicyViolation(
+                    "Codex CLI verifier attempted tool or state use"
+                )
         elif event_type == "turn.completed":
             turn_completed += 1
+            if turn_completed > 1:
+                raise _CodexExecProtocolError(
+                    "Codex CLI JSONL contained duplicate turn completions"
+                )
             candidate_usage = event.get("usage")
             if not isinstance(candidate_usage, dict):
-                raise ValueError("Codex CLI completion usage is missing")
+                raise _CodexExecProtocolError("Codex CLI completion usage is missing")
             usage = {}
             for key in (
                 "input_tokens",
@@ -354,19 +465,27 @@ def _parse_codex_exec_jsonl(value: str) -> tuple[str, dict[str, int]]:
             ):
                 counter = candidate_usage.get(key)
                 if type(counter) is not int or counter < 0:
-                    raise ValueError("Codex CLI completion usage is invalid")
+                    raise _CodexExecProtocolError(
+                        "Codex CLI completion usage is invalid"
+                    )
                 usage[key] = counter
             if usage["cached_input_tokens"] > usage["input_tokens"]:
-                raise ValueError("Codex CLI cached tokens exceed input tokens")
+                raise _CodexExecProtocolError(
+                    "Codex CLI cached tokens exceed input tokens"
+                )
         elif event_type in {"turn.failed", "error"}:
-            raise ValueError("Codex CLI reported a failed turn")
+            raise _CodexExecReportedFailure("Codex CLI reported a failed turn")
         else:
-            raise ValueError("Codex CLI JSONL event type is unsupported")
+            raise _CodexExecProtocolError(
+                "Codex CLI JSONL event type is unsupported"
+            )
     if (
         thread_id is None
         or turn_started != 1
         or turn_completed != 1
         or usage is None
     ):
-        raise ValueError("Codex CLI JSONL lifecycle is incomplete")
+        raise _CodexExecCompletionIncomplete(
+            "Codex CLI JSONL lifecycle is incomplete"
+        )
     return thread_id, usage

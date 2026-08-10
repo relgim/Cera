@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import inspect
 import json
 import os
-from pathlib import Path
 import signal
 import subprocess
 import sys
 import threading
 import time
-from typing import Any, Callable, Protocol
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from pathlib import Path
+from types import TracebackType
+from typing import Any, Protocol
 from urllib.parse import urlparse
 
 from cera.errors import ContractValidationError, ErrorCode
@@ -21,9 +23,18 @@ from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
 )
-from cera.serialization import canonical_json, text_sha256
 from cera.schema import from_mapping
+from cera.serialization import canonical_json, text_sha256
 
+from .codex_exec_contract import (
+    CODEX_CLI_EXEC_COMPATIBILITY_ID,
+    CODEX_CLI_EXEC_CONTRACT_SHA256,
+)
+from .codex_observability import CodexOperationTelemetryV1
+from .codex_sdk_compat import (
+    CODEX_SDK_COMPATIBILITY_ID,
+    EXPECTED_ROUTE_NOTIFICATION_SHA256,
+)
 from .models import (
     LiveProviderCallReceipt,
     LiveProviderRoute,
@@ -31,21 +42,13 @@ from .models import (
     ProviderCallResult,
     ProviderName,
     ProviderOutputMode,
+    ProviderRetryableFailureCategory,
     ProviderTransportError,
 )
 from .schema_dialects import (
     ProviderSchemaDialect,
     project_provider_output_schema,
 )
-from .codex_sdk_compat import (
-    CODEX_SDK_COMPATIBILITY_ID,
-    EXPECTED_ROUTE_NOTIFICATION_SHA256,
-)
-from .codex_exec_contract import (
-    CODEX_CLI_EXEC_COMPATIBILITY_ID,
-    CODEX_CLI_EXEC_CONTRACT_SHA256,
-)
-from .codex_observability import CodexOperationTelemetryV1
 
 
 def _runner_external_provider_boundary(runner: object) -> bool:
@@ -306,20 +309,25 @@ class CodexSDKTransport:
             # the stage contract.  Generic **kwargs wrappers often forward to
             # legacy runners and must not be treated as stage-aware.
             supports_stages = "on_provider_submit" in parameters
-            kwargs = {
-                "route": self.route,
-                "prompt": prompt,
-                "output_schema": provider_schema,
-                "workspace": self.workspace,
-                "mcp_binding": mcp_binding,
-            }
             if supports_stages:
-                kwargs.update(
+                result = self.runner.run(
+                    route=self.route,
+                    prompt=prompt,
+                    output_schema=provider_schema,
+                    workspace=self.workspace,
+                    mcp_binding=mcp_binding,
                     on_worker_started=on_worker_started,
                     on_worker_preflight=on_worker_preflight,
                     on_provider_submit=on_transport_invoke,
                 )
-            result = self.runner.run(**kwargs)
+            else:
+                result = self.runner.run(
+                    route=self.route,
+                    prompt=prompt,
+                    output_schema=provider_schema,
+                    workspace=self.workspace,
+                    mcp_binding=mcp_binding,
+                )
             # Older provider-free fakes lack stage callbacks.  A successful
             # result proves one completed provider operation; failures carry
             # external_provider_calls_observed and are reconciled by the ledger.
@@ -338,19 +346,19 @@ class CodexSDKTransport:
             *,
             safe_diagnostics: tuple[str, ...] = (),
         ) -> ProviderTransportError:
-            failure = ProviderTransportError(
+            completed_transport_failure = ProviderTransportError(
                 code,
                 message,
                 safe_diagnostics=safe_diagnostics,
                 external_provider_calls_observed=1,
             )
             if result.operation_telemetry is not None:
-                failure.operation_telemetry = (
+                completed_transport_failure.operation_telemetry = (
                     result.operation_telemetry.bind_request(
                         request_sha256
                     ).with_transport_error(code.value)
                 )
-            return failure
+            return completed_transport_failure
         if result.returned_model != self.route.model_name:
             raise completed_failure(
                 ErrorCode.REASONER_CONTRACT_INVALID,
@@ -454,24 +462,30 @@ class CodexSDKTransport:
                     "Codex schema output was not an object",
                     external_provider_calls_observed=1,
                     provider_call_receipt=receipt,
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                    ),
                 )
         except json.JSONDecodeError:
-            failure = ProviderTransportError(
+            parse_failure = ProviderTransportError(
                 ErrorCode.REASONER_CONTRACT_INVALID,
                 "Codex schema output was malformed",
                 external_provider_calls_observed=1,
                 provider_call_receipt=receipt,
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                ),
             )
             if result.operation_telemetry is not None:
-                failure.operation_telemetry = (
+                parse_failure.operation_telemetry = (
                     result.operation_telemetry.bind_request(request_sha256)
                     .bind_parse_phase(
                         parse_start_unix_us=parse_started_us,
                         parse_completion_unix_us=time.time_ns() // 1_000,
                     )
-                    .with_transport_error(failure.code.value)
+                    .with_transport_error(parse_failure.code.value)
                 )
-            raise failure from None
+            raise parse_failure from None
         except ProviderTransportError as failure:
             failure.external_provider_calls_observed = 1
             failure.provider_call_receipt = receipt
@@ -640,18 +654,29 @@ class _SubprocessCodexRunner:
             popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
         else:
             popen_kwargs["start_new_session"] = True
-        process = subprocess.Popen(
-            [sys.executable, "-m", self.worker_module],
-            stdin=subprocess.PIPE,
-            text=True,
-            # The private worker protocol is deliberately ASCII-only JSON.
-            # Provider prose is escaped by the worker so Windows console code
-            # pages cannot corrupt framing between requests.
-            encoding="ascii",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            **popen_kwargs,
-        )
+        try:
+            process = subprocess.Popen(
+                [sys.executable, "-m", self.worker_module],
+                stdin=subprocess.PIPE,
+                text=True,
+                # The private worker protocol is deliberately ASCII-only JSON.
+                # Provider prose is escaped by the worker so Windows console code
+                # pages cannot corrupt framing between requests.
+                encoding="ascii",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                **popen_kwargs,
+            )
+        except OSError as exc:
+            raise ProviderTransportError(
+                ErrorCode.REASONER_UNAVAILABLE,
+                "Codex qualification worker process could not start",
+                safe_diagnostics=(f"transport:process_start:{type(exc).__name__}",),
+                external_provider_calls_observed=0,
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_PROCESS_FAILED
+                ),
+            ) from None
         if on_worker_started is not None:
             on_worker_started()
         observer_stop, observer = _start_codex_stage_observer(
@@ -676,6 +701,9 @@ class _SubprocessCodexRunner:
                 ),
                 external_provider_calls_observed=int(
                     _codex_stage_observed_provider_call(stage)
+                ),
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT
                 ),
             ) from None
         finally:
@@ -726,6 +754,9 @@ class _SubprocessCodexRunner:
                 ),
                 external_provider_calls_observed=int(
                     _codex_stage_observed_provider_call(stage)
+                ),
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
                 ),
             ) from None
         elapsed_ms = max(0, round((time.perf_counter() - started) * 1000))
@@ -785,10 +816,15 @@ class PersistentNoMcpCodexRunner:
         self._request_submission_count = 0
         self._current_process_submission_count = 0
 
-    def __enter__(self) -> "PersistentNoMcpCodexRunner":
+    def __enter__(self) -> PersistentNoMcpCodexRunner:
         return self
 
-    def __exit__(self, _exc_type, _exc, _tb) -> None:
+    def __exit__(
+        self,
+        _exc_type: type[BaseException] | None,
+        _exc: BaseException | None,
+        _tb: TracebackType | None,
+    ) -> None:
         self.close()
 
     @property
@@ -875,6 +911,9 @@ class PersistentNoMcpCodexRunner:
                         "transport:worker_pipe_closed",
                         f"worker_stage:{_read_codex_worker_stage(progress_path)}",
                     ),
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_PROCESS_FAILED
+                    ),
                 ) from None
             observer_stop, observer = _start_codex_stage_observer(
                 progress_path,
@@ -896,6 +935,9 @@ class PersistentNoMcpCodexRunner:
                     ),
                     external_provider_calls_observed=int(
                         _codex_stage_observed_provider_call(stage)
+                    ),
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_STREAM_INCOMPLETE
                     ),
                 ) from None
             finally:
@@ -921,6 +963,9 @@ class PersistentNoMcpCodexRunner:
                     external_provider_calls_observed=int(
                         _codex_stage_observed_provider_call(stage)
                     ),
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT
+                    ),
                 ) from None
             try:
                 envelope = json.loads(line)
@@ -937,6 +982,11 @@ class PersistentNoMcpCodexRunner:
                     ),
                     external_provider_calls_observed=int(
                         _codex_stage_observed_provider_call(stage)
+                    ),
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                        if line
+                        else ProviderRetryableFailureCategory.PROVIDER_STREAM_INCOMPLETE
                     ),
                 ) from None
             if not isinstance(envelope, dict) or envelope.get("ok") is not True:
@@ -979,6 +1029,9 @@ class PersistentNoMcpCodexRunner:
                     ),
                     external_provider_calls_observed=int(
                         _codex_stage_observed_provider_call(stage)
+                    ),
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
                     ),
                 ) from None
             elapsed_ms = max(0, round((time.perf_counter() - started) * 1000))
@@ -1031,28 +1084,42 @@ class PersistentNoMcpCodexRunner:
             raise ProviderTransportError(
                 ErrorCode.REASONER_UNAVAILABLE,
                 "persistent Codex worker exited between requests",
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_PROCESS_FAILED
+                ),
             )
         popen_kwargs: dict[str, Any] = {}
         if sys.platform == "win32":
             popen_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
         else:
             popen_kwargs["start_new_session"] = True
-        self._process = subprocess.Popen(
-            [sys.executable, "-m", "cera.providers.codex_session_worker"],
-            stdin=subprocess.PIPE,
-            text=True,
-            encoding="ascii",
-            stdout=subprocess.PIPE,
-            # The persistent worker and its app-server children can emit
-            # diagnostics for the lifetime of the process.  No reader consumed
-            # this pipe, so enough output could block the child indefinitely.
-            # Diagnostics are deliberately discarded because they may contain
-            # request material; the privacy-safe progress sidecar is the
-            # supported failure channel.
-            stderr=subprocess.DEVNULL,
-            bufsize=1,
-            **popen_kwargs,
-        )
+        try:
+            self._process = subprocess.Popen(
+                [sys.executable, "-m", "cera.providers.codex_session_worker"],
+                stdin=subprocess.PIPE,
+                text=True,
+                encoding="ascii",
+                stdout=subprocess.PIPE,
+                # The persistent worker and its app-server children can emit
+                # diagnostics for the lifetime of the process.  No reader consumed
+                # this pipe, so enough output could block the child indefinitely.
+                # Diagnostics are deliberately discarded because they may contain
+                # request material; the privacy-safe progress sidecar is the
+                # supported failure channel.
+                stderr=subprocess.DEVNULL,
+                bufsize=1,
+                **popen_kwargs,
+            )
+        except OSError as exc:
+            raise ProviderTransportError(
+                ErrorCode.REASONER_UNAVAILABLE,
+                "persistent Codex worker process could not start",
+                safe_diagnostics=(f"transport:process_start:{type(exc).__name__}",),
+                external_provider_calls_observed=0,
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_PROCESS_FAILED
+                ),
+            ) from None
         self._process_launch_count += 1
         self._current_process_submission_count = 0
         return self._process
@@ -1074,17 +1141,21 @@ class PersistentNoMcpCodexRunner:
                     "transport_mode:persistent_no_mcp",
                 ),
                 external_provider_calls_observed=0,
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_PROCESS_FAILED
+                ),
             )
 
     @staticmethod
     def _readline(process: subprocess.Popen[str], timeout_seconds: int) -> str | None:
-        assert process.stdout is not None
+        stdout = process.stdout
+        assert stdout is not None
         result: list[str] = []
         errors: list[BaseException] = []
 
         def read() -> None:
             try:
-                result.append(process.stdout.readline())
+                result.append(stdout.readline())
             except BaseException as exc:  # propagated on the requesting thread
                 errors.append(exc)
 
@@ -1217,7 +1288,7 @@ def _read_codex_worker_stage(progress_path: Path) -> str:
     return stage if stage in _CODEX_WORKER_PROGRESS_STAGES else "worker_launch"
 
 
-def _terminate_codex_worker_tree(process: subprocess.Popen) -> bool:
+def _terminate_codex_worker_tree(process: subprocess.Popen[Any]) -> bool:
     """Terminate the timed-out worker and every SDK/app-server child it spawned."""
 
     tree_termination_requested = False

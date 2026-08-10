@@ -24,7 +24,10 @@ from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
 )
-from cera.providers.models import ProviderTransportError
+from cera.providers.models import (
+    ProviderRetryableFailureCategory,
+    ProviderTransportError,
+)
 from cera.serialization import canonical_sha256, text_sha256
 
 from .contracts import PiWriterReceiptV1, SceneRoute
@@ -205,15 +208,7 @@ class PiSceneAdapter:
                 status="failed",
                 failure_type=f"process_exit_{process.returncode}",
             )
-            raise ProviderTransportError(
-                ErrorCode.COMPOSER_UNAVAILABLE,
-                "Pi Scene provider process failed without an accepted output",
-                safe_diagnostics=(
-                    f"process_exit:{process.returncode}",
-                    f"stderr_sha256:{text_sha256(process.stderr)}",
-                ),
-                external_provider_calls_observed=1,
-            )
+            raise _pi_process_exit_error(process)
         try:
             parsed = _parse_pi_json_stream(process.stdout)
             _validate_pi_completion(parsed)
@@ -601,6 +596,9 @@ def _run_process(
             "Pi Scene provider process could not start",
             safe_diagnostics=(f"process_start:{type(exc).__name__}",),
             external_provider_calls_observed=0,
+            retryable_failure_category=(
+                ProviderRetryableFailureCategory.PROVIDER_PROCESS_FAILED
+            ),
         ) from None
 
     def read_stdout() -> None:
@@ -633,6 +631,9 @@ def _run_process(
             "Pi Scene provider process exceeded its timeout",
             safe_diagnostics=("transport:timeout",),
             external_provider_calls_observed=1,
+            retryable_failure_category=(
+                ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT
+            ),
         ) from None
     stdout_worker.join(timeout=5)
     stderr_worker.join(timeout=5)
@@ -642,8 +643,23 @@ def _run_process(
             "Pi Scene provider stream accounting failed",
             safe_diagnostics=(f"stream_accounting:{type(callback_errors[0]).__name__}",),
             external_provider_calls_observed=1,
+            retryable_failure_category=(
+                ProviderRetryableFailureCategory.PROVIDER_STREAM_INCOMPLETE
+            ),
         ) from None
     return _ProcessResult(returncode, "".join(stdout_lines), "".join(stderr_lines))
+
+
+def _pi_process_exit_error(process: _ProcessResult) -> ProviderTransportError:
+    return ProviderTransportError(
+        ErrorCode.COMPOSER_UNAVAILABLE,
+        "Pi Scene provider process failed without an accepted output",
+        safe_diagnostics=(
+            f"process_exit:{process.returncode}",
+            f"stderr_sha256:{text_sha256(process.stderr)}",
+        ),
+        external_provider_calls_observed=1,
+    )
 
 
 def _native_command(command: Sequence[str]) -> list[str]:

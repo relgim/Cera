@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
 import time
-from typing import Any, Callable
 import urllib.error
 import urllib.request
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any
 
 from cera.errors import ContractValidationError, ErrorCode
 from cera.evaluation import EvaluationRole
@@ -29,6 +30,7 @@ from .models import (
     ProviderName,
     ProviderOutputMode,
     ProviderResponseFailureKind,
+    ProviderRetryableFailureCategory,
     ProviderTransportError,
 )
 
@@ -120,12 +122,15 @@ class DeepSeekChatTransport:
         try:
             with self._opener(request, timeout=self.route.timeout_seconds) as response:
                 payload = json.loads(response.read().decode("utf-8"))
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError) as exc:
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as exc:
             raise ProviderTransportError(
                 _unavailable_code(self.route.role),
                 f"DeepSeek transport failed ({type(exc).__name__})",
                 safe_diagnostics=("DEEPSEEK_TRANSPORT_RESPONSE_UNAVAILABLE",),
                 external_provider_calls_observed=1,
+                retryable_failure_category=(
+                    _deepseek_retryable_failure_category(exc)
+                ),
             ) from None
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:
             raise ProviderTransportError(
@@ -133,6 +138,9 @@ class DeepSeekChatTransport:
                 f"DeepSeek response was not valid JSON ({type(exc).__name__})",
                 safe_diagnostics=("DEEPSEEK_RESPONSE_INVALID_OUTER_JSON",),
                 external_provider_calls_observed=1,
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                ),
             ) from None
         duration_ms = max(0, round((time.perf_counter() - started) * 1000))
         try:
@@ -142,12 +150,15 @@ class DeepSeekChatTransport:
             output_text = choice["message"]["content"]
             finish_reason = choice["finish_reason"]
             usage = payload.get("usage", {})
-        except (KeyError, IndexError, TypeError) as exc:
+        except (KeyError, IndexError, TypeError):
             raise ProviderTransportError(
                 _contract_code(self.route.role),
                 "DeepSeek response omitted required fields",
                 safe_diagnostics=("DEEPSEEK_RESPONSE_MISSING_REQUIRED_FIELDS",),
                 external_provider_calls_observed=1,
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                ),
             ) from None
         if returned_model != self.route.model_name:
             raise ProviderTransportError(
@@ -175,6 +186,9 @@ class DeepSeekChatTransport:
                 safe_diagnostics=("DEEPSEEK_FINISH_REASON_UNKNOWN",),
                 external_provider_calls_observed=1,
                 provider_call_receipt=receipt,
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                ),
             ) from None
         if receipt.cost_microusd > self.route.maximum_cost_microusd:
             failure_receipt = _failure_receipt(
@@ -203,6 +217,12 @@ class DeepSeekChatTransport:
                 ),
                 external_provider_calls_observed=1,
                 provider_call_receipt=failure_receipt,
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_COMPLETION_INCOMPLETE
+                    if normalized_finish_reason
+                    is ProviderFinishReason.INSUFFICIENT_SYSTEM_RESOURCE
+                    else None
+                ),
             )
         if not isinstance(output_text, str) or not output_text.strip():
             failure_receipt = _failure_receipt(
@@ -216,6 +236,9 @@ class DeepSeekChatTransport:
                 safe_diagnostics=("DEEPSEEK_CONTENT_EMPTY",),
                 external_provider_calls_observed=1,
                 provider_call_receipt=failure_receipt,
+                retryable_failure_category=(
+                    ProviderRetryableFailureCategory.PROVIDER_COMPLETION_INCOMPLETE
+                ),
             )
 
         parsed_json = None
@@ -234,6 +257,9 @@ class DeepSeekChatTransport:
                     safe_diagnostics=("DEEPSEEK_CONTENT_MALFORMED_JSON",),
                     external_provider_calls_observed=1,
                     provider_call_receipt=failure_receipt,
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                    ),
                 ) from None
             if not isinstance(parsed, dict):
                 failure_receipt = _failure_receipt(
@@ -247,6 +273,9 @@ class DeepSeekChatTransport:
                     safe_diagnostics=("DEEPSEEK_CONTENT_NON_OBJECT_JSON",),
                     external_provider_calls_observed=1,
                     provider_call_receipt=failure_receipt,
+                    retryable_failure_category=(
+                        ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+                    ),
                 )
             parsed_json = parsed
         return ProviderCallResult(output_text, parsed_json, receipt)
@@ -269,6 +298,9 @@ def _build_call_receipt(
             "DeepSeek usage payload is invalid",
             safe_diagnostics=("DEEPSEEK_USAGE_INVALID_OBJECT",),
             external_provider_calls_observed=1,
+            retryable_failure_category=(
+                ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+            ),
         )
     input_tokens = _non_negative_int(
         usage.get("prompt_tokens", 0),
@@ -396,6 +428,9 @@ def _non_negative_int(
             f"DeepSeek usage field {field_name} is invalid",
             safe_diagnostics=(f"DEEPSEEK_USAGE_{field_name.upper()}_INVALID",),
             external_provider_calls_observed=external_provider_calls_observed,
+            retryable_failure_category=(
+                ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID
+            ),
         )
     return value
 
@@ -406,6 +441,31 @@ def _unavailable_code(role: EvaluationRole) -> ErrorCode:
         if role is EvaluationRole.ADULT_MECHANICS
         else ErrorCode.COMPOSER_UNAVAILABLE
     )
+
+
+def _deepseek_retryable_failure_category(
+    exc: BaseException,
+) -> ProviderRetryableFailureCategory | None:
+    """Classify only typed DeepSeek transport evidence; never parse messages."""
+
+    if isinstance(exc, urllib.error.HTTPError):
+        status = exc.code
+        if status == 408:
+            return ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT
+        if status == 429 or 500 <= status <= 599:
+            return ProviderRetryableFailureCategory.PROVIDER_UNAVAILABLE
+        return None
+    if isinstance(exc, TimeoutError):
+        return ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT
+    if isinstance(exc, urllib.error.URLError):
+        if isinstance(exc.reason, TimeoutError):
+            return ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT
+        if isinstance(exc.reason, ConnectionError):
+            return ProviderRetryableFailureCategory.PROVIDER_UNAVAILABLE
+        return None
+    if isinstance(exc, ConnectionError):
+        return ProviderRetryableFailureCategory.PROVIDER_UNAVAILABLE
+    return None
 
 
 def _contract_code(role: EvaluationRole) -> ErrorCode:

@@ -1,5 +1,9 @@
 """Live-provider qualification contracts and transport primitives."""
 
+from .boundary_qualification import (
+    RelationalBoundaryQualificationEvidence,
+    load_relational_boundary_qualification,
+)
 from .codex import (
     CodexMcpRuntimeBinding,
     CodexSDKTransport,
@@ -9,6 +13,12 @@ from .codex import (
     PersistentNoMcpCodexRunner,
     StoredCodexThreadRunner,
 )
+from .codex_cli_qualification import (
+    ACTIVE_CODEX_CLI_VERIFIER_QUALIFICATION_ID,
+    ACTIVE_CODEX_CLI_VERIFIER_SUMMARY_SHA256,
+    CodexCliVerifierQualificationEvidence,
+    load_codex_cli_verifier_qualification,
+)
 from .codex_exec import CodexExecRunner
 from .codex_observability import (
     CodexOperationTelemetryV1,
@@ -16,29 +26,20 @@ from .codex_observability import (
     CodexUsageAccumulator,
     CodexUsageStepV1,
 )
-from .codex_cli_qualification import (
-    ACTIVE_CODEX_CLI_VERIFIER_QUALIFICATION_ID,
-    ACTIVE_CODEX_CLI_VERIFIER_SUMMARY_SHA256,
-    CodexCliVerifierQualificationEvidence,
-    load_codex_cli_verifier_qualification,
-)
-from .boundary_qualification import (
-    RelationalBoundaryQualificationEvidence,
-    load_relational_boundary_qualification,
-)
 from .deepseek import DeepSeekChatTransport, DeepSeekMessage
 from .models import (
     LiveProviderCallReceipt,
     LiveProviderRoute,
     ModelIdentitySource,
-    ProviderFailureCallReceipt,
-    ProviderFinishReason,
     ProviderAuthMode,
     ProviderCallResult,
+    ProviderFailureCallReceipt,
+    ProviderFinishReason,
     ProviderName,
     ProviderOutputMode,
     ProviderPricing,
     ProviderResponseFailureKind,
+    ProviderRetryableFailureCategory,
     ProviderTransportError,
 )
 from .persistent_qualification import (
@@ -104,6 +105,7 @@ __all__ = [
     "ProviderOutputMode",
     "ProviderPricing",
     "ProviderResponseFailureKind",
+    "ProviderRetryableFailureCategory",
     "ProviderTransportError",
     "PersistentCodexCompletionRegistrationQualificationEvidence",
     "PersistentCodexQualificationEvidence",
@@ -125,6 +127,7 @@ __all__ = [
     "ProviderSchemaProjection",
     "active_provider_schema_inventory",
     "codex_mcp_probe_output_schema",
+    "codex_query_plan_probe_output_schema",
     "codex_transport_probe_output_schema",
     "project_provider_output_schema",
     "validate_provider_output_schema",

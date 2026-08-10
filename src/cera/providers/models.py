@@ -56,6 +56,25 @@ class ProviderResponseFailureKind(StrEnum):
     COST_CEILING_EXCEEDED = "cost_ceiling_exceeded"
 
 
+class ProviderRetryableFailureCategory(StrEnum):
+    """Closed provider-boundary failures eligible for stage-local Retry.
+
+    Absence of this metadata is intentional and means that the failure is not
+    known to be Retry-eligible. ``provider_output_invalid`` is limited to a
+    deterministically received, closed provider or private-transport envelope;
+    it is never inferred from a generic worker exception. Dispatch ambiguity
+    is an executor/ledger disposition and therefore is deliberately not
+    representable here.
+    """
+
+    TRANSPORT_TIMEOUT = "transport_timeout"
+    PROVIDER_UNAVAILABLE = "provider_unavailable"
+    PROVIDER_PROCESS_FAILED = "provider_process_failed"
+    PROVIDER_STREAM_INCOMPLETE = "provider_stream_incomplete"
+    PROVIDER_COMPLETION_INCOMPLETE = "provider_completion_incomplete"
+    PROVIDER_OUTPUT_INVALID = "provider_output_invalid"
+
+
 _PROVIDER_ROLES = {
     ProviderName.OPENAI_CODEX: frozenset(
         {
@@ -94,7 +113,7 @@ class ProviderPricing:
         try:
             date.fromisoformat(self.effective_date)
         except ValueError:
-            raise ContractValidationError("provider pricing requires an ISO date")
+            raise ContractValidationError("provider pricing requires an ISO date") from None
 
     def estimate_cost_microusd(
         self,
@@ -273,9 +292,12 @@ class LiveProviderCallReceipt:
         require_kind(self.provider_receipt_id, IdKind.PROVIDER_RECEIPT, "provider_receipt_id")
         for value in (self.route_sha256, self.request_sha256, self.output_sha256):
             _sha256(value, "provider receipt hash")
-        for value in (self.provider_request_id_sha256, self.system_fingerprint_sha256):
-            if value is not None:
-                _sha256(value, "provider metadata hash")
+        for metadata_hash in (
+            self.provider_request_id_sha256,
+            self.system_fingerprint_sha256,
+        ):
+            if metadata_hash is not None:
+                _sha256(metadata_hash, "provider metadata hash")
         for value, label in (
             (self.requested_model, "requested_model"),
             (self.returned_model, "returned_model"),
@@ -495,9 +517,17 @@ class ProviderTransportError(Exception):
         provider_call_receipt: (
             LiveProviderCallReceipt | ProviderFailureCallReceipt | None
         ) = None,
+        retryable_failure_category: ProviderRetryableFailureCategory | None = None,
     ) -> None:
         self.code = code
         self.provider_call_receipt = provider_call_receipt
+        if retryable_failure_category is not None and type(
+            retryable_failure_category
+        ) is not ProviderRetryableFailureCategory:
+            raise ContractValidationError(
+                "transport failure Retry category must be an exact provider enum"
+            )
+        self.retryable_failure_category = retryable_failure_category
         if (
             type(external_provider_calls_observed) is not int
             or external_provider_calls_observed not in {0, 1}
