@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from dataclasses import dataclass, replace
@@ -44,6 +45,7 @@ from cera.pi_scene.provider_stage_retry_runtime import (
     ProviderStageRuntimeAdapterV1,
     backend_action_from_envelope,
 )
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.providers.models import (
     ProviderRetryableFailureCategory,
     ProviderTransportError,
@@ -228,6 +230,12 @@ class AdultStageRetryIntegrationTests(unittest.TestCase):
         )
         self.provider_dispatch_guard.start()
         self.addCleanup(self.provider_dispatch_guard.stop)
+        self.retry_owner_dispatch_guard = patch(
+            "cera.pi_scene.adult_stage_retry_integration.assert_provider_dispatch_allowed",
+            autospec=True,
+        )
+        self.retry_owner_dispatch_guard.start()
+        self.addCleanup(self.retry_owner_dispatch_guard.stop)
         self.temporary = tempfile.TemporaryDirectory()
         self.root = Path(self.temporary.name)
         self.database_path = self.root / "authority.sqlite3"
@@ -542,11 +550,6 @@ class AdultStageRetryIntegrationTests(unittest.TestCase):
             ("process_start", ProviderStageFailureClass.PROVIDER_PROCESS_FAILED, 0),
             ("process_exit", ProviderStageFailureClass.PROVIDER_PROCESS_FAILED, 1),
             ("stream_incomplete", ProviderStageFailureClass.PROVIDER_STREAM_INCOMPLETE, 1),
-            (
-                "completion_incomplete",
-                ProviderStageFailureClass.PROVIDER_COMPLETION_INCOMPLETE,
-                1,
-            ),
             ("output_invalid", ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID, 1),
         )
         for outcome, failure_class, operations in cases:
@@ -556,7 +559,6 @@ class AdultStageRetryIntegrationTests(unittest.TestCase):
                         _Script(
                             "adult_scene",
                             outcome,
-                            _scene_wire() if outcome == "completion_incomplete" else None,
                         )
                     ]
                 )
@@ -587,6 +589,56 @@ class AdultStageRetryIntegrationTests(unittest.TestCase):
                 )
                 self.assertEqual(chain.attempts[0].duration_ms, 125)
                 self.assertEqual(runner.calls, ["adult_scene"])
+
+    def test_output_limit_truncation_requires_recovery_without_retry(self) -> None:
+        runner = _ScriptedPiRunner([_Script("adult_scene", "completion_incomplete", _scene_wire())])
+        service = self._service(self._adapter(runner))
+        coordinator = AdultStageRetryCoordinatorV1(runtime=service, packets=self.packets)
+
+        with patch(
+            "cera.adult_pipeline.pi_roles.time.perf_counter",
+            new=_StepClock(),
+        ):
+            pending = coordinator.execute_or_continue(self.source)
+
+        self.assertFalse(pending.completed)
+        chain = service.read_chain(pending.scene_chain_id)
+        self.assertEqual(chain.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
+        self.assertIs(
+            chain.attempts[0].failure_class,
+            ProviderStageFailureClass.OUTPUT_LIMIT_TRUNCATED,
+        )
+        self.assertEqual(chain.attempts[0].provider_operations_observed, 1)
+        self.assertEqual(chain.attempts[0].provider_operations_conservative, 1)
+        self.assertEqual(chain.attempts[0].duration_ms, 125)
+        self.assertEqual(service.canonical_status(chain_id=chain.identity.chain_id)["actions"], [])
+        self.assertEqual(runner.calls, ["adult_scene"])
+
+    def test_dispatch_guard_fails_before_reservation_and_provider_call(self) -> None:
+        runner = _ScriptedPiRunner([_Script("adult_scene", "success", _scene_wire())])
+        service = self._service(self._adapter(runner))
+        coordinator = AdultStageRetryCoordinatorV1(runtime=service, packets=self.packets)
+
+        with (
+            patch.dict(os.environ, {"CERA_PROVIDER_DISPATCH_DISABLED": "1"}),
+            patch(
+                "cera.pi_scene.adult_stage_retry_integration.assert_provider_dispatch_allowed",
+                new=assert_provider_dispatch_allowed,
+            ),
+        ):
+            pending = coordinator.execute_or_continue(self.source)
+
+        self.assertFalse(pending.completed)
+        chain = service.read_chain(pending.scene_chain_id)
+        self.assertEqual(chain.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
+        self.assertIs(
+            chain.attempts[0].failure_class,
+            ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
+        )
+        self.assertEqual(chain.attempts[0].provider_operations_observed, 0)
+        self.assertEqual(chain.attempts[0].provider_operations_conservative, 0)
+        self.assertEqual(service.canonical_status(chain_id=chain.identity.chain_id)["actions"], [])
+        self.assertEqual(runner.calls, [])
 
     def test_interrupted_success_recovers_from_disposition_without_redispatch(self) -> None:
         runner = _ScriptedPiRunner([_Script("adult_scene", "success", _scene_wire())])

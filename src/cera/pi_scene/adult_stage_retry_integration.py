@@ -28,6 +28,7 @@ from cera.adult_pipeline.contracts import (
 )
 from cera.adult_pipeline.pi_roles import (
     AdultFilterRoleExecutionV1,
+    AdultPiOutputLimitError,
     AdultRoleViewContextV1,
     AdultSceneRoleExecutionV1,
     LazyProtectedWriterViewMaterializer,
@@ -45,6 +46,7 @@ from cera.generated.provider_stage_retry_contracts_v1 import (
     ProviderStageRetryStatusEnvelopeV1,
     validate_provider_stage_retry_action_v1,
 )
+from cera.provider_dispatch_guard import assert_provider_dispatch_allowed
 from cera.providers.models import (
     ProviderRetryableFailureCategory,
     ProviderTransportError,
@@ -1259,6 +1261,10 @@ class AdultPiStageAttemptOwnerFactoryV1:
         def build_request(
             value: bytes,
         ) -> _AdultSceneAttemptRequestV1 | _AdultFilterAttemptRequestV1:
+            assert_provider_dispatch_allowed(
+                f"pi_scene.provider_stage_retry.{self.stage.value}",
+                external_provider_boundary=True,
+            )
             self._assert_budget_available()
             return (
                 _decode_scene_attempt_request(value, self.pi_adapter)
@@ -1968,6 +1974,8 @@ def _attempt_metrics_from_disposition(
 def _classify_adult_non_retryable(
     failure: ProviderTransportError,
 ) -> ProviderStageFailureClass | None:
+    if isinstance(failure, AdultPiOutputLimitError):
+        return ProviderStageFailureClass.OUTPUT_LIMIT_TRUNCATED
     if failure.code is ErrorCode.PROVIDER_CONFIG_INVALID:
         return ProviderStageFailureClass.CONFIGURATION_FAILED
     if failure.code is ErrorCode.PROVIDER_BUDGET_EXCEEDED:

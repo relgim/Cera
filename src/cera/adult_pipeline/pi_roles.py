@@ -182,6 +182,10 @@ class WriterViewMaterializationPort(Protocol):
     def materialize(self, source: WriterViewInputV1) -> MaterializedWriterViewV1: ...
 
 
+class AdultPiOutputLimitError(ProviderTransportError):
+    """A completed Pi response ended at its configured output ceiling."""
+
+
 def _adult_provider_failure(
     category: ProviderRetryableFailureCategory,
     *,
@@ -274,7 +278,14 @@ def _validate_adult_pi_completion(parsed: Any) -> None:
             diagnostic="provider_protocol:context_contract_invalid",
             provider_calls_observed=1,
         )
-    if parsed.finish_status.casefold() != "stop":
+    finish_status = parsed.finish_status.casefold()
+    if finish_status in {"length", "max_tokens", "token_limit"}:
+        raise AdultPiOutputLimitError(
+            ErrorCode.PROVIDER_TRANSPORT_FAILED,
+            "adult Pi completion reached its configured output limit",
+            external_provider_calls_observed=1,
+        )
+    if finish_status != "stop":
         raise _adult_provider_failure(
             ProviderRetryableFailureCategory.PROVIDER_COMPLETION_INCOMPLETE,
             diagnostic="provider_completion:non_stop",
