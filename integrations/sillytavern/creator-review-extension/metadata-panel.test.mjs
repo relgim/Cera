@@ -375,6 +375,7 @@ function criticalProviderStageFailure({
     const bindings = {
         planner: ['codex', 'sol'],
         semantic_validator: ['codex', 'luna'],
+        reader: ['codex', 'sol'],
         writer: ['deepseek', 'deepseek_v4'],
         recorder: ['deepseek', 'deepseek_v4'],
         adult_scene: ['deepseek', 'deepseek_v4'],
@@ -2059,7 +2060,7 @@ test('exhausted Recorder repair successor is read-only and cannot recurse', asyn
     }
 });
 
-test('critical provider-stage normalizers close six stages and six retryable failure classes', async () => {
+test('critical provider-stage normalizers close seven stages and six retryable failure classes', async () => {
     const { root } = await loadExtension();
     try {
         const actions = await import(
@@ -2071,6 +2072,7 @@ test('critical provider-stage normalizers close six stages and six retryable fai
         const stages = [
             'planner',
             'semantic_validator',
+            'reader',
             'writer',
             'recorder',
             'adult_scene',

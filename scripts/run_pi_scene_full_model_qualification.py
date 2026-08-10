@@ -5,7 +5,7 @@ clean exact Git tree before ``live`` can construct provider transports.  The
 live phase performs 10 ordinary plus 10 adult direct-backend requests, then 5
 ordinary plus 5 adult requests through a disposable SillyTavern copy.  Each
 phase is one retained ``cera-alpha`` story branch. No automatic retry or
-fallback exists. Any of the six provider stages may expose an exact generated
+fallback exists. Any of the seven provider stages may expose an exact generated
 manual ``provider_retry`` action, with at most two Retry actions and three
 attempts for that unique stage occurrence. Exact manual ``resume_prepared`` and
 one nonrecursive Recorder ``repair_recording`` control have separate budgets.
@@ -26,6 +26,7 @@ import shutil
 import subprocess
 import sys
 import time
+from copy import deepcopy
 from dataclasses import dataclass
 from http.cookiejar import CookieJar
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -37,13 +38,21 @@ from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 from cera.continuous.path_policy import preflight_windows_legacy_paths
 from cera.errors import ContractValidationError, StateConflictError
+from cera.generated.ordinary_review_contracts_v2 import (
+    validate_ordinary_review_decision_v2,
+    validate_ordinary_review_lifecycle_v1,
+    validate_ordinary_review_v2,
+)
 from cera.generated.provider_stage_retry_contracts_v1 import (
     validate_provider_stage_retry_action_v1,
     validate_provider_stage_retry_status_envelope_v1,
 )
 from cera.pi_scene.context import initial_hanezawa_doorway_seed
 from cera.pi_scene.http import PiSceneHttpAdapter, PiSceneServerConfigV1, build_pi_scene_server
-from cera.pi_scene.http_contracts import LeanSceneRequestControlsV2
+from cera.pi_scene.http_contracts import LeanSceneRequestControlsV3
+from cera.pi_scene.provider_stage_retry_http import (
+    validate_ordinary_successor_completion,
+)
 from cera.pi_scene.qualification import (
     DEEPSEEK_HTTP_OPERATION_CEILING,
     DEEPSEEK_PER_INVOCATION_CEILING,
@@ -292,13 +301,45 @@ class DirectCeraQualificationClient:
         fixture: QualificationFixtureV1,
         review_id: str,
     ) -> ClientResponseV1:
+        return self.review_action(
+            fixture=fixture,
+            review_id=review_id,
+            action={"action": "regenerate"},
+        )
+
+    def review(self, *, review_id: str) -> ClientResponseV1:
+        path = f"/v1/cera/reviews/{review_id}"
+        return _get_json_response(
+            self.base_url + path,
+            token=self.token,
+            transport="direct_cera_review_status",
+            path=path,
+        )
+
+    def review_action(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        review_id: str,
+        action: dict[str, Any] | Any,
+    ) -> ClientResponseV1:
         del fixture
+        path = f"/v1/cera/reviews/{review_id}/decision"
         return _post_json(
             self.base_url + f"/v1/cera/reviews/{review_id}/decision",
             token=self.token,
-            payload={"action": "regenerate"},
+            payload=dict(action),
             transport="direct_cera_review_action",
-            path=f"/v1/cera/reviews/{review_id}/decision",
+            path=path,
+        )
+
+    def terminal_review_decision(self, *, review_id: str) -> ClientResponseV1:
+        path = f"/v1/cera/reviews/{review_id}/terminal-decision"
+        return _get_json_response(
+            self.base_url + path,
+            token=self.token,
+            transport="direct_cera_terminal_review_decision",
+            path=path,
         )
 
     def provider_stage_retry_status(self, *, chain_id: str) -> ClientResponseV1:
@@ -373,6 +414,7 @@ class IsolatedSillyTavernQualificationClient:
                 f"cera_prompt_handling: {value['cera_prompt_handling']}",
                 f"cera_reasoning_effort: {value['cera_reasoning_effort']}",
                 f"cera_scene_depth: {value['cera_scene_depth']}",
+                f"cera_review_mode: {value['cera_review_mode']}",
             )
         )
         proxy_payload = {
@@ -421,12 +463,37 @@ class IsolatedSillyTavernQualificationClient:
         fixture: QualificationFixtureV1,
         review_id: str,
     ) -> ClientResponseV1:
+        return self.review_action(
+            fixture=fixture,
+            review_id=review_id,
+            action={"action": "regenerate"},
+        )
+
+    def review(self, *, review_id: str) -> ClientResponseV1:
+        return self._relay(
+            path=f"/api/plugins/cera-review/v1/cera/reviews/{review_id}",
+            method="GET",
+        )
+
+    def review_action(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        review_id: str,
+        action: dict[str, Any] | Any,
+    ) -> ClientResponseV1:
         del fixture
         path = f"/api/plugins/cera-review/v1/cera/reviews/{review_id}/decision"
         return self._relay(
             path=path,
             method="POST",
-            payload={"action": "regenerate"},
+            payload=dict(action),
+        )
+
+    def terminal_review_decision(self, *, review_id: str) -> ClientResponseV1:
+        return self._relay(
+            path=(f"/api/plugins/cera-review/v1/cera/reviews/{review_id}/terminal-decision"),
+            method="GET",
         )
 
     def provider_stage_retry_status(self, *, chain_id: str) -> ClientResponseV1:
@@ -487,6 +554,8 @@ class IsolatedSillyTavernQualificationClient:
             method="POST",
             payload={"action": "regenerate"},
         )
+        decline_terminal = self.terminal_review_decision(review_id=decline_review_id)
+        regenerate_terminal = self.terminal_review_decision(review_id=regenerate_review_id)
 
         exhaustion_1 = self.provider_stage_retry_status(chain_id=exhaustion_chain_id)
         exhaustion_1_envelope = validate_provider_stage_retry_status_envelope_v1(exhaustion_1.body)
@@ -532,6 +601,15 @@ class IsolatedSillyTavernQualificationClient:
             action=later_action,
         )
         terminal_completion = self.provider_stage_retry_status(chain_id=successor_source_chain_id)
+        terminal_completion_decision = validate_ordinary_review_decision_v2(
+            terminal_completion.body
+        )
+        terminal_completion_review = terminal_completion_decision.get("review")
+        if not isinstance(terminal_completion_review, dict):
+            raise StateConflictError("qualification terminal completion lost review")
+        accepted_terminal_reload = self.terminal_review_decision(
+            review_id=terminal_completion_review["review_id"]
+        )
 
         recovery = self.provider_stage_retry_status(chain_id=recovery_chain_id)
         recovery_envelope = validate_provider_stage_retry_status_envelope_v1(recovery.body)
@@ -570,6 +648,13 @@ class IsolatedSillyTavernQualificationClient:
             action=repair_successor_action,
         )
         repair_completion = self.provider_stage_retry_status(chain_id=repair_source_chain_id)
+        repair_completion_decision = validate_ordinary_review_decision_v2(repair_completion.body)
+        repair_completion_review = repair_completion_decision.get("review")
+        if not isinstance(repair_completion_review, dict):
+            raise StateConflictError("qualification Recorder repair lost review")
+        repair_completion_reload = self.terminal_review_decision(
+            review_id=repair_completion_review["review_id"]
+        )
         repair_terminal = self.provider_stage_retry_status(chain_id=repair_terminal_chain_id)
         repair_terminal_envelope = validate_provider_stage_retry_status_envelope_v1(
             repair_terminal.body
@@ -584,6 +669,8 @@ class IsolatedSillyTavernQualificationClient:
                     regenerate_review,
                     decline,
                     regenerate,
+                    decline_terminal,
+                    regenerate_terminal,
                     exhaustion_1,
                     exhaustion_2,
                     exhaustion_post,
@@ -594,6 +681,7 @@ class IsolatedSillyTavernQualificationClient:
                     later_reload,
                     later_post,
                     terminal_completion,
+                    accepted_terminal_reload,
                     recovery,
                     blocked_1,
                     blocked_2,
@@ -605,6 +693,7 @@ class IsolatedSillyTavernQualificationClient:
                     repair_successor,
                     repair_successor_post,
                     repair_completion,
+                    repair_completion_reload,
                     repair_terminal,
                 )
                 if value is not ambiguous_post
@@ -618,35 +707,79 @@ class IsolatedSillyTavernQualificationClient:
             or terminal_envelope["actions"] != []
             or source_action["retry_action_ordinal"] != 1
             or later_action["retry_action_ordinal"] != 1
+            or later_envelope["status"]["stage"] != "reader"
+            or later_envelope["status"]["model_family"] != "sol"
             or recovery_envelope["status"]["state"] != "recovery_required"
             or recovery_envelope["actions"] != []
             or blocked_envelope_1 != blocked_envelope_2
             or blocked_envelope_1["status"]["state"] != "blocked_ambiguous"
             or prepared_action["action_kind"] != "resume_prepared"
             or prepared_action["consumes_retry_action"] is not False
+            or prepared_envelope["status"]["stage"] != "reader"
+            or prepared_envelope["status"]["model_family"] != "sol"
             or prepared_envelope["status"]["retry_actions_accepted"] != 0
-            or prepared_completion.body.get("schema_version") != "cera.pi_scene.review_decision.v1"
             or repair_action["action_kind"] != "repair_recording"
             or repair_action["consumes_retry_action"] is not False
             or repair_successor_action["action_kind"] != "provider_retry"
             or repair_successor_action["retry_action_ordinal"] != 1
-            or repair_completion.body.get("schema_version") != "cera.pi_scene.review_decision.v1"
             or repair_terminal_envelope["status"]["state"] != "recording_repair_required"
             or repair_terminal_envelope["actions"] != []
-            or terminal_completion.body.get("schema_version") != "cera.pi_scene.review_decision.v1"
         ):
             raise StateConflictError("qualification generic provider-stage relay changed")
+        validated_reviews = {
+            "decline_review": validate_ordinary_review_v2(decline_review.body),
+            "regenerate_review": validate_ordinary_review_v2(regenerate_review.body),
+        }
+        validated_decisions = {
+            "decline": validate_ordinary_review_decision_v2(decline.body),
+            "decline_terminal": validate_ordinary_review_decision_v2(decline_terminal.body),
+            "regenerate": validate_ordinary_review_decision_v2(
+                regenerate.body,
+                successor_validator=validate_ordinary_successor_completion,
+            ),
+            "regenerate_terminal": validate_ordinary_review_decision_v2(
+                regenerate_terminal.body,
+                successor_validator=validate_ordinary_successor_completion,
+            ),
+            "terminal_completion": terminal_completion_decision,
+            "accepted_terminal_reload": validate_ordinary_review_decision_v2(
+                accepted_terminal_reload.body
+            ),
+            "prepared_completion": validate_ordinary_review_decision_v2(prepared_completion.body),
+            "repair_completion": repair_completion_decision,
+            "repair_completion_reload": validate_ordinary_review_decision_v2(
+                repair_completion_reload.body
+            ),
+        }
+        if (
+            validated_reviews["decline_review"]["gate_status"] != "reject"
+            or validated_reviews["regenerate_review"]["gate_status"] != "reject"
+            or validated_decisions["decline"]["creator_action"] != "decline"
+            or validated_decisions["regenerate"]["creator_action"] != "regenerate"
+            or validated_decisions["decline_terminal"] != validated_decisions["decline"]
+            or validated_decisions["regenerate_terminal"] != validated_decisions["regenerate"]
+            or validated_decisions["terminal_completion"]["creator_action"] != "automatic_accept"
+            or validated_decisions["repair_completion"]["creator_action"] != "repair_recording"
+            or validated_decisions["accepted_terminal_reload"]
+            != validated_decisions["terminal_completion"]
+            or validated_decisions["repair_completion_reload"]
+            != validated_decisions["repair_completion"]
+        ):
+            raise StateConflictError("qualification ordinary review relay changed")
         values = {
             "health": health.body,
             "decline_review": decline_review.body,
             "regenerate_review": regenerate_review.body,
             "decline": decline.body,
             "regenerate": regenerate.body,
+            "decline_terminal": decline_terminal.body,
+            "regenerate_terminal": regenerate_terminal.body,
             "ambiguous_post": ambiguous_post.body,
             "exhaustion_terminal": exhaustion_terminal.body,
             "successor_post": successor_post.body,
             "later_post": later_post.body,
             "terminal_completion": terminal_completion.body,
+            "accepted_terminal_reload": accepted_terminal_reload.body,
             "recovery": recovery.body,
             "blocked": blocked_2.body,
             "prepared_post": prepared_post.body,
@@ -654,6 +787,7 @@ class IsolatedSillyTavernQualificationClient:
             "repair_post": repair_post.body,
             "repair_successor_post": repair_successor_post.body,
             "repair_completion": repair_completion.body,
+            "repair_completion_reload": repair_completion_reload.body,
             "repair_terminal": repair_terminal.body,
         }
         return {
@@ -768,6 +902,7 @@ def provider_free_check(
         "provider_stage_retry_stages": [
             "planner",
             "semantic_validator",
+            "reader",
             "writer",
             "recorder",
             "adult_scene",
@@ -880,6 +1015,283 @@ def _start_cera_service(
         raise
 
 
+def _relay_review_controls_v3() -> dict[str, Any]:
+    return {
+        "schema_version": "cera.pi_scene.request_controls.v3",
+        "session_id": "qualification-relay-preflight",
+        "scene_depth": "auto",
+        "regeneration_key": None,
+        "character_autonomy": "both",
+        "prompt_handling": "adjustment",
+        "reasoning_effort": "medium",
+        "scene_change": False,
+        "adult_craft_mode": "off",
+        "review_mode": "automatic",
+    }
+
+
+def _relay_review_actions(*, rejected: bool = False) -> dict[str, Any]:
+    return {
+        "accept_enabled": False,
+        "regenerate_enabled": rejected,
+        "decline_enabled": rejected,
+        "replan_enabled": False,
+        "auditable_override_enabled": rejected,
+        "auditable_override_action": "accept_provisional" if rejected else None,
+        "repair_recording_enabled": False,
+    }
+
+
+def _relay_review_checks(
+    *,
+    pending: bool = False,
+    reader_rejected: bool = False,
+) -> dict[str, Any]:
+    def lane(
+        *,
+        role: str,
+        status: str,
+        verdict_sha256: str | None,
+        failures: list[dict[str, str]],
+    ) -> dict[str, Any]:
+        return {
+            "role": role,
+            "required": True,
+            "status": status,
+            "verdict_sha256": verdict_sha256,
+            "failures": failures,
+            "provider_stage_retry_status": None,
+        }
+
+    if pending:
+        luna = lane(
+            role="luna_semantic_validator",
+            status="pending",
+            verdict_sha256=None,
+            failures=[],
+        )
+        reader = lane(
+            role="codex_reader_severe_quality",
+            status="pending",
+            verdict_sha256=None,
+            failures=[],
+        )
+        python_status = "pending"
+        python_sha256 = None
+    else:
+        luna = lane(
+            role="luna_semantic_validator",
+            status="pass",
+            verdict_sha256="1" * 64,
+            failures=[],
+        )
+        reader = lane(
+            role="codex_reader_severe_quality",
+            status="reject" if reader_rejected else "pass",
+            verdict_sha256="2" * 64,
+            failures=(
+                [
+                    {
+                        "code": "severe_incompleteness",
+                        "concise_explanation": ("The candidate omitted one required decision."),
+                    }
+                ]
+                if reader_rejected
+                else []
+            ),
+        )
+        python_status = "pass"
+        python_sha256 = "3" * 64
+    return {
+        "schema_version": "cera.pi_scene.review_checks.v1",
+        "luna": luna,
+        "reader": reader,
+        "adult_filter": {
+            "role": "protected_adult_filter",
+            "required": False,
+            "status": "not_applicable",
+            "verdict_sha256": None,
+            "failures": [],
+            "provider_stage_retry_status": None,
+        },
+        "python": lane(
+            role="python_deterministic_custody_privacy",
+            status=python_status,
+            verdict_sha256=python_sha256,
+            failures=[],
+        ),
+    }
+
+
+def _relay_review_v2(
+    review_id: str,
+    *,
+    state: str,
+    reader_rejected: bool,
+) -> dict[str, Any]:
+    candidate_id = "candidate-" + text_sha256(f"relay-candidate:{review_id}")[:28]
+    accepted = state == "accepted"
+    review = {
+        "schema_version": "cera.pi_scene.review.v2",
+        "review_id": review_id,
+        "state": state,
+        "review_mode": "automatic",
+        "route": "ordinary",
+        "story_text": (
+            "The qualification relay keeps the provisional scene concise and leaves "
+            "the next meaningful choice open."
+        ),
+        "candidate_id": candidate_id,
+        "candidate_sha256": text_sha256(f"relay-candidate-body:{candidate_id}"),
+        "primary_authority_kind": "codex_cognition_plan",
+        "primary_authority_sha256": text_sha256(f"relay-primary-authority:{candidate_id}"),
+        "warnings": [],
+        "recording_status": "complete" if accepted else None,
+        "gate_status": "reject" if reader_rejected else "pass",
+        "checks": _relay_review_checks(reader_rejected=reader_rejected),
+        "acceptance": (
+            {
+                "mode": "automatic",
+                "accepted_turn_id": f"turn-{text_sha256(review_id)[:16]}",
+                "accepted_receipt_sha256": text_sha256(f"relay-receipt:{review_id}"),
+                "canon_status": "accepted",
+            }
+            if accepted
+            else None
+        ),
+        "actions": _relay_review_actions(rejected=reader_rejected and state == "review_ready"),
+        "request_controls": _relay_review_controls_v3(),
+        "creator_guidance": None,
+        "provider_attempts": [
+            {
+                "attempt_number": 1,
+                "candidate_id": candidate_id,
+                "disposition": ("reader_rejected" if reader_rejected else "checks_passed"),
+                "provider_operations": {
+                    "planner": 1,
+                    "writer": 1,
+                    "validator": 1,
+                    "reader": 1,
+                },
+            }
+        ],
+        "provider_operations": {
+            "planner": 1,
+            "writer": 1,
+            "validator": 1,
+            "reader": 1,
+            "recorder": 1 if accepted else 0,
+        },
+        "terminal_decision": None,
+    }
+    if state == "review_ready":
+        return dict(validate_ordinary_review_v2(review))
+    return review
+
+
+def _relay_provisional_completion(review_id: str) -> dict[str, Any]:
+    candidate_id = "candidate-" + text_sha256(f"relay-successor:{review_id}")[:28]
+    lifecycle = validate_ordinary_review_lifecycle_v1(
+        {
+            "schema_version": "cera.pi_scene.review_lifecycle.v1",
+            "review_id": review_id,
+            "review_url": f"/v1/cera/reviews/{review_id}",
+            "review_mode": "automatic",
+            "state": "checks_pending",
+            "gate_status": "pending",
+            "checks": _relay_review_checks(pending=True),
+            "acceptance": None,
+            "actions": _relay_review_actions(),
+            "terminal_decision": None,
+        }
+    )
+    completion = {
+        "id": "chatcmpl-" + text_sha256(f"relay-completion:{review_id}")[:24],
+        "object": "chat.completion",
+        "created": 0,
+        "model": "cera-pi-scene-ordinary",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": (
+                        "The regenerated qualification candidate remains provisional "
+                        "until every required review lane joins."
+                    ),
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+        "cera": {
+            "profile_id": "cera.pi_scene.lean.v1",
+            "route_mode": "ordinary",
+            "status": "review_ready",
+            "provisional": True,
+            "story_state_committed": False,
+            "provisional_review_id": review_id,
+            "review_url": f"/v1/cera/reviews/{review_id}",
+            "candidate_id": candidate_id,
+            "candidate_sha256": text_sha256(f"relay-candidate-body:{candidate_id}"),
+            "request_controls": _relay_review_controls_v3(),
+            "review_lifecycle": lifecycle,
+        },
+    }
+    return validate_ordinary_successor_completion(completion)
+
+
+def _relay_review_decision_v2(
+    review_id: str,
+    *,
+    creator_action: str,
+    state: str,
+    reader_rejected: bool,
+    successor: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    review = _relay_review_v2(
+        review_id,
+        state=state,
+        reader_rejected=reader_rejected,
+    )
+    committed = state == "accepted"
+    decision: dict[str, Any] = {
+        "schema_version": "cera.pi_scene.review_decision.v2",
+        "status": "story_committed" if committed else "review_transitioned",
+        "creator_action": creator_action,
+        "story_state_committed": committed,
+        "retry_mode": "not_applicable",
+        "review": review,
+        "successor": successor,
+        "operational_warnings": [],
+    }
+    if committed:
+        acceptance = review["acceptance"]
+        if not isinstance(acceptance, dict):
+            raise StateConflictError("qualification relay accepted review lost custody")
+        decision.update(
+            {
+                "accepted_receipt_sha256": acceptance["accepted_receipt_sha256"],
+                "accepted_turn_id": acceptance["accepted_turn_id"],
+            }
+        )
+    basis = deepcopy(decision)
+    basis["review"]["terminal_decision"] = None
+    decision_sha256 = canonical_sha256(basis)
+    decision["review"]["terminal_decision"] = {
+        "decision_sha256": decision_sha256,
+        "url": f"/v1/cera/reviews/{review_id}/terminal-decision",
+    }
+    return dict(
+        validate_ordinary_review_decision_v2(
+            decision,
+            successor_validator=(
+                validate_ordinary_successor_completion if successor is not None else None
+            ),
+        )
+    )
+
+
 class _GenericFakeRelayUpstreamV1:
     """Provider-free upstream for exact generic Retry relay qualification."""
 
@@ -922,15 +1334,22 @@ class _GenericFakeRelayUpstreamV1:
             self.repair_terminal_chain_id: self.repair_terminal_chain_id,
         }
         self._envelopes: dict[str, dict[str, Any]] = {}
-        self._completed_chains: set[str] = set()
+        self._completed_chains: dict[str, dict[str, Any]] = {}
         self._action_results: dict[str, tuple[int, dict[str, Any]]] = {}
-        self._completion = {
-            "schema_version": "cera.pi_scene.review_decision.v1",
-            "status": "story_committed",
-            "creator_action": "regenerate",
-            "story_state_committed": True,
-            "accepted_receipt_sha256": "9" * 64,
-        }
+        self.completion_review_id = "review-" + "e" * 28
+        self.repair_review_id = "review-" + "f" * 28
+        self._completion = _relay_review_decision_v2(
+            self.completion_review_id,
+            creator_action="automatic_accept",
+            state="accepted",
+            reader_rejected=False,
+        )
+        self._repair_completion = _relay_review_decision_v2(
+            self.repair_review_id,
+            creator_action="repair_recording",
+            state="accepted",
+            reader_rejected=False,
+        )
         self._envelopes[self.exhaustion_chain_id] = self._envelope(
             chain_id=self.exhaustion_chain_id,
             stage="planner",
@@ -961,7 +1380,7 @@ class _GenericFakeRelayUpstreamV1:
         )
         self._envelopes[self.resume_prepared_chain_id] = self._envelope(
             chain_id=self.resume_prepared_chain_id,
-            stage="writer",
+            stage="reader",
             attempts=1,
             retries=0,
             state="in_progress",
@@ -983,9 +1402,40 @@ class _GenericFakeRelayUpstreamV1:
             retries=2,
             state="recording_repair_required",
         )
+        decline_review = _relay_review_v2(
+            decline_review_id,
+            state="review_ready",
+            reader_rejected=True,
+        )
+        regenerate_review = _relay_review_v2(
+            regenerate_review_id,
+            state="review_ready",
+            reader_rejected=True,
+        )
+        decline_decision = _relay_review_decision_v2(
+            decline_review_id,
+            creator_action="decline",
+            state="declined",
+            reader_rejected=True,
+        )
+        regenerate_decision = _relay_review_decision_v2(
+            regenerate_review_id,
+            creator_action="regenerate",
+            state="regenerated",
+            reader_rejected=True,
+            successor=_relay_provisional_completion("review-" + "9" * 28),
+        )
         expected_reviews = {
-            f"/v1/cera/reviews/{decline_review_id}": decline_review_id,
-            f"/v1/cera/reviews/{regenerate_review_id}": regenerate_review_id,
+            f"/v1/cera/reviews/{decline_review_id}": decline_review,
+            f"/v1/cera/reviews/{regenerate_review_id}": regenerate_review,
+        }
+        terminal_decisions = {
+            f"/v1/cera/reviews/{decline_review_id}/terminal-decision": (decline_decision),
+            f"/v1/cera/reviews/{regenerate_review_id}/terminal-decision": (regenerate_decision),
+            f"/v1/cera/reviews/{self.completion_review_id}/terminal-decision": (self._completion),
+            f"/v1/cera/reviews/{self.repair_review_id}/terminal-decision": (
+                self._repair_completion
+            ),
         }
         owner = self
 
@@ -995,14 +1445,16 @@ class _GenericFakeRelayUpstreamV1:
                     self._json({"status": "ok", "provider_calls": 0})
                     return
                 if self.path in expected_reviews:
-                    review_id = expected_reviews[self.path]
-                    self._json(
-                        {
-                            "review_id": review_id,
-                            "state": "review_ready",
-                            "story_state_committed": False,
-                        }
-                    )
+                    if not self._authorized():
+                        return
+                    owner._state["authenticated_gets"] += 1
+                    self._json(expected_reviews[self.path])
+                    return
+                if self.path in terminal_decisions:
+                    if not self._authorized():
+                        return
+                    owner._state["authenticated_gets"] += 1
+                    self._json(terminal_decisions[self.path])
                     return
                 prefix = "/v1/cera/provider-stage-retries/"
                 if not self.path.startswith(prefix):
@@ -1017,7 +1469,7 @@ class _GenericFakeRelayUpstreamV1:
                 owner._state["authenticated_gets"] += 1
                 current = owner._resolve_latest(chain)
                 if current in owner._completed_chains:
-                    self._json(owner._completion)
+                    self._json(owner._completed_chains[current])
                     return
                 self._json(owner._envelopes[current])
 
@@ -1033,20 +1485,15 @@ class _GenericFakeRelayUpstreamV1:
                     ),
                 }
                 if self.path in decision_paths:
+                    if not self._authorized():
+                        return
                     review_id, action = decision_paths[self.path]
                     payload = self._payload()
                     if payload.get("action") != action:
                         self.send_error(422)
                         return
-                    self._json(
-                        {
-                            "status": "review_transitioned",
-                            "review_id": review_id,
-                            "state": "declined" if action == "decline" else "review_ready",
-                            "story_state_committed": False,
-                            "provider_calls": 0,
-                        }
-                    )
+                    owner._state["authenticated_posts"] += 1
+                    self._json(decline_decision if action == "decline" else regenerate_decision)
                     return
                 prefix = "/v1/cera/provider-stage-retries/"
                 if not self.path.startswith(prefix) or "/actions/" not in self.path:
@@ -1124,7 +1571,7 @@ class _GenericFakeRelayUpstreamV1:
         if chain_id == self.successor_source_chain_id:
             self._envelopes[self.successor_later_chain_id] = self._envelope(
                 chain_id=self.successor_later_chain_id,
-                stage="semantic_validator",
+                stage="reader",
                 attempts=1,
                 retries=0,
                 state="eligible",
@@ -1133,11 +1580,11 @@ class _GenericFakeRelayUpstreamV1:
             return 200, self._envelopes[self.successor_later_chain_id]
         if chain_id == self.successor_later_chain_id:
             del self._envelopes[chain_id]
-            self._completed_chains.add(chain_id)
+            self._completed_chains[chain_id] = dict(self._completion)
             return 200, dict(self._completion)
         if chain_id == self.resume_prepared_chain_id:
             del self._envelopes[chain_id]
-            self._completed_chains.add(chain_id)
+            self._completed_chains[chain_id] = dict(self._completion)
             return 200, dict(self._completion)
         if chain_id == self.repair_source_chain_id:
             self._envelopes[self.repair_successor_chain_id] = self._envelope(
@@ -1151,8 +1598,8 @@ class _GenericFakeRelayUpstreamV1:
             return 200, self._envelopes[self.repair_successor_chain_id]
         if chain_id == self.repair_successor_chain_id:
             del self._envelopes[chain_id]
-            self._completed_chains.add(chain_id)
-            return 200, dict(self._completion)
+            self._completed_chains[chain_id] = dict(self._repair_completion)
+            return 200, dict(self._repair_completion)
         raise StateConflictError("fake relay accepted an action on a terminal chain")
 
     def _resolve_latest(self, chain_id: str) -> str:
@@ -1176,10 +1623,10 @@ class _GenericFakeRelayUpstreamV1:
         control_action: str | None = None,
         operations_observed: int | None = None,
     ) -> dict[str, Any]:
-        provider = "codex" if stage in {"planner", "semantic_validator"} else "deepseek"
+        provider = "codex" if stage in {"planner", "semantic_validator", "reader"} else "deepseek"
         model_family = (
             "sol"
-            if stage == "planner"
+            if stage in {"planner", "reader"}
             else "luna"
             if stage == "semantic_validator"
             else "deepseek_v4"
@@ -1313,6 +1760,12 @@ class _GenericFakeRelayUpstreamV1:
         self._started = False
 
     def retry_proof(self) -> dict[str, Any]:
+        public_projection = {
+            "envelopes": self._envelopes,
+            "completed_chains": self._completed_chains,
+            "completion": self._completion,
+            "repair_completion": self._repair_completion,
+        }
         body = {
             "schema_version": "cera.pi_scene.qualification_fake_provider_stage_relay.v1",
             "chain_id_hashes": [
@@ -1331,7 +1784,7 @@ class _GenericFakeRelayUpstreamV1:
             ],
             **self._state,
             "private_sentinel_absent": self._private_sentinel
-            not in json.dumps(self._envelopes, sort_keys=True),
+            not in json.dumps(public_projection, sort_keys=True),
         }
         if (
             body["exact_action_posts"] != 7
@@ -1416,8 +1869,8 @@ def _provider_free_chat_isolation_proof(
     *,
     parent_session_id: str,
 ) -> dict[str, Any]:
-    controls = LeanSceneRequestControlsV2(
-        schema_version=LeanSceneRequestControlsV2.SCHEMA_VERSION,
+    controls = LeanSceneRequestControlsV3(
+        schema_version=LeanSceneRequestControlsV3.SCHEMA_VERSION,
         session_id=parent_session_id,
         scene_depth="auto",
         regeneration_key=None,
@@ -1425,6 +1878,7 @@ def _provider_free_chat_isolation_proof(
         prompt_handling="adjustment",
         reasoning_effort="xhigh",
         scene_change=False,
+        review_mode="automatic",
         adult_craft_mode="off",
     )
     parent = runtime.world_resolver.resolve(controls)
@@ -1434,8 +1888,8 @@ def _provider_free_chat_isolation_proof(
     )
     if parent_head.generation != 10:
         raise StateConflictError("SillyTavern campaign accepted head is not generation ten")
-    new_controls = LeanSceneRequestControlsV2(
-        schema_version=LeanSceneRequestControlsV2.SCHEMA_VERSION,
+    new_controls = LeanSceneRequestControlsV3(
+        schema_version=LeanSceneRequestControlsV3.SCHEMA_VERSION,
         session_id=parent_session_id + "-new",
         scene_depth="auto",
         regeneration_key=None,
@@ -1443,6 +1897,7 @@ def _provider_free_chat_isolation_proof(
         prompt_handling="adjustment",
         reasoning_effort="xhigh",
         scene_change=False,
+        review_mode="automatic",
         adult_craft_mode="off",
     )
     new_chat = runtime.world_resolver.resolve(new_controls)

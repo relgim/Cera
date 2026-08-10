@@ -4,7 +4,7 @@ The qualification runner owns no story logic and never automatically crosses a
 provider boundary. It submits two ordered retained-session campaigns, verifies
 each committed HTTP projection, and reconciles it with the append-only Codex
 and DeepSeek ledgers. A generated provider-stage status envelope from any of
-the six live stages may expose an exact backend-issued manual ``provider_retry``,
+the seven live stages may expose an exact backend-issued manual ``provider_retry``,
 ``resume_prepared``, or ``repair_recording`` action. The latter two have
 separate control budgets; Recorder repair creates one fresh successor chain and
 can never recurse. The runner POSTs an exact action once, then treats
@@ -31,6 +31,14 @@ from statistics import median
 from typing import Any, Protocol, cast
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.generated.ordinary_review_contracts_v2 import (
+    OrdinaryReviewDecisionV2,
+    OrdinaryReviewLifecycleV1,
+    OrdinaryReviewV2,
+    validate_ordinary_review_decision_v2,
+    validate_ordinary_review_lifecycle_v1,
+    validate_ordinary_review_v2,
+)
 from cera.generated.provider_stage_retry_contracts_v1 import (
     ProviderStageRetryStatusEnvelopeV1,
     validate_provider_stage_retry_action_v1,
@@ -64,9 +72,10 @@ USER_AUTHORIZED_DEEPSEEK_OPERATION_CEILING = 500
 RETAINED_PLANNER_LATENCY_CONCERN_MS = 180_000
 QUALIFICATION_PLANNER_REASONING_EFFORT = "medium"
 QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS = 600
-# Ordinary automatic repair may use Planner, Writer/Luna twice, Recorder, and
-# one explicit Recorder repair successor: seven distinct stage occurrences.
-QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES = 7
+# One complete ordinary generation may use one Planner plus two Writer, Luna,
+# Reader, and Recorder occurrences.  Each occurrence retains its own 3-attempt
+# authority; Recorder's second occurrence is the sole explicit repair successor.
+QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES = 9
 QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS = (
     QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES + 1
 ) * QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS
@@ -81,6 +90,7 @@ MANUAL_PROVIDER_STAGE_RETRY_POLICY: Mapping[str, Any] = {
     "stages": [
         "planner",
         "semantic_validator",
+        "reader",
         "writer",
         "recorder",
         "adult_scene",
@@ -158,9 +168,10 @@ QUALIFICATION_COMPLETE_GENERATION_CEILINGS: Mapping[str, Any] = {
             "planner": 1,
             "writer": 2,
             "semantic_validator": 2,
+            "reader": 2,
             "recorder": 2,
         },
-        "maximum_codex_operations": 9,
+        "maximum_codex_operations": 15,
         "maximum_deepseek_http_operations": 72,
     },
     "adult": {
@@ -189,7 +200,9 @@ QUALIFICATION_EXECUTION_POLICY: Mapping[str, Any] = {
     "model_substitution": False,
     "planner_reasoning_effort": QUALIFICATION_PLANNER_REASONING_EFFORT,
     "semantic_validator_reasoning_effort": "xhigh",
-    "ordinary_semantic_pass_auto_accept_required": True,
+    "reader_reasoning_effort": "medium",
+    "ordinary_review_mode": "automatic",
+    "ordinary_luna_reader_python_pass_auto_accept_required": True,
     "adult_filter_pass_atomic_accept_required": True,
     "exact_adult_prose_in_qualification_evidence": False,
     "dynamic_loopback_only_cera_port": True,
@@ -281,6 +294,36 @@ class RejectionReviewV1:
 
 
 @dataclass(frozen=True, slots=True)
+class OrdinaryProvisionalCompletionV1:
+    """Exact visible Writer candidate bound to one provisional review."""
+
+    response: ClientResponseV1
+    review_id: str
+    review_url: str
+    candidate_sha256: str
+    story_text: str
+    lifecycle: OrdinaryReviewLifecycleV1
+
+
+@dataclass(frozen=True, slots=True)
+class OrdinaryReviewResolutionV1:
+    """Provider-free review reconciliation result for one candidate."""
+
+    result: Mapping[str, Any] | RejectionReviewV1
+    review: OrdinaryReviewV2
+    retry_resolutions: tuple[ProviderStageRetryResolutionV1, ...]
+    http_duration_ms: int
+    terminal_decision_sha256: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class OrdinaryReviewStopV1:
+    """One stable technical stop reached while joining a provisional review."""
+
+    retry_resolutions: tuple[ProviderStageRetryResolutionV1, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class ProviderStageRetryResolutionV1:
     """One authenticated same-request sequence of stage-occurrence chains."""
 
@@ -317,6 +360,18 @@ class QualificationClient(Protocol):
         fixture: QualificationFixtureV1,
         review_id: str,
     ) -> ClientResponseV1: ...
+
+    def review(self, *, review_id: str) -> ClientResponseV1: ...
+
+    def review_action(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        review_id: str,
+        action: Mapping[str, Any],
+    ) -> ClientResponseV1: ...
+
+    def terminal_review_decision(self, *, review_id: str) -> ClientResponseV1: ...
 
     def provider_stage_retry_status(self, *, chain_id: str) -> ClientResponseV1: ...
 
@@ -582,82 +637,227 @@ class QualificationCampaignRun:
                     assert retry_resolution.completion_response is not None
                     retry_resolutions.append(retry_resolution)
                     response = retry_resolution.completion_response
-                first = _classify_completion_response(fixture, response)
-                first_pass = isinstance(first, Mapping) and first["first_pass_accepted"] is True
                 regeneration: ClientResponseV1 | None = None
+                regeneration_http_duration_ms = 0
+                review_http_duration_ms = 0
+                terminal_decision_sha256: str | None = None
+                final_review_sha256: str | None = None
                 projections: list[Mapping[str, Any]] = []
                 projection: Mapping[str, Any]
-                if isinstance(first, RejectionReviewV1):
-                    self.parent.evidence.append(
-                        {
-                            "schema_version": (
-                                "cera.pi_scene.qualification_first_pass_rejection.v1"
-                            ),
-                            "event": "first_pass_rejected",
-                            "fixture_id": fixture.fixture_id,
-                            "phase": self.phase.value,
-                            "turn_index": turn_index,
-                            "review_id_sha256": text_sha256(first.review_id),
-                            "conflict_sha256": first.conflict_sha256,
-                            "provider_operations": first.provider_operations,
-                        }
+                accepted_response: ClientResponseV1
+                if fixture.expected_route is QualificationRoute.ORDINARY:
+                    initial_provisional = _validate_ordinary_provisional_completion(
+                        fixture,
+                        response,
                     )
-                    regeneration = client.regenerate(
-                        fixture=fixture,
-                        review_id=first.review_id,
-                    )
-                    self.parent.evidence.append(
-                        {
-                            "schema_version": "cera.pi_scene.qualification_http_event.v1",
-                            "event": "explicit_user_regenerate_completed",
-                            "fixture_id": fixture.fixture_id,
-                            "phase": self.phase.value,
-                            "turn_index": turn_index,
-                            "transport": regeneration.transport,
-                            "path": regeneration.path,
-                            "status_code": regeneration.status_code,
-                            "duration_ms": regeneration.duration_ms,
-                            "response_sha256": canonical_sha256(regeneration.body),
-                        }
-                    )
-                    regeneration_retry = self._resolve_manual_provider_stage_retry(
+                    first_join = self._resolve_ordinary_review(
                         fixture=fixture,
                         turn_index=turn_index,
                         client=client,
                         runtime_root=segment_root,
                         before=before,
-                        response=regeneration,
+                        provisional=initial_provisional,
                     )
-                    if (
-                        regeneration_retry is not None
-                        and regeneration_retry.completion_response is None
-                    ):
+                    if isinstance(first_join, OrdinaryReviewStopV1):
                         self._record_critical_provider_stage_retry_failure(
                             fixture=fixture,
                             turn_index=turn_index,
                             runtime_root=segment_root,
                             before=before,
-                            initial_response=regeneration,
-                            resolutions=[*retry_resolutions, regeneration_retry],
+                            initial_response=initial_response,
+                            resolutions=[
+                                *retry_resolutions,
+                                *first_join.retry_resolutions,
+                            ],
                         )
                         break
-                    if regeneration_retry is not None:
-                        assert regeneration_retry.completion_response is not None
-                        retry_resolutions.append(regeneration_retry)
-                        regeneration = regeneration_retry.completion_response
-                    successor = _successor_completion(regeneration)
-                    projection = _validate_completion_response(
-                        fixture,
-                        successor,
-                        regenerated=True,
-                    )
-                    projections.extend((first.projection, projection))
-                else:
-                    projection = first
+                    retry_resolutions.extend(first_join.retry_resolutions)
+                    review_http_duration_ms += first_join.http_duration_ms
+                    first = first_join.result
+                    first_pass = isinstance(first, Mapping) and first["first_pass_accepted"] is True
+                    if isinstance(first, RejectionReviewV1):
+                        self.parent.evidence.append(
+                            {
+                                "schema_version": (
+                                    "cera.pi_scene.qualification_first_pass_rejection.v1"
+                                ),
+                                "event": "first_pass_rejected",
+                                "fixture_id": fixture.fixture_id,
+                                "phase": self.phase.value,
+                                "turn_index": turn_index,
+                                "review_id_sha256": text_sha256(first.review_id),
+                                "conflict_sha256": first.conflict_sha256,
+                                "provider_operations": first.provider_operations,
+                            }
+                        )
+                        regeneration = client.regenerate(
+                            fixture=fixture,
+                            review_id=first.review_id,
+                        )
+                        regeneration_http_duration_ms = regeneration.duration_ms
+                        self.parent.evidence.append(
+                            {
+                                "schema_version": "cera.pi_scene.qualification_http_event.v1",
+                                "event": "explicit_user_regenerate_completed",
+                                "fixture_id": fixture.fixture_id,
+                                "phase": self.phase.value,
+                                "turn_index": turn_index,
+                                "transport": regeneration.transport,
+                                "path": regeneration.path,
+                                "status_code": regeneration.status_code,
+                                "duration_ms": regeneration.duration_ms,
+                                "response_sha256": canonical_sha256(regeneration.body),
+                            }
+                        )
+                        decision_response = regeneration
+                        regeneration_retry = self._resolve_manual_provider_stage_retry(
+                            fixture=fixture,
+                            turn_index=turn_index,
+                            client=client,
+                            runtime_root=segment_root,
+                            before=before,
+                            response=regeneration,
+                        )
+                        if (
+                            regeneration_retry is not None
+                            and regeneration_retry.completion_response is None
+                        ):
+                            self._record_critical_provider_stage_retry_failure(
+                                fixture=fixture,
+                                turn_index=turn_index,
+                                runtime_root=segment_root,
+                                before=before,
+                                initial_response=regeneration,
+                                resolutions=[
+                                    *retry_resolutions,
+                                    regeneration_retry,
+                                ],
+                            )
+                            break
+                        if regeneration_retry is not None:
+                            assert regeneration_retry.completion_response is not None
+                            retry_resolutions.append(regeneration_retry)
+                            decision_response = regeneration_retry.completion_response
+                        successor_provisional = _validate_ordinary_regenerate_response(
+                            fixture,
+                            decision_response,
+                            predecessor=first_join.review,
+                        )
+                        successor_join = self._resolve_ordinary_review(
+                            fixture=fixture,
+                            turn_index=turn_index,
+                            client=client,
+                            runtime_root=segment_root,
+                            before=before,
+                            provisional=successor_provisional,
+                        )
+                        if isinstance(successor_join, OrdinaryReviewStopV1):
+                            self._record_critical_provider_stage_retry_failure(
+                                fixture=fixture,
+                                turn_index=turn_index,
+                                runtime_root=segment_root,
+                                before=before,
+                                initial_response=regeneration,
+                                resolutions=[
+                                    *retry_resolutions,
+                                    *successor_join.retry_resolutions,
+                                ],
+                            )
+                            break
+                        retry_resolutions.extend(successor_join.retry_resolutions)
+                        review_http_duration_ms += successor_join.http_duration_ms
+                        if isinstance(successor_join.result, RejectionReviewV1):
+                            raise StateConflictError(
+                                "ordinary qualification exhausted its one Regenerate"
+                            )
+                        projection = successor_join.result
+                        accepted_response = successor_provisional.response
+                        final_review_sha256 = canonical_sha256(successor_join.review)
+                        terminal_decision_sha256 = successor_join.terminal_decision_sha256
+                    else:
+                        projection = first
+                        accepted_response = initial_provisional.response
+                        final_review_sha256 = canonical_sha256(first_join.review)
+                        terminal_decision_sha256 = first_join.terminal_decision_sha256
+                    # review.v2 provider accounting is request-total across an
+                    # explicit Regenerate, so only the terminal projection is
+                    # reconciled with the append-only ledgers.
                     projections.append(projection)
-                accepted_response = (
-                    response if regeneration is None else _successor_completion(regeneration)
-                )
+                else:
+                    first = _classify_completion_response(fixture, response)
+                    first_pass = isinstance(first, Mapping) and first["first_pass_accepted"] is True
+                    if isinstance(first, RejectionReviewV1):
+                        self.parent.evidence.append(
+                            {
+                                "schema_version": (
+                                    "cera.pi_scene.qualification_first_pass_rejection.v1"
+                                ),
+                                "event": "first_pass_rejected",
+                                "fixture_id": fixture.fixture_id,
+                                "phase": self.phase.value,
+                                "turn_index": turn_index,
+                                "review_id_sha256": text_sha256(first.review_id),
+                                "conflict_sha256": first.conflict_sha256,
+                                "provider_operations": first.provider_operations,
+                            }
+                        )
+                        regeneration = client.regenerate(
+                            fixture=fixture,
+                            review_id=first.review_id,
+                        )
+                        regeneration_http_duration_ms = regeneration.duration_ms
+                        self.parent.evidence.append(
+                            {
+                                "schema_version": ("cera.pi_scene.qualification_http_event.v1"),
+                                "event": "explicit_user_regenerate_completed",
+                                "fixture_id": fixture.fixture_id,
+                                "phase": self.phase.value,
+                                "turn_index": turn_index,
+                                "transport": regeneration.transport,
+                                "path": regeneration.path,
+                                "status_code": regeneration.status_code,
+                                "duration_ms": regeneration.duration_ms,
+                                "response_sha256": canonical_sha256(regeneration.body),
+                            }
+                        )
+                        regeneration_retry = self._resolve_manual_provider_stage_retry(
+                            fixture=fixture,
+                            turn_index=turn_index,
+                            client=client,
+                            runtime_root=segment_root,
+                            before=before,
+                            response=regeneration,
+                        )
+                        if (
+                            regeneration_retry is not None
+                            and regeneration_retry.completion_response is None
+                        ):
+                            self._record_critical_provider_stage_retry_failure(
+                                fixture=fixture,
+                                turn_index=turn_index,
+                                runtime_root=segment_root,
+                                before=before,
+                                initial_response=regeneration,
+                                resolutions=[*retry_resolutions, regeneration_retry],
+                            )
+                            break
+                        if regeneration_retry is not None:
+                            assert regeneration_retry.completion_response is not None
+                            retry_resolutions.append(regeneration_retry)
+                            regeneration = regeneration_retry.completion_response
+                        successor = _successor_completion(regeneration)
+                        projection = _validate_completion_response(
+                            fixture,
+                            successor,
+                            regenerated=True,
+                        )
+                        projections.extend((first.projection, projection))
+                    else:
+                        projection = first
+                        projections.append(projection)
+                    accepted_response = (
+                        response if regeneration is None else _successor_completion(regeneration)
+                    )
                 accepted_prose = _visible_prose(accepted_response.body)
                 self.history.extend(
                     (
@@ -696,7 +896,8 @@ class QualificationCampaignRun:
                 total_http_latency_ms = (
                     initial_response.duration_ms
                     + sum(value.duration_ms for value in retry_resolutions)
-                    + (0 if regeneration is None else regeneration.duration_ms)
+                    + regeneration_http_duration_ms
+                    + review_http_duration_ms
                 )
                 provider_transport_duration_ms = sum(
                     cast(int, operation["duration_ms"])
@@ -747,6 +948,8 @@ class QualificationCampaignRun:
                     "initial_http_response_sha256": canonical_sha256(initial_response.body),
                     "first_pass_response_sha256": canonical_sha256(response.body),
                     "response_sha256": canonical_sha256(accepted_response.body),
+                    "final_review_sha256": final_review_sha256,
+                    "terminal_review_decision_sha256": terminal_decision_sha256,
                     "visible_prose_sha256": projection["visible_prose_sha256"],
                     "accepted_turn_id": projection["accepted_turn_id"],
                     "accepted_receipt_sha256": projection["accepted_receipt_sha256"],
@@ -1101,6 +1304,172 @@ class QualificationCampaignRun:
             current = poll_envelope
             if state in {"in_progress", "succeeded", "blocked_ambiguous"}:
                 time.sleep(PROVIDER_STAGE_RETRY_STATUS_POLL_SECONDS)
+
+    def _resolve_ordinary_review(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        turn_index: int,
+        client: QualificationClient,
+        runtime_root: Path,
+        before: ProviderLedgerSnapshotV1,
+        provisional: OrdinaryProvisionalCompletionV1,
+    ) -> OrdinaryReviewResolutionV1 | OrdinaryReviewStopV1:
+        """Join one provisional candidate using read-only review reconciliation.
+
+        The initial POST starts the backend-owned validation join.  From this
+        point qualification only polls, executes an exact backend-issued stage
+        action, or performs the separately authorized Recorder repair action.
+        It never treats a browser projection as acceptance authority.
+        """
+
+        review_reader = getattr(client, "review", None)
+        review_action = getattr(client, "review_action", None)
+        terminal_reader = getattr(client, "terminal_review_decision", None)
+        if not callable(review_reader):
+            raise StateConflictError("qualification client lacks ordinary review GET")
+        if not callable(review_action):
+            raise StateConflictError("qualification client lacks ordinary review action")
+        if not callable(terminal_reader):
+            raise StateConflictError("qualification client lacks terminal review-decision GET")
+
+        retry_resolutions: list[ProviderStageRetryResolutionV1] = []
+        total_duration_ms = 0
+        started = time.monotonic()
+        recorder_repair_posted = False
+        current_response: ClientResponseV1 | None = None
+        while True:
+            if current_response is None:
+                current_response = review_reader(review_id=provisional.review_id)
+                total_duration_ms += current_response.duration_ms
+            review = _validate_ordinary_review_response(
+                fixture,
+                current_response,
+                provisional=provisional,
+            )
+
+            lane_envelopes = _ordinary_review_lane_retry_envelopes(review)
+            if lane_envelopes:
+                # Luna and Reader are independent.  Re-read the joined review
+                # after each exact lane action so concurrent authority cannot
+                # be overwritten or inferred from the peer lane.
+                lane_envelope = lane_envelopes[0]
+                lane_response = ClientResponseV1(
+                    transport="ordinary_review_provider_stage_status",
+                    path=(
+                        "/v1/cera/provider-stage-retries/"
+                        + cast(
+                            str,
+                            cast(Mapping[str, Any], lane_envelope["status"])["chain_id"],
+                        )
+                    ),
+                    status_code=409,
+                    duration_ms=0,
+                    body=lane_envelope,
+                )
+                retry = self._resolve_manual_provider_stage_retry(
+                    fixture=fixture,
+                    turn_index=turn_index,
+                    client=client,
+                    runtime_root=runtime_root,
+                    before=before,
+                    response=lane_response,
+                )
+                if retry is None:
+                    raise StateConflictError(
+                        "ordinary review lost its generated provider-stage status"
+                    )
+                retry_resolutions.append(retry)
+                if retry.completion_response is None:
+                    return OrdinaryReviewStopV1(tuple(retry_resolutions))
+                current_response = retry.completion_response
+                continue
+
+            state = review["state"]
+            gate_status = review["gate_status"]
+            if state == "review_ready" and gate_status == "reject":
+                rejection = _ordinary_rejection_review(fixture, review)
+                return OrdinaryReviewResolutionV1(
+                    result=rejection,
+                    review=review,
+                    retry_resolutions=tuple(retry_resolutions),
+                    http_duration_ms=total_duration_ms,
+                    terminal_decision_sha256=None,
+                )
+            if state == "accepted":
+                recording_status = review["recording_status"]
+                actions = cast(Mapping[str, Any], review["actions"])
+                if recording_status == "complete":
+                    terminal_response = terminal_reader(review_id=provisional.review_id)
+                    total_duration_ms += terminal_response.duration_ms
+                    decision = _validate_ordinary_terminal_decision_response(
+                        fixture,
+                        terminal_response,
+                        review=review,
+                    )
+                    projection = _validate_ordinary_accepted_review(
+                        fixture,
+                        review,
+                    )
+                    return OrdinaryReviewResolutionV1(
+                        result=projection,
+                        review=review,
+                        retry_resolutions=tuple(retry_resolutions),
+                        http_duration_ms=total_duration_ms,
+                        terminal_decision_sha256=canonical_sha256(decision),
+                    )
+                if actions.get("repair_recording_enabled") is True:
+                    if recorder_repair_posted:
+                        raise StateConflictError("qualification Recorder repair authority recurred")
+                    recorder_repair_posted = True
+                    repair_response = review_action(
+                        fixture=fixture,
+                        review_id=provisional.review_id,
+                        action={"action": "repair_recording"},
+                    )
+                    total_duration_ms += repair_response.duration_ms
+                    retry = self._resolve_manual_provider_stage_retry(
+                        fixture=fixture,
+                        turn_index=turn_index,
+                        client=client,
+                        runtime_root=runtime_root,
+                        before=before,
+                        response=repair_response,
+                    )
+                    if retry is not None:
+                        retry_resolutions.append(retry)
+                        if retry.completion_response is None:
+                            return OrdinaryReviewStopV1(tuple(retry_resolutions))
+                        repair_response = retry.completion_response
+                    _validate_optional_ordinary_repair_response(
+                        fixture,
+                        repair_response,
+                        review_id=provisional.review_id,
+                    )
+                    current_response = None
+                    continue
+                if recording_status not in {"projection_pending", "pending_repair"}:
+                    raise StateConflictError(
+                        "qualification accepted review changed recording state"
+                    )
+            elif state == "checks_pending":
+                if gate_status == "blocked":
+                    raise StateConflictError(
+                        "ordinary review has a non-retryable validation failure"
+                    )
+                if gate_status not in {"pending", "reject"}:
+                    raise StateConflictError("ordinary pending review changed its gate state")
+            elif state == "review_ready" and gate_status == "pass":
+                # Automatic qualification never supplies creator acceptance.
+                # A pass must be autoaccepted by backend authority.
+                pass
+            else:
+                raise StateConflictError("ordinary review reached an unauthorized terminal state")
+
+            if time.monotonic() - started >= PROVIDER_STAGE_RETRY_STATUS_TIMEOUT_SECONDS:
+                raise StateConflictError("ordinary review GET reconciliation timed out")
+            time.sleep(PROVIDER_STAGE_RETRY_STATUS_POLL_SECONDS)
+            current_response = None
 
     def _record_critical_provider_stage_retry_failure(
         self,
@@ -1500,6 +1869,7 @@ def qualification_request_payload(
         "cera_prompt_handling": "adjustment",
         "cera_reasoning_effort": QUALIFICATION_PLANNER_REASONING_EFFORT,
         "cera_scene_depth": "auto",
+        "cera_review_mode": "automatic",
     }
 
 
@@ -1763,6 +2133,433 @@ def _adult_repair_count(cera: Mapping[str, Any]) -> int:
             if type(value) is not int or value < 0:
                 raise StateConflictError("adult qualification repair operation count is invalid")
     return len(attempts)
+
+
+def _validate_ordinary_provisional_completion(
+    fixture: QualificationFixtureV1,
+    response: ClientResponseV1,
+) -> OrdinaryProvisionalCompletionV1:
+    if fixture.expected_route is not QualificationRoute.ORDINARY:
+        raise StateConflictError("adult qualification used an ordinary review lifecycle")
+    if response.status_code != 200:
+        raise StateConflictError(f"qualification API returned HTTP {response.status_code}")
+    body = response.body
+    if body.get("error") is not None or body.get("status") == "error":
+        raise StateConflictError("qualification API returned a typed error")
+    prose = _visible_prose(body)
+    if len(prose.strip()) < 40:
+        raise StateConflictError("qualification completion prose is unusable")
+    lowered = prose.casefold()
+    if any(
+        marker in lowered
+        for marker in (
+            "i can't help with that",
+            "i cannot help with that",
+            "unable to comply",
+        )
+    ):
+        raise StateConflictError("qualification completion is a refusal")
+    choices = body.get("choices")
+    choice = choices[0] if isinstance(choices, list) and len(choices) == 1 else None
+    if not isinstance(choice, Mapping) or choice.get("finish_reason") != "stop":
+        raise StateConflictError("qualification provisional completion did not stop normally")
+    cera = body.get("cera")
+    if not isinstance(cera, Mapping):
+        raise StateConflictError("qualification completion omitted CERA metadata")
+    if (
+        cera.get("profile_id") != PI_SCENE_PROFILE
+        or cera.get("route_mode") != QualificationRoute.ORDINARY.value
+        or cera.get("status") != "review_ready"
+        or cera.get("provisional") is not True
+        or cera.get("story_state_committed") is not False
+        or cera.get("canon_status") is not None
+        or cera.get("operational_warnings") not in (None, [])
+    ):
+        raise StateConflictError("ordinary qualification initial completion is not provisional")
+    _validate_accepted_route_projection(fixture, cera)
+    try:
+        lifecycle = validate_ordinary_review_lifecycle_v1(cera.get("review_lifecycle"))
+    except ContractValidationError as exc:
+        raise StateConflictError(
+            "ordinary qualification lifecycle failed generated validation"
+        ) from exc
+    review_id = lifecycle["review_id"]
+    review_url = lifecycle["review_url"]
+    candidate_sha256 = cera.get("candidate_sha256")
+    if (
+        lifecycle["review_mode"] != "automatic"
+        or review_url != f"/v1/cera/reviews/{review_id}"
+        or cera.get("review_url") != review_url
+        or cera.get("provisional_review_id") != review_id
+        or not isinstance(candidate_sha256, str)
+        or not re_is_sha256(candidate_sha256)
+    ):
+        raise StateConflictError("ordinary provisional review binding changed")
+    controls = cera.get("request_controls")
+    if not isinstance(controls, Mapping) or (
+        controls.get("schema_version") != "cera.pi_scene.request_controls.v3"
+        or controls.get("review_mode") != "automatic"
+        or controls.get("reasoning_effort") != QUALIFICATION_PLANNER_REASONING_EFFORT
+        or controls.get("adult_craft_mode") != "off"
+    ):
+        raise StateConflictError("ordinary provisional request controls changed")
+    return OrdinaryProvisionalCompletionV1(
+        response=response,
+        review_id=review_id,
+        review_url=review_url,
+        candidate_sha256=candidate_sha256,
+        story_text=prose,
+        lifecycle=lifecycle,
+    )
+
+
+def _validate_ordinary_review_response(
+    fixture: QualificationFixtureV1,
+    response: ClientResponseV1,
+    *,
+    provisional: OrdinaryProvisionalCompletionV1,
+) -> OrdinaryReviewV2:
+    if response.status_code != 200:
+        raise StateConflictError(f"ordinary review GET returned HTTP {response.status_code}")
+    try:
+        review = validate_ordinary_review_v2(response.body)
+    except ContractValidationError as exc:
+        raise StateConflictError("ordinary review failed generated validation") from exc
+    if (
+        fixture.expected_route is not QualificationRoute.ORDINARY
+        or review["review_id"] != provisional.review_id
+        or review["review_mode"] != "automatic"
+        or review["route"] != "ordinary"
+        or review["story_text"] != provisional.story_text
+        or review["candidate_sha256"] != provisional.candidate_sha256
+    ):
+        raise StateConflictError("ordinary review changed its provisional candidate")
+    controls = cast(Mapping[str, Any], review["request_controls"])
+    if (
+        controls.get("schema_version") != "cera.pi_scene.request_controls.v3"
+        or controls.get("review_mode") != "automatic"
+        or controls.get("reasoning_effort") != QUALIFICATION_PLANNER_REASONING_EFFORT
+        or controls.get("adult_craft_mode") != "off"
+    ):
+        raise StateConflictError("ordinary review changed qualification controls")
+    return review
+
+
+def _ordinary_review_lane_retry_envelopes(
+    review: OrdinaryReviewV2,
+) -> tuple[ProviderStageRetryStatusEnvelopeV1, ...]:
+    checks = cast(Mapping[str, Any], review["checks"])
+    envelopes: list[ProviderStageRetryStatusEnvelopeV1] = []
+    for lane_name, expected_stage, expected_model in (
+        ("luna", "semantic_validator", "luna"),
+        ("reader", "reader", "sol"),
+    ):
+        lane = checks.get(lane_name)
+        if not isinstance(lane, Mapping):
+            raise StateConflictError("ordinary review check lane changed shape")
+        raw = lane.get("provider_stage_retry_status")
+        if raw is None:
+            continue
+        try:
+            envelope = validate_provider_stage_retry_status_envelope_v1(raw)
+        except ContractValidationError as exc:
+            raise StateConflictError(
+                "ordinary review lane Retry status failed generated validation"
+            ) from exc
+        status = cast(Mapping[str, Any], envelope["status"])
+        if (
+            status["stage"] != expected_stage
+            or status["provider"] != "codex"
+            or status["model_family"] != expected_model
+            or status["story_state_committed"] is not False
+        ):
+            raise StateConflictError("ordinary review lane Retry identity changed")
+        envelopes.append(envelope)
+    return tuple(envelopes)
+
+
+def _ordinary_attempt_trace_v2(
+    review: OrdinaryReviewV2,
+    *,
+    accepted: bool,
+) -> None:
+    attempts = review["provider_attempts"]
+    operations = cast(Mapping[str, Any], review["provider_operations"])
+    if not isinstance(attempts, list) or not 1 <= len(attempts) <= 2:
+        raise StateConflictError("ordinary review attempt count changed")
+    totals = {key: 0 for key in ("planner", "writer", "validator", "reader")}
+    candidate_ids: list[str] = []
+    for ordinal, raw_attempt in enumerate(attempts, start=1):
+        if not isinstance(raw_attempt, Mapping):
+            raise StateConflictError("ordinary review attempt changed shape")
+        attempt_operations = raw_attempt.get("provider_operations")
+        candidate_id = raw_attempt.get("candidate_id")
+        disposition = raw_attempt.get("disposition")
+        if (
+            raw_attempt.get("attempt_number") != ordinal
+            or not isinstance(candidate_id, str)
+            or not isinstance(attempt_operations, Mapping)
+            or set(attempt_operations) != set(totals)
+            or any(
+                type(attempt_operations[key]) is not int or cast(int, attempt_operations[key]) < 0
+                for key in totals
+            )
+        ):
+            raise StateConflictError("ordinary review attempt binding changed")
+        expected_planner = 1 if ordinal == 1 else 0
+        if (
+            attempt_operations["planner"] != expected_planner
+            or cast(int, attempt_operations["writer"]) < 1
+            or cast(int, attempt_operations["validator"]) < 1
+            or cast(int, attempt_operations["reader"]) < 1
+        ):
+            raise StateConflictError("ordinary review attempt accounting changed")
+        terminal_attempt = ordinal == len(attempts)
+        if accepted and terminal_attempt:
+            if disposition != "checks_passed":
+                raise StateConflictError("accepted ordinary attempt did not pass all checks")
+        elif disposition not in {
+            "luna_rejected",
+            "reader_rejected",
+            "luna_reader_rejected",
+        }:
+            raise StateConflictError("ordinary rejected attempt disposition changed")
+        candidate_ids.append(candidate_id)
+        for key in totals:
+            totals[key] += cast(int, attempt_operations[key])
+    if len(candidate_ids) != len(set(candidate_ids)):
+        raise StateConflictError("ordinary review reused a candidate identity")
+    if any(operations.get(key) != total for key, total in totals.items()):
+        raise StateConflictError("ordinary review request-total accounting changed")
+    recorder = operations.get("recorder")
+    if type(recorder) is not int or (accepted and recorder < 1) or (not accepted and recorder != 0):
+        raise StateConflictError("ordinary review Recorder accounting changed")
+    if totals["planner"] + totals["validator"] + totals["reader"] > cast(
+        int,
+        cast(Mapping[str, Any], QUALIFICATION_COMPLETE_GENERATION_CEILINGS["ordinary"])[
+            "maximum_codex_operations"
+        ],
+    ):
+        raise StateConflictError("ordinary review exceeded its Codex generation ceiling")
+    if totals["writer"] + recorder > cast(
+        int,
+        cast(Mapping[str, Any], QUALIFICATION_COMPLETE_GENERATION_CEILINGS["ordinary"])[
+            "maximum_deepseek_http_operations"
+        ],
+    ):
+        raise StateConflictError("ordinary review exceeded its DeepSeek generation ceiling")
+
+
+def _ordinary_rejection_review(
+    fixture: QualificationFixtureV1,
+    review: OrdinaryReviewV2,
+) -> RejectionReviewV1:
+    if review["state"] != "review_ready" or review["gate_status"] != "reject":
+        raise StateConflictError("ordinary review is not an eligible joined rejection")
+    actions = cast(Mapping[str, Any], review["actions"])
+    if dict(actions) != {
+        "accept_enabled": False,
+        "regenerate_enabled": True,
+        "decline_enabled": True,
+        "replan_enabled": False,
+        "auditable_override_enabled": True,
+        "auditable_override_action": "accept_provisional",
+        "repair_recording_enabled": False,
+    }:
+        raise StateConflictError("ordinary rejected review action authority changed")
+    checks = cast(Mapping[str, Any], review["checks"])
+    python_lane = cast(Mapping[str, Any], checks["python"])
+    if python_lane["status"] != "pass":
+        raise StateConflictError("ordinary rejected review did not pass Python custody")
+    _ordinary_attempt_trace_v2(review, accepted=False)
+    failures = {
+        lane: cast(Mapping[str, Any], checks[lane])["failures"] for lane in ("luna", "reader")
+    }
+    operations = cast(Mapping[str, int], review["provider_operations"])
+    projection = {
+        "provider_operations": dict(operations),
+        "accepted_turn_id": None,
+        "accepted_receipt_sha256": None,
+        "visible_prose_sha256": text_sha256(review["story_text"]),
+        "observed_route": fixture.expected_route.value,
+        "observed_next_route": fixture.expected_next_route.value,
+        "first_pass_accepted": False,
+        "automatic_repair_actions": 0,
+    }
+    return RejectionReviewV1(
+        review_id=review["review_id"],
+        conflict_sha256=canonical_sha256(failures),
+        provider_operations=operations,
+        projection=projection,
+    )
+
+
+def _validate_ordinary_accepted_review(
+    fixture: QualificationFixtureV1,
+    review: OrdinaryReviewV2,
+) -> dict[str, Any]:
+    if (
+        review["state"] != "accepted"
+        or review["review_mode"] != "automatic"
+        or review["gate_status"] != "pass"
+        or review["recording_status"] != "complete"
+    ):
+        raise StateConflictError("ordinary qualification review was not fully accepted")
+    checks = cast(Mapping[str, Any], review["checks"])
+    if any(
+        cast(Mapping[str, Any], checks[lane])["status"] != "pass"
+        for lane in ("luna", "reader", "python")
+    ):
+        raise StateConflictError("ordinary acceptance bypassed a required check")
+    reader_lane = cast(Mapping[str, Any], checks["reader"])
+    if reader_lane["provider_stage_retry_status"] is not None:
+        raise StateConflictError("ordinary acceptance retained Reader Retry authority")
+    acceptance = review["acceptance"]
+    if not isinstance(acceptance, Mapping) or (
+        acceptance.get("mode") != "automatic"
+        or acceptance.get("canon_status") != "accepted"
+        or not isinstance(acceptance.get("accepted_turn_id"), str)
+        or not re_is_sha256(str(acceptance.get("accepted_receipt_sha256")))
+    ):
+        raise StateConflictError("ordinary automatic acceptance authority changed")
+    actions = cast(Mapping[str, Any], review["actions"])
+    if (
+        any(
+            actions.get(key) is not False
+            for key in (
+                "accept_enabled",
+                "regenerate_enabled",
+                "decline_enabled",
+                "replan_enabled",
+                "auditable_override_enabled",
+                "repair_recording_enabled",
+            )
+        )
+        or actions.get("auditable_override_action") is not None
+    ):
+        raise StateConflictError("ordinary accepted review exposed a creator action")
+    _ordinary_attempt_trace_v2(review, accepted=True)
+    return {
+        "visible_prose_sha256": text_sha256(review["story_text"]),
+        "accepted_turn_id": acceptance["accepted_turn_id"],
+        "accepted_receipt_sha256": acceptance["accepted_receipt_sha256"],
+        "observed_route": fixture.expected_route.value,
+        "observed_next_route": fixture.expected_next_route.value,
+        "first_pass_accepted": len(review["provider_attempts"]) == 1,
+        "automatic_repair_actions": 0,
+        "provider_operations": dict(cast(Mapping[str, int], review["provider_operations"])),
+    }
+
+
+def _validate_ordinary_terminal_decision_response(
+    fixture: QualificationFixtureV1,
+    response: ClientResponseV1,
+    *,
+    review: OrdinaryReviewV2,
+) -> OrdinaryReviewDecisionV2:
+    if response.status_code != 200:
+        raise StateConflictError(
+            f"ordinary terminal decision GET returned HTTP {response.status_code}"
+        )
+    try:
+        decision = validate_ordinary_review_decision_v2(response.body)
+    except ContractValidationError as exc:
+        raise StateConflictError("ordinary terminal decision failed generated validation") from exc
+    decision_review = decision.get("review")
+    if decision_review != review or decision.get("successor") is not None:
+        raise StateConflictError("ordinary terminal decision changed its final review")
+    creator_action = decision.get("creator_action")
+    if creator_action not in {"automatic_accept", "repair_recording"}:
+        raise StateConflictError("ordinary automatic terminal action changed")
+    acceptance = cast(Mapping[str, Any], review["acceptance"])
+    if (
+        decision.get("story_state_committed") is not True
+        or decision.get("status") != "story_committed"
+        or decision.get("accepted_turn_id") != acceptance["accepted_turn_id"]
+        or decision.get("accepted_receipt_sha256") != acceptance["accepted_receipt_sha256"]
+    ):
+        raise StateConflictError("ordinary terminal decision changed acceptance identity")
+    return decision
+
+
+def _validate_optional_ordinary_repair_response(
+    fixture: QualificationFixtureV1,
+    response: ClientResponseV1,
+    *,
+    review_id: str,
+) -> None:
+    if response.status_code != 200:
+        raise StateConflictError(f"ordinary Recorder repair returned HTTP {response.status_code}")
+    if response.body.get("schema_version") == "cera.pi_scene.review.v2":
+        review = validate_ordinary_review_v2(response.body)
+        if review["review_id"] != review_id:
+            raise StateConflictError("ordinary Recorder repair changed review identity")
+        return
+    try:
+        decision = validate_ordinary_review_decision_v2(response.body)
+    except ContractValidationError as exc:
+        raise StateConflictError("ordinary Recorder repair returned an invalid decision") from exc
+    projected_review = decision.get("review")
+    if (
+        decision.get("creator_action") != "repair_recording"
+        or not isinstance(projected_review, Mapping)
+        or projected_review.get("review_id") != review_id
+        or decision.get("successor") is not None
+    ):
+        raise StateConflictError("ordinary Recorder repair changed decision identity")
+
+
+def _validate_ordinary_regenerate_response(
+    fixture: QualificationFixtureV1,
+    response: ClientResponseV1,
+    *,
+    predecessor: OrdinaryReviewV2,
+) -> OrdinaryProvisionalCompletionV1:
+    if response.status_code != 200:
+        raise StateConflictError(f"ordinary Regenerate returned HTTP {response.status_code}")
+    captured: list[OrdinaryProvisionalCompletionV1] = []
+
+    def validate_successor(value: object) -> object:
+        if not isinstance(value, Mapping):
+            raise ContractValidationError("ordinary Regenerate successor is not an object")
+        provisional = _validate_ordinary_provisional_completion(
+            fixture,
+            ClientResponseV1(
+                transport=response.transport,
+                path=response.path,
+                status_code=200,
+                duration_ms=0,
+                body=cast(Mapping[str, Any], value),
+            ),
+        )
+        captured.append(provisional)
+        return dict(value)
+
+    try:
+        decision = validate_ordinary_review_decision_v2(
+            response.body,
+            successor_validator=validate_successor,
+        )
+    except ContractValidationError as exc:
+        raise StateConflictError(
+            "ordinary Regenerate failed generated decision validation"
+        ) from exc
+    projected_predecessor = decision.get("review")
+    if (
+        decision.get("creator_action") != "regenerate"
+        or decision.get("status") != "review_transitioned"
+        or decision.get("story_state_committed") is not False
+        or not isinstance(projected_predecessor, Mapping)
+        or projected_predecessor.get("review_id") != predecessor["review_id"]
+        or projected_predecessor.get("candidate_sha256") != predecessor["candidate_sha256"]
+        or projected_predecessor.get("state") != "regenerated"
+        or len(captured) != 1
+    ):
+        raise StateConflictError("ordinary Regenerate changed decision identity")
+    successor = captured[0]
+    if successor.review_id == predecessor["review_id"]:
+        raise StateConflictError("ordinary Regenerate reused its predecessor review")
+    return successor
 
 
 def _ordinary_attempt_trace(
@@ -2216,7 +3013,7 @@ def _remember_provider_stage_envelope(
     technical = cast(Mapping[str, Any], status["technical_details"])
     stage = cast(str, status["stage"])
     allowed_stages = (
-        {"planner", "semantic_validator", "writer", "recorder"}
+        {"planner", "semantic_validator", "reader", "writer", "recorder"}
         if expected_route is QualificationRoute.ORDINARY
         else {"planner", "adult_scene", "adult_filter"}
     )
@@ -2293,6 +3090,7 @@ def _safe_provider_operation_delta(delta: ProviderLedgerDeltaV1) -> dict[str, An
             for stage in (
                 "planner",
                 "semantic_validator",
+                "reader",
                 "writer",
                 "recorder",
                 "adult_scene",
@@ -2400,6 +3198,17 @@ def _validate_terminal_provider_stage_accounting(
         value.get("provider_family") not in {"sol", "luna"} for value in stage_records
     ):
         raise StateConflictError("qualification Codex stage changed ledger family")
+    expected_codex_family = {
+        "planner": "sol",
+        "semantic_validator": "luna",
+        "reader": "sol",
+    }.get(cast(str, stage))
+    if expected_codex_family is not None and (
+        status["provider"] != "codex"
+        or status["model_family"] != expected_codex_family
+        or any(value.get("provider_family") != expected_codex_family for value in stage_records)
+    ):
+        raise StateConflictError("qualification Codex stage/model ownership changed")
 
 
 def _sol_charged_operation_count(events: Sequence[Mapping[str, Any]]) -> int:
@@ -2433,7 +3242,9 @@ def _validate_provider_delta(
         cast(Mapping[str, int], projection["provider_operations"]) for projection in projections
     ]
     if fixture.expected_route is QualificationRoute.ORDINARY:
-        expected_sol = sum(value["planner"] + value["validator"] for value in operation_sets)
+        expected_sol = sum(
+            value["planner"] + value["validator"] + value["reader"] for value in operation_sets
+        )
         expected_deepseek = sum(value["writer"] + value["recorder"] for value in operation_sets)
     else:
         expected_sol = sum(value["planner"] for value in operation_sets)
@@ -2457,6 +3268,20 @@ def _validate_provider_delta(
             retried_stages.add(cast(str, status["stage"]))
             observed = cast(int, status["provider_operations_observed_total"])
             conservative = cast(int, status["provider_operations_conservative_total"])
+            if provider == "deepseek":
+                # A Pi attempt may contain 1..6 provider operations.  Never
+                # guess that the accepted attempt contributed exactly one;
+                # exact nonaccepted invocation operations are reconciled from
+                # the append-only invocation ledger below.
+                continue
+            if fixture.expected_route is QualificationRoute.ORDINARY and status["stage"] in {
+                "semantic_validator",
+                "reader",
+            }:
+                # review.v2 receives exact generic-chain ledger totals for both
+                # independent validation lanes.  Those failed+accepted calls
+                # are already included in its request-total projection.
+                continue
             # A succeeded status includes the accepted operation. Eligible and
             # in-progress observations precede the successful Retry dispatch,
             # so all operations they report are additional to the completion.
@@ -2472,7 +3297,11 @@ def _validate_provider_delta(
         raise StateConflictError("qualification Sol ledger differs from HTTP projection")
     if delta.sol_charged_operations != expected_charged_sol:
         raise StateConflictError("qualification charged Sol ledger differs from HTTP projection")
-    if delta.deepseek_started_operations != (expected_deepseek + retry_extra_observed["deepseek"]):
+    deepseek_nonaccepted_operations = _deepseek_nonaccepted_retry_operations(
+        delta,
+        retried_stages=retried_stages,
+    )
+    if delta.deepseek_started_operations != (expected_deepseek + deepseek_nonaccepted_operations):
         raise StateConflictError("qualification DeepSeek ledger differs from HTTP projection")
     for value in delta.sol_events:
         state = value.get("state")
@@ -2481,7 +3310,15 @@ def _validate_provider_delta(
             "pretransport_failed",
             "provider_failed",
         }:
-            owner_stage = "semantic_validator" if value.get("owner") == "validator" else "planner"
+            sol_stage_by_owner = {
+                "planner": "planner",
+                "validator": "semantic_validator",
+                "reader": "reader",
+            }
+            owner = value.get("owner")
+            if owner not in sol_stage_by_owner:
+                raise StateConflictError("qualification Sol failure owner changed")
+            owner_stage = sol_stage_by_owner[cast(str, owner)]
             if state not in {"pretransport_failed", "provider_failed"} or owner_stage not in (
                 retried_stages
             ):
@@ -2492,9 +3329,6 @@ def _validate_provider_delta(
         if value.get("event") == "invocation_prepared"
         and isinstance(value.get("invocation_id"), str)
     }
-    incomplete_deepseek = delta.deepseek_started_operations - delta.deepseek_completed_operations
-    if incomplete_deepseek < 0 or incomplete_deepseek > retry_extra_observed["deepseek"]:
-        raise StateConflictError("qualification DeepSeek operation accounting changed")
     if any(
         value.get("event") == "forbidden_automatic_operation_observed"
         or (
@@ -2519,11 +3353,59 @@ def _validate_provider_delta(
     }
 
 
+def _deepseek_nonaccepted_retry_operations(
+    delta: ProviderLedgerDeltaV1,
+    *,
+    retried_stages: set[str],
+) -> int:
+    """Count exact started operations from nonaccepted Pi invocations.
+
+    Writer/Recorder/Adult invocations may perform multiple provider HTTP
+    operations.  The terminal invocation event, not a guessed subtraction,
+    identifies whether those operations are already represented by the safe
+    accepted-result projection.
+    """
+
+    prepared: dict[str, str] = {}
+    started: dict[str, int] = {}
+    terminal: dict[str, str] = {}
+    for event in delta.deepseek_events:
+        invocation_id = event.get("invocation_id")
+        if not isinstance(invocation_id, str):
+            continue
+        event_name = event.get("event")
+        if event_name == "invocation_prepared":
+            prepared_stage = _deepseek_stage(event.get("purpose"))
+            prepared[invocation_id] = prepared_stage
+        elif event_name == "provider_operation_started":
+            started[invocation_id] = started.get(invocation_id, 0) + 1
+        elif event_name in {"invocation_completed", "invocation_failed"}:
+            if invocation_id in terminal:
+                raise StateConflictError("qualification DeepSeek invocation terminalized twice")
+            terminal[invocation_id] = cast(str, event_name)
+    extra = 0
+    for invocation_id, operation_count in started.items():
+        bound_stage = prepared.get(invocation_id)
+        if bound_stage is None:
+            raise StateConflictError(
+                "qualification DeepSeek operation lost its prepared invocation"
+            )
+        terminal_event = terminal.get(invocation_id)
+        if terminal_event == "invocation_completed":
+            continue
+        if bound_stage not in retried_stages:
+            raise StateConflictError(
+                "qualification DeepSeek ledger contains an unauthorized incomplete attempt"
+            )
+        extra += operation_count
+    return extra
+
+
 def _provider_stage_latency_summary(
     records: Sequence[Mapping[str, Any]],
     planner_observations: Sequence[Mapping[str, Any]],
 ) -> dict[str, Any]:
-    """Summarize measured provider transport time by the six live stages."""
+    """Summarize measured provider transport time by the seven live stages."""
 
     planner_classes: dict[str, str] = {}
     for value in planner_observations:
@@ -2534,6 +3416,7 @@ def _provider_stage_latency_summary(
     stage_names = (
         "planner",
         "semantic_validator",
+        "reader",
         "writer",
         "recorder",
         "adult_scene",
@@ -2913,12 +3796,21 @@ def _provider_operation_records(delta: ProviderLedgerDeltaV1) -> list[dict[str, 
         identity = events[0]
         owner = identity.get("owner")
         model = identity.get("model")
-        stage = "semantic_validator" if owner == "validator" else "planner"
-        provider_family = (
-            "luna"
-            if stage == "semantic_validator" or (isinstance(model, str) and "luna" in model.lower())
-            else "sol"
-        )
+        stage_by_owner = {
+            "planner": "planner",
+            "validator": "semantic_validator",
+            "reader": "reader",
+        }
+        if owner not in stage_by_owner:
+            raise StateConflictError("qualification Sol ledger owner changed")
+        stage = stage_by_owner[cast(str, owner)]
+        if (
+            not isinstance(model, str)
+            or (stage == "semantic_validator" and "luna" not in model.casefold())
+            or (stage in {"planner", "reader"} and "sol" not in model.casefold())
+        ):
+            raise StateConflictError("qualification Sol ledger model family changed")
+        provider_family = "luna" if stage == "semantic_validator" else "sol"
         invoked = next(
             (value for value in events if value.get("state") == "transport_invoked"),
             None,

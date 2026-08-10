@@ -32,9 +32,11 @@ from cera.pi_scene.qualification import (
     USER_AUTHORIZED_DEEPSEEK_OPERATION_CEILING,
     ClientResponseV1,
     FullModelQualificationRunner,
+    ProviderLedgerDeltaV1,
     QualificationFixtureV1,
     QualificationPhase,
     QualificationRoute,
+    _provider_operation_records,
     build_qualification_manifest,
     load_qualification_fixtures,
     qualification_request_payload,
@@ -81,6 +83,10 @@ def _manifest() -> dict[str, Any]:
 
 
 class _FakeQualificationClient:
+    INITIAL_COMPLETION_DURATION_MS = 10
+    REVIEW_POLL_DURATION_MS = 2
+    TERMINAL_DECISION_DURATION_MS = 1
+
     def __init__(
         self,
         runtime_root: Path,
@@ -88,6 +94,7 @@ class _FakeQualificationClient:
         reject_first: bool = False,
         reject_fixture_id: str | None = None,
         automatic_repair_fixture_id: str | None = None,
+        recording_repair_fixture_id: str | None = None,
         planner_durations_ms: tuple[int, ...] = (),
         planner_session_identities: tuple[str, ...] = (),
     ) -> None:
@@ -96,6 +103,7 @@ class _FakeQualificationClient:
         self.reject_first = reject_first
         self.reject_fixture_id = reject_fixture_id
         self.automatic_repair_fixture_id = automatic_repair_fixture_id
+        self.recording_repair_fixture_id = recording_repair_fixture_id
         self.planner_durations_ms = planner_durations_ms
         self.planner_session_identities = planner_session_identities
         self.planner_duration_index = 0
@@ -103,6 +111,11 @@ class _FakeQualificationClient:
         self.calls = 0
         self.regenerates = 0
         self.session_id: str | None = None
+        self.reviews: dict[str, dict[str, Any]] = {}
+        self.terminal_decisions: dict[str, dict[str, Any]] = {}
+        self.review_actions: list[tuple[str, dict[str, Any]]] = []
+        self.review_reads: list[str] = []
+        self.terminal_decision_reads: list[str] = []
 
     def complete(
         self,
@@ -118,6 +131,7 @@ class _FakeQualificationClient:
         self.assert_equal(len(value["messages"]), self.calls * 2 + 1)
         self.assert_equal(value["model"], "cera-alpha")
         self.assert_equal(value["cera_reasoning_effort"], "medium")
+        self.assert_equal(value["cera_review_mode"], "automatic")
         self.calls += 1
         planner = (
             1
@@ -128,19 +142,41 @@ class _FakeQualificationClient:
         reject_now = (
             self.reject_first and not self.rejected
         ) or self.reject_fixture_id == fixture.fixture_id
-        if self.automatic_repair_fixture_id == fixture.fixture_id:
-            if fixture.expected_route is not QualificationRoute.ORDINARY:
-                raise AssertionError("automatic repair fake must use the ordinary route")
-            self._append_sol("planner")
-            for _ in range(2):
-                self._append_deepseek("writer")
-                self._append_sol("validator")
-            self._append_deepseek("recorder")
-            body = self._accepted_body(
+        if fixture.expected_route is QualificationRoute.ORDINARY:
+            rejected = (reject_now or self.automatic_repair_fixture_id == fixture.fixture_id) and (
+                not self.rejected
+            )
+            recording_repair = (
+                self.recording_repair_fixture_id == fixture.fixture_id and not rejected
+            )
+            self.rejected = self.rejected or rejected
+            self._append_ordinary_attempt(
+                planner=planner,
+                accepted=not rejected and not recording_repair,
+            )
+            review_id = "review-" + text_sha256(f"{fixture.fixture_id}:{self.calls}:initial")[:28]
+            story = self._ordinary_story(fixture, suffix="initial")
+            review = self._ordinary_review(
                 fixture,
-                planner=1,
-                writer=2,
-                validator=2,
+                review_id=review_id,
+                story=story,
+                planner=planner,
+                accepted=not rejected,
+                attempt_number=1,
+                attempts=None,
+            )
+            if recording_repair:
+                review["recording_status"] = "pending_repair"
+                review["actions"] = self._ordinary_actions(repair_recording=True)
+                review["provider_operations"]["recorder"] = 0
+            self.reviews[review_id] = review
+            if not rejected:
+                self._bind_terminal_decision(review_id, creator_action="automatic_accept")
+            body = self._ordinary_provisional_body(
+                fixture,
+                review_id=review_id,
+                story=story,
+                planner=planner,
             )
         elif reject_now and not self.rejected:
             self.rejected = True
@@ -153,7 +189,7 @@ class _FakeQualificationClient:
             transport="fake",
             path="/v1/chat/completions",
             status_code=200,
-            duration_ms=10,
+            duration_ms=self.INITIAL_COMPLETION_DURATION_MS,
             body=body,
         )
 
@@ -163,15 +199,121 @@ class _FakeQualificationClient:
         fixture: QualificationFixtureV1,
         review_id: str,
     ) -> ClientResponseV1:
-        self.assert_equal(review_id, "review-0123456789abcdef0123456789ab")
+        if fixture.expected_route is QualificationRoute.ADULT:
+            self.assert_equal(review_id, "review-0123456789abcdef0123456789ab")
+            self.regenerates += 1
+            self._append_attempt(fixture, planner=0, accepted=True)
+            return ClientResponseV1(
+                transport="fake-review",
+                path=f"/v1/cera/reviews/{review_id}/decision",
+                status_code=200,
+                duration_ms=8,
+                body={"successor": self._accepted_body(fixture, planner=0)},
+            )
+        predecessor = self.reviews[review_id]
         self.regenerates += 1
-        self._append_attempt(fixture, planner=0, accepted=True)
+        self._append_ordinary_attempt(planner=0, accepted=True)
+        successor_review_id = (
+            "review-" + text_sha256(f"{fixture.fixture_id}:{self.calls}:regenerate")[:28]
+        )
+        story = self._ordinary_story(fixture, suffix="regenerated")
+        predecessor_attempts = deepcopy(predecessor["provider_attempts"])
+        successor = self._ordinary_review(
+            fixture,
+            review_id=successor_review_id,
+            story=story,
+            planner=0,
+            accepted=True,
+            attempt_number=2,
+            attempts=predecessor_attempts,
+        )
+        self.reviews[successor_review_id] = successor
+        self._bind_terminal_decision(
+            successor_review_id,
+            creator_action="automatic_accept",
+        )
+        predecessor_transitioned = deepcopy(predecessor)
+        predecessor_transitioned["state"] = "regenerated"
+        predecessor_transitioned["actions"] = self._ordinary_actions()
+        predecessor_transitioned["terminal_decision"] = None
+        provisional = self._ordinary_provisional_body(
+            fixture,
+            review_id=successor_review_id,
+            story=story,
+            planner=0,
+        )
+        decision = self._decision_with_terminal_pointer(
+            {
+                "schema_version": "cera.pi_scene.review_decision.v2",
+                "status": "review_transitioned",
+                "creator_action": "regenerate",
+                "story_state_committed": False,
+                "retry_mode": "not_applicable",
+                "review": predecessor_transitioned,
+                "successor": provisional,
+                "operational_warnings": [],
+            },
+            review_id=review_id,
+        )
+        predecessor_transitioned = deepcopy(decision["review"])
+        self.reviews[review_id] = predecessor_transitioned
+        self.terminal_decisions[review_id] = decision
         return ClientResponseV1(
             transport="fake-review",
             path=f"/v1/cera/reviews/{review_id}/decision",
             status_code=200,
             duration_ms=8,
-            body={"successor": self._accepted_body(fixture, planner=0)},
+            body=decision,
+        )
+
+    def review(self, *, review_id: str) -> ClientResponseV1:
+        self.review_reads.append(review_id)
+        return ClientResponseV1(
+            transport="fake-review-get",
+            path=f"/v1/cera/reviews/{review_id}",
+            status_code=200,
+            duration_ms=self.REVIEW_POLL_DURATION_MS,
+            body=deepcopy(self.reviews[review_id]),
+        )
+
+    def review_action(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        review_id: str,
+        action: dict[str, Any] | Any,
+    ) -> ClientResponseV1:
+        exact = dict(action)
+        self.review_actions.append((review_id, exact))
+        if exact == {"action": "regenerate"}:
+            return self.regenerate(fixture=fixture, review_id=review_id)
+        if exact != {"action": "repair_recording"}:
+            raise AssertionError(f"unexpected fake review action: {exact!r}")
+        review = deepcopy(self.reviews[review_id])
+        review["recording_status"] = "complete"
+        review["actions"] = self._ordinary_actions()
+        operations = dict(review["provider_operations"])
+        operations["recorder"] = 1
+        review["provider_operations"] = operations
+        self._append_deepseek("recorder")
+        self.reviews[review_id] = review
+        self._bind_terminal_decision(review_id, creator_action="repair_recording")
+        return ClientResponseV1(
+            transport="fake-review-action",
+            path=f"/v1/cera/reviews/{review_id}/decision",
+            status_code=200,
+            duration_ms=3,
+            body=deepcopy(self.terminal_decisions[review_id]),
+        )
+
+    def terminal_review_decision(self, *, review_id: str) -> ClientResponseV1:
+        self.terminal_decision_reads.append(review_id)
+        return ClientResponseV1(
+            transport="fake-terminal-decision",
+            path=f"/v1/cera/reviews/{review_id}/terminal-decision",
+            status_code=200,
+            duration_ms=self.TERMINAL_DECISION_DURATION_MS,
+            body=deepcopy(self.terminal_decisions[review_id]),
         )
 
     def provider_stage_retry_status(self, *, chain_id: str) -> ClientResponseV1:
@@ -184,6 +326,310 @@ class _FakeQualificationClient:
         action: dict[str, Any] | Any,
     ) -> ClientResponseV1:
         raise AssertionError(f"unexpected provider-stage action: {chain_id} {action!r}")
+
+    def _append_ordinary_attempt(self, *, planner: int, accepted: bool) -> None:
+        if planner:
+            self._append_sol("planner")
+        self._append_deepseek("writer")
+        self._append_sol("validator")
+        self._append_sol("reader")
+        if accepted:
+            self._append_deepseek("recorder")
+
+    @staticmethod
+    def _ordinary_actions(
+        *,
+        rejected: bool = False,
+        repair_recording: bool = False,
+    ) -> dict[str, Any]:
+        return {
+            "accept_enabled": False,
+            "regenerate_enabled": rejected,
+            "decline_enabled": rejected,
+            "replan_enabled": False,
+            "auditable_override_enabled": rejected,
+            "auditable_override_action": "accept_provisional" if rejected else None,
+            "repair_recording_enabled": repair_recording,
+        }
+
+    @staticmethod
+    def _ordinary_controls() -> dict[str, Any]:
+        return {
+            "schema_version": "cera.pi_scene.request_controls.v3",
+            "session_id": "ordinary-review-fixture",
+            "scene_depth": "auto",
+            "regeneration_key": None,
+            "character_autonomy": "both",
+            "prompt_handling": "adjustment",
+            "reasoning_effort": "medium",
+            "scene_change": False,
+            "adult_craft_mode": "off",
+            "review_mode": "automatic",
+        }
+
+    @staticmethod
+    def _ordinary_story(
+        fixture: QualificationFixtureV1,
+        *,
+        suffix: str,
+    ) -> str:
+        return (
+            f"Ordinary {fixture.fixture_id} {suffix} continuation preserves the exact "
+            "scene floor and leaves the next meaningful choice open."
+        )
+
+    @staticmethod
+    def _pending_checks() -> dict[str, Any]:
+        return {
+            "schema_version": "cera.pi_scene.review_checks.v1",
+            "luna": {
+                "role": "luna_semantic_validator",
+                "required": True,
+                "status": "pending",
+                "verdict_sha256": None,
+                "failures": [],
+                "provider_stage_retry_status": None,
+            },
+            "reader": {
+                "role": "codex_reader_severe_quality",
+                "required": True,
+                "status": "pending",
+                "verdict_sha256": None,
+                "failures": [],
+                "provider_stage_retry_status": None,
+            },
+            "adult_filter": {
+                "role": "protected_adult_filter",
+                "required": False,
+                "status": "not_applicable",
+                "verdict_sha256": None,
+                "failures": [],
+                "provider_stage_retry_status": None,
+            },
+            "python": {
+                "role": "python_deterministic_custody_privacy",
+                "required": True,
+                "status": "pending",
+                "verdict_sha256": None,
+                "failures": [],
+                "provider_stage_retry_status": None,
+            },
+        }
+
+    @classmethod
+    def _joined_checks(cls, *, accepted: bool) -> dict[str, Any]:
+        checks = cls._pending_checks()
+        checks["luna"] = {
+            "role": "luna_semantic_validator",
+            "required": True,
+            "status": "pass" if accepted else "reject",
+            "verdict_sha256": "1" * 64,
+            "failures": (
+                []
+                if accepted
+                else [
+                    {
+                        "code": "severe_incompleteness",
+                        "concise_explanation": "The candidate omitted one required decision.",
+                    }
+                ]
+            ),
+            "provider_stage_retry_status": None,
+        }
+        checks["reader"] = {
+            "role": "codex_reader_severe_quality",
+            "required": True,
+            "status": "pass",
+            "verdict_sha256": "2" * 64,
+            "failures": [],
+            "provider_stage_retry_status": None,
+        }
+        checks["python"] = {
+            "role": "python_deterministic_custody_privacy",
+            "required": True,
+            "status": "pass",
+            "verdict_sha256": "3" * 64,
+            "failures": [],
+            "provider_stage_retry_status": None,
+        }
+        return checks
+
+    def _ordinary_review(
+        self,
+        fixture: QualificationFixtureV1,
+        *,
+        review_id: str,
+        story: str,
+        planner: int,
+        accepted: bool,
+        attempt_number: int,
+        attempts: list[dict[str, Any]] | None,
+    ) -> dict[str, Any]:
+        candidate_id = (
+            "candidate-" + text_sha256(f"{fixture.fixture_id}:{attempt_number}:{story}")[:28]
+        )
+        current_attempt = {
+            "attempt_number": attempt_number,
+            "candidate_id": candidate_id,
+            "disposition": "checks_passed" if accepted else "luna_rejected",
+            "provider_operations": {
+                "planner": planner,
+                "writer": 1,
+                "validator": 1,
+                "reader": 1,
+            },
+        }
+        provider_attempts = [] if attempts is None else deepcopy(attempts)
+        provider_attempts.append(current_attempt)
+        operations = {
+            role: sum(int(value["provider_operations"][role]) for value in provider_attempts)
+            for role in ("planner", "writer", "validator", "reader")
+        }
+        operations["recorder"] = 1 if accepted else 0
+        acceptance = (
+            {
+                "mode": "automatic",
+                "accepted_turn_id": f"turn-{text_sha256(review_id)[:16]}",
+                "accepted_receipt_sha256": text_sha256(f"receipt:{review_id}"),
+                "canon_status": "accepted",
+            }
+            if accepted
+            else None
+        )
+        return {
+            "schema_version": "cera.pi_scene.review.v2",
+            "review_id": review_id,
+            "state": "accepted" if accepted else "review_ready",
+            "review_mode": "automatic",
+            "route": "ordinary",
+            "story_text": story,
+            "candidate_id": candidate_id,
+            "candidate_sha256": text_sha256(f"candidate:{candidate_id}"),
+            "primary_authority_kind": "codex_cognition_plan",
+            "primary_authority_sha256": text_sha256(f"authority:{candidate_id}"),
+            "warnings": [],
+            "recording_status": "complete" if accepted else None,
+            "gate_status": "pass" if accepted else "reject",
+            "checks": self._joined_checks(accepted=accepted),
+            "acceptance": acceptance,
+            "actions": self._ordinary_actions(rejected=not accepted),
+            "request_controls": self._ordinary_controls(),
+            "creator_guidance": None,
+            "provider_attempts": provider_attempts,
+            "provider_operations": operations,
+            "terminal_decision": None,
+        }
+
+    def _ordinary_provisional_body(
+        self,
+        fixture: QualificationFixtureV1,
+        *,
+        review_id: str,
+        story: str,
+        planner: int,
+    ) -> dict[str, Any]:
+        review = self.reviews[review_id]
+        pending_checks = self._pending_checks()
+        actions = self._ordinary_actions()
+        lifecycle = {
+            "schema_version": "cera.pi_scene.review_lifecycle.v1",
+            "review_id": review_id,
+            "review_url": f"/v1/cera/reviews/{review_id}",
+            "review_mode": "automatic",
+            "state": "checks_pending",
+            "gate_status": "pending",
+            "checks": pending_checks,
+            "acceptance": None,
+            "actions": actions,
+            "terminal_decision": None,
+        }
+        return {
+            "choices": [
+                {
+                    "message": {"role": "assistant", "content": story},
+                    "finish_reason": "stop",
+                }
+            ],
+            "cera": {
+                "profile_id": "cera.pi_scene.lean.v1",
+                "route_mode": "ordinary",
+                "status": "review_ready",
+                "provisional": True,
+                "story_state_committed": False,
+                "canon_status": None,
+                "provisional_review_id": review_id,
+                "review_url": f"/v1/cera/reviews/{review_id}",
+                "candidate_id": review["candidate_id"],
+                "candidate_sha256": review["candidate_sha256"],
+                "request_controls": self._ordinary_controls(),
+                "operational_warnings": [],
+                "route_transition": None,
+                "creator_trace": {
+                    "logic_owner": "codex_cognition",
+                    "route_transition": None,
+                },
+                "provider_attempts": [
+                    {
+                        "attempt_number": 1,
+                        "candidate_id": review["candidate_id"],
+                        "disposition": "checks_pending",
+                        "provider_operations": {
+                            "planner": planner,
+                            "writer": 1,
+                            "validator": 0,
+                            "reader": 0,
+                        },
+                    }
+                ],
+                "provider_operations": {
+                    "planner": planner,
+                    "writer": 1,
+                    "validator": 0,
+                    "reader": 0,
+                    "recorder": 0,
+                },
+                "review_lifecycle": lifecycle,
+            },
+        }
+
+    @staticmethod
+    def _decision_with_terminal_pointer(
+        value: dict[str, Any],
+        *,
+        review_id: str,
+    ) -> dict[str, Any]:
+        decision = deepcopy(value)
+        basis = deepcopy(decision)
+        basis["review"]["terminal_decision"] = None
+        decision_sha256 = canonical_sha256(basis)
+        decision["review"]["terminal_decision"] = {
+            "decision_sha256": decision_sha256,
+            "url": f"/v1/cera/reviews/{review_id}/terminal-decision",
+        }
+        return decision
+
+    def _bind_terminal_decision(self, review_id: str, *, creator_action: str) -> None:
+        review = self.reviews[review_id]
+        acceptance = review["acceptance"]
+        if not isinstance(acceptance, dict):
+            raise AssertionError("terminal decision requires accepted review")
+        decision = self._decision_with_terminal_pointer(
+            {
+                "schema_version": "cera.pi_scene.review_decision.v2",
+                "status": "story_committed",
+                "creator_action": creator_action,
+                "story_state_committed": True,
+                "retry_mode": "not_applicable",
+                "review": deepcopy(review),
+                "successor": None,
+                "operational_warnings": [],
+                "accepted_receipt_sha256": acceptance["accepted_receipt_sha256"],
+                "accepted_turn_id": acceptance["accepted_turn_id"],
+            },
+            review_id=review_id,
+        )
+        self.reviews[review_id] = deepcopy(decision["review"])
+        self.terminal_decisions[review_id] = decision
 
     def _append_attempt(
         self,
@@ -281,6 +727,16 @@ class _FakeQualificationClient:
                 "output_tokens": 300,
                 "reasoning_tokens": 0,
                 "finish_status": "stop",
+                "recorded_at_utc": timestamp,
+            },
+        )
+        _append_jsonl(
+            path,
+            {
+                "schema_version": "cera.pi_scene.provider_operation_ledger.v1",
+                "event": "invocation_completed",
+                "invocation_id": invocation_id,
+                "operations_used": 1,
                 "recorded_at_utc": timestamp,
             },
         )
@@ -522,6 +978,7 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
     _STAGE_OWNER = {
         "planner": "planner",
         "semantic_validator": "validator",
+        "reader": "reader",
         "writer": "writer",
         "recorder": "recorder",
         "adult_scene": "adult-scene",
@@ -541,6 +998,7 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
         failure_on_regenerate: bool = False,
         prepared_resume: bool = False,
         repair_successor_exhausts: bool = False,
+        deepseek_success_operations: int = 1,
         private_sentinel: str = "PRIVATE QUALIFICATION STORY SENTINEL",
     ) -> None:
         super().__init__(runtime_root)
@@ -557,6 +1015,9 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
         self.failure_on_regenerate = failure_on_regenerate
         self.prepared_resume = prepared_resume
         self.repair_successor_exhausts = repair_successor_exhausts
+        if not 1 <= deepseek_success_operations <= DEEPSEEK_PER_INVOCATION_CEILING:
+            raise AssertionError("fake DeepSeek success operation count is invalid")
+        self.deepseek_success_operations = deepseek_success_operations
         self.private_sentinel = private_sentinel
         self.failed_fixture: QualificationFixtureV1 | None = None
         self.status_by_chain: dict[str, dict[str, Any]] = {}
@@ -632,7 +1093,8 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
     ) -> ClientResponseV1:
         if not self.failure_on_regenerate or fixture.fixture_id != self.failure_fixture_id:
             return super().regenerate(fixture=fixture, review_id=review_id)
-        self.assert_equal(review_id, "review-0123456789abcdef0123456789ab")
+        if review_id not in self.reviews:
+            raise AssertionError("provider Retry Regenerate changed review identity")
         self.regenerates += 1
         self.failed_fixture = fixture
         self._completion_planner_override = 0
@@ -695,10 +1157,7 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
             self._append_stage_success(stage)
             self._append_after_success(stage)
             assert self.failed_fixture is not None
-            completion = self._accepted_body(
-                self.failed_fixture,
-                planner=1 if stage == "planner" else 0,
-            )
+            completion = self._successful_completion(stage=stage, observed=1)
             self.completion_by_chain[current] = completion
             return ClientResponseV1(
                 transport="fake-provider-stage-action",
@@ -732,7 +1191,7 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
         if current in self.repair_successor_chains and not self.repair_successor_exhausts:
             self._append_stage_success(stage)
             assert self.failed_fixture is not None
-            completion = self._accepted_body(self.failed_fixture, planner=1)
+            completion = self._successful_completion(stage=stage, observed=attempts)
             self.completion_by_chain[current] = completion
             body = completion
         elif accepted < self.failures_before_success:
@@ -774,16 +1233,7 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
             else:
                 self._append_after_success(stage)
                 assert self.failed_fixture is not None
-                completion = self._accepted_body(
-                    self.failed_fixture,
-                    planner=(
-                        self._completion_planner_override
-                        if self._completion_planner_override is not None
-                        else 1
-                        if self.failed_fixture.initial_route is QualificationRoute.ORDINARY
-                        else 0
-                    ),
-                )
+                completion = self._successful_completion(stage=stage, observed=attempts)
                 self.completion_by_chain[current] = completion
                 body = completion
         response = ClientResponseV1(
@@ -798,6 +1248,80 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
             raise OSError(self.private_sentinel)
         return response
 
+    def _successful_completion(self, *, stage: str, observed: int) -> dict[str, Any]:
+        assert self.failed_fixture is not None
+        fixture = self.failed_fixture
+        planner = (
+            self._completion_planner_override
+            if self._completion_planner_override is not None
+            else 1
+            if fixture.initial_route is QualificationRoute.ORDINARY
+            else 0
+        )
+        if fixture.expected_route is QualificationRoute.ADULT:
+            return self._accepted_body(fixture, planner=planner)
+        review_id = "review-" + text_sha256(f"{fixture.fixture_id}:{self.calls}:retry-success")[:28]
+        story = self._ordinary_story(fixture, suffix="retry-success")
+        predecessor_id: str | None = None
+        predecessor: dict[str, Any] | None = None
+        if self.failure_on_regenerate:
+            predecessor_id, predecessor = next(
+                (identity, value)
+                for identity, value in self.reviews.items()
+                if value["state"] == "review_ready" and value["gate_status"] == "reject"
+            )
+        review = self._ordinary_review(
+            fixture,
+            review_id=review_id,
+            story=story,
+            planner=planner,
+            accepted=True,
+            attempt_number=2 if predecessor is not None else 1,
+            attempts=(None if predecessor is None else deepcopy(predecessor["provider_attempts"])),
+        )
+        if stage in {"semantic_validator", "reader"}:
+            role = "validator" if stage == "semantic_validator" else "reader"
+            review["provider_attempts"][0]["provider_operations"][role] = observed
+            review["provider_operations"][role] = observed
+        elif stage == "writer":
+            review["provider_attempts"][-1]["provider_operations"]["writer"] = (
+                self.deepseek_success_operations
+            )
+            review["provider_operations"]["writer"] = sum(
+                int(value["provider_operations"]["writer"]) for value in review["provider_attempts"]
+            )
+        elif stage == "recorder":
+            review["provider_operations"]["recorder"] = self.deepseek_success_operations
+        self.reviews[review_id] = review
+        self._bind_terminal_decision(review_id, creator_action="automatic_accept")
+        provisional = self._ordinary_provisional_body(
+            fixture,
+            review_id=review_id,
+            story=story,
+            planner=planner,
+        )
+        if predecessor is None or predecessor_id is None:
+            return provisional
+        transitioned = deepcopy(predecessor)
+        transitioned["state"] = "regenerated"
+        transitioned["actions"] = self._ordinary_actions()
+        decision = self._decision_with_terminal_pointer(
+            {
+                "schema_version": "cera.pi_scene.review_decision.v2",
+                "status": "review_transitioned",
+                "creator_action": "regenerate",
+                "story_state_committed": False,
+                "retry_mode": "not_applicable",
+                "review": transitioned,
+                "successor": provisional,
+                "operational_warnings": [],
+            },
+            review_id=predecessor_id,
+        )
+        self.reviews[predecessor_id] = deepcopy(decision["review"])
+        self.terminal_decisions[predecessor_id] = decision
+        return decision
+
     def _envelope(
         self,
         stage: str,
@@ -810,10 +1334,10 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
         operations_observed: int | None = None,
         allow_repair_action: bool = True,
     ) -> dict[str, Any]:
-        provider = "codex" if stage in {"planner", "semantic_validator"} else "deepseek"
+        provider = "codex" if stage in {"planner", "semantic_validator", "reader"} else "deepseek"
         model_family = (
             "sol"
-            if stage == "planner"
+            if stage in {"planner", "reader"}
             else "luna"
             if stage == "semantic_validator"
             else "deepseek_v4"
@@ -944,10 +1468,12 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
     def _append_before_failure(self, fixture: QualificationFixtureV1, stage: str) -> None:
         if stage != "planner" and fixture.initial_route is QualificationRoute.ORDINARY:
             self._append_sol("planner")
-        if stage in {"semantic_validator", "recorder"}:
+        if stage in {"semantic_validator", "reader", "recorder"}:
             self._append_deepseek("writer")
-        if stage == "recorder":
+        if stage in {"reader", "recorder"}:
             self._append_sol("validator")
+        if stage == "recorder":
+            self._append_sol("reader")
         if stage == "adult_filter":
             self._append_deepseek("adult-scene")
 
@@ -960,25 +1486,31 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
         if stage == "planner":
             self._append_deepseek("writer")
             self._append_sol("validator")
+            self._append_sol("reader")
             self._append_deepseek("recorder")
         elif stage == "writer":
             self._append_sol("validator")
+            self._append_sol("reader")
             self._append_deepseek("recorder")
         elif stage == "semantic_validator":
+            self._append_sol("reader")
+            self._append_deepseek("recorder")
+        elif stage == "reader":
             self._append_deepseek("recorder")
         elif stage == "adult_scene":
             self._append_deepseek("adult-filter")
 
     def _append_stage_success(self, stage: str) -> None:
         owner = self._STAGE_OWNER[stage]
-        if stage in {"planner", "semantic_validator"}:
+        if stage in {"planner", "semantic_validator", "reader"}:
             self._append_sol(owner)
         else:
-            self._append_deepseek(owner)
+            for _ in range(self.deepseek_success_operations):
+                self._append_deepseek(owner)
 
     def _append_stage_failure(self, stage: str) -> None:
         owner = self._STAGE_OWNER[stage]
-        if stage in {"planner", "semantic_validator"}:
+        if stage in {"planner", "semantic_validator", "reader"}:
             self._append_sol_failure(owner, submitted=True, terminal_state="provider_failed")
             return
         path = self.runtime_root / "DEEPSEEK_PROVIDER_OPERATIONS.jsonl"
@@ -1052,9 +1584,194 @@ class _FakeProviderStageRetryClient(_FakeQualificationClient):
             existing.append(event)
 
 
+class _FakeNestedValidationRetryClient(_FakeProviderStageRetryClient):
+    """Production-shaped Luna/Reader failure nested in polled review.v2."""
+
+    def __init__(self, runtime_root: Path, **kwargs: Any) -> None:
+        super().__init__(runtime_root, **kwargs)
+        if self.failure_stage not in {"semantic_validator", "reader"}:
+            raise AssertionError("nested validation fake requires Luna or Reader")
+        self.nested_review_id: str | None = None
+
+    def complete(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        session_id: str,
+        payload: dict[str, Any] | Any,
+    ) -> ClientResponseV1:
+        if fixture.fixture_id != self.failure_fixture_id:
+            return _FakeQualificationClient.complete(
+                self,
+                fixture=fixture,
+                session_id=session_id,
+                payload=payload,
+            )
+        value = dict(payload)
+        if self.session_id is None:
+            self.session_id = session_id
+        self.assert_equal(self.session_id, session_id)
+        self.assert_equal(len(value["messages"]), self.calls * 2 + 1)
+        self.calls += 1
+        self.failed_fixture = fixture
+        self._append_sol("planner")
+        self._append_deepseek("writer")
+        peer_owner = "reader" if self.failure_stage == "semantic_validator" else "validator"
+        self._append_sol(peer_owner)
+        if not self.prepared_resume:
+            self._append_stage_failure(self.failure_stage)
+        initial_state = (
+            self.terminal_state
+            if self.terminal_state in {"recovery_required", "blocked_ambiguous"}
+            else "eligible"
+        )
+        envelope = self._envelope(
+            self.failure_stage,
+            attempts=1,
+            retries=0,
+            state=("in_progress" if self.prepared_resume else initial_state),
+            control_action=("resume_prepared" if self.prepared_resume else None),
+            operations_observed=0 if self.prepared_resume else 1,
+        )
+        review_id = (
+            "review-" + text_sha256(f"{fixture.fixture_id}:nested:{self.failure_stage}")[:28]
+        )
+        self.nested_review_id = review_id
+        story = self._ordinary_story(fixture, suffix="nested-validation")
+        review = self._ordinary_review(
+            fixture,
+            review_id=review_id,
+            story=story,
+            planner=1,
+            accepted=False,
+            attempt_number=1,
+            attempts=None,
+        )
+        checks = self._joined_checks(accepted=True)
+        lane_name = "luna" if self.failure_stage == "semantic_validator" else "reader"
+        lane = dict(checks[lane_name])
+        lane.update(
+            {
+                "status": "inconclusive",
+                "verdict_sha256": None,
+                "failures": [
+                    {
+                        "code": "provider_transport_unavailable",
+                        "concise_explanation": "The validation provider did not return a verdict.",
+                    }
+                ],
+                "provider_stage_retry_status": envelope,
+            }
+        )
+        checks[lane_name] = lane
+        review.update(
+            {
+                "state": "checks_pending",
+                "gate_status": "blocked",
+                "checks": checks,
+                "actions": self._ordinary_actions(),
+                "provider_attempts": [
+                    {
+                        **review["provider_attempts"][0],
+                        "disposition": "checks_blocked",
+                    }
+                ],
+            }
+        )
+        failed_role = "validator" if self.failure_stage == "semantic_validator" else "reader"
+        review["provider_attempts"][0]["provider_operations"][failed_role] = (
+            0 if self.prepared_resume else 1
+        )
+        review["provider_operations"][failed_role] = 0 if self.prepared_resume else 1
+        self.reviews[review_id] = review
+        body = self._ordinary_provisional_body(
+            fixture,
+            review_id=review_id,
+            story=story,
+            planner=1,
+        )
+        return ClientResponseV1(
+            transport="fake-provisional-with-nested-retry",
+            path="/v1/chat/completions",
+            status_code=200,
+            duration_ms=10,
+            body=body,
+        )
+
+    def _append_after_success(self, stage: str) -> None:
+        if stage not in {"semantic_validator", "reader"}:
+            raise AssertionError("nested validation fake changed stage")
+        self._append_deepseek("recorder")
+
+    def _successful_completion(self, *, stage: str, observed: int) -> dict[str, Any]:
+        if self.nested_review_id is None:
+            raise AssertionError("nested validation fake lost its review")
+        review = deepcopy(self.reviews[self.nested_review_id])
+        checks = deepcopy(review["checks"])
+        lane_name = "luna" if stage == "semantic_validator" else "reader"
+        checks[lane_name] = {
+            **checks[lane_name],
+            "status": "pass",
+            "verdict_sha256": "4" * 64,
+            "failures": [],
+            "provider_stage_retry_status": None,
+        }
+        role = "validator" if stage == "semantic_validator" else "reader"
+        review["provider_attempts"][0]["provider_operations"][role] = observed
+        review["provider_attempts"][0]["disposition"] = "checks_passed"
+        review["provider_operations"][role] = observed
+        review["provider_operations"]["recorder"] = 1
+        acceptance = {
+            "mode": "automatic",
+            "accepted_turn_id": f"turn-{text_sha256(self.nested_review_id)[:16]}",
+            "accepted_receipt_sha256": text_sha256(f"receipt:{self.nested_review_id}"),
+            "canon_status": "accepted",
+        }
+        review.update(
+            {
+                "state": "accepted",
+                "gate_status": "pass",
+                "checks": checks,
+                "acceptance": acceptance,
+                "recording_status": "complete",
+                "actions": self._ordinary_actions(),
+            }
+        )
+        self.reviews[self.nested_review_id] = review
+        self._bind_terminal_decision(
+            self.nested_review_id,
+            creator_action="automatic_accept",
+        )
+        return deepcopy(self.reviews[self.nested_review_id])
+
+
 class FullModelQualificationTests(unittest.TestCase):
+    def test_sol_ledger_owner_and_model_mapping_is_closed(self) -> None:
+        def delta(*, owner: str, model: str) -> ProviderLedgerDeltaV1:
+            events = tuple(
+                {
+                    "call_id": "call-closed-owner",
+                    "owner": owner,
+                    "model": model,
+                    "state": state,
+                    "route": "ordinary",
+                    "recorded_at_utc": "2026-08-10T00:00:00+00:00",
+                }
+                for state in ("transport_invoked", "provider_completed", "typed_accepted")
+            )
+            return ProviderLedgerDeltaV1(sol_events=events, deepseek_events=())
+
+        self.assertEqual(
+            _provider_operation_records(delta(owner="reader", model="gpt-5.6-sol"))[0]["stage"],
+            "reader",
+        )
+        with self.assertRaisesRegex(StateConflictError, "owner changed"):
+            _provider_operation_records(delta(owner="future_role", model="gpt-5.6-sol"))
+        with self.assertRaisesRegex(StateConflictError, "model family changed"):
+            _provider_operation_records(delta(owner="reader", model="gpt-5.6-luna"))
+
     def test_outer_http_timeout_exceeds_every_bounded_provider_stage(self) -> None:
-        self.assertEqual(QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS, 4_800)
+        self.assertEqual(QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS, 6_000)
         self.assertGreater(
             QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
             QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES
@@ -1228,10 +1945,22 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         self.assertEqual(QUALIFICATION_PLANNER_REASONING_EFFORT, "medium")
         self.assertEqual(payload["cera_reasoning_effort"], "medium")
+        self.assertEqual(payload["cera_review_mode"], "automatic")
         self.assertEqual(
             QUALIFICATION_EXECUTION_POLICY["semantic_validator_reasoning_effort"],
             "xhigh",
         )
+        self.assertEqual(
+            QUALIFICATION_EXECUTION_POLICY["reader_reasoning_effort"],
+            "medium",
+        )
+        profile = json.loads(
+            (ROOT / "integrations/sillytavern/pi_scene_lean_v1_profile.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(profile["ordinary_reader"], "fresh_codex_sol")
+        self.assertEqual(profile["ordinary_reader_reasoning_effort"], "medium")
 
     def test_retry_regenerate_replan_and_recorder_repair_budgets_are_separate(self) -> None:
         technical = QUALIFICATION_ACTION_BUDGETS["technical_provider_retry"]
@@ -1261,7 +1990,7 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertFalse(QUALIFICATION_ACTION_BUDGETS["recorder_repair"]["recursive_repair"])
         self.assertEqual(
             QUALIFICATION_COMPLETE_GENERATION_CEILINGS["ordinary"]["maximum_codex_operations"],
-            9,
+            15,
         )
         self.assertEqual(
             QUALIFICATION_COMPLETE_GENERATION_CEILINGS["ordinary"][
@@ -1290,9 +2019,14 @@ class FullModelQualificationTests(unittest.TestCase):
             stage_latency = backend["provider_stage_latency_summary"]
             self.assertEqual(stage_latency["writer"]["operations_total"], 10)
             self.assertEqual(stage_latency["semantic_validator"]["operations_total"], 10)
+            self.assertEqual(stage_latency["reader"]["operations_total"], 10)
             self.assertEqual(stage_latency["recorder"]["operations_total"], 10)
             self.assertEqual(stage_latency["adult_scene"]["operations_total"], 10)
             self.assertEqual(stage_latency["adult_filter"]["operations_total"], 10)
+            for adult_result in (
+                value for value in backend["results"] if value["expected_route"] == "adult"
+            ):
+                self.assertNotIn("reader", adult_result["provider_operations"])
             self.assertEqual(stage_latency["writer"]["average_duration_ms"], 0)
             self.assertEqual(stage_latency["writer"]["n"], 10)
             self.assertEqual(stage_latency["writer"]["p95_duration_ms"], 0)
@@ -1311,7 +2045,7 @@ class FullModelQualificationTests(unittest.TestCase):
             )
             self.assertEqual(
                 backend["phase_timing_evidence"]["http_total"]["total_duration_ms"],
-                200,
+                230,
             )
             self.assertEqual(
                 backend["phase_timing_evidence"]["sillytavern_overhead"]["availability"],
@@ -1322,7 +2056,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 provider_latency["attempt_number_dimension"],
                 {
                     "availability": "unavailable",
-                    "unavailable_operations": 62,
+                    "unavailable_operations": 72,
                     "reason": ("provider_ledgers_do_not_bind_stage_occurrence_attempt_ordinals"),
                     "status_counters_preserved_in": (
                         "provider_stage_retry_chains.status_observations"
@@ -1388,9 +2122,19 @@ class FullModelQualificationTests(unittest.TestCase):
                 fixtures,
                 _FakeQualificationClient(st_runtime),
             )
+            expected_st_http_duration_ms = sum(
+                _FakeQualificationClient.INITIAL_COMPLETION_DURATION_MS
+                + (
+                    _FakeQualificationClient.REVIEW_POLL_DURATION_MS
+                    + _FakeQualificationClient.TERMINAL_DECISION_DURATION_MS
+                    if value["expected_route"] == QualificationRoute.ORDINARY.value
+                    else 0
+                )
+                for value in st_result["results"]
+            )
             self.assertEqual(
                 st_result["phase_timing_evidence"]["http_total"]["total_duration_ms"],
-                100,
+                expected_st_http_duration_ms,
             )
             self.assertEqual(
                 st_result["phase_timing_evidence"]["sillytavern_overhead"],
@@ -1568,11 +2312,12 @@ class FullModelQualificationTests(unittest.TestCase):
             self.assertEqual(chain["terminal_state"], "eligible")
             self.assertNotIn(client.private_sentinel, json.dumps(result, sort_keys=True))
 
-    def test_manual_provider_stage_retry_covers_all_six_live_stages(self) -> None:
+    def test_manual_provider_stage_retry_covers_all_seven_live_stages(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
         cases = (
             ("planner", "backend-ordinary-01"),
             ("semantic_validator", "backend-ordinary-01"),
+            ("reader", "backend-ordinary-01"),
             ("writer", "backend-ordinary-01"),
             ("recorder", "backend-ordinary-01"),
             ("adult_scene", "backend-adult-01"),
@@ -1581,7 +2326,12 @@ class FullModelQualificationTests(unittest.TestCase):
         for stage, fixture_id in cases:
             with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temporary:
                 root = Path(temporary)
-                client = _FakeProviderStageRetryClient(
+                client_type = (
+                    _FakeNestedValidationRetryClient
+                    if stage in {"semantic_validator", "reader"}
+                    else _FakeProviderStageRetryClient
+                )
+                client = client_type(
                     root / "runtime",
                     failure_fixture_id=fixture_id,
                     stage=stage,
@@ -1597,6 +2347,29 @@ class FullModelQualificationTests(unittest.TestCase):
                 ][0]["status_observations"][0]["status"]
                 self.assertEqual(status["stage"], stage)
                 self.assertIn(status["provider"], {"codex", "deepseek"})
+
+    def test_deepseek_retry_uses_exact_multi_operation_success_accounting(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            result = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=root / "runtime",
+                evidence_root=root / "evidence",
+            ).run_phase(
+                QualificationPhase.BACKEND,
+                fixtures,
+                _FakeProviderStageRetryClient(
+                    root / "runtime",
+                    failure_fixture_id="backend-ordinary-01",
+                    stage="writer",
+                    deepseek_success_operations=3,
+                ),
+            )
+            first = result["results"][0]
+            self.assertEqual(first["provider_operations"]["writer"], 3)
+            self.assertEqual(first["deepseek_http_operations"], 5)
+            self.assertEqual(first["provider_stage_retry_actions"], 1)
 
     def test_manual_resume_prepared_is_separate_from_retry_budget(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
@@ -1623,6 +2396,96 @@ class FullModelQualificationTests(unittest.TestCase):
                 [value[1]["action_kind"] for value in client.action_posts],
                 ["resume_prepared"],
             )
+
+    def test_each_validation_lane_prepared_resume_joins_review_provider_free(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        for stage in ("semantic_validator", "reader"):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                result = FullModelQualificationRunner(
+                    manifest=_manifest(),
+                    runtime_root=root / "runtime",
+                    evidence_root=root / "evidence",
+                ).run_phase(
+                    QualificationPhase.BACKEND,
+                    fixtures,
+                    _FakeNestedValidationRetryClient(
+                        root / "runtime",
+                        failure_fixture_id="backend-ordinary-01",
+                        stage=stage,
+                        prepared_resume=True,
+                    ),
+                )
+                first = result["results"][0]
+                self.assertEqual(first["provider_stage_resume_prepared_actions"], 1)
+                self.assertEqual(first["provider_stage_retry_actions"], 0)
+                self.assertEqual(first["provider_operations"]["reader"], 1)
+
+    def test_each_validation_lane_exhausts_after_two_actions_with_no_fourth(
+        self,
+    ) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        for stage in ("semantic_validator", "reader"):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                client = _FakeNestedValidationRetryClient(
+                    root / "runtime",
+                    failure_fixture_id="backend-ordinary-01",
+                    stage=stage,
+                    failures_before_success=2,
+                    terminal_state="attempts_exhausted",
+                )
+                with self.assertRaisesRegex(
+                    StateConflictError,
+                    "provider_stage_attempts_exhausted",
+                ):
+                    FullModelQualificationRunner(
+                        manifest=_manifest(),
+                        runtime_root=root / "runtime",
+                        evidence_root=root / "evidence",
+                    ).run_phase(QualificationPhase.BACKEND, fixtures, client)
+                self.assertEqual(
+                    [value[1]["retry_action_ordinal"] for value in client.action_posts],
+                    [1, 2],
+                )
+                result = json.loads((root / "evidence" / "BACKEND_RESULT.json").read_text())
+                critical = result["results"][0]["critical_provider_stage_failure"]
+                self.assertEqual(critical["stage"], stage)
+                self.assertEqual(critical["state"], "attempts_exhausted")
+
+    def test_each_validation_lane_blocked_ambiguity_is_get_only(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        for stage in ("semantic_validator", "reader"):
+            with self.subTest(stage=stage), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                client = _FakeNestedValidationRetryClient(
+                    root / "runtime",
+                    failure_fixture_id="backend-ordinary-01",
+                    stage=stage,
+                    terminal_state="blocked_ambiguous",
+                )
+                with (
+                    patch(
+                        "cera.pi_scene.qualification.time.monotonic",
+                        side_effect=(
+                            0.0,
+                            0.0,
+                            0.0,
+                            float(PROVIDER_STAGE_RETRY_STATUS_TIMEOUT_SECONDS + 1),
+                        ),
+                    ),
+                    self.assertRaisesRegex(StateConflictError, "blocked_ambiguous"),
+                ):
+                    FullModelQualificationRunner(
+                        manifest=_manifest(),
+                        runtime_root=root / "runtime",
+                        evidence_root=root / "evidence",
+                    ).run_phase(QualificationPhase.BACKEND, fixtures, client)
+                self.assertEqual(client.action_posts, [])
+                result = json.loads((root / "evidence" / "BACKEND_RESULT.json").read_text())
+                critical = result["results"][0]["critical_provider_stage_failure"]
+                self.assertEqual(critical["stage"], stage)
+                self.assertEqual(critical["state"], "blocked_ambiguous")
 
     def test_later_stage_successor_has_distinct_chain_and_budget(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
@@ -1652,7 +2515,7 @@ class FullModelQualificationTests(unittest.TestCase):
                 [post[1]["retry_action_ordinal"] for post in client.action_posts], [1, 1]
             )
 
-    def test_semantic_regenerate_response_uses_its_own_provider_retry_continuation(self) -> None:
+    def test_regenerate_writer_uses_its_own_provider_retry_continuation(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -1673,7 +2536,9 @@ class FullModelQualificationTests(unittest.TestCase):
             self.assertEqual(first["provider_stage_retry_actions"], 1)
             self.assertEqual(client.regenerates, 1)
             self.assertEqual(len(client.action_posts), 1)
-            self.assertEqual(first["provider_operations"]["planner"], 0)
+            self.assertEqual(first["provider_operations"]["planner"], 1)
+            self.assertEqual(first["provider_operations"]["writer"], 2)
+            self.assertEqual(first["provider_operations"]["reader"], 2)
 
     def test_ambiguous_post_reconciles_by_get_without_reposting_or_leaking(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
@@ -1895,6 +2760,8 @@ class FullModelQualificationTests(unittest.TestCase):
                 later.body["status"]["chain_id"],
                 upstream.successor_later_chain_id,
             )
+            self.assertEqual(later.body["status"]["stage"], "reader")
+            self.assertEqual(later.body["status"]["model_family"], "sol")
             client.provider_stage_retry_action(
                 chain_id=upstream.successor_later_chain_id,
                 action=later.body["actions"][0],
@@ -1908,6 +2775,8 @@ class FullModelQualificationTests(unittest.TestCase):
                 chain_id=upstream.resume_prepared_chain_id
             )
             prepared_action = prepared.body["actions"][0]
+            self.assertEqual(prepared.body["status"]["stage"], "reader")
+            self.assertEqual(prepared.body["status"]["model_family"], "sol")
             client.provider_stage_retry_action(
                 chain_id=upstream.resume_prepared_chain_id,
                 action=prepared_action,
@@ -1942,14 +2811,15 @@ class FullModelQualificationTests(unittest.TestCase):
         self.assertEqual(action_2["retry_action_ordinal"], 2)
         self.assertEqual(exhausted.body["status"]["state"], "attempts_exhausted")
         self.assertEqual(exhausted.body["actions"], [])
-        self.assertEqual(completion.body["schema_version"], "cera.pi_scene.review_decision.v1")
+        self.assertEqual(completion.body["schema_version"], "cera.pi_scene.review_decision.v2")
+        self.assertEqual(completion.body["creator_action"], "automatic_accept")
         self.assertEqual(recovery.body["status"]["state"], "recovery_required")
         self.assertEqual(blocked.body["status"]["state"], "blocked_ambiguous")
         self.assertEqual(prepared_action["action_kind"], "resume_prepared")
         self.assertFalse(prepared_action["consumes_retry_action"])
         self.assertEqual(
             prepared_completion.body["schema_version"],
-            "cera.pi_scene.review_decision.v1",
+            "cera.pi_scene.review_decision.v2",
         )
         self.assertEqual(repair_action["action_kind"], "repair_recording")
         self.assertFalse(repair_action["consumes_retry_action"])
@@ -1959,11 +2829,84 @@ class FullModelQualificationTests(unittest.TestCase):
         )
         self.assertEqual(
             repair_completion.body["schema_version"],
-            "cera.pi_scene.review_decision.v1",
+            "cera.pi_scene.review_decision.v2",
         )
+        self.assertEqual(repair_completion.body["creator_action"], "repair_recording")
         self.assertEqual(repair_terminal.body["actions"], [])
         self.assertEqual(proof["exact_action_posts"], 7)
         self.assertEqual(proof["provider_calls"], 0)
+
+    def test_isolated_probe_validates_v2_reader_successor_and_terminal_reloads(
+        self,
+    ) -> None:
+        token = "relay-token-" + "y" * 32
+        port = entrypoint._available_port_excluding(5101)
+        upstream = entrypoint._GenericFakeRelayUpstreamV1(
+            port=port,
+            decline_review_id="review-0123456789abcdef0123456789ab",
+            regenerate_review_id="review-fedcba9876543210fedcba987654",
+            authorization_token=token,
+            chain_id="stage-retry-" + "1" * 64,
+        )
+        upstream.start()
+        isolated = object.__new__(entrypoint.IsolatedSillyTavernQualificationClient)
+        base_url = f"http://127.0.0.1:{port}"
+
+        def relay(
+            *,
+            path: str,
+            method: str,
+            payload: dict[str, Any] | None = None,
+        ) -> ClientResponseV1:
+            upstream_path = path.removeprefix("/api/plugins/cera-review")
+            if method == "GET":
+                return entrypoint._get_json_response(
+                    base_url + upstream_path,
+                    token=token,
+                    transport="fake-isolated-relay",
+                    path=path,
+                )
+            if method == "POST" and payload is not None:
+                return entrypoint._post_json(
+                    base_url + upstream_path,
+                    token=token,
+                    payload=payload,
+                    transport="fake-isolated-relay",
+                    path=path,
+                )
+            raise AssertionError("isolated relay probe changed HTTP method")
+
+        try:
+            with patch.object(isolated, "_relay", side_effect=relay):
+                proof = isolated.probe_provider_stage_relay(
+                    decline_review_id="review-0123456789abcdef0123456789ab",
+                    regenerate_review_id="review-fedcba9876543210fedcba987654",
+                    exhaustion_chain_id=upstream.exhaustion_chain_id,
+                    successor_source_chain_id=upstream.successor_source_chain_id,
+                    successor_later_chain_id=upstream.successor_later_chain_id,
+                    recovery_chain_id=upstream.recovery_chain_id,
+                    blocked_chain_id=upstream.blocked_chain_id,
+                    resume_prepared_chain_id=upstream.resume_prepared_chain_id,
+                    repair_source_chain_id=upstream.repair_source_chain_id,
+                    repair_successor_chain_id=upstream.repair_successor_chain_id,
+                    repair_terminal_chain_id=upstream.repair_terminal_chain_id,
+                )
+            upstream_proof = upstream.retry_proof()
+        finally:
+            upstream.close()
+        self.assertEqual(proof["provider_calls"], 0)
+        self.assertEqual(len(proof["exact_action_sha256s"]), 7)
+        for key in (
+            "regenerate_sha256",
+            "regenerate_terminal_sha256",
+            "terminal_completion_sha256",
+            "accepted_terminal_reload_sha256",
+            "repair_completion_sha256",
+            "repair_completion_reload_sha256",
+        ):
+            self.assertRegex(str(proof[key]), r"^[a-f0-9]{64}$")
+        self.assertEqual(upstream_proof["provider_calls"], 0)
+        self.assertTrue(upstream_proof["private_sentinel_absent"])
 
     def test_isolated_client_relays_exact_generic_action_without_invention(self) -> None:
         chain_id = "stage-retry-" + "a" * 64
@@ -2088,7 +3031,7 @@ class FullModelQualificationTests(unittest.TestCase):
             self.assertEqual(adult_two["explicit_regenerate_actions"], 1)
             self.assertEqual(client.regenerates, 1)
 
-    def test_automatic_repair_uses_explicit_validator_ledger_parity(self) -> None:
+    def test_joined_rejection_regenerate_accounts_luna_and_reader_exactly(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -2115,14 +3058,53 @@ class FullModelQualificationTests(unittest.TestCase):
                 repaired["provider_operations"]["validator"],
                 2,
             )
+            self.assertEqual(repaired["provider_operations"]["reader"], 2)
             self.assertEqual(repaired["provider_operations"]["recorder"], 1)
-            self.assertEqual(repaired["sol_http_operations"], 3)
+            self.assertEqual(repaired["sol_http_operations"], 5)
             self.assertEqual(repaired["deepseek_http_operations"], 3)
             self.assertFalse(repaired["first_pass_accepted"])
-            self.assertEqual(repaired["automatic_repair_actions"], 1)
+            self.assertEqual(repaired["automatic_repair_actions"], 0)
+            self.assertEqual(repaired["explicit_regenerate_actions"], 1)
             self.assertEqual(result["first_pass_accepted"], 19)
-            self.assertEqual(result["automatic_repair_actions"], 1)
-            self.assertEqual(result["explicit_regenerate_actions"], 0)
+            self.assertEqual(result["automatic_repair_actions"], 0)
+            self.assertEqual(result["explicit_regenerate_actions"], 1)
+
+    def test_review_authorized_recorder_repair_posts_once_and_reloads_terminal(
+        self,
+    ) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "runtime"
+            runner = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=runtime,
+                evidence_root=root / "evidence",
+            )
+            client = _FakeQualificationClient(
+                runtime,
+                recording_repair_fixture_id="backend-ordinary-01",
+            )
+            campaign = runner.start_phase(QualificationPhase.BACKEND, fixtures)
+            campaign.run_segment(
+                client=client,
+                runtime_root=runtime,
+                turn_count=1,
+            )
+            result = campaign.results[0]
+            self.assertEqual(len(client.review_actions), 1)
+            repair_review_id, repair_action = client.review_actions[0]
+            self.assertEqual(repair_review_id, next(iter(client.reviews)))
+            self.assertEqual(repair_action, {"action": "repair_recording"})
+            self.assertEqual(client.terminal_decision_reads, [repair_review_id])
+            self.assertEqual(client.review_reads, [repair_review_id, repair_review_id])
+            self.assertEqual(result["provider_operations"]["recorder"], 1)
+            self.assertEqual(result["provider_stage_repair_recording_actions"], 0)
+            self.assertTrue(result["first_pass_accepted"])
+            self.assertRegex(
+                str(result["terminal_review_decision_sha256"]),
+                r"^[a-f0-9]{64}$",
+            )
 
     def test_sillytavern_campaign_restart_retains_session_and_ledger_prefix(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)

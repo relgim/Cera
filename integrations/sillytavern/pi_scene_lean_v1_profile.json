@@ -14,6 +14,7 @@
   "ordinary_writer": "confined_pi_deepseek",
   "ordinary_validator": "fresh_luna_xhigh",
   "ordinary_reader": "fresh_codex_sol",
+  "ordinary_reader_reasoning_effort": "medium",
   "ordinary_python_gate": "deterministic_custody_privacy",
   "adult_logic_and_prose_owner": "confined_pi_deepseek_adult_scene",
   "adult_validator": "confined_pi_deepseek_adult_filter",
