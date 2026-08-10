@@ -3,6 +3,16 @@
 **Status:** controlling schemas-as-documentation
 **Implementation note:** Python dataclass schemas are implemented through provider-free Phase 9 plus the separately authorized Hanezawa Genesis V1.1 and V1.2 compilations. Future JSON Schema or Pydantic projections must preserve these semantics and version every contract.
 
+## Provider-stage Retry controlling policy
+
+[`PROVIDER_STAGE_RETRY_POLICY_V1.md`](PROVIDER_STAGE_RETRY_POLICY_V1.md) is the
+approved controlling policy for Planner, Writer, Luna Validator, Recorder,
+Adult Scene, and Adult Filter Retry. It requires canonical versioned JSON
+Schemas plus a repository Python generator for Python contracts, JavaScript
+validators, fixtures, compatibility adapters, and drift checking. The older
+full review packet remains historical audit evidence rather than active schema
+authority.
+
 <!-- CERA_RUNTIME_MODEL_V3_ACTIVE_START -->
 ## Runtime Model V3 active schema family
 
