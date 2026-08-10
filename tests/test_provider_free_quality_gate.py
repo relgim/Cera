@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import os
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -43,6 +44,23 @@ class ProviderFreeQualityGateTests(unittest.TestCase):
         module = _load_runner()
         self.assertIn("src/cera/pi_scene/qualification.py", module._FORMAT_TARGETS)
         self.assertEqual(module._LINT_TARGETS, module._FORMAT_TARGETS)
+
+    def test_generated_provider_stage_contracts_are_gate_bound(self) -> None:
+        module = _load_runner()
+        self.assertIn(module._GENERATED_CONTRACT_CHECK, module._FORMAT_TARGETS)
+        self.assertIn(module._GENERATED_CONTRACT_CHECK, module._TYPE_TARGETS)
+        completed = subprocess.run(
+            (
+                sys.executable,
+                str(ROOT / module._GENERATED_CONTRACT_CHECK),
+                "--check",
+            ),
+            cwd=ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
 
 
 if __name__ == "__main__":

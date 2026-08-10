@@ -33,7 +33,9 @@ _PINNED_QUALITY_TOOLS = {
     "mypy": "2.3.0",
     "ruff": "0.16.2",
 }
+_GENERATED_CONTRACT_CHECK = "scripts/generate_provider_stage_retry_contracts.py"
 _FORMAT_TARGETS = (
+    _GENERATED_CONTRACT_CHECK,
     "scripts/run_provider_free_quality_gate.py",
     "src/cera/provider_dispatch_guard.py",
     "src/cera/cognition",
@@ -50,6 +52,7 @@ _FORMAT_TARGETS = (
 )
 _LINT_TARGETS = _FORMAT_TARGETS
 _TYPE_TARGETS = (
+    _GENERATED_CONTRACT_CHECK,
     "scripts/run_provider_free_quality_gate.py",
     "src/cera/provider_dispatch_guard.py",
     "src/cera/cognition",
@@ -257,6 +260,14 @@ def _run_checked(command: tuple[str, ...], *, label: str) -> None:
 
 def _run_quality_tools() -> None:
     _assert_quality_tool_versions()
+    _run_checked(
+        (
+            sys.executable,
+            str(ROOT / _GENERATED_CONTRACT_CHECK),
+            "--check",
+        ),
+        label="provider-stage generated contract drift check",
+    )
     _run_checked(
         (
             sys.executable,
