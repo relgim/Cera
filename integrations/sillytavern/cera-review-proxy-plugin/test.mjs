@@ -1527,7 +1527,7 @@ test('review decision v2 validates an exact provisional Regenerate successor', (
         id: 'chatcmpl-ordinary-successor',
         object: 'chat.completion',
         created: 1,
-        model: 'cera-alpha',
+        model: 'cera-pi-scene-ordinary',
         choices: [{
             index: 0,
             message: { role: 'assistant', content: 'Regenerated exact Writer prose.' },
@@ -1536,13 +1536,12 @@ test('review decision v2 validates an exact provisional Regenerate successor', (
         usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
         cera: {
             profile_id: 'cera.pi_scene.lean.v1',
-            request_id: `request-${'9'.repeat(64)}`,
             candidate_id: successorReview.candidate_id,
             candidate_sha256: successorReview.candidate_sha256,
             route_mode: 'ordinary',
             provisional: true,
             provisional_review_id: successorReview.review_id,
-            status: 'checks_pending',
+            status: 'review_ready',
             story_state_committed: false,
             review_url: `/v1/cera/reviews/${successorReview.review_id}`,
             review_lifecycle: lifecycle,
@@ -1559,8 +1558,15 @@ test('review decision v2 validates an exact provisional Regenerate successor', (
         operational_warnings: [],
     });
     const projected = projectReviewDecisionPayload(decision);
+    assert.equal(projected.successor.cera.status, 'review_ready');
     assert.equal(projected.successor.cera.review_lifecycle.state, 'checks_pending');
     assert.equal(projected.successor.choices[0].message.content, 'Regenerated exact Writer prose.');
+
+    const malformedOptionalRequest = structuredClone(decision);
+    malformedOptionalRequest.successor.cera.request_id = 'request-not-a-closed-id';
+    assert.throws(() => projectReviewDecisionPayload(
+        bindDetachedDecisionHash(malformedOptionalRequest),
+    ));
 
     const openSuccessor = structuredClone(decision);
     openSuccessor.successor.debug = 'not part of the exact completion';

@@ -358,7 +358,7 @@ function projectOrdinarySuccessorCompletion(value) {
         cera.route_mode !== 'ordinary'
         || cera.provisional !== true
         || cera.story_state_committed !== false
-        || cera.status !== 'checks_pending'
+        || cera.status !== 'review_ready'
         || !REVIEW_ID_PATTERN.test(cera.provisional_review_id)
         || cera.review_url !== `/v1/cera/reviews/${cera.provisional_review_id}`
         || !/^candidate-[a-f0-9]{28}$/.test(cera.candidate_id)
@@ -409,7 +409,10 @@ function projectChatCompletion(value, { requireProviderStageBinding }) {
         || Array.isArray(cera)
         || typeof cera.profile_id !== 'string'
         || !cera.profile_id.startsWith('cera.pi_scene.')
-        || !REQUEST_ID_PATTERN.test(cera.request_id)
+        || (requireProviderStageBinding && !REQUEST_ID_PATTERN.test(cera.request_id))
+        || (!requireProviderStageBinding
+            && cera.request_id !== undefined
+            && !REQUEST_ID_PATTERN.test(cera.request_id))
         || (requireProviderStageBinding && !SHA256_PATTERN.test(providerStageBinding))
         || (!requireProviderStageBinding
             && providerStageBinding !== undefined
