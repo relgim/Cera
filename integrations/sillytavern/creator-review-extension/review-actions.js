@@ -1,4 +1,11 @@
 import { validReviewId } from './completion-metadata.js';
+import {
+    normalizeProviderStageRetryActionV1,
+    normalizeProviderStageRetryBlockedAmbiguousV1,
+    normalizeProviderStageRetryExhaustedV1,
+    normalizeProviderStageRetryStatusEnvelopeV1,
+    normalizeProviderStageRetryStatusV1,
+} from './generated/provider-stage-retry-contracts-v1.mjs';
 
 const REPROJECTION_SCHEMA = 'cera.pi_scene.adult_provisional_acceptance_blocked.v1';
 const REPROJECTION_DISPOSITION = 'reprojection_required';
@@ -15,7 +22,6 @@ const TRANSPORT_RETRY_STATUS_SCHEMA_V2 = 'cera.pi_scene.transport_retry_status.v
 const TRANSPORT_RETRY_STATE_SCHEMA_V1 = 'cera.sillytavern.transport_retry_state.v1';
 const TRANSPORT_RETRY_STATE_SCHEMA_V2 = 'cera.sillytavern.transport_retry_state.v2';
 const TRANSPORT_RETRY_COMPLETION_SCHEMA = 'cera.sillytavern.transport_retry_completion.v1';
-const PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA = 'cera.provider_stage_retry_exhausted.v1';
 const PROVIDER_STAGE_FAILURE_STATE_SCHEMA = 'cera.sillytavern.provider_stage_failure_state.v1';
 const TRANSPORT_FAILURE_CODE = 'CERA_PROVIDER_TRANSPORT_FAILED';
 const PROVIDER_STAGE_RETRY_EXHAUSTED_CODE = 'CERA_PROVIDER_STAGE_RETRY_EXHAUSTED';
@@ -45,23 +51,6 @@ const BLOCKED_REASON_CODES = new Set([
     'dispatch_state_ambiguous',
     'durable_request_progressed',
 ]);
-const PROVIDER_STAGE_FAILURE_CLASSES = new Set([
-    'transport_timeout',
-    'provider_unavailable',
-    'provider_process_failed',
-    'provider_stream_incomplete',
-    'provider_completion_incomplete',
-    'provider_output_invalid',
-    'dispatch_ambiguous',
-]);
-const PROVIDER_STAGE_MODEL_BINDINGS = Object.freeze({
-    planner: Object.freeze({ provider: 'codex', model_family: 'sol' }),
-    semantic_validator: Object.freeze({ provider: 'codex', model_family: 'luna' }),
-    writer: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
-    recorder: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
-    adult_scene: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
-    adult_filter: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
-});
 
 /** A retry identity is backend-issued; the browser never derives one. */
 export function validTransportRetryId(value) {
@@ -259,71 +248,27 @@ export function normalizeTransportRetryCompletionMarker(value) {
 
 /** Closed, hash-only terminal failure receipt shared by HTTP and GET status. */
 export function normalizeProviderStageRetryExhausted(value) {
-    if (!plainObject(value) || !exactKeys(value, [
-        'attempt_chain_sha256',
-        'attempts_total',
-        'failed_stage_effect_committed',
-        'final_failure_class',
-        'maximum_attempts',
-        'model_family',
-        'provider',
-        'provider_operations_conservative_total',
-        'provider_operations_observed_total',
-        'request_sha256',
-        'retries_consumed',
-        'schema_version',
-        'severity',
-        'stage',
-        'stage_input_sha256',
-        'story_state_committed',
-        'terminal_evidence_sha256',
-    ])) return null;
-    const binding = PROVIDER_STAGE_MODEL_BINDINGS[value.stage];
-    const observed = value.provider_operations_observed_total;
-    const conservative = value.provider_operations_conservative_total;
-    const recorder = value.stage === 'recorder';
-    if (
-        value.schema_version !== PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA
-        || value.severity !== 'critical'
-        || !binding
-        || value.provider !== binding.provider
-        || value.model_family !== binding.model_family
-        || value.maximum_attempts !== 3
-        || value.attempts_total !== 3
-        || value.retries_consumed !== 2
-        || typeof value.story_state_committed !== 'boolean'
-        || typeof value.failed_stage_effect_committed !== 'boolean'
-        || value.story_state_committed !== recorder
-        || value.failed_stage_effect_committed !== false
-        || !Number.isSafeInteger(observed)
-        || observed < 0
-        || !Number.isSafeInteger(conservative)
-        || conservative < observed
-        || !PROVIDER_STAGE_FAILURE_CLASSES.has(value.final_failure_class)
-        || !SHA256_PATTERN.test(value.request_sha256)
-        || !SHA256_PATTERN.test(value.stage_input_sha256)
-        || !SHA256_PATTERN.test(value.attempt_chain_sha256)
-        || !SHA256_PATTERN.test(value.terminal_evidence_sha256)
-    ) return null;
-    return {
-        schema_version: PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA,
-        severity: 'critical',
-        provider: value.provider,
-        model_family: value.model_family,
-        stage: value.stage,
-        maximum_attempts: 3,
-        attempts_total: 3,
-        retries_consumed: 2,
-        story_state_committed: value.story_state_committed,
-        failed_stage_effect_committed: false,
-        provider_operations_observed_total: observed,
-        provider_operations_conservative_total: conservative,
-        final_failure_class: value.final_failure_class,
-        request_sha256: value.request_sha256,
-        stage_input_sha256: value.stage_input_sha256,
-        attempt_chain_sha256: value.attempt_chain_sha256,
-        terminal_evidence_sha256: value.terminal_evidence_sha256,
-    };
+    return normalizeProviderStageRetryExhaustedV1(value);
+}
+
+/** Canonical status for one exact branch/generation/stage occurrence. */
+export function normalizeProviderStageRetryStatus(value) {
+    return normalizeProviderStageRetryStatusV1(value);
+}
+
+/** Status plus the exact backend-issued control DTO, when one is available. */
+export function normalizeProviderStageRetryStatusEnvelope(value) {
+    return normalizeProviderStageRetryStatusEnvelopeV1(value);
+}
+
+/** Provider-stage controls never accept semantic Regenerate or Replan actions. */
+export function normalizeProviderStageRetryAction(value) {
+    return normalizeProviderStageRetryActionV1(value);
+}
+
+/** Reconciliation-only ambiguity evidence; this object cannot authorize Retry. */
+export function normalizeProviderStageRetryBlockedAmbiguous(value) {
+    return normalizeProviderStageRetryBlockedAmbiguousV1(value);
 }
 
 /** Accept only the relay's prose/path-free HTTP 503 projection. */

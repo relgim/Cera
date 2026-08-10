@@ -8,10 +8,17 @@ import {
     normalizeAuthorization,
     normalizeDecisionBody,
     normalizeLoopbackRoot,
+    normalizeProviderStageRetryActionBody,
+    normalizeProviderStageRetryActionId,
+    normalizeProviderStageRetryChainId,
     normalizeReviewId,
     normalizeTransportRetryBody,
     normalizeTransportRetryId,
+    providerStageRetryUpstreamUrl,
+    projectProviderStageRetryAction,
+    projectProviderStageRetryBlockedAmbiguous,
     projectProviderStageRetryExhausted,
+    projectProviderStageRetryStatusEnvelope,
     projectTransportRetryPayload,
     projectTransportRetryStatusPayload,
     reviewUpstreamUrl,
@@ -80,6 +87,66 @@ function exhaustedError(critical = criticalProviderStageFailure()) {
     };
 }
 
+function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
+    const config = {
+        eligible: ['writer', 1, 0, 1, 1, 'transport_timeout', 'provider_retry'],
+        in_progress: ['writer', 2, 1, 1, 1, null, null],
+        succeeded: ['writer', 2, 1, 2, 2, null, null],
+        blocked_ambiguous: ['adult_scene', 1, 0, 0, 1, 'dispatch_ambiguous', 'check_status'],
+        attempts_exhausted: ['writer', 3, 2, 3, 3, 'provider_unavailable', 'explicit_recovery'],
+        recording_repair_required: [
+            'recorder', 3, 2, 3, 3, 'provider_completion_incomplete', 'repair_recording',
+        ],
+    }[state];
+    const [stage, attempts, retries, observed, conservative, failure, actionKind] = config;
+    const chainId = `stage-retry-${chainCharacter.repeat(64)}`;
+    const chainSha256 = 'f'.repeat(64);
+    const status = {
+        schema_version: 'cera.provider_stage_retry_status.v1',
+        chain_id: chainId,
+        provider: 'deepseek',
+        model_family: 'deepseek_v4',
+        stage,
+        state,
+        maximum_attempts: 3,
+        stage_attempts_total: attempts,
+        retry_actions_accepted: retries,
+        provider_operations_observed_total: observed,
+        provider_operations_conservative_total: conservative,
+        story_state_committed: stage === 'recorder',
+        branch_preserved_at_last_accepted_head: true,
+        failure_category: failure,
+        available_actions: actionKind ? [actionKind] : [],
+        technical_details: {
+            schema_version: 'cera.provider_stage_retry_technical_details.v1',
+            request_occurrence_sha256: 'b'.repeat(64),
+            request_sha256: 'c'.repeat(64),
+            stage_input_sha256: 'd'.repeat(64),
+            accepted_state_sha256: 'e'.repeat(64),
+            chain_sha256: chainSha256,
+        },
+    };
+    const actions = actionKind ? [{
+        schema_version: 'cera.provider_stage_retry_action.v1',
+        action_id: `stage-action-${'9'.repeat(64)}`,
+        chain_id: chainId,
+        action_family: 'provider_stage_control',
+        action_kind: actionKind,
+        automatic: false,
+        provider_dispatch_authorized: actionKind === 'provider_retry',
+        consumes_retry_action: actionKind === 'provider_retry',
+        retry_action_ordinal: actionKind === 'provider_retry' ? retries + 1 : null,
+        whole_request_replay_authorized: false,
+        provider_substitution_authorized: false,
+        expected_chain_sha256: chainSha256,
+    }] : [];
+    return {
+        schema_version: 'cera.provider_stage_retry_status_envelope.v1',
+        status,
+        actions,
+    };
+}
+
 test('full-pipeline review decisions and transport retries share the outer safety ceiling', () => {
     assert.equal(FULL_PIPELINE_TIMEOUT_MS, 4_200_000);
 });
@@ -96,6 +163,8 @@ test('plugin registers only the narrow CERA relay routes', async () => {
         ['GET', '/health', 'function'],
         ['GET', '/v1/cera/reviews/:reviewId', 'function'],
         ['POST', '/v1/cera/reviews/:reviewId/decision', 'function'],
+        ['GET', '/v1/cera/provider-stage-retries/:chainId', 'function'],
+        ['POST', '/v1/cera/provider-stage-retries/:chainId/actions/:actionId', 'function'],
         ['GET', '/v1/cera/transport-retries/:retryId', 'function'],
         ['POST', '/v1/cera/transport-retries/:retryId', 'function'],
     ]);
@@ -176,7 +245,6 @@ test('terminal provider-stage projection is closed across all stages and failure
         'provider_stream_incomplete',
         'provider_completion_incomplete',
         'provider_output_invalid',
-        'dispatch_ambiguous',
     ];
     for (const stage of stages) {
         for (const failureClass of failureClasses) {
@@ -194,6 +262,7 @@ test('terminal provider-stage projection is closed across all stages and failure
         { failed_stage_effect_committed: true },
         { provider_operations_conservative_total: 1 },
         { final_failure_class: 'pretransport_failed' },
+        { final_failure_class: 'dispatch_ambiguous' },
         { terminal_evidence_sha256: 'not-a-hash' },
         { raw_provider_output: 'private' },
     ]) {
@@ -202,6 +271,102 @@ test('terminal provider-stage projection is closed across all stages and failure
     assert.throws(() => projectProviderStageRetryExhausted(
         criticalProviderStageFailure({ stage: 'recorder', storyStateCommitted: false }),
     ));
+});
+
+test('generated provider-stage envelope projects all six states with exact action authority', () => {
+    for (const state of [
+        'eligible',
+        'in_progress',
+        'succeeded',
+        'blocked_ambiguous',
+        'attempts_exhausted',
+        'recording_repair_required',
+    ]) {
+        const envelope = providerStageRetryEnvelope(state);
+        assert.deepEqual(projectProviderStageRetryStatusEnvelope(envelope), envelope);
+        assert.deepEqual(projectTransportRetryStatusPayload(envelope), envelope);
+        if (envelope.actions[0]) {
+            assert.deepEqual(projectProviderStageRetryAction(envelope.actions[0]), envelope.actions[0]);
+        }
+    }
+    const eligible = providerStageRetryEnvelope('eligible');
+    assert.throws(() => projectProviderStageRetryStatusEnvelope({
+        ...eligible,
+        actions: [],
+    }));
+    assert.throws(() => projectProviderStageRetryStatusEnvelope({
+        ...eligible,
+        actions: [{
+            ...eligible.actions[0],
+            action_id: `stage-action-${'8'.repeat(64)}`,
+            expected_chain_sha256: '7'.repeat(64),
+        }],
+    }));
+    assert.throws(() => projectProviderStageRetryAction({
+        ...eligible.actions[0],
+        action_kind: 'replan',
+    }));
+
+    const blocked = providerStageRetryEnvelope('blocked_ambiguous').status;
+    const evidence = {
+        schema_version: 'cera.provider_stage_retry_blocked_ambiguous.v1',
+        severity: 'critical',
+        provider: blocked.provider,
+        model_family: blocked.model_family,
+        stage: blocked.stage,
+        maximum_attempts: 3,
+        attempts_total: blocked.stage_attempts_total,
+        retries_consumed: blocked.retry_actions_accepted,
+        story_state_committed: false,
+        failed_stage_effect_committed: false,
+        provider_operations_observed_total: blocked.provider_operations_observed_total,
+        provider_operations_conservative_total: blocked.provider_operations_conservative_total,
+        block_reason: 'dispatch_custody_ambiguous',
+        request_sha256: blocked.technical_details.request_sha256,
+        stage_input_sha256: blocked.technical_details.stage_input_sha256,
+        attempt_chain_sha256: blocked.technical_details.chain_sha256,
+        terminal_evidence_sha256: '6'.repeat(64),
+    };
+    assert.deepEqual(projectProviderStageRetryBlockedAmbiguous(evidence), evidence);
+});
+
+test('provider-stage relay IDs, URLs, and action body are fixed and backend-issued', () => {
+    const envelope = providerStageRetryEnvelope('eligible');
+    const { chain_id: chainId, action_id: actionId } = envelope.actions[0];
+    assert.equal(normalizeProviderStageRetryChainId(chainId), chainId);
+    assert.equal(normalizeProviderStageRetryActionId(actionId), actionId);
+    assert.equal(
+        providerStageRetryUpstreamUrl(chainId),
+        `http://127.0.0.1:5101/v1/cera/provider-stage-retries/${chainId}`,
+    );
+    assert.equal(
+        providerStageRetryUpstreamUrl(chainId, { actionId }),
+        `http://127.0.0.1:5101/v1/cera/provider-stage-retries/${chainId}/actions/${actionId}`,
+    );
+    assert.deepEqual(
+        normalizeProviderStageRetryActionBody(envelope.actions[0], { chainId, actionId }),
+        envelope.actions[0],
+    );
+    assert.throws(() => normalizeProviderStageRetryActionBody(
+        providerStageRetryEnvelope('blocked_ambiguous').actions[0],
+        {
+            chainId: providerStageRetryEnvelope('blocked_ambiguous').status.chain_id,
+            actionId: providerStageRetryEnvelope('blocked_ambiguous').actions[0].action_id,
+        },
+    ));
+    assert.throws(() => normalizeProviderStageRetryActionBody(
+        providerStageRetryEnvelope('recording_repair_required').actions[0],
+        {
+            chainId: providerStageRetryEnvelope('recording_repair_required').status.chain_id,
+            actionId: providerStageRetryEnvelope('recording_repair_required').actions[0].action_id,
+        },
+    ));
+    assert.throws(() => normalizeProviderStageRetryActionBody(envelope.actions[0], {
+        chainId: `stage-retry-${'0'.repeat(64)}`,
+        actionId,
+    }));
+    assert.throws(() => normalizeProviderStageRetryChainId('../../reviews'));
+    assert.throws(() => normalizeProviderStageRetryActionId(`stage-action-${'A'.repeat(64)}`));
 });
 
 test('HTTP exhaustion projection strips paths and prose and never exposes Retry', () => {
@@ -528,6 +693,55 @@ test('transport retry status route forwards one authenticated GET without dispat
     assert.equal(calls[0].options.body, undefined);
     assert.equal(responseStatus, 200);
     assert.deepEqual(responsePayload, status);
+});
+
+test('provider-stage routes forward read-only GET and one exact backend-issued action POST', async () => {
+    const routes = new Map();
+    const router = {
+        get(path, handler) { routes.set(`GET ${path}`, handler); },
+        post(path, handler) { routes.set(`POST ${path}`, handler); },
+    };
+    await init(router);
+    const eligible = providerStageRetryEnvelope('eligible');
+    const inProgress = providerStageRetryEnvelope('in_progress');
+    const blocked = providerStageRetryEnvelope('blocked_ambiguous');
+    const action = eligible.actions[0];
+    const calls = [];
+    const responses = [blocked, inProgress];
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url, options) => {
+        calls.push({ url, options });
+        return new Response(JSON.stringify(responses.shift()), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+        });
+    };
+    const payloads = [];
+    const response = {
+        headersSent: false,
+        set() { return this; },
+        status() { return this; },
+        json(value) { payloads.push(value); return this; },
+    };
+    const authorization = `Bearer ${'a'.repeat(43)}`;
+    try {
+        await routes.get('GET /v1/cera/provider-stage-retries/:chainId')({
+            params: { chainId: blocked.status.chain_id },
+            get() { return authorization; },
+        }, response);
+        await routes.get('POST /v1/cera/provider-stage-retries/:chainId/actions/:actionId')({
+            params: { chainId: action.chain_id, actionId: action.action_id },
+            body: action,
+            get() { return authorization; },
+        }, response);
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+    assert.equal(calls[0].options.method, 'GET');
+    assert.equal(calls[0].options.body, undefined);
+    assert.equal(calls[1].options.method, 'POST');
+    assert.deepEqual(JSON.parse(calls[1].options.body), action);
+    assert.deepEqual(payloads, [blocked, inProgress]);
 });
 
 test('review authorization accepts only a bounded bearer credential', () => {

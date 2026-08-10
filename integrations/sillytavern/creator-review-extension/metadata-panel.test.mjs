@@ -141,6 +141,7 @@ async function loadExtension({
         'cera-creator-review',
     );
     await mkdir(extension, { recursive: true });
+    await mkdir(path.join(extension, 'generated'), { recursive: true });
     await mkdir(path.join(root, 'public', 'scripts'), { recursive: true });
     await writeFile(path.join(root, 'package.json'), '{"type":"module"}\n');
     await writeFile(
@@ -202,6 +203,13 @@ export function updateMessageBlock() {}
             await readFile(path.join(sourceRoot, name), 'utf8'),
         );
     }
+    await writeFile(
+        path.join(extension, 'generated', 'provider-stage-retry-contracts-v1.mjs'),
+        await readFile(
+            path.join(sourceRoot, 'generated', 'provider-stage-retry-contracts-v1.mjs'),
+            'utf8',
+        ),
+    );
 
     class TestCustomEvent extends Event {
         constructor(type, options = {}) {
@@ -363,6 +371,84 @@ function exhaustedStatus(failure, critical = criticalProviderStageFailure()) {
         effect_proof_sha256: failure.error.transport_retry.effect_proof_sha256,
         retry_transport_enabled: false,
         critical_provider_stage_failure: critical,
+    };
+}
+
+function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
+    const stateValues = {
+        eligible: {
+            stage: 'writer', attempts: 1, retries: 0, observed: 1, conservative: 1,
+            failure: 'transport_timeout', action: 'provider_retry',
+        },
+        in_progress: {
+            stage: 'writer', attempts: 2, retries: 1, observed: 1, conservative: 1,
+            failure: null, action: null,
+        },
+        succeeded: {
+            stage: 'writer', attempts: 2, retries: 1, observed: 2, conservative: 2,
+            failure: null, action: null,
+        },
+        blocked_ambiguous: {
+            stage: 'adult_scene', attempts: 1, retries: 0, observed: 0, conservative: 1,
+            failure: 'dispatch_ambiguous', action: 'check_status',
+        },
+        attempts_exhausted: {
+            stage: 'writer', attempts: 3, retries: 2, observed: 3, conservative: 3,
+            failure: 'provider_unavailable', action: 'explicit_recovery',
+        },
+        recording_repair_required: {
+            stage: 'recorder', attempts: 3, retries: 2, observed: 3, conservative: 3,
+            failure: 'provider_completion_incomplete', action: 'repair_recording',
+        },
+    }[state];
+    if (!stateValues) throw new TypeError(`unsupported test state ${state}`);
+    const chainId = `stage-retry-${chainCharacter.repeat(64)}`;
+    const chainSha256 = 'f'.repeat(64);
+    const status = {
+        schema_version: 'cera.provider_stage_retry_status.v1',
+        chain_id: chainId,
+        provider: 'deepseek',
+        model_family: 'deepseek_v4',
+        stage: stateValues.stage,
+        state,
+        maximum_attempts: 3,
+        stage_attempts_total: stateValues.attempts,
+        retry_actions_accepted: stateValues.retries,
+        provider_operations_observed_total: stateValues.observed,
+        provider_operations_conservative_total: stateValues.conservative,
+        story_state_committed: stateValues.stage === 'recorder',
+        branch_preserved_at_last_accepted_head: true,
+        failure_category: stateValues.failure,
+        available_actions: stateValues.action ? [stateValues.action] : [],
+        technical_details: {
+            schema_version: 'cera.provider_stage_retry_technical_details.v1',
+            request_occurrence_sha256: 'b'.repeat(64),
+            request_sha256: 'c'.repeat(64),
+            stage_input_sha256: 'd'.repeat(64),
+            accepted_state_sha256: 'e'.repeat(64),
+            chain_sha256: chainSha256,
+        },
+    };
+    const actions = stateValues.action ? [{
+        schema_version: 'cera.provider_stage_retry_action.v1',
+        action_id: `stage-action-${'9'.repeat(64)}`,
+        chain_id: chainId,
+        action_family: 'provider_stage_control',
+        action_kind: stateValues.action,
+        automatic: false,
+        provider_dispatch_authorized: stateValues.action === 'provider_retry',
+        consumes_retry_action: stateValues.action === 'provider_retry',
+        retry_action_ordinal: stateValues.action === 'provider_retry'
+            ? stateValues.retries + 1
+            : null,
+        whole_request_replay_authorized: false,
+        provider_substitution_authorized: false,
+        expected_chain_sha256: chainSha256,
+    }] : [];
+    return {
+        schema_version: 'cera.provider_stage_retry_status_envelope.v1',
+        status,
+        actions,
     };
 }
 
@@ -580,7 +666,11 @@ test('source presents collapsed trace and preserves creator actions', async () =
     assert.equal(panel.includes('CERA - PROVISIONAL CANON'), true);
     assert.equal(panel.includes('not settled final truth'), true);
     assert.equal(source.includes('window.ceraCaptureTransportFailure'), true);
+    assert.equal(source.includes('window.ceraCaptureProviderStageRetryStatus'), true);
     assert.equal(source.includes("'Retry transport'"), true);
+    assert.equal(source.includes("'Retry Provider Stage'"), true);
+    assert.equal(source.includes("'Check Status'"), true);
+    assert.equal(source.includes("'Repair Recording'"), true);
     assert.equal(source.includes("body: {}"), true);
 });
 
@@ -985,7 +1075,239 @@ test('retry status normalizer closes all five backend states and rejects extra a
     }
 });
 
-test('critical provider-stage normalizers close six stages and seven failure classes', async () => {
+test('generated provider-stage envelope validates all six states and backend action bindings', async () => {
+    const { root } = await loadExtension();
+    try {
+        const actions = await import(
+            `${pathToFileURL(path.join(
+                root,
+                'public/scripts/extensions/third-party/cera-creator-review/review-actions.js',
+            )).href}?v=${Date.now()}`
+        );
+        for (const state of [
+            'eligible',
+            'in_progress',
+            'succeeded',
+            'blocked_ambiguous',
+            'attempts_exhausted',
+            'recording_repair_required',
+        ]) {
+            const envelope = providerStageRetryEnvelope(state);
+            assert.deepEqual(actions.normalizeProviderStageRetryStatusEnvelope(envelope), envelope);
+            assert.deepEqual(
+                actions.normalizeProviderStageRetryStatus(envelope.status),
+                envelope.status,
+            );
+            if (envelope.actions[0]) {
+                assert.deepEqual(
+                    actions.normalizeProviderStageRetryAction(envelope.actions[0]),
+                    envelope.actions[0],
+                );
+            }
+        }
+        const eligible = providerStageRetryEnvelope('eligible');
+        assert.equal(actions.normalizeProviderStageRetryStatusEnvelope({
+            ...eligible,
+            actions: [],
+        }), null);
+        assert.equal(actions.normalizeProviderStageRetryStatusEnvelope({
+            ...eligible,
+            actions: [{
+                ...eligible.actions[0],
+                expected_chain_sha256: '8'.repeat(64),
+            }],
+        }), null);
+        assert.equal(actions.normalizeProviderStageRetryAction({
+            ...eligible.actions[0],
+            action_kind: 'regenerate',
+        }), null);
+
+        const blocked = providerStageRetryEnvelope('blocked_ambiguous').status;
+        const blockedEvidence = {
+            schema_version: 'cera.provider_stage_retry_blocked_ambiguous.v1',
+            severity: 'critical',
+            provider: blocked.provider,
+            model_family: blocked.model_family,
+            stage: blocked.stage,
+            maximum_attempts: 3,
+            attempts_total: blocked.stage_attempts_total,
+            retries_consumed: blocked.retry_actions_accepted,
+            story_state_committed: blocked.story_state_committed,
+            failed_stage_effect_committed: false,
+            provider_operations_observed_total: blocked.provider_operations_observed_total,
+            provider_operations_conservative_total: blocked.provider_operations_conservative_total,
+            block_reason: 'dispatch_custody_ambiguous',
+            request_sha256: blocked.technical_details.request_sha256,
+            stage_input_sha256: blocked.technical_details.stage_input_sha256,
+            attempt_chain_sha256: blocked.technical_details.chain_sha256,
+            terminal_evidence_sha256: '7'.repeat(64),
+        };
+        assert.deepEqual(
+            actions.normalizeProviderStageRetryBlockedAmbiguous(blockedEvidence),
+            blockedEvidence,
+        );
+    } finally {
+        await rm(root, { recursive: true, force: true });
+    }
+});
+
+test('eligible provider-stage status posts only the exact backend-issued Retry action', async () => {
+    const calls = [];
+    const originalFetch = globalThis.fetch;
+    const eligible = providerStageRetryEnvelope('eligible');
+    const inProgress = providerStageRetryEnvelope('in_progress');
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            calls.push({ url, options });
+            return jsonResponse(inProgress);
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureProviderStageRetryStatus(eligible), true);
+        const panel = loaded.testDocument.querySelector('#cera_provider_stage_retry_panel');
+        assert.ok(panel);
+        assert.match(elementText(panel), /Technical details/);
+        assert.match(elementText(panel), /Browser-observed Retry actions \(advisory only\)/);
+        assert.equal(
+            panel.querySelector('.cera-review-status').textContent.includes('d'.repeat(64)),
+            false,
+        );
+        assert.equal(buttonByText(loaded.testDocument, 'Check Status'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Repair Recording'), null);
+        await buttonByText(loaded.testDocument, 'Retry Provider Stage').click();
+        assert.equal(calls.length, 1);
+        assert.equal(calls[0].options.method, 'POST');
+        assert.match(calls[0].url, /provider-stage-retries\/stage-retry-/);
+        assert.deepEqual(JSON.parse(calls[0].options.body), eligible.actions[0]);
+        assert.equal(buttonByText(loaded.testDocument, 'Retry Provider Stage'), null);
+        assert.match(
+            loaded.testDocument.querySelector('.cera-review-status').textContent,
+            /in progress/i,
+        );
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('blocked ambiguity shows Check Status only and reconciliation performs GET only', async () => {
+    const calls = [];
+    const originalFetch = globalThis.fetch;
+    const blocked = providerStageRetryEnvelope('blocked_ambiguous');
+    const succeeded = structuredClone(blocked);
+    succeeded.status.state = 'succeeded';
+    succeeded.status.stage_attempts_total = 2;
+    succeeded.status.retry_actions_accepted = 1;
+    succeeded.status.provider_operations_observed_total = 1;
+    succeeded.status.failure_category = null;
+    succeeded.status.available_actions = [];
+    succeeded.actions = [];
+    const loaded = await loadExtension({
+        fetchImpl: async (url, options) => {
+            calls.push({ url, options });
+            return jsonResponse(succeeded);
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureProviderStageRetryStatus(blocked), true);
+        assert.ok(buttonByText(loaded.testDocument, 'Check Status'));
+        assert.equal(buttonByText(loaded.testDocument, 'Retry Provider Stage'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Repair Recording'), null);
+        await buttonByText(loaded.testDocument, 'Check Status').click();
+        assert.deepEqual(calls.map(call => call.options.method), ['GET']);
+        assert.equal(buttonByText(loaded.testDocument, 'Check Status'), null);
+        assert.match(
+            loaded.testDocument.querySelector('.cera-review-status').textContent,
+            /succeeded/i,
+        );
+        assert.ok(loaded.scriptModule.testState.activateCount >= 1);
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('attempt exhaustion exposes explicit recovery but never provider Retry', async () => {
+    const loaded = await loadExtension();
+    try {
+        assert.equal(
+            window.ceraCaptureProviderStageRetryStatus(
+                providerStageRetryEnvelope('attempts_exhausted'),
+            ),
+            true,
+        );
+        assert.ok(buttonByText(loaded.testDocument, 'Explicit Recovery'));
+        assert.equal(buttonByText(loaded.testDocument, 'Retry Provider Stage'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Check Status'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Repair Recording'), null);
+        assert.match(
+            loaded.testDocument.querySelector('.cera-review-status').textContent,
+            /last accepted head/,
+        );
+    } finally {
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('recording repair status exposes only the separate review repair authority', async () => {
+    const reviewId = `review-${'a'.repeat(28)}`;
+    const accepted = {
+        name: 'Sakura',
+        is_user: false,
+        mes: 'Accepted story remains visible.',
+        extra: {
+            cera_creator_review: {
+                review_id: reviewId,
+                state: 'accepted',
+                completion: {
+                    profile_id: 'cera.pi_scene.lean.v1',
+                    request_id: 'request:accepted-recording-repair',
+                    candidate_id: 'candidate:accepted-recording-repair',
+                    route_mode: 'ordinary',
+                    provisional: false,
+                    status: 'accepted',
+                    story_state_committed: true,
+                },
+            },
+        },
+    };
+    const repair = providerStageRetryEnvelope('recording_repair_required');
+    const calls = [];
+    const originalFetch = globalThis.fetch;
+    const loaded = await loadExtension({
+        initialChat: [accepted],
+        fetchImpl: async (url, options) => {
+            calls.push({ url, options });
+            if (options.method === 'POST') return jsonResponse({ state: 'accepted' });
+            const succeeded = structuredClone(repair);
+            succeeded.status.state = 'succeeded';
+            succeeded.status.failure_category = null;
+            succeeded.status.available_actions = [];
+            succeeded.actions = [];
+            return jsonResponse(succeeded);
+        },
+    });
+    try {
+        assert.equal(window.ceraCaptureProviderStageRetryStatus(repair), true);
+        assert.ok(buttonByText(loaded.testDocument, 'Repair Recording'));
+        assert.equal(buttonByText(loaded.testDocument, 'Retry Provider Stage'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Check Status'), null);
+        await buttonByText(loaded.testDocument, 'Repair Recording').click();
+        assert.equal(calls[0].options.method, 'POST');
+        assert.match(calls[0].url, /reviews\/review-/);
+        assert.deepEqual(JSON.parse(calls[0].options.body), {
+            action: 'repair_recording',
+            feedback: null,
+        });
+        assert.equal(calls[1].options.method, 'GET');
+        assert.equal(calls.some(call => call.url.includes('/actions/')), false);
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('critical provider-stage normalizers close six stages and six retryable failure classes', async () => {
     const { root } = await loadExtension();
     try {
         const actions = await import(
@@ -1009,7 +1331,6 @@ test('critical provider-stage normalizers close six stages and seven failure cla
             'provider_stream_incomplete',
             'provider_completion_incomplete',
             'provider_output_invalid',
-            'dispatch_ambiguous',
         ];
         for (const stage of stages) {
             for (const failureClass of failureClasses) {
@@ -1037,6 +1358,7 @@ test('critical provider-stage normalizers close six stages and seven failure cla
             { failed_stage_effect_committed: true },
             { provider_operations_conservative_total: 1 },
             { final_failure_class: 'pretransport_failed' },
+            { final_failure_class: 'dispatch_ambiguous' },
             { raw_provider_output: 'PRIVATE OUTPUT' },
         ]) {
             assert.equal(actions.normalizeProviderStageRetryExhausted({
@@ -1069,7 +1391,7 @@ test('critical stage failure persists, blocks only its chat, and restores withou
         assert.ok(panel);
         assert.match(elementText(panel), /CRITICAL CERA FAILURE - DeepSeek Adult Filter/);
         assert.match(elementText(panel), /failed after three attempts/);
-        assert.match(elementText(panel), /Safe failure details/);
+        assert.match(elementText(panel), /Technical details/);
         assert.equal(buttonByText(first.testDocument, 'Retry transport'), null);
         assert.equal(buttonByText(first.testDocument, 'Check retry status'), null);
         assert.ok(first.scriptModule.testState.deactivateCount >= 1);

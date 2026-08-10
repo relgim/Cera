@@ -37,7 +37,8 @@ All unrelated errors retain SillyTavern's existing behavior.
 
 That same sync must copy `index.js`, `completion-metadata.js`,
 `creator-trace-panel.js`, `review-actions.js`, `style.css`, and `manifest.json`
-from the repository-owned creator-review extension directory. The small
+plus the generated contract module under `generated/` from the
+repository-owned creator-review extension directory. The small
 modules keep backend-data projection, typed review outcomes, and DOM
 presentation separate.
 
@@ -51,6 +52,29 @@ The extension accepts both automatically accepted and provisional CERA
 completions. A rejected candidate receives durable buttons only when the
 backend supplies a review ID matching `review-[a-f0-9]{28}`. The client never
 derives or repairs a review ID.
+
+The authoritative provider-stage UI boundary is
+`cera.provider_stage_retry_status_envelope.v1`. It contains the generated
+`cera.provider_stage_retry_status.v1` object and an `actions` array of length
+zero or one. Every action is a generated
+`cera.provider_stage_retry_action.v1` supplied by the backend. Its `chain_id`,
+`action_kind`, `expected_chain_sha256`, and provider-Retry ordinal must match
+the status exactly. A status label by itself never authorizes a POST.
+
+The relay exposes only these generic paths:
+
+```text
+GET  /v1/cera/provider-stage-retries/:chainId
+POST /v1/cera/provider-stage-retries/:chainId/actions/:actionId
+```
+
+`blocked_ambiguous` carries only `check_status`, and the UI performs the GET;
+it never posts that action. `recording_repair_required` carries only
+`repair_recording`, but the UI routes it through the existing review decision
+authority instead of the provider-stage POST. Regenerate and Replan remain
+separate review actions and cannot validate as provider-stage actions. The
+legacy `transport_retry` contract below is a Planner compatibility adapter,
+not the generic source of counters or identity.
 
 `Retry transport` is exposed only when the closed error projection has
 `retry_transport_enabled === true`, `retry_mode === "manual_transport"`, a
@@ -118,19 +142,23 @@ terminal_evidence_sha256
 The final failure class is one of `transport_timeout`,
 `provider_unavailable`, `provider_process_failed`,
 `provider_stream_incomplete`, `provider_completion_incomplete`,
-`provider_output_invalid`, or `dispatch_ambiguous`. The relay rejects extra
+or narrowly defined protocol/envelope `provider_output_invalid`.
+`dispatch_ambiguous` is instead the distinct reconcilable
+`blocked_ambiguous` state. The relay rejects extra
 fields, invalid provider/model/stage combinations, and mismatched story-state
 flags. It strips the outer message, trace, request-local diagnostics, details,
 debug path, and any provider/story prose before browser delivery.
 
-An exhausted state has no action, successor, or Retry button. The extension
+The legacy exhausted projection has no successor or Retry button. The generic
+status exposes only an explicit-recovery identity, never provider Retry. The extension
 stores its hash/count-only projection per SillyTavern chat, restores a red
 critical panel after reload, and keeps normal sending disabled only for that
 chat/branch. Switching to an unrelated chat does not leak or discard the
 failure. Recorder exhaustion is the sole post-Accept case: the accepted
 assistant message receives the same safe marker and explicitly remains
-accepted while derived recording is incomplete. The other five stages are
-pre-Accept and require `story_state_committed=false`.
+accepted while derived recording is incomplete and presents the separate
+recording-repair action. The other five stages are pre-Accept and require
+`story_state_committed=false`.
 
 The relay applies the same closed projection to an error returned by the retry
 itself. A normal OpenAI-compatible completion passes through unchanged. An

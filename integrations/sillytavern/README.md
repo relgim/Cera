@@ -121,15 +121,31 @@ but an installed `openai.js` receives the widened bridge only at an explicitly
 authorized installation-sync boundary. Raw protected adult fields are never
 queued or duplicated by that bridge.
 
-The repository extension and review relay also understand the terminal
-provider-stage retry contract. After three failed attempts at one frozen stage,
-the current chat receives a persistent red critical panel with the provider,
-stage, attempt/count fields, closed failure class, and proof hashes. It has no
-Retry button and blocks further sends in that chat. A different chat remains
-independent. Recorder exhaustion attaches to the already accepted assistant
-message and says that story acceptance remains intact while recording is
-incomplete. No raw prompt, response, provider exception, protected prose, or
-local path is retained in this UI state.
+The repository extension and review relay implement the generic provider-stage
+Retry contract for `eligible`, `in_progress`, `succeeded`,
+`blocked_ambiguous`, `attempts_exhausted`, and
+`recording_repair_required`. The same-origin boundary is the closed
+`cera.provider_stage_retry_status_envelope.v1`: it pairs the generated status
+DTO with zero or one generated backend-issued action DTO. The action identity,
+chain identity, expected chain hash, and Retry ordinal must all match before a
+control is rendered; the browser never derives them.
+
+The compact panel keeps hashes, schema versions, provider-operation accounting,
+correlation identity, and browser-observed advisory counts behind the literal
+`Technical details` disclosure. `blocked_ambiguous` shows only `Check Status`,
+which performs the provider-free GET. `recording_repair_required` preserves the
+accepted story and shows only the existing separate `Repair Recording` review
+action. It never routes recording repair through provider-stage Retry. A normal
+Retry click posts the exact backend-issued action DTO once; Regenerate and
+Replan retain their separate review DTOs, counters, and buttons.
+
+The fixed relay paths are GET
+`/api/plugins/cera-review/v1/cera/provider-stage-retries/:chainId` and POST
+`/api/plugins/cera-review/v1/cera/provider-stage-retries/:chainId/actions/:actionId`.
+Check Status uses GET only. The backend owns the three-attempt/two-action limit;
+browser counts are advisory defense-in-depth and never create authority. No raw
+prompt, response, provider exception, protected prose, or local path is retained
+in the persisted UI status.
 
 ## Verification
 

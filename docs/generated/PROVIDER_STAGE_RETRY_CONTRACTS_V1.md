@@ -15,6 +15,7 @@ semantic Regenerate, and Replan remain separate identities and DTO families.
 | `schemas/provider_stage_retry/v1/compatibility_adapter.schema.json` | `cera.provider_stage_retry_compatibility_adapter.v1` | `8d594a711622234dfa6fed64d08218e768a0328c6a31dd1c7d5aabba174a9dff` |
 | `schemas/provider_stage_retry/v1/exhausted.schema.json` | `cera.provider_stage_retry_exhausted.v1` | `53f5e889e8a0e0b68b3ec5dad3a246223bf0e7ae1566216c16fead7ab8df264b` |
 | `schemas/provider_stage_retry/v1/status.schema.json` | `cera.provider_stage_retry_status.v1` | `d5dce0fb337bd98f508017c606664ef3f18e5e9a87176a68147641409c3b8e6f` |
+| `schemas/provider_stage_retry/v1/status_envelope.schema.json` | `cera.provider_stage_retry_status_envelope.v1` | `a767e13fe57a06cc83bef71629406b41f21d4107c72f0496d988e822fb2bd13b` |
 
 ## `cera.provider_stage_retry_action.v1`
 
@@ -125,10 +126,21 @@ Privacy-safe shared status for exactly one provider-stage occurrence. Semantic R
 | `available_actions` | yes | closed by schema | Concise UI actions. Semantic Regenerate and Replan use different DTO families. |
 | `technical_details` | yes | technical_details | Hashes and detailed identity for the collapsed Technical details section. |
 
+## `cera.provider_stage_retry_status_envelope.v1`
+
+Authoritative UI boundary pairing one stage-occurrence status with at most one backend-issued control action. The UI never invents an action identity or optimistic-concurrency hash.
+
+| Field | Required | Constraints | Meaning |
+|---|---:|---|---|
+| `schema_version` | yes | const `"cera.provider_stage_retry_status_envelope.v1"` | Immutable same-origin status-envelope version. |
+| `status` | yes | status.schema.json | Backend-authoritative state and accounting for one exact occurrence chain. |
+| `actions` | yes | closed by schema | Zero or one backend-issued control DTO aligned exactly with status.available_actions. |
+
 ## Generated integration surfaces
 
 - Python: `src/cera/generated/provider_stage_retry_contracts_v1.py`
 - JavaScript: `integrations/sillytavern/generated/provider-stage-retry-contracts-v1.mjs`
+- Staged JavaScript copies: `integrations/sillytavern/{creator-review-extension,cera-review-proxy-plugin}/generated/provider-stage-retry-contracts-v1.mjs`
 - Positive fixtures: `tests/fixtures/generated/provider_stage_retry_v1_positive.json`
 - Negative fixtures: `tests/fixtures/generated/provider_stage_retry_v1_negative.json`
 

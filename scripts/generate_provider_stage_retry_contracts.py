@@ -23,6 +23,20 @@ PYTHON_INIT_TARGET = ROOT / "src" / "cera" / "generated" / "__init__.py"
 JAVASCRIPT_TARGET = (
     ROOT / "integrations" / "sillytavern" / "generated" / "provider-stage-retry-contracts-v1.mjs"
 )
+JAVASCRIPT_STAGED_TARGETS = (
+    ROOT
+    / "integrations"
+    / "sillytavern"
+    / "creator-review-extension"
+    / "generated"
+    / "provider-stage-retry-contracts-v1.mjs",
+    ROOT
+    / "integrations"
+    / "sillytavern"
+    / "cera-review-proxy-plugin"
+    / "generated"
+    / "provider-stage-retry-contracts-v1.mjs",
+)
 POSITIVE_FIXTURE_TARGET = (
     ROOT / "tests" / "fixtures" / "generated" / "provider_stage_retry_v1_positive.json"
 )
@@ -68,15 +82,83 @@ def _load_schemas() -> list[tuple[Path, dict[str, Any], bytes]]:
                 raise ValueError(f"{path} schema_version const differs from its published version")
             if value.get("additionalProperties") is not False:
                 raise ValueError(f"{path} published root must reject unknown fields")
-            if not value.get("examples"):
-                raise ValueError(f"{path} must provide generated positive fixtures")
             if not value.get("x-cera-negative-fixtures"):
                 raise ValueError(f"{path} must provide generated negative fixtures")
         loaded.append((path, value, raw))
     if not loaded:
         raise ValueError(f"no schemas found under {SCHEMA_ROOT}")
+    _materialize_example_compositions(loaded)
+    for path, value, _ in loaded:
+        if value.get("x-cera-support-schema") is not True and not value.get("examples"):
+            raise ValueError(f"{path} must provide generated positive fixtures")
     _verify_references(loaded)
     return loaded
+
+
+def _materialize_example_compositions(
+    loaded: list[tuple[Path, dict[str, Any], bytes]],
+) -> None:
+    """Build closed envelope examples from canonical status/action examples."""
+
+    by_version = {
+        schema.get("x-cera-schema-version"): schema
+        for _, schema, _ in loaded
+        if isinstance(schema.get("x-cera-schema-version"), str)
+    }
+    status = by_version.get("cera.provider_stage_retry_status.v1")
+    action = by_version.get("cera.provider_stage_retry_action.v1")
+    for path, schema, _ in loaded:
+        compositions = schema.get("x-cera-example-compositions")
+        if compositions is None:
+            continue
+        if (
+            not isinstance(compositions, list)
+            or not isinstance(status, dict)
+            or not isinstance(action, dict)
+        ):
+            raise ValueError(f"{path} has invalid example compositions")
+        status_examples = status.get("examples")
+        action_examples = action.get("examples")
+        if not isinstance(status_examples, list) or not isinstance(action_examples, list):
+            raise ValueError(f"{path} cannot resolve example compositions")
+        examples: list[dict[str, Any]] = []
+        for composition in compositions:
+            if not isinstance(composition, dict):
+                raise ValueError(f"{path} has an invalid example composition")
+            status_index = composition.get("status_example")
+            action_indexes = composition.get("action_examples")
+            if (
+                type(status_index) is not int
+                or not isinstance(action_indexes, list)
+                or any(type(index) is not int for index in action_indexes)
+            ):
+                raise ValueError(f"{path} has an invalid example composition")
+            try:
+                status_example = status_examples[status_index]
+                selected_actions = [action_examples[index] for index in action_indexes]
+            except (IndexError, TypeError) as exc:
+                raise ValueError(f"{path} example composition is out of range") from exc
+            projected_actions = copy.deepcopy(selected_actions)
+            for projected_action in projected_actions:
+                if not isinstance(projected_action, dict) or not isinstance(status_example, dict):
+                    raise ValueError(f"{path} example composition contains a non-object")
+                projected_action["chain_id"] = status_example.get("chain_id")
+                technical_details = status_example.get("technical_details")
+                if not isinstance(technical_details, dict):
+                    raise ValueError(f"{path} example composition lacks technical details")
+                projected_action["expected_chain_sha256"] = technical_details.get("chain_sha256")
+                if projected_action.get("action_kind") == "provider_retry":
+                    projected_action["retry_action_ordinal"] = (
+                        status_example.get("retry_actions_accepted", -1) + 1
+                    )
+            examples.append(
+                {
+                    "schema_version": schema.get("x-cera-schema-version"),
+                    "status": copy.deepcopy(status_example),
+                    "actions": projected_actions,
+                }
+            )
+        schema["examples"] = examples
 
 
 def _verify_references(loaded: list[tuple[Path, dict[str, Any], bytes]]) -> None:
@@ -107,6 +189,7 @@ def _runtime_schemas(
     for _, source, _ in loaded:
         schema = copy.deepcopy(source)
         schema.pop("examples", None)
+        schema.pop("x-cera-example-compositions", None)
         schema.pop("x-cera-negative-fixtures", None)
         schema_id = schema["$id"]
         by_id[schema_id] = schema
@@ -409,6 +492,41 @@ def _validate(value: object, schema: dict[str, object], path: str, base_id: str)
                         or [value.get(field) for field in fields] not in allowed
                     ):
                         raise ProviderStageRetryContractError(f"{path}: {message}")
+                elif operation == "provider_stage_status_action_alignment":
+                    status = value.get("status")
+                    actions = value.get("actions")
+                    if not isinstance(status, dict) or not isinstance(actions, list):
+                        raise ProviderStageRetryContractError(f"{path}: {message}")
+                    available = status.get("available_actions")
+                    action_kinds = [
+                        action.get("action_kind") if isinstance(action, dict) else None
+                        for action in actions
+                    ]
+                    chain_id = status.get("chain_id")
+                    chain_sha256 = (
+                        status.get("technical_details", {}).get("chain_sha256")
+                        if isinstance(status.get("technical_details"), dict)
+                        else None
+                    )
+                    identities_match = all(
+                        isinstance(action, dict)
+                        and action.get("chain_id") == chain_id
+                        and action.get("expected_chain_sha256") == chain_sha256
+                        for action in actions
+                    )
+                    provider_retry_ordinals_match = all(
+                        action.get("action_kind") != "provider_retry"
+                        or action.get("retry_action_ordinal")
+                        == status.get("retry_actions_accepted", -1) + 1
+                        for action in actions
+                        if isinstance(action, dict)
+                    )
+                    if (
+                        available != action_kinds
+                        or not identities_match
+                        or not provider_retry_ordinals_match
+                    ):
+                        raise ProviderStageRetryContractError(f"{path}: {message}")
                 else:
                     raise ProviderStageRetryContractError(
                         f"{path} uses unsupported invariant {operation}"
@@ -700,6 +818,32 @@ function validate(value, schema, path, baseId) {
           if (!pair || !Array.isArray(invariant.allowed) || !invariant.allowed.some(item => jsonEqual(item, pair))) {
             throw new ProviderStageRetryContractError(`${path}: ${message}`);
           }
+        } else if (invariant.op === 'provider_stage_status_action_alignment') {
+          const status = value.status;
+          const actions = value.actions;
+          const available = plainObject(status) ? status.available_actions : null;
+          const actionKinds = Array.isArray(actions)
+            ? actions.map(action => plainObject(action) ? action.action_kind : null)
+            : null;
+          const chainId = plainObject(status) ? status.chain_id : null;
+          const chainSha256 = plainObject(status?.technical_details)
+            ? status.technical_details.chain_sha256
+            : null;
+          const identitiesMatch = Array.isArray(actions) && actions.every(action =>
+            plainObject(action)
+            && action.chain_id === chainId
+            && action.expected_chain_sha256 === chainSha256
+          );
+          const retryOrdinalsMatch = Array.isArray(actions) && actions.every(action =>
+            plainObject(action)
+            && (
+              action.action_kind !== 'provider_retry'
+              || action.retry_action_ordinal === status.retry_actions_accepted + 1
+            )
+          );
+          if (!jsonEqual(available, actionKinds) || !identitiesMatch || !retryOrdinalsMatch) {
+            throw new ProviderStageRetryContractError(`${path}: ${message}`);
+          }
         } else {
           throw new ProviderStageRetryContractError(`${path} uses unsupported invariant ${invariant.op}`);
         }
@@ -934,6 +1078,7 @@ def _render_docs(loaded: list[tuple[Path, dict[str, Any], bytes]]) -> str:
             "",
             "- Python: `src/cera/generated/provider_stage_retry_contracts_v1.py`",
             "- JavaScript: `integrations/sillytavern/generated/provider-stage-retry-contracts-v1.mjs`",
+            "- Staged JavaScript copies: `integrations/sillytavern/{creator-review-extension,cera-review-proxy-plugin}/generated/provider-stage-retry-contracts-v1.mjs`",
             "- Positive fixtures: `tests/fixtures/generated/provider_stage_retry_v1_positive.json`",
             "- Negative fixtures: `tests/fixtures/generated/provider_stage_retry_v1_negative.json`",
             "",
@@ -974,16 +1119,19 @@ def _build_outputs() -> dict[Path, bytes]:
     positive_fixture, negative_fixture = _fixtures(loaded)
     rendered_python = _render_python(loaded, runtime_schemas, version_to_id)
     _verify_generated_python(rendered_python, positive_fixture, negative_fixture)
-    return {
+    rendered_javascript = _render_javascript(loaded, runtime_schemas, version_to_id).encode()
+    outputs = {
         PYTHON_INIT_TARGET: (
             b'"""Generated contract projections. Do not edit generated modules by hand."""\n'
         ),
         PYTHON_TARGET: rendered_python.encode(),
-        JAVASCRIPT_TARGET: _render_javascript(loaded, runtime_schemas, version_to_id).encode(),
+        JAVASCRIPT_TARGET: rendered_javascript,
         POSITIVE_FIXTURE_TARGET: _json_bytes(positive_fixture),
         NEGATIVE_FIXTURE_TARGET: _json_bytes(negative_fixture),
         DOC_TARGET: _render_docs(loaded).encode(),
     }
+    outputs.update({target: rendered_javascript for target in JAVASCRIPT_STAGED_TARGETS})
+    return outputs
 
 
 def _check(outputs: dict[Path, bytes]) -> int:

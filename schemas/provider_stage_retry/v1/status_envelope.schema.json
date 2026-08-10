@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cera.local/provider-stage-retry/v1/status_envelope.schema.json",
+  "title": "ProviderStageRetryStatusEnvelopeV1",
+  "description": "Authoritative UI boundary pairing one stage-occurrence status with at most one backend-issued control action. The UI never invents an action identity or optimistic-concurrency hash.",
+  "x-cera-schema-version": "cera.provider_stage_retry_status_envelope.v1",
+  "x-cera-python-name": "ProviderStageRetryStatusEnvelopeV1",
+  "x-cera-javascript-name": "ProviderStageRetryStatusEnvelopeV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "actions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cera.provider_stage_retry_status_envelope.v1",
+      "description": "Immutable same-origin status-envelope version."
+    },
+    "status": {
+      "$ref": "https://schemas.cera.local/provider-stage-retry/v1/status.schema.json",
+      "description": "Backend-authoritative state and accounting for one exact occurrence chain."
+    },
+    "actions": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 1,
+      "items": {
+        "$ref": "https://schemas.cera.local/provider-stage-retry/v1/action.schema.json"
+      },
+      "description": "Zero or one backend-issued control DTO aligned exactly with status.available_actions."
+    }
+  },
+  "allOf": [
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "status": {
+              "properties": {
+                "state": {
+                  "const": "eligible"
+                }
+              }
+            },
+            "actions": {
+              "minItems": 1,
+              "maxItems": 1,
+              "prefixItems": [
+                {
+                  "properties": {
+                    "action_kind": {
+                      "const": "provider_retry"
+                    }
+                  }
+                }
+              ],
+              "items": false
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": {
+              "properties": {
+                "state": {
+                  "enum": [
+                    "in_progress",
+                    "succeeded"
+                  ]
+                }
+              }
+            },
+            "actions": {
+              "const": []
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": {
+              "properties": {
+                "state": {
+                  "const": "blocked_ambiguous"
+                }
+              }
+            },
+            "actions": {
+              "minItems": 1,
+              "maxItems": 1,
+              "prefixItems": [
+                {
+                  "properties": {
+                    "action_kind": {
+                      "const": "check_status"
+                    }
+                  }
+                }
+              ],
+              "items": false
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": {
+              "properties": {
+                "state": {
+                  "const": "attempts_exhausted"
+                }
+              }
+            },
+            "actions": {
+              "minItems": 1,
+              "maxItems": 1,
+              "prefixItems": [
+                {
+                  "properties": {
+                    "action_kind": {
+                      "const": "explicit_recovery"
+                    }
+                  }
+                }
+              ],
+              "items": false
+            }
+          }
+        },
+        {
+          "properties": {
+            "status": {
+              "properties": {
+                "state": {
+                  "const": "recording_repair_required"
+                }
+              }
+            },
+            "actions": {
+              "minItems": 1,
+              "maxItems": 1,
+              "prefixItems": [
+                {
+                  "properties": {
+                    "action_kind": {
+                      "const": "repair_recording"
+                    }
+                  }
+                }
+              ],
+              "items": false
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "x-cera-invariants": [
+    {
+      "op": "provider_stage_status_action_alignment",
+      "message": "backend-issued actions do not match the status identity, chain hash, kind, or Retry ordinal"
+    }
+  ],
+  "x-cera-example-compositions": [
+    {
+      "status_example": 0,
+      "action_examples": [
+        0
+      ]
+    },
+    {
+      "status_example": 1,
+      "action_examples": []
+    },
+    {
+      "status_example": 2,
+      "action_examples": []
+    },
+    {
+      "status_example": 3,
+      "action_examples": [
+        1
+      ]
+    },
+    {
+      "status_example": 4,
+      "action_examples": [
+        3
+      ]
+    },
+    {
+      "status_example": 5,
+      "action_examples": [
+        2
+      ]
+    }
+  ],
+  "x-cera-negative-fixtures": [
+    {
+      "name": "eligible_without_backend_action",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/actions",
+          "value": []
+        }
+      ]
+    },
+    {
+      "name": "mismatched_chain_identity",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/actions/0/chain_id",
+          "value": "stage-retry-9999999999999999999999999999999999999999999999999999999999999999"
+        }
+      ]
+    },
+    {
+      "name": "mismatched_expected_chain_hash",
+      "base_example": 3,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/actions/0/expected_chain_sha256",
+          "value": "9999999999999999999999999999999999999999999999999999999999999999"
+        }
+      ]
+    },
+    {
+      "name": "browser_invents_retry_ordinal",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/actions/0/retry_action_ordinal",
+          "value": 2
+        }
+      ]
+    },
+    {
+      "name": "blocked_offers_provider_retry",
+      "base_example": 3,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/actions/0",
+          "value": {
+            "schema_version": "cera.provider_stage_retry_action.v1",
+            "action_id": "stage-action-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "chain_id": "stage-retry-dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+            "action_family": "provider_stage_control",
+            "action_kind": "provider_retry",
+            "automatic": false,
+            "provider_dispatch_authorized": true,
+            "consumes_retry_action": true,
+            "retry_action_ordinal": 1,
+            "whole_request_replay_authorized": false,
+            "provider_substitution_authorized": false,
+            "expected_chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
+          }
+        }
+      ]
+    },
+    {
+      "name": "semantic_action_identity_leak",
+      "base_example": 4,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/actions/0/action_kind",
+          "value": "regenerate"
+        }
+      ]
+    },
+    {
+      "name": "unknown_envelope_field",
+      "base_example": 5,
+      "patch": [
+        {
+          "op": "add",
+          "path": "/browser_retry_count",
+          "value": 2
+        }
+      ]
+    }
+  ]
+}

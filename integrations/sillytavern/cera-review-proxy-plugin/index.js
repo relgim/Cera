@@ -1,3 +1,11 @@
+import {
+    normalizeProviderStageRetryActionV1,
+    normalizeProviderStageRetryBlockedAmbiguousV1,
+    normalizeProviderStageRetryExhaustedV1,
+    normalizeProviderStageRetryStatusEnvelopeV1,
+    normalizeProviderStageRetryStatusV1,
+} from './generated/provider-stage-retry-contracts-v1.mjs';
+
 const DEFAULT_CERA_LOOPBACK_ROOT = 'http://127.0.0.1:5101';
 const MAX_UPSTREAM_BYTES = 2_000_000;
 const GET_TIMEOUT_MS = 10_000;
@@ -6,10 +14,11 @@ const DECISION_TIMEOUT_MS = FULL_PIPELINE_TIMEOUT_MS;
 const TRANSPORT_RETRY_TIMEOUT_MS = FULL_PIPELINE_TIMEOUT_MS;
 const TRANSPORT_RETRY_STATUS_SCHEMA_V1 = 'cera.pi_scene.transport_retry_status.v1';
 const TRANSPORT_RETRY_STATUS_SCHEMA_V2 = 'cera.pi_scene.transport_retry_status.v2';
-const PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA = 'cera.provider_stage_retry_exhausted.v1';
 const PROVIDER_STAGE_RETRY_EXHAUSTED_CODE = 'CERA_PROVIDER_STAGE_RETRY_EXHAUSTED';
 const REVIEW_ID_PATTERN = /^(?:[a-z][a-z0-9_]{0,31}:[A-Za-z0-9._-]{1,160}|review-[a-f0-9]{28})$/;
 const TRANSPORT_RETRY_ID_PATTERN = /^retry-[a-f0-9]{64}$/;
+const PROVIDER_STAGE_RETRY_CHAIN_ID_PATTERN = /^stage-retry-[a-f0-9]{64}$/;
+const PROVIDER_STAGE_RETRY_ACTION_ID_PATTERN = /^stage-action-[a-f0-9]{64}$/;
 const REQUEST_ID_PATTERN = /^request-[a-f0-9]{64}$/;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 const AUTHORIZATION_PATTERN = /^Bearer [A-Za-z0-9._~-]{24,512}$/;
@@ -26,23 +35,6 @@ const TRANSPORT_RETRY_BLOCKED_REASONS = new Set([
     'dispatch_state_ambiguous',
     'durable_request_progressed',
 ]);
-const PROVIDER_STAGE_FAILURE_CLASSES = new Set([
-    'transport_timeout',
-    'provider_unavailable',
-    'provider_process_failed',
-    'provider_stream_incomplete',
-    'provider_completion_incomplete',
-    'provider_output_invalid',
-    'dispatch_ambiguous',
-]);
-const PROVIDER_STAGE_MODEL_BINDINGS = Object.freeze({
-    planner: Object.freeze({ provider: 'codex', model_family: 'sol' }),
-    semantic_validator: Object.freeze({ provider: 'codex', model_family: 'luna' }),
-    writer: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
-    recorder: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
-    adult_scene: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
-    adult_filter: Object.freeze({ provider: 'deepseek', model_family: 'deepseek_v4' }),
-});
 const DECISION_ACTIONS = new Set([
     'accept',
     'accept_provisional',
@@ -59,7 +51,7 @@ const DECISION_ACTIONS = new Set([
 export const info = Object.freeze({
     id: 'cera-review',
     name: 'CERA Review Loopback Relay',
-    description: 'Relays narrow authenticated review and manual transport-retry requests to loopback-only CERA.',
+    description: 'Relays narrow authenticated review and provider-stage control requests to loopback-only CERA.',
 });
 
 export function normalizeLoopbackRoot(value) {
@@ -106,6 +98,20 @@ export function normalizeReviewId(value) {
 export function normalizeTransportRetryId(value) {
     if (typeof value !== 'string' || !TRANSPORT_RETRY_ID_PATTERN.test(value)) {
         throw new TypeError('CERA transport retry ID is invalid');
+    }
+    return value;
+}
+
+export function normalizeProviderStageRetryChainId(value) {
+    if (typeof value !== 'string' || !PROVIDER_STAGE_RETRY_CHAIN_ID_PATTERN.test(value)) {
+        throw new TypeError('CERA provider stage retry chain ID is invalid');
+    }
+    return value;
+}
+
+export function normalizeProviderStageRetryActionId(value) {
+    if (typeof value !== 'string' || !PROVIDER_STAGE_RETRY_ACTION_ID_PATTERN.test(value)) {
+        throw new TypeError('CERA provider stage retry action ID is invalid');
     }
     return value;
 }
@@ -161,6 +167,18 @@ export function normalizeTransportRetryBody(value) {
     return {};
 }
 
+export function normalizeProviderStageRetryActionBody(value, { chainId, actionId }) {
+    const normalized = projectProviderStageRetryAction(value);
+    if (
+        normalized.chain_id !== normalizeProviderStageRetryChainId(chainId)
+        || normalized.action_id !== normalizeProviderStageRetryActionId(actionId)
+        || ['check_status', 'repair_recording'].includes(normalized.action_kind)
+    ) {
+        throw new TypeError('CERA provider stage retry action body is invalid');
+    }
+    return normalized;
+}
+
 export function reviewUpstreamUrl(
     reviewId,
     { decision = false, loopbackRoot = CERA_LOOPBACK_ROOT } = {},
@@ -179,83 +197,67 @@ export function transportRetryUpstreamUrl(
     return `${root}/v1/cera/transport-retries/${encoded}`;
 }
 
+export function providerStageRetryUpstreamUrl(
+    chainId,
+    { actionId = null, loopbackRoot = CERA_LOOPBACK_ROOT } = {},
+) {
+    const encodedChain = encodeURIComponent(normalizeProviderStageRetryChainId(chainId));
+    const root = normalizeLoopbackRoot(loopbackRoot);
+    if (actionId === null) return `${root}/v1/cera/provider-stage-retries/${encodedChain}`;
+    const encodedAction = encodeURIComponent(normalizeProviderStageRetryActionId(actionId));
+    return `${root}/v1/cera/provider-stage-retries/${encodedChain}/actions/${encodedAction}`;
+}
+
 /**
  * Project the terminal, provider-stage retry receipt.  The object is deliberately
  * hash/count only: upstream exception text, paths, prompts, and provider output
  * never cross the same-origin relay.
  */
 export function projectProviderStageRetryExhausted(value) {
-    const keys = [
-        'attempt_chain_sha256',
-        'attempts_total',
-        'failed_stage_effect_committed',
-        'final_failure_class',
-        'maximum_attempts',
-        'model_family',
-        'provider',
-        'provider_operations_conservative_total',
-        'provider_operations_observed_total',
-        'request_sha256',
-        'retries_consumed',
-        'schema_version',
-        'severity',
-        'stage',
-        'stage_input_sha256',
-        'story_state_committed',
-        'terminal_evidence_sha256',
-    ];
-    if (!value || typeof value !== 'object' || Array.isArray(value) || !exactKeys(value, keys)) {
-        throw new TypeError('CERA provider stage retry exhaustion is invalid');
+    const normalized = normalizeProviderStageRetryExhaustedV1(value);
+    if (!normalized) throw new TypeError('CERA provider stage retry exhaustion is invalid');
+    return normalized;
+}
+
+/** Privacy-safe canonical status projection for one stage-occurrence chain. */
+export function projectProviderStageRetryStatus(value) {
+    const normalized = normalizeProviderStageRetryStatusV1(value);
+    if (!normalized) throw new TypeError('CERA provider stage retry status is invalid');
+    return normalized;
+}
+
+/** Authoritative status plus backend-issued control identity and chain binding. */
+export function projectProviderStageRetryStatusEnvelope(value) {
+    const normalized = normalizeProviderStageRetryStatusEnvelopeV1(value);
+    if (!normalized) {
+        throw new TypeError('CERA provider stage retry status envelope is invalid');
     }
-    const binding = PROVIDER_STAGE_MODEL_BINDINGS[value.stage];
-    const observed = value.provider_operations_observed_total;
-    const conservative = value.provider_operations_conservative_total;
-    const recorder = value.stage === 'recorder';
-    if (
-        value.schema_version !== PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA
-        || value.severity !== 'critical'
-        || !binding
-        || value.provider !== binding.provider
-        || value.model_family !== binding.model_family
-        || value.maximum_attempts !== 3
-        || value.attempts_total !== 3
-        || value.retries_consumed !== 2
-        || typeof value.story_state_committed !== 'boolean'
-        || typeof value.failed_stage_effect_committed !== 'boolean'
-        || value.story_state_committed !== recorder
-        || value.failed_stage_effect_committed !== false
-        || !Number.isSafeInteger(observed)
-        || observed < 0
-        || !Number.isSafeInteger(conservative)
-        || conservative < observed
-        || !PROVIDER_STAGE_FAILURE_CLASSES.has(value.final_failure_class)
-        || !SHA256_PATTERN.test(value.request_sha256)
-        || !SHA256_PATTERN.test(value.stage_input_sha256)
-        || !SHA256_PATTERN.test(value.attempt_chain_sha256)
-        || !SHA256_PATTERN.test(value.terminal_evidence_sha256)
-    ) throw new TypeError('CERA provider stage retry exhaustion is invalid');
-    return {
-        schema_version: PROVIDER_STAGE_RETRY_EXHAUSTED_SCHEMA,
-        severity: 'critical',
-        provider: value.provider,
-        model_family: value.model_family,
-        stage: value.stage,
-        maximum_attempts: 3,
-        attempts_total: 3,
-        retries_consumed: 2,
-        story_state_committed: value.story_state_committed,
-        failed_stage_effect_committed: false,
-        provider_operations_observed_total: observed,
-        provider_operations_conservative_total: conservative,
-        final_failure_class: value.final_failure_class,
-        request_sha256: value.request_sha256,
-        stage_input_sha256: value.stage_input_sha256,
-        attempt_chain_sha256: value.attempt_chain_sha256,
-        terminal_evidence_sha256: value.terminal_evidence_sha256,
-    };
+    return normalized;
+}
+
+/** Closed provider-stage control action; semantic actions are rejected. */
+export function projectProviderStageRetryAction(value) {
+    const normalized = normalizeProviderStageRetryActionV1(value);
+    if (!normalized) throw new TypeError('CERA provider stage retry action is invalid');
+    return normalized;
+}
+
+/** Reconciliation-only blocked evidence that cannot authorize provider dispatch. */
+export function projectProviderStageRetryBlockedAmbiguous(value) {
+    const normalized = normalizeProviderStageRetryBlockedAmbiguousV1(value);
+    if (!normalized) {
+        throw new TypeError('CERA provider stage retry blocked ambiguity is invalid');
+    }
+    return normalized;
 }
 
 export function projectTransportRetryPayload(value) {
+    const canonicalEnvelope = normalizeProviderStageRetryStatusEnvelopeV1(value);
+    if (canonicalEnvelope) return canonicalEnvelope;
+    const canonicalAction = normalizeProviderStageRetryActionV1(value);
+    if (canonicalAction) return canonicalAction;
+    const blockedAmbiguous = normalizeProviderStageRetryBlockedAmbiguousV1(value);
+    if (blockedAmbiguous) return blockedAmbiguous;
     const exhausted = projectProviderStageRetryExhaustedError(value);
     if (exhausted) return exhausted;
     if (!value || typeof value !== 'object' || Array.isArray(value) || !value.error) {
@@ -458,6 +460,10 @@ export function projectTransportRetryStatusPayload(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) {
         throw new TypeError('CERA transport retry status is invalid');
     }
+    const canonicalEnvelope = normalizeProviderStageRetryStatusEnvelopeV1(value);
+    if (canonicalEnvelope) return canonicalEnvelope;
+    const blockedAmbiguous = normalizeProviderStageRetryBlockedAmbiguousV1(value);
+    if (blockedAmbiguous) return blockedAmbiguous;
     const notFound = projectTransportRetryNotFound(value);
     if (notFound) return notFound;
     if (value.schema_version === TRANSPORT_RETRY_STATUS_SCHEMA_V2) {
@@ -782,6 +788,65 @@ export async function init(router) {
             );
         }
     });
+
+    router.get('/v1/cera/provider-stage-retries/:chainId', async (request, response) => {
+        try {
+            await forwardJson(
+                response,
+                providerStageRetryUpstreamUrl(request.params.chainId),
+                {
+                    timeoutMs: GET_TIMEOUT_MS,
+                    authorization: request.get('X-Cera-Authorization'),
+                    projectPayload: projectProviderStageRetryStatusEnvelope,
+                },
+            );
+        } catch (error) {
+            const authorizationFailure = error.message === 'CERA review authorization is invalid';
+            safeProxyError(
+                response,
+                authorizationFailure ? 401 : 400,
+                authorizationFailure
+                    ? 'cera_review_authorization_invalid'
+                    : 'cera_provider_stage_retry_invalid',
+                error.message,
+            );
+        }
+    });
+
+    router.post(
+        '/v1/cera/provider-stage-retries/:chainId/actions/:actionId',
+        async (request, response) => {
+            try {
+                const body = normalizeProviderStageRetryActionBody(request.body, {
+                    chainId: request.params.chainId,
+                    actionId: request.params.actionId,
+                });
+                await forwardJson(
+                    response,
+                    providerStageRetryUpstreamUrl(request.params.chainId, {
+                        actionId: request.params.actionId,
+                    }),
+                    {
+                        method: 'POST',
+                        body,
+                        timeoutMs: TRANSPORT_RETRY_TIMEOUT_MS,
+                        authorization: request.get('X-Cera-Authorization'),
+                        projectPayload: projectProviderStageRetryStatusEnvelope,
+                    },
+                );
+            } catch (error) {
+                const authorizationFailure = error.message === 'CERA review authorization is invalid';
+                safeProxyError(
+                    response,
+                    authorizationFailure ? 401 : 400,
+                    authorizationFailure
+                        ? 'cera_review_authorization_invalid'
+                        : 'cera_provider_stage_retry_invalid',
+                    error.message,
+                );
+            }
+        },
+    );
 
     router.get('/v1/cera/transport-retries/:retryId', async (request, response) => {
         try {

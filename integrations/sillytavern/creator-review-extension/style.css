@@ -181,3 +181,28 @@
 .cera-provider-stage-attached {
     margin-top: 0.75rem;
 }
+
+.cera-provider-stage-status {
+    margin: 0.35rem 0;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid color-mix(in srgb, #f6c177 70%, transparent);
+    border-radius: 0.45rem;
+    background: color-mix(in srgb, var(--SmartThemeBlurTintColor) 86%, #5a3b00 14%);
+}
+
+.cera-provider-stage-status > .cera-review-heading { margin-top: 0; }
+
+.cera-provider-stage-status-succeeded {
+    border-color: color-mix(in srgb, #8ed6a8 70%, transparent);
+    background: color-mix(in srgb, var(--SmartThemeBlurTintColor) 88%, #174b31 12%);
+}
+
+.cera-provider-stage-status-blocked_ambiguous,
+.cera-provider-stage-status-attempts_exhausted {
+    border-color: color-mix(in srgb, #ff4d5f 75%, transparent);
+    background: color-mix(in srgb, var(--SmartThemeBlurTintColor) 82%, #6b0010 18%);
+}
+
+.cera-provider-stage-status-recording_repair_required {
+    border-color: color-mix(in srgb, #f6c177 75%, transparent);
+}
