@@ -8,6 +8,7 @@ from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any, cast
+from unittest.mock import patch
 
 from cera.errors import StateConflictError
 from cera.pi_scene.contracts import (
@@ -27,6 +28,7 @@ from cera.pi_scene.provider_stage_retry import (
     ProviderStageAttemptV1,
     ProviderStageFailureClass,
     ProviderStageRetryChainV1,
+    ProviderStageRetryPhase,
 )
 from cera.pi_scene.provider_stage_retry_blob import TrustedLocalProtectedStageBlobStore
 from cera.pi_scene.provider_stage_retry_executor import (
@@ -45,6 +47,7 @@ from cera.pi_scene.provider_stage_retry_ordinary import (
     planner_request_from_frozen_input,
     recorder_invocation_from_frozen_input,
     semantic_validation_disposition,
+    semantic_validation_input_from_frozen_input,
     serialize_pi_result,
     serialize_planner_result,
     serialize_semantic_validation_result,
@@ -75,11 +78,13 @@ from cera.pi_scene.runtime import (
 from cera.pi_scene.store import LeanSceneStore
 from cera.pi_scene.writer_view import WriterViewInputV1, WriterViewMaterializer
 from cera.semantic_validation import (
+    BoundSemanticValidationV1,
     SemanticVerdict,
 )
-from cera.serialization import bytes_sha256, canonical_sha256, text_sha256
+from cera.serialization import bytes_sha256, canonical_sha256, text_sha256, to_primitive
 from cera.storage.sqlite_store import SQLiteAuthorityStore
 
+from .test_cognition_contracts import _plan
 from .test_pi_scene_lean_v1 import FakePi, FakePlanner, sequence
 from .test_pi_scene_semantic_acceptance import _validation
 from .test_pi_scene_store_quality import _candidate
@@ -572,11 +577,12 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
             protected_blob_store=TrustedLocalProtectedStageBlobStore(self.root / "protected"),
             registrations=registrations,
         )
+        self.custody = ProtectedOrdinaryStageRetryCustodyStoreV1(
+            self.root / "ordinary-protected-custody"
+        )
         self.integration = OrdinaryProviderStageRetryRuntimeV1(
             service=self.service,
-            custody_store=ProtectedOrdinaryStageRetryCustodyStoreV1(
-                self.root / "ordinary-protected-custody"
-            ),
+            custody_store=self.custody,
             configurations={stage: _configuration(stage) for stage in ProviderStage},
         )
 
@@ -642,6 +648,59 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
             request.exact_user_source.encode("utf-8"),
             (self.root / "authority.sqlite3").read_bytes(),
         )
+
+    def test_chain_input_and_scope_precede_secondary_custody_publication(self) -> None:
+        context = _context()
+        self._freeze(context)
+        request = _planner_request()
+        captured_scope: ProviderStageRetryOccurrenceScopeV1 | None = None
+
+        def crash_before_occurrence_publication(
+            *,
+            scope: ProviderStageRetryOccurrenceScopeV1,
+            context_sha256: str,
+        ) -> None:
+            nonlocal captured_scope
+            del context_sha256
+            captured_scope = scope
+            raise OSError("simulated crash before secondary custody publication")
+
+        with patch.object(
+            self.custody,
+            "bind_occurrence",
+            side_effect=crash_before_occurrence_publication,
+        ):
+            with self.integration.bind_request(context):
+                with self.assertRaisesRegex(OSError, "secondary custody"):
+                    self.integration.run_planner(
+                        request,
+                        accepted_state_sha256=_sha("accepted-state"),
+                        authority_binding={"accepted_head_sha256": None},
+                    )
+
+        self.assertIsNotNone(captured_scope)
+        assert captured_scope is not None
+        chain_id = captured_scope.identity.chain_id
+        chain = self.service.read_chain(chain_id)
+        self.assertIs(chain.phase, ProviderStageRetryPhase.INPUT_FROZEN)
+        self.assertEqual(self.service.scope_for_chain(chain_id), captured_scope)
+        self.assertEqual(
+            planner_request_from_frozen_input(self.service.store.load_input(chain_id)),
+            request,
+        )
+        self.assertEqual(self.counts.by_stage[ProviderStage.PLANNER], 0)
+        with self.assertRaisesRegex(StateConflictError, "custody is unreadable"):
+            self.custody.chain_context(chain_id)
+
+        # Only this explicit continuation reaches start_initial/provider dispatch.
+        with self.integration.bind_request(context):
+            result = self.integration.run_planner(
+                request,
+                accepted_state_sha256=_sha("accepted-state"),
+                authority_binding={"accepted_head_sha256": None},
+            )
+        self.assertEqual(result, PlannerTurnOutputV1(sequence=sequence(), provider_operations=1))
+        self.assertEqual(self.counts.by_stage[ProviderStage.PLANNER], 1)
 
     def test_second_writer_occurrence_retries_without_replaying_prior_provider_stages(
         self,
@@ -813,7 +872,10 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
                 generation=context.generation,
             )
             self.assertEqual(same_occurrence, occurrence)
-            with self.assertRaisesRegex(StateConflictError, "changed accepted head"):
+            with self.assertRaisesRegex(
+                StateConflictError,
+                "provider-stage retry authority changed",
+            ):
                 self.integration.run_writer(
                     invocation,
                     candidate_occurrence=same_occurrence,
@@ -829,7 +891,10 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
                 branch_id=context.binding.branch_id,
                 generation=context.generation,
             )
-            with self.assertRaisesRegex(StateConflictError, "changed accepted head"):
+            with self.assertRaisesRegex(
+                StateConflictError,
+                "provider-stage retry input changed",
+            ):
                 self.integration.run_writer(
                     invocation,
                     candidate_occurrence=same_occurrence,
@@ -1095,6 +1160,344 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
             self.counts.by_stage[ProviderStage.RECORDER],
             calls_after_retry,
         )
+
+    def test_review_request_restart_rebinds_replan_and_regenerate_ordinals(self) -> None:
+        with self.assertRaises(FileNotFoundError):
+            self.integration.pending_request_for_review("review-missing")
+        self.factories[ProviderStage.WRITER].initial_outcome_from_input = lambda exact_input: (
+            _success(
+                "review-custody-writer",
+                serialize_pi_result(
+                    _pi_result(
+                        writer_invocation_from_frozen_input(exact_input),
+                        "review-custody-writer",
+                    )
+                ),
+            )
+        )
+        context = _context()
+        self._freeze(context)
+        scene_store = LeanSceneStore(self.root / "review-custody-world")
+        review_root = self.root / "review-custody-state"
+        views = WriterViewMaterializer(self.root / "review-custody-views")
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        with self.integration.bind_request(context):
+            initial = coordinator.start_ordinary(context.turn_input)
+            initial_identity = self.integration.bind_review_request(initial)
+        self.assertEqual(initial_identity.request_id, context.binding.request_id)
+
+        self._restart_runtime()
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        payload, recovered_context, initial_counts = self.integration.pending_request_for_review(
+            initial.review_id
+        )
+        self.assertEqual(payload, _payload())
+        self.assertEqual(
+            initial_counts,
+            {
+                ProviderStage.PLANNER: 1,
+                ProviderStage.WRITER: 1,
+                ProviderStage.SEMANTIC_VALIDATOR: 0,
+                ProviderStage.RECORDER: 0,
+            },
+        )
+        with self.integration.bind_request(
+            recovered_context,
+            prior_stage_occurrences=initial_counts,
+        ):
+            replanned = coordinator.replan(initial.review_id, feedback="Try another plan.")
+            self.assertIsNotNone(replanned.successor)
+            assert replanned.successor is not None
+            replanned_identity = self.integration.bind_review_request(replanned.successor)
+        active = self.integration.retire_review_request(
+            initial.review_id,
+            terminal_evidence_sha256=text_sha256("initial-review-replanned"),
+        )
+        self.assertEqual(active.disposition, "active")
+        self.assertTrue(active.branch_barrier_active)
+
+        _, replanned_context, replanned_counts = self.integration.pending_request_for_review(
+            replanned_identity.review_id
+        )
+        self.assertEqual(replanned_counts[ProviderStage.PLANNER], 2)
+        self.assertEqual(replanned_counts[ProviderStage.WRITER], 2)
+        with self.integration.bind_request(
+            replanned_context,
+            prior_stage_occurrences=replanned_counts,
+        ):
+            regenerated = coordinator.regenerate(replanned_identity.review_id)
+            self.assertIsNotNone(regenerated.successor)
+            assert regenerated.successor is not None
+            regenerated_identity = self.integration.bind_review_request(regenerated.successor)
+        still_active = self.integration.retire_review_request(
+            replanned_identity.review_id,
+            terminal_evidence_sha256=text_sha256("replanned-review-regenerated"),
+        )
+        self.assertEqual(still_active.disposition, "active")
+
+        other_payload = {
+            **_payload(),
+            "messages": [{"role": "user", "content": "Request B must preflight."}],
+        }
+        other_context = _context(payload=other_payload)
+        with self.assertRaisesRegex(StateConflictError, "unresolved request barrier"):
+            self.integration.freeze_pending_request(
+                normalized_request=other_payload,
+                context=other_context,
+            )
+
+        _, final_context, final_counts = self.integration.pending_request_for_review(
+            regenerated_identity.review_id
+        )
+        self.assertEqual(final_counts[ProviderStage.PLANNER], 3)
+        self.assertEqual(final_counts[ProviderStage.WRITER], 3)
+        with self.integration.bind_request(
+            final_context,
+            prior_stage_occurrences=final_counts,
+        ):
+            coordinator.decline(regenerated_identity.review_id)
+        completed = self.integration.retire_review_request(
+            regenerated_identity.review_id,
+            terminal_evidence_sha256=text_sha256("regenerated-review-declined"),
+        )
+        self.assertEqual(completed.disposition, "completed")
+        self.assertFalse(completed.branch_barrier_active)
+        replayed_retirement = self.integration.retire_review_request(
+            initial.review_id,
+            terminal_evidence_sha256=text_sha256("initial-review-replanned"),
+        )
+        self.assertEqual(replayed_retirement, completed)
+
+    def test_explicit_accept_recorder_uses_original_review_request_after_restart(self) -> None:
+        self.factories[ProviderStage.WRITER].initial_outcome_from_input = lambda exact_input: (
+            _success(
+                "accept-context-writer",
+                serialize_pi_result(
+                    _pi_result(
+                        writer_invocation_from_frozen_input(exact_input),
+                        "accept-context-writer",
+                    )
+                ),
+            )
+        )
+
+        def recorder_success(exact_input: bytes) -> ProviderStageSuccessfulResultV1:
+            invocation = recorder_invocation_from_frozen_input(exact_input)
+            output = json.dumps(
+                {
+                    "secondary_canon": [],
+                    "resulting_public_state": (
+                        "Hana has answered and the conversation remains open."
+                    ),
+                    "relationship_changes": [],
+                    "knowledge_changes": [],
+                    "durable_changes": [],
+                    "unresolved_threads": ["Ted may respond."],
+                },
+                separators=(",", ":"),
+            )
+            base = _pi_result(invocation, "accept-context-recorder")
+            result = replace(
+                base,
+                output_text=output,
+                writer_receipt=replace(
+                    base.writer_receipt,
+                    output_sha256=text_sha256(output),
+                ),
+            )
+            return _success(
+                "accept-context-recorder",
+                serialize_pi_result(result),
+            )
+
+        self.factories[ProviderStage.RECORDER].initial_outcome_from_input = recorder_success
+        context = _context()
+        self._freeze(context)
+        scene_store = LeanSceneStore(self.root / "accept-context-world")
+        review_root = self.root / "accept-context-review-state"
+        views = WriterViewMaterializer(self.root / "accept-context-views")
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        with self.integration.bind_request(context):
+            review = coordinator.start_ordinary(context.turn_input)
+            self.integration.bind_review_request(review)
+
+        self._restart_runtime()
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        _, recovered_context, counts = self.integration.pending_request_for_review(review.review_id)
+        self.assertEqual(
+            canonical_sha256(recovered_context.turn_input),
+            canonical_sha256(context.turn_input),
+        )
+        with self.integration.bind_request(
+            recovered_context,
+            prior_stage_occurrences=counts,
+        ):
+            accepted = coordinator.accept(review.review_id)
+        self.assertIsNotNone(accepted.review.recording_attempt)
+        assert accepted.review.recording_attempt is not None
+        self.assertIs(
+            accepted.review.recording_attempt.status,
+            RecordingStatus.COMPLETE,
+        )
+        completion = {
+            "id": "completion-explicit-accept",
+            "choices": [{"message": {"role": "assistant", "content": "Accepted."}}],
+        }
+        self.assertIsNone(
+            self.integration.load_terminal_response_optional(context.binding.request_id)
+        )
+        terminal = self.integration.bind_terminal_response(
+            request_id=context.binding.request_id,
+            response=completion,
+        )
+        self.assertEqual(
+            self.integration.load_terminal_response_optional(context.binding.request_id),
+            (completion, terminal),
+        )
+        retired = self.integration.retire_review_request(
+            review.review_id,
+            terminal_evidence_sha256=terminal.response_sha256,
+        )
+        self.assertEqual(retired.disposition, "completed")
+        self.assertIsNone(
+            self.integration.branch_barrier(
+                world_id=context.binding.world_id,
+                branch_id=context.binding.branch_id,
+            )
+        )
+        with self.assertRaisesRegex(StateConflictError, "mapping is retired"):
+            self.integration.pending_request_for_review(review.review_id)
+
+    def test_semantic_reject_keeps_request_until_later_decline(self) -> None:
+        plan = to_primitive(_plan())
+        planner_result = PlannerTurnOutputV1(
+            sequence=plan["sequence"],
+            decision_bundle=plan,
+            provider_operations=1,
+        )
+        self.factories[ProviderStage.PLANNER].initial_outcome_from_input = lambda _exact_input: (
+            _success(
+                "reject-custody-planner",
+                serialize_planner_result(planner_result),
+            )
+        )
+        self.factories[ProviderStage.WRITER].initial_outcome_from_input = lambda exact_input: (
+            _success(
+                "reject-custody-writer",
+                serialize_pi_result(
+                    _pi_result(
+                        writer_invocation_from_frozen_input(exact_input),
+                        "reject-custody-writer",
+                    )
+                ),
+            )
+        )
+        reject_verdict = _validation(
+            _candidate(),
+            verdict=SemanticVerdict.REJECT,
+        ).verdict
+
+        def semantic_reject(exact_input: bytes) -> ProviderStageSuccessfulResultV1:
+            request, custody = semantic_validation_input_from_frozen_input(exact_input)
+            result = BoundSemanticValidationV1(
+                request=request,
+                custody=custody,
+                verdict=reject_verdict,
+            )
+            return _success(
+                "reject-custody-semantic",
+                serialize_semantic_validation_result(result),
+                disposition=semantic_validation_disposition(result),
+            )
+
+        self.factories[
+            ProviderStage.SEMANTIC_VALIDATOR
+        ].initial_outcome_from_input = semantic_reject
+        context = _context()
+        self._freeze(context)
+        scene_store = LeanSceneStore(self.root / "reject-custody-world")
+        review_root = self.root / "reject-custody-review-state"
+        views = WriterViewMaterializer(self.root / "reject-custody-views")
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        with self.integration.bind_request(context):
+            rejected = coordinator.start_ordinary(context.turn_input)
+            self.assertIsNotNone(rejected.semantic_validation)
+            assert rejected.semantic_validation is not None
+            self.assertIs(
+                rejected.semantic_validation.verdict.verdict,
+                SemanticVerdict.REJECT,
+            )
+            self.integration.bind_review_request(rejected)
+
+        self._restart_runtime()
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        _, recovered_context, counts = self.integration.pending_request_for_review(
+            rejected.review_id
+        )
+        self.assertEqual(counts[ProviderStage.PLANNER], 1)
+        self.assertEqual(counts[ProviderStage.WRITER], 2)
+        self.assertEqual(counts[ProviderStage.SEMANTIC_VALIDATOR], 2)
+        barrier = self.integration.branch_barrier(
+            world_id=context.binding.world_id,
+            branch_id=context.binding.branch_id,
+        )
+        self.assertIsNotNone(barrier)
+        assert barrier is not None
+        self.assertEqual(barrier.disposition, "active")
+
+        with self.integration.bind_request(
+            recovered_context,
+            prior_stage_occurrences=counts,
+        ):
+            declined = coordinator.decline(rejected.review_id)
+        retired = self.integration.retire_review_request(
+            rejected.review_id,
+            terminal_evidence_sha256=text_sha256("semantic-reject-auto-declined"),
+        )
+        self.assertEqual(retired.disposition, "completed")
+        self.assertEqual(declined.review.state, "declined")
 
     def test_pi_result_codec_preserves_path_and_receipt(self) -> None:
         invocation = _writer_invocation(self.root, "candidate-codec")

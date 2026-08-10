@@ -51,6 +51,7 @@ from .provider_stage_retry_executor import ProviderStageSemanticDisposition
 from .provider_stage_retry_ordinary_custody import (
     ProtectedOrdinaryChainRequestIdentityV1,
     ProtectedOrdinaryCustodyReceiptV1,
+    ProtectedOrdinaryReviewRequestIdentityV1,
     ProtectedOrdinaryStageRetryCustodyStoreV1,
     ProtectedOrdinaryTerminalResponseReceiptV1,
     ProtectedRecorderContinuationV1,
@@ -224,11 +225,19 @@ class OrdinaryStageRetryRequestContextV1:
 class _BoundRequestState:
     context: OrdinaryStageRetryRequestContextV1
     stage_occurrences: dict[ProviderStage, int] = field(default_factory=dict)
+    semantic_action_rebind: bool = False
+    semantic_action_boundary_consumed: bool = False
 
     def next_stage_ordinal(self, stage: ProviderStage) -> int:
         ordinal = self.stage_occurrences.get(stage, 0) + 1
         self.stage_occurrences[stage] = ordinal
         return ordinal
+
+    def consume_semantic_action_boundary(self) -> bool:
+        if not self.semantic_action_rebind or self.semantic_action_boundary_consumed:
+            return False
+        self.semantic_action_boundary_consumed = True
+        return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -326,6 +335,10 @@ class OrdinaryProviderStageRetryRuntimeV1:
             raise StateConflictError("ordinary Retry request context is already occupied")
         occurrences: dict[ProviderStage, int] = {}
         if prior_stage_occurrences is not None:
+            if set(prior_stage_occurrences) != _ORDINARY_STAGES:
+                raise ContractValidationError(
+                    "ordinary Retry prior stage occurrences changed shape"
+                )
             for stage, count in prior_stage_occurrences.items():
                 if (
                     stage not in _ORDINARY_STAGES
@@ -337,8 +350,20 @@ class OrdinaryProviderStageRetryRuntimeV1:
                         "ordinary Retry prior stage occurrence is invalid"
                     )
                 occurrences[stage] = count
+            verified = self._custody_store.require_review_stage_occurrences(
+                request_id=context.binding.request_id,
+                stage_occurrence_counts={
+                    stage.value: occurrences[stage] for stage in _ORDINARY_STAGES
+                },
+            )
+            if verified != {stage.value: occurrences[stage] for stage in _ORDINARY_STAGES}:
+                raise StateConflictError("ordinary Retry prior stage occurrences changed custody")
         token = self._bound_request.set(
-            _BoundRequestState(context=context, stage_occurrences=occurrences)
+            _BoundRequestState(
+                context=context,
+                stage_occurrences=occurrences,
+                semantic_action_rebind=prior_stage_occurrences is not None,
+            )
         )
         try:
             yield
@@ -410,6 +435,63 @@ class OrdinaryProviderStageRetryRuntimeV1:
             ),
         )
 
+    def bind_review_request(
+        self,
+        review: LeanReviewRecordV1,
+    ) -> ProtectedOrdinaryReviewRequestIdentityV1:
+        """Bind one unresolved review to the exact current protected request."""
+
+        state = self._bound_request.get()
+        if state is None:
+            raise StateConflictError("ordinary review lacks bound request custody")
+        counts = {stage.value: state.stage_occurrences.get(stage, 0) for stage in _ORDINARY_STAGES}
+        return self._custody_store.bind_review_request(
+            review=review,
+            request_id=state.context.binding.request_id,
+            context_sha256=canonical_sha256(state.context.context_payload()),
+            stage_occurrence_counts=counts,
+        )
+
+    def pending_request_for_review(
+        self,
+        review_id: str,
+    ) -> tuple[
+        dict[str, Any],
+        OrdinaryStageRetryRequestContextV1,
+        Mapping[ProviderStage, int],
+    ]:
+        """Recover Request A and its exact action-stage ordinal base."""
+
+        identity, counts = self._custody_store.load_review_request(review_id)
+        pending = self._custody_store.load_request(identity.request_id)
+        if pending.context_sha256 != identity.context_sha256:
+            raise StateConflictError("ordinary review changed protected request context")
+        context = OrdinaryStageRetryRequestContextV1(
+            binding=pending.binding,
+            generation=pending.generation,
+            turn_input=pending.turn_input,
+            planner_retrieval=PlannerFrozenRetrievalV1(
+                retrieval_snapshot=pending.retrieval_snapshot,
+                tool_result_bundle=pending.tool_result_bundle,
+            ),
+        )
+        return (
+            dict(pending.normalized_request),
+            context,
+            {ProviderStage(stage): count for stage, count in counts.items()},
+        )
+
+    def retire_review_request(
+        self,
+        review_id: str,
+        *,
+        terminal_evidence_sha256: str,
+    ) -> ProtectedOrdinaryCustodyReceiptV1:
+        return self._custody_store.retire_review_request(
+            review_id,
+            terminal_evidence_sha256=terminal_evidence_sha256,
+        )
+
     def latest_chain_for_chain(
         self,
         source_chain_id: str,
@@ -460,6 +542,12 @@ class OrdinaryProviderStageRetryRuntimeV1:
         request_id: str,
     ) -> tuple[dict[str, Any], ProtectedOrdinaryTerminalResponseReceiptV1]:
         return self._custody_store.load_terminal_response(request_id)
+
+    def load_terminal_response_optional(
+        self,
+        request_id: str,
+    ) -> tuple[dict[str, Any], ProtectedOrdinaryTerminalResponseReceiptV1] | None:
+        return self._custody_store.load_terminal_response_optional(request_id)
 
     def load_terminal_response_for_chain(
         self,
@@ -746,6 +834,12 @@ class OrdinaryProviderStageRetryRuntimeV1:
             or pending.context_sha256 != canonical_sha256(context.context_payload())
         ):
             raise StateConflictError("ordinary protected request context changed")
+        # Persist the authoritative chain, exact protected input, and full
+        # reconstructable scope before publishing any secondary custody
+        # pointer. A crash in those projections can therefore be recovered
+        # without inventing a chain or dispatching a provider automatically.
+        self._service.store.begin(scope.identity, packet.exact_bytes)
+        self._service.remember_scope(scope)
         self._custody_store.bind_occurrence(
             scope=scope,
             context_sha256=pending.context_sha256,
@@ -758,6 +852,10 @@ class OrdinaryProviderStageRetryRuntimeV1:
         self._custody_store.advance_latest_chain(
             scope=scope,
             context_sha256=pending.context_sha256,
+            semantic_action_boundary=(
+                packet.stage in {ProviderStage.PLANNER, ProviderStage.WRITER}
+                and state.consume_semantic_action_boundary()
+            ),
         )
         chain = self._service.start_initial(scope=scope, packet=packet)
         if chain.phase in _RESULT_READY_PHASES:

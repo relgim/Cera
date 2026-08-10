@@ -146,6 +146,20 @@ class ProtectedOrdinaryStageRetryCustodyTests(unittest.TestCase):
             )
         )
 
+    def test_optional_terminal_response_distinguishes_absence_from_corruption(self) -> None:
+        context, _ = self._freeze()
+        self.assertIsNone(self.store.load_terminal_response_optional(context.binding.request_id))
+        self.store.bind_terminal_response(
+            request_id=context.binding.request_id,
+            response={"id": "completion-before-corruption"},
+        )
+        response_path = (
+            self.root / "responses" / f"{context.binding.request_id.removeprefix('request-')}.json"
+        )
+        response_path.write_text("{}", encoding="utf-8")
+        with self.assertRaisesRegex(StateConflictError, "response shape changed"):
+            self.store.load_terminal_response_optional(context.binding.request_id)
+
     def test_terminal_failure_barrier_requires_explicit_external_release(self) -> None:
         context, _ = self._freeze()
         terminal = self.store.redact_request(

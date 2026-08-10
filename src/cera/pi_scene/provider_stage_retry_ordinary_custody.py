@@ -29,10 +29,12 @@ from cera.serialization import (
     to_primitive,
 )
 
+from .contracts import SceneRoute
+from .provider_stage_retry import ProviderStage
 from .provider_stage_retry_packets import ImmutableRetrievalSnapshotIdentityV1
 from .provider_stage_retry_scope import ProviderStageRetryOccurrenceScopeV1
 from .request_binding import PiSceneRequestBindingV1, binding_from_payload
-from .review_store import LeanSceneTurnInputV1
+from .review_store import LeanReviewRecordV1, LeanSceneTurnInputV1
 
 _STABLE_REDACTION_DISPOSITIONS = frozenset(
     {
@@ -42,6 +44,12 @@ _STABLE_REDACTION_DISPOSITIONS = frozenset(
         "recovery_required",
         "operator_abandoned",
     }
+)
+_ORDINARY_STAGE_VALUES = (
+    ProviderStage.PLANNER.value,
+    ProviderStage.WRITER.value,
+    ProviderStage.SEMANTIC_VALIDATOR.value,
+    ProviderStage.RECORDER.value,
 )
 
 
@@ -68,6 +76,11 @@ def _require_chain_id(chain_id: str) -> None:
         raise ContractValidationError("ordinary protected custody chain ID is invalid")
 
 
+def _require_identifier(value: str, field_name: str) -> None:
+    if not isinstance(value, str) or not value.strip() or "\x00" in value:
+        raise ContractValidationError(f"ordinary protected custody {field_name} is invalid")
+
+
 def _branch_scope_sha256(world_id: str, branch_id: str) -> str:
     if (
         not isinstance(world_id, str)
@@ -80,6 +93,24 @@ def _branch_scope_sha256(world_id: str, branch_id: str) -> str:
         "cera.ordinary_stage_retry_branch_scope.v1",
         {"world_id": world_id, "branch_id": branch_id},
     )
+
+
+def _normalize_stage_occurrence_counts(
+    value: Mapping[str, int],
+) -> dict[str, int]:
+    if not isinstance(value, Mapping) or set(value) != set(_ORDINARY_STAGE_VALUES):
+        raise ContractValidationError(
+            "ordinary protected custody stage occurrence counts changed shape"
+        )
+    normalized: dict[str, int] = {}
+    for stage in _ORDINARY_STAGE_VALUES:
+        count = value[stage]
+        if type(count) is not int or count < 0:
+            raise ContractValidationError(
+                "ordinary protected custody stage occurrence count is invalid"
+            )
+        normalized[stage] = count
+    return normalized
 
 
 @dataclass(frozen=True, slots=True)
@@ -202,6 +233,44 @@ class ProtectedOrdinaryChainRequestIdentityV1:
 
 
 @dataclass(frozen=True, slots=True)
+class ProtectedOrdinaryReviewRequestIdentityV1:
+    """Content-free immutable binding from one review to its original request."""
+
+    review_id: str
+    request_id: str
+    world_id: str
+    branch_id: str
+    generation: int
+    context_sha256: str
+    turn_context_sha256: str
+    candidate_id: str
+    candidate_sha256: str
+    stage_occurrence_counts_sha256: str
+
+    def __post_init__(self) -> None:
+        for value, field_name in (
+            (self.review_id, "review ID"),
+            (self.world_id, "review world ID"),
+            (self.branch_id, "review branch ID"),
+            (self.candidate_id, "review candidate ID"),
+        ):
+            _require_identifier(value, field_name)
+        _require_request_id(self.request_id)
+        if type(self.generation) is not int or self.generation < 1:
+            raise ContractValidationError("ordinary protected custody review generation is invalid")
+        for value, field_name in (
+            (self.context_sha256, "review context hash"),
+            (self.turn_context_sha256, "review turn hash"),
+            (self.candidate_sha256, "review candidate hash"),
+            (
+                self.stage_occurrence_counts_sha256,
+                "review stage occurrence counts hash",
+            ),
+        ):
+            _require_sha256(value, field_name)
+
+
+@dataclass(frozen=True, slots=True)
 class ProtectedRecorderContinuationV1:
     """Exact accepted-review target for Recorder-only continuation."""
 
@@ -237,6 +306,10 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
     OCCURRENCE_SCHEMA_VERSION: ClassVar[str] = "cera.ordinary_stage_retry_occurrence_binding.v1"
     RESPONSE_SCHEMA_VERSION: ClassVar[str] = "cera.ordinary_stage_retry_terminal_response.v1"
     LATEST_CHAIN_SCHEMA_VERSION: ClassVar[str] = "cera.ordinary_stage_retry_latest_chain.v1"
+    REVIEW_SCHEMA_VERSION: ClassVar[str] = "cera.ordinary_stage_retry_review_request.v1"
+    REVIEW_TOMBSTONE_SCHEMA_VERSION: ClassVar[str] = (
+        "cera.ordinary_stage_retry_review_request_tombstone.v1"
+    )
 
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
@@ -244,6 +317,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         self.chains_root = self.root / "chains"
         self.occurrences_root = self.root / "occurrences"
         self.latest_chains_root = self.root / "latest_chains"
+        self.reviews_root = self.root / "reviews"
         self.responses_root = self.root / "responses"
         self.recorder_root = self.root / "recorder"
         self.locks_root = self.root / "locks"
@@ -253,6 +327,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             self.chains_root,
             self.occurrences_root,
             self.latest_chains_root,
+            self.reviews_root,
             self.responses_root,
             self.recorder_root,
             self.locks_root,
@@ -491,11 +566,14 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         *,
         scope: ProviderStageRetryOccurrenceScopeV1,
         context_sha256: str,
+        semantic_action_boundary: bool = False,
     ) -> ProtectedOrdinaryChainRequestIdentityV1:
         """Advance a request cursor once, never roll it back during cache replay."""
 
         if type(scope) is not ProviderStageRetryOccurrenceScopeV1:
             raise ContractValidationError("ordinary latest-chain scope changed")
+        if type(semantic_action_boundary) is not bool:
+            raise ContractValidationError("ordinary latest-chain semantic action boundary changed")
         _require_sha256(context_sha256, "latest-chain context hash")
         pending = self.load_for_scope(scope)
         if pending.context_sha256 != context_sha256:
@@ -506,6 +584,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             "request_occurrence_sha256": scope.request_occurrence_sha256,
             "stage": scope.stage.value,
             "stage_ordinal": scope.stage_ordinal,
+            "semantic_action_boundary": semantic_action_boundary,
         }
         path = self._latest_chain_path(scope.request_id)
         with self._claim(f"latest-chain:{scope.request_id}"):
@@ -618,6 +697,241 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         if pending.context_sha256 != chain.context_sha256:
             raise StateConflictError("ordinary chain changed pending request context")
         return pending
+
+    def bind_review_request(
+        self,
+        *,
+        review: LeanReviewRecordV1,
+        request_id: str,
+        context_sha256: str,
+        stage_occurrence_counts: Mapping[str, int],
+    ) -> ProtectedOrdinaryReviewRequestIdentityV1:
+        """Immutably bind a review to the exact still-pending request."""
+
+        if type(review) is not LeanReviewRecordV1:
+            raise ContractValidationError("ordinary protected review contract changed")
+        _require_request_id(request_id)
+        _require_sha256(context_sha256, "review context hash")
+        pending = self.load_request(request_id)
+        counts = _normalize_stage_occurrence_counts(stage_occurrence_counts)
+        if pending.context_sha256 != context_sha256:
+            raise StateConflictError("ordinary review changed protected request context")
+        candidate = review.candidate
+        turn = review.turn_input
+        if (
+            pending.binding.route is not SceneRoute.ORDINARY
+            or candidate.route is not SceneRoute.ORDINARY
+            or (candidate.world_id, candidate.branch_id)
+            != (pending.binding.world_id, pending.binding.branch_id)
+            or candidate.generation != pending.generation
+            or (turn.world_id, turn.branch_id, turn.scene_id, turn.exact_user_source)
+            != (
+                candidate.world_id,
+                candidate.branch_id,
+                candidate.scene_id,
+                candidate.exact_user_source,
+            )
+            or canonical_sha256(turn) != canonical_sha256(pending.turn_input)
+        ):
+            raise StateConflictError("ordinary review changed original request custody")
+        if counts != self.stage_occurrence_counts(request_id):
+            raise StateConflictError("ordinary review stage occurrence counts changed")
+        counts_sha256 = canonical_sha256(counts)
+        identity = ProtectedOrdinaryReviewRequestIdentityV1(
+            review_id=review.review_id,
+            request_id=request_id,
+            world_id=candidate.world_id,
+            branch_id=candidate.branch_id,
+            generation=candidate.generation,
+            context_sha256=context_sha256,
+            turn_context_sha256=canonical_sha256(turn),
+            candidate_id=candidate.candidate_id,
+            candidate_sha256=candidate.candidate_sha256,
+            stage_occurrence_counts_sha256=counts_sha256,
+        )
+        body = {
+            "schema_version": self.REVIEW_SCHEMA_VERSION,
+            **to_primitive(identity),
+            "stage_occurrence_counts": counts,
+        }
+        payload = {**body, "review_request_sha256": canonical_sha256(body)}
+        path = self._review_path(review.review_id)
+        with self._claim(f"review:{review.review_id}"):
+            if path.exists():
+                prior = self._read_json(path)
+                if prior.get("schema_version") == self.REVIEW_TOMBSTONE_SCHEMA_VERSION:
+                    raise StateConflictError("ordinary review request mapping is retired")
+                if prior != payload:
+                    raise StateConflictError("ordinary review request mapping changed")
+            else:
+                self._atomic_write(path, payload)
+            loaded, loaded_counts = self.load_review_request(review.review_id)
+            if loaded != identity or loaded_counts != counts:
+                raise StateConflictError("ordinary review request mapping readback changed")
+            return loaded
+
+    def load_review_request(
+        self,
+        review_id: str,
+    ) -> tuple[ProtectedOrdinaryReviewRequestIdentityV1, dict[str, int]]:
+        """Load an active review mapping; absence and retirement are distinct."""
+
+        _require_identifier(review_id, "review ID")
+        path = self._review_path(review_id)
+        if not path.exists():
+            raise FileNotFoundError(path)
+        payload = self._read_json(path)
+        if payload.get("schema_version") == self.REVIEW_TOMBSTONE_SCHEMA_VERSION:
+            self._verify_review_tombstone(payload, review_id=review_id)
+            raise StateConflictError("ordinary review request mapping is retired")
+        expected = {
+            "schema_version",
+            "review_id",
+            "request_id",
+            "world_id",
+            "branch_id",
+            "generation",
+            "context_sha256",
+            "turn_context_sha256",
+            "candidate_id",
+            "candidate_sha256",
+            "stage_occurrence_counts_sha256",
+            "stage_occurrence_counts",
+            "review_request_sha256",
+        }
+        if set(payload) != expected or payload.get("schema_version") != self.REVIEW_SCHEMA_VERSION:
+            raise StateConflictError("ordinary review request mapping shape changed")
+        unsigned = {key: value for key, value in payload.items() if key != "review_request_sha256"}
+        if canonical_sha256(unsigned) != payload.get("review_request_sha256"):
+            raise StateConflictError("ordinary review request mapping hash changed")
+        counts_value = payload["stage_occurrence_counts"]
+        if not isinstance(counts_value, dict):
+            raise StateConflictError("ordinary review stage occurrence counts changed")
+        try:
+            counts = _normalize_stage_occurrence_counts(counts_value)
+        except ContractValidationError as exc:
+            raise StateConflictError("ordinary review stage occurrence counts changed") from exc
+        if canonical_sha256(counts) != payload["stage_occurrence_counts_sha256"]:
+            raise StateConflictError("ordinary review stage occurrence counts hash changed")
+        identity = ProtectedOrdinaryReviewRequestIdentityV1(
+            review_id=payload["review_id"],
+            request_id=payload["request_id"],
+            world_id=payload["world_id"],
+            branch_id=payload["branch_id"],
+            generation=payload["generation"],
+            context_sha256=payload["context_sha256"],
+            turn_context_sha256=payload["turn_context_sha256"],
+            candidate_id=payload["candidate_id"],
+            candidate_sha256=payload["candidate_sha256"],
+            stage_occurrence_counts_sha256=payload["stage_occurrence_counts_sha256"],
+        )
+        if identity.review_id != review_id:
+            raise StateConflictError("ordinary review request identity changed")
+        return identity, counts
+
+    def stage_occurrence_counts(self, request_id: str) -> dict[str, int]:
+        """Return durable per-stage occurrence maxima for one request."""
+
+        receipt = self.request_receipt(request_id)
+        payload = self._read_json(self._latest_chain_path(request_id))
+        entries = self._verify_latest_chain_payload(
+            payload,
+            request_id=request_id,
+            context_sha256=receipt.context_sha256,
+        )
+        counts = {stage: 0 for stage in _ORDINARY_STAGE_VALUES}
+        for entry in entries:
+            counts[entry["stage"]] = entry["stage_ordinal"]
+        return counts
+
+    def require_review_stage_occurrences(
+        self,
+        *,
+        request_id: str,
+        stage_occurrence_counts: Mapping[str, int],
+    ) -> dict[str, int]:
+        """Authorize rebinding only from an active immutable review snapshot."""
+
+        _require_request_id(request_id)
+        counts = _normalize_stage_occurrence_counts(stage_occurrence_counts)
+        matched = False
+        for path in self.reviews_root.glob("*.json"):
+            payload = self._read_json(path)
+            if payload.get("schema_version") == self.REVIEW_TOMBSTONE_SCHEMA_VERSION:
+                self._verify_review_tombstone(payload)
+                continue
+            review_id = payload.get("review_id")
+            if not isinstance(review_id, str):
+                raise StateConflictError("ordinary review request mapping changed")
+            identity, review_counts = self.load_review_request(review_id)
+            if identity.request_id == request_id and review_counts == counts:
+                matched = True
+        if not matched:
+            raise StateConflictError("ordinary prior stage occurrences lack active review custody")
+        return counts
+
+    def request_receipt(self, request_id: str) -> ProtectedOrdinaryCustodyReceiptV1:
+        """Load active or terminal content-free request custody."""
+
+        _require_request_id(request_id)
+        payload = self._read_json(self._request_path(request_id))
+        if payload.get("schema_version") == self.TOMBSTONE_SCHEMA_VERSION:
+            self._verify_tombstone(payload)
+            return self._receipt_from_tombstone(payload)
+        pending = self.load_request(request_id)
+        return ProtectedOrdinaryCustodyReceiptV1(
+            request_id=request_id,
+            request_binding_sha256=canonical_sha256(pending.binding.to_payload()),
+            normalized_request_sha256=pending.binding.normalized_request_sha256,
+            context_sha256=pending.context_sha256,
+            disposition="active",
+            branch_barrier_active=True,
+        )
+
+    def retire_review_request(
+        self,
+        review_id: str,
+        *,
+        terminal_evidence_sha256: str,
+    ) -> ProtectedOrdinaryCustodyReceiptV1:
+        """Retire one review and release raw request custody only when it is last."""
+
+        _require_identifier(review_id, "review ID")
+        _require_sha256(terminal_evidence_sha256, "review terminal evidence")
+        path = self._review_path(review_id)
+        with self._claim(f"review:{review_id}"):
+            payload = self._read_json(path)
+            if payload.get("schema_version") == self.REVIEW_TOMBSTONE_SCHEMA_VERSION:
+                self._verify_review_tombstone(payload, review_id=review_id)
+                if payload["terminal_evidence_sha256"] != terminal_evidence_sha256:
+                    raise StateConflictError("ordinary review retirement evidence changed")
+                request_id = payload["request_id"]
+            else:
+                identity, counts = self.load_review_request(review_id)
+                body = {
+                    "schema_version": self.REVIEW_TOMBSTONE_SCHEMA_VERSION,
+                    **to_primitive(identity),
+                    "stage_occurrence_counts": counts,
+                    "terminal_evidence_sha256": terminal_evidence_sha256,
+                }
+                retired = {**body, "review_tombstone_sha256": canonical_sha256(body)}
+                self._atomic_write(path, retired)
+                request_id = identity.request_id
+
+            if self._has_active_review_for_request(request_id):
+                return self.request_receipt(request_id)
+            receipt = self.request_receipt(request_id)
+            if receipt.disposition == "completed":
+                return receipt
+            if receipt.disposition != "active":
+                raise StateConflictError(
+                    "ordinary review request has a non-completion terminal disposition"
+                )
+            return self.redact_request(
+                request_id,
+                disposition="completed",
+                terminal_evidence_sha256=terminal_evidence_sha256,
+            )
 
     def branch_barrier(
         self,
@@ -758,6 +1072,17 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             response_sha256=payload["response_sha256"],
             response_size_bytes=payload["response_size_bytes"],
         )
+
+    def load_terminal_response_optional(
+        self,
+        request_id: str,
+    ) -> tuple[dict[str, Any], ProtectedOrdinaryTerminalResponseReceiptV1] | None:
+        """Return None only when no response exists; corrupt custody still conflicts."""
+
+        _require_request_id(request_id)
+        if not self._response_path(request_id).exists():
+            return None
+        return self.load_terminal_response(request_id)
 
     def load_terminal_response_for_chain(
         self,
@@ -906,6 +1231,14 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         _require_request_id(request_id)
         return self.responses_root / f"{request_id.removeprefix('request-')}.json"
 
+    def _review_path(self, review_id: str) -> Path:
+        _require_identifier(review_id, "review ID")
+        key = domain_sha256(
+            "cera.ordinary_stage_retry_review_request_key.v1",
+            {"review_id": review_id},
+        )
+        return self.reviews_root / f"{key}.json"
+
     def _occurrence_path(self, occurrence_key: str) -> Path:
         _require_sha256(occurrence_key, "occurrence key")
         return self.occurrences_root / f"{occurrence_key}.json"
@@ -913,6 +1246,77 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
     def _latest_chain_path(self, request_id: str) -> Path:
         _require_request_id(request_id)
         return self.latest_chains_root / f"{request_id.removeprefix('request-')}.json"
+
+    def _has_active_review_for_request(self, request_id: str) -> bool:
+        _require_request_id(request_id)
+        found = False
+        for path in self.reviews_root.glob("*.json"):
+            payload = self._read_json(path)
+            if payload.get("schema_version") == self.REVIEW_TOMBSTONE_SCHEMA_VERSION:
+                self._verify_review_tombstone(payload)
+                continue
+            review_id = payload.get("review_id")
+            if not isinstance(review_id, str):
+                raise StateConflictError("ordinary review request mapping changed")
+            identity, _ = self.load_review_request(review_id)
+            if identity.request_id == request_id:
+                found = True
+        return found
+
+    def _verify_review_tombstone(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        review_id: str | None = None,
+    ) -> None:
+        expected = {
+            "schema_version",
+            "review_id",
+            "request_id",
+            "world_id",
+            "branch_id",
+            "generation",
+            "context_sha256",
+            "turn_context_sha256",
+            "candidate_id",
+            "candidate_sha256",
+            "stage_occurrence_counts_sha256",
+            "stage_occurrence_counts",
+            "terminal_evidence_sha256",
+            "review_tombstone_sha256",
+        }
+        unsigned = {
+            key: value for key, value in payload.items() if key != "review_tombstone_sha256"
+        }
+        counts_value = payload.get("stage_occurrence_counts")
+        if (
+            set(payload) != expected
+            or payload.get("schema_version") != self.REVIEW_TOMBSTONE_SCHEMA_VERSION
+            or canonical_sha256(unsigned) != payload.get("review_tombstone_sha256")
+            or not isinstance(counts_value, dict)
+        ):
+            raise StateConflictError("ordinary review request tombstone changed")
+        try:
+            counts = _normalize_stage_occurrence_counts(counts_value)
+            identity = ProtectedOrdinaryReviewRequestIdentityV1(
+                review_id=payload["review_id"],
+                request_id=payload["request_id"],
+                world_id=payload["world_id"],
+                branch_id=payload["branch_id"],
+                generation=payload["generation"],
+                context_sha256=payload["context_sha256"],
+                turn_context_sha256=payload["turn_context_sha256"],
+                candidate_id=payload["candidate_id"],
+                candidate_sha256=payload["candidate_sha256"],
+                stage_occurrence_counts_sha256=payload["stage_occurrence_counts_sha256"],
+            )
+            _require_sha256(payload["terminal_evidence_sha256"], "review terminal evidence")
+        except (ContractValidationError, KeyError, TypeError) as exc:
+            raise StateConflictError("ordinary review request tombstone changed") from exc
+        if canonical_sha256(counts) != identity.stage_occurrence_counts_sha256 or (
+            review_id is not None and identity.review_id != review_id
+        ):
+            raise StateConflictError("ordinary review request tombstone identity changed")
 
     def _verify_latest_chain_payload(
         self,
@@ -948,6 +1352,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             "request_occurrence_sha256",
             "stage",
             "stage_ordinal",
+            "semantic_action_boundary",
         }
         normalized: list[dict[str, Any]] = []
         seen: set[str] = set()
@@ -973,6 +1378,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
                 }
                 or type(value["stage_ordinal"]) is not int
                 or value["stage_ordinal"] < 1
+                or type(value["semantic_action_boundary"]) is not bool
             ):
                 raise StateConflictError("ordinary latest-chain entry changed")
             seen.add(identity.chain_id)
@@ -980,7 +1386,15 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         stage_counts: dict[str, int] = {}
         for index, value in enumerate(normalized):
             if index:
-                self._require_pipeline_successor(normalized[index - 1], value)
+                self._require_pipeline_successor(
+                    normalized[index - 1],
+                    value,
+                    semantic_action_boundary=value["semantic_action_boundary"],
+                )
+            elif value["semantic_action_boundary"]:
+                raise StateConflictError(
+                    "ordinary latest chain starts with a semantic action boundary"
+                )
             expected_ordinal = stage_counts.get(value["stage"], 0) + 1
             if value["stage_ordinal"] != expected_ordinal:
                 raise StateConflictError("ordinary latest-chain stage ordinal changed")
@@ -991,7 +1405,23 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
     def _require_pipeline_successor(
         prior: Mapping[str, Any],
         successor: Mapping[str, Any],
+        *,
+        semantic_action_boundary: bool | None = None,
     ) -> None:
+        boundary = (
+            successor.get("semantic_action_boundary", False)
+            if semantic_action_boundary is None
+            else semantic_action_boundary
+        )
+        if type(boundary) is not bool:
+            raise StateConflictError("ordinary latest chain semantic action boundary changed")
+        if boundary:
+            if prior["stage"] not in {"writer", "semantic_validator"} or successor["stage"] not in {
+                "planner",
+                "writer",
+            }:
+                raise StateConflictError("ordinary latest chain changed semantic action boundary")
+            return
         allowed = {
             "planner": {"writer"},
             "writer": {"semantic_validator", "recorder"},
@@ -1123,6 +1553,7 @@ __all__ = [
     "ProtectedOrdinaryChainRequestIdentityV1",
     "ProtectedOrdinaryCustodyReceiptV1",
     "ProtectedOrdinaryPendingRequestV1",
+    "ProtectedOrdinaryReviewRequestIdentityV1",
     "ProtectedOrdinaryStageRetryCustodyStoreV1",
     "ProtectedOrdinaryTerminalResponseReceiptV1",
     "ProtectedRecorderContinuationV1",
