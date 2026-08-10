@@ -1,0 +1,1256 @@
+CERA PROVIDER-STAGE RETRY REVIEW PACKET
+=======================================
+
+Prepared: 2026-08-10
+Audience: Ted, ChatGPT Pro, and Claude
+Technical owner: Codex
+Repository: D:\Cera\worktrees\C78-quality-fixes
+Branch: fix/cera-runtime-quality-20260809
+Implementation checkpoint before this packet: d43ecf07afe66df4961ba4df6169baa1fc356897
+Document status: REVIEW CHECKPOINT - PAUSED
+Provider-call authority from this document: NONE
+Deployment or installed-SillyTavern authority from this document: NONE
+
+
+1. EXECUTIVE CONCLUSION
+=======================
+
+The requested retry policy is supportable only as a stage-local, custody-aware
+mechanism. It must never replay the complete user request after earlier stages
+may have created a candidate, accepted story state, or a derived recording.
+
+The intended product policy is:
+
+  - one initial provider-stage attempt plus at most two retries;
+  - three attempts total, with no fourth attempt, model substitution, or
+    fallback;
+  - retry only a typed provider-stage failure whose prior attempt is closed and
+    whose effect boundary is proven;
+  - if the third attempt fails, stop the branch and show a critical error that
+    identifies Codex or DeepSeek and the exact failed stage;
+  - make Retry visible in SillyTavern only while another attempt is safely
+    authorized;
+  - the current code flags 180 seconds only for second-or-later calls on the
+    same physical Planner thread; whether that concern rule should extend to
+    every role with meaningful session reuse remains a review decision;
+  - classify first-thread calls and replacement-thread cold rehydration
+    separately from later retained calls.
+
+This checkpoint is not production-ready. The repository now has a tested
+Planner manual-transport Retry path, a disposable-SillyTavern qualification
+contract, terminal critical-error UI, a local two-action UI ceiling, and a
+provider-neutral retry foundation. However:
+
+  - the d43 generic retry correction candidate passed its author gates, but an
+    independent parent-swap fault test found a stop-ship custody race; the
+    follow-up correction and re-audit are recorded in Section 5;
+  - the generic core is not wired into the six live runtime stages;
+  - the real backend does not yet authoritatively enforce the shared three-
+    attempt terminal contract for every stage;
+  - non-Planner retry buttons are not yet implemented;
+  - installed SillyTavern at E:\AIChatBot\SillyTavern has not been synchronized;
+  - there is no successful live campaign from which retained-stage averages
+    can be calculated.
+
+The correct action at this checkpoint is review, not a live run, deployment,
+installation sync, freeze, merge, or further provider dispatch.
+
+
+2. CREATOR DECISIONS AND IMPLEMENTATION INTERPRETATION
+======================================================
+
+2.1 Direct creator decisions
+----------------------------
+
+The following decisions were supplied by Ted and are treated as current
+product direction:
+
+  1. The first provider call is expected to be the longest because it must
+     process the initial data and establish cache/session context.
+
+  2. A second or later call taking 180,000 ms or longer is a testing concern
+     that should be flagged and investigated for optimization.
+
+  3. A Retry control must be shown to the user.
+
+  4. When a provider stage fails, allow two retries. If both retries also fail,
+     stop the process and show a critical Codex/DeepSeek stage failure.
+
+  5. This applies to a failure in the middle of the pipeline as well as the
+     Planner boundary.
+
+  6. Show the terminal failure in SillyTavern.
+
+  7. During testing, flag the latency condition and report whether it is
+     occurring and what the measured averages are.
+
+  8. Preserve the selected quality/rationality settings. Performance work
+     should first improve context selection, prefix/cache reuse, retrieval, and
+     tool behavior rather than lowering reasoning quality.
+
+  9. Keep protected adult prose within its protected custody boundary. Safe
+     metrics, counts, state flags, and hashes may cross into the general UI.
+
+ 10. Synchronize or restart installed SillyTavern only after the disposable-
+     SillyTavern qualification passes and the governed installation step is
+     authorized.
+
+2.2 Codex safety interpretation recommended for approval
+---------------------------------------------------------
+
+The phrase "retry a failure in the middle" is interpreted as retrying only the
+failed provider stage from its exact frozen input. It is not interpreted as
+replaying the complete HTTP request or rerunning already-completed stages.
+
+The two retries are explicit, idempotent Retry actions. There is no hidden
+automatic retry loop in production. A qualification harness may drive those
+same explicit actions mechanically, but it must exercise the same backend-
+issued identities and limits as the UI.
+
+The backend, not the browser, must be final authority for:
+
+  - whether Retry is eligible;
+  - which exact stage input is reused;
+  - whether the previous owner is retired;
+  - whether any failed-stage effect exists;
+  - how many attempts have occurred;
+  - whether another attempt identity exists;
+  - whether the chain is exhausted or blocked by ambiguity.
+
+The browser may enforce the same two-action ceiling defensively, but that local
+limit cannot replace the backend cap.
+
+Only closed provider-stage failure classes are retry candidates. Semantic
+rejection, ordinary validation findings, creator Decline, local configuration
+failure, authorization failure, changed branch authority, storage/custody
+conflict, and exhausted budgets are not provider Retry events.
+
+An unresolved or possibly still-running dispatch is not retried. It enters a
+blocked-ambiguous state until read-only reconciliation proves its disposition.
+This prevents a duplicate charged call and prevents two outputs from competing
+for one stage effect.
+
+The implemented three-minute retained-Planner flag does not cancel the call and
+does not make it retryable. Its expansion to other retained roles and its exact
+measurement boundary remain review decisions. The present hard provider
+transport-loss boundary is 600 seconds. The phrase "first call" also needs a
+product definition: the first call on each physical provider/stage session, or
+only the initial retained Planner-thread call. Treating every fresh/single-use
+role invocation as exempt would make the concern rule meaningless for Luna,
+Writer, Recorder, and Adult Filter.
+
+2.3 Decisions that remain explicitly unapproved
+------------------------------------------------
+
+This packet does not approve:
+
+  - runtime adoption of the generic core or its unfinished custody follow-up;
+  - runtime wiring for Planner, Writer, Luna, Recorder, Adult Scene, or Adult
+    Filter;
+  - automatic provider retry;
+  - a larger provider budget;
+  - a live campaign or injected provider failure;
+  - installed SillyTavern changes;
+  - a production route, merge, push, deployment, or story-state mutation.
+
+
+3. MODEL, QUALITY, AND RATIONALITY CONFIGURATION
+================================================
+
+Qualification-selected and repository role configuration:
+
+  Ordinary Planner
+    provider/model: Codex, gpt-5.6-sol
+    qualification reasoning effort: xhigh
+    repository controls: medium, high, or xhigh; HTTP and repository
+                         SillyTavern controls currently default to medium
+    session class: retained per session/world/branch while compatible
+    configured output limit: 12,288 tokens
+    role: complete ordinary character/world logic and causal sequence
+
+  Ordinary Semantic Validator
+    provider/model: Codex, gpt-5.6-luna
+    reasoning effort: fixed xhigh / Extra High
+    session class: fresh, single-use thread per ordinary candidate, then
+                   archived and proved nonresumable; the request is branch-
+                   and candidate-bound, but the provider thread is not retained
+                   per branch
+    configured output limit: 4,096 tokens
+    role: semantic fidelity and severe-completeness validation
+
+  Writer, Recorder, Adult Scene, Adult Filter
+    provider/model: DeepSeek, deepseek-v4-flash
+    thinking: off in the Pi adapter
+    explicit Pi output-token flag: none; no verified maximum is claimed here
+    role: stage-specific realization, recording, adult logic/prose, or adult
+          validation according to the owning port
+
+The retry work does not authorize Terra, a lower reasoning effort, Fast mode,
+silent fallback, model substitution, or provider-library built-in retries.
+
+The recommendation is not to lower a selected reasoning effort merely to hide
+latency. Qualification should remain Sol xhigh and Luna is fixed xhigh. The
+repository product Planner default is still medium; changing that global
+default to xhigh is a separate, unapproved product decision. If selected xhigh
+calls remain slow, optimize the stable prompt prefix, request-bound retrieval,
+cache hits, context bytes, tool counts, result shapes, and avoidable
+Python/provider round trips first. A faster but materially less rational route
+would not meet the product objective.
+
+For qualification, use the largest supported diagnostic output-token allowance
+unless the ceiling itself is being tested. Production output remains bounded
+by its production contract. Because the Pi DeepSeek path has no discovered and
+pinned explicit output-token control yet, qualification cannot currently prove
+that its DeepSeek stages use the largest supported diagnostic allowance. That
+limit must be discovered, bound, and reverified before live qualification.
+
+
+4. CURRENT COMMITTED IMPLEMENTATION
+===================================
+
+The following commits are relevant to this review. Newest appears last in the
+dependency narrative, not necessarily in Git history order.
+
+  9396bb3  Make transport retry recovery durable
+    Established durable recovery behavior for the existing Planner transport
+    retry path.
+
+  b32d7f5  Tighten transport retry identity checks
+    Tightened backend-issued identity and request/effect binding.
+
+  e18d30e33d2fce0995c495b600bca8269d8e07a1
+    fix(pi): classify planner latency by thread
+    Separates cold-start/cold-rehydration observations from retained-thread
+    latency classification, including restart with the same physical thread.
+
+  9ac53ef92e91499bae72fc9524302f433b6c7007
+    Align SillyTavern full-pipeline timeouts
+    Establishes the present 4,200-second outer qualification HTTP timeout and
+    related long-operation handling.
+
+  c8b0e0ae952fec43e65629a8f668d3e340415698
+    feat(pi-scene): add manual planner transport retry
+    Implements the current manual Planner retry transport, exact backend-
+    issued Retry identity, zero-effect proof, fresh Planner thread, and GET
+    reconciliation. Reported gates at that checkpoint were 51 focused tests
+    and 166 broader tests, with no provider call.
+
+  47aa6e0  Clarify transport retry status reconciliation
+    Documents authenticated GET as the authority after an ambiguous Retry POST.
+
+  c5fe06d2aa9422fb302c4a53cfa599ba6ee311d3
+    Fix Luna provider evidence initialization
+    Initializes Luna semantic-validation turn evidence before call-ledger work,
+    after the provider-dispatch guard. Reported focused validation: 11 tests
+    plus static checks, provider-free.
+
+  f8e79389531590c56067e6811665cc54a99d8989
+    test(pi-scene): cover launcher Luna evidence lifecycle
+    Adds launcher-level offline evidence lifecycle, archival, and
+    non-resumability regression coverage. Reported result: 3 of 3 tests,
+    provider-free.
+
+  fb3d1baf5e04e9508414b72cd17b64161482a0f4
+    feat(sillytavern): show exhausted provider stages
+    Adds strict terminal DTO normalization, proxy-safe projection, persistent
+    critical UI, Recorder-specific accepted-story wording, chat isolation, and
+    send blocking. Reported result: 35 Node behavioral/privacy tests and 3
+    syntax checks, provider-free.
+
+  44a99dba94f1e382e86bde8241c2f818b0f42099
+    Add provider-stage retry safety foundation
+    Adds provider-neutral retry contracts, controller, protected store, and
+    tests. This commit is a foundation, not an accepted core. It was superseded
+    by a correction candidate that also required independent fault review.
+
+  1b6b6f3b8881f06b3963559bff8555acb11b3210
+    fix(sillytavern): enforce two-action retry ceiling
+    Adds a defensive per-chat UI action count, prevents a fourth Planner
+    attempt even if a legacy/successor response tries to expose one, and keeps
+    legacy v1 state fail-closed with GET-only reconciliation.
+
+  5bbfc60eb2ee10a04fdb547d066962780a36aa69
+    feat(qualification): govern planner retry campaigns
+    Adds the frozen qualification policy and provider-free proofs for two
+    explicit Planner Retry actions, exact terminal v2 GET reconciliation,
+    safe SillyTavern projection, source/hash-bound disposable Node execution,
+    and retained-only latency aggregation. Final result: 32 provider-free
+    qualification tests, 38 committed Node tests, staged hash-bound Node
+    execution, Ruff, mypy, py_compile, and diff checks.
+
+  d43ecf07afe66df4961ba4df6169baa1fc356897
+    Harden provider-stage retry custody
+    Replaces the first foundation's rollbackable state with occurrence-scoped
+    immutable authority and a legally monotonic append-only state history;
+    adds retirement-before-exhaustion, ambiguity blocking, downstream
+    intent/completion boundaries, safe numeric invariants, same-buffer reads,
+    and repository no-follow Windows custody. Author gate: 97 tests
+    passed with 2 platform skips, plus Ruff, strict mypy, py_compile, and diff
+    checks. No provider or service was called. This remained a candidate: an
+    independent active parent-swap test subsequently found a stop-ship race.
+
+
+5. GENERIC CORE CORRECTION AND AUDIT BOUNDARY
+=============================================
+
+The first foundation commit 44a99db did not pass independent review. The
+review reproduced budget rollback, request aliasing, dispatch-ambiguity replay,
+Windows junction escape, raw-enum poisoning, false no-effect downstream
+blocking, invalid accounting, and a validated-buffer reread race. Those were
+treated as stop-ship defects rather than documentation notes.
+
+The bounded correction candidate was committed at d43ecf07. It added:
+
+Paths in the bounded correction:
+
+  src/cera/continuous/path_custody.py
+  src/cera/pi_scene/provider_stage_retry.py
+  src/cera/pi_scene/provider_stage_retry_controller.py
+  src/cera/pi_scene/provider_stage_retry_store.py
+  tests/test_provider_stage_retry.py
+  tests/test_no_follow_file_lock.py
+
+The candidate addressed the following issues without adding live runtime
+wiring:
+
+  - use shared no-follow path custody and a crash-released cross-process file
+    lock instead of an isolated weaker filesystem path implementation;
+  - identify one unique request occurrence separately from repeatable request
+    content, so identical later turns receive distinct budgets while input or
+    authority drift inside one occurrence blocks the original chain;
+  - bind the occurrence to immutable authority and a contiguous, hash-linked,
+    legally monotonic state log; STATE.json is only a repairable projection;
+  - enforce closed enum instances and JavaScript-safe nonnegative integers;
+  - bind exact input and exact result checkpoints to immutable evidence;
+  - require fresh attempt session scopes and durable retirement for all three
+    failed owners before attempts 1/2 can retry or attempt 3 can exhaust;
+  - conservatively count ambiguous provider operations;
+  - freeze downstream intent before binding a result downstream;
+  - recover result-first so a crash after provider success does not dispatch
+    the provider again;
+  - distinguish three-attempt exhaustion from unresolved custody ambiguity;
+  - keep public chain state hash-only while exact input/result bytes remain in
+    protected storage.
+
+CORRECTION-CANDIDATE COMMIT:
+  d43ecf07afe66df4961ba4df6169baa1fc356897
+  Harden provider-stage retry custody
+
+CORRECTION-CANDIDATE AUTHOR GATES:
+  97 provider-free tests passed; 2 platform-specific skips.
+  Ruff check passed on all 6 changed paths.
+  Ruff format check passed on the 5 retry/test paths; the shared legacy
+  path_custody module was intentionally not wholesale reformatted.
+  Strict mypy passed on the 3 retry source modules.
+  py_compile and git diff --check passed.
+
+INDEPENDENT AUDIT OF d43:
+  STOP-SHIP. A deterministic Windows parent-swap fault test proved that the
+  retry claim lock, immutable pending publication, and replaceable state-cache
+  publication could inspect or create a leaf before continuously pinning the
+  full parent chain. The operation could report success while writing into a
+  substituted directory. The retry state machine and 34 focused audit tests
+  otherwise passed, but those passes do not override the custody failure.
+
+REQUIRED FOLLOW-UP:
+  Pin every parent component before leaf inspection or exclusive creation and
+  hold that custody continuously through exact-byte verification and replace
+  in all three affected paths. On Windows, pinned handles must prevent parent
+  rename/replacement; on POSIX, leaf operations must be relative to the pinned
+  parent descriptor. Deterministic active parent-swap tests must prove that no
+  claim, pending record, immutable record, or projection reaches a decoy.
+
+FOLLOW-UP CORRECTION COMMIT AND GATES:
+  No follow-up commit exists at this review checkpoint. An uncommitted bounded
+  WIP is preserved in:
+
+    src/cera/continuous/path_custody.py
+    src/cera/pi_scene/provider_stage_retry_store.py
+    tests/test_no_follow_file_lock.py
+
+  The WIP implements handle-relative Windows NtCreateFile open/create/read/lock
+  operations rooted at the verified parent handle and POSIX dir_fd-relative
+  operations. The baseline lock test and a real rename-plus-decoy lock test are
+  green, and py_compile is green. Immutable and projection publication are
+  rewired under the pinned context, but handle-relative Windows promotion is
+  unfinished: SetFileInformationByHandle(FileRenameInfo) currently returns
+  WinError 87 (parameter incorrect). No broad gate or correction commit was
+  produced. The WIP is evidence and design material only; it is not qualified
+  implementation.
+
+FINAL INDEPENDENT CORE RE-AUDIT:
+  NOT RUN. The follow-up is unfinished, so d43 remains stop-ship and the
+  generic core remains blocked from runtime integration.
+
+Until the follow-up correction is committed, fully gated, and independently
+fault-revalidated, this remains a contract checkpoint and the generic core is
+not integration-ready.
+
+Nonblocking maintainability debt: the store retains sole claim and transition
+ownership, but its pure authority/state-log validation and low-level no-follow
+file custody should be extracted into private internal modules before or during
+stage integration. Complete adversarial deletion of the newest immutable log
+suffix cannot be detected without an external monotonic anchor; this checkpoint
+does not claim protection against that stronger threat.
+
+
+6. RETRY STATE MACHINE AND RATIONALE
+====================================
+
+The generic target state flow is:
+
+  input_frozen
+    -> attempt_prepared
+    -> dispatch_started
+    -> result_frozen
+    -> downstream_intent_frozen
+    -> downstream_bound
+    -> succeeded
+
+A closed retryable failure instead follows:
+
+  dispatch_started
+    -> awaiting_owner_retirement
+    -> owner_retired
+    -> next attempt_prepared
+
+After attempt 3 fails closed:
+
+  owner_retired -> exhausted
+
+If dispatch, ledger, input, authority, owner retirement, result custody, or
+downstream publication cannot be proven:
+
+  current phase -> blocked_ambiguous
+
+Why these boundaries exist:
+
+  - input_frozen prevents a retry from quietly receiving changed context;
+  - attempt_prepared gives every attempt a unique session and ledger prefix;
+  - dispatch_started distinguishes a possible charged operation from a local
+    pretransport failure;
+  - owner retirement prevents two provider processes or threads from remaining
+    authoritative for one stage;
+  - result_frozen prevents a successful provider call from being repeated after
+    a local crash;
+  - downstream intent/evidence makes stage publication idempotent;
+  - blocked_ambiguous prefers a visible stop over a duplicate provider call;
+  - exhausted closes the attempt chain and exposes no successor action.
+
+The controller must be provider-free. It records and validates authority but
+does not itself call Codex or DeepSeek. Runtime adapters supply exact input and
+result bytes, evidence hashes, ledger prefixes, operation counts, durations,
+and optional token metrics.
+
+
+7. SHARED TERMINAL CONTRACT
+===========================
+
+7.1 Stage ownership map
+-----------------------
+
+  planner             -> provider codex,    model family sol
+  semantic_validator  -> provider codex,    model family luna
+  writer              -> provider deepseek, model family deepseek_v4
+  recorder            -> provider deepseek, model family deepseek_v4
+  adult_scene         -> provider deepseek, model family deepseek_v4
+  adult_filter        -> provider deepseek, model family deepseek_v4
+
+7.2 Exhausted DTO
+-----------------
+
+Schema: cera.provider_stage_retry_exhausted.v1
+
+Exact fields:
+
+  schema_version
+  severity                         = critical
+  provider                         = codex | deepseek
+  model_family                     = sol | luna | deepseek_v4
+  stage                            = one of the six mapped stages
+  maximum_attempts                 = 3
+  attempts_total                   = 3
+  retries_consumed                 = 2
+  story_state_committed            = true only for Recorder exhaustion
+  failed_stage_effect_committed    = false
+  provider_operations_observed_total
+  provider_operations_conservative_total
+  final_failure_class
+  request_sha256
+  stage_input_sha256
+  attempt_chain_sha256
+  terminal_evidence_sha256
+
+Closed failure classes represented by the shared UI contract:
+
+  transport_timeout
+  provider_unavailable
+  provider_process_failed
+  provider_stream_incomplete
+  provider_completion_incomplete
+  provider_output_invalid
+  dispatch_ambiguous
+
+An unresolved ambiguous dispatch must stop in blocked_ambiguous rather than
+authorize a new attempt. `dispatch_ambiguous` may appear as the final exhausted
+failure class only after the third attempt's owner is durably retired and no
+retry budget remains. Provider completion can still be unknown; exhaustion in
+that case proves only that no fourth attempt is authorized, not that the
+provider definitively failed. An ambiguity on attempt 1 or 2 blocks after owner
+retirement and cannot advance to another attempt.
+
+7.3 Authenticated GET terminal status
+-------------------------------------
+
+After the second Retry action fails and the third attempt is terminal,
+authenticated GET returns exactly:
+
+  schema_version                   = cera.pi_scene.transport_retry_status.v2
+  retry_id
+  request_id
+  effect_proof_sha256
+  state                            = attempts_exhausted
+  retry_transport_enabled          = false
+  critical_provider_stage_failure  = exhausted DTO above
+
+It does not return transport_retry, superseded_by_retry_id, a successor Retry
+identity, or any action that could authorize attempt 4.
+
+7.4 Backend HTTP 503 and safe SillyTavern projection
+----------------------------------------------------
+
+The backend's raw typed HTTP 503 is an exact full `cera.error.v1` envelope. In
+addition to the terminal object and public flags, it includes bounded transport
+fields such as trace_id, request_id, branch_id, generation_id, stage, details,
+and debug_log_path. Those fields are authenticated backend material; they are
+not copied into the browser-visible terminal projection.
+
+The same-origin proxy first validates the complete backend envelope, then
+strips trace/request identity, details, paths, and variable error prose. It
+emits an exact reduced, prose/path-free projection with outer keys:
+
+  status
+  story_state_committed
+  error
+
+The projected cera.error.v1 object is exact and contains:
+
+  accepted_state_changed
+  critical_provider_stage_failure
+  error_code                       = CERA_PROVIDER_STAGE_RETRY_EXHAUSTED
+  fallback_used                    = false
+  message                          = fixed generic three-attempt stop message
+  next_action                      = report_critical_provider_failure
+  provider_operation_submitted
+  retry_mode                       = exhausted
+  retry_transport_enabled          = false
+  schema_version                   = cera.error.v1
+  story_state_committed
+
+The creator extension accepts only that reduced projection. Backend-private
+details, debug paths, prompts, result prose, and provider error text are not
+part of the client projection. The POST response is still only an observation;
+authenticated GET is the durable terminal authority after ambiguity or reload.
+
+
+8. STAGE-BY-STAGE IMPLEMENTATION STATUS
+=======================================
+
+8.1 Planner - Codex Sol
+-----------------------
+
+Implemented now:
+
+  - a manual transport Retry path exists in the repository runtime;
+  - eligibility requires durable zero-effect proof;
+  - the exact normalized request and authority are reused;
+  - a new provider thread is used for a replacement attempt;
+  - a submitted failed attempt remains charged and evidenced;
+  - an ambiguous POST is reconciled by authenticated GET, never by repeating
+    the POST;
+  - the repository UI permits at most two Retry actions per chat chain;
+  - qualification proves the three-attempt/terminal-v2 contract with a
+    provider-free relay.
+
+Not implemented yet:
+
+  - migration of the real Planner backend to the generic retry core;
+  - backend-authoritative shared three-attempt exhaustion in the live route;
+  - production generation of the v2 attempts_exhausted DTO from the generic
+    chain;
+  - final generic result/downstream checkpoint integration.
+
+Therefore, the provider-free qualification proves the desired interface and
+control behavior. It does not prove that the current live Planner backend will
+produce that terminal state after three real failures.
+
+8.2 Writer - DeepSeek V4 Flash
+------------------------------
+
+Implemented now:
+
+  - current ordinary Writer invocation and provider accounting seams exist;
+  - generic contracts recognize DeepSeek/Writer ownership;
+  - terminal UI can display a Writer exhaustion DTO.
+
+Required before safe runtime retry:
+
+  - freeze the exact candidate/Writer input before dispatch;
+  - prevent a failed attempt from leaving a reusable candidate counter, view,
+    or mutable session identity;
+  - use an attempt-qualified fresh Writer session;
+  - durably freeze a successful Writer result before invoking Luna;
+  - resume Luna from the frozen result after crash without repeating Writer;
+  - emit a backend-authoritative eligible/exhausted status.
+
+8.3 Semantic Validator - Codex Luna
+-----------------------------------
+
+Implemented now:
+
+  - provider evidence initialization and launcher lifecycle regressions are
+    fixed and tested offline;
+  - generic contracts recognize Codex/Luna/Semantic Validator ownership;
+  - terminal UI can display a Luna exhaustion DTO.
+
+Required before safe runtime retry:
+
+  - bind each attempt to the exact frozen Writer result and validation request;
+  - use a fresh private validator thread per retry attempt;
+  - durably freeze the semantic verdict before any downstream decision;
+  - resume from a frozen verdict after crash without repeating Luna;
+  - emit the shared eligible/exhausted/blocked status.
+
+A well-formed Luna semantic rejection is a successful provider operation and
+must follow the validation/repair policy. It is not a transport Retry event.
+
+8.4 Recorder - DeepSeek V4 Flash
+--------------------------------
+
+Implemented now:
+
+  - accepted story prose is committed before optional Recorder-derived state;
+  - pending Recorder recovery and idempotent accepted-state foundations exist;
+  - the shared terminal DTO requires story_state_committed=true only here;
+  - SillyTavern wording explicitly preserves that the assistant story remains
+    accepted while recording is incomplete.
+
+Required before safe runtime retry:
+
+  - bind every Recorder attempt to the same accepted receipt and exact frozen
+    Recorder input;
+  - add the shared cap and cumulative provider accounting;
+  - freeze a successful Recorder result before applying derived effects;
+  - make derived-effect publication exactly once;
+  - stop the branch visibly after attempt 3 without rolling back accepted prose.
+
+8.5 Adult Scene - DeepSeek V4 Flash
+-----------------------------------
+
+Implemented now:
+
+  - the current protected adult route and protected-result custody foundations
+    exist;
+  - generic contracts recognize DeepSeek/Adult Scene ownership;
+  - terminal UI receives only safe metrics/flags/hashes.
+
+Required before safe runtime retry:
+
+  - separate the currently coupled adult execution into a durable Adult Scene
+    result boundary and a later Adult Filter input boundary;
+  - freeze protected input/result bytes without exposing them to ordinary logs,
+    general DTOs, or SillyTavern metadata;
+  - use a fresh attempt-qualified provider session;
+  - resume Adult Filter from a frozen Scene result without repeating Scene.
+
+8.6 Adult Filter - DeepSeek V4 Flash
+------------------------------------
+
+Implemented now:
+
+  - the current adult validation/projection role exists within the adult route;
+  - generic contracts recognize DeepSeek/Adult Filter ownership;
+  - terminal UI can identify Filter exhaustion without protected prose.
+
+Required before safe runtime retry:
+
+  - give Adult Filter its own exact durable input and result checkpoint;
+  - preserve the protected full record and safe projection boundary;
+  - use fresh attempt-qualified session custody;
+  - publish filter decision/projection exactly once after a frozen result;
+  - distinguish a valid semantic rejection from a retryable provider failure.
+
+
+9. SILLYTAVERN AND QUALIFICATION STATUS
+=======================================
+
+9.1 Repository SillyTavern integration
+--------------------------------------
+
+The repository extension currently:
+
+  - accepts exact v1 legacy/eligible/superseded status shapes;
+  - accepts exact v2 attempts_exhausted status;
+  - refuses extra fields that could smuggle authority;
+  - persists Retry state and terminal critical state per chat;
+  - blocks sends only in the affected chat;
+  - restores the critical panel after reload;
+  - exposes no Retry after terminal exhaustion;
+  - caps dispatched Retry actions at two locally;
+  - treats legacy v1 persistence fail-closed and permits GET reconciliation only;
+  - prevents a chat switch during an in-flight POST from appending to another
+    chat;
+  - attaches Recorder exhaustion to the accepted assistant message and does
+    not imply that accepted story prose was rolled back.
+
+The critical panel shows only:
+
+  provider, model family, stage, attempts, retries consumed, observed and
+  conservative operation counts, failure class, story-accepted flag,
+  failed-stage-effect flag, and four SHA-256 evidence values.
+
+The terminal DTO currently contains no stage latency, so the critical panel
+does not show a duration. Latency belongs in the separate timing/telemetry
+report unless the shared DTO is deliberately revised.
+
+The installed tree at E:\AIChatBot\SillyTavern was not changed by this work.
+Repository behavior must first pass disposable-SillyTavern qualification, then
+receive explicit installation-sync authority.
+
+9.2 Frozen qualification behavior
+----------------------------------
+
+The qualification command is a two-step freeze/live design. Freeze requires a
+clean exact Git source tree before live provider transports can be constructed.
+The intended live campaign contains:
+
+  - 10 ordinary plus 10 adult direct-backend requests;
+  - 5 ordinary plus 5 adult requests through a disposable SillyTavern copy;
+  - one retained branch per campaign phase;
+  - no automatic retry or fallback;
+  - at most two manifest-authorized manual Planner Retry actions following a
+    naturally occurring closed ordinary-Planner transport failure;
+  - no injected provider failure merely to exercise Retry;
+  - one explicitly governed Regenerate only for the documented noncritical
+    rejected-first-pass condition.
+
+Provider-free qualification now verifies:
+
+  - exactly two empty-object Retry POST actions and three Planner attempts;
+  - authenticated GET before/after actions;
+  - the backend-issued successor identity after Retry 1;
+  - exact v2 attempts_exhausted authority after Retry 2;
+  - no fourth action;
+  - the safe full HTTP 503 projection through the disposable proxy;
+  - chat/reload isolation and critical UI behavior;
+  - source/hash binding of the staged Node integration;
+  - SillyTavern stdout/stderr suppression to avoid protected request leakage;
+  - cold-start=false-only retained latency average logic across restart;
+  - refusal of unauthorized adult/non-Planner actions in the current Planner-
+    specific campaign.
+
+Important limitation: this qualification tranche governs the Planner campaign
+and the shared terminal UI. It does not qualify real non-Planner retry wiring,
+because that wiring does not yet exist.
+
+
+10. PRIVACY, CRASH, AND ACCOUNTING RULES
+=======================================
+
+10.1 Privacy
+------------
+
+  - Exact stage inputs and exact provider results belong only in protected
+    checkpoint storage.
+  - Public chain/status artifacts contain closed enums, booleans, nonnegative
+    counts, and SHA-256 bindings, not prompts or prose.
+  - Protected adult prose must never enter ordinary DTOs, client metadata,
+    terminal panels, test output, or general debug logs.
+  - SillyTavern receives only the safe terminal projection described above.
+  - Error messages exposed by the proxy are fixed generic text, not raw provider
+    output.
+
+10.2 Crash and concurrency safety
+---------------------------------
+
+  - Every attempt has a unique session scope.
+  - Exact input is immutable across all attempts in one chain.
+  - A successful result is frozen before downstream work.
+  - Restart recovery selects a provider-free action: dispatch a prepared
+    attempt, resolve ambiguity, retire a closed owner, resume/reconcile
+    downstream, replay success, report exhaustion, or report a block.
+  - A crash-released OS lock prevents simultaneous process ownership without
+    leaving a permanent lock after process death.
+  - No-follow path checks, pinned identities, hard-link/reparse rejection,
+    compact collision checks, atomic state writes, and immutable checkpoint
+    hashes must fail closed.
+  - If exact custody cannot be proved, stop; do not infer permission to dispatch.
+
+10.3 Provider operation and token accounting
+--------------------------------------------
+
+  - A local pretransport failure consumes zero submitted and zero charged
+    provider operations, but remains evidenced.
+  - A submitted failed attempt remains charged.
+  - provider_operations_observed counts operations proven by the ledger.
+  - provider_operations_conservative includes any unresolved possible operation
+    and may be greater than observed; it must never be lower.
+  - An ambiguous dispatch must conservatively reserve an operation and block
+    redispatch until reconciled.
+  - Attempt and terminal totals remain cumulative across restart.
+  - Optional input, cached-input, output, and reasoning token counts remain null
+    only when genuinely unavailable; they must not be replaced with invented
+    zeros.
+  - Terminal attempts require a real duration; preterminal states may not yet
+    have one.
+
+
+11. SAFE TIMING AUDIT
+=====================
+
+11.1 What counts as an average
+------------------------------
+
+Product timing averages must be computed from actual provider/runtime
+observations, separated by:
+
+  - provider and stage;
+  - success versus failure;
+  - cold start, cold rehydration, and retained thread;
+  - retry attempt number;
+  - direct backend versus SillyTavern path.
+
+Cold start and cold rehydration never enter the retained Planner average. A
+backend restart that resumes the same physical provider thread remains in the
+retained class.
+
+Synthetic unit-test timings are not product latency. Test fixtures that prove
+average calculation are not timing samples. A single failed cold call can be
+reported as one observation and has an arithmetic mean equal to itself, but it
+is not a representative successful-session average.
+
+11.2 Actual live evidence available now
+---------------------------------------
+
+V5 Sol provider call ledger:
+  path: D:\Cera\qv5\runtime-a\SOL_PROVIDER_CALLS.jsonl
+  SHA-256: f9ed721b45aaa5cfabde3c9bb60e006643db0ff124883e6805db882c6dc7099c
+
+Safe event timestamps:
+  prepared:          2026-08-09T22:27:11.633351+00:00
+  transport invoked: 2026-08-09T22:27:13.228359+00:00
+  provider failed:   2026-08-09T22:31:12.204767+00:00
+
+Derived durations:
+  transport-to-failure: 238,976.408 ms = 238.976408 s
+  prepared-to-failure:  240,571.416 ms = 240.571416 s
+  prepared pretransport:   1,595.008 ms =   1.595008 s
+
+This was one failed cold Planner observation using gpt-5.6-sol at xhigh. It did
+not complete successfully and is excluded from the retained-call average.
+
+V5 qualification client events:
+  path: D:\Cera\qv5\evidence\QUALIFICATION_EVENTS.jsonl
+  SHA-256: 98faa6a9f15087584013a62f7263bfb893d2912b8072ad3a7bf3f23ca3b8dac7
+  first failed backend HTTP duration: 263,181 ms = 263.181 s
+
+V5 backend result:
+  path: D:\Cera\qv5\evidence\BACKEND_RESULT.json
+  SHA-256: a968b789c796cab149370bd2c6c1e923df0e0f1d7c08e1ec7333f75d4faf7659
+
+Provider accounting for that campaign:
+  Sol calls: exactly 1
+  Luna calls: 0 (the Planner failure prevented reaching Luna)
+  DeepSeek calls: 0
+  candidate effect: none
+  review effect: none
+  accepted-story effect: none
+
+V4 failed before provider dispatch because the old request-journal temporary
+filename crossed the Windows path budget. Its provider accounting was 0 Codex
+and 0 DeepSeek calls. A contemporaneous run report recorded 3,957 ms for that
+HTTP failure, but the retained local stderr evidence has no duration field, so
+3,957 ms is reported rather than independently re-derived here:
+
+  retained stderr:
+    D:\Cera\evidence\2026-08-09-full-model-live-v4\stderr.log
+  SHA-256:
+    ba0dbecddff7eb83942830a2ac4e410127b51cc63d007e59931abbd6a2f78f4b
+
+V4 and V5 must not be averaged as product latency. V4 was a local pre-provider
+failure; V5 reached one Sol transport. Their raw arithmetic HTTP mean would be
+133.569 seconds, but that number combines different revisions and failure
+strata and has no diagnostic product meaning.
+
+Historical-artifact privacy warning: V5 QUALIFICATION_EVENTS.jsonl and
+BACKEND_RESULT.json predate the current closed failure projection and contain a
+failure_message field. Reviewers should use only the selected hashes,
+timestamps, durations, and counts reproduced in this packet. Do not copy or
+redistribute the raw historical files.
+
+All implementation, qualification-contract, UI, and correction work in this
+checkpoint was provider-free.
+
+11.3 Current averages by session and pipeline portion
+-----------------------------------------------------
+
+Every row below names its measurement boundary. `Unavailable` means no live
+sample exists; it is not a zero-duration estimate.
+
+Portion / session class                         N ok  N fail  Boundary / mean
+----------------------------------------------  ----  ------  -----------------------------
+Planner cold start, successful                     0       0  unavailable
+Planner V5 setup before transport                   0       1  prepared->invoked: 1.595008 s
+Planner cold start, failed transport span          0       1  invoked->failed: 238.976408 s
+Planner cold start, failed prepared span           0       1  prepared->failed: 240.571416 s
+Planner cold rehydration                            0       0  unavailable
+Planner retained, successful                        0       0  unavailable
+Planner retained, failed                            0       0  unavailable
+Writer fresh-rehydration Pi candidate invocation    0       0  unavailable
+Luna fresh single-use validation                    0       0  unavailable
+Recorder fresh role-local invocation                0       0  unavailable
+Adult Scene fresh invocation                        0       0  unavailable
+Adult Scene accepted-parent lineage invocation      0       0  unavailable
+Adult Filter fresh invocation                       0       0  unavailable
+Ordinary backend successful end-to-end              0       0  unavailable
+Ordinary backend provider-bearing failure (V5)      0       1  HTTP: 263.181 s
+Backend local pre-provider failure (V4, reported)   0       1  HTTP: 3.957 s
+Adult backend successful end-to-end                 0       0  unavailable
+Adult backend failed end-to-end                     0       0  unavailable
+Ordinary SillyTavern end-to-end                     0       0  unavailable
+Adult SillyTavern end-to-end                        0       0  unavailable
+Ordinary SillyTavern overhead above backend         0       0  unavailable
+Adult SillyTavern overhead above backend            0       0  unavailable
+Local persistence/publication portions              0       0  unavailable
+
+Current Writer candidates use one fresh-rehydration invocation class. An
+accepted parent is custody/telemetry context and is not forked as a retained
+Writer provider session, so separate "fresh" and "rehydrated" averages would
+misdescribe the implementation.
+
+The three N=1 Planner rows are the same V5 operation viewed at setup,
+transport, and complete prepared-span boundaries; they are not three samples.
+The 263.181-second HTTP envelope also contains an unattributed residual of
+22.609584 seconds outside the 240.571416-second prepared-to-terminal ledger
+span. That residual is arithmetic only; current evidence cannot safely divide
+it among client, serialization, publication, or error handling.
+
+V5 is the only provider-bearing runtime session in the evidence set, so there
+is no multi-observation per-session product mean. Retry attempts 2 and 3 have
+N=0 and unavailable means for Planner, Writer, Luna, Recorder, Adult Scene,
+and Adult Filter. The N=1 failure values are shown only because Ted requested
+every available average. They must not be used to predict successful or
+retained performance, and V4/V5 must remain separate.
+
+11.4 Is the retained three-minute concern happening now?
+--------------------------------------------------------
+
+No current retained Planner sample exists, so the implemented Planner-specific
+question cannot yet be answered from evidence. There is no observed
+second-or-later Planner call at or above 180,000 ms because there are no
+second-or-later retained Planner calls in the evidence set.
+
+The one cold failed Planner transport took 238.976 seconds and the failed HTTP
+request took 263.181 seconds. That is slow and failed, but the agreed retained-
+call concern rule explicitly excludes it from the retained average and from a
+claim that retained Planner latency is currently over target. No equivalent
+threshold classifier exists yet for other roles; the review must decide which
+roles have meaningful retained-session reuse and should inherit the policy.
+
+11.5 Time budgets are not averages
+----------------------------------
+
+Current configured/governed boundaries:
+
+  provider stage hard transport-loss boundary: 600 s
+  outer qualification HTTP timeout:             4,200 s
+  qualification GET reconciliation polling deadline: 4,215 s
+  direct backend status GET per request:             30 s
+  repository proxy status GET per request:           10 s
+  Retry POST / isolated ST general request:        4,200 s
+  retained Planner concern threshold:               180 s
+
+These are budgets or thresholds, not observed durations.
+
+The 4,215-second value is the qualification runner's configured provider-free,
+read-only polling deadline, not a hard total wall-time cap or a universal
+timeout for each GET. A status GET that begins before the deadline can run for
+up to its own 30-second direct-backend limit, plus poll overhead. The 4,200-
+second outer timeout was derived for six sequential 600-second
+provider stages plus margin. Generic stage-local Retry transactions must be
+re-evaluated against this envelope during runtime integration. If each Retry is
+an explicit new transaction, its own reconciliation window can preserve the
+current boundary; hidden in-request multi-stage retry loops would materially
+change the maximum wall time and are not recommended.
+
+11.6 Test-suite timing
+----------------------
+
+Historical qgate v6 passed at old commit 8f1b50a with a reported 1,618 tests,
+4 skips, and 1,723.250 seconds wall time. It is useful historical evidence but
+does not qualify current HEAD and is not a provider/session average. A new full
+gate is required after runtime integration.
+
+Focused provider-free test durations from the current tranches were not
+captured as product telemetry. Their pass counts demonstrate contract behavior,
+not model latency.
+
+11.6.1 Synthetic classifier fixtures - not product timing
+----------------------------------------------------------
+
+The provider-free timing fixtures deliberately inject large numbers to prove
+classification, restart continuity, and arithmetic. They are listed here only
+so reviewers can inspect what the implementation currently tests:
+
+  baseline classifier:
+    injected cold Planner: 420,000 ms
+    retained samples: N=11, arithmetic mean=32,727 ms, max=180,000 ms
+    retained concern count: 1
+
+  thread-rotation classifier:
+    cold rehydration: N=1, max=240,000 ms
+    retained samples: N=10, arithmetic mean=36,000 ms
+
+  Retry-chain classifier:
+    failed A: 240,000 ms cold start
+    replacement B: 300,000 ms cold rehydration
+    later B: 180,000 ms retained concern
+
+  ambiguous-POST reconciliation fixture:
+    Retry POST: 4,200,000 ms
+    GET reconciliation elapsed: 500 ms, including poll intervals
+    complete synthetic fixture HTTP latency: 4,440,501 ms
+
+None of these numbers came from a model, provider, live backend, or live
+SillyTavern session. They must never be quoted as product averages.
+
+11.7 Timing report required before product judgment
+----------------------------------------------------
+
+For every provider/stage/session class, the next authorized live report should
+include:
+
+  sample count, success count, failure count, mean, median, p95, maximum,
+  cold/rehydration/retained class, attempt number, input tokens, cached input
+  tokens, uncached input tokens, output/reasoning tokens, retrieval/tool count,
+  provider-operation observed/conservative counts, backend end-to-end time,
+  SillyTavern end-to-end time, and derived SillyTavern overhead.
+
+The current qualification code computes the retained Planner average only from
+cold_start=false observations. Full per-stage timing aggregation remains a
+gating gap before the live campaign can answer Ted's overall product-latency
+question.
+
+
+12. MAIN RISKS AND OPEN GAPS
+============================
+
+Stop-ship until resolved:
+
+  1. The d43 generic-core candidate has a confirmed parent-swap custody race in
+     claim/pending/projection creation. Runtime integration remains blocked
+     until the follow-up commit pins the parent continuously, passes active
+     swap regressions, and receives independent re-audit sign-off.
+
+  2. The generic core is not connected to any live runtime stage. UI and
+     qualification contracts are ahead of backend production authority.
+
+  3. Backend enforcement must replace reliance on the browser's local action
+     count. Multiple clients/reloads must never enable attempt 4.
+
+  4. Every stage needs a durable success-result checkpoint before its
+     downstream consumer. Without it, a crash can cause duplicate provider
+     work or two competing results.
+
+  5. Dispatch ambiguity must never be treated as an ordinary retryable failure.
+     Conservative accounting and owner reconciliation are mandatory.
+
+  6. The roadmap text still describes the qualification's Planner-only Retry
+     policy in places. It must be reconciled with the newly requested generic
+     stage-local policy when that policy is accepted and implemented.
+
+  7. Current terminal UI can display all six stage failures but cannot yet offer
+     safe generic non-Planner Retry actions because the backend contracts do not
+     exist for them.
+
+  8. Adult Scene and Adult Filter require separate durable boundaries before
+     either can be retried independently without exposing protected prose.
+
+  9. There is no successful live retained sample, no per-stage average, and no
+     live SillyTavern timing. Performance conclusions would currently be guesswork.
+
+ 10. Historical qgate evidence predates current HEAD. Current work needs a new
+     provider-free full gate after integration, then a separately authorized
+     freeze/live campaign.
+
+ 11. Installed SillyTavern is intentionally unchanged and therefore does not
+     yet contain the repository critical-error/two-action behavior.
+
+Maintainability risks to watch:
+
+  - duplicating retry logic inside six adapters instead of one core controller;
+  - letting UI state become authority;
+  - mixing exact protected bytes with public hash-only evidence;
+  - adding a new schema for every stage when one closed shared DTO is enough;
+  - conflating semantic rejection, provider invalid output, and transport loss;
+  - treating cache/session continuity as durable story authority;
+  - optimizing latency by lowering rationality before measuring context/tool
+    causes;
+  - allowing stage-specific patches to diverge from shared accounting and crash
+    semantics.
+
+
+13. REVIEW QUESTIONS FOR TED, CHATGPT PRO, AND CLAUDE
+=====================================================
+
+Please review and explicitly accept, reject, or amend each item:
+
+  [ ] A. Retry is stage-local and reuses exact frozen stage input; it never
+          replays the complete request or earlier completed stages.
+
+  [ ] B. Production retries are explicit manual Retry actions, while a test
+          harness may drive the same actions mechanically. There is no hidden
+          automatic retry.
+
+  [ ] C. The backend authoritatively permits at most two Retry actions and
+          three total attempts; the browser cap is defense in depth only.
+
+  [ ] D. Only closed provider transport/process/stream/completion/invalid-output
+          failures qualify. Semantic rejection and local/custody/configuration
+          failures do not consume provider Retry attempts.
+
+  [ ] E. Unresolved dispatch ambiguity blocks the chain and uses read-only
+          reconciliation; it never authorizes another provider call.
+
+  [ ] F. Attempt 3 failure stops the branch with no fourth attempt, fallback,
+          model substitution, or automatic continuation.
+
+  [ ] G. Recorder exhaustion preserves accepted story prose, reports recording
+          incomplete, and stops later branch work pending repair.
+
+  [ ] H. Full-model qualification stays Planner xhigh and Luna stays fixed
+          xhigh; the product Planner default remains medium unless separately
+          changed. A selected effort is not lowered merely to hide latency;
+          context/cache/tool optimization is the first response.
+
+  [ ] I. Define "first call": the first call on each physical provider/stage
+          session, or only the initial retained Planner-thread call. Do not
+          accidentally exempt every fresh/single-use stage invocation.
+
+  [ ] J. Confirm the scope of the 180-second concern rule: only second-or-later
+          retained Planner operations, or every role that has meaningful
+          retained session reuse. The current code implements Planner only.
+
+  [ ] K. Confirm the 180-second measurement boundary: provider transport,
+          complete provider stage, or HTTP end-to-end. Current Sol evidence
+          measures transport_invoked to terminal; the three values can differ.
+
+  [ ] L. Protected adult inputs/results remain in protected storage; the UI
+          receives only counts, flags, closed classifications, and hashes.
+
+  [ ] M. The generic core is integrated stage by stage only after its correction
+          and independent audit are complete.
+
+  [ ] N. Installed SillyTavern remains untouched until disposable qualification
+          passes and Ted separately authorizes synchronization.
+
+Technical challenge questions:
+
+  1. After the custody stop-ship is corrected and re-audited, does the generic
+     core prove exactly-once downstream binding at every crash boundary, or is
+     any provider success still replayable?
+
+  2. Can two browser windows, two backend processes, restart, or a lost POST
+     response ever cause attempt 4 or two owners for one attempt?
+
+  3. Are Writer candidate identity, Luna verdict, Recorder effects, Adult Scene
+     result, and Adult Filter result each frozen before the next stage?
+
+  4. Does conservative operation accounting remain monotonic and charged across
+     ambiguity and restart?
+
+  5. Can any error/proxy/test path expose provider prose, exact prompts, protected
+     adult material, or private debug paths?
+
+  6. Should blocked_ambiguous receive a separate SillyTavern presentation from
+     attempts_exhausted? The core distinguishes them; the current terminal UI
+     tranche primarily implements exhausted display.
+
+  7. Is explicit manual Retry the intended interpretation of Ted's instruction,
+     or does Ted want automatic retry plus a separate manual control? Automatic
+     retry would materially change timeout, visibility, accounting, and duplicate-
+     dispatch risk and should not be inferred silently.
+
+
+14. RECOMMENDED GOVERNED NEXT STEPS
+===================================
+
+Nothing below is authorized merely by this packet.
+
+After Ted/Pro/Claude review and explicit acceptance:
+
+  1. Finish the bounded parent-swap custody correction and independently replay
+     the active swap fault tests. Record the exact follow-up commit, gates, and
+     sign-off in Section 5 before considering runtime integration.
+
+  2. Migrate the Planner backend first. Make the backend own the three-attempt
+     cap, generic checkpoints, blocked state, and v2 terminal DTO. Re-run all
+     existing Planner Retry and UI tests provider-free.
+
+  3. Integrate Writer and Luna with separate frozen result boundaries and fresh
+     attempt sessions. Prove Writer success resumes Luna without repeating
+     Writer, and Luna success/rejection resumes without repeating Luna.
+
+  4. Integrate Recorder with accepted-story preservation and exactly-once
+     derived effects.
+
+  5. Split/integrate Adult Scene and Adult Filter with protected input/result
+     custody and no public prose leakage.
+
+  6. Add backend-issued eligible/blocked/exhausted status and safe SillyTavern
+     actions for the non-Planner stages. Keep the backend cap authoritative.
+
+  7. Add provider-free crash/restart/concurrency tests at every transition,
+     including lost POST response, duplicate GET, two processes, result frozen
+     before state publication, and downstream publication ambiguity.
+
+  8. Reconcile the roadmap's Planner-only qualification language with the
+     approved generic policy. Re-derive timeout/reconciliation budgets for
+     explicit stage-local resume transactions.
+
+  9. Run the full current provider-free quality gate on the final integrated
+     commit. Only a clean exact tree may be frozen.
+
+ 10. With separate provider authority, run the disposable backend/SillyTavern
+     qualification, collect the full timing matrix in Section 11.7, and do not
+     inject a live failure merely to exercise Retry.
+
+ 11. Review the live evidence. Only after disposable qualification passes and
+     Ted explicitly approves should the repository integration be synchronized
+     to E:\AIChatBot\SillyTavern and restarted/verified.
+
+
+15. PAUSE/HANDOFF STATE
+=======================
+
+At this checkpoint:
+
+  - no new provider call was made for this retry implementation work;
+  - no service was started or restarted;
+  - no live story, branch, database, accepted state, or provider session was
+    mutated;
+  - installed SillyTavern was not changed;
+  - the only provider-bearing timing evidence is the one failed cold V5 Planner
+    call and its failed HTTP envelope;
+  - separate local pre-provider timing is the reported V4 HTTP failure at
+    3.957 seconds; it is not model latency and was not independently re-derived
+    from the retained stderr file;
+  - retained latency averages and all non-Planner stage averages are unavailable;
+  - generic runtime integration, a current full qgate, freeze/live qualification,
+    and installation sync remain pending review and authorization.
+  - the parent-swap follow-up exists only as uncommitted WIP and is paused at a
+    reproducible Windows FileRenameInfo WinError 87; it is not a release claim.
+
+This is the intended stopping point for Ted, ChatGPT Pro, and Claude to assess
+the policy, architecture, implementation evidence, omissions, and next-step
+order before Codex continues.
