@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cera.local/pi-scene/ordinary-review/v2/review_lifecycle.schema.json",
+  "title": "OrdinaryReviewLifecycleV1",
+  "description": "Compact lifecycle embedded only in an immutable initial or successor ordinary provisional completion before its background validation worker starts.",
+  "x-cera-schema-version": "cera.pi_scene.review_lifecycle.v1",
+  "x-cera-python-name": "OrdinaryReviewLifecycleV1",
+  "x-cera-javascript-name": "OrdinaryReviewLifecycleV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "review_id",
+    "review_url",
+    "review_mode",
+    "state",
+    "gate_status",
+    "checks",
+    "acceptance",
+    "actions",
+    "terminal_decision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cera.pi_scene.review_lifecycle.v1"
+    },
+    "review_id": {
+      "$ref": "https://schemas.cera.local/pi-scene/ordinary-review/v2/common.schema.json#/$defs/review_id"
+    },
+    "review_url": {
+      "type": "string",
+      "pattern": "^/v1/cera/reviews/review-[a-f0-9]{28}$"
+    },
+    "review_mode": {
+      "enum": [
+        "automatic",
+        "manual"
+      ]
+    },
+    "state": {
+      "const": "checks_pending"
+    },
+    "gate_status": {
+      "const": "pending"
+    },
+    "checks": {
+      "$ref": "https://schemas.cera.local/pi-scene/ordinary-review/v2/review_checks.schema.json"
+    },
+    "acceptance": {
+      "type": "null"
+    },
+    "actions": {
+      "$ref": "https://schemas.cera.local/pi-scene/ordinary-review/v2/common.schema.json#/$defs/actions"
+    },
+    "terminal_decision": {
+      "type": "null"
+    }
+  },
+  "x-cera-review-invariants": [
+    {
+      "op": "ordinary_initial_lifecycle"
+    },
+    {
+      "op": "review_url_matches_review_id"
+    },
+    {
+      "op": "forbidden_public_keys"
+    }
+  ],
+  "examples": [
+    {
+      "schema_version": "cera.pi_scene.review_lifecycle.v1",
+      "review_id": "review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "review_url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "review_mode": "automatic",
+      "state": "checks_pending",
+      "gate_status": "pending",
+      "checks": {
+        "$cera-example-ref": {
+          "schema_version": "cera.pi_scene.review_checks.v1",
+          "index": 0
+        }
+      },
+      "acceptance": null,
+      "actions": {
+        "accept_enabled": false,
+        "regenerate_enabled": false,
+        "decline_enabled": false,
+        "replan_enabled": false,
+        "auditable_override_enabled": false,
+        "auditable_override_action": null,
+        "repair_recording_enabled": false
+      },
+      "terminal_decision": null
+    }
+  ],
+  "x-cera-positive-fixtures": [
+    {
+      "name": "manual_initial_lifecycle",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/review_mode",
+          "value": "manual"
+        }
+      ]
+    }
+  ],
+  "x-cera-negative-fixtures": [
+    {
+      "name": "accepted_state_is_not_initial",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/state",
+          "value": "accepted"
+        }
+      ]
+    },
+    {
+      "name": "blocked_gate_is_not_initial",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/gate_status",
+          "value": "blocked"
+        }
+      ]
+    },
+    {
+      "name": "initial_lifecycle_contains_passed_checks",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/checks",
+          "value": {
+            "$cera-example-ref": {
+              "schema_version": "cera.pi_scene.review_checks.v1",
+              "index": 1
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "initial_lifecycle_contains_retry_status",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/checks",
+          "value": {
+            "$cera-example-ref": {
+              "schema_version": "cera.pi_scene.review_checks.v1",
+              "index": 4
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "initial_lifecycle_enables_action",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/actions/regenerate_enabled",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "initial_lifecycle_has_terminal_link",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/terminal_decision",
+          "value": {
+            "decision_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+            "url": "/v1/cera/reviews/review-aaaaaaaaaaaaaaaaaaaaaaaaaaaa/terminal-decision"
+          }
+        }
+      ]
+    },
+    {
+      "name": "review_url_changes_identity",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/review_url",
+          "value": "/v1/cera/reviews/review-bbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ]
+    }
+  ]
+}

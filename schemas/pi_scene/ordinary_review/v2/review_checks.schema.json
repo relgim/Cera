@@ -1,0 +1,439 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cera.local/pi-scene/ordinary-review/v2/review_checks.schema.json",
+  "title": "OrdinaryReviewChecksV1",
+  "description": "Independent ordinary Luna, Reader, Adult Filter, and deterministic Python check lanes for one exact frozen candidate.",
+  "x-cera-schema-version": "cera.pi_scene.review_checks.v1",
+  "x-cera-python-name": "OrdinaryReviewChecksV1",
+  "x-cera-javascript-name": "OrdinaryReviewChecksV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "luna",
+    "reader",
+    "adult_filter",
+    "python"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "cera.pi_scene.review_checks.v1"
+    },
+    "luna": {
+      "$ref": "https://schemas.cera.local/pi-scene/ordinary-review/v2/common.schema.json#/$defs/luna_lane"
+    },
+    "reader": {
+      "$ref": "https://schemas.cera.local/pi-scene/ordinary-review/v2/common.schema.json#/$defs/reader_lane"
+    },
+    "adult_filter": {
+      "$ref": "https://schemas.cera.local/pi-scene/ordinary-review/v2/common.schema.json#/$defs/adult_filter_lane"
+    },
+    "python": {
+      "$ref": "https://schemas.cera.local/pi-scene/ordinary-review/v2/common.schema.json#/$defs/python_lane"
+    }
+  },
+  "x-cera-review-invariants": [
+    {
+      "op": "ordinary_check_role_binding"
+    },
+    {
+      "op": "forbidden_public_keys"
+    }
+  ],
+  "examples": [
+    {
+      "schema_version": "cera.pi_scene.review_checks.v1",
+      "luna": {
+        "role": "luna_semantic_validator",
+        "required": true,
+        "status": "pending",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "reader": {
+        "role": "codex_reader_severe_quality",
+        "required": true,
+        "status": "pending",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "adult_filter": {
+        "role": "protected_adult_filter",
+        "required": false,
+        "status": "not_applicable",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "python": {
+        "role": "python_deterministic_custody_privacy",
+        "required": true,
+        "status": "pending",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      }
+    },
+    {
+      "schema_version": "cera.pi_scene.review_checks.v1",
+      "luna": {
+        "role": "luna_semantic_validator",
+        "required": true,
+        "status": "pass",
+        "verdict_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "reader": {
+        "role": "codex_reader_severe_quality",
+        "required": true,
+        "status": "pass",
+        "verdict_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "adult_filter": {
+        "role": "protected_adult_filter",
+        "required": false,
+        "status": "not_applicable",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "python": {
+        "role": "python_deterministic_custody_privacy",
+        "required": true,
+        "status": "pass",
+        "verdict_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+        "failures": [],
+        "provider_stage_retry_status": null
+      }
+    },
+    {
+      "schema_version": "cera.pi_scene.review_checks.v1",
+      "luna": {
+        "role": "luna_semantic_validator",
+        "required": true,
+        "status": "reject",
+        "verdict_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+        "failures": [
+          {
+            "code": "sequence_contradiction",
+            "concise_explanation": "The candidate contradicts one required current-plan item."
+          }
+        ],
+        "provider_stage_retry_status": null
+      },
+      "reader": {
+        "role": "codex_reader_severe_quality",
+        "required": true,
+        "status": "pass",
+        "verdict_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "adult_filter": {
+        "role": "protected_adult_filter",
+        "required": false,
+        "status": "not_applicable",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "python": {
+        "role": "python_deterministic_custody_privacy",
+        "required": true,
+        "status": "pass",
+        "verdict_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+        "failures": [],
+        "provider_stage_retry_status": null
+      }
+    },
+    {
+      "schema_version": "cera.pi_scene.review_checks.v1",
+      "luna": {
+        "role": "luna_semantic_validator",
+        "required": true,
+        "status": "inconclusive",
+        "verdict_sha256": null,
+        "failures": [
+          {
+            "code": "validation_result_unavailable",
+            "concise_explanation": "The semantic verdict is unavailable and requires explicit recovery."
+          }
+        ],
+        "provider_stage_retry_status": null
+      },
+      "reader": {
+        "role": "codex_reader_severe_quality",
+        "required": true,
+        "status": "pending",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "adult_filter": {
+        "role": "protected_adult_filter",
+        "required": false,
+        "status": "not_applicable",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "python": {
+        "role": "python_deterministic_custody_privacy",
+        "required": true,
+        "status": "pending",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      }
+    },
+    {
+      "schema_version": "cera.pi_scene.review_checks.v1",
+      "luna": {
+        "role": "luna_semantic_validator",
+        "required": true,
+        "status": "inconclusive",
+        "verdict_sha256": null,
+        "failures": [
+          {
+            "code": "luna_provider_stage_blocked",
+            "concise_explanation": "The semantic-validator stage is blocked and requires its explicit stage-local recovery."
+          }
+        ],
+        "provider_stage_retry_status": {
+          "$cera-external-example": "luna_blocked"
+        }
+      },
+      "reader": {
+        "role": "codex_reader_severe_quality",
+        "required": true,
+        "status": "pending",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "adult_filter": {
+        "role": "protected_adult_filter",
+        "required": false,
+        "status": "not_applicable",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "python": {
+        "role": "python_deterministic_custody_privacy",
+        "required": true,
+        "status": "pending",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      }
+    },
+    {
+      "schema_version": "cera.pi_scene.review_checks.v1",
+      "luna": {
+        "role": "luna_semantic_validator",
+        "required": true,
+        "status": "pending",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "reader": {
+        "role": "codex_reader_severe_quality",
+        "required": true,
+        "status": "inconclusive",
+        "verdict_sha256": null,
+        "failures": [
+          {
+            "code": "reader_result_unavailable",
+            "concise_explanation": "The Reader result is unavailable and requires explicit recovery."
+          }
+        ],
+        "provider_stage_retry_status": {
+          "$cera-external-example": "reader_blocked"
+        }
+      },
+      "adult_filter": {
+        "role": "protected_adult_filter",
+        "required": false,
+        "status": "not_applicable",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      },
+      "python": {
+        "role": "python_deterministic_custody_privacy",
+        "required": true,
+        "status": "pending",
+        "verdict_sha256": null,
+        "failures": [],
+        "provider_stage_retry_status": null
+      }
+    }
+  ],
+  "x-cera-negative-fixtures": [
+    {
+      "name": "unknown_root_field",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "add",
+          "path": "/raw_provider_output",
+          "value": "forbidden"
+        }
+      ]
+    },
+    {
+      "name": "reader_role_changed",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/reader/role",
+          "value": "luna_semantic_validator"
+        }
+      ]
+    },
+    {
+      "name": "adult_filter_required",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/adult_filter/required",
+          "value": true
+        }
+      ]
+    },
+    {
+      "name": "python_has_provider_retry",
+      "base_example": 0,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/python/provider_stage_retry_status",
+          "value": {
+            "$cera-external-example": "reader_blocked"
+          }
+        }
+      ]
+    },
+    {
+      "name": "pass_has_null_verdict",
+      "base_example": 1,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/reader/verdict_sha256",
+          "value": null
+        }
+      ]
+    },
+    {
+      "name": "inconclusive_has_no_failure",
+      "base_example": 3,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/luna/failures",
+          "value": []
+        }
+      ]
+    },
+    {
+      "name": "luna_retry_stage_changed",
+      "base_example": 4,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/luna/provider_stage_retry_status/status/stage",
+          "value": "reader"
+        },
+        {
+          "op": "replace",
+          "path": "/luna/provider_stage_retry_status/status/model_family",
+          "value": "sol"
+        }
+      ]
+    },
+    {
+      "name": "pending_lane_contains_retry_status",
+      "base_example": 4,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/luna/status",
+          "value": "pending"
+        },
+        {
+          "op": "replace",
+          "path": "/luna/failures",
+          "value": []
+        }
+      ]
+    },
+    {
+      "name": "inconclusive_lane_contains_succeeded_retry_status",
+      "base_example": 4,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/luna/provider_stage_retry_status/status/state",
+          "value": "succeeded"
+        },
+        {
+          "op": "replace",
+          "path": "/luna/provider_stage_retry_status/status/provider_operations_observed_total",
+          "value": 1
+        },
+        {
+          "op": "replace",
+          "path": "/luna/provider_stage_retry_status/status/failure_category",
+          "value": null
+        },
+        {
+          "op": "replace",
+          "path": "/luna/provider_stage_retry_status/status/available_actions",
+          "value": []
+        },
+        {
+          "op": "replace",
+          "path": "/luna/provider_stage_retry_status/actions",
+          "value": []
+        }
+      ]
+    },
+    {
+      "name": "reader_retry_stage_changed",
+      "base_example": 5,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/reader/provider_stage_retry_status/status/stage",
+          "value": "semantic_validator"
+        },
+        {
+          "op": "replace",
+          "path": "/reader/provider_stage_retry_status/status/model_family",
+          "value": "luna"
+        }
+      ]
+    },
+    {
+      "name": "failure_contains_raw_text_field",
+      "base_example": 3,
+      "patch": [
+        {
+          "op": "add",
+          "path": "/luna/failures/0/text",
+          "value": "raw diagnostic"
+        }
+      ]
+    }
+  ]
+}

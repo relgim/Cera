@@ -1,0 +1,849 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.cera.local/pi-scene/ordinary-review/v2/common.schema.json",
+  "title": "CERA ordinary review V2 common definitions",
+  "description": "Closed privacy-safe definitions shared by the ordinary provisional-review family. This support schema is not itself a wire DTO.",
+  "x-cera-support-schema": true,
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Lowercase SHA-256 digest."
+    },
+    "review_id": {
+      "type": "string",
+      "pattern": "^review-[a-f0-9]{28}$",
+      "description": "Python-owned review identity."
+    },
+    "candidate_id": {
+      "type": "string",
+      "pattern": "^candidate-[a-f0-9]{28}$",
+      "description": "Python-owned frozen Writer-candidate identity."
+    },
+    "bounded_identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^[^\\u0000]+$"
+    },
+    "validation_failure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "concise_explanation"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,95}$",
+          "description": "Stable privacy-safe local failure key."
+        },
+        "concise_explanation": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500,
+          "pattern": "^(?=.*\\S)[^\\u0000]+$",
+          "description": "Creator-visible concise explanation; never a prompt or raw provider result."
+        }
+      }
+    },
+    "luna_retry_status": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "https://schemas.cera.local/provider-stage-retry/v1/status_envelope.schema.json"
+            },
+            {
+              "properties": {
+                "status": {
+                  "properties": {
+                    "provider": {
+                      "const": "codex"
+                    },
+                    "model_family": {
+                      "const": "luna"
+                    },
+                    "stage": {
+                      "const": "semantic_validator"
+                    },
+                    "state": {
+                      "enum": [
+                        "eligible",
+                        "in_progress",
+                        "blocked_ambiguous",
+                        "attempts_exhausted",
+                        "recovery_required"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "reader_retry_status": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "allOf": [
+            {
+              "$ref": "https://schemas.cera.local/provider-stage-retry/v1/status_envelope.schema.json"
+            },
+            {
+              "properties": {
+                "status": {
+                  "properties": {
+                    "provider": {
+                      "const": "codex"
+                    },
+                    "model_family": {
+                      "const": "sol"
+                    },
+                    "stage": {
+                      "const": "reader"
+                    },
+                    "state": {
+                      "enum": [
+                        "eligible",
+                        "in_progress",
+                        "blocked_ambiguous",
+                        "attempts_exhausted",
+                        "recovery_required"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "luna_lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "required",
+        "status",
+        "verdict_sha256",
+        "failures",
+        "provider_stage_retry_status"
+      ],
+      "properties": {
+        "role": {
+          "const": "luna_semantic_validator",
+          "description": "Fresh Luna semantic-validator role; it never receives the Reader verdict."
+        },
+        "required": {
+          "const": true
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "pass",
+            "reject",
+            "inconclusive"
+          ]
+        },
+        "verdict_sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/sha256"
+            }
+          ]
+        },
+        "failures": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/validation_failure"
+          }
+        },
+        "provider_stage_retry_status": {
+          "$ref": "#/$defs/luna_retry_status"
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "status": {
+                  "const": "pending"
+                },
+                "verdict_sha256": {
+                  "type": "null"
+                },
+                "failures": {
+                  "const": []
+                },
+                "provider_stage_retry_status": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "pass"
+                },
+                "verdict_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "failures": {
+                  "const": []
+                },
+                "provider_stage_retry_status": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "reject"
+                },
+                "verdict_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "failures": {
+                  "minItems": 1
+                },
+                "provider_stage_retry_status": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "inconclusive"
+                },
+                "verdict_sha256": {
+                  "type": "null"
+                },
+                "failures": {
+                  "minItems": 1
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "reader_lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "required",
+        "status",
+        "verdict_sha256",
+        "failures",
+        "provider_stage_retry_status"
+      ],
+      "properties": {
+        "role": {
+          "const": "codex_reader_severe_quality",
+          "description": "Fresh isolated Sol-medium Reader role; it never receives the Luna verdict."
+        },
+        "required": {
+          "const": true
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "pass",
+            "reject",
+            "inconclusive"
+          ]
+        },
+        "verdict_sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/sha256"
+            }
+          ]
+        },
+        "failures": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/validation_failure"
+          }
+        },
+        "provider_stage_retry_status": {
+          "$ref": "#/$defs/reader_retry_status"
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "status": {
+                  "const": "pending"
+                },
+                "verdict_sha256": {
+                  "type": "null"
+                },
+                "failures": {
+                  "const": []
+                },
+                "provider_stage_retry_status": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "pass"
+                },
+                "verdict_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "failures": {
+                  "const": []
+                },
+                "provider_stage_retry_status": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "reject"
+                },
+                "verdict_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "failures": {
+                  "minItems": 1
+                },
+                "provider_stage_retry_status": {
+                  "type": "null"
+                }
+              }
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "inconclusive"
+                },
+                "verdict_sha256": {
+                  "type": "null"
+                },
+                "failures": {
+                  "minItems": 1
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "adult_filter_lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "required",
+        "status",
+        "verdict_sha256",
+        "failures",
+        "provider_stage_retry_status"
+      ],
+      "properties": {
+        "role": {
+          "const": "protected_adult_filter"
+        },
+        "required": {
+          "const": false
+        },
+        "status": {
+          "const": "not_applicable"
+        },
+        "verdict_sha256": {
+          "type": "null"
+        },
+        "failures": {
+          "const": []
+        },
+        "provider_stage_retry_status": {
+          "type": "null"
+        }
+      },
+      "description": "Ordinary reviews make the protected Adult Filter explicitly inapplicable; no adult prose enters this family."
+    },
+    "python_lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "role",
+        "required",
+        "status",
+        "verdict_sha256",
+        "failures",
+        "provider_stage_retry_status"
+      ],
+      "properties": {
+        "role": {
+          "const": "python_deterministic_custody_privacy"
+        },
+        "required": {
+          "const": true
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "pass",
+            "inconclusive"
+          ]
+        },
+        "verdict_sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/sha256"
+            }
+          ]
+        },
+        "failures": {
+          "type": "array",
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/validation_failure"
+          }
+        },
+        "provider_stage_retry_status": {
+          "type": "null",
+          "description": "Python is provider-free and never owns a provider Retry chain."
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "properties": {
+                "status": {
+                  "const": "pending"
+                },
+                "verdict_sha256": {
+                  "type": "null"
+                },
+                "failures": {
+                  "const": []
+                }
+              }
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "pass"
+                },
+                "verdict_sha256": {
+                  "$ref": "#/$defs/sha256"
+                },
+                "failures": {
+                  "const": []
+                }
+              }
+            },
+            {
+              "properties": {
+                "status": {
+                  "const": "inconclusive"
+                },
+                "verdict_sha256": {
+                  "type": "null"
+                },
+                "failures": {
+                  "minItems": 1
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "acceptance": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "accepted_turn_id",
+            "accepted_receipt_sha256",
+            "canon_status"
+          ],
+          "properties": {
+            "mode": {
+              "enum": [
+                "automatic",
+                "manual",
+                "auditable_override"
+              ]
+            },
+            "accepted_turn_id": {
+              "$ref": "#/$defs/bounded_identifier"
+            },
+            "accepted_receipt_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "canon_status": {
+              "enum": [
+                "accepted",
+                "provisional"
+              ]
+            }
+          },
+          "x-cera-review-invariants": [
+            {
+              "op": "acceptance_mode_matches_canon"
+            }
+          ]
+        }
+      ]
+    },
+    "actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "accept_enabled",
+        "regenerate_enabled",
+        "decline_enabled",
+        "replan_enabled",
+        "auditable_override_enabled",
+        "auditable_override_action",
+        "repair_recording_enabled"
+      ],
+      "properties": {
+        "accept_enabled": {
+          "type": "boolean"
+        },
+        "regenerate_enabled": {
+          "type": "boolean"
+        },
+        "decline_enabled": {
+          "type": "boolean"
+        },
+        "replan_enabled": {
+          "const": false
+        },
+        "auditable_override_enabled": {
+          "type": "boolean"
+        },
+        "auditable_override_action": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "const": "accept_provisional"
+            }
+          ]
+        },
+        "repair_recording_enabled": {
+          "type": "boolean"
+        }
+      },
+      "x-cera-review-invariants": [
+        {
+          "op": "override_action_matches_enabled"
+        }
+      ]
+    },
+    "terminal_decision_link": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "decision_sha256",
+            "url"
+          ],
+          "properties": {
+            "decision_sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "url": {
+              "type": "string",
+              "pattern": "^/v1/cera/reviews/review-[a-f0-9]{28}/terminal-decision$"
+            }
+          }
+        }
+      ]
+    },
+    "warning": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "warning_code",
+        "excerpt"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "cera.pi_scene.ted_warning.v1"
+        },
+        "warning_code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,95}$"
+        },
+        "excerpt": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[^\\u0000]+$"
+        }
+      }
+    },
+    "creator_guidance_projection": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "schema_version",
+            "action",
+            "text_sha256"
+          ],
+          "properties": {
+            "schema_version": {
+              "const": "cera.pi_scene.creator_guidance_projection.v1"
+            },
+            "action": {
+              "enum": [
+                "regenerate",
+                "replan"
+              ]
+            },
+            "text_sha256": {
+              "$ref": "#/$defs/sha256"
+            }
+          },
+          "description": "Content-free binding only. Raw creator guidance text is forbidden from public review payloads."
+        }
+      ]
+    },
+    "request_controls_v3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "session_id",
+        "scene_depth",
+        "regeneration_key",
+        "character_autonomy",
+        "prompt_handling",
+        "reasoning_effort",
+        "scene_change",
+        "adult_craft_mode",
+        "review_mode"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "cera.pi_scene.request_controls.v3"
+        },
+        "session_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,95}$"
+        },
+        "scene_depth": {
+          "enum": [
+            "off",
+            "short",
+            "auto",
+            "medium",
+            "long",
+            "epic"
+          ]
+        },
+        "regeneration_key": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]{0,95}$"
+            }
+          ]
+        },
+        "character_autonomy": {
+          "enum": [
+            "off",
+            "mind",
+            "body",
+            "both"
+          ]
+        },
+        "prompt_handling": {
+          "enum": [
+            "adjustment",
+            "modification"
+          ]
+        },
+        "reasoning_effort": {
+          "enum": [
+            "medium",
+            "high",
+            "xhigh"
+          ]
+        },
+        "scene_change": {
+          "type": "boolean"
+        },
+        "adult_craft_mode": {
+          "enum": [
+            "off",
+            "on",
+            "ex"
+          ]
+        },
+        "review_mode": {
+          "enum": [
+            "automatic",
+            "manual"
+          ]
+        }
+      }
+    },
+    "provider_attempt_operations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "planner",
+        "writer",
+        "validator",
+        "reader"
+      ],
+      "properties": {
+        "planner": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "writer": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "validator": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reader": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    },
+    "provider_attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_number",
+        "candidate_id",
+        "disposition",
+        "provider_operations"
+      ],
+      "properties": {
+        "attempt_number": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9007199254740991
+        },
+        "candidate_id": {
+          "$ref": "#/$defs/candidate_id"
+        },
+        "disposition": {
+          "enum": [
+            "checks_pending",
+            "checks_blocked",
+            "checks_passed",
+            "luna_rejected",
+            "reader_rejected",
+            "luna_reader_rejected"
+          ]
+        },
+        "provider_operations": {
+          "$ref": "#/$defs/provider_attempt_operations"
+        }
+      }
+    },
+    "provider_operations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "planner",
+        "writer",
+        "validator",
+        "reader",
+        "recorder"
+      ],
+      "properties": {
+        "planner": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "writer": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "validator": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "reader": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "recorder": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      }
+    }
+  }
+}
