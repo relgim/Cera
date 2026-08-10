@@ -376,7 +376,11 @@ class ProviderStageRetryExecutorV1:
         self._require_action_kind(validated, "provider_retry")
         chain_id = validated["chain_id"]
         chain = self._store.read(chain_id)
-        retry_count = self._store.retry_actions_accepted(chain_id)
+        # The persisted action and resulting attempt are committed in one
+        # transaction.  Derive the accepted count from this same immutable
+        # chain snapshot so a concurrent accept cannot combine a stale chain
+        # with a newer COUNT(*) result.
+        retry_count = chain.retries_consumed
         ordinal = validated["retry_action_ordinal"]
         assert isinstance(ordinal, int)
         action_sha256 = canonical_sha256(validated)
@@ -426,7 +430,7 @@ class ProviderStageRetryExecutorV1:
             # action with another fresh owner.  Re-read, verify the action
             # against history, and never let the losing owner dispatch.
             replay = self._store.read(chain_id)
-            replay_count = self._store.retry_actions_accepted(chain_id)
+            replay_count = replay.retries_consumed
             if replay_count < ordinal or len(replay.attempts) <= ordinal:
                 raise
             replay_prior = self._eligible_chain_before_retry(replay, ordinal)
@@ -681,7 +685,7 @@ class ProviderStageRetryExecutorV1:
             and chain.phase is not ProviderStageRetryPhase.RECOVERY_REQUIRED
         ):
             raise StateConflictError("provider-stage status is unavailable before attempt one")
-        retry_count = self._store.retry_actions_accepted(chain.chain_id)
+        retry_count = chain.retries_consumed
         state, failure_category, available_action = self._public_state(chain)
         status_payload: dict[str, object] = {
             "schema_version": "cera.provider_stage_retry_status.v1",

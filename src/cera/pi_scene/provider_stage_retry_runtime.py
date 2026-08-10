@@ -419,7 +419,10 @@ class ProviderStageRetryRuntimeServiceV1:
         exact_input = self._store.load_input(chain.chain_id)
         ordinal = validated["retry_action_ordinal"]
         assert isinstance(ordinal, int)
-        retry_actions = self._store.retry_actions_accepted(chain.chain_id)
+        # Attempts and accepted Retry actions are published atomically. Keep
+        # owner selection on the same chain snapshot instead of racing a
+        # second count query against a concurrent duplicate action.
+        retry_actions = chain.retries_consumed
         if ordinal <= retry_actions:
             if len(chain.attempts) <= ordinal:
                 raise StateConflictError("provider-stage accepted Retry owner is unavailable")

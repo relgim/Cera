@@ -5,6 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from itertools import count
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.generated.provider_stage_retry_contracts_v1 import (
@@ -15,6 +16,7 @@ from cera.pi_scene.provider_stage_retry import (
     ProviderStage,
     ProviderStageBlockReason,
     ProviderStageFailureClass,
+    ProviderStageRetryChainV1,
     ProviderStageRetryPhase,
 )
 from cera.pi_scene.provider_stage_retry_blob import TrustedLocalProtectedStageBlobStore
@@ -39,7 +41,7 @@ from cera.pi_scene.provider_stage_retry_packets import (
 from cera.pi_scene.provider_stage_retry_scope import (
     ProviderStageRetryOccurrenceScopeV1,
 )
-from cera.serialization import text_sha256
+from cera.serialization import canonical_sha256, text_sha256
 from cera.storage.provider_stage_retry_store import SQLiteProviderStageRetryStore
 from cera.storage.sqlite_store import SQLiteAuthorityStore
 
@@ -716,6 +718,51 @@ class ProviderStageRetryExecutorTests(unittest.TestCase):
         self.assertIs(durable.phase, ProviderStageRetryPhase.RESULT_FROZEN)
         self.assertEqual(dispatch2.invoke_calls, 1)
         self.assertEqual(self.store.retry_actions_accepted(durable.chain_id), 1)
+
+    def test_manual_retry_replays_if_accept_commits_after_stale_chain_read(self) -> None:
+        owner1, _ = self._owner("attempt-1", "ledger-0", _failure("one", "ledger-1"))
+        self.executor.execute_initial(
+            scope=self.scope,
+            packet=self.packet,
+            owner=owner1,
+        )
+        action = self.executor.status_envelope(self.scope)["actions"][0]
+        stale_chain = self.store.read(self.scope.identity.chain_id)
+        winner, _ = self._owner(
+            "attempt-2-winner",
+            "ledger-1",
+            _success("winner", "ledger-2"),
+        )
+        loser, loser_dispatch = self._owner(
+            "attempt-2-loser",
+            "ledger-1",
+            _success("loser", "ledger-2"),
+        )
+        original_read = self.store.read
+        stale_read_returned = False
+
+        def read_with_concurrent_accept(chain_id: str) -> ProviderStageRetryChainV1:
+            nonlocal stale_read_returned
+            if not stale_read_returned:
+                stale_read_returned = True
+                self.store.accept_retry(
+                    chain_id,
+                    retry_action_sha256=canonical_sha256(action),
+                    session_scope_sha256=winner.session_scope_sha256,
+                    ledger_prefix_before_sha256=winner.ledger_prefix_before_sha256,
+                )
+                return stale_chain
+            return original_read(chain_id)
+
+        with patch.object(self.store, "read", side_effect=read_with_concurrent_accept):
+            replay = self.executor.execute_manual_retry(action=action, owner=loser)
+
+        self.assertEqual(replay.attempts_total, 2)
+        self.assertEqual(
+            replay.attempts[1].session_scope_sha256,
+            winner.session_scope_sha256,
+        )
+        self.assertEqual(loser_dispatch.invoke_calls, 0)
 
     def test_two_initial_requests_with_same_persisted_owner_invoke_once(self) -> None:
         owner, dispatch = self._owner(
