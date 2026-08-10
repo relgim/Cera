@@ -1,19 +1,21 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from collections.abc import Callable
 from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 from unittest.mock import call, patch
 
-from cera.errors import StateConflictError
+from cera.errors import ContractValidationError, StateConflictError
 from cera.pi_scene.qualification import (
     DEEPSEEK_HTTP_OPERATION_CEILING,
     DEEPSEEK_PER_INVOCATION_CEILING,
@@ -31,9 +33,11 @@ from cera.pi_scene.qualification import (
     USER_AUTHORIZED_CODEX_OPERATION_CEILING,
     USER_AUTHORIZED_DEEPSEEK_OPERATION_CEILING,
     ClientResponseV1,
-    FullModelQualificationRunner,
+    ManualActionRequiredError,
     ProviderLedgerDeltaV1,
     QualificationFixtureV1,
+    QualificationManualActionAuthorizationV1,
+    QualificationManualActionRequestV1,
     QualificationPhase,
     QualificationRoute,
     _provider_operation_records,
@@ -42,6 +46,9 @@ from cera.pi_scene.qualification import (
     qualification_request_payload,
     validate_qualification_manifest,
     verify_qualification_artifacts,
+)
+from cera.pi_scene.qualification import (
+    FullModelQualificationRunner as _ProductionFullModelQualificationRunner,
 )
 from cera.pi_scene.qualification_isolation import (
     run_staged_sillytavern_node_suites,
@@ -53,6 +60,18 @@ from scripts import run_pi_scene_full_model_qualification as entrypoint
 
 ROOT = Path(__file__).parents[1]
 FIXTURES = ROOT / "evaluation" / "fixtures" / "pi_scene_full_model_qualification_v1.json"
+_ORIGINAL_PROVIDER_DISPATCH_DISABLED = os.environ.get("CERA_PROVIDER_DISPATCH_DISABLED")
+
+
+def setUpModule() -> None:
+    os.environ["CERA_PROVIDER_DISPATCH_DISABLED"] = "1"
+
+
+def tearDownModule() -> None:
+    if _ORIGINAL_PROVIDER_DISPATCH_DISABLED is None:
+        os.environ.pop("CERA_PROVIDER_DISPATCH_DISABLED", None)
+    else:
+        os.environ["CERA_PROVIDER_DISPATCH_DISABLED"] = _ORIGINAL_PROVIDER_DISPATCH_DISABLED
 
 
 def _manifest() -> dict[str, Any]:
@@ -80,6 +99,43 @@ def _manifest() -> dict[str, Any]:
         "artifact_categories": {"test": []},
     }
     return {**body, "manifest_sha256": canonical_sha256(body)}
+
+
+class _ProviderFreeSimulatedManualActionAuthorizer:
+    def __init__(self) -> None:
+        self.requests: list[QualificationManualActionRequestV1] = []
+        self.consumed_checkpoints: list[str] = []
+
+    def authorize(
+        self,
+        request: QualificationManualActionRequestV1,
+    ) -> QualificationManualActionAuthorizationV1:
+        self.requests.append(request)
+        return QualificationManualActionAuthorizationV1.approve(
+            request,
+            authorization_source="provider_free_simulation",
+            authorization_id=f"provider-free-simulation-{len(self.requests)}",
+        )
+
+    def mark_consumed(
+        self,
+        request: QualificationManualActionRequestV1,
+        authorization: QualificationManualActionAuthorizationV1,
+    ) -> None:
+        if request.checkpoint_sha256 in self.consumed_checkpoints:
+            raise AssertionError("provider-free authorization was consumed twice")
+        self.consumed_checkpoints.append(request.checkpoint_sha256)
+
+
+def FullModelQualificationRunner(**kwargs: Any) -> _ProductionFullModelQualificationRunner:
+    """Existing fake campaigns opt into an explicitly provider-free authorizer."""
+
+    if "manual_action_authorizer" in kwargs:
+        raise AssertionError("provider-free runner helper received an explicit authorization seam")
+    return _ProductionFullModelQualificationRunner(
+        **kwargs,
+        manual_action_authorizer=_ProviderFreeSimulatedManualActionAuthorizer(),
+    )
 
 
 class _FakeQualificationClient:
@@ -182,6 +238,10 @@ class _FakeQualificationClient:
             self.rejected = True
             self._append_attempt(fixture, planner=planner, accepted=False)
             body = self._rejected_body(fixture, planner=planner)
+            if fixture.expected_route is QualificationRoute.ADULT:
+                cera = body["cera"]
+                review_id = cera["review_id"]
+                self.reviews[review_id] = self._adult_rejection_review(cera)
         else:
             self._append_attempt(fixture, planner=planner, accepted=True)
             body = self._accepted_body(fixture, planner=planner)
@@ -203,6 +263,10 @@ class _FakeQualificationClient:
             self.assert_equal(review_id, "review-0123456789abcdef0123456789ab")
             self.regenerates += 1
             self._append_attempt(fixture, planner=0, accepted=True)
+            transitioned = deepcopy(self.reviews[review_id])
+            transitioned["state"] = "regenerated"
+            transitioned["regenerate_enabled"] = False
+            self.reviews[review_id] = transitioned
             return ClientResponseV1(
                 transport="fake-review",
                 path=f"/v1/cera/reviews/{review_id}/decision",
@@ -927,6 +991,8 @@ class _FakeQualificationClient:
             }
             route_validation = {
                 "adult_filter": {"verdict": "reject", "conflict": conflict},
+                "candidate_id": "candidate:adult:" + "b" * 32,
+                "operation_sha256": "4" * 64,
                 "review_id": "review-0123456789abcdef0123456789ab",
                 "provisional_review_id": "review-0123456789abcdef0123456789ab",
                 "route_transition": transition,
@@ -967,6 +1033,28 @@ class _FakeQualificationClient:
                 ),
                 **route_validation,
             },
+        }
+
+    @staticmethod
+    def _adult_rejection_review(cera: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "schema_version": "cera.pi_scene.review.v1",
+            "review_id": cera["review_id"],
+            "state": "review_ready",
+            "provisional": True,
+            "route": "adult",
+            "story_text": None,
+            "story_state_committed": False,
+            "candidate_id": cera["candidate_id"],
+            "candidate_sha256": text_sha256(cera["candidate_id"]),
+            "primary_authority_sha256": cera["operation_sha256"],
+            "regenerate_enabled": True,
+            "accept_enabled": False,
+            "provisional_accept_enabled": False,
+            "replan_enabled": False,
+            "repair_recording_enabled": False,
+            "operation_state": "executed-rejected",
+            "semantic_validation": {"verdict": "reject"},
         }
 
     def assert_equal(self, left: object, right: object) -> None:
@@ -1743,6 +1831,132 @@ class _FakeNestedValidationRetryClient(_FakeProviderStageRetryClient):
             creator_action="automatic_accept",
         )
         return deepcopy(self.reviews[self.nested_review_id])
+
+
+class _InitialProviderRecordingRepairClient(_FakeProviderStageRetryClient):
+    def complete(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        session_id: str,
+        payload: dict[str, Any] | Any,
+    ) -> ClientResponseV1:
+        if fixture.fixture_id != self.failure_fixture_id:
+            return super().complete(fixture=fixture, session_id=session_id, payload=payload)
+        value = dict(payload)
+        if self.session_id is None:
+            self.session_id = session_id
+        self.assert_equal(self.session_id, session_id)
+        self.assert_equal(len(value["messages"]), self.calls * 2 + 1)
+        self.calls += 1
+        self.failed_fixture = fixture
+        envelope = self._envelope(
+            "recorder",
+            attempts=3,
+            retries=2,
+            state="recording_repair_required",
+        )
+        return ClientResponseV1(
+            transport="fake-provider-stage-recording-repair",
+            path="/v1/chat/completions",
+            status_code=409,
+            duration_ms=11,
+            body=envelope,
+        )
+
+
+class _StaleProviderStageAuthorityClient(_FakeProviderStageRetryClient):
+    def provider_stage_retry_status(self, *, chain_id: str) -> ClientResponseV1:
+        response = super().provider_stage_retry_status(chain_id=chain_id)
+        if len(self.status_reads) != 2 or response.body.get("schema_version") != (
+            "cera.provider_stage_retry_status_envelope.v1"
+        ):
+            return response
+        changed = cast(dict[str, Any], deepcopy(response.body))
+        changed["status"]["technical_details"]["accepted_state_sha256"] = "e" * 64
+        return ClientResponseV1(
+            transport=response.transport,
+            path=response.path,
+            status_code=response.status_code,
+            duration_ms=response.duration_ms,
+            body=changed,
+        )
+
+
+class _StaleReviewAuthorityClient(_FakeQualificationClient):
+    def review(self, *, review_id: str) -> ClientResponseV1:
+        response = super().review(review_id=review_id)
+        if self.review_reads.count(review_id) != 2:
+            return response
+        changed = cast(dict[str, Any], deepcopy(response.body))
+        if changed.get("schema_version") == "cera.pi_scene.review.v2":
+            changed["primary_authority_sha256"] = "e" * 64
+        else:
+            changed["candidate_sha256"] = "e" * 64
+        return ClientResponseV1(
+            transport=response.transport,
+            path=response.path,
+            status_code=response.status_code,
+            duration_ms=response.duration_ms,
+            body=changed,
+        )
+
+
+class _LostOrdinaryRegenerateResponseClient(_FakeQualificationClient):
+    def regenerate(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        review_id: str,
+    ) -> ClientResponseV1:
+        super().regenerate(fixture=fixture, review_id=review_id)
+        raise OSError("simulated lost ordinary Regenerate response")
+
+
+class _LostAdultRegenerateResponseClient(_FakeQualificationClient):
+    def regenerate(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        review_id: str,
+    ) -> ClientResponseV1:
+        super().regenerate(fixture=fixture, review_id=review_id)
+        raise OSError("simulated lost adult Regenerate response")
+
+
+class _DelayedLostOrdinaryRegenerateResponseClient(_LostOrdinaryRegenerateResponseClient):
+    def __init__(self, runtime_root: Path, **kwargs: Any) -> None:
+        super().__init__(runtime_root, **kwargs)
+        self.delayed_terminal_reads = 0
+
+    def terminal_review_decision(self, *, review_id: str) -> ClientResponseV1:
+        if self.delayed_terminal_reads == 0:
+            self.delayed_terminal_reads += 1
+            self.terminal_decision_reads.append(review_id)
+            return ClientResponseV1(
+                transport="fake-terminal-decision-pending",
+                path=f"/v1/cera/reviews/{review_id}/terminal-decision",
+                status_code=404,
+                duration_ms=1,
+                body={"error": "not durable yet"},
+            )
+        return super().terminal_review_decision(review_id=review_id)
+
+
+class _LostReviewRecordingRepairResponseClient(_FakeQualificationClient):
+    def review_action(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        review_id: str,
+        action: dict[str, Any] | Any,
+    ) -> ClientResponseV1:
+        super().review_action(
+            fixture=fixture,
+            review_id=review_id,
+            action=action,
+        )
+        raise OSError("simulated lost review Recorder repair response")
 
 
 class FullModelQualificationTests(unittest.TestCase):
@@ -3097,9 +3311,15 @@ class FullModelQualificationTests(unittest.TestCase):
             self.assertEqual(repair_review_id, next(iter(client.reviews)))
             self.assertEqual(repair_action, {"action": "repair_recording"})
             self.assertEqual(client.terminal_decision_reads, [repair_review_id])
-            self.assertEqual(client.review_reads, [repair_review_id, repair_review_id])
+            self.assertEqual(
+                client.review_reads,
+                [repair_review_id, repair_review_id, repair_review_id],
+            )
             self.assertEqual(result["provider_operations"]["recorder"], 1)
             self.assertEqual(result["provider_stage_repair_recording_actions"], 0)
+            self.assertEqual(result["review_recording_repair_actions"], 1)
+            self.assertEqual(result["externally_authorized_manual_actions"], 1)
+            self.assertEqual(result["automatic_manual_actions"], 0)
             self.assertTrue(result["first_pass_accepted"])
             self.assertRegex(
                 str(result["terminal_review_decision_sha256"]),
@@ -3526,6 +3746,521 @@ class FullModelQualificationTests(unittest.TestCase):
                     {key: value for key, value in proof.items() if key != "proof_sha256"}
                 ),
             )
+
+    def test_manual_action_request_closes_body_kind_and_identity(self) -> None:
+        review_id = "review-0123456789abcdef0123456789ab"
+        candidate_sha256 = "c" * 64
+        action_id = "review-action-" + text_sha256(f"{review_id}:{candidate_sha256}:regenerate")
+        mutable_action = {"action": "regenerate"}
+        valid = QualificationManualActionRequestV1(
+            qualification_id="qualification-binding-test",
+            phase=QualificationPhase.BACKEND,
+            turn_index=1,
+            fixture_id="backend-ordinary-01",
+            action_family="semantic_regenerate",
+            action_kind="regenerate",
+            action_id=action_id,
+            exact_action=mutable_action,
+            authority_sha256="a" * 64,
+            review_id=review_id,
+            candidate_sha256=candidate_sha256,
+        )
+        mutable_action["action"] = "repair_recording"
+        self.assertEqual(dict(valid.exact_action), {"action": "regenerate"})
+        with self.assertRaisesRegex(ContractValidationError, "body changed"):
+            QualificationManualActionRequestV1(
+                qualification_id=valid.qualification_id,
+                phase=valid.phase,
+                turn_index=valid.turn_index,
+                fixture_id=valid.fixture_id,
+                action_family=valid.action_family,
+                action_kind=valid.action_kind,
+                action_id=valid.action_id,
+                exact_action={"action": "repair_recording"},
+                authority_sha256=valid.authority_sha256,
+                review_id=valid.review_id,
+                candidate_sha256=valid.candidate_sha256,
+            )
+        with self.assertRaisesRegex(ContractValidationError, "identity changed"):
+            QualificationManualActionRequestV1(
+                qualification_id=valid.qualification_id,
+                phase=valid.phase,
+                turn_index=valid.turn_index,
+                fixture_id=valid.fixture_id,
+                action_family=valid.action_family,
+                action_kind=valid.action_kind,
+                action_id="review-action-" + "d" * 64,
+                exact_action={"action": "regenerate"},
+                authority_sha256=valid.authority_sha256,
+                review_id=valid.review_id,
+                candidate_sha256=valid.candidate_sha256,
+            )
+
+        with tempfile.TemporaryDirectory() as temporary:
+            fake = _FakeProviderStageRetryClient(
+                Path(temporary),
+                failure_fixture_id="backend-ordinary-01",
+            )
+            envelope = fake._envelope("planner", attempts=1, retries=0, state="eligible")
+            status = envelope["status"]
+            action = envelope["actions"][0]
+            with self.assertRaisesRegex(ContractValidationError, "bound identity"):
+                QualificationManualActionRequestV1(
+                    qualification_id="qualification-binding-test",
+                    phase=QualificationPhase.BACKEND,
+                    turn_index=1,
+                    fixture_id="backend-ordinary-01",
+                    action_family="provider_stage_control",
+                    action_kind="provider_retry",
+                    action_id="stage-action-" + "f" * 64,
+                    exact_action=action,
+                    authority_sha256=canonical_sha256(envelope),
+                    chain_id=status["chain_id"],
+                    stage=status["stage"],
+                    provider=status["provider"],
+                    model_family=status["model_family"],
+                    retry_action_ordinal=1,
+                )
+
+    def test_default_runner_posts_no_manual_action_for_every_action_kind(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+
+        def assert_manual_stop(campaign: Any) -> None:
+            self.assertIsInstance(campaign.failure, ManualActionRequiredError)
+            failed = campaign.results[-1]
+            self.assertEqual(failed["failure_category"], "manual_action_required")
+            self.assertRegex(failed["manual_action_checkpoint_sha256"], r"^[a-f0-9]{64}$")
+            self.assertEqual(failed["externally_authorized_manual_actions"], 0)
+            self.assertEqual(failed["automatic_manual_actions"], 0)
+
+        provider_cases: dict[
+            str,
+            Callable[[Path], _FakeProviderStageRetryClient],
+        ] = {
+            "provider_retry": lambda runtime: _FakeProviderStageRetryClient(
+                runtime,
+                failure_fixture_id="backend-ordinary-01",
+            ),
+            "resume_prepared": lambda runtime: _FakeProviderStageRetryClient(
+                runtime,
+                failure_fixture_id="backend-ordinary-01",
+                prepared_resume=True,
+            ),
+            "provider_recording_repair": lambda runtime: _InitialProviderRecordingRepairClient(
+                runtime,
+                failure_fixture_id="backend-ordinary-01",
+                stage="recorder",
+            ),
+        }
+        for label, provider_factory in provider_cases.items():
+            with self.subTest(action_kind=label), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                runtime = root / "runtime"
+                provider_client = provider_factory(runtime)
+                campaign = _ProductionFullModelQualificationRunner(
+                    manifest=_manifest(),
+                    runtime_root=runtime,
+                    evidence_root=root / "evidence",
+                ).start_phase(QualificationPhase.BACKEND, fixtures)
+                campaign.run_segment(
+                    client=provider_client,
+                    runtime_root=runtime,
+                    turn_count=1,
+                )
+                assert_manual_stop(campaign)
+                self.assertEqual(provider_client.action_posts, [])
+
+        review_cases: dict[
+            str,
+            tuple[int, Callable[[Path], _FakeQualificationClient], str],
+        ] = {
+            "ordinary_regenerate": (
+                1,
+                lambda runtime: _FakeQualificationClient(runtime, reject_first=True),
+                "regenerates",
+            ),
+            "adult_regenerate": (
+                6,
+                lambda runtime: _FakeQualificationClient(
+                    runtime,
+                    reject_fixture_id="backend-adult-01",
+                ),
+                "regenerates",
+            ),
+            "review_recording_repair": (
+                1,
+                lambda runtime: _FakeQualificationClient(
+                    runtime,
+                    recording_repair_fixture_id="backend-ordinary-01",
+                ),
+                "review_actions",
+            ),
+        }
+        for label, (turn_count, review_factory, post_attribute) in review_cases.items():
+            with self.subTest(action_kind=label), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                runtime = root / "runtime"
+                review_client = review_factory(runtime)
+                campaign = _ProductionFullModelQualificationRunner(
+                    manifest=_manifest(),
+                    runtime_root=runtime,
+                    evidence_root=root / "evidence",
+                ).start_phase(QualificationPhase.BACKEND, fixtures)
+                campaign.run_segment(
+                    client=review_client,
+                    runtime_root=runtime,
+                    turn_count=turn_count,
+                )
+                assert_manual_stop(campaign)
+                self.assertFalse(getattr(review_client, post_attribute))
+
+    def test_automatic_accept_remains_backend_owned_and_ungated(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "runtime"
+            client = _FakeQualificationClient(runtime)
+            campaign = _ProductionFullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=runtime,
+                evidence_root=root / "evidence",
+            ).start_phase(QualificationPhase.BACKEND, fixtures)
+            campaign.run_segment(client=client, runtime_root=runtime, turn_count=1)
+            self.assertIsNone(campaign.failure)
+            self.assertEqual(campaign.results[0]["status"], "passed")
+            self.assertEqual(campaign.results[0]["automatic_manual_actions"], 0)
+            self.assertEqual(client.regenerates, 0)
+            self.assertEqual(client.review_actions, [])
+
+    def test_stale_authority_never_posts_or_counts_a_dispatched_action(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        cases: dict[
+            str,
+            tuple[int, Callable[[Path], _FakeQualificationClient], str],
+        ] = {
+            "provider_retry": (
+                1,
+                lambda runtime: _StaleProviderStageAuthorityClient(
+                    runtime,
+                    failure_fixture_id="backend-ordinary-01",
+                ),
+                "action_posts",
+            ),
+            "ordinary_regenerate": (
+                1,
+                lambda runtime: _StaleReviewAuthorityClient(runtime, reject_first=True),
+                "regenerates",
+            ),
+            "adult_regenerate": (
+                6,
+                lambda runtime: _StaleReviewAuthorityClient(
+                    runtime,
+                    reject_fixture_id="backend-adult-01",
+                ),
+                "regenerates",
+            ),
+            "review_recording_repair": (
+                1,
+                lambda runtime: _StaleReviewAuthorityClient(
+                    runtime,
+                    recording_repair_fixture_id="backend-ordinary-01",
+                ),
+                "review_actions",
+            ),
+        }
+        for label, (turn_count, stale_factory, post_attribute) in cases.items():
+            with self.subTest(action_kind=label), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                runtime = root / "runtime"
+                client = stale_factory(runtime)
+                campaign = FullModelQualificationRunner(
+                    manifest=_manifest(),
+                    runtime_root=runtime,
+                    evidence_root=root / "evidence",
+                ).start_phase(QualificationPhase.BACKEND, fixtures)
+                campaign.run_segment(
+                    client=client,
+                    runtime_root=runtime,
+                    turn_count=turn_count,
+                )
+                self.assertIsInstance(campaign.failure, StateConflictError)
+                self.assertFalse(getattr(client, post_attribute))
+                self.assertEqual(campaign.externally_authorized_manual_actions, 0)
+                self.assertEqual(
+                    campaign.results[-1]["externally_authorized_manual_actions"],
+                    0,
+                )
+
+    def test_lost_action_responses_never_repost_and_reconcile_where_authoritative(self) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "ordinary-runtime"
+            ordinary = _LostOrdinaryRegenerateResponseClient(runtime, reject_first=True)
+            ordinary_campaign = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=runtime,
+                evidence_root=root / "ordinary-evidence",
+            ).start_phase(QualificationPhase.BACKEND, fixtures)
+            ordinary_campaign.run_segment(
+                client=ordinary,
+                runtime_root=runtime,
+                turn_count=1,
+            )
+            self.assertIsNone(ordinary_campaign.failure)
+            self.assertEqual(ordinary.regenerates, 1)
+            self.assertEqual(ordinary_campaign.results[0]["explicit_regenerate_actions"], 1)
+            self.assertEqual(
+                ordinary.terminal_decision_reads.count(
+                    "review-" + text_sha256("backend-ordinary-01:1:initial")[:28]
+                ),
+                2,
+            )
+
+            delayed_runtime = root / "ordinary-delayed-runtime"
+            delayed = _DelayedLostOrdinaryRegenerateResponseClient(
+                delayed_runtime,
+                reject_first=True,
+            )
+            delayed_campaign = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=delayed_runtime,
+                evidence_root=root / "ordinary-delayed-evidence",
+            ).start_phase(QualificationPhase.BACKEND, fixtures)
+            with patch(
+                "cera.pi_scene.qualification.PROVIDER_STAGE_RETRY_STATUS_POLL_SECONDS",
+                0,
+            ):
+                delayed_campaign.run_segment(
+                    client=delayed,
+                    runtime_root=delayed_runtime,
+                    turn_count=1,
+                )
+            self.assertIsNone(delayed_campaign.failure)
+            self.assertEqual(delayed.regenerates, 1)
+            self.assertEqual(delayed.delayed_terminal_reads, 1)
+
+            adult_runtime = root / "adult-runtime"
+            adult = _LostAdultRegenerateResponseClient(
+                adult_runtime,
+                reject_fixture_id="backend-adult-01",
+            )
+            adult_campaign = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=adult_runtime,
+                evidence_root=root / "adult-evidence",
+            ).start_phase(QualificationPhase.BACKEND, fixtures)
+            adult_campaign.run_segment(
+                client=adult,
+                runtime_root=adult_runtime,
+                turn_count=6,
+            )
+            self.assertIsInstance(adult_campaign.failure, StateConflictError)
+            self.assertEqual(adult.regenerates, 1)
+            self.assertEqual(adult_campaign.results[-1]["explicit_regenerate_actions"], 1)
+            self.assertEqual(
+                adult_campaign.results[-1]["externally_authorized_manual_actions"],
+                1,
+            )
+
+            repair_runtime = root / "repair-runtime"
+            repair = _LostReviewRecordingRepairResponseClient(
+                repair_runtime,
+                recording_repair_fixture_id="backend-ordinary-01",
+            )
+            repair_campaign = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=repair_runtime,
+                evidence_root=root / "repair-evidence",
+            ).start_phase(QualificationPhase.BACKEND, fixtures)
+            repair_campaign.run_segment(
+                client=repair,
+                runtime_root=repair_runtime,
+                turn_count=1,
+            )
+            self.assertIsNone(repair_campaign.failure)
+            self.assertEqual(len(repair.review_actions), 1)
+            self.assertEqual(repair_campaign.results[0]["review_recording_repair_actions"], 1)
+            self.assertEqual(
+                repair_campaign.results[0]["externally_authorized_manual_actions"],
+                1,
+            )
+
+            retry_runtime = root / "retry-runtime"
+            retry = _FakeProviderStageRetryClient(
+                retry_runtime,
+                failure_fixture_id="backend-ordinary-01",
+                ambiguous_post=True,
+            )
+            retry_campaign = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=retry_runtime,
+                evidence_root=root / "retry-evidence",
+            ).start_phase(QualificationPhase.BACKEND, fixtures)
+            retry_campaign.run_segment(
+                client=retry,
+                runtime_root=retry_runtime,
+                turn_count=1,
+            )
+            self.assertIsNone(retry_campaign.failure)
+            self.assertEqual(len(retry.action_posts), 1)
+            self.assertEqual(
+                retry_campaign.results[0]["externally_authorized_manual_actions"],
+                1,
+            )
+
+    def test_hash_only_manual_receipts_and_approval_cli_are_closed(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            fake = _FakeProviderStageRetryClient(
+                root / "runtime",
+                failure_fixture_id="backend-ordinary-01",
+            )
+            envelope = fake._envelope("planner", attempts=1, retries=0, state="eligible")
+            status = envelope["status"]
+            action = envelope["actions"][0]
+            request = QualificationManualActionRequestV1(
+                qualification_id="qualification-raw-secret",
+                phase=QualificationPhase.BACKEND,
+                turn_index=1,
+                fixture_id="fixture-raw-secret",
+                action_family="provider_stage_control",
+                action_kind="provider_retry",
+                action_id=action["action_id"],
+                exact_action=action,
+                authority_sha256=canonical_sha256(envelope),
+                chain_id=status["chain_id"],
+                stage=status["stage"],
+                provider=status["provider"],
+                model_family=status["model_family"],
+                retry_action_ordinal=1,
+            )
+            authorizer = entrypoint.HashOnlyFileManualActionAuthorizer(
+                output_root=root,
+                timeout_seconds=0,
+            )
+            with self.assertRaises(ManualActionRequiredError):
+                authorizer.authorize(request)
+            pending_path, approval_path, consumed_path = entrypoint._manual_receipt_paths(
+                root,
+                request.checkpoint_sha256,
+            )
+            pending = json.loads(pending_path.read_text(encoding="utf-8"))
+            self.assertEqual(pending["stage"], "planner")
+            self.assertEqual(pending["provider"], "codex")
+            self.assertEqual(pending["model_family"], "sol")
+            self.assertEqual(pending["retry_action_ordinal"], 1)
+
+            with patch("builtins.print") as printed:
+                self.assertEqual(
+                    entrypoint.main(
+                        [
+                            "approve-manual-action",
+                            "--output-root",
+                            str(root),
+                            "--checkpoint-sha256",
+                            request.checkpoint_sha256,
+                        ]
+                    ),
+                    0,
+                )
+            approval_result = json.loads(printed.call_args.args[0])
+            self.assertEqual(approval_result["checkpoint_sha256"], request.checkpoint_sha256)
+            exact_approval = json.loads(approval_path.read_text(encoding="utf-8"))
+            changed_approval = deepcopy(exact_approval)
+            changed_approval["exact_action_sha256"] = "f" * 64
+            approval_path.write_bytes(canonical_bytes(changed_approval) + b"\n")
+            with self.assertRaisesRegex(StateConflictError, "approval receipt changed"):
+                authorizer.authorize(request)
+            approval_path.write_bytes(canonical_bytes(exact_approval) + b"\n")
+            authorization = authorizer.authorize(request)
+            assert authorization is not None
+            authorizer.mark_consumed(request, authorization)
+            self.assertTrue(approval_path.is_file())
+            self.assertTrue(consumed_path.is_file())
+
+            forbidden_keys = {
+                "qualification_id",
+                "fixture_id",
+                "action_id",
+                "chain_id",
+                "review_id",
+                "exact_action",
+                "token",
+                "prose",
+                "provider_output",
+                "creator_feedback",
+                "path",
+            }
+            raw_values = {
+                request.qualification_id,
+                request.fixture_id,
+                request.action_id,
+                str(request.chain_id),
+            }
+            for receipt_path in (pending_path, approval_path, consumed_path):
+                receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+                self.assertTrue(forbidden_keys.isdisjoint(receipt))
+                encoded = json.dumps(receipt, sort_keys=True)
+                self.assertTrue(all(value not in encoded for value in raw_values))
+            with self.assertRaisesRegex(StateConflictError, "already approved or consumed"):
+                entrypoint.approve_manual_action(
+                    output_root=root,
+                    checkpoint_sha256=request.checkpoint_sha256,
+                )
+            with self.assertRaisesRegex(StateConflictError, "already consumed"):
+                authorizer.mark_consumed(request, authorization)
+
+    def test_simulated_authorization_requires_live_process_guard_at_both_seams(self) -> None:
+        review_id = "review-0123456789abcdef0123456789ab"
+        candidate_sha256 = "c" * 64
+        request = QualificationManualActionRequestV1(
+            qualification_id="qualification-guard-test",
+            phase=QualificationPhase.BACKEND,
+            turn_index=1,
+            fixture_id="backend-ordinary-01",
+            action_family="semantic_regenerate",
+            action_kind="regenerate",
+            action_id="review-action-" + text_sha256(f"{review_id}:{candidate_sha256}:regenerate"),
+            exact_action={"action": "regenerate"},
+            authority_sha256="a" * 64,
+            review_id=review_id,
+            candidate_sha256=candidate_sha256,
+        )
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            simulated = _ProviderFreeSimulatedManualActionAuthorizer()
+            runner = _ProductionFullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=root / "runtime",
+                evidence_root=root / "evidence",
+                manual_action_authorizer=simulated,
+            )
+            with patch.dict(os.environ, {}, clear=True):
+                with self.assertRaisesRegex(StateConflictError, "requires provider dispatch"):
+                    runner.authorize_manual_action(request)
+
+            authorization = runner.authorize_manual_action(request)
+            with patch.dict(os.environ, {}, clear=True):
+                with self.assertRaisesRegex(StateConflictError, "lost the provider-dispatch"):
+                    runner.consume_manual_action(request, authorization)
+            self.assertEqual(simulated.consumed_checkpoints, [])
+
+    def test_manual_action_wait_timeout_must_be_finite_and_nonnegative(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            for invalid in (-1.0, float("nan"), float("inf"), True):
+                with (
+                    self.subTest(timeout=invalid),
+                    self.assertRaisesRegex(
+                        ContractValidationError,
+                        "not bounded",
+                    ),
+                ):
+                    entrypoint.HashOnlyFileManualActionAuthorizer(
+                        output_root=root,
+                        timeout_seconds=invalid,
+                    )
 
     def test_provider_free_entrypoint_reports_exact_campaign_counts(self) -> None:
         result = entrypoint.provider_free_check(fixture_path=FIXTURES)

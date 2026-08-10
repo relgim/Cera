@@ -9,9 +9,10 @@ fallback exists. Any of the seven provider stages may expose an exact generated
 manual ``provider_retry`` action, with at most two Retry actions and three
 attempts for that unique stage occurrence. Exact manual ``resume_prepared`` and
 one nonrecursive Recorder ``repair_recording`` control have separate budgets.
-The runner POSTs each backend-issued action once and reconciles only through
-authenticated GET. One explicit creator Regenerate may follow a noncritical
-rejected first pass; every earlier outcome remains in evidence.
+Automatic behavior is GET-only; the runner waits for one hash-only external
+approval, revalidates authority, POSTs once, and reconciles through authenticated
+GET. One externally authorized Regenerate may follow a noncritical rejected
+first pass; every earlier outcome remains in evidence.
 """
 
 from __future__ import annotations
@@ -26,10 +27,12 @@ import shutil
 import subprocess
 import sys
 import time
+from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from http.cookiejar import CookieJar
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from math import isfinite
 from pathlib import Path
 from threading import Thread
 from typing import Any, cast
@@ -62,7 +65,10 @@ from cera.pi_scene.qualification import (
     SOL_FAMILY_CEILING,
     ClientResponseV1,
     FullModelQualificationRunner,
+    ManualActionRequiredError,
     QualificationFixtureV1,
+    QualificationManualActionAuthorizationV1,
+    QualificationManualActionRequestV1,
     QualificationPhase,
     build_qualification_manifest,
     load_qualification_fixtures,
@@ -79,7 +85,7 @@ from cera.pi_scene.qualification_isolation import (
     stage_qualification_sillytavern,
     verify_qualification_sillytavern,
 )
-from cera.serialization import canonical_bytes, canonical_sha256, text_sha256
+from cera.serialization import canonical_bytes, canonical_sha256, re_is_sha256, text_sha256
 from scripts.run_pi_scene_lean_server import (
     DEFAULT_PI,
     DEFAULT_SILLYTAVERN,
@@ -108,6 +114,292 @@ _QUALIFICATION_TIMEOUT_CONTRACT = (
     QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
     QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
 )
+
+DEFAULT_MANUAL_ACTION_WAIT_SECONDS = 86_400.0
+_MANUAL_ACTION_RECEIPT_DIRECTORY = "manual_action_receipts"
+_MANUAL_PENDING_FIELDS = frozenset(
+    {
+        "schema_version",
+        "qualification_id_sha256",
+        "phase",
+        "turn_index",
+        "fixture_id_sha256",
+        "action_family",
+        "action_kind",
+        "action_id_sha256",
+        "exact_action_sha256",
+        "chain_id_sha256",
+        "review_id_sha256",
+        "candidate_sha256",
+        "authority_sha256",
+        "stage",
+        "provider",
+        "model_family",
+        "retry_action_ordinal",
+        "status",
+        "checkpoint_sha256",
+    }
+)
+
+
+def _manual_receipt_paths(output_root: Path, checkpoint_sha256: str) -> tuple[Path, Path, Path]:
+    if not re_is_sha256(checkpoint_sha256):
+        raise ContractValidationError("manual-action checkpoint hash is invalid")
+    root = output_root.resolve() / _MANUAL_ACTION_RECEIPT_DIRECTORY
+    return (
+        root / f"{checkpoint_sha256}.pending.json",
+        root / f"{checkpoint_sha256}.approval.json",
+        root / f"{checkpoint_sha256}.consumed.json",
+    )
+
+
+def _read_manual_receipt(path: Path) -> dict[str, Any]:
+    try:
+        raw = path.read_bytes()
+    except OSError as exc:
+        raise StateConflictError(f"manual-action receipt is unreadable: {path.name}") from exc
+    if len(raw) > 32_768:
+        raise StateConflictError("manual-action receipt exceeded its closed size")
+    try:
+        value = json.loads(raw.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise StateConflictError("manual-action receipt is not valid JSON") from exc
+    if not isinstance(value, dict):
+        raise StateConflictError("manual-action receipt is not an object")
+    return value
+
+
+def _validate_pending_manual_receipt(value: Mapping[str, Any]) -> dict[str, Any]:
+    pending = dict(value)
+    if set(pending) != _MANUAL_PENDING_FIELDS:
+        raise StateConflictError("manual-action pending receipt fields changed")
+    checkpoint = pending.get("checkpoint_sha256")
+    binding = {
+        key: item for key, item in pending.items() if key not in {"status", "checkpoint_sha256"}
+    }
+    if (
+        pending.get("schema_version") != QualificationManualActionRequestV1.SCHEMA_VERSION
+        or pending.get("status") != "manual_action_required"
+        or not isinstance(checkpoint, str)
+        or not re_is_sha256(checkpoint)
+        or canonical_sha256(binding) != checkpoint
+        or pending.get("phase") not in {phase.value for phase in QualificationPhase}
+        or type(pending.get("turn_index")) is not int
+        or cast(int, pending["turn_index"]) < 1
+        or pending.get("action_family")
+        not in {"provider_stage_control", "semantic_regenerate", "recording_repair"}
+        or not isinstance(pending.get("action_kind"), str)
+    ):
+        raise StateConflictError("manual-action pending receipt binding changed")
+    for key in (
+        "qualification_id_sha256",
+        "fixture_id_sha256",
+        "action_id_sha256",
+        "exact_action_sha256",
+        "authority_sha256",
+    ):
+        if not isinstance(pending.get(key), str) or not re_is_sha256(cast(str, pending[key])):
+            raise StateConflictError("manual-action pending receipt hash changed")
+    for key in ("chain_id_sha256", "review_id_sha256", "candidate_sha256"):
+        item = pending.get(key)
+        if item is not None and (not isinstance(item, str) or not re_is_sha256(item)):
+            raise StateConflictError("manual-action optional receipt hash changed")
+    family = cast(str, pending["action_family"])
+    kind = cast(str, pending["action_kind"])
+    allowed_kinds = {
+        "provider_stage_control": {
+            "provider_retry",
+            "resume_prepared",
+            "repair_recording",
+        },
+        "semantic_regenerate": {"regenerate"},
+        "recording_repair": {"repair_recording"},
+    }
+    provider_context = (
+        pending["stage"],
+        pending["provider"],
+        pending["model_family"],
+    )
+    if kind not in allowed_kinds[family]:
+        raise StateConflictError("manual-action pending family and kind disagree")
+    if family == "provider_stage_control":
+        if (
+            pending["chain_id_sha256"] is None
+            or pending["review_id_sha256"] is not None
+            or not all(isinstance(item, str) and item.strip() for item in provider_context)
+            or (
+                kind == "provider_retry"
+                and (
+                    type(pending["retry_action_ordinal"]) is not int
+                    or pending["retry_action_ordinal"] not in {1, 2}
+                )
+            )
+            or (kind != "provider_retry" and pending["retry_action_ordinal"] is not None)
+        ):
+            raise StateConflictError("manual provider-stage pending context changed")
+    elif (
+        pending["chain_id_sha256"] is not None
+        or pending["review_id_sha256"] is None
+        or pending["candidate_sha256"] is None
+        or any(item is not None for item in provider_context)
+        or pending["retry_action_ordinal"] is not None
+    ):
+        raise StateConflictError("manual review-action pending context changed")
+    return pending
+
+
+def _manual_approval_projection(pending: Mapping[str, Any]) -> dict[str, Any]:
+    safe = _validate_pending_manual_receipt(pending)
+    return {
+        "schema_version": "cera.pi_scene.qualification_manual_action_approval.v1",
+        "status": "externally_authorized",
+        "checkpoint_sha256": safe["checkpoint_sha256"],
+        "pending_receipt_sha256": canonical_sha256(safe),
+        **{
+            key: safe[key]
+            for key in (
+                "qualification_id_sha256",
+                "phase",
+                "turn_index",
+                "fixture_id_sha256",
+                "action_family",
+                "action_kind",
+                "action_id_sha256",
+                "exact_action_sha256",
+                "chain_id_sha256",
+                "review_id_sha256",
+                "candidate_sha256",
+                "authority_sha256",
+                "stage",
+                "provider",
+                "model_family",
+                "retry_action_ordinal",
+            )
+        },
+    }
+
+
+def _manual_consumed_projection(approval: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "cera.pi_scene.qualification_manual_action_consumed.v1",
+        "status": "consumed_for_one_dispatch",
+        "checkpoint_sha256": approval["checkpoint_sha256"],
+        "approval_receipt_sha256": canonical_sha256(approval),
+        **{
+            key: approval[key]
+            for key in (
+                "qualification_id_sha256",
+                "phase",
+                "turn_index",
+                "fixture_id_sha256",
+                "action_family",
+                "action_kind",
+                "action_id_sha256",
+                "exact_action_sha256",
+                "chain_id_sha256",
+                "review_id_sha256",
+                "candidate_sha256",
+                "authority_sha256",
+                "stage",
+                "provider",
+                "model_family",
+                "retry_action_ordinal",
+            )
+        },
+    }
+
+
+class HashOnlyFileManualActionAuthorizer:
+    """Wait for one external hash-only approval and consume it exactly once."""
+
+    def __init__(self, *, output_root: Path, timeout_seconds: float) -> None:
+        if (
+            type(timeout_seconds) not in {int, float}
+            or not isfinite(timeout_seconds)
+            or timeout_seconds < 0
+        ):
+            raise ContractValidationError("manual-action wait timeout is not bounded")
+        self.output_root = output_root.resolve()
+        self.timeout_seconds = float(timeout_seconds)
+
+    def authorize(
+        self,
+        request: QualificationManualActionRequestV1,
+    ) -> QualificationManualActionAuthorizationV1 | None:
+        pending_path, approval_path, consumed_path = _manual_receipt_paths(
+            self.output_root,
+            request.checkpoint_sha256,
+        )
+        expected_pending = request.pending_projection()
+        if pending_path.exists():
+            if _read_manual_receipt(pending_path) != expected_pending:
+                raise StateConflictError("manual-action pending receipt changed")
+        else:
+            _atomic_write_json(pending_path, expected_pending)
+        if consumed_path.exists():
+            raise StateConflictError("manual-action checkpoint was already consumed")
+
+        expected_approval = _manual_approval_projection(expected_pending)
+        deadline = time.monotonic() + self.timeout_seconds
+        while True:
+            if approval_path.exists():
+                observed = _read_manual_receipt(approval_path)
+                if observed != expected_approval:
+                    raise StateConflictError("manual-action approval receipt changed")
+                return QualificationManualActionAuthorizationV1.approve(
+                    request,
+                    authorization_source="external_manual_receipt",
+                    authorization_id="manual-receipt-" + canonical_sha256(observed),
+                )
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise ManualActionRequiredError(request.checkpoint_sha256)
+            time.sleep(min(0.25, remaining))
+
+    def mark_consumed(
+        self,
+        request: QualificationManualActionRequestV1,
+        authorization: QualificationManualActionAuthorizationV1,
+    ) -> None:
+        pending_path, approval_path, consumed_path = _manual_receipt_paths(
+            self.output_root,
+            request.checkpoint_sha256,
+        )
+        if authorization.authorization_source != "external_manual_receipt":
+            raise StateConflictError("manual-action receipt source changed before consumption")
+        pending = _read_manual_receipt(pending_path)
+        expected_approval = _manual_approval_projection(pending)
+        if _read_manual_receipt(approval_path) != expected_approval:
+            raise StateConflictError("manual-action approval changed before consumption")
+        if consumed_path.exists():
+            raise StateConflictError("manual-action approval was already consumed")
+        _atomic_write_json(consumed_path, _manual_consumed_projection(expected_approval))
+
+
+def approve_manual_action(*, output_root: Path, checkpoint_sha256: str) -> dict[str, Any]:
+    pending_path, approval_path, consumed_path = _manual_receipt_paths(
+        output_root,
+        checkpoint_sha256,
+    )
+    if not pending_path.exists():
+        raise StateConflictError("manual-action pending checkpoint does not exist")
+    if approval_path.exists() or consumed_path.exists():
+        raise StateConflictError("manual-action checkpoint is already approved or consumed")
+    pending = _validate_pending_manual_receipt(_read_manual_receipt(pending_path))
+    if pending["checkpoint_sha256"] != checkpoint_sha256:
+        raise StateConflictError("manual-action checkpoint filename binding changed")
+    approval = _manual_approval_projection(pending)
+    _atomic_write_json(approval_path, approval)
+    result = {
+        "schema_version": "cera.pi_scene.qualification_manual_action_approval_result.v1",
+        "status": "externally_authorized",
+        "checkpoint_sha256": checkpoint_sha256,
+        "approval_receipt_sha256": canonical_sha256(approval),
+        "phase": pending["phase"],
+        "turn_index": pending["turn_index"],
+        "action_kind": pending["action_kind"],
+    }
+    return {**result, "result_sha256": canonical_sha256(result)}
 
 
 def _preflight_runtime_path_budget(output_root: Path) -> None:
@@ -917,6 +1209,9 @@ def provider_free_check(
         "recursive_recording_repair": False,
         "automatic_provider_stage_retry_actions": 0,
         "automatic_provider_stage_control_actions": 0,
+        "automatic_manual_actions": 0,
+        "provider_bearing_actions_require_exact_external_authorization": True,
+        "manual_action_receipt_custody": "hash_only",
         "provider_calls": 0,
     }
     if manifest_path is not None:
@@ -1940,6 +2235,7 @@ def live(
     *,
     output_root: Path,
     fixture_path: Path,
+    manual_action_wait_seconds: float = DEFAULT_MANUAL_ACTION_WAIT_SECONDS,
 ) -> dict[str, Any]:
     root = output_root.resolve()
     manifest_path = root / "QUALIFICATION_MANIFEST.json"
@@ -2060,6 +2356,10 @@ def live(
             manifest=manifest,
             runtime_root=runtime_root_a,
             evidence_root=evidence_root,
+            manual_action_authorizer=HashOnlyFileManualActionAuthorizer(
+                output_root=root,
+                timeout_seconds=manual_action_wait_seconds,
+            ),
         )
         backend_campaign = runner.start_phase(QualificationPhase.BACKEND, fixtures)
         backend_campaign.run_segment(
@@ -2136,6 +2436,15 @@ def live(
         control_actions = int(backend["provider_stage_control_actions"]) + int(
             st_result["provider_stage_control_actions"]
         )
+        regenerate_actions = int(backend["explicit_regenerate_actions"]) + int(
+            st_result["explicit_regenerate_actions"]
+        )
+        review_recording_repair_actions = int(backend["review_recording_repair_actions"]) + int(
+            st_result["review_recording_repair_actions"]
+        )
+        externally_authorized_manual_actions = int(
+            backend["externally_authorized_manual_actions"]
+        ) + int(st_result["externally_authorized_manual_actions"])
         control_chain_actions = int(backend["provider_stage_control_chain_actions"]) + int(
             st_result["provider_stage_control_chain_actions"]
         )
@@ -2146,6 +2455,8 @@ def live(
             retry_actions != retry_chain_actions
             or control_actions != control_chain_actions
             or control_actions != retry_actions + resume_prepared_actions + repair_recording_actions
+            or externally_authorized_manual_actions
+            != control_actions + regenerate_actions + review_recording_repair_actions
             or terminal_critical_failures != 0
         ):
             raise StateConflictError("qualification provider-stage Retry evidence is incomplete")
@@ -2181,10 +2492,14 @@ def live(
             "provider_stage_resume_prepared_actions": resume_prepared_actions,
             "provider_stage_repair_recording_actions": repair_recording_actions,
             "provider_stage_control_actions": control_actions,
+            "explicit_regenerate_actions": regenerate_actions,
+            "review_recording_repair_actions": review_recording_repair_actions,
+            "externally_authorized_manual_actions": externally_authorized_manual_actions,
             "provider_stage_control_chain_actions": control_chain_actions,
             "provider_stage_retry_terminal_critical_failures": terminal_critical_failures,
             "automatic_provider_stage_retry_actions": 0,
             "automatic_provider_stage_control_actions": 0,
+            "automatic_manual_actions": 0,
             "recursive_recording_repair": False,
             "fallback_used": False,
             "timing_evidence": {
@@ -2367,6 +2682,15 @@ def main(argv: list[str] | None = None) -> int:
     live_parser = subparsers.add_parser("live")
     live_parser.add_argument("--output-root", type=Path, required=True)
     live_parser.add_argument("--fixture-set", type=Path, default=DEFAULT_FIXTURES)
+    live_parser.add_argument(
+        "--manual-action-wait-seconds",
+        type=float,
+        default=DEFAULT_MANUAL_ACTION_WAIT_SECONDS,
+    )
+
+    approve_parser = subparsers.add_parser("approve-manual-action")
+    approve_parser.add_argument("--output-root", type=Path, required=True)
+    approve_parser.add_argument("--checkpoint-sha256", required=True)
 
     args = parser.parse_args(argv)
     if args.mode == "freeze":
@@ -2381,10 +2705,16 @@ def main(argv: list[str] | None = None) -> int:
             fixture_path=args.fixture_set,
             manifest_path=args.manifest,
         )
+    elif args.mode == "approve-manual-action":
+        result = approve_manual_action(
+            output_root=args.output_root,
+            checkpoint_sha256=args.checkpoint_sha256,
+        )
     else:
         result = live(
             output_root=args.output_root,
             fixture_path=args.fixture_set,
+            manual_action_wait_seconds=args.manual_action_wait_seconds,
         )
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0

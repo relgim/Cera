@@ -7,11 +7,11 @@ and DeepSeek ledgers. A generated provider-stage status envelope from any of
 the seven live stages may expose an exact backend-issued manual ``provider_retry``,
 ``resume_prepared``, or ``repair_recording`` action. The latter two have
 separate control budgets; Recorder repair creates one fresh successor chain and
-can never recurse. The runner POSTs an exact action once, then treats
-authenticated GET as the only authority for completion, ambiguity, exhaustion,
-and successor stages. Semantic Regenerate and Replan remain separate actions
-and counters. Exact ordinary or adult prose is never copied into qualification
-evidence.
+can never recurse. Automatic behavior is GET-only. After one exact external
+per-action authorization, the runner revalidates by GET, consumes the approval,
+POSTs once, and treats authenticated GET as the only later authority. Semantic
+Regenerate and Replan remain separate actions and counters. Exact ordinary or
+adult prose is never copied into qualification evidence.
 """
 
 from __future__ import annotations
@@ -28,6 +28,7 @@ from enum import StrEnum
 from math import ceil
 from pathlib import Path
 from statistics import median
+from types import MappingProxyType
 from typing import Any, Protocol, cast
 
 from cera.errors import ContractValidationError, StateConflictError
@@ -44,6 +45,7 @@ from cera.generated.provider_stage_retry_contracts_v1 import (
     validate_provider_stage_retry_action_v1,
     validate_provider_stage_retry_status_envelope_v1,
 )
+from cera.provider_dispatch_guard import provider_dispatch_disabled
 from cera.serialization import (
     bytes_sha256,
     canonical_bytes,
@@ -104,6 +106,7 @@ MANUAL_PROVIDER_STAGE_RETRY_POLICY: Mapping[str, Any] = {
     "recording_repair_successor_maximum_retry_actions": 2,
     "recursive_recording_repair": False,
     "automatic": False,
+    "external_authorization_required": True,
     "fallback": False,
     "model_substitution": False,
     "whole_request_replay": False,
@@ -146,6 +149,8 @@ QUALIFICATION_ACTION_BUDGETS: Mapping[str, Any] = {
     "semantic_regenerate": {
         "authority_scope": "review_candidate",
         "maximum_explicit_actions_per_rejected_first_pass": 1,
+        "automatic": False,
+        "external_authorization_required": True,
     },
     "replan": {
         "authority_scope": "accepted_generation",
@@ -158,6 +163,7 @@ QUALIFICATION_ACTION_BUDGETS: Mapping[str, Any] = {
         "maximum_successor_retry_actions": 2,
         "recursive_repair": False,
         "automatic": False,
+        "external_authorization_required": True,
         "separate_from_provider_retry": True,
     },
 }
@@ -195,6 +201,10 @@ QUALIFICATION_EXECUTION_POLICY: Mapping[str, Any] = {
     "action_budgets": deepcopy(QUALIFICATION_ACTION_BUDGETS),
     "complete_generation_ceilings": deepcopy(QUALIFICATION_COMPLETE_GENERATION_CEILINGS),
     "automatic_retry": False,
+    "automatic_behavior": "authenticated_get_only",
+    "provider_bearing_manual_actions_require_exact_external_authorization": True,
+    "external_manual_action_receipt_custody": "hash_only",
+    "provider_free_simulation_requires_dispatch_disabled": True,
     "manual_provider_stage_retry": dict(MANUAL_PROVIDER_STAGE_RETRY_POLICY),
     "fallback": False,
     "model_substitution": False,
@@ -235,6 +245,14 @@ class _CriticalProviderStageError(StateConflictError):
         super().__init__(f"qualification stopped at provider-stage state {terminal_state}")
 
 
+class ManualActionRequiredError(StateConflictError):
+    """Live qualification paused before one provider-bearing manual action."""
+
+    def __init__(self, checkpoint_sha256: str) -> None:
+        self.checkpoint_sha256 = checkpoint_sha256
+        super().__init__("qualification requires one externally authorized manual action")
+
+
 @dataclass(frozen=True, slots=True)
 class QualificationFixtureV1:
     fixture_id: str
@@ -265,6 +283,251 @@ class QualificationFixtureV1:
 
 
 @dataclass(frozen=True, slots=True)
+class QualificationManualActionRequestV1:
+    """In-memory exact authority plus its hash-only persistent projection."""
+
+    qualification_id: str
+    phase: QualificationPhase
+    turn_index: int
+    fixture_id: str
+    action_family: str
+    action_kind: str
+    action_id: str
+    exact_action: Mapping[str, Any]
+    authority_sha256: str
+    chain_id: str | None = None
+    review_id: str | None = None
+    candidate_sha256: str | None = None
+    stage: str | None = None
+    provider: str | None = None
+    model_family: str | None = None
+    retry_action_ordinal: int | None = None
+
+    SCHEMA_VERSION = "cera.pi_scene.qualification_manual_action_required.v1"
+
+    def __post_init__(self) -> None:
+        family_kinds = {
+            "provider_stage_control": {
+                "provider_retry",
+                "resume_prepared",
+                "repair_recording",
+            },
+            "semantic_regenerate": {"regenerate"},
+            "recording_repair": {"repair_recording"},
+        }
+        if self.action_family not in family_kinds:
+            raise ContractValidationError("qualification manual action family changed")
+        if self.action_kind not in family_kinds[self.action_family]:
+            raise ContractValidationError("qualification manual action kind changed")
+        if type(self.turn_index) is not int or self.turn_index < 1:
+            raise ContractValidationError("qualification manual action turn changed")
+        if not self.qualification_id or not self.fixture_id or not self.action_id:
+            raise ContractValidationError("qualification manual action identity is incomplete")
+        if not isinstance(self.exact_action, Mapping) or not self.exact_action:
+            raise ContractValidationError("qualification manual action body is incomplete")
+        normalized_action = dict(self.exact_action)
+        if any(isinstance(value, (Mapping, list, tuple)) for value in normalized_action.values()):
+            raise ContractValidationError("qualification manual action body is not closed")
+        object.__setattr__(self, "exact_action", MappingProxyType(normalized_action))
+        if not re_is_sha256(self.authority_sha256):
+            raise ContractValidationError("qualification manual authority hash is invalid")
+        if self.candidate_sha256 is not None and not re_is_sha256(self.candidate_sha256):
+            raise ContractValidationError("qualification manual candidate hash is invalid")
+        if self.action_family == "provider_stage_control":
+            if self.chain_id is None or self.review_id is not None:
+                raise ContractValidationError("provider-stage manual action lost its chain")
+            try:
+                generated_action = validate_provider_stage_retry_action_v1(normalized_action)
+            except ContractValidationError as exc:
+                raise ContractValidationError(
+                    "provider-stage manual action failed generated validation"
+                ) from exc
+            if (
+                generated_action["action_family"] != self.action_family
+                or generated_action["action_kind"] != self.action_kind
+                or generated_action["action_id"] != self.action_id
+                or generated_action["chain_id"] != self.chain_id
+                or generated_action["retry_action_ordinal"] != self.retry_action_ordinal
+                or not all(
+                    isinstance(value, str) and value.strip()
+                    for value in (self.stage, self.provider, self.model_family)
+                )
+            ):
+                raise ContractValidationError(
+                    "provider-stage manual action body changed its bound identity"
+                )
+        elif self.chain_id is not None or self.review_id is None or self.candidate_sha256 is None:
+            raise ContractValidationError("review manual action lost its exclusive identity")
+        elif normalized_action != {"action": self.action_kind}:
+            raise ContractValidationError("review manual action body changed")
+        elif self.action_id != "review-action-" + text_sha256(
+            f"{self.review_id}:{self.candidate_sha256}:{self.action_kind}"
+        ) or any(
+            value is not None
+            for value in (
+                self.stage,
+                self.provider,
+                self.model_family,
+                self.retry_action_ordinal,
+            )
+        ):
+            raise ContractValidationError("review manual action identity changed")
+
+    @property
+    def exact_action_sha256(self) -> str:
+        return canonical_sha256(self.exact_action)
+
+    def binding_projection(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.SCHEMA_VERSION,
+            "qualification_id_sha256": text_sha256(self.qualification_id),
+            "phase": self.phase.value,
+            "turn_index": self.turn_index,
+            "fixture_id_sha256": text_sha256(self.fixture_id),
+            "action_family": self.action_family,
+            "action_kind": self.action_kind,
+            "action_id_sha256": text_sha256(self.action_id),
+            "exact_action_sha256": self.exact_action_sha256,
+            "chain_id_sha256": (None if self.chain_id is None else text_sha256(self.chain_id)),
+            "review_id_sha256": (None if self.review_id is None else text_sha256(self.review_id)),
+            "candidate_sha256": self.candidate_sha256,
+            "authority_sha256": self.authority_sha256,
+            "stage": self.stage,
+            "provider": self.provider,
+            "model_family": self.model_family,
+            "retry_action_ordinal": self.retry_action_ordinal,
+        }
+
+    @property
+    def checkpoint_sha256(self) -> str:
+        return canonical_sha256(self.binding_projection())
+
+    def pending_projection(self) -> dict[str, Any]:
+        return {
+            **self.binding_projection(),
+            "status": "manual_action_required",
+            "checkpoint_sha256": self.checkpoint_sha256,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class QualificationManualActionAuthorizationV1:
+    """One external per-action approval retained only for exact comparison."""
+
+    checkpoint_sha256: str
+    phase: QualificationPhase
+    turn_index: int
+    action_family: str
+    action_kind: str
+    action_id: str
+    exact_action_sha256: str
+    authority_sha256: str
+    chain_id: str | None
+    review_id: str | None
+    candidate_sha256: str | None
+    stage: str | None
+    provider: str | None
+    model_family: str | None
+    retry_action_ordinal: int | None
+    authorization_source: str
+    authorization_id: str
+
+    def __post_init__(self) -> None:
+        if self.authorization_source not in {
+            "external_manual_receipt",
+            "provider_free_simulation",
+        }:
+            raise ContractValidationError("qualification authorization source changed")
+        if not self.authorization_id.strip():
+            raise ContractValidationError("qualification authorization identity is empty")
+
+    @classmethod
+    def approve(
+        cls,
+        request: QualificationManualActionRequestV1,
+        *,
+        authorization_source: str,
+        authorization_id: str,
+    ) -> QualificationManualActionAuthorizationV1:
+        return cls(
+            checkpoint_sha256=request.checkpoint_sha256,
+            phase=request.phase,
+            turn_index=request.turn_index,
+            action_family=request.action_family,
+            action_kind=request.action_kind,
+            action_id=request.action_id,
+            exact_action_sha256=request.exact_action_sha256,
+            authority_sha256=request.authority_sha256,
+            chain_id=request.chain_id,
+            review_id=request.review_id,
+            candidate_sha256=request.candidate_sha256,
+            stage=request.stage,
+            provider=request.provider,
+            model_family=request.model_family,
+            retry_action_ordinal=request.retry_action_ordinal,
+            authorization_source=authorization_source,
+            authorization_id=authorization_id,
+        )
+
+
+class QualificationManualActionAuthorizer(Protocol):
+    def authorize(
+        self,
+        request: QualificationManualActionRequestV1,
+    ) -> QualificationManualActionAuthorizationV1 | None: ...
+
+    def mark_consumed(
+        self,
+        request: QualificationManualActionRequestV1,
+        authorization: QualificationManualActionAuthorizationV1,
+    ) -> None: ...
+
+
+def _validate_manual_action_authorization(
+    request: QualificationManualActionRequestV1,
+    authorization: QualificationManualActionAuthorizationV1,
+) -> None:
+    expected = (
+        request.checkpoint_sha256,
+        request.phase,
+        request.turn_index,
+        request.action_family,
+        request.action_kind,
+        request.action_id,
+        request.exact_action_sha256,
+        request.authority_sha256,
+        request.chain_id,
+        request.review_id,
+        request.candidate_sha256,
+        request.stage,
+        request.provider,
+        request.model_family,
+        request.retry_action_ordinal,
+    )
+    observed = (
+        authorization.checkpoint_sha256,
+        authorization.phase,
+        authorization.turn_index,
+        authorization.action_family,
+        authorization.action_kind,
+        authorization.action_id,
+        authorization.exact_action_sha256,
+        authorization.authority_sha256,
+        authorization.chain_id,
+        authorization.review_id,
+        authorization.candidate_sha256,
+        authorization.stage,
+        authorization.provider,
+        authorization.model_family,
+        authorization.retry_action_ordinal,
+    )
+    if observed != expected:
+        raise StateConflictError("qualification manual authorization binding changed")
+    if not authorization.authorization_source.strip() or not authorization.authorization_id.strip():
+        raise StateConflictError("qualification manual authorization identity is incomplete")
+
+
+@dataclass(frozen=True, slots=True)
 class ClientResponseV1:
     """One observed HTTP operation without persisting response prose."""
 
@@ -288,6 +551,9 @@ class RejectionReviewV1:
     """One noncritical first-pass rejection eligible for a user Regenerate."""
 
     review_id: str
+    candidate_id: str
+    candidate_sha256: str | None
+    authority_sha256: str
     conflict_sha256: str
     provider_operations: Mapping[str, int]
     projection: Mapping[str, Any]
@@ -500,11 +766,82 @@ class FullModelQualificationRunner:
         manifest: Mapping[str, Any],
         runtime_root: Path,
         evidence_root: Path,
+        manual_action_authorizer: QualificationManualActionAuthorizer | None = None,
     ) -> None:
         validate_qualification_manifest(manifest)
         self.manifest = dict(manifest)
         self.runtime_root = runtime_root.resolve()
         self.evidence = QualificationEvidenceStore(evidence_root.resolve())
+        self.manual_action_authorizer = manual_action_authorizer
+
+    def authorize_manual_action(
+        self,
+        request: QualificationManualActionRequestV1,
+    ) -> QualificationManualActionAuthorizationV1:
+        pending = request.pending_projection()
+        self.evidence.append(
+            {
+                **pending,
+                "event": "manual_action_required",
+            }
+        )
+        authorizer = self.manual_action_authorizer
+        if authorizer is None:
+            raise ManualActionRequiredError(request.checkpoint_sha256)
+        authorization = authorizer.authorize(request)
+        if authorization is None:
+            raise ManualActionRequiredError(request.checkpoint_sha256)
+        _validate_manual_action_authorization(request, authorization)
+        if (
+            authorization.authorization_source == "provider_free_simulation"
+            and not provider_dispatch_disabled()
+        ):
+            raise StateConflictError(
+                "simulated manual authorization requires provider dispatch to be disabled"
+            )
+        self.evidence.append(
+            {
+                **pending,
+                "event": "externally_authorized_manual_action",
+                "status": "externally_authorized",
+                "authorization_source": authorization.authorization_source,
+                "authorization_id_sha256": text_sha256(authorization.authorization_id),
+            }
+        )
+        return authorization
+
+    def consume_manual_action(
+        self,
+        request: QualificationManualActionRequestV1,
+        authorization: QualificationManualActionAuthorizationV1,
+    ) -> None:
+        _validate_manual_action_authorization(request, authorization)
+        if (
+            authorization.authorization_source == "provider_free_simulation"
+            and not provider_dispatch_disabled()
+        ):
+            raise StateConflictError(
+                "simulated manual authorization lost the provider-dispatch guard"
+            )
+        authorizer = self.manual_action_authorizer
+        if authorizer is None:
+            raise ManualActionRequiredError(request.checkpoint_sha256)
+        marker = getattr(authorizer, "mark_consumed", None)
+        if callable(marker):
+            marker(request, authorization)
+        elif authorization.authorization_source != "provider_free_simulation":
+            raise StateConflictError(
+                "external manual authorizer cannot consume an exact authorization"
+            )
+        self.evidence.append(
+            {
+                **request.pending_projection(),
+                "event": "externally_authorized_manual_action_revalidated",
+                "status": "consumed_for_one_dispatch",
+                "authorization_source": authorization.authorization_source,
+                "authorization_id_sha256": text_sha256(authorization.authorization_id),
+            }
+        )
 
     def run_phase(
         self,
@@ -562,6 +899,9 @@ class QualificationCampaignRun:
         self.provider_stage_repair_recording_actions = 0
         self.provider_stage_retry_chains = 0
         self.provider_stage_retry_terminal_critical_failures = 0
+        self.externally_authorized_manual_actions = 0
+        self.semantic_regenerate_actions = 0
+        self.review_recording_repair_actions = 0
         self.restart_count = 0
 
     def run_segment(
@@ -585,6 +925,14 @@ class QualificationCampaignRun:
         for offset in range(self.next_index, stop):
             fixture = self.fixtures[offset]
             turn_index = offset + 1
+            externally_authorized_before = self.externally_authorized_manual_actions
+            semantic_regenerate_before = self.semantic_regenerate_actions
+            review_recording_repair_before = self.review_recording_repair_actions
+            provider_stage_control_before = (
+                self.provider_stage_retry_actions
+                + self.provider_stage_resume_prepared_actions
+                + self.provider_stage_repair_recording_actions
+            )
             before = ProviderLedgerSnapshotV1.load(segment_root)
             request_messages = [*self.history, {"role": "user", "content": fixture.user_source}]
             payload = qualification_request_payload(
@@ -629,6 +977,10 @@ class QualificationCampaignRun:
                         runtime_root=segment_root,
                         before=before,
                         initial_response=initial_response,
+                        externally_authorized_before=externally_authorized_before,
+                        semantic_regenerate_before=semantic_regenerate_before,
+                        review_recording_repair_before=review_recording_repair_before,
+                        provider_stage_control_before=provider_stage_control_before,
                         resolutions=[*retry_resolutions, retry_resolution],
                     )
                     break
@@ -665,6 +1017,10 @@ class QualificationCampaignRun:
                             runtime_root=segment_root,
                             before=before,
                             initial_response=initial_response,
+                            externally_authorized_before=externally_authorized_before,
+                            semantic_regenerate_before=semantic_regenerate_before,
+                            review_recording_repair_before=review_recording_repair_before,
+                            provider_stage_control_before=provider_stage_control_before,
                             resolutions=[
                                 *retry_resolutions,
                                 *first_join.retry_resolutions,
@@ -690,15 +1046,39 @@ class QualificationCampaignRun:
                                 "provider_operations": first.provider_operations,
                             }
                         )
-                        regeneration = client.regenerate(
+                        review_http_duration_ms += self._authorize_ordinary_review_action(
                             fixture=fixture,
-                            review_id=first.review_id,
+                            turn_index=turn_index,
+                            client=client,
+                            provisional=initial_provisional,
+                            review=first_join.review,
+                            action_kind="regenerate",
+                            action_family="semantic_regenerate",
                         )
-                        regeneration_http_duration_ms = regeneration.duration_ms
+                        self.semantic_regenerate_actions += 1
+                        regenerate_post_failure: Exception | None = None
+                        try:
+                            regeneration = client.regenerate(
+                                fixture=fixture,
+                                review_id=first.review_id,
+                            )
+                            regeneration_http_duration_ms += regeneration.duration_ms
+                        except Exception as exc:
+                            # The POST may have reached the backend. Never replay it;
+                            # ordinary v2 exposes the exact terminal transition by GET.
+                            regenerate_post_failure = exc
+                            regeneration, reconciliation_duration_ms = (
+                                self._reconcile_lost_ordinary_regenerate(
+                                    fixture=fixture,
+                                    client=client,
+                                    review=first_join.review,
+                                )
+                            )
+                            regeneration_http_duration_ms += reconciliation_duration_ms
                         self.parent.evidence.append(
                             {
                                 "schema_version": "cera.pi_scene.qualification_http_event.v1",
-                                "event": "explicit_user_regenerate_completed",
+                                "event": "externally_authorized_regenerate_observed",
                                 "fixture_id": fixture.fixture_id,
                                 "phase": self.phase.value,
                                 "turn_index": turn_index,
@@ -707,6 +1087,7 @@ class QualificationCampaignRun:
                                 "status_code": regeneration.status_code,
                                 "duration_ms": regeneration.duration_ms,
                                 "response_sha256": canonical_sha256(regeneration.body),
+                                "post_response_lost": regenerate_post_failure is not None,
                             }
                         )
                         decision_response = regeneration
@@ -728,6 +1109,10 @@ class QualificationCampaignRun:
                                 runtime_root=segment_root,
                                 before=before,
                                 initial_response=regeneration,
+                                externally_authorized_before=externally_authorized_before,
+                                semantic_regenerate_before=semantic_regenerate_before,
+                                review_recording_repair_before=review_recording_repair_before,
+                                provider_stage_control_before=provider_stage_control_before,
                                 resolutions=[
                                     *retry_resolutions,
                                     regeneration_retry,
@@ -738,6 +1123,17 @@ class QualificationCampaignRun:
                             assert regeneration_retry.completion_response is not None
                             retry_resolutions.append(regeneration_retry)
                             decision_response = regeneration_retry.completion_response
+                        terminal_regeneration = client.terminal_review_decision(
+                            review_id=first.review_id
+                        )
+                        regeneration_http_duration_ms += terminal_regeneration.duration_ms
+                        if terminal_regeneration.status_code != 200 or canonical_sha256(
+                            terminal_regeneration.body
+                        ) != canonical_sha256(decision_response.body):
+                            raise StateConflictError(
+                                "ordinary Regenerate terminal decision changed after dispatch"
+                            )
+                        decision_response = terminal_regeneration
                         successor_provisional = _validate_ordinary_regenerate_response(
                             fixture,
                             decision_response,
@@ -758,6 +1154,10 @@ class QualificationCampaignRun:
                                 runtime_root=segment_root,
                                 before=before,
                                 initial_response=regeneration,
+                                externally_authorized_before=externally_authorized_before,
+                                semantic_regenerate_before=semantic_regenerate_before,
+                                review_recording_repair_before=review_recording_repair_before,
+                                provider_stage_control_before=provider_stage_control_before,
                                 resolutions=[
                                     *retry_resolutions,
                                     *successor_join.retry_resolutions,
@@ -801,15 +1201,42 @@ class QualificationCampaignRun:
                                 "provider_operations": first.provider_operations,
                             }
                         )
-                        regeneration = client.regenerate(
+                        review_http_duration_ms += self._authorize_adult_regenerate(
                             fixture=fixture,
-                            review_id=first.review_id,
+                            turn_index=turn_index,
+                            client=client,
+                            rejection=first,
                         )
-                        regeneration_http_duration_ms = regeneration.duration_ms
+                        self.semantic_regenerate_actions += 1
+                        try:
+                            regeneration = client.regenerate(
+                                fixture=fixture,
+                                review_id=first.review_id,
+                            )
+                            regeneration_http_duration_ms += regeneration.duration_ms
+                        except Exception as exc:
+                            # Adult review.v1 has no terminal successor-decision GET.
+                            # Re-read only to classify the ambiguity, never to replay.
+                            try:
+                                ambiguous_review = client.review(review_id=first.review_id)
+                                regeneration_http_duration_ms += ambiguous_review.duration_ms
+                                _validate_adult_rejection_review_authority(
+                                    ambiguous_review,
+                                    rejection=first,
+                                )
+                            except Exception as reconciliation_exc:
+                                raise StateConflictError(
+                                    "adult Regenerate response was lost after an authority "
+                                    "transition; action was not replayed"
+                                ) from reconciliation_exc
+                            raise StateConflictError(
+                                "adult Regenerate response was lost with unchanged authority; "
+                                "action was not replayed"
+                            ) from exc
                         self.parent.evidence.append(
                             {
                                 "schema_version": ("cera.pi_scene.qualification_http_event.v1"),
-                                "event": "explicit_user_regenerate_completed",
+                                "event": "externally_authorized_regenerate_observed",
                                 "fixture_id": fixture.fixture_id,
                                 "phase": self.phase.value,
                                 "turn_index": turn_index,
@@ -838,6 +1265,10 @@ class QualificationCampaignRun:
                                 runtime_root=segment_root,
                                 before=before,
                                 initial_response=regeneration,
+                                externally_authorized_before=externally_authorized_before,
+                                semantic_regenerate_before=semantic_regenerate_before,
+                                review_recording_repair_before=review_recording_repair_before,
+                                provider_stage_control_before=provider_stage_control_before,
                                 resolutions=[*retry_resolutions, regeneration_retry],
                             )
                             break
@@ -916,6 +1347,29 @@ class QualificationCampaignRun:
                             **operation,
                         }
                     )
+                provider_stage_control_actions = (
+                    self.provider_stage_retry_actions
+                    + self.provider_stage_resume_prepared_actions
+                    + self.provider_stage_repair_recording_actions
+                    - provider_stage_control_before
+                )
+                explicit_regenerate_actions = (
+                    self.semantic_regenerate_actions - semantic_regenerate_before
+                )
+                review_recording_repair_actions = (
+                    self.review_recording_repair_actions - review_recording_repair_before
+                )
+                externally_authorized_manual_actions = (
+                    self.externally_authorized_manual_actions - externally_authorized_before
+                )
+                if externally_authorized_manual_actions != (
+                    provider_stage_control_actions
+                    + explicit_regenerate_actions
+                    + review_recording_repair_actions
+                ):
+                    raise StateConflictError(
+                        "qualification external manual-action accounting diverged"
+                    )
                 result = {
                     "fixture_id": fixture.fixture_id,
                     "phase": self.phase.value,
@@ -929,7 +1383,9 @@ class QualificationCampaignRun:
                     "source_sha256": text_sha256(fixture.user_source),
                     "status": "passed",
                     "first_pass_accepted": first_pass,
-                    "explicit_regenerate_actions": (0 if regeneration is None else 1),
+                    "explicit_regenerate_actions": explicit_regenerate_actions,
+                    "review_recording_repair_actions": review_recording_repair_actions,
+                    "externally_authorized_manual_actions": (externally_authorized_manual_actions),
                     "provider_stage_retry_actions": sum(
                         value.retry_action_count for value in retry_resolutions
                     ),
@@ -939,10 +1395,9 @@ class QualificationCampaignRun:
                     "provider_stage_repair_recording_actions": sum(
                         value.repair_recording_action_count for value in retry_resolutions
                     ),
-                    "provider_stage_control_actions": sum(
-                        len(value.actions) for value in retry_resolutions
-                    ),
+                    "provider_stage_control_actions": provider_stage_control_actions,
                     "automatic_provider_stage_control_actions": 0,
+                    "automatic_manual_actions": 0,
                     "provider_stage_retry_chains": retry_chains,
                     "automatic_repair_actions": projection["automatic_repair_actions"],
                     "initial_http_response_sha256": canonical_sha256(initial_response.body),
@@ -983,6 +1438,21 @@ class QualificationCampaignRun:
                 self.provider_operation_records.extend(failed_operation_records)
                 if planner_latency is None:
                     planner_latency = self._planner_latency_observations(failed_operation_records)
+                failed_provider_stage_control_actions = (
+                    self.provider_stage_retry_actions
+                    + self.provider_stage_resume_prepared_actions
+                    + self.provider_stage_repair_recording_actions
+                    - provider_stage_control_before
+                )
+                failed_explicit_regenerate_actions = (
+                    self.semantic_regenerate_actions - semantic_regenerate_before
+                )
+                failed_review_recording_repair_actions = (
+                    self.review_recording_repair_actions - review_recording_repair_before
+                )
+                failed_external_actions = (
+                    self.externally_authorized_manual_actions - externally_authorized_before
+                )
                 failed = {
                     "fixture_id": fixture.fixture_id,
                     "phase": self.phase.value,
@@ -994,6 +1464,12 @@ class QualificationCampaignRun:
                     "source_sha256": text_sha256(fixture.user_source),
                     "status": "failed",
                     **_closed_failure_projection(exc),
+                    "explicit_regenerate_actions": failed_explicit_regenerate_actions,
+                    "review_recording_repair_actions": (failed_review_recording_repair_actions),
+                    "provider_stage_control_actions": (failed_provider_stage_control_actions),
+                    "externally_authorized_manual_actions": failed_external_actions,
+                    "automatic_provider_stage_control_actions": 0,
+                    "automatic_manual_actions": 0,
                     "sol_operations_observed": delta.sol_transport_operations,
                     "sol_charged_operations_observed": delta.sol_charged_operations,
                     "deepseek_operations_observed": delta.deepseek_started_operations,
@@ -1031,6 +1507,7 @@ class QualificationCampaignRun:
         runtime_root: Path,
         before: ProviderLedgerSnapshotV1,
         response: ClientResponseV1,
+        candidate_sha256: str | None = None,
     ) -> ProviderStageRetryResolutionV1 | None:
         initial = _provider_stage_retry_envelope(response)
         if initial is None:
@@ -1181,6 +1658,57 @@ class QualificationCampaignRun:
                     raise StateConflictError(
                         "qualification backend re-exposed an already POSTed action"
                     )
+
+                manual_request = QualificationManualActionRequestV1(
+                    qualification_id=str(self.parent.manifest["qualification_id"]),
+                    phase=self.phase,
+                    turn_index=turn_index,
+                    fixture_id=fixture.fixture_id,
+                    action_family="provider_stage_control",
+                    action_kind=expected_action_kind,
+                    action_id=action["action_id"],
+                    exact_action=dict(action),
+                    authority_sha256=canonical_sha256(pre_envelope),
+                    chain_id=chain_id,
+                    candidate_sha256=candidate_sha256,
+                    stage=cast(str, pre_status["stage"]),
+                    provider=cast(str, pre_status["provider"]),
+                    model_family=cast(str, pre_status["model_family"]),
+                    retry_action_ordinal=ordinal,
+                )
+                authorization = self.parent.authorize_manual_action(manual_request)
+
+                # External approval is per exact action, not standing Retry
+                # authority. Re-read immediately before dispatch and reject a
+                # stale approval instead of adapting it or posting a successor.
+                authorized_response = status_reader(chain_id=chain_id)
+                total_duration_ms += authorized_response.duration_ms
+                authorized_envelope = _provider_stage_retry_envelope(authorized_response)
+                if authorized_envelope is None:
+                    raise StateConflictError(
+                        "qualification manual provider-stage authority disappeared"
+                    )
+                authorized_status = _remember_provider_stage_envelope(
+                    authorized_envelope,
+                    request_sha256=request_sha256,
+                    expected_route=fixture.expected_route,
+                    observations=envelopes,
+                    chain_ids=chain_ids,
+                    chain_bindings=chain_bindings,
+                    maximum_chains=maximum_chains,
+                )
+                authorized_actions = authorized_envelope["actions"]
+                if (
+                    canonical_sha256(authorized_envelope) != canonical_sha256(pre_envelope)
+                    or authorized_status["chain_id"] != chain_id
+                    or len(authorized_actions) != 1
+                    or dict(authorized_actions[0]) != dict(action)
+                ):
+                    raise StateConflictError(
+                        "qualification manual provider-stage authority changed before dispatch"
+                    )
+                self.parent.consume_manual_action(manual_request, authorization)
+                self.externally_authorized_manual_actions += 1
 
                 # Advance the local one-shot boundary before POST. If delivery
                 # is ambiguous, this exact action identity is never sent again.
@@ -1374,6 +1902,7 @@ class QualificationCampaignRun:
                     runtime_root=runtime_root,
                     before=before,
                     response=lane_response,
+                    candidate_sha256=provisional.candidate_sha256,
                 )
                 if retry is None:
                     raise StateConflictError(
@@ -1421,12 +1950,28 @@ class QualificationCampaignRun:
                 if actions.get("repair_recording_enabled") is True:
                     if recorder_repair_posted:
                         raise StateConflictError("qualification Recorder repair authority recurred")
-                    recorder_repair_posted = True
-                    repair_response = review_action(
+                    total_duration_ms += self._authorize_ordinary_review_action(
                         fixture=fixture,
-                        review_id=provisional.review_id,
-                        action={"action": "repair_recording"},
+                        turn_index=turn_index,
+                        client=client,
+                        provisional=provisional,
+                        review=review,
+                        action_kind="repair_recording",
+                        action_family="recording_repair",
                     )
+                    recorder_repair_posted = True
+                    self.review_recording_repair_actions += 1
+                    try:
+                        repair_response = review_action(
+                            fixture=fixture,
+                            review_id=provisional.review_id,
+                            action={"action": "repair_recording"},
+                        )
+                    except Exception:
+                        # Delivery is ambiguous. The action identity is consumed
+                        # locally and the joined review GET is the only recovery.
+                        current_response = None
+                        continue
                     total_duration_ms += repair_response.duration_ms
                     retry = self._resolve_manual_provider_stage_retry(
                         fixture=fixture,
@@ -1435,6 +1980,7 @@ class QualificationCampaignRun:
                         runtime_root=runtime_root,
                         before=before,
                         response=repair_response,
+                        candidate_sha256=provisional.candidate_sha256,
                     )
                     if retry is not None:
                         retry_resolutions.append(retry)
@@ -1471,6 +2017,143 @@ class QualificationCampaignRun:
             time.sleep(PROVIDER_STAGE_RETRY_STATUS_POLL_SECONDS)
             current_response = None
 
+    def _reconcile_lost_ordinary_regenerate(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        client: QualificationClient,
+        review: OrdinaryReviewV2,
+    ) -> tuple[ClientResponseV1, int]:
+        started = time.monotonic()
+        total_duration_ms = 0
+        last_failure: Exception | None = None
+        while True:
+            try:
+                response = client.terminal_review_decision(review_id=review["review_id"])
+            except Exception as exc:
+                last_failure = exc
+            else:
+                total_duration_ms += response.duration_ms
+                if response.status_code == 200:
+                    _validate_ordinary_regenerate_response(
+                        fixture,
+                        response,
+                        predecessor=review,
+                    )
+                    return response, total_duration_ms
+                if response.status_code not in {404, 409}:
+                    raise StateConflictError(
+                        "ordinary Regenerate terminal reconciliation returned "
+                        f"HTTP {response.status_code}; action was not replayed"
+                    )
+                last_failure = StateConflictError(
+                    "ordinary Regenerate terminal decision is not durable yet"
+                )
+            if time.monotonic() - started >= PROVIDER_STAGE_RETRY_STATUS_TIMEOUT_SECONDS:
+                raise StateConflictError(
+                    "ordinary Regenerate response was lost and its terminal decision "
+                    "did not become durable; action was not replayed"
+                ) from last_failure
+            time.sleep(PROVIDER_STAGE_RETRY_STATUS_POLL_SECONDS)
+
+    def _authorize_ordinary_review_action(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        turn_index: int,
+        client: QualificationClient,
+        provisional: OrdinaryProvisionalCompletionV1,
+        review: OrdinaryReviewV2,
+        action_kind: str,
+        action_family: str,
+    ) -> int:
+        actions = cast(Mapping[str, Any], review["actions"])
+        enabled_field = (
+            "regenerate_enabled" if action_kind == "regenerate" else "repair_recording_enabled"
+        )
+        if actions.get(enabled_field) is not True:
+            raise StateConflictError("qualification review action is not currently authorized")
+        exact_action = {"action": action_kind}
+        action_id = "review-action-" + text_sha256(
+            f"{review['review_id']}:{review['candidate_sha256']}:{action_kind}"
+        )
+        request = QualificationManualActionRequestV1(
+            qualification_id=str(self.parent.manifest["qualification_id"]),
+            phase=self.phase,
+            turn_index=turn_index,
+            fixture_id=fixture.fixture_id,
+            action_family=action_family,
+            action_kind=action_kind,
+            action_id=action_id,
+            exact_action=exact_action,
+            authority_sha256=canonical_sha256(review),
+            review_id=review["review_id"],
+            candidate_sha256=review["candidate_sha256"],
+        )
+        authorization = self.parent.authorize_manual_action(request)
+        refreshed_response = client.review(review_id=review["review_id"])
+        refreshed = _validate_ordinary_review_response(
+            fixture,
+            refreshed_response,
+            provisional=provisional,
+        )
+        refreshed_actions = cast(Mapping[str, Any], refreshed["actions"])
+        if (
+            canonical_sha256(refreshed) != request.authority_sha256
+            or refreshed_actions.get(enabled_field) is not True
+        ):
+            raise StateConflictError(
+                "qualification manual review authority changed before dispatch"
+            )
+        self.parent.consume_manual_action(request, authorization)
+        self.externally_authorized_manual_actions += 1
+        return refreshed_response.duration_ms
+
+    def _authorize_adult_regenerate(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        turn_index: int,
+        client: QualificationClient,
+        rejection: RejectionReviewV1,
+    ) -> int:
+        initial_response = client.review(review_id=rejection.review_id)
+        initial = _validate_adult_rejection_review_authority(
+            initial_response,
+            rejection=rejection,
+        )
+        candidate_sha256 = cast(str, initial["candidate_sha256"])
+        action = {"action": "regenerate"}
+        request = QualificationManualActionRequestV1(
+            qualification_id=str(self.parent.manifest["qualification_id"]),
+            phase=self.phase,
+            turn_index=turn_index,
+            fixture_id=fixture.fixture_id,
+            action_family="semantic_regenerate",
+            action_kind="regenerate",
+            action_id=(
+                "review-action-"
+                + text_sha256(f"{rejection.review_id}:{candidate_sha256}:regenerate")
+            ),
+            exact_action=action,
+            authority_sha256=canonical_sha256(initial),
+            review_id=rejection.review_id,
+            candidate_sha256=candidate_sha256,
+        )
+        authorization = self.parent.authorize_manual_action(request)
+        refreshed_response = client.review(review_id=rejection.review_id)
+        refreshed = _validate_adult_rejection_review_authority(
+            refreshed_response,
+            rejection=rejection,
+        )
+        if canonical_sha256(refreshed) != request.authority_sha256:
+            raise StateConflictError(
+                "qualification adult manual review authority changed before dispatch"
+            )
+        self.parent.consume_manual_action(request, authorization)
+        self.externally_authorized_manual_actions += 1
+        return initial_response.duration_ms + refreshed_response.duration_ms
+
     def _record_critical_provider_stage_retry_failure(
         self,
         *,
@@ -1479,6 +2162,10 @@ class QualificationCampaignRun:
         runtime_root: Path,
         before: ProviderLedgerSnapshotV1,
         initial_response: ClientResponseV1,
+        externally_authorized_before: int,
+        semantic_regenerate_before: int,
+        review_recording_repair_before: int,
+        provider_stage_control_before: int,
         resolutions: Sequence[ProviderStageRetryResolutionV1],
     ) -> None:
         if not resolutions:
@@ -1515,6 +2202,19 @@ class QualificationCampaignRun:
             "failure_type": "CriticalProviderStageError",
             "failure_category": f"provider_stage_{terminal_state}",
         }
+        provider_stage_control_actions = (
+            self.provider_stage_retry_actions
+            + self.provider_stage_resume_prepared_actions
+            + self.provider_stage_repair_recording_actions
+            - provider_stage_control_before
+        )
+        explicit_regenerate_actions = self.semantic_regenerate_actions - semantic_regenerate_before
+        review_recording_repair_actions = (
+            self.review_recording_repair_actions - review_recording_repair_before
+        )
+        externally_authorized_manual_actions = (
+            self.externally_authorized_manual_actions - externally_authorized_before
+        )
         failed = {
             "fixture_id": fixture.fixture_id,
             "phase": self.phase.value,
@@ -1526,6 +2226,9 @@ class QualificationCampaignRun:
             "source_sha256": text_sha256(fixture.user_source),
             "status": "failed",
             **failure_identity,
+            "explicit_regenerate_actions": explicit_regenerate_actions,
+            "review_recording_repair_actions": review_recording_repair_actions,
+            "externally_authorized_manual_actions": externally_authorized_manual_actions,
             "failure_sha256": canonical_sha256(failure_identity),
             "critical_provider_stage_failure": dict(critical),
             "provider_stage_retry_actions": sum(value.retry_action_count for value in resolutions),
@@ -1535,10 +2238,11 @@ class QualificationCampaignRun:
             "provider_stage_repair_recording_actions": sum(
                 value.repair_recording_action_count for value in resolutions
             ),
-            "provider_stage_control_actions": sum(len(value.actions) for value in resolutions),
+            "provider_stage_control_actions": provider_stage_control_actions,
             "provider_stage_retry_chains": chains,
             "automatic_provider_stage_retry_actions": 0,
             "automatic_provider_stage_control_actions": 0,
+            "automatic_manual_actions": 0,
             "fallback_used": False,
             "initial_http_response_sha256": canonical_sha256(initial_response.body),
             "latency_ms": initial_response.duration_ms
@@ -1663,6 +2367,19 @@ class QualificationCampaignRun:
         passed = (
             self.failure is None and self.next_index == required and len(self.results) == required
         )
+        provider_stage_control_actions = (
+            self.provider_stage_retry_actions
+            + self.provider_stage_resume_prepared_actions
+            + self.provider_stage_repair_recording_actions
+        )
+        if self.externally_authorized_manual_actions != (
+            provider_stage_control_actions
+            + self.semantic_regenerate_actions
+            + self.review_recording_repair_actions
+        ):
+            raise StateConflictError(
+                "qualification phase external manual-action accounting diverged"
+            )
         result_payload = {
             "schema_version": QUALIFICATION_RESULT_SCHEMA,
             "qualification_id": self.parent.manifest["qualification_id"],
@@ -1677,16 +2394,14 @@ class QualificationCampaignRun:
             "explicit_regenerate_actions": sum(
                 int(value.get("explicit_regenerate_actions", 0)) for value in self.results
             ),
+            "review_recording_repair_actions": self.review_recording_repair_actions,
+            "externally_authorized_manual_actions": (self.externally_authorized_manual_actions),
             "provider_stage_retry_actions": self.provider_stage_retry_actions,
             "provider_stage_resume_prepared_actions": (self.provider_stage_resume_prepared_actions),
             "provider_stage_repair_recording_actions": (
                 self.provider_stage_repair_recording_actions
             ),
-            "provider_stage_control_actions": (
-                self.provider_stage_retry_actions
-                + self.provider_stage_resume_prepared_actions
-                + self.provider_stage_repair_recording_actions
-            ),
+            "provider_stage_control_actions": provider_stage_control_actions,
             "provider_stage_retry_chains": self.provider_stage_retry_chains,
             "provider_stage_retry_chain_actions": sum(
                 int(chain.get("retry_action_count", 0))
@@ -1709,6 +2424,7 @@ class QualificationCampaignRun:
             ),
             "automatic_provider_stage_retry_actions": 0,
             "automatic_provider_stage_control_actions": 0,
+            "automatic_manual_actions": 0,
             "automatic_repair_actions": sum(
                 int(value.get("automatic_repair_actions", 0)) for value in self.results
             ),
@@ -1786,9 +2502,12 @@ class QualificationCampaignRun:
         self.parent.evidence.publish_result(self.phase, result_payload)
         if self.failure is not None:
             failure = _closed_failure_projection(self.failure)
+            checkpoint = failure.get("manual_action_checkpoint_sha256")
+            checkpoint_suffix = "" if checkpoint is None else f" ({checkpoint})"
             raise StateConflictError(
                 "qualification failed at "
                 f"{self.results[-1]['fixture_id']}: {failure['failure_category']}"
+                f"{checkpoint_suffix}"
             ) from None
         if not passed:
             raise StateConflictError("qualification campaign ended before all accepted turns")
@@ -2213,6 +2932,41 @@ def _validate_ordinary_provisional_completion(
     )
 
 
+def _validate_adult_rejection_review_authority(
+    response: ClientResponseV1,
+    *,
+    rejection: RejectionReviewV1,
+) -> Mapping[str, Any]:
+    if response.status_code != 200:
+        raise StateConflictError(f"adult review GET returned HTTP {response.status_code}")
+    review = response.body
+    candidate_sha256 = review.get("candidate_sha256")
+    semantic = review.get("semantic_validation")
+    if (
+        review.get("schema_version") != "cera.pi_scene.review.v1"
+        or review.get("review_id") != rejection.review_id
+        or review.get("state") != "review_ready"
+        or review.get("provisional") is not True
+        or review.get("route") != "adult"
+        or review.get("story_text") is not None
+        or review.get("story_state_committed") is not False
+        or review.get("candidate_id") != rejection.candidate_id
+        or not isinstance(candidate_sha256, str)
+        or not re_is_sha256(candidate_sha256)
+        or review.get("primary_authority_sha256") != rejection.authority_sha256
+        or review.get("regenerate_enabled") is not True
+        or review.get("accept_enabled") is not False
+        or review.get("provisional_accept_enabled") is not False
+        or review.get("replan_enabled") is not False
+        or review.get("repair_recording_enabled") is not False
+        or review.get("operation_state") != "executed-rejected"
+        or not isinstance(semantic, Mapping)
+        or semantic.get("verdict") != "reject"
+    ):
+        raise StateConflictError("adult Regenerate review authority changed")
+    return review
+
+
 def _validate_ordinary_review_response(
     fixture: QualificationFixtureV1,
     response: ClientResponseV1,
@@ -2388,6 +3142,9 @@ def _ordinary_rejection_review(
     }
     return RejectionReviewV1(
         review_id=review["review_id"],
+        candidate_id=review["candidate_id"],
+        candidate_sha256=review["candidate_sha256"],
+        authority_sha256=canonical_sha256(review),
         conflict_sha256=canonical_sha256(failures),
         provider_operations=operations,
         projection=projection,
@@ -2852,14 +3609,35 @@ def _classify_completion_response(
                 regenerated=False,
                 accepted=False,
             )
+            raw_attempts = cera.get("provider_attempts")
+            terminal_attempt = (
+                raw_attempts[-1] if isinstance(raw_attempts, list) and raw_attempts else None
+            )
+            rejection_candidate_id = (
+                terminal_attempt.get("candidate_id")
+                if isinstance(terminal_attempt, Mapping)
+                else None
+            )
+            if not isinstance(rejection_candidate_id, str):
+                raise StateConflictError(
+                    "ordinary rejection candidate identity is unavailable"
+                ) from exc
+            rejection_candidate_sha256 = text_sha256(rejection_candidate_id)
+            rejection_authority_sha256 = canonical_sha256(cera)
         else:
             expected_planner = 1 if fixture.initial_route is QualificationRoute.ORDINARY else 0
+            candidate_id = cera.get("candidate_id")
+            authority_sha256 = cera.get("operation_sha256")
             if (
                 set(operations) != {"planner", "adult_scene", "adult_filter", "recorder"}
                 or operations["planner"] != expected_planner
                 or operations["adult_scene"] < 1
                 or operations["adult_filter"] < 1
                 or operations["recorder"] != 0
+                or not isinstance(candidate_id, str)
+                or not re.fullmatch(r"candidate:adult:[a-f0-9]{32}", candidate_id)
+                or not isinstance(authority_sha256, str)
+                or not re_is_sha256(authority_sha256)
             ):
                 raise StateConflictError(
                     "adult rejection is not one isolated first-pass miss"
@@ -2868,6 +3646,9 @@ def _classify_completion_response(
                 raise StateConflictError(
                     "adult rejection already consumed its automatic repair"
                 ) from exc
+            rejection_candidate_id = candidate_id
+            rejection_candidate_sha256 = None
+            rejection_authority_sha256 = authority_sha256
         projection = {
             "provider_operations": operations,
             "accepted_turn_id": None,
@@ -2880,6 +3661,9 @@ def _classify_completion_response(
         }
         return RejectionReviewV1(
             review_id=review_id,
+            candidate_id=rejection_candidate_id,
+            candidate_sha256=rejection_candidate_sha256,
+            authority_sha256=rejection_authority_sha256,
             conflict_sha256=canonical_sha256(conflict),
             provider_operations=cast(Mapping[str, int], operations),
             projection=projection,
@@ -4103,7 +4887,10 @@ def _duration_ms(
 def _closed_failure_projection(exc: BaseException) -> dict[str, str]:
     """Return an identity-free failure receipt safe for durable evidence."""
 
-    if isinstance(exc, _CriticalProviderStageError):
+    if isinstance(exc, ManualActionRequiredError):
+        failure_type = "ManualActionRequiredError"
+        failure_category = "manual_action_required"
+    elif isinstance(exc, _CriticalProviderStageError):
         failure_type = "CriticalProviderStageError"
         failure_category = f"provider_stage_{exc.terminal_state}"
     elif isinstance(exc, ContractValidationError):
@@ -4128,7 +4915,10 @@ def _closed_failure_projection(exc: BaseException) -> dict[str, str]:
         "failure_type": failure_type,
         "failure_category": failure_category,
     }
-    return {**identity, "failure_sha256": canonical_sha256(identity)}
+    projection = {**identity, "failure_sha256": canonical_sha256(identity)}
+    if isinstance(exc, ManualActionRequiredError):
+        projection["manual_action_checkpoint_sha256"] = exc.checkpoint_sha256
+    return projection
 
 
 def _nonnegative_int(value: object, *, default: int) -> int:
@@ -4150,8 +4940,12 @@ __all__ = [
     "DEEPSEEK_HTTP_OPERATION_CEILING",
     "DEEPSEEK_PER_INVOCATION_CEILING",
     "FullModelQualificationRunner",
+    "ManualActionRequiredError",
     "QualificationClient",
     "QualificationFixtureV1",
+    "QualificationManualActionAuthorizationV1",
+    "QualificationManualActionAuthorizer",
+    "QualificationManualActionRequestV1",
     "QualificationPhase",
     "QualificationRoute",
     "QUALIFICATION_EXECUTION_POLICY",
