@@ -13,6 +13,10 @@ from threading import RLock
 from typing import Any, Protocol
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.generated.provider_stage_retry_contracts_v1 import (
+    ProviderStageRetryStatusEnvelopeV1,
+    validate_provider_stage_retry_status_envelope_v1,
+)
 from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
@@ -39,7 +43,7 @@ from .contracts import (
 )
 from .http_contracts import LeanSceneRequestControlsV1, LeanSceneRequestControlsV2
 from .lineage import LeanAcceptedRegenerationBaseV1
-from .pi_adapter import PiSceneAdapter, PiSceneInvocationV1
+from .pi_adapter import PiSceneAdapter, PiSceneInvocationResultV1, PiSceneInvocationV1
 from .review_store import (
     CreatorGuidanceV1,
     DecisionReplayV1,
@@ -52,6 +56,7 @@ from .review_store import (
 )
 from .semantic_bridge import build_semantic_validation_input
 from .store import (
+    LeanAcceptedHeadV1,
     LeanSceneStore,
     adult_full_record_from_mapping,
     adult_projection_from_mapping,
@@ -129,6 +134,106 @@ class OrdinaryPlannerPort(Protocol):
     def plan(self, request: PlannerTurnInputV1) -> PlannerTurnOutputV1: ...
 
 
+class ProviderStageRetryPendingError(RuntimeError):
+    """Safe generic stage status raised while an ordinary pipeline is paused."""
+
+    def __init__(self, envelope: Mapping[str, Any]) -> None:
+        primitive = to_primitive(envelope)
+        if not isinstance(primitive, dict):
+            raise ContractValidationError("provider-stage Retry envelope must be an object")
+        validated = validate_provider_stage_retry_status_envelope_v1(primitive)
+        status = validated["status"]
+        chain_id = status.get("chain_id")
+        stage = status.get("stage")
+        state = status.get("state")
+        committed = status.get("story_state_committed")
+        if (
+            not isinstance(chain_id, str)
+            or not isinstance(stage, str)
+            or not isinstance(state, str)
+            or type(committed) is not bool
+            or state == "succeeded"
+        ):
+            raise ContractValidationError("provider-stage Retry pending status is invalid")
+        self.envelope: ProviderStageRetryStatusEnvelopeV1 = validated
+        self.chain_id = chain_id
+        self.stage = stage
+        self.state = state
+        self.story_state_committed = committed
+        super().__init__(f"provider stage {stage} is paused in {state} ({chain_id})")
+
+
+@dataclass(frozen=True, slots=True)
+class OrdinaryWriterCandidateOccurrenceV1:
+    """Content-free Writer occurrence reserved from exact request custody."""
+
+    stage_ordinal: int
+    occurrence_sha256: str
+
+    def __post_init__(self) -> None:
+        if type(self.stage_ordinal) is not int or self.stage_ordinal < 1:
+            raise ContractValidationError("Writer candidate occurrence ordinal is invalid")
+        if not re.fullmatch(r"[a-f0-9]{64}", self.occurrence_sha256):
+            raise ContractValidationError("Writer candidate occurrence hash is invalid")
+
+
+class OrdinaryProviderStageRetryPort(Protocol):
+    """Optional stage-local provider authority used by the ordinary pipeline."""
+
+    def run_planner(
+        self,
+        request: PlannerTurnInputV1,
+        *,
+        accepted_state_sha256: str,
+        authority_binding: object,
+    ) -> PlannerTurnOutputV1: ...
+
+    def run_writer(
+        self,
+        invocation: PiSceneInvocationV1,
+        *,
+        candidate_occurrence: OrdinaryWriterCandidateOccurrenceV1,
+        world_id: str,
+        branch_id: str,
+        accepted_state_sha256: str,
+        authority_binding: object,
+    ) -> PiSceneInvocationResultV1: ...
+
+    def reserve_writer_candidate_occurrence(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+        generation: int,
+    ) -> OrdinaryWriterCandidateOccurrenceV1: ...
+
+    def run_semantic_validator(
+        self,
+        request: SemanticValidationRequestV1,
+        custody: SemanticValidationCustodyV1,
+        *,
+        accepted_state_sha256: str,
+        authority_binding: object,
+    ) -> BoundSemanticValidationV1: ...
+
+    def run_recorder(
+        self,
+        invocation: PiSceneInvocationV1,
+        *,
+        accepted: LeanAcceptedTurnReceiptV1,
+        accepted_state_sha256: str,
+        authority_binding: object,
+    ) -> PiSceneInvocationResultV1: ...
+
+    def bind_recorder_pending(
+        self,
+        *,
+        chain_id: str,
+        review_id: str,
+        accepted: LeanAcceptedTurnReceiptV1,
+    ) -> None: ...
+
+
 RecordingFaultInjector = Callable[[LeanAcceptedTurnReceiptV1, int], str | None]
 PlannerResolver = Callable[[LeanSceneTurnInputV1], OrdinaryPlannerPort]
 PlannerTransportHook = Callable[[], None]
@@ -148,6 +253,7 @@ class LeanPiSceneCoordinator:
         recording_fault_injector: RecordingFaultInjector | None = None,
         planner_resolver: PlannerResolver | None = None,
         semantic_validator: OrdinarySemanticValidatorPort | None = None,
+        ordinary_stage_retry: OrdinaryProviderStageRetryPort | None = None,
     ) -> None:
         self.store = store
         self.planner = planner
@@ -160,6 +266,7 @@ class LeanPiSceneCoordinator:
         self._planner_transport_start: PlannerTransportHook | None = None
         self._planner_transport_success: PlannerTransportHook | None = None
         self.semantic_validator = semantic_validator
+        self.ordinary_stage_retry = ordinary_stage_retry
         self._lock = RLock()
         self._review_state_store = DurableReviewStateStore(
             root=self.session_root,
@@ -336,6 +443,24 @@ class LeanPiSceneCoordinator:
             request_controls=turn.request_controls,
             creator_guidance=creator_guidance,
         )
+        if self.ordinary_stage_retry is not None:
+            head = self.store.load_head(
+                world_id=turn.world_id,
+                branch_id=turn.branch_id,
+            )
+            return self.ordinary_stage_retry.run_planner(
+                planner_input,
+                accepted_state_sha256=_provider_retry_accepted_state_sha256(head),
+                authority_binding={
+                    "accepted_head_sha256": head.accepted_head_sha256,
+                    "accepted_generation": head.generation,
+                    "turn_context_sha256": canonical_sha256(turn),
+                    "accepted_records_sha256": canonical_sha256(accepted_records),
+                    "creator_guidance_sha256": (
+                        None if creator_guidance is None else canonical_sha256(creator_guidance)
+                    ),
+                },
+            )
         on_start = self._planner_transport_start
         on_success = self._planner_transport_success
         try:
@@ -440,7 +565,7 @@ class LeanPiSceneCoordinator:
     ) -> LeanReviewRecordV1:
         if review.candidate.primary_authority_kind != "codex_cognition_plan":
             return review
-        if self.semantic_validator is None:
+        if self.semantic_validator is None and self.ordinary_stage_retry is None:
             raise StateConflictError("cognition candidate requires the semantic Validator")
         validation_request, validation_custody = build_semantic_validation_input(
             candidate=review.candidate,
@@ -448,10 +573,30 @@ class LeanPiSceneCoordinator:
             validation_evidence=validation_evidence,
         )
         try:
-            semantic_validation = self.semantic_validator.validate(
-                validation_request,
-                validation_custody,
-            )
+            if self.ordinary_stage_retry is None:
+                semantic_validator = self.semantic_validator
+                if semantic_validator is None:
+                    raise AssertionError("semantic Validator authority disappeared")
+                semantic_validation = semantic_validator.validate(
+                    validation_request,
+                    validation_custody,
+                )
+            else:
+                head = self.store.load_head(
+                    world_id=review.candidate.world_id,
+                    branch_id=review.candidate.branch_id,
+                )
+                semantic_validation = self.ordinary_stage_retry.run_semantic_validator(
+                    validation_request,
+                    validation_custody,
+                    accepted_state_sha256=_provider_retry_accepted_state_sha256(head),
+                    authority_binding={
+                        "candidate_id": review.candidate.candidate_id,
+                        "candidate_sha256": review.candidate.candidate_sha256,
+                        "generation": review.candidate.generation,
+                        "primary_authority_sha256": (review.candidate.primary_authority_sha256),
+                    },
+                )
         except ProviderTransportError as exc:
             raise PiSceneProviderTransportFailure(
                 logic_owner="validator",
@@ -815,8 +960,29 @@ class LeanPiSceneCoordinator:
                 # is reconciled against the accepted head on restart, so this is
                 # an operational warning rather than a false failed-Accept result.
                 warnings.append("review_state_cleanup_pending")
+            pending_recording: ProviderStageRetryPendingError | None = None
+            pending_recording_custody_error: Exception | None = None
             try:
                 recording = self._record_after_accept(terminal)
+            except ProviderStageRetryPendingError as exc:
+                # The accepted receipt is already immutable story truth. Keep
+                # that exact accepted review durable, then surface the generic
+                # Recorder chain so its manual action can resume recording only.
+                recording = None
+                pending_recording = exc
+                warnings.append("recording_state_pending")
+                if self.ordinary_stage_retry is None:
+                    raise AssertionError(
+                        "Recorder pending status lost its generic authority"
+                    ) from exc
+                try:
+                    self.ordinary_stage_retry.bind_recorder_pending(
+                        chain_id=exc.chain_id,
+                        review_id=review_id,
+                        accepted=accepted,
+                    )
+                except Exception as custody_error:
+                    pending_recording_custody_error = custody_error
             except Exception:
                 recording = None
                 warnings.append("recording_state_pending")
@@ -844,6 +1010,12 @@ class LeanPiSceneCoordinator:
                     self._decisions[review_id],
                     result=result,
                 )
+            if pending_recording_custody_error is not None:
+                raise StateConflictError(
+                    "accepted story retained but Recorder continuation custody failed"
+                ) from pending_recording_custody_error
+            if pending_recording is not None:
+                raise pending_recording
             return result
 
     def decline(
@@ -1167,6 +1339,8 @@ class LeanPiSceneCoordinator:
                 session_path=review.pi_session_dir,
             )
             return self._record(review)
+        except ProviderStageRetryPendingError:
+            raise
         except Exception as exc:
             operations_after = _pi_operation_count(self.pi)
             request_sha256 = canonical_sha256(
@@ -1216,28 +1390,51 @@ class LeanPiSceneCoordinator:
             generation = replacement_base.generation
             parent_accepted_turn_id = replacement_base.parent_accepted_turn_id
             accepted_head_before_sha256 = replacement_base.parent_accepted_head_sha256
-        candidate_counter = self._reserve_candidate_counter()
         authority_json, authority_sha = canonical_authority(primary_authority)
+        candidate_occurrence: OrdinaryWriterCandidateOccurrenceV1 | None = None
+        if route is SceneRoute.ORDINARY and self.ordinary_stage_retry is not None:
+            # Generic Retry identity comes from the exact request occurrence,
+            # not this legacy process-local/global counter. This reservation
+            # is deterministic on replay and does not mutate review state.
+            candidate_counter: int | None = None
+            candidate_occurrence = self.ordinary_stage_retry.reserve_writer_candidate_occurrence(
+                world_id=turn.world_id,
+                branch_id=turn.branch_id,
+                generation=generation,
+            )
+        else:
+            candidate_counter = self._reserve_candidate_counter()
         turn_context_sha256 = canonical_sha256(turn)
-        identity = canonical_sha256(
-            {
-                "world_id": turn.world_id,
-                "branch_id": turn.branch_id,
-                "scene_id": turn.scene_id,
-                "generation": generation,
-                "source_sha256": text_sha256(turn.exact_user_source),
-                "primary_authority_sha256": authority_sha,
-                "route": route.value,
-                "turn_context_sha256": turn_context_sha256,
-                "creator_guidance_sha256": (
-                    None if creator_guidance is None else canonical_sha256(creator_guidance)
-                ),
-                "accepted_regeneration_base_sha256": (
-                    None if replacement_base is None else replacement_base.binding_sha256
-                ),
-                "candidate_counter": candidate_counter,
-            }
-        )
+        identity_payload: dict[str, object] = {
+            "world_id": turn.world_id,
+            "branch_id": turn.branch_id,
+            "scene_id": turn.scene_id,
+            "generation": generation,
+            "source_sha256": text_sha256(turn.exact_user_source),
+            "primary_authority_sha256": authority_sha,
+            "route": route.value,
+            "turn_context_sha256": turn_context_sha256,
+            "creator_guidance_sha256": (
+                None if creator_guidance is None else canonical_sha256(creator_guidance)
+            ),
+            "accepted_regeneration_base_sha256": (
+                None if replacement_base is None else replacement_base.binding_sha256
+            ),
+            "candidate_counter": candidate_counter,
+        }
+        if candidate_occurrence is not None:
+            # The selected head and deterministic stage occurrence belong to
+            # generic Retry identity only. Keep legacy/adult candidate IDs
+            # byte-compatible when that integration is disabled.
+            identity_payload.update(
+                {
+                    "selected_accepted_head_sha256": head.accepted_head_sha256,
+                    "provider_stage_candidate_occurrence_sha256": (
+                        candidate_occurrence.occurrence_sha256
+                    ),
+                }
+            )
+        identity = canonical_sha256(identity_payload)
         candidate_id = f"candidate-{identity[:28]}"
         turn_id = f"turn-{generation:04d}-{text_sha256(turn.exact_user_source)[:12]}"
         if replacement_base is not None and route is SceneRoute.ORDINARY:
@@ -1319,7 +1516,27 @@ class LeanPiSceneCoordinator:
             force_rehydrate=(force_rehydrate or accepted_session is not None),
         )
         try:
-            pi_result = self.pi.invoke(invocation)
+            if route is SceneRoute.ORDINARY and self.ordinary_stage_retry is not None:
+                if candidate_occurrence is None:
+                    raise AssertionError("ordinary Writer lost its candidate occurrence")
+                pi_result = self.ordinary_stage_retry.run_writer(
+                    invocation,
+                    candidate_occurrence=candidate_occurrence,
+                    world_id=turn.world_id,
+                    branch_id=turn.branch_id,
+                    accepted_state_sha256=_provider_retry_accepted_state_sha256(head),
+                    authority_binding={
+                        "candidate_id": candidate_id,
+                        "generation": generation,
+                        "primary_authority_sha256": authority_sha,
+                        "writer_view_manifest_sha256": view.manifest_sha256,
+                        "replacement_base_sha256": (
+                            None if replacement_base is None else replacement_base.binding_sha256
+                        ),
+                    },
+                )
+            else:
+                pi_result = self.pi.invoke(invocation)
         except ProviderTransportError as exc:
             raise PiSceneProviderTransportFailure(
                 logic_owner="writer",
@@ -1556,19 +1773,37 @@ class LeanPiSceneCoordinator:
                 provider_operations=0,
                 failure_code=fault,
             )
-        invocation = self.pi.invoke(
-            PiSceneInvocationV1(
-                route=accepted.route,
-                purpose="recorder",
-                view=view,
-                prompt=prompt,
-                candidate_id=f"recorder-{accepted.accepted_turn_id}-{attempt_number}",
-                session_dir=self._session_dir(accepted.world_id, accepted.branch_id),
-                # Recorder work is role-local and fresh. Only Writer sessions
-                # participate in accepted soft lineage.
-                accepted_parent_session=None,
-            )
+        recorder_invocation = PiSceneInvocationV1(
+            route=accepted.route,
+            purpose="recorder",
+            view=view,
+            prompt=prompt,
+            candidate_id=f"recorder-{accepted.accepted_turn_id}-{attempt_number}",
+            session_dir=self._session_dir(accepted.world_id, accepted.branch_id),
+            # Recorder work is role-local and fresh. Only Writer sessions
+            # participate in accepted soft lineage.
+            accepted_parent_session=None,
         )
+        if accepted.route is SceneRoute.ORDINARY and self.ordinary_stage_retry is not None:
+            invocation = self.ordinary_stage_retry.run_recorder(
+                recorder_invocation,
+                accepted=accepted,
+                accepted_state_sha256=canonical_sha256(
+                    {
+                        "schema_version": "cera.provider_stage_accepted_story_state.v1",
+                        "accepted_receipt_sha256": accepted.receipt_sha256,
+                        "generation": accepted.generation,
+                    }
+                ),
+                authority_binding={
+                    "accepted_turn_id": accepted.accepted_turn_id,
+                    "accepted_receipt_sha256": accepted.receipt_sha256,
+                    "primary_authority_sha256": accepted.primary_authority_sha256,
+                    "attempt_number": attempt_number,
+                },
+            )
+        else:
+            invocation = self.pi.invoke(recorder_invocation)
         try:
             payload = _parse_recorder_payload(invocation.output_text)
             if accepted.route is SceneRoute.ORDINARY:
@@ -1728,6 +1963,26 @@ def _plan_requests_adult_handoff(output: PlannerTurnOutputV1) -> bool:
     if transition.get("from_route") != "ordinary" or transition.get("to_route") != "adult":
         raise ContractValidationError("cognition route transition changed logic owners")
     return True
+
+
+def _provider_retry_accepted_state_sha256(head: LeanAcceptedHeadV1) -> str:
+    """Hash the selected accepted state without exposing it to safe authority."""
+
+    if type(head) is not LeanAcceptedHeadV1:
+        raise ContractValidationError("provider-stage accepted head contract changed")
+    return canonical_sha256(
+        {
+            "schema_version": "cera.provider_stage_accepted_head_state.v1",
+            "world_id": head.world_id,
+            "branch_id": head.branch_id,
+            "generation": head.generation,
+            "accepted_turn_id": head.accepted_turn_id,
+            "accepted_head_sha256": head.accepted_head_sha256,
+            "recording_status": (
+                None if head.recording_status is None else head.recording_status.value
+            ),
+        }
+    )
 
 
 def _controlled_current_state(
