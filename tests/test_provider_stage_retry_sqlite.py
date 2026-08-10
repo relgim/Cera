@@ -54,6 +54,7 @@ def _identity(
             ProviderFamily.CODEX,
             ProviderModelFamily.LUNA,
         ),
+        ProviderStage.READER: (ProviderFamily.CODEX, ProviderModelFamily.SOL),
         ProviderStage.WRITER: (
             ProviderFamily.DEEPSEEK,
             ProviderModelFamily.DEEPSEEK_V4,
@@ -121,6 +122,12 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
             "3425b562c8e29b370c68440f2153c2e4df5ffc5447f76f915d6edb32f15658b2",
         )
 
+    def test_reader_migration_20_hash_is_pinned(self) -> None:
+        self.assertEqual(
+            text_sha256(MIGRATIONS[20]),
+            "5d75f36797e650c46d0592387e7a5679ac1cbdf351bbcac9a787c60850ff91cc",
+        )
+
     def _prepared(
         self,
         *,
@@ -185,7 +192,7 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
 
     def test_migration_restart_exact_replay_and_occurrence_authority(self) -> None:
         with closing(sqlite3.connect(self.database_path)) as connection:
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 19)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 20)
             tables = {
                 row[0]
                 for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")
@@ -231,6 +238,121 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
             exact_input,
         )
         self.assertNotEqual(distinct.chain_id, chain_id)
+
+    def test_reader_chain_is_accepted_by_fresh_schema(self) -> None:
+        exact_input = b"frozen Reader validation packet"
+        identity = _identity(
+            exact_input,
+            stage=ProviderStage.READER,
+            occurrence="reader-occurrence",
+        )
+
+        chain = self.controller.begin(identity, exact_input)
+
+        self.assertIs(chain.identity.stage, ProviderStage.READER)
+        self.assertIs(chain.identity.provider, ProviderFamily.CODEX)
+        self.assertIs(chain.identity.model_family, ProviderModelFamily.SOL)
+
+    def test_populated_migration_19_upgrades_to_reader_without_losing_custody(self) -> None:
+        legacy_path = self.root / "legacy-v19.sqlite3"
+        with closing(sqlite3.connect(legacy_path)) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            connection.execute("PRAGMA journal_mode = WAL")
+            for version in range(1, 20):
+                connection.executescript("BEGIN IMMEDIATE;\n" + MIGRATIONS[version])
+                connection.execute(
+                    "INSERT INTO schema_migrations(version, applied_at, migration_sha256) "
+                    "VALUES (?, ?, ?)",
+                    (version, "2026-08-10T00:00:00+00:00", text_sha256(MIGRATIONS[version])),
+                )
+                connection.execute(f"PRAGMA user_version = {version}")
+                connection.commit()
+
+        legacy_authority = object.__new__(SQLiteAuthorityStore)
+        legacy_authority.database_path = legacy_path.resolve()
+        legacy_authority.busy_timeout_ms = 5_000
+        legacy_authority.allow_synthetic_genesis = False
+        legacy_blobs = TrustedLocalProtectedStageBlobStore(self.root / "legacy-blobs")
+        legacy_store = SQLiteProviderStageRetryStore(legacy_authority, legacy_blobs)
+        legacy_controller = ProviderStageRetryControllerV1(store=legacy_store)
+        exact_input = b"populated v19 provider-stage custody"
+        legacy_identity = _identity(exact_input, occurrence="legacy-v19")
+        legacy_chain = legacy_controller.begin(legacy_identity, exact_input)
+        legacy_controller.prepare_attempt(
+            legacy_chain.chain_id,
+            session_scope_sha256=_sha("legacy-session"),
+            ledger_prefix_before_sha256=_sha("legacy-ledger"),
+        )
+        with closing(sqlite3.connect(legacy_path)) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            scope = canonical_json(
+                {"schema_version": "migration-test.scope.v1", "chain_id": legacy_chain.chain_id}
+            )
+            connection.execute(
+                "INSERT INTO provider_stage_retry_occurrence_scopes("
+                "chain_id, scope_json, scope_sha256, created_at) VALUES (?, ?, ?, ?)",
+                (
+                    legacy_chain.chain_id,
+                    scope,
+                    text_sha256(scope),
+                    "2026-08-10T00:00:00+00:00",
+                ),
+            )
+            connection.commit()
+            tables = (
+                "provider_stage_retry_chains",
+                "provider_stage_retry_occurrence_scopes",
+                "provider_stage_retry_checkpoints",
+                "provider_stage_retry_attempts",
+                "provider_stage_retry_events",
+            )
+            before = {
+                table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                for table in tables
+            }
+            self.assertTrue(all(count > 0 for count in before.values()))
+
+        upgraded_authority = SQLiteAuthorityStore(legacy_path)
+        upgraded_store = SQLiteProviderStageRetryStore(upgraded_authority, legacy_blobs)
+        self.assertEqual(upgraded_store.read(legacy_chain.chain_id).chain_id, legacy_chain.chain_id)
+        self.assertEqual(upgraded_store.load_input(legacy_chain.chain_id), exact_input)
+        with closing(sqlite3.connect(legacy_path)) as connection:
+            connection.execute("PRAGMA foreign_keys = ON")
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 20)
+            self.assertEqual(connection.execute("PRAGMA foreign_key_check").fetchall(), [])
+            after = {
+                table: connection.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                for table in tables
+            }
+            self.assertEqual(after, before)
+            indexes = {
+                row[0]
+                for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+            }
+            triggers = {
+                row[0]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'trigger'"
+                )
+            }
+        self.assertIn("idx_provider_stage_retry_phase", indexes)
+        self.assertTrue(
+            {
+                "provider_stage_retry_chain_identity_immutable",
+                "provider_stage_retry_chain_terminal_immutable",
+                "provider_stage_retry_chains_no_delete",
+            }.issubset(triggers)
+        )
+        reader_input = b"Reader after populated v19 upgrade"
+        upgraded_reader = ProviderStageRetryControllerV1(store=upgraded_store).begin(
+            _identity(
+                reader_input,
+                stage=ProviderStage.READER,
+                occurrence="reader-after-upgrade",
+            ),
+            reader_input,
+        )
+        self.assertIs(upgraded_reader.identity.stage, ProviderStage.READER)
 
     def test_manual_retry_is_idempotent_bounded_and_never_mints_attempt_four(self) -> None:
         _, chain_id = self._prepared()

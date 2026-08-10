@@ -6,7 +6,7 @@ import sqlite3
 
 from cera.errors import TransactionError
 
-CURRENT_SCHEMA_VERSION = 19
+CURRENT_SCHEMA_VERSION = 20
 
 
 _MIGRATION_1 = """
@@ -1236,6 +1236,106 @@ BEGIN SELECT RAISE(ABORT, 'provider-stage Retry events are append-only'); END;
 """
 
 
+_MIGRATION_20 = """
+CREATE TABLE provider_stage_retry_chains_v20 (
+    chain_id TEXT PRIMARY KEY,
+    logical_key_sha256 TEXT NOT NULL UNIQUE,
+    provider TEXT NOT NULL CHECK (provider IN ('codex', 'deepseek')),
+    model_family TEXT NOT NULL CHECK (model_family IN ('sol', 'luna', 'deepseek_v4')),
+    stage TEXT NOT NULL CHECK (stage IN (
+        'planner', 'semantic_validator', 'reader', 'writer', 'recorder',
+        'adult_scene', 'adult_filter'
+    )),
+    request_occurrence_sha256 TEXT NOT NULL,
+    request_sha256 TEXT NOT NULL,
+    stage_input_sha256 TEXT NOT NULL,
+    authority_sha256 TEXT NOT NULL,
+    story_state_committed INTEGER NOT NULL CHECK (story_state_committed IN (0, 1)),
+    identity_json TEXT NOT NULL,
+    identity_sha256 TEXT NOT NULL,
+    phase TEXT NOT NULL CHECK (phase IN (
+        'input_frozen', 'attempt_prepared', 'dispatch_started',
+        'awaiting_owner_retirement', 'owner_retired', 'result_frozen',
+        'downstream_intent_frozen', 'downstream_bound', 'succeeded',
+        'exhausted', 'blocked_ambiguous', 'recording_repair_required',
+        'recovery_required'
+    )),
+    input_checkpoint_sha256 TEXT NOT NULL,
+    result_checkpoint_sha256 TEXT,
+    downstream_intent_sha256 TEXT,
+    downstream_evidence_sha256 TEXT,
+    block_reason TEXT CHECK (block_reason IS NULL OR block_reason IN (
+        'input_changed', 'authority_changed', 'ledger_prefix_changed',
+        'owner_retirement_unproven', 'result_checkpoint_conflict',
+        'dispatch_custody_ambiguous'
+    )),
+    block_evidence_sha256 TEXT,
+    state_version INTEGER NOT NULL DEFAULT 1 CHECK (state_version > 0),
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    CHECK (
+        (stage = 'planner' AND provider = 'codex' AND model_family = 'sol') OR
+        (stage = 'semantic_validator' AND provider = 'codex' AND model_family = 'luna') OR
+        (stage = 'reader' AND provider = 'codex' AND model_family = 'sol') OR
+        (stage IN ('writer', 'recorder', 'adult_scene', 'adult_filter')
+            AND provider = 'deepseek' AND model_family = 'deepseek_v4')
+    ),
+    CHECK ((stage = 'recorder') = story_state_committed),
+    CHECK ((block_reason IS NULL) = (block_evidence_sha256 IS NULL)),
+    CHECK (
+        (phase = 'blocked_ambiguous'
+            AND block_reason = 'dispatch_custody_ambiguous') OR
+        (phase = 'recovery_required'
+            AND (block_reason IS NULL OR block_reason != 'dispatch_custody_ambiguous')) OR
+        (phase NOT IN ('blocked_ambiguous', 'recovery_required')
+            AND block_reason IS NULL)
+    )
+);
+
+INSERT INTO provider_stage_retry_chains_v20 (
+    chain_id, logical_key_sha256, provider, model_family, stage,
+    request_occurrence_sha256, request_sha256, stage_input_sha256,
+    authority_sha256, story_state_committed, identity_json, identity_sha256,
+    phase, input_checkpoint_sha256, result_checkpoint_sha256,
+    downstream_intent_sha256, downstream_evidence_sha256, block_reason,
+    block_evidence_sha256, state_version, created_at, updated_at
+)
+SELECT
+    chain_id, logical_key_sha256, provider, model_family, stage,
+    request_occurrence_sha256, request_sha256, stage_input_sha256,
+    authority_sha256, story_state_committed, identity_json, identity_sha256,
+    phase, input_checkpoint_sha256, result_checkpoint_sha256,
+    downstream_intent_sha256, downstream_evidence_sha256, block_reason,
+    block_evidence_sha256, state_version, created_at, updated_at
+FROM provider_stage_retry_chains;
+
+DROP TABLE provider_stage_retry_chains;
+ALTER TABLE provider_stage_retry_chains_v20 RENAME TO provider_stage_retry_chains;
+
+CREATE INDEX idx_provider_stage_retry_phase
+ON provider_stage_retry_chains(phase, updated_at, chain_id);
+
+CREATE TRIGGER provider_stage_retry_chain_identity_immutable
+BEFORE UPDATE OF chain_id, logical_key_sha256, provider, model_family, stage,
+    request_occurrence_sha256, request_sha256, stage_input_sha256,
+    authority_sha256, story_state_committed, identity_json, identity_sha256,
+    input_checkpoint_sha256, created_at
+ON provider_stage_retry_chains
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry chain identity is immutable'); END;
+
+CREATE TRIGGER provider_stage_retry_chain_terminal_immutable
+BEFORE UPDATE ON provider_stage_retry_chains
+WHEN OLD.phase IN (
+    'succeeded', 'exhausted', 'recording_repair_required', 'recovery_required'
+)
+BEGIN SELECT RAISE(ABORT, 'terminal provider-stage Retry chain is immutable'); END;
+
+CREATE TRIGGER provider_stage_retry_chains_no_delete
+BEFORE DELETE ON provider_stage_retry_chains
+BEGIN SELECT RAISE(ABORT, 'provider-stage Retry chains cannot be deleted'); END;
+"""
+
+
 MIGRATIONS: dict[int, str] = {
     1: _MIGRATION_1,
     2: _MIGRATION_2,
@@ -1256,6 +1356,7 @@ MIGRATIONS: dict[int, str] = {
     17: _MIGRATION_17,
     18: _MIGRATION_18,
     19: _MIGRATION_19,
+    20: _MIGRATION_20,
 }
 
 
@@ -1266,8 +1367,17 @@ def apply_migrations(connection: sqlite3.Connection, now: str, hashes: dict[int,
             f"database schema {version} is newer than supported {CURRENT_SCHEMA_VERSION}"
         )
     for next_version in range(version + 1, CURRENT_SCHEMA_VERSION + 1):
+        rebuilds_referenced_table = next_version == 20
+        if rebuilds_referenced_table:
+            connection.execute("PRAGMA foreign_keys = OFF")
         try:
             connection.executescript("BEGIN IMMEDIATE;\n" + MIGRATIONS[next_version])
+            if rebuilds_referenced_table:
+                violations = connection.execute("PRAGMA foreign_key_check").fetchall()
+                if violations:
+                    raise TransactionError(
+                        "provider-stage Reader migration broke foreign-key custody"
+                    )
             connection.execute(
                 "INSERT INTO schema_migrations(version, applied_at, migration_sha256) "
                 "VALUES (?, ?, ?)",
@@ -1278,3 +1388,6 @@ def apply_migrations(connection: sqlite3.Connection, now: str, hashes: dict[int,
         except Exception:
             connection.rollback()
             raise
+        finally:
+            if rebuilds_referenced_table:
+                connection.execute("PRAGMA foreign_keys = ON")

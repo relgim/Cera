@@ -1,4 +1,4 @@
-"""Production assembly for the six stage-local provider Retry owners.
+"""Production assembly for the stage-local provider Retry owners.
 
 Construction in this module is deliberately provider-free.  Provider
 lifecycle creation and model/Pi dispatch remain reachable only from an
@@ -22,6 +22,7 @@ from cera.adult_pipeline.pipeline import AdultPipelineInputV1
 from cera.continuous.call_ledger import ContinuousProviderCallLedger, ProviderCallState
 from cera.continuous.provider import ContinuousProviderResultV1
 from cera.errors import ContractValidationError, StateConflictError
+from cera.reader_validation import BoundReaderValidationV1
 from cera.semantic_validation import BoundSemanticValidationV1
 from cera.serialization import (
     bytes_sha256,
@@ -97,14 +98,18 @@ from .provider_stage_retry_ordinary import (
     OrdinaryProviderStageRetryRuntimeV1,
     deserialize_pi_result,
     deserialize_planner_result,
+    deserialize_reader_validation_result,
     deserialize_semantic_validation_result,
     ordinary_nonsemantic_disposition,
     planner_request_from_frozen_input,
+    reader_validation_disposition,
+    reader_validation_input_from_frozen_input,
     recorder_invocation_from_frozen_input,
     semantic_validation_disposition,
     semantic_validation_input_from_frozen_input,
     serialize_pi_result,
     serialize_planner_result,
+    serialize_reader_validation_result,
     serialize_semantic_validation_result,
     writer_invocation_from_frozen_input,
 )
@@ -125,7 +130,11 @@ from .provider_stage_retry_runtime import (
 )
 from .provider_stage_retry_scope import ProviderStageRetryOccurrenceScopeV1
 from .review_store import LeanSceneTurnInputV1
-from .runtime import OrdinarySemanticValidatorPort, ProviderStageRetryPendingError
+from .runtime import (
+    OrdinaryReaderValidatorPort,
+    OrdinarySemanticValidatorPort,
+    ProviderStageRetryPendingError,
+)
 from .store import LeanSceneStore
 
 _ORDINARY_STAGES = frozenset(
@@ -133,6 +142,7 @@ _ORDINARY_STAGES = frozenset(
         ProviderStage.PLANNER,
         ProviderStage.WRITER,
         ProviderStage.SEMANTIC_VALIDATOR,
+        ProviderStage.READER,
         ProviderStage.RECORDER,
     }
 )
@@ -176,6 +186,8 @@ class OrdinaryStageProviderPortsV1:
     planner_provider_result: Callable[[LeanSceneTurnInputV1], ContinuousProviderResultV1]
     semantic_validator: OrdinarySemanticValidatorPort
     luna_provider_result: Callable[[], ContinuousProviderResultV1]
+    reader_validator: OrdinaryReaderValidatorPort
+    reader_provider_result: Callable[[], ContinuousProviderResultV1]
 
     def __post_init__(self) -> None:
         for value, label in (
@@ -184,11 +196,14 @@ class OrdinaryStageProviderPortsV1:
             (self.retire_planner_thread, "Planner retiree"),
             (self.planner_provider_result, "Planner receipt reader"),
             (self.luna_provider_result, "Luna receipt reader"),
+            (self.reader_provider_result, "Reader receipt reader"),
         ):
             if not callable(value):
                 raise ContractValidationError(f"ordinary Retry {label} is unavailable")
         if not callable(getattr(self.semantic_validator, "validate", None)):
             raise ContractValidationError("ordinary Retry Luna validator is unavailable")
+        if not callable(getattr(self.reader_validator, "validate", None)):
+            raise ContractValidationError("ordinary Retry Reader validator is unavailable")
 
 
 @dataclass(frozen=True, slots=True)
@@ -327,7 +342,7 @@ class _OutcomeRecordingOwnerV1:
 
 
 class OrdinaryProviderStageAttemptOwnerFactoryV1:
-    """Durable lazy owner factory shared by the four ordinary stages."""
+    """Durable lazy owner factory shared by the ordinary stages."""
 
     def __init__(
         self,
@@ -661,6 +676,8 @@ class OrdinaryProviderStageAttemptOwnerFactoryV1:
             return deserialize_planner_result(exact_result)
         if self.stage is ProviderStage.SEMANTIC_VALIDATOR:
             return deserialize_semantic_validation_result(exact_result)
+        if self.stage is ProviderStage.READER:
+            return deserialize_reader_validation_result(exact_result)
         return deserialize_pi_result(exact_result)
 
     def _attempt_root(self, chain_id: str, attempt_number: int) -> Path:
@@ -914,6 +931,17 @@ class _LateBoundOrdinaryHttpContinuationV1:
     def continuation_epoch_for_chain(self, chain_id: str) -> object | None:
         return self._ordinary.review_action_for_chain(chain_id)
 
+    def validation_lane_binding_for_chain(
+        self,
+        chain_id: str,
+    ) -> Mapping[str, str] | None:
+        if self._adapter is None:
+            return None
+        return self._adapter.validation_lane_binding_for_chain(chain_id)
+
+    def review_payload_for_validation_chain(self, chain_id: str) -> Mapping[str, Any]:
+        return self._require_adapter().review_payload_for_validation_chain(chain_id)
+
     def recording_repair_action_allowed(self, chain_id: str) -> bool:
         return self._ordinary.recording_repair_action_allowed(chain_id)
 
@@ -924,6 +952,10 @@ class _LateBoundOrdinaryHttpContinuationV1:
         )
 
     def load_terminal_completion(self, chain_id: str) -> Mapping[str, Any] | None:
+        if self.validation_lane_binding_for_chain(chain_id) is not None:
+            # Lane success is not request-terminal.  Always project the live
+            # durable review through ``review_payload_for_validation_chain``.
+            return None
         action = self._ordinary.review_action_for_chain(chain_id)
         if action is not None:
             response = self._ordinary.load_review_action_response_optional(action.action_id)
@@ -956,6 +988,11 @@ class _LateBoundOrdinaryHttpContinuationV1:
         chain_id: str,
         completion: Mapping[str, Any],
     ) -> Mapping[str, Any]:
+        if self.validation_lane_binding_for_chain(chain_id) is not None:
+            # A recovered Luna/Reader lane joins only its durable review.  It
+            # is never an immutable terminal completion: the peer may still
+            # join and automatic acceptance may change the review afterward.
+            return self.review_payload_for_validation_chain(chain_id)
         action = self._ordinary.review_action_for_chain(chain_id)
         if action is not None:
             durable, receipt = self._ordinary.load_review_action_response_for_chain(chain_id)
@@ -1010,6 +1047,10 @@ class _LateBoundOrdinaryHttpContinuationV1:
             # The accepted story is durable, but the exact request/review
             # context remains necessary to create and terminalize the sole
             # bounded Recorder repair successor.
+            return
+        if self.validation_lane_binding_for_chain(chain_id) is not None:
+            # The exact candidate and peer validation lane remain frozen for
+            # explicit, stage-local recovery.
             return
         action = self._ordinary.review_action_for_chain(chain_id)
         if action is not None:
@@ -1555,11 +1596,43 @@ def build_provider_stage_retry_production_assembly(
             retirement, attempt_root, "fresh_luna_archived_by_validator_factory"
         ),
     )
+    reader_receipts: dict[int, ProviderStageReceiptMetricsV1] = {}
+    reader_factory = OrdinaryProviderStageAttemptOwnerFactoryV1(
+        stage=ProviderStage.READER,
+        lifecycle=ProviderStageOwnerLifecycleClass.FRESH_SINGLE_USE,
+        boundary_kind=ProviderStageBoundaryKind.CODEX,
+        maximum_provider_operations=1,
+        protected_root=owner_root,
+        read_current_ledger=sol_current,
+        read_ledger_prefix=sol_prefix,
+        build_request=reader_validation_input_from_frozen_input,
+        invoke_provider=lambda request, chain_id, attempt: _invoke_reader_and_bind_receipt(
+            request=request,
+            chain_id=chain_id,
+            attempt_number=attempt,
+            ports=ordinary_ports,
+            receipts=reader_receipts,
+        ),
+        serialize_result=cast(Callable[[object], bytes], serialize_reader_validation_result),
+        result_receipt_metrics=lambda result: _pop_result_receipt(
+            reader_receipts,
+            result,
+            ProviderStage.READER,
+        ),
+        semantic_disposition=cast(
+            Callable[[object], ProviderStageSemanticDisposition],
+            reader_validation_disposition,
+        ),
+        retire_failed_owner=lambda retirement, attempt_root: _retire_one_shot_owner(
+            retirement, attempt_root, "fresh_reader_archived_by_validator_factory"
+        ),
+    )
 
     factories = {
         ProviderStage.PLANNER: planner_factory,
         ProviderStage.WRITER: writer_factory,
         ProviderStage.SEMANTIC_VALIDATOR: luna_factory,
+        ProviderStage.READER: reader_factory,
         ProviderStage.RECORDER: recorder_factory,
     }
     ordinary_adapters: list[ProviderStageRuntimeAdapterV1] = []
@@ -1567,6 +1640,7 @@ def build_provider_stage_retry_production_assembly(
         ProviderStage.PLANNER,
         ProviderStage.WRITER,
         ProviderStage.SEMANTIC_VALIDATOR,
+        ProviderStage.READER,
         ProviderStage.RECORDER,
     ):
         factory = factories[stage]
@@ -1658,13 +1732,18 @@ def build_provider_stage_retry_production_assembly(
                 if stage is ProviderStage.PLANNER
                 else (
                     ProviderStageOwnerLifecycleClass.FRESH_SINGLE_USE
-                    if stage is ProviderStage.SEMANTIC_VALIDATOR
+                    if stage in {ProviderStage.SEMANTIC_VALIDATOR, ProviderStage.READER}
                     else ProviderStageOwnerLifecycleClass.ONE_SHOT_PROCESS
                 )
             ),
             maximum_provider_operations=(
                 1
-                if stage in {ProviderStage.PLANNER, ProviderStage.SEMANTIC_VALIDATOR}
+                if stage
+                in {
+                    ProviderStage.PLANNER,
+                    ProviderStage.SEMANTIC_VALIDATOR,
+                    ProviderStage.READER,
+                }
                 else pi_maximum
             ),
         )
@@ -1697,12 +1776,16 @@ def production_provider_stage_configurations(
     }
     output: dict[ProviderStage, ProviderStageConfigurationV1] = {}
     for stage in ProviderStage:
-        codex = stage in {ProviderStage.PLANNER, ProviderStage.SEMANTIC_VALIDATOR}
+        codex = stage in {
+            ProviderStage.PLANNER,
+            ProviderStage.SEMANTIC_VALIDATOR,
+            ProviderStage.READER,
+        }
         output[stage] = ProviderStageConfigurationV1.create(
             stage=stage,
             model_id=(
                 "gpt-5.6-sol"
-                if stage is ProviderStage.PLANNER
+                if stage in {ProviderStage.PLANNER, ProviderStage.READER}
                 else (
                     "gpt-5.6-luna"
                     if stage is ProviderStage.SEMANTIC_VALIDATOR
@@ -1711,7 +1794,7 @@ def production_provider_stage_configurations(
             ),
             reasoning_mode=(
                 "medium"
-                if stage is ProviderStage.PLANNER
+                if stage in {ProviderStage.PLANNER, ProviderStage.READER}
                 else "xhigh"
                 if stage is ProviderStage.SEMANTIC_VALIDATOR
                 else "off"
@@ -1822,6 +1905,22 @@ def _invoke_luna_and_bind_receipt(
         raise ContractValidationError("Luna Retry request changed shape")
     result = ports.semantic_validator.validate(request[0], request[1])
     receipts[id(result)] = _continuous_receipt_metrics(ports.luna_provider_result())
+    return result
+
+
+def _invoke_reader_and_bind_receipt(
+    *,
+    request: object,
+    chain_id: str,
+    attempt_number: int,
+    ports: OrdinaryStageProviderPortsV1,
+    receipts: dict[int, ProviderStageReceiptMetricsV1],
+) -> BoundReaderValidationV1:
+    del chain_id, attempt_number
+    if not isinstance(request, tuple) or len(request) != 2:
+        raise ContractValidationError("Reader Retry request changed shape")
+    result = ports.reader_validator.validate(request[0], request[1])
+    receipts[id(result)] = _continuous_receipt_metrics(ports.reader_provider_result())
     return result
 
 

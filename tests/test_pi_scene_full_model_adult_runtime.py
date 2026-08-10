@@ -31,7 +31,11 @@ from scripts.run_pi_scene_lean_server import (
     build_live_runtime,
 )
 from tests.test_adult_pipeline_pi_integration import _FakeStructuredTransport
-from tests.test_pi_scene_full_model_launcher import _FakeLunaBackend, _OfflineLifecycle
+from tests.test_pi_scene_full_model_launcher import (
+    _FakeLunaBackend,
+    _FakeReaderBackend,
+    _OfflineLifecycle,
+)
 from tests.test_pi_scene_lean_v1 import FakePi
 
 ROOT = Path(__file__).parents[1]
@@ -39,9 +43,7 @@ CATALOG_ROOT = ROOT / "adult" / "catalog" / "adult_craft_v1"
 PROTECTED_PROSE = "PROTECTED_ADULT_EXACT_PROSE_SENTINEL_2026"
 
 
-def _route_state(
-    *, route: AdultNextRoute = AdultNextRoute.ADULT
-) -> AdultRouteStateSnapshotV1:
+def _route_state(*, route: AdultNextRoute = AdultNextRoute.ADULT) -> AdultRouteStateSnapshotV1:
     has_head = route is AdultNextRoute.ADULT
     return AdultRouteStateSnapshotV1(
         schema_version=AdultRouteStateSnapshotV1.SCHEMA_VERSION,
@@ -251,8 +253,7 @@ class PiSceneFullModelAdultRuntimeTests(unittest.TestCase):
         self.assertTrue(private)
         self.assertTrue(
             all(
-                value.visibility == "adult_role_private"
-                and value.subject_id == "character:hana"
+                value.visibility == "adult_role_private" and value.subject_id == "character:hana"
                 for value in private
             )
         )
@@ -411,8 +412,7 @@ class PiSceneFullModelAdultRuntimeTests(unittest.TestCase):
 
             with (
                 patch(
-                    "cera.pi_scene.full_model_adult_runtime."
-                    "build_pi_adult_pipeline_integration",
+                    "cera.pi_scene.full_model_adult_runtime.build_pi_adult_pipeline_integration",
                     side_effect=capture_build,
                 ),
                 patch.object(
@@ -463,6 +463,7 @@ class PiSceneFullModelAdultRuntimeTests(unittest.TestCase):
                 provider_components=FullModelProviderComponents(
                     planner_lifecycle=_OfflineLifecycle(),
                     luna_backend=_FakeLunaBackend(),
+                    reader_backend=_FakeReaderBackend(),
                     pi=pi,
                     external_provider_boundary=False,
                 ),

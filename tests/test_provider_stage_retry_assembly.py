@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import tempfile
 import unittest
@@ -97,6 +98,10 @@ class _NoLunaBackend:
     external_provider_boundary = False
 
 
+class _NoReaderBackend:
+    external_provider_boundary = False
+
+
 class _NoDispatchSemanticValidator:
     def __init__(self, calls: list[str]) -> None:
         self.calls = calls
@@ -104,6 +109,15 @@ class _NoDispatchSemanticValidator:
     def validate(self, *_args, **_kwargs):
         self.calls.append("luna_validate")
         raise AssertionError("assembly construction dispatched Luna")
+
+
+class _NoDispatchReaderValidator:
+    def __init__(self, calls: list[str]) -> None:
+        self.calls = calls
+
+    def validate(self, *_args, **_kwargs):
+        self.calls.append("reader_validate")
+        raise AssertionError("assembly construction dispatched Reader")
 
 
 def _planner_receipt(
@@ -271,6 +285,49 @@ class _OrdinaryCompletionCustody:
 
 
 class ProviderStageRetryAssemblyTests(unittest.TestCase):
+    def test_validation_lane_never_freezes_a_stale_terminal_completion(self) -> None:
+        ordinary = _OrdinaryCompletionCustody()
+        chain_id = "stage-retry-" + "a" * 64
+        current = {"schema_version": "cera.pi_scene.review.v2", "state": "validating"}
+
+        class Adapter:
+            def validation_lane_binding_for_chain(self, value: str) -> dict[str, str]:
+                return {
+                    "schema_version": "cera.pi_scene.review_validation_lanes.v1",
+                    "review_id": "review-" + "b" * 28,
+                    "lane": "reader",
+                    "chain_id": value,
+                    "luna_chain_id": "stage-retry-" + "c" * 64,
+                    "reader_chain_id": value,
+                }
+
+            def review_payload_for_validation_chain(self, _value: str) -> dict[str, object]:
+                return dict(current)
+
+        adapter = Adapter()
+        with tempfile.TemporaryDirectory() as temporary:
+            completion_root = Path(temporary)
+            continuation = _LateBoundOrdinaryHttpContinuationV1(
+                ordinary=ordinary,  # type: ignore[arg-type]
+                completions=_ProtectedTerminalCompletionStoreV1(completion_root),
+            )
+            continuation.bind_adapter(adapter)  # type: ignore[arg-type]
+
+            self.assertIsNone(continuation.load_terminal_completion(chain_id))
+            self.assertEqual(
+                continuation.bind_terminal_completion(
+                    chain_id=chain_id,
+                    completion={"state": "obsolete_lane_snapshot"},
+                ),
+                current,
+            )
+            self.assertEqual(tuple(completion_root.iterdir()), ())
+            current["state"] = "accepted"
+            self.assertEqual(
+                continuation.review_payload_for_validation_chain(chain_id)["state"],
+                "accepted",
+            )
+
     def test_provisional_retry_completion_retains_original_request_custody(self) -> None:
         ordinary = _OrdinaryCompletionCustody()
         with tempfile.TemporaryDirectory() as temporary:
@@ -436,6 +493,10 @@ class ProviderStageRetryAssemblyTests(unittest.TestCase):
                     luna_provider_result=lambda: (_ for _ in ()).throw(
                         AssertionError("assembly read a Luna provider result")
                     ),
+                    reader_validator=_NoDispatchReaderValidator(provider_calls),
+                    reader_provider_result=lambda: (_ for _ in ()).throw(
+                        AssertionError("assembly read a Reader provider result")
+                    ),
                 ),
             )
 
@@ -456,6 +517,10 @@ class ProviderStageRetryAssemblyTests(unittest.TestCase):
                 by_stage[ProviderStage.SEMANTIC_VALIDATOR].lifecycle,
                 ProviderStageOwnerLifecycleClass.FRESH_SINGLE_USE,
             )
+            self.assertIs(
+                by_stage[ProviderStage.READER].lifecycle,
+                ProviderStageOwnerLifecycleClass.FRESH_SINGLE_USE,
+            )
             for stage in (
                 ProviderStage.WRITER,
                 ProviderStage.RECORDER,
@@ -472,6 +537,7 @@ class ProviderStageRetryAssemblyTests(unittest.TestCase):
                 by_stage[ProviderStage.SEMANTIC_VALIDATOR].maximum_provider_operations,
                 1,
             )
+            self.assertEqual(by_stage[ProviderStage.READER].maximum_provider_operations, 1)
 
             with self.assertRaises(ProviderStageRetryHttpNotFoundError):
                 assembly.http.get("stage-retry-" + "0" * 64)
@@ -551,6 +617,10 @@ class ProviderStageRetryAssemblyTests(unittest.TestCase):
                     semantic_validator=_NoDispatchSemanticValidator([]),
                     luna_provider_result=lambda: (_ for _ in ()).throw(
                         AssertionError("adult action test read a Luna result")
+                    ),
+                    reader_validator=_NoDispatchReaderValidator([]),
+                    reader_provider_result=lambda: (_ for _ in ()).throw(
+                        AssertionError("adult action test read a Reader result")
                     ),
                 )
 
@@ -763,6 +833,10 @@ class ProviderStageRetryAssemblyTests(unittest.TestCase):
                     luna_provider_result=lambda: (_ for _ in ()).throw(
                         AssertionError("Planner test read a Luna receipt")
                     ),
+                    reader_validator=_NoDispatchReaderValidator([]),
+                    reader_provider_result=lambda: (_ for _ in ()).throw(
+                        AssertionError("Planner test read a Reader receipt")
+                    ),
                 ),
             )
             controls = LeanSceneRequestControlsV2(
@@ -946,6 +1020,7 @@ class ProviderStageRetryAssemblyTests(unittest.TestCase):
                     provider_components=FullModelProviderComponents(
                         planner_lifecycle=_NoLifecycle(),
                         luna_backend=_NoLunaBackend(),
+                        reader_backend=_NoReaderBackend(),
                         pi=pi,
                         external_provider_boundary=False,
                     ),
@@ -977,7 +1052,45 @@ class ProviderStageRetryAssemblyTests(unittest.TestCase):
                     **assembly.http_adapter_kwargs(),
                 )
                 assembly.bind_http_adapter(adapter)
-                self.assertTrue(adapter.status["active"])
+                status = adapter.status
+                self.assertTrue(status["active"])
+                profile_path = (
+                    Path(__file__).resolve().parents[1]
+                    / "integrations"
+                    / "sillytavern"
+                    / "pi_scene_lean_v1_profile.json"
+                )
+                profile = json.loads(profile_path.read_text(encoding="utf-8"))
+                self.assertTrue(status["reader_required"])
+                self.assertFalse(status["adult_reader_required"])
+                self.assertTrue(status["python_gate_required"])
+                self.assertFalse(status["automatic_accept_after_semantic_pass"])
+                self.assertTrue(status["automatic_accept_after_all_checks_pass"])
+                self.assertEqual(status["review_mode_default"], "automatic")
+                self.assertEqual(
+                    status["ordinary_acceptance_checks"],
+                    ["luna", "reader", "python"],
+                )
+                self.assertEqual(
+                    status["review_mode_default"],
+                    profile["ordinary_review_mode_default"],
+                )
+                self.assertEqual(
+                    status["reader_required"],
+                    profile["reader_required"],
+                )
+                self.assertEqual(
+                    status["adult_reader_required"],
+                    profile["adult_reader_required"],
+                )
+                self.assertEqual(
+                    status["python_gate_required"],
+                    profile["python_gate_required"],
+                )
+                self.assertEqual(
+                    profile["automatic_accept"],
+                    "all_route_required_checks_pass_only",
+                )
                 self.assertIs(adapter.provider_stage_retry_http, assembly.http)
                 self.assertIs(adapter.ordinary_stage_retry_runtime, assembly.ordinary)
                 self.assertEqual(runtime.sol_ledger.dispatched_call_count, 0)

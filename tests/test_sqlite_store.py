@@ -107,10 +107,10 @@ class SQLiteStoreTests(unittest.TestCase):
     def test_store_enforces_wal_foreign_keys_and_versioned_migration(self) -> None:
         with closing(sqlite3.connect(self.database_path)) as connection:
             self.assertEqual(connection.execute("PRAGMA journal_mode").fetchone()[0], "wal")
-            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 19)
+            self.assertEqual(connection.execute("PRAGMA user_version").fetchone()[0], 20)
             self.assertEqual(
                 connection.execute("SELECT COUNT(*) FROM schema_migrations").fetchone()[0],
-                19,
+                20,
             )
         self.assertEqual(self.store.integrity_check(), ("ok",))
         self.assertEqual(self.store.foreign_key_check(), ())

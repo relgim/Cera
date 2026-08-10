@@ -16,7 +16,7 @@ from dataclasses import dataclass, replace
 from http.cookiejar import CookieJar
 from pathlib import Path
 from threading import RLock, Thread
-from typing import Any
+from typing import Any, cast
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
 from cera.cognition.prompting import COGNITION_PLANNER_BASE_INSTRUCTIONS
@@ -73,6 +73,7 @@ from cera.pi_scene.request_journal import PiSceneRequestBindingV1
 from cera.pi_scene.review_store import LeanSceneTurnInputV1
 from cera.pi_scene.runtime import (
     LeanPiSceneCoordinator,
+    OrdinaryProviderStageRetryPort,
     repair_latest_ordinary_recording_from_output,
 )
 from cera.pi_scene.sillytavern_isolation import (
@@ -91,6 +92,11 @@ from cera.pi_scene.writer_view import WriterViewMaterializer
 from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
+)
+from cera.reader_validation import (
+    SOL_READER_BASE_INSTRUCTIONS,
+    CodexSolReaderBackend,
+    FreshSolReaderFactory,
 )
 from cera.reasoner_session.codex_stored import OpenAICodexStoredThreadBackend
 from cera.semantic_validation import (
@@ -167,6 +173,7 @@ class FullModelProviderComponents:
 
     planner_lifecycle: Any
     luna_backend: Any
+    reader_backend: Any
     pi: Any
     external_provider_boundary: bool
 
@@ -359,6 +366,7 @@ def build_live_runtime(
                     provider_components,
                     provider_components.planner_lifecycle,
                     provider_components.luna_backend,
+                    provider_components.reader_backend,
                     provider_components.pi,
                 )
             )
@@ -399,8 +407,10 @@ def build_live_runtime(
                 raise StateConflictError("ChatGPT Codex account is unavailable")
             planner_lifecycle_root = lifecycle_root / "planner"
             luna_lifecycle_root = lifecycle_root / "luna"
+            reader_lifecycle_root = lifecycle_root / "reader"
             planner_lifecycle_root.mkdir()
             luna_lifecycle_root.mkdir()
+            reader_lifecycle_root.mkdir()
             planner_lifecycle = OpenAICodexStoredThreadBackend(
                 codex=codex,
                 model="gpt-5.6-sol",
@@ -417,6 +427,14 @@ def build_live_runtime(
                 service_name="cera_pi_scene_semantic_validator",
                 service_tier="priority",
             )
+            reader_lifecycle = OpenAICodexStoredThreadBackend(
+                codex=codex,
+                model="gpt-5.6-sol",
+                cwd=str(reader_lifecycle_root),
+                base_instructions=SOL_READER_BASE_INSTRUCTIONS,
+                service_name="cera_pi_scene_reader_validator",
+                service_tier="priority",
+            )
             luna_evidence = ProviderOperationEvidenceStoreV1(
                 (runtime_root / "debug" / "semantic_validator").resolve(),
                 stage="pi_scene_luna_semantic_validator",
@@ -426,6 +444,16 @@ def build_live_runtime(
                 workspace=operation_root / "semantic_validator",
                 call_ledger=sol_ledger,
                 operation_evidence=luna_evidence,
+            )
+            reader_evidence = ProviderOperationEvidenceStoreV1(
+                (runtime_root / "debug" / "reader_validator").resolve(),
+                stage="pi_scene_sol_reader_validator",
+            )
+            reader_backend = CodexSolReaderBackend(
+                lifecycle=reader_lifecycle,
+                workspace=operation_root / "reader_validator",
+                call_ledger=sol_ledger,
+                operation_evidence=reader_evidence,
             )
             pi = PiSceneAdapter(
                 pi_executable=DEFAULT_PI,
@@ -437,9 +465,11 @@ def build_live_runtime(
         else:
             planner_lifecycle = provider_components.planner_lifecycle
             luna_backend = provider_components.luna_backend
+            reader_backend = provider_components.reader_backend
             pi = provider_components.pi
 
         semantic_validator = FreshLunaValidatorFactory(luna_backend)
+        reader_validator = FreshSolReaderFactory(reader_backend)
         selected_session_factory = (
             default_cognition_session_factory(runtime_root)
             if planner_session_factory is None
@@ -644,6 +674,12 @@ def build_live_runtime(
                 raise StateConflictError("Luna Retry receipt is unavailable")
             return result
 
+        def reader_provider_result() -> Any:
+            result = getattr(reader_backend, "last_provider_result", None)
+            if result is None:
+                raise StateConflictError("Reader Retry receipt is unavailable")
+            return result
+
         provider_stage_retry = (
             build_provider_stage_retry_production_assembly(
                 runtime_root=runtime_root,
@@ -657,6 +693,8 @@ def build_live_runtime(
                     planner_provider_result=planner_provider_result,
                     semantic_validator=semantic_validator,
                     luna_provider_result=luna_provider_result,
+                    reader_validator=reader_validator,
+                    reader_provider_result=reader_provider_result,
                 ),
             )
             if type(pi) is PiSceneAdapter
@@ -672,8 +710,14 @@ def build_live_runtime(
             recording_fault_injector=fault,
             planner_resolver=planner_registry.resolve,
             semantic_validator=semantic_validator,
+            reader_validator=reader_validator,
             ordinary_stage_retry=(
-                None if provider_stage_retry is None else provider_stage_retry.ordinary
+                None
+                if provider_stage_retry is None
+                else cast(
+                    OrdinaryProviderStageRetryPort,
+                    provider_stage_retry.ordinary,
+                )
             ),
         )
         adult_runtime = FullModelAdultRuntimeFactory(
