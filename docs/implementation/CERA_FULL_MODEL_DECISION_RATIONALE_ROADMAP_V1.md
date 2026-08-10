@@ -66,6 +66,26 @@ proposal as automatic authority:
 Direct creator decisions control conflicts. Vera supplies useful cognition
 principles and historical lessons, not runtime code or numerical authority.
 
+### 1.2 Creator-approved delta D-219 - 2026-08-10
+
+This delta is controlling and must be implemented and provider-free qualified
+before live qualification resumes.
+
+| Decision | Change | Previous roadmap behavior | Creator-approved behavior | Implementation state |
+|---|---|---|---|---|
+| Ordinary Reader | Added/restored | Luna alone gated ordinary semantics and severe completeness | A separate fresh Reader gates severe visible quality | In progress |
+| Validation scheduling | Changed | Luna completed before acceptance; no active Pi Reader | Luna and Reader run concurrently from the same frozen Writer candidate and never receive each other's verdict | In progress |
+| Provisional review | Added | The synchronous route returned only after validation and automatic acceptance or rejection | Exact frozen prose is durably visible as provisional while independent verdicts are pending, with reload/restart recovery | In progress |
+| Acceptance default | Clarified | Automatic Accept after Luna and Python checks | Automatic Accept after Luna, Reader, and Python checks; optional per-chat Manual Review requires explicit Accept | In progress |
+| Rejection controls | Expanded | Semantic rejection exposed one validation result | Preserve exact prose, show every applicable concise Luna/Reader failure, and offer Regenerate, Decline, and auditable creator override | In progress |
+| Adult quality floor | Clarified | Adult Filter owned semantic fidelity and protected record/projection staging | Adult Filter also owns the narrow severe-quality floor; no Codex Reader receives protected prose and no extra adult call is added | In progress |
+
+This decision restores the separate Reader responsibility already implemented
+and tested by the earlier Runtime Model V3 and Sequence-First paths. The active
+Pi route must adapt those closed contracts to its own candidate, retry,
+accounting, HTTP, and SillyTavern lifecycle rather than transplanting an older
+runtime wholesale. Reader acceptance alone never creates canon.
+
 ## 2. Supersession and preservation
 
 ### 2.1 This roadmap supersedes these assumptions
@@ -292,6 +312,7 @@ Core business logic must depend on ports, not provider product names.
 | `CharacterLogicPort` | retained branch-bound Codex Planner | ordinary perception, appraisal, motive conflict, decisions, causal sequence, participants, stopping point | visible prose, adult protected realization, canon writes |
 | `SceneWriterPort` | Pi-hosted DeepSeek Flash non-thinking | ordinary prose, dialogue wording, staging, atmosphere, pacing, compatible secondary detail | critical ordinary decisions, acceptance, state writes |
 | `SemanticValidatorPort` | separate branch-bound ChatGPT Luna Extra High | ordinary decision-to-prose fidelity and severe completeness | new planning, prose rewrite, canon writes |
+| `ReaderPort` | fresh isolated Codex Sol Medium | severe reader-facing repetition, voice, pacing, readability, depth, and stopping failure | semantic authority reinterpretation, prose rewrite, canon writes |
 | `AdultScenePort` | Pi-hosted DeepSeek | complete adult logic and prose | independent self-approval, canon writes |
 | `AdultFilterPort` | separate Pi-hosted DeepSeek Filter/Validator | adult semantic fidelity, protected record, safe projection, next-route proposal | prose rewrite, canon writes |
 | `RecorderPort` | ordinary DeepSeek Recorder | future-relevant secondary continuity from accepted ordinary prose | candidate approval, primary decision replacement |
@@ -727,15 +748,22 @@ facts, permissions, knowledge, route, accepted decisions, or branch state.
    branch/head identity, and deterministic constraints.
 6. Python builds the confined Writer view.
 7. Pi-hosted DeepSeek writes complete prose.
-8. Prose appears immediately as PROVISIONAL while Luna validates.
-9. Luna checks material fidelity to the exact decision bundle, source, accepted
-   evidence, autonomy, presence, and stopping boundary.
-10. Python validates the Luna verdict and candidate identity.
-11. Pass -> automatic atomic Accept of exact prose, source, decision bundle,
-    and minimal branch receipt.
-12. Ordinary Recorder derives future-relevant secondary continuity.
-13. Python validates and attaches the record bundle.
-14. Python incrementally rebuilds affected dossiers and indexes.
+8. Python freezes the exact Writer prose and durably exposes it as PROVISIONAL.
+9. Luna and Reader receive independent packets for that same frozen candidate
+   and run concurrently. Neither packet contains the other role's verdict.
+10. Luna checks material semantic fidelity. Reader checks only the narrow severe
+    reader-quality floor: repetition, voice, pacing, readability, depth, and
+    stopping failure.
+11. Python durably binds both verdicts and revalidates candidate identity,
+    deterministic rules, custody, and privacy.
+12. Both pass -> automatic atomic Accept by default. Per-chat Manual Review
+    waits for explicit creator Accept instead.
+13. Any rejection preserves the exact prose and exposes each concise applicable
+    failure with Regenerate, Decline, and auditable creator override.
+14. Ordinary Recorder derives future-relevant secondary continuity only after
+    acceptance and at most once.
+15. Python validates and attaches the record bundle.
+16. Python incrementally rebuilds affected dossiers and indexes.
 ```
 
 Luna checks material meaning, not wording. It rejects omitted decisions,
@@ -1145,7 +1173,7 @@ Exit gate:
 - mind/body modes behave according to creator definitions;
 - decision bundles remain compact.
 
-### Phase 5 — Ordinary Writer, Luna validation, automatic acceptance, and Recorder
+### Phase 5 — Ordinary Writer, concurrent Luna/Reader validation, automatic acceptance, and Recorder
 
 **Rationale:** DeepSeek prose needs semantic checking, while Python must not
 become a narrative judge.
@@ -1156,20 +1184,29 @@ Work:
 2. Preserve Writer freedom over wording, chronology, POV, atmosphere, staging,
    pacing, and compatible interpolation.
 3. Add separate Luna Extra High validation with candidate isolation.
-4. Show prose provisionally while validation runs.
-5. Implement critical one-repair behavior and retained candidate inspection.
-6. Implement automatic Accept after semantic and deterministic pass.
-7. Implement Regenerate as fresh realistic logic-owner judgment and Replan as
+4. Adapt the existing narrow Reader contract into a fresh isolated Pi Reader
+   stage bound to the same exact candidate without receiving Luna's verdict.
+5. Show exact prose provisionally while Luna and Reader run concurrently.
+6. Persist independent pending/pass/reject verdict state and reconcile it across
+   reload and restart without automatic provider redispatch.
+7. Implement critical one-repair behavior and retained candidate inspection.
+8. Implement exact-once automatic Accept after both verdicts and deterministic
+   checks, plus an optional per-chat Manual Review mode.
+9. Implement Regenerate as fresh realistic logic-owner judgment and Replan as
    explicit reasoning correction.
-8. Keep ordinary Recorder post-Accept and sequence-subordinate.
-9. Rebuild affected dossiers and indexes after recording.
+10. Keep ordinary Recorder post-Accept, sequence-subordinate, and exact-once.
+11. Rebuild affected dossiers and indexes after recording.
 
 Exit gate:
 
 - faithful prose passes;
 - omitted/contradicted decision or locked fact fails;
+- severe repetition, voice, pacing, depth, readability, or stopping failure is
+  independently Reader-rejected;
 - compatible variation passes;
-- automatic Accept is atomic and idempotent;
+- Luna and Reader run independently and concurrent execution is accounting-safe;
+- automatic Accept is atomic and idempotent only after both pass;
+- Manual Review remains provisional until explicit Accept;
 - failed repair remains inspectable;
 - provisional acceptance and pinned dependencies work;
 - Recorder failure leaves accepted prose intact and repairable.

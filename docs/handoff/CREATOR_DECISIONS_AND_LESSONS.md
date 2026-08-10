@@ -607,6 +607,17 @@ HTTP security, and no-fallback strengths while replacing the unsafe seams.
     review.
 16. The controlling implementation description for these decisions is
     `docs/implementation/CERA_FULL_MODEL_DECISION_RATIONALE_ROADMAP_V1.md`.
+17. A separate ordinary Reader is restored for the active Pi route. After exact
+   Writer prose freezes, Luna and Reader validate it concurrently and
+   independently. Python automatically accepts by default only after both pass
+   plus deterministic identity, custody, and privacy checks; a per-chat Manual
+   Review mode may require explicit Accept. Rejection preserves the exact prose,
+   reports the applicable concise Luna and Reader failures, and offers
+   Regenerate, Decline, and auditable creator override. Adult protected prose is
+   not sent to the Codex Reader; the existing protected Adult Filter receives
+   the narrow severe-quality responsibility without another adult provider call.
+   This durable provisional lifecycle must be provider-free qualified before
+   live qualification. Controlling decision: D-219.
 
 ## 14. Update discipline
 
