@@ -64,6 +64,7 @@ from cera.pi_scene.operation_ledger import PiProviderOperationLedger
 from cera.pi_scene.pi_adapter import PiSceneAdapter
 from cera.pi_scene.planner_state import PlannerThreadStateStore
 from cera.pi_scene.readable_debug import ReadablePiSceneDebugLog
+from cera.pi_scene.request_journal import PiSceneRequestBindingV1
 from cera.pi_scene.review_store import LeanSceneTurnInputV1
 from cera.pi_scene.runtime import (
     LeanPiSceneCoordinator,
@@ -75,6 +76,7 @@ from cera.pi_scene.sillytavern_isolation import (
     verify_isolated_sillytavern,
 )
 from cera.pi_scene.store import LeanSceneStore
+from cera.pi_scene.transport_retry import PiSceneProviderLedgerSnapshotV1
 from cera.pi_scene.world_runtime import (
     PiSceneChatWorldResolver,
     new_chat_semantic_scope,
@@ -94,7 +96,7 @@ from cera.semantic_validation import (
 from cera.sequence_first.prompting import PLANNER_BASE_INSTRUCTIONS, PLANNER_PROFILE
 from cera.sequence_first.provider import SequenceFirstPlannerCodexBackend
 from cera.sequence_first.sessions import PersistentPlannerSession
-from cera.serialization import canonical_bytes, canonical_sha256, text_sha256
+from cera.serialization import canonical_bytes, canonical_sha256, re_is_sha256, text_sha256
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_PI = Path(r"C:\Users\Ted\AppData\Roaming\npm\pi.cmd")
@@ -112,6 +114,23 @@ class LivePiSceneRuntime:
     readable_debug: ReadablePiSceneDebugLog
     world_resolver: PiSceneChatWorldResolver
     full_model_controller: FullModelSceneController
+    transport_retry_reinitializer: Callable[
+        [PiSceneRequestBindingV1, LeanSceneTurnInputV1, str, str],
+        None,
+    ]
+    transport_provider_ledger_snapshot: Callable[[], PiSceneProviderLedgerSnapshotV1]
+    transport_retry_active_thread_snapshot: Callable[
+        [PiSceneRequestBindingV1, LeanSceneTurnInputV1, str],
+        str | None,
+    ]
+    transport_retry_fresh_thread_initializer: Callable[
+        [PiSceneRequestBindingV1, LeanSceneTurnInputV1, str],
+        str,
+    ]
+    transport_completed_planner_abandoner: Callable[
+        [PiSceneRequestBindingV1, LeanSceneTurnInputV1, str, str],
+        None,
+    ]
 
     def close(self) -> None:
         self.stack.close()
@@ -211,6 +230,60 @@ class _PiScenePlannerRegistry:
             )
             return planner
 
+    def reset_after_transport_failure(
+        self,
+        turn: LeanSceneTurnInputV1,
+        expected_thread_sha256: str,
+    ) -> None:
+        """Archive exactly one interrupted branch-bound Planner thread."""
+
+        planner = self.resolve(turn)
+        reset = getattr(planner, "reset_provider_thread_after_transport_failure", None)
+        if not callable(reset):
+            raise StateConflictError(
+                "Pi Scene Planner cannot archive its interrupted provider thread"
+            )
+        reset(expected_thread_sha256)
+
+    def active_thread_sha256(self, turn: LeanSceneTurnInputV1) -> str | None:
+        """Read the exact branch Planner thread hash without provider work."""
+
+        planner = self.resolve(turn)
+        read = getattr(planner, "active_provider_thread_sha256", None)
+        if not callable(read):
+            raise StateConflictError("Pi Scene Planner cannot expose retained-thread custody")
+        value = read()
+        if value is not None and (not isinstance(value, str) or not re_is_sha256(value)):
+            raise StateConflictError("Pi Scene active Planner thread hash is invalid")
+        return value
+
+    def prepare_fresh_thread(self, turn: LeanSceneTurnInputV1) -> str:
+        """Create one empty fresh Planner thread without a provider operation."""
+
+        planner = self.resolve(turn)
+        prepare = getattr(planner, "prepare_fresh_provider_thread", None)
+        if not callable(prepare):
+            raise StateConflictError("Pi Scene Planner cannot prepare a fresh retained thread")
+        value = prepare()
+        if not isinstance(value, str) or not re_is_sha256(value):
+            raise StateConflictError("Pi Scene fresh Planner thread hash is invalid")
+        return value
+
+    def abandon_completed_uncommitted(
+        self,
+        turn: LeanSceneTurnInputV1,
+        expected_thread_sha256: str,
+    ) -> None:
+        """Retire one completed Planner thread without provider work."""
+
+        planner = self.resolve(turn)
+        abandon = getattr(planner, "abandon_completed_uncommitted_thread", None)
+        if not callable(abandon):
+            raise StateConflictError(
+                "Pi Scene Planner cannot retire its completed uncommitted thread"
+            )
+        abandon(expected_thread_sha256)
+
 
 class _ResolverOnlyOrdinaryPlanner:
     """Fail closed when live input omits the chat-scoped Planner controls."""
@@ -241,9 +314,7 @@ def accepted_logic_route(
     try:
         return SceneRoute(route_state.current_logic_route.value)
     except (AttributeError, ValueError) as exc:
-        raise StateConflictError(
-            "accepted branch returned an unsupported logic route"
-        ) from exc
+        raise StateConflictError("accepted branch returned an unsupported logic route") from exc
 
 
 def _initialize_live_runtime_roots(runtime_root: Path) -> tuple[Path, Path, Path]:
@@ -446,6 +517,97 @@ def build_live_runtime(
             )
         )
 
+        def reinitialize_transport_owner(
+            binding: PiSceneRequestBindingV1,
+            turn: LeanSceneTurnInputV1,
+            logic_owner: str,
+            expected_thread_sha256: str,
+        ) -> None:
+            controls = turn.request_controls
+            if controls is None or (
+                controls.session_id != binding.session_id
+                or turn.world_id != binding.world_id
+                or turn.branch_id != binding.branch_id
+                or canonical_sha256(controls) != binding.controls_sha256
+            ):
+                raise StateConflictError(
+                    "Pi Scene transport retry changed session or branch custody"
+                )
+            if logic_owner != "planner":
+                raise StateConflictError("Pi Scene transport retry is Planner-only")
+            planner_registry.reset_after_transport_failure(
+                turn,
+                expected_thread_sha256,
+            )
+
+        def transport_provider_ledger_snapshot() -> PiSceneProviderLedgerSnapshotV1:
+            return PiSceneProviderLedgerSnapshotV1(
+                schema_version=PiSceneProviderLedgerSnapshotV1.SCHEMA_VERSION,
+                dispatched_call_count=sol_ledger.dispatched_call_count,
+                events=tuple(sol_ledger.events),
+            )
+
+        def transport_retry_active_thread_snapshot(
+            binding: PiSceneRequestBindingV1,
+            turn: LeanSceneTurnInputV1,
+            logic_owner: str,
+        ) -> str | None:
+            controls = turn.request_controls
+            if controls is None or (
+                controls.session_id != binding.session_id
+                or turn.world_id != binding.world_id
+                or turn.branch_id != binding.branch_id
+                or canonical_sha256(controls) != binding.controls_sha256
+            ):
+                raise StateConflictError(
+                    "Pi Scene transport retry changed session or branch custody"
+                )
+            if logic_owner != "planner":
+                raise StateConflictError("Pi Scene transport retry is Planner-only")
+            return planner_registry.active_thread_sha256(turn)
+
+        def transport_retry_fresh_thread_initializer(
+            binding: PiSceneRequestBindingV1,
+            turn: LeanSceneTurnInputV1,
+            logic_owner: str,
+        ) -> str:
+            controls = turn.request_controls
+            if controls is None or (
+                controls.session_id != binding.session_id
+                or turn.world_id != binding.world_id
+                or turn.branch_id != binding.branch_id
+                or canonical_sha256(controls) != binding.controls_sha256
+            ):
+                raise StateConflictError(
+                    "Pi Scene transport retry changed session or branch custody"
+                )
+            if logic_owner != "planner":
+                raise StateConflictError("Pi Scene transport retry is Planner-only")
+            return planner_registry.prepare_fresh_thread(turn)
+
+        def transport_completed_planner_abandoner(
+            binding: PiSceneRequestBindingV1,
+            turn: LeanSceneTurnInputV1,
+            logic_owner: str,
+            expected_thread_sha256: str,
+        ) -> None:
+            controls = turn.request_controls
+            if controls is None or (
+                controls.session_id != binding.session_id
+                or turn.world_id != binding.world_id
+                or turn.branch_id != binding.branch_id
+                or canonical_sha256(controls) != binding.controls_sha256
+            ):
+                raise StateConflictError(
+                    "Pi Scene completed Planner changed session or branch custody"
+                )
+            if logic_owner != "planner":
+                raise StateConflictError("Pi Scene completed result owner is not Planner")
+            planner_registry.abandon_completed_uncommitted(
+                turn,
+                expected_thread_sha256,
+            )
+
         def fault(
             accepted: LeanAcceptedTurnReceiptV1,
             attempt_number: int,
@@ -481,9 +643,7 @@ def build_live_runtime(
             adult_context_provider=adult_runtime.execution_context,
             adult_regeneration_executor=adult_runtime.regeneration_executor,
             adult_operation_controller_factory=lambda: ProtectedAdultOperationController(
-                ProtectedAdultOperationStore(
-                    runtime_root / "protected_adult"
-                )
+                ProtectedAdultOperationStore(runtime_root / "protected_adult")
             ),
         )
         return LivePiSceneRuntime(
@@ -495,6 +655,11 @@ def build_live_runtime(
             readable_debug=readable_debug,
             world_resolver=world_resolver,
             full_model_controller=full_model_controller,
+            transport_retry_reinitializer=reinitialize_transport_owner,
+            transport_provider_ledger_snapshot=transport_provider_ledger_snapshot,
+            transport_retry_active_thread_snapshot=(transport_retry_active_thread_snapshot),
+            transport_retry_fresh_thread_initializer=(transport_retry_fresh_thread_initializer),
+            transport_completed_planner_abandoner=transport_completed_planner_abandoner,
         )
     except BaseException:
         stack.close()
@@ -524,9 +689,7 @@ def _seed_live_runtime_state(runtime_root: Path, seed_runtime_root: Path) -> Non
             or not protected_adult_source.is_dir()
             or protected_adult_target.exists()
         ):
-            raise StateConflictError(
-                "live seed protected_adult is unavailable or occupied"
-            )
+            raise StateConflictError("live seed protected_adult is unavailable or occupied")
         if any(path.is_symlink() for path in protected_adult_source.rglob("*")):
             raise StateConflictError("live seed protected_adult contains a symlink")
         shutil.copytree(protected_adult_source, protected_adult_target)
@@ -605,7 +768,11 @@ def _available_loopback_port() -> int:
         return int(probe.getsockname()[1])
 
 
-def _start_isolated_sillytavern(target_root: Path, *, port: int) -> subprocess.Popen:
+def _start_isolated_sillytavern(
+    target_root: Path,
+    *,
+    port: int,
+) -> subprocess.Popen[bytes]:
     manifest = verify_isolated_sillytavern(target_root)
     if manifest.get("user_data_copied") is not False:
         raise StateConflictError("isolated SillyTavern contains user data")
@@ -653,7 +820,7 @@ def _start_isolated_sillytavern(target_root: Path, *, port: int) -> subprocess.P
     raise StateConflictError("isolated SillyTavern did not become reachable")
 
 
-def _stop_process(process: subprocess.Popen | None) -> None:
+def _stop_process(process: subprocess.Popen[bytes] | None) -> None:
     if process is None or process.poll() is not None:
         return
     process.terminate()
@@ -790,6 +957,13 @@ def run_live_smoke(
                 turn,
             ),
             full_model_controller=runtime.full_model_controller,
+            transport_retry_reinitializer=runtime.transport_retry_reinitializer,
+            transport_provider_ledger_snapshot=(runtime.transport_provider_ledger_snapshot),
+            transport_retry_active_thread_snapshot=(runtime.transport_retry_active_thread_snapshot),
+            transport_retry_fresh_thread_initializer=(
+                runtime.transport_retry_fresh_thread_initializer
+            ),
+            transport_completed_planner_abandoner=(runtime.transport_completed_planner_abandoner),
         )
         server = build_pi_scene_server(
             adapter,
@@ -1177,6 +1351,31 @@ def serve(
             turn,
         ),
         full_model_controller=getattr(runtime, "full_model_controller", None),
+        transport_retry_reinitializer=getattr(
+            runtime,
+            "transport_retry_reinitializer",
+            None,
+        ),
+        transport_provider_ledger_snapshot=getattr(
+            runtime,
+            "transport_provider_ledger_snapshot",
+            None,
+        ),
+        transport_retry_active_thread_snapshot=getattr(
+            runtime,
+            "transport_retry_active_thread_snapshot",
+            None,
+        ),
+        transport_retry_fresh_thread_initializer=getattr(
+            runtime,
+            "transport_retry_fresh_thread_initializer",
+            None,
+        ),
+        transport_completed_planner_abandoner=getattr(
+            runtime,
+            "transport_completed_planner_abandoner",
+            None,
+        ),
     )
     readable_debug_root = getattr(
         runtime.readable_debug,
@@ -1197,9 +1396,7 @@ def serve(
                 "profile_id": PI_SCENE_PROFILE,
                 "readable_debug_directory": str(readable_debug_root),
                 "readable_debug_latest": str(readable_debug_root / "LATEST.md"),
-                "protected_adult_debug_directory": str(
-                    readable_debug_root / protected_debug_name
-                ),
+                "protected_adult_debug_directory": str(readable_debug_root / protected_debug_name),
             },
             sort_keys=True,
         ),

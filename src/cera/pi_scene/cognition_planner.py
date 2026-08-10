@@ -28,7 +28,16 @@ from .runtime import PlannerTurnInputV1, PlannerTurnOutputV1
 
 
 class CognitionPlannerSessionPort(Protocol):
+    @property
+    def active_thread_sha256(self) -> str | None: ...
+
     def plan(self, context: CognitionTurnContextV1) -> CognitionPlanV1: ...
+
+    def reset_after_transport_failure(self, expected_thread_sha256: str) -> None: ...
+
+    def prepare_fresh_thread(self) -> str: ...
+
+    def abandon_completed_uncommitted(self, expected_thread_sha256: str) -> None: ...
 
 
 class RetainedCognitionPlannerAdapter:
@@ -128,6 +137,34 @@ class RetainedCognitionPlannerAdapter:
                 )
             ),
         )
+
+    def reset_provider_thread_after_transport_failure(
+        self,
+        expected_thread_sha256: str,
+    ) -> None:
+        """Archive the interrupted retained thread without running a model."""
+
+        self.session.reset_after_transport_failure(expected_thread_sha256)
+        self.last_context = None
+
+    def active_provider_thread_sha256(self) -> str | None:
+        """Expose only the active retained-thread hash for retry reconciliation."""
+
+        return self.session.active_thread_sha256
+
+    def prepare_fresh_provider_thread(self) -> str:
+        """Create one empty fresh retained thread without a provider turn."""
+
+        return self.session.prepare_fresh_thread()
+
+    def abandon_completed_uncommitted_thread(
+        self,
+        expected_thread_sha256: str,
+    ) -> None:
+        """Retire a completed retained thread whose plan was not persisted."""
+
+        self.session.abandon_completed_uncommitted(expected_thread_sha256)
+        self.last_context = None
 
 
 def _provisional_ids(state: Mapping[str, Any]) -> tuple[str, ...]:

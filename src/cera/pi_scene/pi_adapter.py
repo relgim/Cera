@@ -8,22 +8,23 @@ performance layer; the caller supplies a fully materialized accepted view.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
-from threading import Thread
 import time
-from typing import Callable, Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass
+from pathlib import Path
+from threading import Thread
 from uuid import NAMESPACE_URL, uuid5
 
-from cera.errors import ContractValidationError, StateConflictError
+from cera.errors import ContractValidationError, ErrorCode, StateConflictError
 from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
 )
+from cera.providers.models import ProviderTransportError
 from cera.serialization import canonical_sha256, text_sha256
 
 from .contracts import PiWriterReceiptV1, SceneRoute
@@ -31,7 +32,6 @@ from .operation_ledger import PiProviderOperationLedger
 from .readable_debug import ReadablePiSceneDebugLog
 from .store import AcceptedPiSessionV1
 from .writer_view import MaterializedWriterViewV1, verify_writer_view
-
 
 ORDINARY_WRITER_SYSTEM_PROMPT = """You are CERA's DeepSeek Scene Writer operating inside a dedicated read-only Pi Scene session. Call the tool named context directly exactly once before writing; do not call a tool named invoke. Its branch-scoped view is the complete authorized context. Apply zz_CURRENT_TURN_AUTHORITY.json first.
 
@@ -205,9 +205,14 @@ class PiSceneAdapter:
                 status="failed",
                 failure_type=f"process_exit_{process.returncode}",
             )
-            raise StateConflictError(
-                "Pi Scene process failed without an accepted output "
-                f"(exit={process.returncode}, stderr_sha256={text_sha256(process.stderr)})"
+            raise ProviderTransportError(
+                ErrorCode.COMPOSER_UNAVAILABLE,
+                "Pi Scene provider process failed without an accepted output",
+                safe_diagnostics=(
+                    f"process_exit:{process.returncode}",
+                    f"stderr_sha256:{text_sha256(process.stderr)}",
+                ),
+                external_provider_calls_observed=1,
             )
         try:
             parsed = _parse_pi_json_stream(process.stdout)
@@ -270,7 +275,9 @@ class PiSceneAdapter:
                     "Route": request.route.value,
                     "DeepSeek system prompt": system_prompt,
                     "Pi invocation prompt": request.prompt,
-                    "Complete confined context-tool Writer view": self.readable_debug.writer_view(view.root),
+                    "Complete confined context-tool Writer view": self.readable_debug.writer_view(
+                        view.root
+                    ),
                     "DeepSeek output": output_text,
                     "Provider receipt": receipt,
                 },
@@ -362,13 +369,10 @@ def _validate_pi_completion(parsed: _ParsedPiStream) -> None:
         parsed.completed_context_tool_calls != MAX_TOOL_CALLS_PER_INVOCATION
         or parsed.tool_protocol_error_count
     ):
-        raise StateConflictError(
-            "Pi Scene did not prove one matched successful context completion"
-        )
+        raise StateConflictError("Pi Scene did not prove one matched successful context completion")
     if parsed.finish_status.casefold() not in SUCCESSFUL_FINISH_STATUSES:
         raise StateConflictError(
-            "Pi Scene did not reach a normal terminal stop "
-            f"(finish_status={parsed.finish_status})"
+            f"Pi Scene did not reach a normal terminal stop (finish_status={parsed.finish_status})"
         )
 
 
@@ -465,7 +469,10 @@ def _parse_pi_json_stream(stdout: str) -> _ParsedPiStream:
                     "reasoning_output_tokens",
                 )
             finish_status = str(
-                message.get("stopReason", message.get("stop_reason", message.get("finish_reason", "unknown")))
+                message.get(
+                    "stopReason",
+                    message.get("stop_reason", message.get("finish_reason", "unknown")),
+                )
             )
             text = _assistant_text(message.get("content"))
             if text.strip():
@@ -589,7 +596,12 @@ def _run_process(
             shell=False,
         )
     except OSError as exc:
-        raise StateConflictError("Pi Scene process could not start") from exc
+        raise ProviderTransportError(
+            ErrorCode.COMPOSER_UNAVAILABLE,
+            "Pi Scene provider process could not start",
+            safe_diagnostics=(f"process_start:{type(exc).__name__}",),
+            external_provider_calls_observed=0,
+        ) from None
 
     def read_stdout() -> None:
         assert process.stdout is not None
@@ -611,16 +623,26 @@ def _run_process(
     stderr_worker.start()
     try:
         returncode = process.wait(timeout=timeout_seconds)
-    except subprocess.TimeoutExpired as exc:
+    except subprocess.TimeoutExpired:
         process.kill()
         process.wait()
         stdout_worker.join(timeout=5)
         stderr_worker.join(timeout=5)
-        raise StateConflictError("Pi Scene process exceeded its timeout") from exc
+        raise ProviderTransportError(
+            ErrorCode.COMPOSER_UNAVAILABLE,
+            "Pi Scene provider process exceeded its timeout",
+            safe_diagnostics=("transport:timeout",),
+            external_provider_calls_observed=1,
+        ) from None
     stdout_worker.join(timeout=5)
     stderr_worker.join(timeout=5)
     if callback_errors:
-        raise StateConflictError("Pi Scene stream accounting failed") from callback_errors[0]
+        raise ProviderTransportError(
+            ErrorCode.COMPOSER_UNAVAILABLE,
+            "Pi Scene provider stream accounting failed",
+            safe_diagnostics=(f"stream_accounting:{type(callback_errors[0]).__name__}",),
+            external_provider_calls_observed=1,
+        ) from None
     return _ProcessResult(returncode, "".join(stdout_lines), "".join(stderr_lines))
 
 

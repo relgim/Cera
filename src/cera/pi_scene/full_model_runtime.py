@@ -94,10 +94,52 @@ def default_cognition_session_factory(
                 )
             )
 
+        def archive_interrupted(thread_id: str) -> None:
+            current = state_store.load(
+                session_id=session_id,
+                reasoning_effort=reasoning_effort,
+                compatibility_sha256=compatibility_sha256,
+            )
+            if current is None or current.thread_id != thread_id:
+                raise StateConflictError("cognition thread changed before transport retry archival")
+            state_store.archive_interrupted_transport_thread(current)
+
+        def verify_interrupted(thread_id_sha256: str) -> bool:
+            return state_store.has_interrupted_thread_hash(
+                session_id=session_id,
+                reasoning_effort=reasoning_effort,
+                compatibility_sha256=compatibility_sha256,
+                thread_id_sha256=thread_id_sha256,
+            )
+
+        def archive_completed_uncommitted(thread_id: str) -> None:
+            current = state_store.load(
+                session_id=session_id,
+                reasoning_effort=reasoning_effort,
+                compatibility_sha256=compatibility_sha256,
+            )
+            if current is None or current.thread_id != thread_id:
+                raise StateConflictError(
+                    "cognition thread changed before completed-result retirement"
+                )
+            state_store.archive_completed_uncommitted_thread(current)
+
+        def verify_completed_uncommitted(thread_id_sha256: str) -> bool:
+            return state_store.has_completed_uncommitted_thread_hash(
+                session_id=session_id,
+                reasoning_effort=reasoning_effort,
+                compatibility_sha256=compatibility_sha256,
+                thread_id_sha256=thread_id_sha256,
+            )
+
         return PersistentCognitionPlannerSession(
             backend,
             restored_thread_id=None if state is None else state.thread_id,
             persist_thread_id=persist,
+            archive_interrupted_thread=archive_interrupted,
+            verify_interrupted_thread=verify_interrupted,
+            archive_completed_uncommitted_thread=archive_completed_uncommitted,
+            verify_completed_uncommitted_thread=verify_completed_uncommitted,
         )
 
     return build
@@ -185,6 +227,60 @@ class RetrievalDirectedCognitionPlanner:
                 relevant_memories={},
             )
         )
+
+    def reset_provider_thread_after_transport_failure(
+        self,
+        expected_thread_sha256: str,
+    ) -> None:
+        reset = getattr(
+            self.planner,
+            "reset_provider_thread_after_transport_failure",
+            None,
+        )
+        if not callable(reset):
+            raise StateConflictError(
+                "cognition Planner cannot archive an interrupted provider thread"
+            )
+        reset(expected_thread_sha256)
+
+    def active_provider_thread_sha256(self) -> str | None:
+        """Expose the exact retained Planner thread hash for retry custody."""
+
+        read = getattr(self.planner, "active_provider_thread_sha256", None)
+        if not callable(read):
+            raise StateConflictError("cognition Planner cannot expose retained-thread custody")
+        value = read()
+        if value is not None and not isinstance(value, str):
+            raise StateConflictError("cognition Planner thread hash changed shape")
+        return value
+
+    def prepare_fresh_provider_thread(self) -> str:
+        """Create one empty post-archive Planner thread without a model turn."""
+
+        prepare = getattr(self.planner, "prepare_fresh_provider_thread", None)
+        if not callable(prepare):
+            raise StateConflictError("cognition Planner cannot prepare a fresh retained thread")
+        value = prepare()
+        if not isinstance(value, str):
+            raise StateConflictError("cognition fresh Planner thread hash changed shape")
+        return value
+
+    def abandon_completed_uncommitted_thread(
+        self,
+        expected_thread_sha256: str,
+    ) -> None:
+        """Retire a completed Planner thread that never entered durable progress."""
+
+        abandon = getattr(
+            self.planner,
+            "abandon_completed_uncommitted_thread",
+            None,
+        )
+        if not callable(abandon):
+            raise StateConflictError(
+                "cognition Planner cannot retire a completed uncommitted thread"
+            )
+        abandon(expected_thread_sha256)
 
 
 class PathBudgetedCognitionDebugLog(ReadablePiSceneDebugLog):

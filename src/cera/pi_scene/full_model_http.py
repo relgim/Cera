@@ -29,6 +29,7 @@ from .full_model_controller import (
     RejectedAdultTurnV1,
 )
 from .http_contracts import PI_SCENE_AUTO_MODEL, PI_SCENE_PROFILE, PiSceneChatRequestV1
+from .request_binding import PiSceneRequestBindingV1
 from .review_store import LeanSceneTurnInputV1
 
 
@@ -69,12 +70,8 @@ def adult_journal_progress(
         "protected_rejected_outcome_sha256": (
             None if rejected_payload is None else canonical_sha256(rejected_payload)
         ),
-        "public_review_id": (
-            None if rejected is None else rejected.public_review_id
-        ),
-        "review_sha256": (
-            None if rejected is None else rejected.review.review_sha256
-        ),
+        "public_review_id": (None if rejected is None else rejected.public_review_id),
+        "review_sha256": (None if rejected is None else rejected.review.review_sha256),
     }
 
 
@@ -96,12 +93,56 @@ def recover_adult_journal_response(
         or progress.get("controls_sha256") != canonical_sha256(to_primitive(request.controls))
     ):
         raise StateConflictError("adult request replay changed its exact turn custody")
+    return _recover_adult_progress(
+        controller=controller,
+        request_id=binding_request_id,
+        world_id=turn.world_id,
+        branch_id=turn.branch_id,
+        controls_sha256=canonical_sha256(to_primitive(request.controls)),
+        progress=progress,
+    )
+
+
+def recover_adult_journal_response_from_binding(
+    *,
+    controller: FullModelSceneController,
+    binding: PiSceneRequestBindingV1,
+    progress: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Recover progressed adult output after raw request custody was redacted."""
+
+    if (
+        progress.get("request_id") != binding.request_id
+        or progress.get("world_id") != binding.world_id
+        or progress.get("branch_id") != binding.branch_id
+        or progress.get("controls_sha256") != binding.controls_sha256
+    ):
+        raise StateConflictError("adult progressed replay changed branch custody")
+    return _recover_adult_progress(
+        controller=controller,
+        request_id=binding.request_id,
+        world_id=binding.world_id,
+        branch_id=binding.branch_id,
+        controls_sha256=binding.controls_sha256,
+        progress=progress,
+    )
+
+
+def _recover_adult_progress(
+    *,
+    controller: FullModelSceneController,
+    request_id: str,
+    world_id: str,
+    branch_id: str,
+    controls_sha256: str,
+    progress: Mapping[str, Any],
+) -> dict[str, Any]:
     repair_attempts = _decode_repair_attempts(progress.get("repair_attempts"))
     if progress.get("outcome_status") == "accepted":
         envelope, promotion = controller.store.load_promoted_adult_acceptance(
-            world_id=turn.world_id,
-            branch_id=turn.branch_id,
-            request_id=binding_request_id,
+            world_id=world_id,
+            branch_id=branch_id,
+            request_id=request_id,
         )
         expected = {
             "candidate_id": envelope.candidate_id,
@@ -142,7 +183,7 @@ def recover_adult_journal_response(
     )
     if adult_journal_progress(
         wrapped,
-        controls_sha256=canonical_sha256(to_primitive(request.controls)),
+        controls_sha256=controls_sha256,
     ) != dict(progress):
         raise StateConflictError("rejected adult replay binding changed")
     return rejected_adult_completion_payload(wrapped)
@@ -353,12 +394,8 @@ def rejected_adult_completion_payload(outcome: RejectedAdultTurnV1) -> dict[str,
             "review_status": outcome.review.operation.state.value,
             "accept_enabled": False,
             "provisional_accept_enabled": False,
-            "provisional_acceptance_status": (
-                outcome.review.provisional_acceptance.value
-            ),
-            "decline_enabled": (
-                outcome.review.operation.state.value == "executed-rejected"
-            ),
+            "provisional_acceptance_status": (outcome.review.provisional_acceptance.value),
+            "decline_enabled": (outcome.review.operation.state.value == "executed-rejected"),
             "regenerate_enabled": outcome.regenerate_enabled,
             "replan_enabled": False,
             "operational_warnings": [],
@@ -375,11 +412,7 @@ def adult_review_payload(bound: AdultBoundRejectedReviewV1) -> dict[str, Any]:
     operation_state = review.operation.state.value
     active = operation_state == "executed-rejected"
     state = (
-        "review_ready"
-        if active
-        else "declined"
-        if operation_state == "declined"
-        else "rejected"
+        "review_ready" if active else "declined" if operation_state == "declined" else "rejected"
     )
     protected = bound.outcome
     scene = protected.protected_execution.result.scene

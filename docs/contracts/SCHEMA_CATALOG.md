@@ -748,6 +748,42 @@ lexical concept that was not first declared semantically.
 
 `BeatScopedRepairRequest` v2 binds exactly one failed beat span and hash, the initial deterministic and semantic validation receipts, and all locked non-target content. Its receipt records one accepted-for-full-revalidation or rejected attempt. After splice, semantic verification runs again before the complete Composer validator. Neither schema authorizes a second repair, a provider change, an authority change, or a story commit.
 
+## 23. Pi Scene manual Planner transport Retry records
+
+These contracts are operational custody only. They do not establish story
+facts, authorize candidate prose, change accepted state, or permit automatic
+provider dispatch. This version permits a public Retry only for the Planner
+logic owner after exact zero-effect proof.
+
+| Schema | Owner | Meaning |
+|---|---|---|
+| `cera.pi_scene.http_request_binding.v1` | Python request journal | Exact canonical request hash and size bound to session, world, branch, route intent, model, controls, and stable request ID |
+| `cera.pi_scene.provider_ledger_snapshot.v1` | Python provider ledger | Exact append-only Sol event prefix and dispatched-call count at one Planner boundary |
+| `cera.pi_scene.transport_effect_snapshot.v1` | Python state stores | Accepted-head, unresolved-review, and recording-effect identity captured without story interpretation |
+| `cera.pi_scene.provider_failure_evidence.v1` | Python over exact call ledger | One validated Planner call graph with stable call, route, model, effort, failed-thread, transport marker, and terminal failure identities |
+| `cera.pi_scene.transport_zero_effect_proof.v2` | Python | Before/after effect equality plus exact Planner call span, resolved route, turn context, accepted head, and provider-ledger prefixes |
+| `cera.pi_scene.transport_failure_receipt.v1` | Python | Stable public failure number, request, owner, error, observed-operation count, proof hash, predecessor, receipt hash, and Retry ID |
+| `cera.pi_scene.normalized_request_custody.v1` | protected Python runtime only | Exact normalized request bytes and binding needed for one unchanged manual dispatch; never copied into safe journal, branch evidence, or debug output |
+| `cera.pi_scene.transport_dispatch_capsule.v1` | protected Python runtime only | Pre-Planner route, turn, accepted/effect, active-thread, and provider-prefix custody used for crash reconciliation |
+| `cera.pi_scene.planner_completed_pending_progress.v1` | protected Python runtime only | Hash-only exact Planner call, original turn/effect, prefix, accounting, and thread custody retained after raw request redaction until durable progress binds |
+| `cera.pi_scene.planner_result_unavailable.v1` | Python request journal | Non-Retry disposition for a consumed, uncommitted, or malformed-evidence Planner result: exact thread retired, retirement failed, durable effect unrecognized, or a corrupted ledger prefix retained as a branch-blocking hash-only conflict |
+| `cera.pi_scene.transport_dispatch_authority.v1` | protected Python runtime authority | Atomic source of truth combining staged or eligible dispatch custody with the validated Retry ledger; safe projections are rebuildable caches |
+| `cera.pi_scene.transport_retry_ledger.v2` | protected authority plus safe redacted projection | Ordered failures and signed action phases, predecessor chain, provider-prefix bridges, fresh-thread identity, success/block state, and cumulative accounting |
+| `cera.pi_scene.transport_retry_action.v2` | Python journal | Signed internal phase record for `eligible`, `authorized`, `owner_rotated`, `dispatch_started`, `terminal_failed`, `succeeded`, or `blocked` |
+| `cera.pi_scene.provider_prefix_bridge.v1` | Python provider ledger | Verified append-only gap containing unrelated provider calls between chain-owned Retry failures; unrelated calls are excluded from Retry totals |
+| `cera.pi_scene.transport_retry_index.v1` | Python derived lookup | Retry ID to exact request binding; rebuilt from validated protected authority when missing or stale |
+| `cera.pi_scene.transport_retry_summary.v1` | Python terminal response | Safe cumulative failed-attempt trace and charged-operation totals attached without mutating the caller response |
+| `cera.pi_scene.transport_retry.v1` | authenticated loopback HTTP | Closed relative same-origin manual POST action with stable Retry ID, proof hash, `eligible=true`, and `automatic=false` |
+| `cera.pi_scene.transport_retry_status.v1` | authenticated loopback HTTP | Closed GET projection with request/proof identity and one state: `eligible`, `in_progress`, `succeeded`, `superseded`, or `blocked` |
+
+The protected authority is the sole source of truth for Retry custody. A
+missing, stale, or mismatched safe ledger or index is replaced only after the
+protected record validates. Raw custody becomes a hash-only completion marker
+on typed Planner success and is redacted on local failure, unavailable-result
+disposition, permanent block, or terminal success. The public surface never
+includes provider text, raw request/history, exception text, filesystem paths,
+prompts, prose, private evidence, or secrets.
+
 ## Structural Contract v2 records
 
 The active provider and authority records are intentionally different:

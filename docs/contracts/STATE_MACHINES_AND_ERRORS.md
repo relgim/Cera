@@ -186,6 +186,120 @@ archival, resume, and missing-thread evidence using hashes rather than raw
 provider content. Historical deletion event values remain readable only for
 pre-D-178 records.
 
+## 6A. Pi Scene manual Planner transport Retry
+
+Pi Scene exposes a manual Transport Retry only for a terminal Planner provider
+transport failure. Python must prove that the failed call created no candidate,
+review, accepted head, recording, or other bound story-state effect. Writer,
+Luna Validator, adult-scene, adult-filter, and Recorder failures are not
+eligible in this version. An ineligible, pending, ambiguous, progressed without
+recoverable custody, or accepted result never exposes the action.
+
+Before the exact Planner dispatch, after deterministic pre-Planner work such as
+automatic acceptance of the prior review, Python freezes the normalized
+request, resolved route, turn context, accepted head, effect snapshot, active
+Planner-thread hash, and provider-ledger prefix in a protected dispatch
+authority. On typed Planner success, Python atomically redacts the raw request
+and retains a hash-only `planner_completed_pending_progress` marker until the
+ordinary review or adult operation becomes durable. A terminal failed Planner
+call plus unchanged effects is promoted to one immutable failure authority and
+public receipt.
+
+```text
+dispatch_staged
+-> planner_completed_pending_progress
+   -> progressed -> terminal
+   or -> planner_result_unavailable
+or
+-> failure_eligible
+-> eligible
+-> authorized
+-> owner_rotated
+-> dispatch_started
+-> succeeded
+or
+-> terminal_failed -> successor eligible Retry
+or
+-> blocked
+```
+
+`authorized` records the one creator action but performs no provider call.
+`owner_rotated` archives the failed retained thread and creates a distinct empty
+retained Planner thread. Creating that thread may use an external provider
+lifecycle transport, but it is not a Sol/model inference turn and does not add
+a provider-call-ledger operation. `dispatch_started` binds the fresh thread and
+exact provider-ledger prefix before the single new Planner call.
+
+The state machine is restart-safe and idempotent:
+
+- a stale safe projection or index is rebuilt from the validated protected
+  authority;
+- an identical replay can recover a terminal Planner failure recorded after a
+  crash but before HTTP error rendering;
+- a crash after fresh-thread creation but before a Sol ledger event resumes at
+  `owner_rotated`, never archives or resumes the failed thread again;
+- a crash after the Planner consumed a result but before durable story progress
+  first searches exact persisted progress by the original turn-context hash;
+  recovered progress keeps the Planner thread, while an absent result retires
+  that exact thread as `completed_uncommitted_never_resume` and never
+  redispatches the old request;
+- automatic Accept may advance `current_state` and `recent_prose`; recovery is
+  therefore bound to the marker's original turn hash, exact source and
+  controls, and selected accepted receipt rather than equality with the
+  rebuilt post-Accept turn;
+- a crash after durable review progress terminalizes the already-generated
+  response provider-free and does not dispatch another Planner call;
+- an exact fresh-thread failure creates a successor Retry even when unrelated
+  chats appended valid Sol events before or after it;
+- malformed same-thread Planner evidence is hash-bound without trusting its
+  graph, never becomes Retry authority, and retires that potentially consumed
+  thread before another prompt can run; a retirement failure keeps the branch
+  `blocked`;
+- a mutated provider-ledger prefix or evidence that cannot safely authorize
+  continued branch progress is redacted into
+  `planner_evidence_invalid_blocked`; even successful thread retirement does
+  not clear that evidence conflict;
+- evidence that cannot be attributed to one exact thread, or has route, head,
+  or unrecognized effect drift, remains `blocked` and cannot redispatch.
+
+The raw normalized request exists only in the dedicated protected Retry runtime
+root while a Planner dispatch or eligible action requires it. Typed Planner
+success replaces it with the hash-only completion marker before downstream
+Writer, Validator, adult, or Recorder work. Safe journals, indexes,
+debug logs, branch evidence, and public status contain only bounded identities,
+hashes, counts, and closed reason codes. Every permanent block and terminal
+success redacts the raw custody idempotently.
+
+Authenticated `GET /v1/cera/transport-retries/{retry_id}` is read-only and
+returns exactly one of `eligible`, `in_progress`, `succeeded`, `superseded`, or
+`blocked`. `POST` accepts only `{}` and is the sole manual dispatch action.
+Repeated GET or POST after a terminal result returns the same stored result and
+never adds a provider operation. The successful completion includes a closed
+transport-Retry attempt summary so accounting retains every prior charged
+failed Planner operation as well as the successful pipeline operations.
+
+Transport Retry is not:
+
+- **Regenerate**, which draws another candidate under the exact frozen story
+  logic and accepted-state snapshot;
+- **semantic repair**, which addresses candidate meaning or validation;
+- **Recorder repair**, which retries post-Accept record attachment without
+  regenerating or recommitting the scene.
+
+Transport Retry changes no request, route, controls, story logic, provider,
+model, or output. It never merges, patches, normalizes, falls back, substitutes
+a model, or runs automatically.
+
+`CERA_PLANNER_RESULT_UNAVAILABLE` is a distinct non-Retry 409. It means a
+charged or conservatively ambiguous Planner call consumed thread custody, but
+no exact durable result could be recovered. Successful local retirement
+unblocks a different prompt (which cold-rehydrates a different thread); failed
+retirement or unrecognized durable effect keeps that branch blocked for repair
+or a new chat. The same disposition covers malformed exact-thread evidence,
+which is never accepted as proof of success or Retry eligibility. A closed
+local `pretransport_failed` call is not this state: it
+keeps the safe thread and preserves the original local error.
+
 ## 7. Deferred derived consolidation
 
 ```text
@@ -311,6 +425,10 @@ Deployment readiness is a second independent gate. Missing role qualification, h
 | `CERA_EVALUATION_CONTAMINATED` | Holdout/evaluation evidence overlaps an excluded craft or training asset |
 | `CERA_PROVIDER_CONFIG_INVALID` | Live-provider route, endpoint, auth mode, model, or version is not an approved qualification configuration |
 | `CERA_PROVIDER_BUDGET_EXCEEDED` | A live request exceeds its byte, output-token, call, or estimated-cost ceiling |
+| `CERA_PROVIDER_TRANSPORT_FAILED` | Planner transport terminally failed; a manual Retry is present only when exact zero-effect proof passed |
+| `CERA_PLANNER_RESULT_UNAVAILABLE` | A completed or conservatively charged Planner result was lost before exact durable progress; Transport Retry is disabled and its consumed thread is never resumed |
+| `CERA_REQUEST_REPLAY_PENDING` | The exact request or branch has unresolved durable custody, so provider redispatch is blocked |
+| `CERA_TRANSPORT_RETRY_NOT_FOUND` | The authenticated Retry identity is malformed or unavailable; existence detail is not disclosed |
 | `CERA_PROMOTION_BLOCKED` | A route has hard defects, insufficient evidence, failed human preference, or lacks creator approval |
 | `CERA_DEPLOYMENT_NOT_AUTHORIZED` | One or more deployment-readiness authorizations are absent |
 | `CERA_STATE_CONFLICT` | Optimistic concurrency/authority conflict |

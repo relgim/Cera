@@ -10,15 +10,15 @@ from dataclasses import dataclass, replace
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import RLock
 from typing import Any
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
-from cera.errors import ContractValidationError, StateConflictError
+from cera.errors import ContractValidationError, ErrorCode, StateConflictError
 from cera.serialization import canonical_sha256, text_sha256, to_primitive
 
-from .contracts import RecordingStatus, SceneRoute
-from .creator_trace import cognition_creator_trace
+from .contracts import SceneRoute
 from .full_model_controller import (
     AcceptedAdultTurnV1,
     FullModelSceneController,
@@ -30,6 +30,7 @@ from .full_model_http import (
     adult_provisional_blocked_payload,
     adult_review_payload,
     recover_adult_journal_response,
+    recover_adult_journal_response_from_binding,
 )
 from .http_contracts import (
     PI_SCENE_ADULT_MODEL,
@@ -40,20 +41,49 @@ from .http_contracts import (
     PiSceneChatRequestV1,
     parse_chat_request,
 )
+from .ordinary_http import (
+    attach_debug_path,
+    ordinary_completion_payload,
+    ordinary_review_payload,
+)
 from .readable_debug import ReadablePiSceneDebugLog
 from .request_journal import (
     PiSceneRequestBindingV1,
     PiSceneRequestJournal,
+    PlannerResultUnavailableError,
+    RequestJournalResolutionV1,
     RequestReplayPendingError,
+    TransportRetryNotFoundError,
     build_request_binding,
 )
 from .review_store import (
     LeanDecisionResultV1,
     LeanReviewRecordV1,
-    LeanReviewState,
     LeanSceneTurnInputV1,
 )
 from .runtime import LeanPiSceneCoordinator
+from .transport_retry import (
+    PiScenePlannerCompletionMarkerV1,
+    PiSceneProviderLedgerSnapshotV1,
+    PiSceneProviderTransportFailure,
+    PiSceneTransportEffectSnapshotV1,
+    PiSceneZeroEffectProofV1,
+    TransportFailureReceiptV1,
+    build_provider_failure_evidence,
+    provider_failure_detail_sha256,
+)
+from .transport_retry_http import (
+    PiSceneManualTransportRetryError,
+    TransportCompletedPlannerAbandoner,
+    TransportProviderLedgerSnapshot,
+    TransportRetryActiveThreadSnapshot,
+    TransportRetryFreshThreadInitializer,
+    TransportRetryHttpController,
+    TransportRetryHttpDependencies,
+    TransportRetryReinitializer,
+    transport_retry_action,
+    transport_retry_id,
+)
 
 ContextProvider = Callable[[SceneRoute, str, Sequence[Mapping[str, str]]], LeanSceneTurnInputV1]
 RequestContextProvider = Callable[
@@ -103,6 +133,13 @@ class PiSceneHttpAdapter:
         request_journal: PiSceneRequestJournal | None = None,
         logic_route_resolver: LogicRouteResolver | None = None,
         full_model_controller: FullModelSceneController | None = None,
+        transport_retry_reinitializer: TransportRetryReinitializer | None = None,
+        transport_provider_ledger_snapshot: TransportProviderLedgerSnapshot | None = None,
+        transport_retry_active_thread_snapshot: (TransportRetryActiveThreadSnapshot | None) = None,
+        transport_retry_fresh_thread_initializer: (
+            TransportRetryFreshThreadInitializer | None
+        ) = None,
+        transport_completed_planner_abandoner: (TransportCompletedPlannerAbandoner | None) = None,
     ) -> None:
         legacy = request_context_provider is None
         if legacy:
@@ -124,6 +161,15 @@ class PiSceneHttpAdapter:
         self.request_journal = request_journal
         self.logic_route_resolver = logic_route_resolver
         self.full_model_controller = full_model_controller
+        self.transport_retry_reinitializer = transport_retry_reinitializer
+        self.transport_provider_ledger_snapshot = transport_provider_ledger_snapshot
+        self.transport_retry_active_thread_snapshot = transport_retry_active_thread_snapshot
+        self.transport_retry_fresh_thread_initializer = transport_retry_fresh_thread_initializer
+        self.transport_completed_planner_abandoner = transport_completed_planner_abandoner
+        # One adapter owns the snapshot -> Planner call -> terminal-ledger span.
+        # This binds global Sol ledger appends to one exact request and also
+        # prevents two manual POSTs from dispatching the same retry.
+        self._provider_request_lock = RLock()
         if self.full_model_controller is not None and self.logic_route_resolver is None:
             raise ContractValidationError(
                 "full-model HTTP requires accepted logic-route resolution"
@@ -159,6 +205,104 @@ class PiSceneHttpAdapter:
         }
 
     def complete(self, payload: Mapping[str, Any]) -> dict[str, Any]:
+        with self._provider_request_lock:
+            request, turn, binding = self._prepare_bound_request(payload)
+            journal = self._durable_request_journal()
+            with journal.provider_dispatch_claim():
+                dispatch_intent = journal.active_transport_dispatch_for_scope(
+                    session_id=binding.session_id,
+                    world_id=binding.world_id,
+                    branch_id=binding.branch_id,
+                )
+                if dispatch_intent is not None and dispatch_intent.request_id != binding.request_id:
+                    raise RequestReplayPendingError(
+                        "Pi Scene has an interrupted manual provider dispatch",
+                        request_id=dispatch_intent.request_id,
+                    )
+                current = self._prepare_bound_request(payload)
+                if current != (request, turn, binding):
+                    raise StateConflictError(
+                        "Pi Scene request context changed before provider dispatch"
+                    )
+                active_retry = journal.actionable_transport_failure_for_scope(
+                    session_id=binding.session_id,
+                    world_id=binding.world_id,
+                    branch_id=binding.branch_id,
+                )
+                if active_retry is not None and active_retry.request_id != binding.request_id:
+                    raise RequestReplayPendingError(
+                        "Pi Scene branch has an unresolved manual transport Retry",
+                        request_id=active_retry.request_id,
+                    )
+                return self._run_bound_request(
+                    payload=payload,
+                    request=request,
+                    turn=turn,
+                    binding=binding,
+                    resolution=None,
+                )
+
+    def retry_transport(self, retry_id: str) -> dict[str, Any]:
+        """Run one explicit, durable provider retry with no changed request bytes."""
+
+        with self._provider_request_lock:
+            return self._retry_transport_locked(retry_id)
+
+    def _retry_transport_locked(self, retry_id: str) -> dict[str, Any]:
+        """Run one Retry while holding exclusive provider-ledger attribution."""
+
+        request_journal = self._durable_request_journal()
+        with request_journal.transport_dispatch_claim(retry_id):
+            with request_journal.provider_dispatch_claim():
+                return self._transport_retry_controller(request_journal).retry_claimed(retry_id)
+
+    def transport_retry_status(self, retry_id: str) -> dict[str, Any]:
+        """Read/reconcile one authenticated Retry without provider dispatch."""
+
+        return self._transport_retry_controller().status(retry_id)
+
+    def _transport_retry_controller(
+        self,
+        journal: PiSceneRequestJournal | None = None,
+    ) -> TransportRetryHttpController:
+        return TransportRetryHttpController(
+            TransportRetryHttpDependencies(
+                journal=self._durable_request_journal() if journal is None else journal,
+                prepare_bound_request=self._prepare_bound_request,
+                run_bound_request=self._run_bound_request,
+                complete_bound_request=self._complete_bound_request,
+                effect_snapshot=self._transport_effect_snapshot,
+                provider_ledger_snapshot=self._provider_ledger_snapshot,
+                reinitializer=self.transport_retry_reinitializer,
+                active_thread_snapshot=self.transport_retry_active_thread_snapshot,
+                fresh_thread_initializer=(self.transport_retry_fresh_thread_initializer),
+                completed_planner_abandoner=self.transport_completed_planner_abandoner,
+                recover_completed_planner_progress=(self._recover_completed_planner_progress),
+                recover_progressed_request=self._recover_progressed_request,
+            )
+        )
+
+    def _provider_ledger_snapshot(self) -> PiSceneProviderLedgerSnapshotV1:
+        snapshot = self._optional_provider_ledger_snapshot()
+        if snapshot is None:
+            raise StateConflictError("Pi Scene Planner retry lacks Sol ledger custody")
+        return snapshot
+
+    def _optional_provider_ledger_snapshot(
+        self,
+    ) -> PiSceneProviderLedgerSnapshotV1 | None:
+        provider = self.transport_provider_ledger_snapshot
+        if provider is None:
+            return None
+        value = provider()
+        if not isinstance(value, PiSceneProviderLedgerSnapshotV1):
+            raise StateConflictError("Pi Scene Sol ledger snapshot changed shape")
+        return value
+
+    def _prepare_bound_request(
+        self,
+        payload: Mapping[str, Any],
+    ) -> tuple[PiSceneChatRequestV1, LeanSceneTurnInputV1, PiSceneRequestBindingV1]:
         request = self._parse_chat_request(payload)
         turn = self._turn_for_request(request)
         if request.automatic_route and self.logic_route_resolver is not None:
@@ -184,32 +328,175 @@ class PiSceneHttpAdapter:
             route=request.route,
             controls=request.controls,
         )
-        request_journal = self._durable_request_journal()
+        return request, turn, binding
+
+    def _run_bound_request(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        request: PiSceneChatRequestV1,
+        turn: LeanSceneTurnInputV1,
+        binding: PiSceneRequestBindingV1,
+        resolution: RequestJournalResolutionV1 | None,
+        provider_ledger_before: PiSceneProviderLedgerSnapshotV1 | None = None,
+    ) -> dict[str, Any]:
+        before = self._transport_effect_snapshot(turn)
+        ledger_before = (
+            self._optional_provider_ledger_snapshot()
+            if provider_ledger_before is None
+            else provider_ledger_before
+        )
         try:
-            resolution = request_journal.begin(binding)
-        except RequestReplayPendingError:
-            if self.full_model_controller is None:
-                raise
-            recovered = self.full_model_controller.recover_completed_adult_operation(
-                request_id=binding.request_id,
+            return self._complete_bound_request(
+                payload=payload,
+                request=request,
                 turn=turn,
+                binding=binding,
+                resolution=resolution,
             )
-            if recovered is None:
+        except PiSceneProviderTransportFailure as exc:
+            if (
+                exc.logic_owner != "planner"
+                or exc.failure.code
+                not in {
+                    ErrorCode.REASONER_UNAVAILABLE,
+                    ErrorCode.COMPOSER_UNAVAILABLE,
+                    ErrorCode.ADULT_PLANNER_UNAVAILABLE,
+                }
+                or ledger_before is None
+            ):
+                journal = self._durable_request_journal()
+                staged = journal.staged_transport_dispatch(binding)
+                if staged is not None and staged["phase"] == "planner_completed_pending_progress":
+                    try:
+                        recovered = self._transport_retry_controller(
+                            journal
+                        ).recover_staged_planner_failure(
+                            binding=binding,
+                            payload=payload,
+                            request=request,
+                            turn=turn,
+                        )
+                    except PlannerResultUnavailableError:
+                        raise exc from None
+                    if isinstance(recovered, dict):
+                        return recovered
+                journal.discard_staged_transport_dispatch(binding)
                 raise
-            progress = adult_journal_progress(
-                recovered,
-                controls_sha256=binding.controls_sha256,
+            effect_before = exc.effect_snapshot_before or before
+            after = self._transport_effect_snapshot(turn)
+            if effect_before != after:
+                self._durable_request_journal().discard_staged_transport_dispatch(binding)
+                raise
+            ledger_after = self._provider_ledger_snapshot()
+            submitted = exc.failure.external_provider_calls_observed == 1
+            provider_evidence = build_provider_failure_evidence(
+                before=ledger_before,
+                after=ledger_after,
+                provider_operation_submitted=submitted,
+                provider_failure_detail_sha256=provider_failure_detail_sha256(exc.failure),
             )
+            proof = PiSceneZeroEffectProofV1(
+                schema_version=PiSceneZeroEffectProofV1.SCHEMA_VERSION,
+                request_id=binding.request_id,
+                logic_owner=exc.logic_owner,
+                resolved_route=request.route.value,
+                turn_context_sha256=canonical_sha256(turn),
+                before_snapshot=effect_before,
+                after_snapshot=after,
+                provider_failure_evidence=provider_evidence,
+                candidate_effect_absent=True,
+                review_effect_absent=True,
+                accepted_effect_absent=True,
+                recording_effect_absent=True,
+                branch_head_effect_absent=True,
+            )
+            receipt = self._durable_request_journal().record_transport_failure(
+                binding,
+                normalized_request=payload,
+                logic_owner=exc.logic_owner,
+                provider_error_code=exc.failure.code.value,
+                provider_operations_observed=int(submitted),
+                effect_proof=proof,
+                provider_ledger_before=ledger_before,
+            )
+            raise PiSceneManualTransportRetryError(receipt) from exc
+        except Exception as original:
+            journal = self._durable_request_journal()
+            staged = journal.staged_transport_dispatch(binding)
+            if staged is None or staged["phase"] != "planner_completed_pending_progress":
+                journal.discard_staged_transport_dispatch(binding)
+                raise
             try:
-                request_journal.bind_progress(binding, progress)
-                response = self._adult_completion_response_with_debug(recovered)
-                request_journal.complete(binding, response)
-            except Exception as exc:
-                raise PiSceneCommittedStateError(
-                    "CERA recovered accepted adult story state but could not "
-                    "terminalize its durable response"
-                ) from exc
-            return response
+                recovered = self._transport_retry_controller(
+                    journal
+                ).recover_staged_planner_failure(
+                    binding=binding,
+                    payload=payload,
+                    request=request,
+                    turn=turn,
+                )
+            except PlannerResultUnavailableError:
+                raise original from None
+            if isinstance(recovered, dict):
+                return recovered
+            journal.discard_staged_transport_dispatch(binding)
+            raise
+
+    def _complete_bound_request(
+        self,
+        *,
+        payload: Mapping[str, Any],
+        request: PiSceneChatRequestV1,
+        turn: LeanSceneTurnInputV1,
+        binding: PiSceneRequestBindingV1,
+        resolution: RequestJournalResolutionV1 | None,
+    ) -> dict[str, Any]:
+        request_journal = self._durable_request_journal()
+        if resolution is None:
+            try:
+                resolution = request_journal.begin(binding)
+            except RequestReplayPendingError:
+                staged_recovery = self._transport_retry_controller(
+                    request_journal
+                ).recover_staged_planner_failure(
+                    binding=binding,
+                    payload=payload,
+                    request=request,
+                    turn=turn,
+                )
+                if isinstance(staged_recovery, TransportFailureReceiptV1):
+                    raise PiSceneManualTransportRetryError(staged_recovery) from None
+                if isinstance(staged_recovery, RequestJournalResolutionV1):
+                    resolution = staged_recovery
+                elif isinstance(staged_recovery, dict):
+                    return staged_recovery
+                else:
+                    failed = request_journal.active_transport_failure(binding)
+                    if failed is not None:
+                        raise PiSceneManualTransportRetryError(failed) from None
+                    if self.full_model_controller is None:
+                        raise
+                    recovered = self.full_model_controller.recover_completed_adult_operation(
+                        request_id=binding.request_id,
+                        turn=turn,
+                    )
+                    if recovered is None:
+                        raise
+                    progress = adult_journal_progress(
+                        recovered,
+                        controls_sha256=binding.controls_sha256,
+                    )
+                    try:
+                        request_journal.bind_progress(binding, progress)
+                        response = self._adult_completion_response_with_debug(recovered)
+                        response = request_journal.complete(binding, response)
+                    except Exception as exc:
+                        raise PiSceneCommittedStateError(
+                            "CERA recovered accepted adult story state but could not "
+                            "terminalize its durable response"
+                        ) from exc
+                    return response
         if resolution.replayed:
             if resolution.terminal_response is None:
                 raise StateConflictError("Pi Scene terminal replay omitted its response")
@@ -228,7 +515,7 @@ class PiSceneHttpAdapter:
                     binding_request_id=binding.request_id,
                     progress=resolution.review_progress,
                 )
-                request_journal.complete(binding, response)
+                response = request_journal.complete(binding, response)
                 return response
             review = self._recover_journal_review(
                 request=request,
@@ -236,7 +523,7 @@ class PiSceneHttpAdapter:
                 progress=resolution.review_progress,
             )
             response = self._completion_response_with_debug(review)
-            request_journal.complete(binding, response)
+            response = request_journal.complete(binding, response)
             return response
         if (
             request.controls.regeneration_key is not None
@@ -273,27 +560,63 @@ class PiSceneHttpAdapter:
                         world_id=turn.world_id,
                         branch_id=turn.branch_id,
                     )
-                if self.full_model_controller is not None and request.automatic_route:
-                    full_model_outcome = self.full_model_controller.complete(
-                        request_id=binding.request_id,
+                provider_effect_before = self._transport_effect_snapshot(turn)
+
+                def stage_planner_transport() -> None:
+                    provider_ledger_at_dispatch = self._optional_provider_ledger_snapshot()
+                    if provider_ledger_at_dispatch is not None:
+                        thread_snapshot = self.transport_retry_active_thread_snapshot
+                        planner_thread_sha256 = (
+                            None
+                            if thread_snapshot is None
+                            else thread_snapshot(binding, turn, "planner")
+                        )
+                        request_journal.stage_transport_dispatch(
+                            binding,
+                            normalized_request=payload,
+                            logic_owner="planner",
+                            resolved_route=request.route.value,
+                            turn_context_sha256=canonical_sha256(turn),
+                            effect_before=provider_effect_before,
+                            provider_ledger_before=provider_ledger_at_dispatch,
+                            planner_thread_sha256=planner_thread_sha256,
+                        )
+
+                def close_planner_transport() -> None:
+                    self._transport_retry_controller(request_journal).close_staged_planner_dispatch(
+                        binding=binding,
                         turn=turn,
                     )
-                    if isinstance(
-                        full_model_outcome,
-                        (AcceptedAdultTurnV1, RejectedAdultTurnV1),
-                    ):
-                        return self._finish_adult_outcome(
-                            request_journal=request_journal,
-                            binding=binding,
-                            outcome=full_model_outcome,
-                        )
-                    review = full_model_outcome
-                else:
-                    review = (
-                        self.coordinator.start_ordinary(turn)
-                        if request.route is SceneRoute.ORDINARY
-                        else self.coordinator.start_adult(turn)
-                    )
+
+                with self.coordinator.planner_transport_custody(
+                    on_start=stage_planner_transport,
+                    on_success=close_planner_transport,
+                ):
+                    try:
+                        if self.full_model_controller is not None and request.automatic_route:
+                            full_model_outcome = self.full_model_controller.complete(
+                                request_id=binding.request_id,
+                                turn=turn,
+                            )
+                            if isinstance(
+                                full_model_outcome,
+                                (AcceptedAdultTurnV1, RejectedAdultTurnV1),
+                            ):
+                                return self._finish_adult_outcome(
+                                    request_journal=request_journal,
+                                    binding=binding,
+                                    outcome=full_model_outcome,
+                                )
+                            review = full_model_outcome
+                        else:
+                            review = (
+                                self.coordinator.start_ordinary(turn)
+                                if request.route is SceneRoute.ORDINARY
+                                else self.coordinator.start_adult(turn)
+                            )
+                    except PiSceneProviderTransportFailure as exc:
+                        exc.effect_snapshot_before = provider_effect_before
+                        raise
         try:
             request_journal.bind_review(binding, self._journal_review_progress(review))
         except Exception as exc:
@@ -304,7 +627,7 @@ class PiSceneHttpAdapter:
             raise
         response = self._completion_response_with_debug(review)
         try:
-            request_journal.complete(binding, response)
+            response = request_journal.complete(binding, response)
         except Exception as exc:
             if review.accepted_receipt is not None:
                 raise PiSceneCommittedStateError(
@@ -313,6 +636,77 @@ class PiSceneHttpAdapter:
                 ) from exc
             raise
         return response
+
+    def _recover_completed_planner_progress(
+        self,
+        binding: PiSceneRequestBindingV1,
+        request: PiSceneChatRequestV1,
+        turn: LeanSceneTurnInputV1,
+        completion: PiScenePlannerCompletionMarkerV1,
+    ) -> dict[str, Any] | None:
+        """Bind an exact durable post-Plan result without another provider call."""
+
+        journal = self._durable_request_journal()
+        current = self.coordinator.durable_result_for_request(
+            world_id=binding.world_id,
+            branch_id=binding.branch_id,
+            turn_context_sha256=completion.turn_context_sha256,
+            exact_user_source=request.exact_user_source,
+            request_controls=request.controls,
+        )
+        if current is not None:
+            journal.bind_review(binding, self._journal_review_progress(current))
+            return journal.complete(binding, self._completion_response_with_debug(current))
+        controller = self.full_model_controller
+        if controller is None:
+            return None
+        recovered = controller.recover_completed_adult_operation(
+            request_id=binding.request_id,
+            turn=turn,
+        )
+        if recovered is None:
+            return None
+        progress = adult_journal_progress(
+            recovered,
+            controls_sha256=binding.controls_sha256,
+        )
+        journal.bind_progress(binding, progress)
+        return journal.complete(
+            binding,
+            self._adult_completion_response_with_debug(recovered),
+        )
+
+    def _recover_progressed_request(
+        self,
+        binding: PiSceneRequestBindingV1,
+        progress: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Terminalize exact durable progress after raw Retry bytes were redacted."""
+
+        journal = self._durable_request_journal()
+        if progress.get("schema_version") == "cera.pi_scene.http_adult_progress.v1":
+            controller = self.full_model_controller
+            if controller is None:
+                raise StateConflictError("adult progressed Retry lacks its controller")
+            response = recover_adult_journal_response_from_binding(
+                controller=controller,
+                binding=binding,
+                progress=progress,
+            )
+            return journal.complete(binding, response)
+        review_id = progress.get("review_id")
+        if not isinstance(review_id, str):
+            raise StateConflictError("ordinary progressed Retry lost its review identity")
+        review = self.coordinator.get_review(review_id)
+        if (
+            self._journal_review_progress(review) != dict(progress)
+            or review.candidate.world_id != binding.world_id
+            or review.candidate.branch_id != binding.branch_id
+            or canonical_sha256(to_primitive(review.turn_input.request_controls))
+            != binding.controls_sha256
+        ):
+            raise StateConflictError("ordinary progressed Retry changed durable custody")
+        return journal.complete(binding, self._completion_response_with_debug(review))
 
     def _finish_adult_outcome(
         self,
@@ -336,7 +730,7 @@ class PiSceneHttpAdapter:
             raise
         response = self._adult_completion_response_with_debug(outcome)
         try:
-            request_journal.complete(binding, response)
+            response = request_journal.complete(binding, response)
         except Exception as exc:
             if isinstance(outcome, AcceptedAdultTurnV1):
                 raise PiSceneCommittedStateError(
@@ -367,7 +761,7 @@ class PiSceneHttpAdapter:
                     },
                 )
                 if debug_entry is not None:
-                    self._attach_debug_path(response, str(debug_entry))
+                    attach_debug_path(response, str(debug_entry))
             except Exception:
                 response["cera"]["operational_warnings"] = ["readable_debug_write_failed"]
         return response
@@ -392,7 +786,7 @@ class PiSceneHttpAdapter:
                     },
                 )
                 if debug_entry is not None:
-                    self._attach_debug_path(response, str(debug_entry))
+                    attach_debug_path(response, str(debug_entry))
             except Exception:
                 response["cera"]["operational_warnings"] = ["readable_debug_write_failed"]
         return response
@@ -413,6 +807,52 @@ class PiSceneHttpAdapter:
         return self.review_payload(ordinary)
 
     def decide(self, review_id: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+        session_id, world_id, branch_id = self._review_dispatch_scope(review_id)
+        with self._provider_request_lock:
+            journal = self._durable_request_journal()
+            with journal.provider_dispatch_claim():
+                dispatch_intent = journal.active_transport_dispatch_for_scope(
+                    session_id=session_id,
+                    world_id=world_id,
+                    branch_id=branch_id,
+                )
+                if dispatch_intent is not None:
+                    raise RequestReplayPendingError(
+                        "Pi Scene has an interrupted manual provider dispatch",
+                        request_id=dispatch_intent.request_id,
+                    )
+                return self._decide_locked(review_id, payload)
+
+    def _review_dispatch_scope(
+        self,
+        review_id: str,
+    ) -> tuple[str | None, str, str]:
+        adult = (
+            self.full_model_controller is not None
+            and self.full_model_controller.has_adult_review(review_id)
+        )
+        ordinary = self._ordinary_review_optional(review_id)
+        if adult and ordinary is not None:
+            raise StateConflictError("CERA public review identity is ambiguous")
+        if ordinary is not None:
+            controls = ordinary.turn_input.request_controls
+            return (
+                None if controls is None else controls.session_id,
+                ordinary.turn_input.world_id,
+                ordinary.turn_input.branch_id,
+            )
+        if adult:
+            assert self.full_model_controller is not None
+            bound = self.full_model_controller.get_adult_review(review_id)
+            route_state = bound.outcome.prepared.route_state
+            return None, route_state.world_id, route_state.branch_id
+        raise StateConflictError("unknown Pi Scene review")
+
+    def _decide_locked(
+        self,
+        review_id: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
         adult = (
             self.full_model_controller is not None
             and self.full_model_controller.has_adult_review(review_id)
@@ -559,89 +999,25 @@ class PiSceneHttpAdapter:
             raise
 
     def review_payload(self, review: LeanReviewRecordV1) -> dict[str, Any]:
-        candidate = review.candidate
         status = (
             None
             if review.accepted_receipt is None
             else self.coordinator.store.recording_status(review.accepted_receipt).value
         )
-        validation = review.semantic_validation
-        validation_payload = (
-            None
-            if validation is None
-            else {
-                "binding_sha256": validation.binding_sha256,
-                "verdict": validation.verdict.verdict.value,
-                "automatic_repair_eligible": validation.verdict.automatic_repair_eligible,
-                "conflict": (
-                    None
-                    if validation.verdict.conflict is None
-                    else to_primitive(validation.verdict.conflict)
-                ),
-                "review_flags": [to_primitive(value) for value in validation.verdict.review_flags],
-            }
+        return ordinary_review_payload(review, recording_status=status)
+
+    @staticmethod
+    def _completion_payload(
+        review: LeanReviewRecordV1,
+        *,
+        provider_attempts: Sequence[LeanReviewRecordV1] | None = None,
+    ) -> dict[str, Any]:
+        """Compatibility wrapper over the pure ordinary HTTP projection."""
+
+        return ordinary_completion_payload(
+            review,
+            provider_attempts=provider_attempts,
         )
-        rejected = validation is not None and validation.verdict.verdict.value == "reject"
-        provisional_canon = (
-            review.accepted_receipt is not None
-            and review.accepted_receipt.creator_action == "provisional_accept"
-        )
-        return {
-            "schema_version": "cera.pi_scene.review.v1",
-            "review_id": review.review_id,
-            "state": review.state,
-            "provisional": review.state == LeanReviewState.REVIEW_READY,
-            "route": candidate.route.value,
-            "story_text": candidate.story_text,
-            "candidate_id": candidate.candidate_id,
-            "candidate_sha256": candidate.candidate_sha256,
-            "primary_authority_kind": candidate.primary_authority_kind,
-            "primary_authority_sha256": candidate.primary_authority_sha256,
-            "warnings": [to_primitive(value) for value in candidate.warnings],
-            "warnings_block_accept": False,
-            "recording_status": status,
-            "story_state_committed": review.accepted_receipt is not None,
-            "canon_status": (
-                "provisional"
-                if provisional_canon
-                else "accepted"
-                if review.accepted_receipt is not None
-                else "unaccepted"
-            ),
-            "semantic_validation": validation_payload,
-            "request_controls": (
-                None
-                if review.turn_input.request_controls is None
-                else to_primitive(review.turn_input.request_controls)
-            ),
-            "creator_guidance": (
-                None if review.creator_guidance is None else to_primitive(review.creator_guidance)
-            ),
-            "accept_enabled": (review.state == LeanReviewState.REVIEW_READY and not rejected),
-            "provisional_accept_enabled": (
-                review.state == LeanReviewState.REVIEW_READY and rejected
-            ),
-            "decline_enabled": review.state == LeanReviewState.REVIEW_READY,
-            "regenerate_enabled": review.state == LeanReviewState.REVIEW_READY,
-            "replan_enabled": (
-                review.state == LeanReviewState.REVIEW_READY
-                and candidate.route is SceneRoute.ORDINARY
-            ),
-            "repair_recording_enabled": status
-            in {
-                RecordingStatus.PROJECTION_PENDING.value,
-                RecordingStatus.PENDING_REPAIR.value,
-            },
-            "provider_operations": {
-                "planner": review.result.planner_provider_operations,
-                "writer": review.result.writer_provider_operations,
-                "recorder": (
-                    0
-                    if review.recording_attempt is None
-                    else review.recording_attempt.provider_operations
-                ),
-            },
-        }
 
     def decision_payload(
         self,
@@ -676,181 +1052,6 @@ class PiSceneHttpAdapter:
             body["accepted_turn_id"] = decision.review.accepted_receipt.accepted_turn_id
         return body
 
-    @staticmethod
-    def _completion_payload(
-        review: LeanReviewRecordV1,
-        *,
-        provider_attempts: Sequence[LeanReviewRecordV1] | None = None,
-    ) -> dict[str, Any]:
-        candidate = review.candidate
-        committed = review.accepted_receipt is not None
-        validation = review.semantic_validation
-        rejected = validation is not None and validation.verdict.verdict.value == "reject"
-        recording_status = (
-            None if review.recording_attempt is None else review.recording_attempt.status.value
-        )
-        provisional_canon = (
-            review.accepted_receipt is not None
-            and review.accepted_receipt.creator_action == "provisional_accept"
-        )
-        review_status = (
-            "accepted" if committed else "validation_rejected" if rejected else "review_ready"
-        )
-        attempts = (review,) if provider_attempts is None else tuple(provider_attempts)
-        if not attempts or attempts[-1] != review:
-            raise StateConflictError(
-                "Pi Scene provider-attempt accounting lost its terminal review"
-            )
-        attempt_payloads = [
-            {
-                "attempt_number": index,
-                "candidate_id": attempt.candidate.candidate_id,
-                "disposition": (
-                    "semantic_pass"
-                    if attempt.semantic_validation is not None
-                    and attempt.semantic_validation.verdict.verdict.value == "pass"
-                    else "semantic_rejected"
-                ),
-                "provider_operations": {
-                    "planner": attempt.result.planner_provider_operations,
-                    "writer": attempt.result.writer_provider_operations,
-                    "validator": 1 if attempt.semantic_validation is not None else 0,
-                },
-            }
-            for index, attempt in enumerate(attempts, start=1)
-        ]
-        provider_operations = {
-            role: sum(
-                attempt_payload["provider_operations"][role] for attempt_payload in attempt_payloads
-            )
-            for role in ("planner", "writer", "validator")
-        }
-        provider_operations["recorder"] = (
-            0
-            if not committed or review.recording_attempt is None
-            else review.recording_attempt.provider_operations
-        )
-        cera_payload: dict[str, Any] = {
-            "profile_id": PI_SCENE_PROFILE,
-            "route_mode": candidate.route.value,
-            "provisional": not committed,
-            "status": review_status,
-            "story_state_committed": committed,
-            "canon_status": (
-                "provisional" if provisional_canon else "accepted" if committed else None
-            ),
-            "provisional_review_id": None if committed else review.review_id,
-            "review_url": f"/v1/cera/reviews/{review.review_id}",
-            "candidate_id": candidate.candidate_id,
-            "generation": candidate.generation,
-            "warnings": [to_primitive(value) for value in candidate.warnings],
-            "warnings_block_accept": False,
-            "accepted_turn_id": (
-                None
-                if review.accepted_receipt is None
-                else review.accepted_receipt.accepted_turn_id
-            ),
-            "accepted_receipt_sha256": (
-                None if review.accepted_receipt is None else review.accepted_receipt.receipt_sha256
-            ),
-            "recording_status": recording_status,
-            "semantic_validation": (
-                None
-                if validation is None
-                else {
-                    "binding_sha256": validation.binding_sha256,
-                    "verdict": validation.verdict.verdict.value,
-                    "automatic_repair_eligible": validation.verdict.automatic_repair_eligible,
-                    "conflict": (
-                        None
-                        if validation.verdict.conflict is None
-                        else to_primitive(validation.verdict.conflict)
-                    ),
-                    "review_flags": [
-                        to_primitive(value) for value in validation.verdict.review_flags
-                    ],
-                }
-            ),
-            "request_controls": (
-                None
-                if review.turn_input.request_controls is None
-                else to_primitive(review.turn_input.request_controls)
-            ),
-            "creator_guidance": (
-                None if review.creator_guidance is None else to_primitive(review.creator_guidance)
-            ),
-            "operational_warnings": [],
-            "provider_attempts": attempt_payloads,
-            "provider_operations": provider_operations,
-        }
-        response: dict[str, Any] = {
-            "id": f"chatcmpl-cera-{candidate.candidate_sha256[:24]}",
-            "object": "chat.completion",
-            "created": review.created_unix_seconds,
-            "model": (
-                PI_SCENE_ORDINARY_MODEL
-                if candidate.route is SceneRoute.ORDINARY
-                else PI_SCENE_ADULT_MODEL
-            ),
-            "choices": [
-                {
-                    "index": 0,
-                    "message": {"role": "assistant", "content": candidate.story_text},
-                    "finish_reason": "stop",
-                }
-            ],
-            "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
-            "cera": cera_payload,
-        }
-        if candidate.primary_authority_kind == "codex_cognition_plan":
-            trace = cognition_creator_trace(candidate.primary_authority_json)
-            applications = trace.pop("autonomy_application")
-            controls = review.turn_input.request_controls
-            trace["autonomy"] = {
-                "mode": None if controls is None else controls.character_autonomy,
-                "applications": applications,
-            }
-            trace["validation"] = PiSceneHttpAdapter._safe_semantic_validation_trace(validation)
-            trace["recording"] = {
-                "status": recording_status,
-                "recorder_required": committed,
-                "projection_status": None,
-                "protected_record_status": None,
-            }
-            trace["provider_operations"] = dict(cera_payload["provider_operations"])
-            cera_payload["creator_trace"] = trace
-            cera_payload.update(trace)
-        return response
-
-    @staticmethod
-    def _safe_semantic_validation_trace(validation: Any) -> dict[str, Any] | None:
-        if validation is None:
-            return None
-        conflict = validation.verdict.conflict
-        safe_conflict = None
-        if conflict is not None:
-            safe_conflict = {
-                "conflict_class": conflict.conflict_class.value,
-                "decision_key": conflict.decision_key,
-                "concise_explanation": conflict.concise_explanation,
-            }
-        return {
-            "role": "luna_semantic_validator",
-            "verdict": validation.verdict.verdict.value,
-            "binding_sha256": validation.binding_sha256,
-            "conflict": safe_conflict,
-        }
-
-    @staticmethod
-    def _attach_debug_path(response: dict[str, Any], debug_path: str) -> None:
-        cera_payload = response.get("cera")
-        if not isinstance(cera_payload, dict):
-            raise StateConflictError("CERA response lost its metadata object")
-        cera_payload["debug_log_path"] = debug_path
-        trace = cera_payload.get("creator_trace")
-        if isinstance(trace, dict):
-            trace["debug_log_path"] = debug_path
-
     def _parse_chat_request(
         self,
         payload: Mapping[str, Any],
@@ -867,8 +1068,63 @@ class PiSceneHttpAdapter:
         root = getattr(store, "root", None)
         if not isinstance(root, Path):
             raise StateConflictError("Pi Scene durable request-journal root is unavailable")
-        self.request_journal = PiSceneRequestJournal(root / "http_request_journal")
+        self.request_journal = PiSceneRequestJournal(
+            root / "http_request_journal",
+            protected_retry_root=root.parent / "protected_transport_retry",
+        )
         return self.request_journal
+
+    def _transport_effect_snapshot(
+        self,
+        turn: LeanSceneTurnInputV1,
+    ) -> PiSceneTransportEffectSnapshotV1:
+        head = self.coordinator.store.load_head(
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+        )
+        review = self.coordinator.unresolved_review(
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+        )
+        recording_attempt = (
+            None
+            if head.receipt is None or head.receipt.route is SceneRoute.ADULT
+            else self.coordinator.store.load_recording_attempt(head.receipt)
+        )
+        return PiSceneTransportEffectSnapshotV1(
+            schema_version=PiSceneTransportEffectSnapshotV1.SCHEMA_VERSION,
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+            accepted_turn_id=head.accepted_turn_id,
+            accepted_receipt_sha256=head.accepted_head_sha256,
+            accepted_head_sha256=canonical_sha256(to_primitive(head)),
+            unresolved_review_sha256=(
+                None
+                if review is None
+                else canonical_sha256(
+                    {
+                        "review_id": review.review_id,
+                        "state": review.state,
+                        "candidate_sha256": review.candidate.candidate_sha256,
+                        "accepted_receipt_sha256": (
+                            None
+                            if review.accepted_receipt is None
+                            else review.accepted_receipt.receipt_sha256
+                        ),
+                        "recording_attempt_sha256": (
+                            None
+                            if review.recording_attempt is None
+                            else canonical_sha256(to_primitive(review.recording_attempt))
+                        ),
+                    }
+                )
+            ),
+            recording_attempt_sha256=(
+                None
+                if recording_attempt is None
+                else canonical_sha256(to_primitive(recording_attempt))
+            ),
+        )
 
     @staticmethod
     def _journal_review_progress(review: LeanReviewRecordV1) -> dict[str, Any]:
@@ -981,6 +1237,10 @@ def _typed_error_payload(
     next_action: str = "check_configuration",
     debug_log_path: str | None = None,
     trace_id: str | None = None,
+    request_id: str | None = None,
+    provider_operation_submitted: bool = False,
+    retry_transport_enabled: bool = False,
+    transport_retry: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     if technical_detail is not None and not technical_detail.strip():
         technical_detail = None
@@ -989,7 +1249,7 @@ def _typed_error_payload(
         "error_code": error_code,
         "message": message,
         "trace_id": trace_id or f"trace:{uuid4().hex}",
-        "request_id": None,
+        "request_id": request_id,
         "branch_id": None,
         "generation_id": None,
         "stage": "pi_scene_http",
@@ -1004,11 +1264,14 @@ def _typed_error_payload(
             else ["Technical detail is available in the local debug log."]
         ),
         "fallback_used": False,
-        "provider_operation_submitted": False,
+        "provider_operation_submitted": provider_operation_submitted,
         "accepted_state_changed": story_state_committed,
         "next_action": next_action,
         "debug_log_path": debug_log_path,
+        "retry_transport_enabled": retry_transport_enabled,
     }
+    if transport_retry is not None:
+        envelope["transport_retry"] = dict(transport_retry)
     return {
         "status": "error",
         "story_state_committed": story_state_committed,
@@ -1088,6 +1351,15 @@ def build_pi_scene_server(
                     },
                 )
                 return
+            retry_id = transport_retry_id(path)
+            if retry_id is not None:
+                self._guarded(lambda: adapter.transport_retry_status(retry_id))
+                return
+            if path.startswith("/v1/cera/transport-retries/"):
+                self._error(
+                    TransportRetryNotFoundError("Pi Scene transport retry identity is unavailable")
+                )
+                return
             review_id = _review_id(path)
             if review_id is not None:
                 self._guarded(lambda: adapter.get_review(review_id))
@@ -1138,6 +1410,24 @@ def build_pi_scene_server(
             if path == "/v1/chat/completions":
                 self._guarded(lambda: adapter.complete(payload))
                 return
+            retry_id = transport_retry_id(path)
+            if retry_id is not None:
+                if payload != {}:
+                    self._json(
+                        HTTPStatus.UNPROCESSABLE_ENTITY,
+                        _typed_error_payload(
+                            error_code="CERA_INTAKE_INVALID",
+                            message="Pi Scene transport Retry accepts only an empty object.",
+                        ),
+                    )
+                    return
+                self._guarded(lambda: adapter.retry_transport(retry_id))
+                return
+            if path.startswith("/v1/cera/transport-retries/"):
+                self._error(
+                    TransportRetryNotFoundError("Pi Scene transport retry identity is unavailable")
+                )
+                return
             review_id = _review_id(path, suffix="/decision")
             if review_id is not None:
                 self._guarded(lambda: adapter.decide(review_id, payload))
@@ -1157,14 +1447,42 @@ def build_pi_scene_server(
                 self._error(exc)
 
         def _error(self, exc: Exception) -> None:
-            technical_detail = f"{type(exc).__name__}: {exc}"
-            if isinstance(exc, PiSceneCommittedStateError):
+            technical_detail: str | None = f"{type(exc).__name__}: {exc}"
+            transport_receipt = None
+            error_request_id: str | None = None
+            if isinstance(exc, PiSceneManualTransportRetryError):
+                receipt = exc.receipt
+                status = HTTPStatus.INTERNAL_SERVER_ERROR
+                code = ErrorCode.PROVIDER_TRANSPORT_FAILED.value
+                message = "A provider transport failed with no candidate or story-state effect."
+                committed = False
+                retry_mode = "manual_transport"
+                next_action = "use_transport_retry"
+                transport_receipt = receipt
+                technical_detail = None
+            elif isinstance(exc, PiSceneCommittedStateError):
                 status = HTTPStatus.INTERNAL_SERVER_ERROR
                 code = "CERA_DELIVERY_AFTER_COMMIT_FAILED"
                 message = "Accepted story state was retained, but response delivery failed."
                 committed = True
                 retry_mode = "manual_after_review"
                 next_action = "check_current_review_before_retrying"
+            elif isinstance(exc, PlannerResultUnavailableError):
+                status = HTTPStatus.CONFLICT
+                code = ErrorCode.PLANNER_RESULT_UNAVAILABLE.value
+                message = (
+                    "The Planner operation completed, but its result was lost before "
+                    "durable story progress. The exact request will not be redispatched."
+                )
+                committed = False
+                retry_mode = "not_applicable"
+                next_action = (
+                    "start_a_new_chat_or_repair_planner_thread_custody"
+                    if exc.disposition.branch_dispatch_blocked
+                    else "send_a_different_prompt_or_start_a_new_chat"
+                )
+                error_request_id = exc.request_id
+                technical_detail = None
             elif isinstance(exc, RequestReplayPendingError):
                 status = HTTPStatus.CONFLICT
                 code = "CERA_REQUEST_REPLAY_PENDING"
@@ -1175,6 +1493,14 @@ def build_pi_scene_server(
                 committed = False
                 retry_mode = "manual_after_review"
                 next_action = "recover_the_exact_pending_request_before_redispatch"
+            elif isinstance(exc, TransportRetryNotFoundError):
+                status = HTTPStatus.NOT_FOUND
+                code = "CERA_TRANSPORT_RETRY_NOT_FOUND"
+                message = "The transport Retry identity is unavailable."
+                committed = False
+                retry_mode = "not_applicable"
+                next_action = "check_transport_retry_identity"
+                technical_detail = None
             elif isinstance(exc, StateConflictError):
                 status = HTTPStatus.CONFLICT
                 code = "CERA_STATE_CONFLICT"
@@ -1232,6 +1558,24 @@ def build_pi_scene_server(
                     next_action=next_action,
                     debug_log_path=debug_log_path,
                     trace_id=trace_id,
+                    request_id=(
+                        error_request_id
+                        if transport_receipt is None
+                        else transport_receipt.request_id
+                    ),
+                    provider_operation_submitted=(
+                        isinstance(exc, PlannerResultUnavailableError)
+                        if transport_receipt is None
+                        else transport_receipt.provider_operations_observed == 1
+                    ),
+                    retry_transport_enabled=transport_receipt is not None,
+                    transport_retry=(
+                        None
+                        if transport_receipt is None
+                        else {
+                            **transport_retry_action(transport_receipt),
+                        }
+                    ),
                 ),
             )
 

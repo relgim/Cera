@@ -5,7 +5,8 @@ from __future__ import annotations
 import json
 import re
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from pathlib import Path
 from threading import RLock
@@ -16,6 +17,7 @@ from cera.provider_dispatch_guard import (
     assert_provider_dispatch_allowed,
     is_external_provider_boundary,
 )
+from cera.providers.models import ProviderTransportError
 from cera.semantic_validation import (
     BoundSemanticValidationV1,
     SemanticValidationCustodyV1,
@@ -35,7 +37,7 @@ from .contracts import (
     canonical_authority,
     primary_item_keys,
 )
-from .http_contracts import LeanSceneRequestControlsV1
+from .http_contracts import LeanSceneRequestControlsV1, LeanSceneRequestControlsV2
 from .lineage import LeanAcceptedRegenerationBaseV1
 from .pi_adapter import PiSceneAdapter, PiSceneInvocationV1
 from .review_store import (
@@ -55,6 +57,7 @@ from .store import (
     adult_projection_from_mapping,
     ordinary_record_from_mapping,
 )
+from .transport_retry import PiSceneProviderTransportFailure
 from .writer_view import WriterViewInputV1, WriterViewMaterializer
 
 
@@ -128,6 +131,7 @@ class OrdinaryPlannerPort(Protocol):
 
 RecordingFaultInjector = Callable[[LeanAcceptedTurnReceiptV1, int], str | None]
 PlannerResolver = Callable[[LeanSceneTurnInputV1], OrdinaryPlannerPort]
+PlannerTransportHook = Callable[[], None]
 
 
 class LeanPiSceneCoordinator:
@@ -153,6 +157,8 @@ class LeanPiSceneCoordinator:
         self.session_root.mkdir(parents=True, exist_ok=True)
         self._recording_fault_injector = recording_fault_injector
         self._planner_resolver = planner_resolver
+        self._planner_transport_start: PlannerTransportHook | None = None
+        self._planner_transport_success: PlannerTransportHook | None = None
         self.semantic_validator = semantic_validator
         self._lock = RLock()
         self._review_state_store = DurableReviewStateStore(
@@ -164,6 +170,29 @@ class LeanPiSceneCoordinator:
         self._unresolved_by_branch = dict(recovered.unresolved_by_branch)
         self._decisions = dict(recovered.decisions)
         self._candidate_counter = recovered.candidate_counter
+
+    @contextmanager
+    def planner_transport_custody(
+        self,
+        *,
+        on_start: PlannerTransportHook,
+        on_success: PlannerTransportHook,
+    ) -> Iterator[None]:
+        """Install one request-scoped exact Planner boundary observer."""
+
+        with self._lock:
+            if (
+                self._planner_transport_start is not None
+                or self._planner_transport_success is not None
+            ):
+                raise StateConflictError("Pi Scene Planner transport observer is occupied")
+            self._planner_transport_start = on_start
+            self._planner_transport_success = on_success
+            try:
+                yield
+            finally:
+                self._planner_transport_start = None
+                self._planner_transport_success = None
 
     def start_ordinary(self, turn: LeanSceneTurnInputV1) -> LeanReviewRecordV1:
         with self._lock:
@@ -276,7 +305,6 @@ class LeanPiSceneCoordinator:
         ):
             raise StateConflictError("bound ordinary plan belongs to another turn or head")
 
-
     def _plan_ordinary(
         self,
         turn: LeanSceneTurnInputV1,
@@ -292,24 +320,40 @@ class LeanPiSceneCoordinator:
             if accepted_records_override is None
             else tuple(accepted_records_override)
         )
-        return self._planner_for(turn).plan(
-            PlannerTurnInputV1(
-                world_id=turn.world_id,
-                branch_id=turn.branch_id,
-                scene_id=turn.scene_id,
-                exact_user_source=turn.exact_user_source,
-                current_state=_controlled_current_state(
-                    turn,
-                    creator_guidance=creator_guidance,
-                ),
-                characters=turn.characters,
-                relationships=turn.relationships,
-                relevant_memories=turn.relevant_memories,
-                accepted_records=accepted_records,
-                request_controls=turn.request_controls,
+        planner_input = PlannerTurnInputV1(
+            world_id=turn.world_id,
+            branch_id=turn.branch_id,
+            scene_id=turn.scene_id,
+            exact_user_source=turn.exact_user_source,
+            current_state=_controlled_current_state(
+                turn,
                 creator_guidance=creator_guidance,
-            )
+            ),
+            characters=turn.characters,
+            relationships=turn.relationships,
+            relevant_memories=turn.relevant_memories,
+            accepted_records=accepted_records,
+            request_controls=turn.request_controls,
+            creator_guidance=creator_guidance,
         )
+        on_start = self._planner_transport_start
+        on_success = self._planner_transport_success
+        try:
+            if on_start is not None:
+                on_start()
+            result = self._planner_for(turn).plan(planner_input)
+        except ProviderTransportError as exc:
+            raise PiSceneProviderTransportFailure(
+                logic_owner="planner",
+                failure=exc,
+            ) from exc
+        except Exception:
+            if on_success is not None:
+                on_success()
+            raise
+        if on_success is not None:
+            on_success()
+        return result
 
     def regenerate_accepted(
         self,
@@ -403,13 +447,17 @@ class LeanPiSceneCoordinator:
             current_state=review.turn_input.current_state,
             validation_evidence=validation_evidence,
         )
-        return replace(
-            review,
-            semantic_validation=self.semantic_validator.validate(
+        try:
+            semantic_validation = self.semantic_validator.validate(
                 validation_request,
                 validation_custody,
-            ),
-        )
+            )
+        except ProviderTransportError as exc:
+            raise PiSceneProviderTransportFailure(
+                logic_owner="validator",
+                failure=exc,
+            ) from exc
+        return replace(review, semantic_validation=semantic_validation)
 
     def _repair_rejected_ordinary(
         self,
@@ -499,6 +547,106 @@ class LeanPiSceneCoordinator:
                 return replay.result.review
             raise StateConflictError("unknown Pi Scene review")
 
+    def durable_result_for_turn(
+        self,
+        turn: LeanSceneTurnInputV1,
+    ) -> LeanReviewRecordV1 | None:
+        """Find one exact persisted review/Accept result without provider work."""
+
+        with self._lock:
+            values = list(self._reviews.values())
+            for decision in self._decisions.values():
+                values.append(decision.result.review)
+                if decision.result.successor is not None:
+                    values.append(decision.result.successor)
+            matches = {
+                value.review_id: value
+                for value in values
+                if value.turn_input == turn
+                and value.candidate.world_id == turn.world_id
+                and value.candidate.branch_id == turn.branch_id
+            }
+            if not matches:
+                return None
+            accepted = tuple(
+                value for value in matches.values() if value.accepted_receipt is not None
+            )
+            if accepted:
+                head = self.store.load_head(
+                    world_id=turn.world_id,
+                    branch_id=turn.branch_id,
+                )
+                selected = tuple(
+                    value
+                    for value in accepted
+                    if value.accepted_receipt is not None
+                    and value.accepted_receipt.receipt_sha256 == head.accepted_head_sha256
+                )
+                if len(selected) != 1:
+                    raise StateConflictError("Pi Scene durable accepted result is ambiguous")
+                return selected[0]
+            unresolved = tuple(
+                value for value in matches.values() if value.state == LeanReviewState.REVIEW_READY
+            )
+            if len(unresolved) > 1:
+                raise StateConflictError("Pi Scene durable provisional result is ambiguous")
+            return None if not unresolved else unresolved[0]
+
+    def durable_result_for_request(
+        self,
+        *,
+        world_id: str,
+        branch_id: str,
+        turn_context_sha256: str,
+        exact_user_source: str,
+        request_controls: LeanSceneRequestControlsV1 | LeanSceneRequestControlsV2,
+    ) -> LeanReviewRecordV1 | None:
+        """Find exact pre-commit turn custody after current context advances.
+
+        A restart after automatic Accept may rebuild ``current_state`` and
+        ``recent_prose`` from the new accepted head.  The persisted review's
+        original turn hash therefore owns recovery; the rebuilt turn is only
+        a branch/source/control locator.
+        """
+
+        with self._lock:
+            values = list(self._reviews.values())
+            for decision in self._decisions.values():
+                values.append(decision.result.review)
+                if decision.result.successor is not None:
+                    values.append(decision.result.successor)
+            matches = {
+                value.review_id: value
+                for value in values
+                if value.candidate.world_id == world_id
+                and value.candidate.branch_id == branch_id
+                and canonical_sha256(value.turn_input) == turn_context_sha256
+                and value.turn_input.exact_user_source == exact_user_source
+                and value.turn_input.request_controls == request_controls
+            }
+            if not matches:
+                return None
+            accepted = tuple(
+                value for value in matches.values() if value.accepted_receipt is not None
+            )
+            if accepted:
+                head = self.store.load_head(world_id=world_id, branch_id=branch_id)
+                selected = tuple(
+                    value
+                    for value in accepted
+                    if value.accepted_receipt is not None
+                    and value.accepted_receipt.receipt_sha256 == head.accepted_head_sha256
+                )
+                if len(selected) != 1:
+                    raise StateConflictError("Pi Scene durable accepted result is ambiguous")
+                return selected[0]
+            unresolved = tuple(
+                value for value in matches.values() if value.state == LeanReviewState.REVIEW_READY
+            )
+            if len(unresolved) > 1:
+                raise StateConflictError("Pi Scene durable provisional result is ambiguous")
+            return None if not unresolved else unresolved[0]
+
     def provider_operation_attempts(
         self,
         review: LeanReviewRecordV1,
@@ -515,6 +663,19 @@ class LeanPiSceneCoordinator:
 
         with self._lock:
             durable = self._reviews.get(review.review_id)
+            if durable is None:
+                replay = self._decisions.get(review.review_id)
+                if replay is not None:
+                    durable = replay.result.review
+                if durable != review:
+                    durable = next(
+                        (
+                            decision.result.successor
+                            for decision in self._decisions.values()
+                            if decision.result.successor == review
+                        ),
+                        None,
+                    )
             if durable != review:
                 raise StateConflictError("Pi Scene response review is not durable")
             predecessor_id = review.result.repaired_from_candidate_id
@@ -600,9 +761,7 @@ class LeanPiSceneCoordinator:
             }:
                 raise ContractValidationError("Accept action is invalid")
             decision_action = (
-                "accept_provisional"
-                if acceptance_action == "provisional_accept"
-                else "accept"
+                "accept_provisional" if acceptance_action == "provisional_accept" else "accept"
             )
             request_sha256 = decision_request_sha256(action=decision_action)
             if allow_replay:
@@ -1145,22 +1304,27 @@ class LeanPiSceneCoordinator:
         # A missing/stale accepted session is the Pi adapter's natural fresh
         # rehydration path. Keep ``force_rehydrate`` false when no parent
         # exists because an explicit reset is valid only with a parent proof.
-        pi_result = self.pi.invoke(
-            PiSceneInvocationV1(
-                route=route,
-                purpose="writer",
-                view=view,
-                prompt=prompt,
-                candidate_id=candidate_id,
-                session_dir=self._session_dir(turn.world_id, turn.branch_id),
-                accepted_parent_session=accepted_session,
-                # Clean Pi forks proved unable to preserve the exact Writer
-                # envelope reliably.  Accepted Python state therefore
-                # rehydrates every candidate in a fresh session.  The parent
-                # remains attached for custody/telemetry, but is never forked.
-                force_rehydrate=(force_rehydrate or accepted_session is not None),
-            )
+        invocation = PiSceneInvocationV1(
+            route=route,
+            purpose="writer",
+            view=view,
+            prompt=prompt,
+            candidate_id=candidate_id,
+            session_dir=self._session_dir(turn.world_id, turn.branch_id),
+            accepted_parent_session=accepted_session,
+            # Clean Pi forks proved unable to preserve the exact Writer
+            # envelope reliably.  Accepted Python state therefore
+            # rehydrates every candidate in a fresh session.  The parent
+            # remains attached for custody/telemetry, but is never forked.
+            force_rehydrate=(force_rehydrate or accepted_session is not None),
         )
+        try:
+            pi_result = self.pi.invoke(invocation)
+        except ProviderTransportError as exc:
+            raise PiSceneProviderTransportFailure(
+                logic_owner="writer",
+                failure=exc,
+            ) from exc
         candidate = LeanCandidateV1(
             schema_version=LeanCandidateV1.SCHEMA_VERSION,
             request_id=f"request-{text_sha256(identity + ':request')[:28]}",
@@ -1498,11 +1662,11 @@ class LeanPiSceneCoordinator:
             if accepted is not None and accepted.receipt_sha256 == receipt.receipt_sha256:
                 matches[review.review_id] = review
         for decision in self._decisions.values():
-            for review in (decision.result.review, decision.result.successor):
-                if review is None or review.accepted_receipt is None:
+            for candidate_review in (decision.result.review, decision.result.successor):
+                if candidate_review is None or candidate_review.accepted_receipt is None:
                     continue
-                if review.accepted_receipt.receipt_sha256 == receipt.receipt_sha256:
-                    matches[review.review_id] = review
+                if candidate_review.accepted_receipt.receipt_sha256 == receipt.receipt_sha256:
+                    matches[candidate_review.review_id] = candidate_review
         if len(matches) != 1:
             raise StateConflictError(
                 "selected accepted turn lacks unique Regenerate context custody"
@@ -1741,9 +1905,7 @@ def _writer_prompt(
         or not verdict.automatic_repair_eligible
         or conflict is None
     ):
-        raise ContractValidationError(
-            "Writer repair requires one eligible semantic rejection"
-        )
+        raise ContractValidationError("Writer repair requires one eligible semantic rejection")
     target = (
         f"decision {conflict.decision_key}"
         if conflict.decision_key is not None
