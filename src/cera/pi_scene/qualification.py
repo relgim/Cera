@@ -53,6 +53,7 @@ TERRA_CEILING = 0
 # recovery. Later retained calls may finish within their hard transport bound,
 # but three minutes is a diagnostic concern visible in qualification evidence.
 RETAINED_PLANNER_LATENCY_CONCERN_MS = 180_000
+QUALIFICATION_PLANNER_REASONING_EFFORT = "medium"
 QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS = 600
 QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES = 6
 QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS = (
@@ -90,7 +91,6 @@ FINAL_PROVIDER_FAILURE_CLASSES = frozenset(
         "provider_stream_incomplete",
         "provider_completion_incomplete",
         "provider_output_invalid",
-        "dispatch_ambiguous",
     }
 )
 
@@ -104,6 +104,8 @@ QUALIFICATION_EXECUTION_POLICY: Mapping[str, Any] = {
     "manual_planner_transport_retry": dict(MANUAL_PLANNER_TRANSPORT_RETRY_POLICY),
     "fallback": False,
     "model_substitution": False,
+    "planner_reasoning_effort": QUALIFICATION_PLANNER_REASONING_EFFORT,
+    "semantic_validator_reasoning_effort": "xhigh",
     "ordinary_semantic_pass_auto_accept_required": True,
     "adult_filter_pass_atomic_accept_required": True,
     "exact_adult_prose_in_qualification_evidence": False,
@@ -1332,7 +1334,7 @@ def qualification_request_payload(
         "cera_character_autonomy": "both",
         "cera_adult_craft_mode": fixture.adult_craft_mode,
         "cera_prompt_handling": "adjustment",
-        "cera_reasoning_effort": "xhigh",
+        "cera_reasoning_effort": QUALIFICATION_PLANNER_REASONING_EFFORT,
         "cera_scene_depth": "auto",
     }
 

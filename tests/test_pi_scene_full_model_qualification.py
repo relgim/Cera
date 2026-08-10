@@ -20,6 +20,7 @@ from cera.pi_scene.qualification import (
     DEEPSEEK_PER_INVOCATION_CEILING,
     QUALIFICATION_EXECUTION_POLICY,
     QUALIFICATION_MANIFEST_SCHEMA,
+    QUALIFICATION_PLANNER_REASONING_EFFORT,
     SOL_FAMILY_CEILING,
     TERRA_CEILING,
     TRANSPORT_RETRY_STATUS_TIMEOUT_SECONDS,
@@ -30,6 +31,7 @@ from cera.pi_scene.qualification import (
     QualificationRoute,
     build_qualification_manifest,
     load_qualification_fixtures,
+    qualification_request_payload,
     validate_qualification_manifest,
     verify_qualification_artifacts,
 )
@@ -107,6 +109,7 @@ class _FakeQualificationClient:
         self.assert_equal(self.session_id, session_id)
         self.assert_equal(len(value["messages"]), self.calls * 2 + 1)
         self.assert_equal(value["model"], "cera-alpha")
+        self.assert_equal(value["cera_reasoning_effort"], "medium")
         self.calls += 1
         planner = (
             1
@@ -986,6 +989,7 @@ class FullModelQualificationTests(unittest.TestCase):
             "maximum_explicit_regenerates_per_prompt": 2,
             "exact_adult_prose_in_qualification_evidence": True,
             "phase_order": ["sillytavern", "backend"],
+            "planner_reasoning_effort": "xhigh",
         }
         for key, changed in mutations.items():
             with self.subTest(key=key):
@@ -1005,6 +1009,19 @@ class FullModelQualificationTests(unittest.TestCase):
         manifest["manifest_sha256"] = canonical_sha256(unsigned)
         with self.assertRaisesRegex(StateConflictError, "execution policy changed"):
             validate_qualification_manifest(manifest)
+
+    def test_representative_canary_uses_medium_planner_effort(self) -> None:
+        fixture = load_qualification_fixtures(FIXTURES)[0]
+        payload = qualification_request_payload(
+            fixture,
+            session_id="qualification-medium-canary",
+        )
+        self.assertEqual(QUALIFICATION_PLANNER_REASONING_EFFORT, "medium")
+        self.assertEqual(payload["cera_reasoning_effort"], "medium")
+        self.assertEqual(
+            QUALIFICATION_EXECUTION_POLICY["semantic_validator_reasoning_effort"],
+            "xhigh",
+        )
 
     def test_fixture_set_is_two_ordered_sequential_campaigns(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
