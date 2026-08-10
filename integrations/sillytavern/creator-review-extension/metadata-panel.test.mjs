@@ -1378,6 +1378,56 @@ test('lost provider-stage POST persists its action and Continue replays without 
     }
 });
 
+test('prepared provider-stage action resumes manually from in-progress after reload', async () => {
+    const eligible = providerStageRetryEnvelope('eligible');
+    const inProgress = providerStageRetryEnvelope('in_progress');
+    const completion = providerStageCompletion(eligible);
+    const calls = [];
+    const originalFetch = globalThis.fetch;
+    const stored = {
+        cera_provider_stage_retry_status_v1: JSON.stringify({
+            schema_version: 'cera.sillytavern.provider_stage_retry_status_store.v2',
+            entries: [{
+                chat_key: JSON.stringify(['0', 'test-chat']),
+                envelope: inProgress,
+                last_submitted_action: eligible.actions[0],
+                continuation: null,
+            }],
+        }),
+    };
+    const loaded = await loadExtension({
+        initialStorage: stored,
+        fetchImpl: async (url, options) => {
+            calls.push({ url, options });
+            if (options.method === 'GET') return jsonResponse(inProgress);
+            return jsonResponse(completion);
+        },
+    });
+    try {
+        await loaded.scriptModule.eventSource.emit(loaded.scriptModule.event_types.APP_READY);
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+            if (buttonByText(loaded.testDocument, 'Continue')) break;
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+
+        assert.deepEqual(calls.map(call => call.options.method), ['GET']);
+        assert.equal(loaded.scriptModule.chat.length, 0);
+        assert.ok(buttonByText(loaded.testDocument, 'Continue'));
+        assert.equal(buttonByText(loaded.testDocument, 'Retry Provider Stage'), null);
+
+        await buttonByText(loaded.testDocument, 'Continue').click();
+        assert.deepEqual(calls.map(call => call.options.method), ['GET', 'POST']);
+        assert.deepEqual(JSON.parse(calls[1].options.body), eligible.actions[0]);
+        assert.equal(loaded.scriptModule.chat.length, 1);
+        assert.equal(loaded.scriptModule.testState.addCount, 1);
+        assert.equal(providerRetryStore(loaded.storage).entries.length, 0);
+        assert.equal(buttonByText(loaded.testDocument, 'Continue'), null);
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
 test('creator decision Retry survives reload and returns its exact decision family', async () => {
     const cases = [
         { action: 'accept', button: 'Accept', stage: 'recorder' },

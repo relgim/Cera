@@ -772,7 +772,7 @@ function renderProviderStageRetryControl({ detail = null, allowAction = true } =
     } else if (
         allowAction
         && !providerStageRetryInFlight
-        && status.state === 'succeeded'
+        && ['in_progress', 'succeeded'].includes(status.state)
         && continueAction?.action_kind === 'provider_retry'
         && continueAction.chain_id === status.chain_id
     ) {
@@ -848,7 +848,7 @@ async function submitProviderStageControlAction(action) {
         providerStageRetryLastSubmittedAction,
     );
     const manualContinue = (
-        envelope?.status.state === 'succeeded'
+        ['in_progress', 'succeeded'].includes(envelope?.status.state)
         && storedContinue?.action_kind === 'provider_retry'
         && storedContinue.chain_id === envelope.status.chain_id
     );

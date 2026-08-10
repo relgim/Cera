@@ -21,7 +21,7 @@ from cera.pi_scene.http import (
     PiSceneServerConfigV1,
     build_pi_scene_server,
 )
-from cera.pi_scene.provider_stage_retry import ProviderStage
+from cera.pi_scene.provider_stage_retry import ProviderStage, ProviderStageRetryPhase
 from cera.pi_scene.provider_stage_retry_blob import TrustedLocalProtectedStageBlobStore
 from cera.pi_scene.provider_stage_retry_http import (
     ProtectedProviderStageRetryHttpCursorStoreV1,
@@ -39,7 +39,7 @@ from cera.pi_scene.provider_stage_retry_runtime import (
 )
 from cera.pi_scene.request_journal import PiSceneRequestJournal, TransportRetryNotFoundError
 from cera.pi_scene.transport_retry_http import TransportRetryHttpController
-from cera.serialization import text_sha256
+from cera.serialization import canonical_sha256, text_sha256
 from cera.storage.sqlite_store import SQLiteAuthorityStore
 
 # Reuse the repository's deterministic provider-free owner doubles.  These
@@ -316,6 +316,52 @@ class ProviderStageRetryHttpTests(unittest.TestCase):
         self.assertEqual(completion["object"], "chat.completion")
         self.assertEqual(self.invocations.calls, 2)
         self.assertEqual(self.continuation.resume_calls, 2)
+
+    def test_prepared_consumed_action_requires_manual_continue_after_restart(self) -> None:
+        chain_id, envelope = self._begin_failed_chain()
+        action = _backend_action(envelope)
+        ProtectedProviderStageRetryHttpCursorStoreV1(self.cursor_root).remember_action(
+            request_sha256=self.scope.request_sha256,
+            action=action,
+        )
+        chain = self.service.read_chain(chain_id)
+        owner = self.writer_factory.create_retry_owner(
+            chain=chain,
+            exact_input=self.service.store.load_input(chain_id),
+        )
+        prepared = self.service.store.accept_retry(
+            chain_id,
+            retry_action_sha256=canonical_sha256(action),
+            session_scope_sha256=owner.session_scope_sha256,
+            ledger_prefix_before_sha256=owner.ledger_prefix_before_sha256,
+        )
+        self.assertIs(prepared.phase, ProviderStageRetryPhase.ATTEMPT_PREPARED)
+        self.assertEqual(self.invocations.calls, 1)
+
+        restarted = self._controller()
+        status = restarted.get(chain_id)
+        self.assertEqual(status["status"]["state"], "in_progress")
+        self.assertEqual(status["actions"], [])
+        self.assertEqual(self.invocations.calls, 1)
+
+        completion = restarted.post(
+            chain_id=chain_id,
+            action_id=action["action_id"],
+            body=action,
+        )
+        self.assertEqual(completion["object"], "chat.completion")
+        self.assertEqual(self.invocations.calls, 2)
+        self.assertEqual(self.continuation.resume_calls, 1)
+        self.assertEqual(
+            self._controller().post(
+                chain_id=chain_id,
+                action_id=action["action_id"],
+                body=action,
+            ),
+            completion,
+        )
+        self.assertEqual(self.invocations.calls, 2)
+        self.assertEqual(self.continuation.resume_calls, 1)
 
     def test_provisional_terminal_completion_keeps_request_barrier(self) -> None:
         self.continuation.result = _completion("provisional story")
