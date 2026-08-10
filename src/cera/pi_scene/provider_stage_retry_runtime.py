@@ -366,6 +366,15 @@ class ProviderStageRetryRuntimeServiceV1:
 
         self._scopes.remember(scope)
 
+    def scope_for_chain(self, chain_id: str) -> ProviderStageRetryOccurrenceScopeV1:
+        """Load the exact durable occurrence scope without provider dispatch."""
+
+        chain = self._store.read(chain_id)
+        scope = self._scopes.find(chain_id)
+        if scope is None or scope.identity != chain.identity:
+            raise StateConflictError("provider-stage durable occurrence scope is unavailable")
+        return scope
+
     def read_chain(self, chain_id: str) -> ProviderStageRetryChainV1:
         """Read durable state without constructing or dispatching an owner."""
 

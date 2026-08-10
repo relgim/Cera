@@ -573,6 +573,7 @@ class ProviderStageRetryRuntimeTests(unittest.TestCase):
         self.assertEqual(recovered.phase, ProviderStageRetryPhase.RESULT_FROZEN)
         self.assertEqual(self.invocations.calls, 1)
         second_restart = self._service()
+        self.assertEqual(second_restart.scope_for_chain(frozen.chain_id), self.scope)
         envelope = second_restart.canonical_status(chain_id=frozen.chain_id)
         self.assertEqual(envelope["status"]["state"], "in_progress")
 
