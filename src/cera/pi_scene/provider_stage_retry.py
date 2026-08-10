@@ -18,6 +18,7 @@ from cera.schema import from_mapping
 from cera.serialization import canonical_sha256, domain_sha256, re_is_sha256, to_primitive
 
 MAXIMUM_PROVIDER_STAGE_ATTEMPTS = 3
+MAXIMUM_SAFE_INTEGER = 9_007_199_254_740_991
 
 
 class ProviderFamily(StrEnum):
@@ -63,9 +64,10 @@ class ProviderStageRetryPhase(StrEnum):
     INPUT_FROZEN = "input_frozen"
     ATTEMPT_PREPARED = "attempt_prepared"
     DISPATCH_STARTED = "dispatch_started"
-    ATTEMPT_FAILED_RETRYABLE = "attempt_failed_retryable"
+    AWAITING_OWNER_RETIREMENT = "awaiting_owner_retirement"
     OWNER_RETIRED = "owner_retired"
     RESULT_FROZEN = "result_frozen"
+    DOWNSTREAM_INTENT_FROZEN = "downstream_intent_frozen"
     DOWNSTREAM_BOUND = "downstream_bound"
     SUCCEEDED = "succeeded"
     EXHAUSTED = "exhausted"
@@ -90,8 +92,9 @@ class ProviderStageRecoveryAction(StrEnum):
     DISPATCH_PREPARED_ATTEMPT = "dispatch_prepared_attempt"
     RESOLVE_AMBIGUOUS_DISPATCH = "resolve_ambiguous_dispatch"
     RETIRE_FAILED_OWNER = "retire_failed_owner"
-    RESUME_DOWNSTREAM = "resume_downstream"
+    FREEZE_DOWNSTREAM_INTENT = "freeze_downstream_intent"
     RECONCILE_DOWNSTREAM = "reconcile_downstream"
+    FINALIZE_SUCCESS = "finalize_success"
     REPLAY_SUCCESS = "replay_success"
     REPORT_EXHAUSTED = "report_exhausted"
     REPORT_BLOCKED_AMBIGUOUS = "report_blocked_ambiguous"
@@ -118,8 +121,8 @@ def _require_sha256(value: str, field_name: str) -> None:
 
 
 def _require_nonnegative_int(value: int, field_name: str) -> None:
-    if type(value) is not int or value < 0:
-        raise ContractValidationError(f"{field_name} must be a non-negative integer")
+    if type(value) is not int or not 0 <= value <= MAXIMUM_SAFE_INTEGER:
+        raise ContractValidationError(f"{field_name} must be a non-negative safe integer")
 
 
 def _payload(value: object) -> dict[str, Any]:
@@ -131,7 +134,12 @@ def _payload(value: object) -> dict[str, Any]:
 
 @dataclass(frozen=True, slots=True)
 class ProviderStageRetryIdentityV1:
-    """Hash-only logical identity for one provider-stage retry chain."""
+    """Hash-only identity for one unique durable provider-stage occurrence.
+
+    ``request_occurrence_sha256`` must bind world, branch, request identity,
+    and a generation or operation ordinal.  Repeatable request content alone
+    is not a safe occurrence identity.
+    """
 
     SCHEMA_VERSION: ClassVar[str] = "cera.provider_stage_retry_identity.v1"
 
@@ -139,6 +147,7 @@ class ProviderStageRetryIdentityV1:
     provider: ProviderFamily
     model_family: ProviderModelFamily
     stage: ProviderStage
+    request_occurrence_sha256: str
     request_sha256: str
     stage_input_sha256: str
     authority_sha256: str
@@ -147,10 +156,17 @@ class ProviderStageRetryIdentityV1:
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("provider-stage retry identity schema changed")
+        if (
+            type(self.provider) is not ProviderFamily
+            or type(self.model_family) is not ProviderModelFamily
+            or type(self.stage) is not ProviderStage
+        ):
+            raise ContractValidationError("provider-stage owner enums are not closed")
         expected_provider, expected_model = _STAGE_OWNER[self.stage]
         if (self.provider, self.model_family) != (expected_provider, expected_model):
             raise ContractValidationError("provider-stage owner mapping changed")
         for field_name in (
+            "request_occurrence_sha256",
             "request_sha256",
             "stage_input_sha256",
             "authority_sha256",
@@ -161,8 +177,18 @@ class ProviderStageRetryIdentityV1:
             raise ContractValidationError("provider-stage story-commit boundary changed")
 
     @property
+    def logical_key_sha256(self) -> str:
+        return domain_sha256(
+            "cera.provider_stage_retry_logical_key.v1",
+            {
+                "stage": self.stage.value,
+                "request_occurrence_sha256": self.request_occurrence_sha256,
+            },
+        )
+
+    @property
     def chain_id(self) -> str:
-        return "stage-retry-" + domain_sha256(self.SCHEMA_VERSION, self.to_payload())
+        return "stage-retry-" + self.logical_key_sha256
 
     def to_payload(self) -> dict[str, Any]:
         return _payload(self)
@@ -186,6 +212,8 @@ class ProviderStageProtectedCheckpointV1:
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("provider-stage checkpoint schema changed")
+        if type(self.checkpoint_kind) is not ProviderStageCheckpointKind:
+            raise ContractValidationError("provider-stage checkpoint kind is not closed")
         _require_chain_id(self.chain_id)
         if self.checkpoint_kind is ProviderStageCheckpointKind.INPUT:
             if self.attempt_number is not None:
@@ -198,7 +226,7 @@ class ProviderStageProtectedCheckpointV1:
             raise ContractValidationError("provider-stage result checkpoint attempt is invalid")
         _require_sha256(self.content_sha256, "provider-stage checkpoint content")
         _require_sha256(self.evidence_sha256, "provider-stage checkpoint evidence")
-        if type(self.size_bytes) is not int or self.size_bytes < 1:
+        if type(self.size_bytes) is not int or not 1 <= self.size_bytes <= MAXIMUM_SAFE_INTEGER:
             raise ContractValidationError("provider-stage checkpoint size is invalid")
         body = self.to_payload()
         body.pop("checkpoint_sha256")
@@ -216,6 +244,8 @@ class ProviderStageProtectedCheckpointV1:
         size_bytes: int,
         evidence_sha256: str,
     ) -> ProviderStageProtectedCheckpointV1:
+        if type(checkpoint_kind) is not ProviderStageCheckpointKind:
+            raise ContractValidationError("provider-stage checkpoint kind is not closed")
         body = {
             "schema_version": cls.SCHEMA_VERSION,
             "checkpoint_kind": checkpoint_kind.value,
@@ -268,6 +298,8 @@ class ProviderStageAttemptV1:
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("provider-stage attempt schema changed")
+        if type(self.phase) is not ProviderStageAttemptPhase:
+            raise ContractValidationError("provider-stage attempt phase is not closed")
         if (
             type(self.attempt_number) is not int
             or self.attempt_number < 1
@@ -286,6 +318,11 @@ class ProviderStageAttemptV1:
         )
         if self.provider_operations_conservative < self.provider_operations_observed:
             raise ContractValidationError("provider-stage conservative accounting undercounts")
+        if (
+            self.failure_class is not None
+            and type(self.failure_class) is not ProviderStageFailureClass
+        ):
+            raise ContractValidationError("provider-stage failure class is not closed")
         for token_value, field_name in (
             (self.input_tokens, "input tokens"),
             (self.cached_input_tokens, "cached input tokens"),
@@ -294,6 +331,22 @@ class ProviderStageAttemptV1:
         ):
             if token_value is not None:
                 _require_nonnegative_int(token_value, f"provider-stage {field_name}")
+        if self.cached_input_tokens is not None and (
+            self.input_tokens is None or self.cached_input_tokens > self.input_tokens
+        ):
+            raise ContractValidationError("provider-stage cached input exceeds total input")
+        if self.provider_operations_observed == 0 and any(
+            value not in {None, 0}
+            for value in (
+                self.input_tokens,
+                self.cached_input_tokens,
+                self.output_tokens,
+                self.reasoning_tokens,
+            )
+        ):
+            raise ContractValidationError(
+                "provider-stage token accounting lacks an observed provider operation"
+            )
         for hash_value, field_name in (
             (self.dispatch_evidence_sha256, "dispatch evidence"),
             (self.ledger_prefix_after_sha256, "ledger prefix after"),
@@ -375,8 +428,9 @@ class ProviderStageAttemptV1:
     def _require_terminal_common(self) -> None:
         if self.dispatch_evidence_sha256 is None or self.ledger_prefix_after_sha256 is None:
             raise ContractValidationError("terminal provider-stage attempt lacks dispatch custody")
-        if type(self.duration_ms) is not int or self.duration_ms < 0:
-            raise ContractValidationError("provider-stage attempt duration is invalid")
+        if self.duration_ms is None:
+            raise ContractValidationError("provider-stage attempt duration is unavailable")
+        _require_nonnegative_int(self.duration_ms, "provider-stage attempt duration")
 
     def _require_failed(self) -> None:
         self._require_terminal_common()
@@ -386,6 +440,20 @@ class ProviderStageAttemptV1:
             or self.result_checkpoint_sha256 is not None
         ):
             raise ContractValidationError("failed provider-stage attempt has invalid disposition")
+        if (
+            self.failure_class is ProviderStageFailureClass.DISPATCH_AMBIGUOUS
+            and self.provider_operations_conservative < 1
+        ):
+            raise ContractValidationError(
+                "ambiguous provider-stage dispatch lacks conservative accounting"
+            )
+        if (
+            self.failure_class is not ProviderStageFailureClass.DISPATCH_AMBIGUOUS
+            and self.provider_operations_conservative != self.provider_operations_observed
+        ):
+            raise ContractValidationError(
+                "closed provider-stage failure has unresolved operation accounting"
+            )
 
     def _require_result(self) -> None:
         self._require_terminal_common()
@@ -397,6 +465,14 @@ class ProviderStageAttemptV1:
         ):
             raise ContractValidationError(
                 "successful provider-stage attempt has invalid disposition"
+            )
+        if self.provider_operations_observed < 1:
+            raise ContractValidationError(
+                "successful provider-stage dispatch lacks observed accounting"
+            )
+        if self.provider_operations_conservative != self.provider_operations_observed:
+            raise ContractValidationError(
+                "successful provider-stage result has unresolved operation accounting"
             )
 
     def to_payload(self) -> dict[str, Any]:
@@ -414,6 +490,7 @@ class ProviderStageRetryChainV1:
     phase: ProviderStageRetryPhase
     attempts: tuple[ProviderStageAttemptV1, ...]
     result_checkpoint: ProviderStageProtectedCheckpointV1 | None
+    downstream_intent_sha256: str | None
     downstream_evidence_sha256: str | None
     block_reason: ProviderStageBlockReason | None
     block_evidence_sha256: str | None
@@ -421,11 +498,30 @@ class ProviderStageRetryChainV1:
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("provider-stage retry chain schema changed")
+        if (
+            type(self.identity) is not ProviderStageRetryIdentityV1
+            or type(self.phase) is not ProviderStageRetryPhase
+            or type(self.attempts) is not tuple
+            or any(type(value) is not ProviderStageAttemptV1 for value in self.attempts)
+            or (
+                self.result_checkpoint is not None
+                and type(self.result_checkpoint) is not ProviderStageProtectedCheckpointV1
+            )
+        ):
+            raise ContractValidationError("provider-stage retry-chain enums or contracts changed")
         if len(self.attempts) > MAXIMUM_PROVIDER_STAGE_ATTEMPTS:
             raise ContractValidationError("provider-stage retry chain exceeded its attempt ceiling")
         numbers = tuple(value.attempt_number for value in self.attempts)
         if numbers != tuple(range(1, len(self.attempts) + 1)):
             raise ContractValidationError("provider-stage attempts are not contiguous")
+        _require_nonnegative_int(
+            sum(value.provider_operations_observed for value in self.attempts),
+            "provider-stage cumulative observed operations",
+        )
+        _require_nonnegative_int(
+            sum(value.provider_operations_conservative for value in self.attempts),
+            "provider-stage cumulative conservative operations",
+        )
         sessions = tuple(value.session_scope_sha256 for value in self.attempts)
         if len(set(sessions)) != len(sessions):
             raise ContractValidationError("provider-stage retry reused a session scope")
@@ -446,12 +542,17 @@ class ProviderStageRetryChainV1:
                 != self.attempts[-1].result_checkpoint_sha256
             ):
                 raise ContractValidationError("provider-stage result checkpoint lost chain custody")
+        if self.downstream_intent_sha256 is not None:
+            _require_sha256(self.downstream_intent_sha256, "provider-stage downstream intent")
         if self.downstream_evidence_sha256 is not None:
             _require_sha256(self.downstream_evidence_sha256, "provider-stage downstream evidence")
         if self.block_evidence_sha256 is not None:
             _require_sha256(self.block_evidence_sha256, "provider-stage block evidence")
         if self.phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS:
-            if self.block_reason is None or self.block_evidence_sha256 is None:
+            if (
+                type(self.block_reason) is not ProviderStageBlockReason
+                or self.block_evidence_sha256 is None
+            ):
                 raise ContractValidationError("blocked provider-stage chain lacks closed evidence")
         elif self.block_reason is not None or self.block_evidence_sha256 is not None:
             raise ContractValidationError(
@@ -496,25 +597,45 @@ class ProviderStageRetryChainV1:
 
     def _require_phase_shape(self) -> None:
         if self.phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS:
+            if (
+                self.downstream_intent_sha256 is not None
+                or self.downstream_evidence_sha256 is not None
+            ):
+                raise ContractValidationError(
+                    "blocked provider-stage chain crossed a downstream effect boundary"
+                )
             return
         if not self.attempts:
             if (
                 self.phase is not ProviderStageRetryPhase.INPUT_FROZEN
                 or self.result_checkpoint is not None
+                or self.downstream_intent_sha256 is not None
                 or self.downstream_evidence_sha256 is not None
             ):
                 raise ContractValidationError("empty provider-stage chain has invalid phase")
             return
         last = self.attempts[-1]
+        pre_result = self.phase in {
+            ProviderStageRetryPhase.ATTEMPT_PREPARED,
+            ProviderStageRetryPhase.DISPATCH_STARTED,
+            ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT,
+            ProviderStageRetryPhase.OWNER_RETIRED,
+            ProviderStageRetryPhase.EXHAUSTED,
+        }
+        if pre_result and (
+            self.result_checkpoint is not None
+            or self.downstream_intent_sha256 is not None
+            or self.downstream_evidence_sha256 is not None
+        ):
+            raise ContractValidationError(
+                "provider-stage pre-result state contains downstream custody"
+            )
         if self.phase is ProviderStageRetryPhase.ATTEMPT_PREPARED:
             valid = last.phase is ProviderStageAttemptPhase.PREPARED
         elif self.phase is ProviderStageRetryPhase.DISPATCH_STARTED:
             valid = last.phase is ProviderStageAttemptPhase.DISPATCH_STARTED
-        elif self.phase is ProviderStageRetryPhase.ATTEMPT_FAILED_RETRYABLE:
-            valid = (
-                last.phase is ProviderStageAttemptPhase.FAILED
-                and len(self.attempts) < MAXIMUM_PROVIDER_STAGE_ATTEMPTS
-            )
+        elif self.phase is ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT:
+            valid = last.phase is ProviderStageAttemptPhase.FAILED
         elif self.phase is ProviderStageRetryPhase.OWNER_RETIRED:
             valid = (
                 last.phase is ProviderStageAttemptPhase.OWNER_RETIRED
@@ -524,6 +645,14 @@ class ProviderStageRetryChainV1:
             valid = (
                 last.phase is ProviderStageAttemptPhase.RESULT_FROZEN
                 and self.result_checkpoint is not None
+                and self.downstream_intent_sha256 is None
+                and self.downstream_evidence_sha256 is None
+            )
+        elif self.phase is ProviderStageRetryPhase.DOWNSTREAM_INTENT_FROZEN:
+            valid = (
+                last.phase is ProviderStageAttemptPhase.RESULT_FROZEN
+                and self.result_checkpoint is not None
+                and self.downstream_intent_sha256 is not None
                 and self.downstream_evidence_sha256 is None
             )
         elif self.phase in {
@@ -533,13 +662,15 @@ class ProviderStageRetryChainV1:
             valid = (
                 last.phase is ProviderStageAttemptPhase.RESULT_FROZEN
                 and self.result_checkpoint is not None
+                and self.downstream_intent_sha256 is not None
                 and self.downstream_evidence_sha256 is not None
             )
         elif self.phase is ProviderStageRetryPhase.EXHAUSTED:
             valid = (
                 len(self.attempts) == MAXIMUM_PROVIDER_STAGE_ATTEMPTS
-                and last.phase is ProviderStageAttemptPhase.FAILED
+                and last.phase is ProviderStageAttemptPhase.OWNER_RETIRED
                 and self.result_checkpoint is None
+                and self.downstream_intent_sha256 is None
                 and self.downstream_evidence_sha256 is None
             )
         else:
@@ -578,9 +709,22 @@ class ProviderStageRetryExhaustedV1:
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION or self.severity != "critical":
             raise ContractValidationError("provider-stage exhausted terminal schema changed")
+        if (
+            type(self.provider) is not ProviderFamily
+            or type(self.model_family) is not ProviderModelFamily
+            or type(self.stage) is not ProviderStage
+            or type(self.final_failure_class) is not ProviderStageFailureClass
+        ):
+            raise ContractValidationError("provider-stage exhausted enums are not closed")
         expected_provider, expected_model = _STAGE_OWNER[self.stage]
         if (self.provider, self.model_family) != (expected_provider, expected_model):
             raise ContractValidationError("provider-stage exhausted owner changed")
+        for count_value, field_name in (
+            (self.maximum_attempts, "maximum attempts"),
+            (self.attempts_total, "attempts total"),
+            (self.retries_consumed, "retries consumed"),
+        ):
+            _require_nonnegative_int(count_value, f"provider-stage exhausted {field_name}")
         if (
             self.maximum_attempts != MAXIMUM_PROVIDER_STAGE_ATTEMPTS
             or self.attempts_total != MAXIMUM_PROVIDER_STAGE_ATTEMPTS
@@ -601,13 +745,13 @@ class ProviderStageRetryExhaustedV1:
         )
         if self.provider_operations_conservative_total < self.provider_operations_observed_total:
             raise ContractValidationError("provider-stage exhausted accounting undercounts")
-        for value, field_name in (
+        for hash_value, field_name in (
             (self.request_sha256, "request"),
             (self.stage_input_sha256, "stage input"),
             (self.attempt_chain_sha256, "attempt chain"),
             (self.terminal_evidence_sha256, "terminal evidence"),
         ):
-            _require_sha256(value, f"provider-stage exhausted {field_name}")
+            _require_sha256(hash_value, f"provider-stage exhausted {field_name}")
 
     def to_payload(self) -> dict[str, Any]:
         return _payload(self)
@@ -640,9 +784,22 @@ class ProviderStageRetryBlockedV1:
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION or self.severity != "critical":
             raise ContractValidationError("provider-stage blocked terminal schema changed")
+        if (
+            type(self.provider) is not ProviderFamily
+            or type(self.model_family) is not ProviderModelFamily
+            or type(self.stage) is not ProviderStage
+            or type(self.block_reason) is not ProviderStageBlockReason
+        ):
+            raise ContractValidationError("provider-stage blocked enums are not closed")
         expected_provider, expected_model = _STAGE_OWNER[self.stage]
         if (self.provider, self.model_family) != (expected_provider, expected_model):
             raise ContractValidationError("provider-stage blocked owner changed")
+        for count_value, field_name in (
+            (self.maximum_attempts, "maximum attempts"),
+            (self.attempts_total, "attempts total"),
+            (self.retries_consumed, "retries consumed"),
+        ):
+            _require_nonnegative_int(count_value, f"provider-stage blocked {field_name}")
         if (
             self.maximum_attempts != MAXIMUM_PROVIDER_STAGE_ATTEMPTS
             or not 0 <= self.attempts_total <= MAXIMUM_PROVIDER_STAGE_ATTEMPTS
@@ -663,13 +820,13 @@ class ProviderStageRetryBlockedV1:
         )
         if self.provider_operations_conservative_total < self.provider_operations_observed_total:
             raise ContractValidationError("provider-stage blocked accounting undercounts")
-        for value, field_name in (
+        for hash_value, field_name in (
             (self.request_sha256, "request"),
             (self.stage_input_sha256, "stage input"),
             (self.attempt_chain_sha256, "attempt chain"),
             (self.terminal_evidence_sha256, "terminal evidence"),
         ):
-            _require_sha256(value, f"provider-stage blocked {field_name}")
+            _require_sha256(hash_value, f"provider-stage blocked {field_name}")
 
     def to_payload(self) -> dict[str, Any]:
         return _payload(self)
@@ -695,6 +852,11 @@ class ProviderStageRetryRecoveryV1:
     def __post_init__(self) -> None:
         if self.schema_version != self.SCHEMA_VERSION:
             raise ContractValidationError("provider-stage recovery schema changed")
+        if (
+            type(self.phase) is not ProviderStageRetryPhase
+            or type(self.action) is not ProviderStageRecoveryAction
+        ):
+            raise ContractValidationError("provider-stage recovery enums are not closed")
         _require_chain_id(self.chain_id)
         if self.attempt_number is not None and (
             type(self.attempt_number) is not int

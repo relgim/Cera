@@ -24,17 +24,17 @@ race is an error.  There is no resolve-then-check downgrade.
 
 from __future__ import annotations
 
-from contextlib import contextmanager
-from dataclasses import dataclass
 import errno
 import os
-from pathlib import Path
 import stat
-from typing import ClassVar, Iterator
+from collections.abc import Iterator
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import ClassVar
 
 from cera.errors import ContractValidationError, StateConflictError
 from cera.serialization import canonical_sha256, re_is_sha256
-
 
 NO_FOLLOW_CUSTODY_POLICY_VERSION = "cera.continuous_no_follow_custody_policy.v1"
 NO_FOLLOW_CUSTODY_POLICY_SHA256 = canonical_sha256(
@@ -413,7 +413,7 @@ def inspect_no_follow(path: Path, *, missing_ok: bool = False) -> NoFollowPathId
     except FileNotFoundError:
         if missing_ok:
             return None
-        raise StateConflictError("no-follow path component is unavailable")
+        raise StateConflictError("no-follow path component is unavailable") from None
     mode = value.st_mode
     if stat.S_ISLNK(mode):
         raise StateConflictError("no-follow path component is a symbolic link")
@@ -724,6 +724,126 @@ def safe_read_bytes(
         raise
     except OSError as exc:
         raise StateConflictError("no-follow file read failed closed") from exc
+
+
+@contextmanager
+def exclusive_no_follow_file_lock(
+    trusted_root: Path,
+    relative_path: str,
+    *,
+    initial_bytes: bytes = b"lock-v1\n",
+) -> Iterator[None]:
+    """Hold one crash-released byte lock on an ordinary no-follow file.
+
+    The complete parent chain and the exact leaf identity remain pinned while
+    the non-blocking OS lock is held.  Reparse points, hard-link aliases, leaf
+    replacement, or an already-held lock all fail closed.
+    """
+
+    normalized = normalized_relative_path(relative_path)
+    if not isinstance(initial_bytes, bytes) or not initial_bytes:
+        raise ContractValidationError("no-follow lock initialization is invalid")
+    ensure_parent_chain(trusted_root, normalized)
+    leaf = inspect_leaf(trusted_root, normalized)
+    if leaf.identity is None:
+        safe_create_new_bytes(trusted_root, normalized, initial_bytes)
+    parent_relative = _parent_relative(normalized)
+    with locked_directory_chain(
+        trusted_root,
+        parent_relative,
+        create_missing=False,
+    ):
+        leaf = inspect_leaf(trusted_root, normalized)
+        if leaf.identity is None:
+            raise StateConflictError("no-follow lock file is unavailable")
+        descriptor = _open_no_follow_read_write(leaf.path, leaf.identity)
+        locked = False
+        try:
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            try:
+                if os.name == "nt":
+                    import msvcrt
+
+                    msvcrt.locking(descriptor, msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl = __import__("fcntl")
+                    fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError as exc:
+                raise StateConflictError("no-follow lock is already held") from exc
+            locked = True
+            os.lseek(descriptor, 0, os.SEEK_SET)
+            current = os.read(descriptor, len(initial_bytes) + 1)
+            if current != initial_bytes:
+                raise StateConflictError("no-follow lock-file bytes changed")
+            yield
+        finally:
+            if locked:
+                if os.name == "nt":
+                    import msvcrt
+
+                    os.lseek(descriptor, 0, os.SEEK_SET)
+                    msvcrt.locking(descriptor, msvcrt.LK_UNLCK, 1)
+                else:
+                    fcntl = __import__("fcntl")
+                    fcntl.flock(descriptor, fcntl.LOCK_UN)
+            os.close(descriptor)
+
+
+def _open_no_follow_read_write(
+    path: Path,
+    expected: NoFollowPathIdentityV1,
+) -> int:
+    if os.name == "nt":
+        import msvcrt
+
+        handle = None
+        try:
+            handle = _windows_open_handle(
+                path,
+                desired_access=_GENERIC_READ | _GENERIC_WRITE | _FILE_READ_ATTRIBUTES,
+                share_delete=False,
+            )
+            actual = _windows_identity_from_handle(handle)
+            if actual != expected or actual.object_kind != "file":
+                raise StateConflictError("no-follow lock file changed before opening")
+            descriptor = msvcrt.open_osfhandle(handle, os.O_RDWR | os.O_BINARY)
+            handle = None
+            return descriptor
+        except StateConflictError:
+            if handle is not None:
+                _close_windows_handle(handle)
+            raise
+        except OSError as exc:
+            if handle is not None:
+                _close_windows_handle(handle)
+            raise StateConflictError("no-follow lock file could not be opened") from exc
+    flags = os.O_RDWR
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(path, flags)
+        value = os.fstat(descriptor)
+        actual = NoFollowPathIdentityV1(
+            schema_version=NoFollowPathIdentityV1.SCHEMA_VERSION,
+            object_kind="file",
+            object_identity_sha256=_identity_payload(
+                "file", (int(value.st_dev), int(value.st_ino))
+            ),
+            link_count=int(value.st_nlink),
+            reparse_tag=0,
+            no_follow_verified=True,
+            verification_mode=_verification_mode(),
+        )
+    except (OSError, ContractValidationError) as exc:
+        try:
+            os.close(descriptor)
+        except (UnboundLocalError, OSError):
+            pass
+        raise StateConflictError("no-follow lock file could not be opened") from exc
+    if actual != expected:
+        os.close(descriptor)
+        raise StateConflictError("no-follow lock file changed before opening")
+    return descriptor
 
 
 def safe_create_new_bytes(

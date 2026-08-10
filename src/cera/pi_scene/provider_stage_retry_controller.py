@@ -160,6 +160,17 @@ class ProviderStageRetryControllerV1:
             downstream_evidence_sha256=downstream_evidence_sha256,
         )
 
+    def freeze_downstream_intent(
+        self,
+        chain_id: str,
+        *,
+        downstream_intent_sha256: str,
+    ) -> ProviderStageRetryChainV1:
+        return self.store.freeze_downstream_intent(
+            chain_id,
+            downstream_intent_sha256=downstream_intent_sha256,
+        )
+
     def mark_succeeded(self, chain_id: str) -> ProviderStageRetryChainV1:
         return self.store.mark_succeeded(chain_id)
 
@@ -193,14 +204,17 @@ class ProviderStageRetryControllerV1:
         elif chain.phase is ProviderStageRetryPhase.DISPATCH_STARTED:
             action = ProviderStageRecoveryAction.RESOLVE_AMBIGUOUS_DISPATCH
             attempt_number = chain.attempts[-1].attempt_number
-        elif chain.phase is ProviderStageRetryPhase.ATTEMPT_FAILED_RETRYABLE:
+        elif chain.phase is ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT:
             action = ProviderStageRecoveryAction.RETIRE_FAILED_OWNER
             attempt_number = chain.attempts[-1].attempt_number
         elif chain.phase is ProviderStageRetryPhase.RESULT_FROZEN:
-            action = ProviderStageRecoveryAction.RESUME_DOWNSTREAM
+            action = ProviderStageRecoveryAction.FREEZE_DOWNSTREAM_INTENT
+            attempt_number = chain.attempts[-1].attempt_number
+        elif chain.phase is ProviderStageRetryPhase.DOWNSTREAM_INTENT_FROZEN:
+            action = ProviderStageRecoveryAction.RECONCILE_DOWNSTREAM
             attempt_number = chain.attempts[-1].attempt_number
         elif chain.phase is ProviderStageRetryPhase.DOWNSTREAM_BOUND:
-            action = ProviderStageRecoveryAction.RECONCILE_DOWNSTREAM
+            action = ProviderStageRecoveryAction.FINALIZE_SUCCESS
             attempt_number = chain.attempts[-1].attempt_number
         elif chain.phase is ProviderStageRetryPhase.SUCCEEDED:
             action = ProviderStageRecoveryAction.REPLAY_SUCCESS
