@@ -12,6 +12,7 @@ from cera.pi_scene.provider_stage_retry_packets import (
     freeze_adult_filter_stage_packet,
     freeze_adult_scene_stage_packet,
     freeze_planner_stage_packet,
+    freeze_reader_stage_packet,
     freeze_recorder_stage_packet,
     freeze_semantic_validator_stage_packet,
     freeze_writer_stage_packet,
@@ -23,6 +24,7 @@ def _configuration(stage: ProviderStage) -> ProviderStageConfigurationV1:
     reasoning = {
         ProviderStage.PLANNER: "medium",
         ProviderStage.SEMANTIC_VALIDATOR: "extra_high",
+        ProviderStage.READER: "medium",
     }.get(stage, "non_thinking")
     return ProviderStageConfigurationV1.create(
         stage=stage,
@@ -35,7 +37,7 @@ def _configuration(stage: ProviderStage) -> ProviderStageConfigurationV1:
 
 
 class ProviderStageRetryPacketTests(unittest.TestCase):
-    def test_all_six_stage_packets_are_exact_and_stage_bound(self) -> None:
+    def test_all_seven_stage_packets_are_exact_and_stage_bound(self) -> None:
         mutable_plan = {"beats": ["one"]}
         retrieval = ImmutableRetrievalSnapshotIdentityV1(
             schema_version=ImmutableRetrievalSnapshotIdentityV1.SCHEMA_VERSION,
@@ -61,6 +63,11 @@ class ProviderStageRetryPacketTests(unittest.TestCase):
             validation_context={"constraints": ["c1"]},
             configuration=_configuration(ProviderStage.SEMANTIC_VALIDATOR),
         )
+        reader = freeze_reader_stage_packet(
+            reader_request={"candidate": "candidate", "plan": mutable_plan},
+            reader_custody={"candidate_sha256": text_sha256("candidate")},
+            configuration=_configuration(ProviderStage.READER),
+        )
         recorder = freeze_recorder_stage_packet(
             accepted_story={"prose": "accepted"},
             accepted_story_receipt={"receipt": "r1"},
@@ -82,7 +89,7 @@ class ProviderStageRetryPacketTests(unittest.TestCase):
             configuration=_configuration(ProviderStage.ADULT_FILTER),
         )
 
-        packets = (planner, validator, writer, recorder, adult_scene, adult_filter)
+        packets = (planner, validator, reader, writer, recorder, adult_scene, adult_filter)
         self.assertEqual(
             tuple(packet.stage for packet in packets),
             tuple(ProviderStage),

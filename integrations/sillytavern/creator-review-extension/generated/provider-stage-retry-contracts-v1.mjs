@@ -352,6 +352,7 @@ export const CONTRACT_SCHEMAS = deepFreeze({
         "enum": [
           "planner",
           "semantic_validator",
+          "reader",
           "writer",
           "recorder",
           "adult_scene",
@@ -426,6 +427,22 @@ export const CONTRACT_SCHEMAS = deepFreeze({
               },
               "model_family": {
                 "const": "luna"
+              },
+              "story_state_committed": {
+                "const": false
+              }
+            }
+          },
+          {
+            "properties": {
+              "stage": {
+                "const": "reader"
+              },
+              "provider": {
+                "const": "codex"
+              },
+              "model_family": {
+                "const": "sol"
               },
               "story_state_committed": {
                 "const": false
@@ -1013,6 +1030,7 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                 "enum": [
                   "planner",
                   "semantic_validator",
+                  "reader",
                   "writer",
                   "adult_scene",
                   "adult_filter"

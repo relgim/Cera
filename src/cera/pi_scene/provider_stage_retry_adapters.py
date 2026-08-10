@@ -51,13 +51,19 @@ from .provider_stage_retry_executor import (
 
 
 class ProviderStageBoundaryKind(StrEnum):
-    """Closed physical provider boundary used by the six stage owners."""
+    """Closed physical provider boundary used by the stage owners."""
 
     CODEX = "codex"
     PI_DEEPSEEK = "pi_deepseek"
 
 
-_CODEX_STAGES = frozenset({ProviderStage.PLANNER, ProviderStage.SEMANTIC_VALIDATOR})
+_CODEX_STAGES = frozenset(
+    {
+        ProviderStage.PLANNER,
+        ProviderStage.SEMANTIC_VALIDATOR,
+        ProviderStage.READER,
+    }
+)
 _PI_DEEPSEEK_STAGES = frozenset(set(ProviderStage) - _CODEX_STAGES)
 
 _RETRYABLE_FAILURE_CLASS = {

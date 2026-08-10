@@ -11,10 +11,10 @@ semantic Regenerate, and Replan remain separate identities and DTO families.
 |---|---|---|
 | `schemas/provider_stage_retry/v1/action.schema.json` | `cera.provider_stage_retry_action.v1` | `0a9b3d202d7e1383a529e23a463aa1c625c8388c26071f321a2c0751e13507cf` |
 | `schemas/provider_stage_retry/v1/blocked_ambiguous.schema.json` | `cera.provider_stage_retry_blocked_ambiguous.v1` | `64ecb7f614cf82cbcd4e88e89ef0689e7ff13ab0eed553f922b424fc4a8598f9` |
-| `schemas/provider_stage_retry/v1/common.schema.json` | `support schema` | `ace7f2a1bbb3e978d12e1cbbbc860a092d515213697e5a1b5d3f418e6980d233` |
+| `schemas/provider_stage_retry/v1/common.schema.json` | `support schema` | `2fc9e2d301dbb17d73811a265c9e36915cad4d44f510b708e989b5aec6226b52` |
 | `schemas/provider_stage_retry/v1/compatibility_adapter.schema.json` | `cera.provider_stage_retry_compatibility_adapter.v1` | `8d594a711622234dfa6fed64d08218e768a0328c6a31dd1c7d5aabba174a9dff` |
 | `schemas/provider_stage_retry/v1/exhausted.schema.json` | `cera.provider_stage_retry_exhausted.v1` | `53f5e889e8a0e0b68b3ec5dad3a246223bf0e7ae1566216c16fead7ab8df264b` |
-| `schemas/provider_stage_retry/v1/status.schema.json` | `cera.provider_stage_retry_status.v1` | `36605cf65bb85dd7250663a5c014a4c17fa44938f951d7ecabc39ab719d9a0bd` |
+| `schemas/provider_stage_retry/v1/status.schema.json` | `cera.provider_stage_retry_status.v1` | `4405489f856b7d11716c95709adc759d2a93228bf998d868b25b00e7cc942255` |
 | `schemas/provider_stage_retry/v1/status_envelope.schema.json` | `cera.provider_stage_retry_status_envelope.v1` | `7dccaffbe58698bc363fc9e3faee0b14dae4eca7253c69f96a1cc290a88900d9` |
 
 ## `cera.provider_stage_retry_action.v1`

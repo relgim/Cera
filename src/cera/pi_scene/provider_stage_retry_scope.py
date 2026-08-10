@@ -18,6 +18,7 @@ from .provider_stage_retry import (
 _STAGE_OWNERS: dict[ProviderStage, tuple[ProviderFamily, ProviderModelFamily]] = {
     ProviderStage.PLANNER: (ProviderFamily.CODEX, ProviderModelFamily.SOL),
     ProviderStage.SEMANTIC_VALIDATOR: (ProviderFamily.CODEX, ProviderModelFamily.LUNA),
+    ProviderStage.READER: (ProviderFamily.CODEX, ProviderModelFamily.SOL),
     ProviderStage.WRITER: (ProviderFamily.DEEPSEEK, ProviderModelFamily.DEEPSEEK_V4),
     ProviderStage.RECORDER: (ProviderFamily.DEEPSEEK, ProviderModelFamily.DEEPSEEK_V4),
     ProviderStage.ADULT_SCENE: (ProviderFamily.DEEPSEEK, ProviderModelFamily.DEEPSEEK_V4),

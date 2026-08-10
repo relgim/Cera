@@ -314,6 +314,25 @@ def freeze_semantic_validator_stage_packet(
     )
 
 
+def freeze_reader_stage_packet(
+    *,
+    reader_request: object,
+    reader_custody: object,
+    configuration: ProviderStageConfigurationV1,
+) -> ProviderStageFrozenPacketV1:
+    """Freeze one Reader request without any Luna verdict dependency."""
+
+    return _freeze_packet(
+        stage=ProviderStage.READER,
+        packet_kind="reader",
+        semantic_input={
+            "reader_request": reader_request,
+            "reader_custody": reader_custody,
+        },
+        configuration=configuration,
+    )
+
+
 def freeze_recorder_stage_packet(
     *,
     accepted_story: object,
@@ -382,6 +401,7 @@ __all__ = [
     "freeze_adult_filter_stage_packet",
     "freeze_adult_scene_stage_packet",
     "freeze_planner_stage_packet",
+    "freeze_reader_stage_packet",
     "freeze_recorder_stage_packet",
     "freeze_semantic_validator_stage_packet",
     "freeze_writer_stage_packet",

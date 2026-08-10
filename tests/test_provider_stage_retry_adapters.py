@@ -161,7 +161,12 @@ def _owner[ResultT](
             stage=stage,
             boundary_kind=(
                 ProviderStageBoundaryKind.CODEX
-                if stage in {ProviderStage.PLANNER, ProviderStage.SEMANTIC_VALIDATOR}
+                if stage
+                in {
+                    ProviderStage.PLANNER,
+                    ProviderStage.SEMANTIC_VALIDATOR,
+                    ProviderStage.READER,
+                }
                 else ProviderStageBoundaryKind.PI_DEEPSEEK
             ),
             stage_input_sha256=stage_input_sha256 or bytes_sha256(_EXACT_INPUT),
@@ -221,6 +226,29 @@ def _invoke_prepared[ResultT](
 
 
 class ProviderStageRetryAdapterTests(unittest.TestCase):
+    def test_reader_is_closed_to_the_codex_boundary(self) -> None:
+        binding = _owner(
+            _Boundary(),
+            lambda exact: exact,
+            stage=ProviderStage.READER,
+        ).binding
+
+        self.assertIs(binding.boundary_kind, ProviderStageBoundaryKind.CODEX)
+        with self.assertRaisesRegex(
+            ContractValidationError,
+            "owner substitution detected",
+        ):
+            ProviderStageAttemptOwnerBindingV1(
+                chain_id=binding.chain_id,
+                attempt_number=binding.attempt_number,
+                stage=binding.stage,
+                boundary_kind=ProviderStageBoundaryKind.PI_DEEPSEEK,
+                stage_input_sha256=binding.stage_input_sha256,
+                session_scope_sha256=binding.session_scope_sha256,
+                ledger_before=binding.ledger_before,
+                maximum_provider_operations=binding.maximum_provider_operations,
+            )
+
     def test_all_six_retry_categories_map_exactly_without_message_parsing(self) -> None:
         expected = {
             ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT: (

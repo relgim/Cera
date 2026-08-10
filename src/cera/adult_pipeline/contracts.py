@@ -95,6 +95,7 @@ class AdultFilterConflictClass(StrEnum):
     UNSUPPORTED_DURABLE_EFFECT = "unsupported_durable_effect"
     ROUTE_TRANSITION_CONFLICT = "route_transition_conflict"
     SEVERE_INCOMPLETENESS = "severe_incompleteness"
+    SEVERE_READER_QUALITY = "severe_reader_quality"
     AUTHORITY_AMBIGUITY = "authority_ambiguity"
 
 

@@ -100,6 +100,22 @@ class ProviderStageRetrySchemaGenerationTests(unittest.TestCase):
         self.assertEqual(exhausted["stage_attempts_total"], 3)
         self.assertEqual(exhausted["retry_actions_accepted"], 2)
         self.assertNotEqual(exhausted["stage"], "recorder")
+        reader_exhaustion = [
+            value
+            for value in status_cases
+            if value["stage"] == "reader" and value["state"] == "attempts_exhausted"
+        ]
+        self.assertEqual(len(reader_exhaustion), 1)
+        self.assertEqual(reader_exhaustion[0]["provider"], "codex")
+        self.assertEqual(reader_exhaustion[0]["model_family"], "sol")
+
+        negative_case_ids = {
+            cast(str, case["case_id"]) for case in _fixture_cases(NEGATIVE_FIXTURES)
+        }
+        self.assertIn(
+            "status.schema.negative.reader_exhaustion_omits_failure_category",
+            negative_case_ids,
+        )
 
         repair_cases = [
             value for value in status_cases if value["state"] == "recording_repair_required"

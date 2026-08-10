@@ -42,6 +42,7 @@
       "enum": [
         "planner",
         "semantic_validator",
+        "reader",
         "writer",
         "recorder",
         "adult_scene",
@@ -116,6 +117,22 @@
             },
             "model_family": {
               "const": "luna"
+            },
+            "story_state_committed": {
+              "const": false
+            }
+          }
+        },
+        {
+          "properties": {
+            "stage": {
+              "const": "reader"
+            },
+            "provider": {
+              "const": "codex"
+            },
+            "model_family": {
+              "const": "sol"
             },
             "story_state_committed": {
               "const": false

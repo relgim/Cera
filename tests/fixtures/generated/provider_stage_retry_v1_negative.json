@@ -3,10 +3,10 @@
   "generated_from_sha256": {
     "action.schema.json": "0a9b3d202d7e1383a529e23a463aa1c625c8388c26071f321a2c0751e13507cf",
     "blocked_ambiguous.schema.json": "64ecb7f614cf82cbcd4e88e89ef0689e7ff13ab0eed553f922b424fc4a8598f9",
-    "common.schema.json": "ace7f2a1bbb3e978d12e1cbbbc860a092d515213697e5a1b5d3f418e6980d233",
+    "common.schema.json": "2fc9e2d301dbb17d73811a265c9e36915cad4d44f510b708e989b5aec6226b52",
     "compatibility_adapter.schema.json": "8d594a711622234dfa6fed64d08218e768a0328c6a31dd1c7d5aabba174a9dff",
     "exhausted.schema.json": "53f5e889e8a0e0b68b3ec5dad3a246223bf0e7ae1566216c16fead7ab8df264b",
-    "status.schema.json": "36605cf65bb85dd7250663a5c014a4c17fa44938f951d7ecabc39ab719d9a0bd",
+    "status.schema.json": "4405489f856b7d11716c95709adc759d2a93228bf998d868b25b00e7cc942255",
     "status_envelope.schema.json": "7dccaffbe58698bc363fc9e3faee0b14dae4eca7253c69f96a1cc290a88900d9"
   },
   "expected_valid": false,
@@ -690,6 +690,34 @@
           "stage_input_sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
           "accepted_state_sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
           "chain_sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+        }
+      }
+    },
+    {
+      "case_id": "status.schema.negative.reader_exhaustion_omits_failure_category",
+      "contract_schema_version": "cera.provider_stage_retry_status.v1",
+      "value": {
+        "schema_version": "cera.provider_stage_retry_status.v1",
+        "chain_id": "stage-retry-7878787878787878787878787878787878787878787878787878787878787878",
+        "provider": "codex",
+        "model_family": "sol",
+        "stage": "planner",
+        "state": "recovery_required",
+        "maximum_attempts": 3,
+        "stage_attempts_total": 0,
+        "retry_actions_accepted": 0,
+        "provider_operations_observed_total": 0,
+        "provider_operations_conservative_total": 0,
+        "story_state_committed": false,
+        "branch_preserved_at_last_accepted_head": true,
+        "available_actions": [],
+        "technical_details": {
+          "schema_version": "cera.provider_stage_retry_technical_details.v1",
+          "request_occurrence_sha256": "8989898989898989898989898989898989898989898989898989898989898989",
+          "request_sha256": "9090909090909090909090909090909090909090909090909090909090909090",
+          "stage_input_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "accepted_state_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "chain_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
         }
       }
     },

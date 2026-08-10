@@ -253,6 +253,7 @@
               "enum": [
                 "planner",
                 "semantic_validator",
+                "reader",
                 "writer",
                 "adult_scene",
                 "adult_filter"
@@ -628,6 +629,56 @@
         "accepted_state_sha256": "e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5",
         "chain_sha256": "e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6e6"
       }
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1f1",
+      "provider": "codex",
+      "model_family": "sol",
+      "stage": "reader",
+      "state": "succeeded",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 1,
+      "retry_actions_accepted": 0,
+      "provider_operations_observed_total": 1,
+      "provider_operations_conservative_total": 1,
+      "story_state_committed": false,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": null,
+      "available_actions": [],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2",
+        "request_sha256": "f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3",
+        "stage_input_sha256": "f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4f4",
+        "accepted_state_sha256": "f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5f5",
+        "chain_sha256": "f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6f6"
+      }
+    },
+    {
+      "schema_version": "cera.provider_stage_retry_status.v1",
+      "chain_id": "stage-retry-a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "provider": "codex",
+      "model_family": "sol",
+      "stage": "reader",
+      "state": "attempts_exhausted",
+      "maximum_attempts": 3,
+      "stage_attempts_total": 3,
+      "retry_actions_accepted": 2,
+      "provider_operations_observed_total": 3,
+      "provider_operations_conservative_total": 3,
+      "story_state_committed": false,
+      "branch_preserved_at_last_accepted_head": true,
+      "failure_category": "transport_timeout",
+      "available_actions": [],
+      "technical_details": {
+        "schema_version": "cera.provider_stage_retry_technical_details.v1",
+        "request_occurrence_sha256": "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2",
+        "request_sha256": "a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3a3",
+        "stage_input_sha256": "a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4a4",
+        "accepted_state_sha256": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "chain_sha256": "a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6a6"
+      }
     }
   ],
   "x-cera-negative-fixtures": [
@@ -655,6 +706,16 @@
           "op": "replace",
           "path": "/available_actions",
           "value": []
+        }
+      ]
+    },
+    {
+      "name": "reader_exhaustion_omits_failure_category",
+      "base_example": 7,
+      "patch": [
+        {
+          "op": "remove",
+          "path": "/failure_category"
         }
       ]
     },

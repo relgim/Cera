@@ -60,6 +60,7 @@ def _identity(
             ProviderFamily.CODEX,
             ProviderModelFamily.LUNA,
         ),
+        ProviderStage.READER: (ProviderFamily.CODEX, ProviderModelFamily.SOL),
         ProviderStage.WRITER: (ProviderFamily.DEEPSEEK, ProviderModelFamily.DEEPSEEK_V4),
         ProviderStage.RECORDER: (
             ProviderFamily.DEEPSEEK,
@@ -93,6 +94,7 @@ class ProviderStageRetryContractTests(unittest.TestCase):
         expected_stages = {
             "planner",
             "semantic_validator",
+            "reader",
             "writer",
             "recorder",
             "adult_scene",
