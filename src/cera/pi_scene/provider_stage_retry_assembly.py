@@ -1371,7 +1371,7 @@ class ProviderStageOperatorRecoveryV1:
 
 
 class ProviderStageRetryProductionAssemblyV1:
-    """One provider-free composition root for all six stage registrations."""
+    """One provider-free composition root for all seven stage registrations."""
 
     def __init__(
         self,

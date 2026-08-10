@@ -1809,7 +1809,7 @@ def adult_stage_retry_runtime_adapters(
     pi_adapter: PiSceneAdapter,
     protected_runtime_root: Path,
 ) -> tuple[ProviderStageRuntimeAdapterV1, ProviderStageRuntimeAdapterV1]:
-    """Build the two registrations merged into the global six-stage registry."""
+    """Build the two registrations merged into the global seven-stage registry."""
 
     registrations: list[ProviderStageRuntimeAdapterV1] = []
     for stage in (ProviderStage.ADULT_SCENE, ProviderStage.ADULT_FILTER):
