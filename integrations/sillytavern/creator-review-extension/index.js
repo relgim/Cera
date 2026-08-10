@@ -309,7 +309,8 @@ function persistProviderStageRetryEnvelope(
     if (
         (action !== null && (
             !normalizedAction
-            || normalizedAction.action_kind !== 'provider_retry'
+            || !['provider_retry', 'resume_prepared', 'repair_recording']
+                .includes(normalizedAction.action_kind)
             || normalizedAction.automatic !== false
         ))
         || (nextContinuation !== null && !normalizedContinuation)
@@ -711,7 +712,7 @@ function providerStageRetryStatusText(status) {
         return `${attempt} ${provider} ${stage} failed safely. One backend-issued manual Retry is available.`;
     }
     if (status.state === 'in_progress') {
-        return `${attempt} ${provider} ${stage} is in progress. No additional provider dispatch is available.`;
+        return `${attempt} ${provider} ${stage} is in progress. Continue is available only when the backend issues an exact prepared-owner action.`;
     }
     if (status.state === 'succeeded') {
         return `${attempt} ${provider} ${stage} succeeded. The branch remains at its accepted head.`;
@@ -720,7 +721,9 @@ function providerStageRetryStatusText(status) {
         return `${attempt} Provider disposition is ambiguous. CERA is blocked pending provider-free reconciliation.`;
     }
     if (status.state === 'recording_repair_required') {
-        return 'The assistant story remains accepted. Recording needs explicit repair; no provider Retry is available.';
+        return status.available_actions.includes('repair_recording')
+            ? 'The assistant story remains accepted. One explicit Recorder repair occurrence is available; it does not consume the exhausted Retry chain.'
+            : 'The assistant story remains accepted, but the bounded Recorder repair occurrence is exhausted. This panel is read-only pending separate recovery.';
     }
     if (status.state === 'recovery_required') {
         const accepted = status.story_state_committed ? ' The assistant story remains accepted.' : '';
@@ -772,8 +775,40 @@ function renderProviderStageRetryControl({ detail = null, allowAction = true } =
     } else if (
         allowAction
         && !providerStageRetryInFlight
-        && ['in_progress', 'succeeded'].includes(status.state)
-        && continueAction?.action_kind === 'provider_retry'
+        && action?.action_kind === 'resume_prepared'
+    ) {
+        actions.append(actionButton(
+            'Continue',
+            false,
+            () => submitProviderStageControlAction(action),
+        ));
+    } else if (
+        allowAction
+        && !providerStageRetryInFlight
+        && action?.action_kind === 'repair_recording'
+    ) {
+        actions.append(actionButton(
+            'Repair Recording',
+            false,
+            () => submitProviderStageControlAction(action),
+        ));
+    } else if (
+        allowAction
+        && !providerStageRetryInFlight
+        && status.state === 'succeeded'
+        && ['provider_retry', 'resume_prepared', 'repair_recording']
+            .includes(continueAction?.action_kind)
+    ) {
+        actions.append(actionButton(
+            'Continue',
+            false,
+            () => submitProviderStageControlAction(continueAction),
+        ));
+    } else if (
+        allowAction
+        && !providerStageRetryInFlight
+        && status.state === 'in_progress'
+        && ['provider_retry', 'resume_prepared'].includes(continueAction?.action_kind)
         && continueAction.chain_id === status.chain_id
     ) {
         actions.append(actionButton(
@@ -783,12 +818,6 @@ function renderProviderStageRetryControl({ detail = null, allowAction = true } =
         ));
     } else if (allowAction && !providerStageRetryInFlight && action?.action_kind === 'check_status') {
         actions.append(actionButton('Check Status', false, () => reconcileProviderStageRetry()));
-    } else if (action?.action_kind === 'repair_recording') {
-        actions.append(actionButton(
-            'Repair Recording',
-            !recordingRepairTarget(),
-            () => repairRecordingFromProviderStage(),
-        ));
     }
     if (actions.children.length) panel.appendChild(actions);
     anchor.parentElement.insertBefore(panel, anchor.nextSibling);
@@ -844,15 +873,32 @@ async function submitProviderStageControlAction(action) {
         envelope?.status.state === 'eligible'
         && current?.action_kind === 'provider_retry'
     );
+    const preparedResume = (
+        envelope?.status.state === 'in_progress'
+        && current?.action_kind === 'resume_prepared'
+    );
+    const recordingRepair = (
+        envelope?.status.state === 'recording_repair_required'
+        && current?.action_kind === 'repair_recording'
+    );
     const storedContinue = normalizeProviderStageRetryAction(
         providerStageRetryLastSubmittedAction,
     );
     const manualContinue = (
-        ['in_progress', 'succeeded'].includes(envelope?.status.state)
-        && storedContinue?.action_kind === 'provider_retry'
+        envelope?.status.state === 'succeeded'
+        && ['provider_retry', 'resume_prepared', 'repair_recording']
+            .includes(storedContinue?.action_kind)
+    );
+    const sameChainPreparedContinue = (
+        envelope?.status.state === 'in_progress'
+        && ['provider_retry', 'resume_prepared'].includes(storedContinue?.action_kind)
         && storedContinue.chain_id === envelope.status.chain_id
     );
-    const selected = eligibleRetry ? current : manualContinue ? storedContinue : null;
+    const selected = eligibleRetry || preparedResume || recordingRepair
+        ? current
+        : manualContinue || sameChainPreparedContinue
+            ? storedContinue
+            : null;
     if (
         providerStageRetryInFlight
         || !envelope
@@ -872,7 +918,7 @@ async function submitProviderStageControlAction(action) {
     providerStageRetryInFlight = true;
     deactivateSendButtons();
     renderProviderStageRetryControl({
-        detail: 'Submitting the exact backend-issued Retry action once.',
+        detail: 'Submitting the exact backend-issued manual stage action once.',
         allowAction: false,
     });
     try {
@@ -1104,38 +1150,6 @@ async function applyProviderStageReviewDecision(result, chatKey) {
     );
     clearProviderStageRetryEnvelope(chatKey);
     syncSendButtons();
-}
-
-function recordingRepairTarget() {
-    const messageIndex = findAcceptedAssistantMessageIndex();
-    const reviewId = messageIndex === null
-        ? null
-        : chat[messageIndex]?.extra?.[META_KEY]?.review_id;
-    return validReviewId(reviewId) ? { messageIndex, reviewId } : null;
-}
-
-async function repairRecordingFromProviderStage() {
-    const envelope = normalizeProviderStageRetryStatusEnvelope(providerStageRetryEnvelope);
-    const target = recordingRepairTarget();
-    if (
-        envelope?.status.state !== 'recording_repair_required'
-        || envelope.actions[0]?.action_kind !== 'repair_recording'
-        || !target
-    ) return;
-    const repaired = await decide(
-        target.messageIndex,
-        { review_id: target.reviewId },
-        'repair_recording',
-    );
-    const authoritativeReview = repaired?.review ?? repaired;
-    if (authoritativeReview?.recording_status === 'complete') {
-        clearProviderStageRetryEnvelope();
-        syncSendButtons();
-        return;
-    }
-    renderProviderStageRetryControl({
-        detail: 'Recording repair is not authoritatively complete. The accepted story remains preserved and no provider Retry is available.',
-    });
 }
 
 function transportRetryContextIsCurrent() {

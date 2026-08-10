@@ -88,10 +88,10 @@ function exhaustedError(critical = criticalProviderStageFailure()) {
     };
 }
 
-function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
+function providerStageRetryEnvelope(state, { chainCharacter = 'a', prepared = false } = {}) {
     const config = {
         eligible: ['writer', 1, 0, 1, 1, 'transport_timeout', 'provider_retry'],
-        in_progress: ['writer', 2, 1, 1, 1, null, null],
+        in_progress: ['writer', 2, 1, 1, 1, null, prepared ? 'resume_prepared' : null],
         succeeded: ['writer', 2, 1, 2, 2, null, null],
         blocked_ambiguous: ['adult_scene', 1, 0, 0, 1, 'dispatch_ambiguous', 'check_status'],
         attempts_exhausted: ['writer', 3, 2, 3, 3, 'provider_unavailable', null],
@@ -137,7 +137,9 @@ function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
         action_family: 'provider_stage_control',
         action_kind: actionKind,
         automatic: false,
-        provider_dispatch_authorized: actionKind === 'provider_retry',
+        provider_dispatch_authorized: [
+            'provider_retry', 'resume_prepared', 'repair_recording',
+        ].includes(actionKind),
         consumes_retry_action: actionKind === 'provider_retry',
         retry_action_ordinal: actionKind === 'provider_retry' ? retries + 1 : null,
         whole_request_replay_authorized: false,
@@ -389,13 +391,22 @@ test('provider-stage relay IDs, URLs, and action body are fixed and backend-issu
             actionId: providerStageRetryEnvelope('blocked_ambiguous').actions[0].action_id,
         },
     ));
-    assert.throws(() => normalizeProviderStageRetryActionBody(
-        providerStageRetryEnvelope('recording_repair_required').actions[0],
-        {
-            chainId: providerStageRetryEnvelope('recording_repair_required').status.chain_id,
-            actionId: providerStageRetryEnvelope('recording_repair_required').actions[0].action_id,
-        },
-    ));
+    const repair = providerStageRetryEnvelope('recording_repair_required');
+    assert.deepEqual(
+        normalizeProviderStageRetryActionBody(repair.actions[0], {
+            chainId: repair.status.chain_id,
+            actionId: repair.actions[0].action_id,
+        }),
+        repair.actions[0],
+    );
+    const prepared = providerStageRetryEnvelope('in_progress', { prepared: true });
+    assert.deepEqual(
+        normalizeProviderStageRetryActionBody(prepared.actions[0], {
+            chainId: prepared.status.chain_id,
+            actionId: prepared.actions[0].action_id,
+        }),
+        prepared.actions[0],
+    );
     assert.throws(() => normalizeProviderStageRetryActionBody(envelope.actions[0], {
         chainId: `stage-retry-${'0'.repeat(64)}`,
         actionId,

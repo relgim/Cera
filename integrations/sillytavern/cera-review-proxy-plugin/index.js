@@ -172,7 +172,7 @@ export function normalizeProviderStageRetryActionBody(value, { chainId, actionId
     if (
         normalized.chain_id !== normalizeProviderStageRetryChainId(chainId)
         || normalized.action_id !== normalizeProviderStageRetryActionId(actionId)
-        || ['check_status', 'repair_recording'].includes(normalized.action_kind)
+        || normalized.action_kind === 'check_status'
     ) {
         throw new TypeError('CERA provider stage retry action body is invalid');
     }

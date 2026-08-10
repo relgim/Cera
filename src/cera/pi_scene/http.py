@@ -798,7 +798,7 @@ class PiSceneHttpAdapter:
         action_id: str,
         body: Mapping[str, Any],
     ) -> dict[str, Any]:
-        """Execute one exact backend-issued Provider Retry action."""
+        """Execute one exact backend-issued manual provider-stage control."""
 
         controller = self.provider_stage_retry_http
         if controller is None:

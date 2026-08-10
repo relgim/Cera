@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import json
 import unittest
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from threading import Thread
+from types import SimpleNamespace
 from typing import Any, cast
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -137,12 +138,24 @@ class _Continuation:
         self.terminalized: dict[str, str] = {}
         self.result: dict[str, Any] = _completion()
         self.epochs: dict[str, dict[str, Any]] = {}
+        self.recording_repair_allowed: dict[str, bool] = {}
+        self.recording_repair_calls = 0
+        self.recording_repair_executor: Callable[[object], object] | None = None
 
     def latest_chain_for_chain(self, chain_id: str) -> str:
         return self.latest.get(chain_id, chain_id)
 
     def continuation_epoch_for_chain(self, chain_id: str) -> object | None:
         return self.epochs.get(chain_id)
+
+    def recording_repair_action_allowed(self, chain_id: str) -> bool:
+        return self.recording_repair_allowed.get(chain_id, True)
+
+    def execute_recording_repair(self, action: object) -> object:
+        self.recording_repair_calls += 1
+        if self.recording_repair_executor is None:
+            raise AssertionError("test Recorder repair executor is unavailable")
+        return self.recording_repair_executor(action)
 
     def load_terminal_completion(self, chain_id: str) -> dict[str, Any] | None:
         return self.terminal.get(chain_id)
@@ -203,18 +216,25 @@ class ProviderStageRetryHttpTests(unittest.TestCase):
             invocation_ledger=self.invocations,
         )
         self.writer_reconciler = _Reconciler()
+        self.factories: dict[ProviderStage, _OwnerFactory] = {}
+        self.stage_invocations: dict[ProviderStage, _InvocationLedger] = {
+            ProviderStage.WRITER: self.invocations
+        }
         registrations: list[ProviderStageRuntimeAdapterV1] = []
         for stage in ProviderStage:
             if stage is ProviderStage.WRITER:
                 factory = self.writer_factory
                 reconciler = self.writer_reconciler
             else:
+                stage_invocations = _InvocationLedger()
+                self.stage_invocations[stage] = stage_invocations
                 factory = _OwnerFactory(
                     stage=stage,
                     outcomes={1: _success(stage.value)},
-                    invocation_ledger=_InvocationLedger(),
+                    invocation_ledger=stage_invocations,
                 )
                 reconciler = _Reconciler()
+            self.factories[stage] = factory
             registrations.append(
                 ProviderStageRuntimeAdapterV1(
                     stage=stage,
@@ -317,7 +337,7 @@ class ProviderStageRetryHttpTests(unittest.TestCase):
         self.assertEqual(self.invocations.calls, 2)
         self.assertEqual(self.continuation.resume_calls, 2)
 
-    def test_prepared_consumed_action_requires_manual_continue_after_restart(self) -> None:
+    def test_prepared_attempt_requires_backend_issued_manual_resume_after_restart(self) -> None:
         chain_id, envelope = self._begin_failed_chain()
         action = _backend_action(envelope)
         ProtectedProviderStageRetryHttpCursorStoreV1(self.cursor_root).remember_action(
@@ -341,13 +361,15 @@ class ProviderStageRetryHttpTests(unittest.TestCase):
         restarted = self._controller()
         status = restarted.get(chain_id)
         self.assertEqual(status["status"]["state"], "in_progress")
-        self.assertEqual(status["actions"], [])
+        resume_action = _backend_action(status)
+        self.assertEqual(resume_action["action_kind"], "resume_prepared")
+        self.assertIs(resume_action["consumes_retry_action"], False)
         self.assertEqual(self.invocations.calls, 1)
 
         completion = restarted.post(
             chain_id=chain_id,
-            action_id=action["action_id"],
-            body=action,
+            action_id=resume_action["action_id"],
+            body=resume_action,
         )
         self.assertEqual(completion["object"], "chat.completion")
         self.assertEqual(self.invocations.calls, 2)
@@ -355,13 +377,99 @@ class ProviderStageRetryHttpTests(unittest.TestCase):
         self.assertEqual(
             self._controller().post(
                 chain_id=chain_id,
-                action_id=action["action_id"],
-                body=action,
+                action_id=resume_action["action_id"],
+                body=resume_action,
             ),
             completion,
         )
         self.assertEqual(self.invocations.calls, 2)
         self.assertEqual(self.continuation.resume_calls, 1)
+
+    def test_recorder_repair_binds_one_successor_and_replays_terminal_result(self) -> None:
+        recorder_factory = self.factories[ProviderStage.RECORDER]
+        recorder_factory.outcomes = {
+            1: _retryable_failure("recorder-1"),
+            2: _retryable_failure("recorder-2"),
+            3: _retryable_failure("recorder-3"),
+        }
+        packet = _packet(ProviderStage.RECORDER)
+        scope = _scope(packet, occurrence="http-recorder-repair")
+        parent = self.service.start_initial(scope=scope, packet=packet)
+        envelope = self.service.canonical_status(chain_id=parent.chain_id)
+        self.controller.begin_request(
+            request_id=scope.request_id,
+            world_id=scope.world_id,
+            branch_id=scope.branch_id,
+        )
+        self.controller.capture_pending(envelope)
+        first_action = _backend_action(envelope)
+        second = self.controller.post(
+            chain_id=parent.chain_id,
+            action_id=first_action["action_id"],
+            body=first_action,
+        )
+        second_action = _backend_action(second)
+        exhausted = self.controller.post(
+            chain_id=parent.chain_id,
+            action_id=second_action["action_id"],
+            body=second_action,
+        )
+        repair_action = _backend_action(exhausted)
+        self.assertEqual(repair_action["action_kind"], "repair_recording")
+        self.assertEqual(self.service.read_chain(parent.chain_id).retries_consumed, 2)
+
+        def execute_repair(action: object) -> object:
+            self.assertEqual(action, repair_action)
+            recorder_factory.outcomes[1] = _success("recorder-repair")
+            successor_scope = type(scope).create(
+                world_id=scope.world_id,
+                branch_id=scope.branch_id,
+                request_id=scope.request_id,
+                generation_id=scope.generation_id,
+                stage=ProviderStage.RECORDER,
+                stage_ordinal=2,
+                accepted_state_sha256=scope.accepted_state_sha256,
+                exact_input=packet.exact_bytes,
+                authority_binding={"repair_parent": parent.chain_id},
+            )
+            successor = self.service.start_initial(scope=successor_scope, packet=packet)
+            self.service.finalize_result_once(successor.chain_id)
+            successor = self.service.read_chain(successor.chain_id)
+            self.continuation.latest[parent.chain_id] = successor.chain_id
+            self.continuation.recording_repair_allowed[successor.chain_id] = False
+            return SimpleNamespace(
+                chain_id=successor.chain_id,
+                stage=ProviderStage.RECORDER,
+                result_ready=True,
+                envelope=self.service.canonical_status(
+                    chain_id=successor.chain_id,
+                    recording_repair_action_allowed=False,
+                ),
+            )
+
+        self.continuation.recording_repair_executor = execute_repair
+        completion = self.controller.post(
+            chain_id=parent.chain_id,
+            action_id=repair_action["action_id"],
+            body=repair_action,
+        )
+
+        self.assertEqual(completion["object"], "chat.completion")
+        self.assertEqual(self.continuation.recording_repair_calls, 1)
+        self.assertEqual(self.stage_invocations[ProviderStage.RECORDER].calls, 4)
+        successor_id = self.continuation.latest[parent.chain_id]
+        self.assertEqual(self.service.read_chain(successor_id).retries_consumed, 0)
+        self.assertEqual(self._controller().get(parent.chain_id), completion)
+        self.assertEqual(
+            self._controller().post(
+                chain_id=parent.chain_id,
+                action_id=repair_action["action_id"],
+                body=repair_action,
+            ),
+            completion,
+        )
+        self.assertEqual(self.continuation.recording_repair_calls, 1)
+        self.assertEqual(self.stage_invocations[ProviderStage.RECORDER].calls, 4)
 
     def test_provisional_terminal_completion_keeps_request_barrier(self) -> None:
         self.continuation.result = _completion("provisional story")

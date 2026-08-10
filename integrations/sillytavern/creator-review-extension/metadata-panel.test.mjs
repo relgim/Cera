@@ -404,7 +404,7 @@ function exhaustedStatus(failure, critical = criticalProviderStageFailure()) {
     };
 }
 
-function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
+function providerStageRetryEnvelope(state, { chainCharacter = 'a', prepared = false } = {}) {
     const stateValues = {
         eligible: {
             stage: 'writer', attempts: 1, retries: 0, observed: 1, conservative: 1,
@@ -412,7 +412,7 @@ function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
         },
         in_progress: {
             stage: 'writer', attempts: 2, retries: 1, observed: 1, conservative: 1,
-            failure: null, action: null,
+            failure: null, action: prepared ? 'resume_prepared' : null,
         },
         succeeded: {
             stage: 'writer', attempts: 2, retries: 1, observed: 2, conservative: 2,
@@ -470,7 +470,9 @@ function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
         action_family: 'provider_stage_control',
         action_kind: stateValues.action,
         automatic: false,
-        provider_dispatch_authorized: stateValues.action === 'provider_retry',
+        provider_dispatch_authorized: [
+            'provider_retry', 'resume_prepared', 'repair_recording',
+        ].includes(stateValues.action),
         consumes_retry_action: stateValues.action === 'provider_retry',
         retry_action_ordinal: stateValues.action === 'provider_retry'
             ? stateValues.retries + 1
@@ -1296,7 +1298,7 @@ test('eligible provider-stage status posts only the exact backend-issued Retry a
     const calls = [];
     const originalFetch = globalThis.fetch;
     const eligible = providerStageRetryEnvelope('eligible');
-    const inProgress = providerStageRetryEnvelope('in_progress');
+    const inProgress = providerStageRetryEnvelope('in_progress', { prepared: true });
     const loaded = await loadExtension({
         fetchImpl: async (url, options) => {
             calls.push({ url, options });
@@ -1380,7 +1382,7 @@ test('lost provider-stage POST persists its action and Continue replays without 
 
 test('prepared provider-stage action resumes manually from in-progress after reload', async () => {
     const eligible = providerStageRetryEnvelope('eligible');
-    const inProgress = providerStageRetryEnvelope('in_progress');
+    const inProgress = providerStageRetryEnvelope('in_progress', { prepared: true });
     const completion = providerStageCompletion(eligible);
     const calls = [];
     const originalFetch = globalThis.fetch;
@@ -1417,7 +1419,7 @@ test('prepared provider-stage action resumes manually from in-progress after rel
 
         await buttonByText(loaded.testDocument, 'Continue').click();
         assert.deepEqual(calls.map(call => call.options.method), ['GET', 'POST']);
-        assert.deepEqual(JSON.parse(calls[1].options.body), eligible.actions[0]);
+        assert.deepEqual(JSON.parse(calls[1].options.body), inProgress.actions[0]);
         assert.equal(loaded.scriptModule.chat.length, 1);
         assert.equal(loaded.scriptModule.testState.addCount, 1);
         assert.equal(providerRetryStore(loaded.storage).entries.length, 0);
@@ -1433,7 +1435,6 @@ test('creator decision Retry survives reload and returns its exact decision fami
         { action: 'accept', button: 'Accept', stage: 'recorder' },
         { action: 'regenerate', button: 'Regenerate', stage: 'writer' },
         { action: 'replan', button: 'Replan', stage: 'planner' },
-        { action: 'repair_recording', button: 'Repair Recording', stage: 'recorder' },
     ];
     const originalFetch = globalThis.fetch;
     try {
@@ -1468,19 +1469,13 @@ test('creator decision Retry survives reload and returns its exact decision fami
         });
         let second = null;
         try {
-            if (scenario.action === 'repair_recording') {
-                const repair = providerStageRetryEnvelope('recording_repair_required');
-                assert.equal(window.ceraCaptureProviderStageRetryStatus(repair), true);
-                await buttonByText(first.testDocument, scenario.button).click();
-            } else {
-                await first.scriptModule.eventSource.emit(
-                    first.scriptModule.event_types.CHARACTER_MESSAGE_RENDERED,
-                    0,
-                );
-                await buttonByText(first.testDocument, scenario.button).click();
-                if (scenario.action === 'replan') {
-                    await buttonByText(first.testDocument, 'Submit').click();
-                }
+            await first.scriptModule.eventSource.emit(
+                first.scriptModule.event_types.CHARACTER_MESSAGE_RENDERED,
+                0,
+            );
+            await buttonByText(first.testDocument, scenario.button).click();
+            if (scenario.action === 'replan') {
+                await buttonByText(first.testDocument, 'Submit').click();
             }
 
             const decisionPosts = firstCalls.filter(call => (
@@ -1730,39 +1725,16 @@ test('known non-Retry terminal is read-only', async () => {
     }
 });
 
-test('recording repair status exposes only the separate review repair authority', async () => {
-    const reviewId = `review-${'a'.repeat(28)}`;
-    const accepted = {
-        name: 'Sakura',
-        is_user: false,
-        mes: 'Accepted story remains visible.',
-        extra: {
-            cera_creator_review: {
-                review_id: reviewId,
-                state: 'accepted',
-                completion: {
-                    profile_id: 'cera.pi_scene.lean.v1',
-                    request_id: 'request:accepted-recording-repair',
-                    candidate_id: 'candidate:accepted-recording-repair',
-                    route_mode: 'ordinary',
-                    provisional: false,
-                    status: 'accepted',
-                    story_state_committed: true,
-                },
-            },
-        },
-    };
+test('initial Recorder repair uses exact chain custody without an existing review message', async () => {
     const repair = providerStageRetryEnvelope('recording_repair_required');
+    const completion = providerStageCompletion(repair, { content: 'Accepted and recorded story.' });
     const calls = [];
     const originalFetch = globalThis.fetch;
     const loaded = await loadExtension({
-        initialChat: [accepted],
         fetchImpl: async (url, options) => {
             calls.push({ url, options });
-            if (options.method === 'POST') {
-                return jsonResponse({ state: 'accepted', recording_status: 'complete' });
-            }
-            throw new Error('recording repair must not fake generic Retry success via GET');
+            if (options.method === 'POST') return jsonResponse(completion);
+            throw new Error('Recorder repair must not dispatch during GET');
         },
     });
     try {
@@ -1772,19 +1744,83 @@ test('recording repair status exposes only the separate review repair authority'
         assert.equal(buttonByText(loaded.testDocument, 'Check Status'), null);
         await buttonByText(loaded.testDocument, 'Repair Recording').click();
         assert.equal(calls[0].options.method, 'POST');
-        assert.match(calls[0].url, /reviews\/review-/);
-        assert.deepEqual(JSON.parse(calls[0].options.body), {
-            action: 'repair_recording',
-            feedback: null,
-        });
+        assert.match(calls[0].url, /provider-stage-retries\/stage-retry-.*\/actions\//);
+        assert.deepEqual(JSON.parse(calls[0].options.body), repair.actions[0]);
         assert.equal(calls.length, 1);
-        assert.equal(
-            loaded.testDocument.querySelector('#cera_provider_stage_retry_panel'),
-            null,
-        );
-        assert.equal(calls.some(call => call.url.includes('/actions/')), false);
+        assert.equal(loaded.scriptModule.chat.length, 1);
+        assert.equal(loaded.scriptModule.chat[0].mes, 'Accepted and recorded story.');
+        assert.equal(loaded.scriptModule.testState.addCount, 1);
+        assert.equal(providerRetryStore(loaded.storage).entries.length, 0);
     } finally {
         globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('action-scoped Recorder repair returns its protected creator decision', async () => {
+    const reviewId = `review-${'a'.repeat(28)}`;
+    const repair = providerStageRetryEnvelope('recording_repair_required');
+    const decision = creatorDecision(reviewId, 'accept');
+    const calls = [];
+    const originalFetch = globalThis.fetch;
+    const stored = {
+        cera_provider_stage_retry_status_v1: JSON.stringify({
+            schema_version: 'cera.sillytavern.provider_stage_retry_status_store.v2',
+            entries: [{
+                chat_key: JSON.stringify(['0', 'test-chat']),
+                envelope: repair,
+                last_submitted_action: null,
+                continuation: { review_id: reviewId, action: 'accept' },
+            }],
+        }),
+    };
+    const loaded = await loadExtension({
+        initialStorage: stored,
+        initialChat: [creatorReviewMessage(reviewId)],
+        fetchImpl: async (url, options) => {
+            calls.push({ url, options });
+            return options.method === 'GET' ? jsonResponse(repair) : jsonResponse(decision);
+        },
+    });
+    try {
+        await loaded.scriptModule.eventSource.emit(loaded.scriptModule.event_types.APP_READY);
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+            if (buttonByText(loaded.testDocument, 'Repair Recording')) break;
+            await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        await buttonByText(loaded.testDocument, 'Repair Recording').click();
+
+        assert.deepEqual(calls.map(call => call.options.method), ['GET', 'POST']);
+        assert.match(calls[1].url, /provider-stage-retries\/stage-retry-.*\/actions\//);
+        assert.deepEqual(JSON.parse(calls[1].options.body), repair.actions[0]);
+        assert.equal(loaded.scriptModule.chat.length, 1);
+        assert.equal(loaded.scriptModule.testState.addCount, 0);
+        assert.equal(
+            loaded.scriptModule.chat[0].extra.cera_creator_review.state,
+            'accepted',
+        );
+        assert.equal(providerRetryStore(loaded.storage).entries.length, 0);
+    } finally {
+        globalThis.fetch = originalFetch;
+        await rm(loaded.root, { recursive: true, force: true });
+    }
+});
+
+test('exhausted Recorder repair successor is read-only and cannot recurse', async () => {
+    const exhausted = providerStageRetryEnvelope('recording_repair_required');
+    exhausted.status.available_actions = [];
+    exhausted.actions = [];
+    const loaded = await loadExtension();
+    try {
+        assert.equal(window.ceraCaptureProviderStageRetryStatus(exhausted), true);
+        assert.equal(buttonByText(loaded.testDocument, 'Repair Recording'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Retry Provider Stage'), null);
+        assert.equal(buttonByText(loaded.testDocument, 'Continue'), null);
+        assert.match(
+            loaded.testDocument.querySelector('.cera-review-status').textContent,
+            /bounded Recorder repair occurrence is exhausted/,
+        );
+    } finally {
         await rm(loaded.root, { recursive: true, force: true });
     }
 });

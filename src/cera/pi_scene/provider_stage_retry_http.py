@@ -118,6 +118,10 @@ class ProviderStageRetryHttpContinuationPort(Protocol):
 
     def continuation_epoch_for_chain(self, chain_id: str) -> object | None: ...
 
+    def recording_repair_action_allowed(self, chain_id: str) -> bool: ...
+
+    def execute_recording_repair(self, action: object) -> object: ...
+
     def load_terminal_completion(self, chain_id: str) -> Mapping[str, Any] | None: ...
 
     def resume_succeeded_chain(self, chain_id: str) -> object: ...
@@ -157,6 +161,8 @@ class ProviderStageRetryHttpRegistrationV1:
         required = (
             "latest_chain_for_chain",
             "continuation_epoch_for_chain",
+            "recording_repair_action_allowed",
+            "execute_recording_repair",
             "load_terminal_completion",
             "resume_succeeded_chain",
             "project_terminal_completion",
@@ -228,7 +234,8 @@ class ProviderStageRetryHttpCursorV1:
         for raw in self.submitted_actions:
             action = validate_provider_stage_retry_action_v1(raw)
             if (
-                action["action_kind"] != "provider_retry"
+                action["action_kind"]
+                not in {"provider_retry", "resume_prepared", "repair_recording"}
                 or action["chain_id"] not in self.chain_ids
                 or action["action_id"] in action_ids
             ):
@@ -383,8 +390,12 @@ class ProtectedProviderStageRetryHttpCursorStoreV1:
         action: object,
     ) -> ProviderStageRetryHttpCursorV1:
         validated = validate_provider_stage_retry_action_v1(action)
-        if validated["action_kind"] != "provider_retry":
-            raise StateConflictError("provider-stage HTTP POST is not Provider Retry")
+        if validated["action_kind"] not in {
+            "provider_retry",
+            "resume_prepared",
+            "repair_recording",
+        }:
+            raise StateConflictError("provider-stage HTTP action is not manually dispatchable")
         with self._claim(request_sha256):
             current = self._read_unlocked(request_sha256)
             prior = current.action(validated["action_id"])
@@ -725,7 +736,7 @@ class ProviderStageRetryHttpControllerV1:
         )
         if barrier is None or barrier.request_id != identity.request_id:
             raise StateConflictError("provider-stage HTTP pending status lacks its request barrier")
-        authoritative = self._runtime.canonical_status(chain_id=chain_id)
+        authoritative = self._canonical_status(chain_id=chain_id, chain=chain, port=port)
         if authoritative != canonical:
             raise StateConflictError("provider-stage HTTP pending envelope is not authoritative")
         self._terminalize_failure_if_needed(
@@ -792,7 +803,7 @@ class ProviderStageRetryHttpControllerV1:
         action_id: str,
         body: object,
     ) -> dict[str, Any]:
-        """Execute or replay one exact backend-issued manual Provider Retry."""
+        """Execute or replay one exact backend-issued manual stage control."""
 
         _require_chain_id(chain_id)
         _require_action_id(action_id)
@@ -800,10 +811,11 @@ class ProviderStageRetryHttpControllerV1:
         if (
             action["chain_id"] != chain_id
             or action["action_id"] != action_id
-            or action["action_kind"] != "provider_retry"
+            or action["action_kind"]
+            not in {"provider_retry", "resume_prepared", "repair_recording"}
         ):
             raise StateConflictError(
-                "provider-stage HTTP POST is not the exact Provider Retry action"
+                "provider-stage HTTP POST is not the exact manual stage action"
             )
         with self._lock:
             source, identity, port, cursor = self._resolve_request(chain_id)
@@ -835,19 +847,63 @@ class ProviderStageRetryHttpControllerV1:
                 issued = current.get("actions")
                 if not isinstance(issued, list) or issued != [dict(action)]:
                     raise StateConflictError(
-                        "provider-stage HTTP Retry action is stale or not backend-issued"
+                        "provider-stage HTTP action is stale or not backend-issued"
                     )
                 self._cursors.remember_action(
                     request_sha256=identity.request_sha256,
                     action=action,
                 )
 
-            executed = self._runtime.execute_manual_retry(action)
+            if action["action_kind"] == "repair_recording":
+                projection = port.execute_recording_repair(action)
+                successor_chain_id = getattr(projection, "chain_id", None)
+                successor_stage = getattr(projection, "stage", None)
+                result_ready = getattr(projection, "result_ready", None)
+                successor_envelope = getattr(projection, "envelope", None)
+                if (
+                    not isinstance(successor_chain_id, str)
+                    or successor_chain_id == source.chain_id
+                    or successor_stage is not ProviderStage.RECORDER
+                    or type(result_ready) is not bool
+                ):
+                    raise StateConflictError(
+                        "provider-stage Recorder repair changed successor identity"
+                    )
+                projected = self._bind_successor_envelope(
+                    source_chain=source,
+                    identity=identity,
+                    port=port,
+                    envelope=successor_envelope,
+                )
+                successor = self._runtime.read_chain(successor_chain_id)
+                if result_ready:
+                    if successor.phase is not ProviderStageRetryPhase.SUCCEEDED:
+                        raise StateConflictError(
+                            "provider-stage Recorder repair changed result readiness"
+                        )
+                    return self._continue_or_status(
+                        chain=successor,
+                        identity=identity,
+                        port=port,
+                    )
+                if successor.phase is ProviderStageRetryPhase.SUCCEEDED:
+                    raise StateConflictError("provider-stage Recorder repair omitted ready result")
+                return projected
+
+            executed = (
+                self._runtime.execute_manual_retry(action)
+                if action["action_kind"] == "provider_retry"
+                else self._runtime.execute_manual_resume_prepared(action)
+            )
             if executed.phase in _RESULT_READY_PHASES:
                 self._runtime.finalize_result_once(executed.chain_id)
                 executed = self._runtime.read_chain(executed.chain_id)
             if executed.phase is not ProviderStageRetryPhase.SUCCEEDED:
-                envelope = self._runtime.canonical_status(chain_id=executed.chain_id)
+                envelope = self._canonical_status(
+                    chain_id=executed.chain_id,
+                    chain=executed,
+                    port=port,
+                )
                 self._terminalize_failure_if_needed(
                     chain=executed,
                     envelope=envelope,
@@ -1160,7 +1216,8 @@ class ProviderStageRetryHttpControllerV1:
         if chain.phase in _RESULT_READY_PHASES:
             self._runtime.finalize_result_once(chain_id)
             chain = self._runtime.read_chain(chain_id)
-        envelope = self._runtime.canonical_status(chain_id=chain_id)
+        port = self._continuations.for_stage(chain.identity.stage)
+        envelope = self._canonical_status(chain_id=chain_id, chain=chain, port=port)
         actions = envelope["actions"]
         if (
             chain.phase is ProviderStageRetryPhase.BLOCKED_AMBIGUOUS
@@ -1171,8 +1228,25 @@ class ProviderStageRetryHttpControllerV1:
             if chain.phase in _RESULT_READY_PHASES:
                 self._runtime.finalize_result_once(chain_id)
                 chain = self._runtime.read_chain(chain_id)
-            envelope = self._runtime.canonical_status(chain_id=chain_id)
+            envelope = self._canonical_status(chain_id=chain_id, chain=chain, port=port)
         return chain, envelope
+
+    def _canonical_status(
+        self,
+        *,
+        chain_id: str,
+        chain: ProviderStageRetryChainV1,
+        port: ProviderStageRetryHttpContinuationPort,
+    ) -> ProviderStageRetryStatusEnvelopeV1:
+        repair_allowed = True
+        if chain.identity.stage is ProviderStage.RECORDER:
+            repair_allowed = port.recording_repair_action_allowed(chain_id)
+            if type(repair_allowed) is not bool:
+                raise StateConflictError("provider-stage Recorder repair policy changed shape")
+        return self._runtime.canonical_status(
+            chain_id=chain_id,
+            recording_repair_action_allowed=repair_allowed,
+        )
 
     def _terminal_first(
         self,
