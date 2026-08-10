@@ -737,6 +737,60 @@ class PiSceneProvisionalReviewLifecycleTests(unittest.TestCase):
                 )
             self.assertEqual(restarted_pi.calls, [])
 
+    def test_override_selection_crash_rejects_changed_feedback_before_recovery(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            coordinator, store, _pi, _retry = self._runtime(
+                root,
+                reader=ReaderStatus.REJECTED,
+            )
+            frozen = coordinator.start_ordinary(_turn())
+            rejected = coordinator.begin_ordinary_validation(frozen.review_id)
+            feedback_a = "Creator accepts the exact rejected candidate after review."
+            feedback_b = "Creator supplies a different override after the crash."
+
+            with patch.object(
+                store,
+                "_select_receipt",
+                side_effect=OSError("injected lost active-lineage selection"),
+            ):
+                with self.assertRaisesRegex(OSError, "active-lineage selection"):
+                    coordinator.accept(
+                        rejected.review_id,
+                        acceptance_action="provisional_accept",
+                        override_feedback=feedback_a,
+                        dispatch_recorder=False,
+                    )
+
+            with self.assertRaisesRegex(
+                StateConflictError,
+                "accepted decision audit differs from replay",
+            ):
+                coordinator.accept(
+                    rejected.review_id,
+                    acceptance_action="provisional_accept",
+                    override_feedback=feedback_b,
+                    dispatch_recorder=False,
+                )
+
+            recovered = coordinator.accept(
+                rejected.review_id,
+                acceptance_action="provisional_accept",
+                override_feedback=feedback_a,
+                dispatch_recorder=False,
+            )
+            replay = coordinator.terminal_decision_replay(rejected.review_id)
+            self.assertIsNotNone(replay)
+            assert replay is not None
+            receipt = recovered.review.accepted_receipt
+            self.assertIsNotNone(receipt)
+            assert receipt is not None
+            audit = store.load_acceptance_decision_audit(receipt)
+            self.assertIsNotNone(audit)
+            assert audit is not None
+            self.assertEqual(audit.override_feedback_sha256, text_sha256(feedback_a))
+            self.assertEqual(audit.decision_request_sha256, replay.request_sha256)
+
     def test_manual_pass_authorizes_accept_decline_regenerate_but_blocks_new_turn(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             coordinator, _store, pi, _retry = self._runtime(Path(temporary))

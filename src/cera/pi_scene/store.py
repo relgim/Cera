@@ -1284,6 +1284,14 @@ class LeanSceneStore:
             branch_root = self._branch_root(candidate.world_id, candidate.branch_id)
             existing = self._receipt_by_candidate(branch_root, candidate)
             if existing is not None:
+                _require_acceptance_decision_replay(
+                    branch_root,
+                    candidate=candidate,
+                    accepted=existing,
+                    acceptance_action=acceptance_action,
+                    decision_request_sha256=acceptance_decision_request_sha256,
+                    override_feedback_sha256=override_feedback_sha256,
+                )
                 head = self.load_head(
                     world_id=candidate.world_id,
                     branch_id=candidate.branch_id,
@@ -1376,8 +1384,17 @@ class LeanSceneStore:
                 branch_id=candidate.branch_id,
             )
             existing = self._receipt_by_candidate(branch_root, candidate)
-            if existing is not None and head.accepted_head_sha256 == existing.receipt_sha256:
-                return existing
+            if existing is not None:
+                _require_acceptance_decision_replay(
+                    branch_root,
+                    candidate=candidate,
+                    accepted=existing,
+                    acceptance_action=acceptance_action,
+                    decision_request_sha256=acceptance_decision_request_sha256,
+                    override_feedback_sha256=override_feedback_sha256,
+                )
+                if head.accepted_head_sha256 == existing.receipt_sha256:
+                    return existing
             if (
                 head.receipt is None
                 or head.accepted_head_sha256 != replaced_receipt.receipt_sha256
@@ -1460,7 +1477,7 @@ class LeanSceneStore:
             )
             if stored.receipt_sha256 != receipt.receipt_sha256:
                 raise StateConflictError("accepted object path is occupied")
-            if decision_audit is not None and _load_acceptance_decision_audit(
+            if _load_acceptance_decision_audit(
                 final_dir,
                 accepted=stored,
             ) != decision_audit:
@@ -2764,6 +2781,30 @@ def _load_acceptance_decision_audit(
     ):
         raise StateConflictError("accepted decision audit changed accepted custody")
     return audit
+
+
+def _require_acceptance_decision_replay(
+    branch_root: Path,
+    *,
+    candidate: LeanCandidateV1,
+    accepted: LeanAcceptedTurnReceiptV1,
+    acceptance_action: str,
+    decision_request_sha256: str | None,
+    override_feedback_sha256: str | None,
+) -> None:
+    """Authenticate a recovery call against its immutable decision audit."""
+
+    if accepted.creator_action != acceptance_action:
+        raise StateConflictError("accepted action differs from replay")
+    expected = _acceptance_decision_audit_for_candidate(
+        candidate,
+        acceptance_action=acceptance_action,
+        decision_request_sha256=decision_request_sha256,
+        override_feedback_sha256=override_feedback_sha256,
+    )
+    turn_dir = _locate_accepted_turn_dir(branch_root, accepted)
+    if _load_acceptance_decision_audit(turn_dir, accepted=accepted) != expected:
+        raise StateConflictError("accepted decision audit differs from replay")
 
 
 def _validate_candidate_qualification(
