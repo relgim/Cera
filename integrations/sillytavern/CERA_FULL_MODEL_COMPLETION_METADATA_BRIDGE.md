@@ -67,7 +67,9 @@ chats neither leaks nor discards another chat's receipt.
 After a POST transport failure or exact relay `cera_loopback_unavailable` 502,
 the outcome is unknown. The client never interprets that as a terminal failure
 and never posts the action again. It reconciles the same retry ID with an
-authenticated, read-only GET. Only the exact
+authenticated, provider-free and idempotent GET. That GET never dispatches a
+model operation, though the CERA backend may use it to repair derived local
+custody projections. Only the exact
 `cera.pi_scene.transport_retry_status.v1` states `eligible`, `in_progress`,
 `succeeded`, `superseded`, and `blocked` are accepted. `eligible` and
 `superseded` may expose one backend-issued manual action; every other state has

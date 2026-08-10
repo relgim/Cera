@@ -270,9 +270,11 @@ debug logs, branch evidence, and public status contain only bounded identities,
 hashes, counts, and closed reason codes. Every permanent block and terminal
 success redacts the raw custody idempotently.
 
-Authenticated `GET /v1/cera/transport-retries/{retry_id}` is read-only and
-returns exactly one of `eligible`, `in_progress`, `succeeded`, `superseded`, or
-`blocked`. `POST` accepts only `{}` and is the sole manual dispatch action.
+Authenticated `GET /v1/cera/transport-retries/{retry_id}` is provider-free and
+idempotent; it may repair derived local custody projections before returning
+exactly one of `eligible`, `in_progress`, `succeeded`, `superseded`, or
+`blocked`. It never dispatches a model operation. `POST` accepts only `{}` and
+is the sole manual dispatch action.
 Repeated GET or POST after a terminal result returns the same stored result and
 never adds a provider operation. The successful completion includes a closed
 transport-Retry attempt summary so accounting retains every prior charged
