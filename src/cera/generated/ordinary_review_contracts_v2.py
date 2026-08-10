@@ -636,7 +636,7 @@ def _validate_decision(value: dict[str, object]) -> None:
             "automatic_accept": "automatic",
             "accept": "manual",
             "accept_provisional": "auditable_override",
-        }[cast(str, action)]
+        }[action]
         if acceptance["mode"] != expected_mode:
             _review_error("ordinary decision action differs from acceptance mode")
     if action == "repair_recording" and review["recording_status"] != "complete":
@@ -785,13 +785,10 @@ def validate_ordinary_review_decision_v2(
         if successor_validator is None
         else {"ordinary_successor": successor_validator}
     )
-    return cast(
-        OrdinaryReviewDecisionV2,
-        validate_schema_version(
-            'cera.pi_scene.review_decision.v2',
-            value,
-            external_validators=validators,
-        ),
+    return validate_schema_version(
+        'cera.pi_scene.review_decision.v2',
+        value,
+        external_validators=validators,
     )
 
 

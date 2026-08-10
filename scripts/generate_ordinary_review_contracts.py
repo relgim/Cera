@@ -803,7 +803,7 @@ def _validate_decision(value: dict[str, object]) -> None:
             "automatic_accept": "automatic",
             "accept": "manual",
             "accept_provisional": "auditable_override",
-        }[cast(str, action)]
+        }[action]
         if acceptance["mode"] != expected_mode:
             _review_error("ordinary decision action differs from acceptance mode")
     if action == "repair_recording" and review["recording_status"] != "complete":
@@ -1472,13 +1472,10 @@ def _render_python(
         if successor_validator is None
         else {{"ordinary_successor": successor_validator}}
     )
-    return cast(
-        {class_name},
-        validate_schema_version(
-            {version!r},
-            value,
-            external_validators=validators,
-        ),
+    return validate_schema_version(
+        {version!r},
+        value,
+        external_validators=validators,
     )
 
 
