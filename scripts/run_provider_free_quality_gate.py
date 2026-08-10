@@ -34,6 +34,167 @@ _PINNED_QUALITY_TOOLS = {
     "ruff": "0.16.2",
 }
 _GENERATED_CONTRACT_CHECK = "scripts/generate_provider_stage_retry_contracts.py"
+_PROVIDER_STAGE_RETRY_SCHEMA_TARGETS = (
+    "schemas/provider_stage_retry/v1/action.schema.json",
+    "schemas/provider_stage_retry/v1/blocked_ambiguous.schema.json",
+    "schemas/provider_stage_retry/v1/common.schema.json",
+    "schemas/provider_stage_retry/v1/compatibility_adapter.schema.json",
+    "schemas/provider_stage_retry/v1/exhausted.schema.json",
+    "schemas/provider_stage_retry/v1/status.schema.json",
+    "schemas/provider_stage_retry/v1/status_envelope.schema.json",
+)
+_PROVIDER_STAGE_RETRY_FORMAT_TARGETS = (
+    "scripts/run_pi_scene_full_model_qualification.py",
+    "scripts/run_pi_scene_lean_server.py",
+    "src/cera/adult_pipeline/pi_roles.py",
+    "src/cera/adult_pipeline/pipeline.py",
+    "src/cera/generated/__init__.py",
+    "src/cera/generated/provider_stage_retry_contracts_v1.py",
+    "src/cera/pi_scene/adult_stage_retry_integration.py",
+    "src/cera/pi_scene/http.py",
+    "src/cera/pi_scene/operation_ledger.py",
+    "src/cera/pi_scene/provider_stage_retry.py",
+    "src/cera/pi_scene/provider_stage_retry_adapters.py",
+    "src/cera/pi_scene/provider_stage_retry_adult_actions.py",
+    "src/cera/pi_scene/provider_stage_retry_assembly.py",
+    "src/cera/pi_scene/provider_stage_retry_blob.py",
+    "src/cera/pi_scene/provider_stage_retry_controller.py",
+    "src/cera/pi_scene/provider_stage_retry_port.py",
+    "src/cera/pi_scene/provider_stage_retry_runtime.py",
+    "src/cera/pi_scene/provider_stage_retry_store.py",
+    "src/cera/pi_scene/provider_stage_retry_scope.py",
+    "src/cera/pi_scene/provider_stage_retry_packets.py",
+    "src/cera/pi_scene/provider_stage_retry_executor.py",
+    "src/cera/pi_scene/provider_stage_retry_http.py",
+    "src/cera/pi_scene/provider_stage_retry_ordinary.py",
+    "src/cera/pi_scene/provider_stage_retry_ordinary_custody.py",
+    "src/cera/pi_scene/provider_stage_retry_ordinary_retrieval.py",
+    "src/cera/pi_scene/qualification_isolation.py",
+    "src/cera/pi_scene/runtime.py",
+    "src/cera/providers/__init__.py",
+    "src/cera/storage/migrations.py",
+    "src/cera/storage/provider_stage_retry_store.py",
+    "tests/test_provider_stage_retry_schema_generation.py",
+    "tests/test_provider_stage_retry.py",
+    "tests/test_provider_stage_retry_adapters.py",
+    "tests/test_provider_stage_retry_sqlite.py",
+    "tests/test_provider_stage_retry_scope.py",
+    "tests/test_provider_stage_retry_packets.py",
+    "tests/test_provider_stage_retry_runtime.py",
+    "tests/test_provider_stage_retry_executor.py",
+    "tests/test_provider_retryable_failure_metadata.py",
+    "tests/test_adult_pipeline_pi_integration.py",
+    "tests/test_pi_scene_adult_stage_retry_integration.py",
+    "tests/test_pi_scene_full_model_qualification.py",
+    "tests/test_provider_stage_retry_assembly.py",
+    "tests/test_provider_stage_retry_http.py",
+    "tests/test_provider_stage_retry_ordinary.py",
+    "tests/test_provider_stage_retry_ordinary_custody.py",
+    "tests/test_provider_stage_retry_ordinary_retrieval.py",
+    "tests/test_sqlite_store.py",
+)
+# These pre-existing provider modules are intentionally not whole-file formatted
+# as part of this narrow correction.  They remain exact lint, type, compile, and
+# test dependencies; adding them to Ruff format would require a large unrelated
+# legacy rewrite.
+_PROVIDER_STAGE_RETRY_LEGACY_SOURCE_TARGETS = (
+    "src/cera/pi_scene/pi_adapter.py",
+    "src/cera/providers/codex.py",
+    "src/cera/providers/codex_exec.py",
+    "src/cera/providers/deepseek.py",
+    "src/cera/providers/models.py",
+)
+_PROVIDER_STAGE_RETRY_TYPE_TARGETS = (
+    _GENERATED_CONTRACT_CHECK,
+    "scripts/run_pi_scene_full_model_qualification.py",
+    "scripts/run_pi_scene_lean_server.py",
+    "src/cera/adult_pipeline/pi_roles.py",
+    "src/cera/adult_pipeline/pipeline.py",
+    "src/cera/generated/__init__.py",
+    "src/cera/generated/provider_stage_retry_contracts_v1.py",
+    "src/cera/pi_scene/adult_stage_retry_integration.py",
+    "src/cera/pi_scene/http.py",
+    "src/cera/pi_scene/operation_ledger.py",
+    "src/cera/pi_scene/provider_stage_retry.py",
+    "src/cera/pi_scene/provider_stage_retry_adapters.py",
+    "src/cera/pi_scene/provider_stage_retry_adult_actions.py",
+    "src/cera/pi_scene/provider_stage_retry_assembly.py",
+    "src/cera/pi_scene/provider_stage_retry_blob.py",
+    "src/cera/pi_scene/provider_stage_retry_controller.py",
+    "src/cera/pi_scene/provider_stage_retry_port.py",
+    "src/cera/pi_scene/provider_stage_retry_runtime.py",
+    "src/cera/pi_scene/provider_stage_retry_store.py",
+    "src/cera/pi_scene/provider_stage_retry_scope.py",
+    "src/cera/pi_scene/provider_stage_retry_packets.py",
+    "src/cera/pi_scene/provider_stage_retry_executor.py",
+    "src/cera/pi_scene/provider_stage_retry_http.py",
+    "src/cera/pi_scene/provider_stage_retry_ordinary.py",
+    "src/cera/pi_scene/provider_stage_retry_ordinary_custody.py",
+    "src/cera/pi_scene/provider_stage_retry_ordinary_retrieval.py",
+    "src/cera/pi_scene/qualification.py",
+    "src/cera/pi_scene/qualification_isolation.py",
+    "src/cera/pi_scene/runtime.py",
+    "src/cera/providers/__init__.py",
+    "src/cera/storage/migrations.py",
+    "src/cera/storage/provider_stage_retry_store.py",
+)
+_PROVIDER_STAGE_RETRY_LEGACY_TYPE_TARGETS = _PROVIDER_STAGE_RETRY_LEGACY_SOURCE_TARGETS
+_PROVIDER_STAGE_RETRY_TEST_MODULES = (
+    "tests.test_adult_pipeline_pi_integration",
+    "tests.test_pi_scene_adult_stage_retry_integration",
+    "tests.test_pi_scene_full_model_launcher",
+    "tests.test_pi_scene_http_session_review",
+    "tests.test_pi_scene_lean_v1",
+    "tests.test_provider_stage_retry_schema_generation",
+    "tests.test_provider_stage_retry",
+    "tests.test_provider_stage_retry_adapters",
+    "tests.test_provider_stage_retry_assembly",
+    "tests.test_provider_stage_retry_sqlite",
+    "tests.test_provider_stage_retry_scope",
+    "tests.test_provider_stage_retry_packets",
+    "tests.test_provider_stage_retry_runtime",
+    "tests.test_provider_stage_retry_executor",
+    "tests.test_provider_stage_retry_http",
+    "tests.test_provider_stage_retry_ordinary",
+    "tests.test_provider_stage_retry_ordinary_custody",
+    "tests.test_provider_stage_retry_ordinary_retrieval",
+    "tests.test_provider_retryable_failure_metadata",
+    "tests.test_pi_scene_full_model_qualification",
+    "tests.test_sqlite_store",
+)
+_PROVIDER_STAGE_RETRY_COMPILE_TARGETS = (
+    *_PROVIDER_STAGE_RETRY_TYPE_TARGETS,
+    *_PROVIDER_STAGE_RETRY_LEGACY_TYPE_TARGETS,
+    *(f"{module.replace('.', '/')}.py" for module in _PROVIDER_STAGE_RETRY_TEST_MODULES),
+)
+_SILLYTAVERN_RETRY_NODE_CHECK_TARGETS = (
+    "integrations/sillytavern/generated/provider-stage-retry-contracts-v1.mjs",
+    "integrations/sillytavern/cera-review-proxy-plugin/generated/provider-stage-retry-contracts-v1.mjs",
+    "integrations/sillytavern/cera-review-proxy-plugin/index.js",
+    "integrations/sillytavern/cera-review-proxy-plugin/test.mjs",
+    "integrations/sillytavern/creator-review-extension/generated/provider-stage-retry-contracts-v1.mjs",
+    "integrations/sillytavern/creator-review-extension/index.js",
+    "integrations/sillytavern/creator-review-extension/review-actions.js",
+    "integrations/sillytavern/creator-review-extension/metadata-panel.test.mjs",
+)
+_SILLYTAVERN_RETRY_NODE_TEST_TARGETS = (
+    "integrations/sillytavern/cera-review-proxy-plugin/test.mjs",
+    "integrations/sillytavern/creator-review-extension/metadata-panel.test.mjs",
+)
+# Repository integration must intentionally differ from the installed copy
+# until the disposable SillyTavern campaign passes and the user separately
+# authorizes installation. Keep every source/behavior contract in discovery,
+# but defer only the two byte-equivalence assertions at this boundary.
+_DEFERRED_PREQUALIFICATION_TESTS = frozenset(
+    {
+        "tests.test_sillytavern_installation_contract."
+        "SillyTavernInstallationContractTests."
+        "test_installed_creator_review_extension_matches_repository_source",
+        "tests.test_sillytavern_installation_contract."
+        "SillyTavernInstallationContractTests."
+        "test_installed_loopback_relay_matches_repository_source",
+    }
+)
 _FORMAT_TARGETS = (
     _GENERATED_CONTRACT_CHECK,
     "scripts/run_provider_free_quality_gate.py",
@@ -49,14 +210,15 @@ _FORMAT_TARGETS = (
     "tests/test_semantic_validation_contracts.py",
     "tests/test_semantic_validation_session.py",
     "tests/test_phase1_provider_boundaries.py",
+    *_PROVIDER_STAGE_RETRY_FORMAT_TARGETS,
 )
-_LINT_TARGETS = _FORMAT_TARGETS
+_LINT_TARGETS = (*_FORMAT_TARGETS, *_PROVIDER_STAGE_RETRY_LEGACY_SOURCE_TARGETS)
 _TYPE_TARGETS = (
-    _GENERATED_CONTRACT_CHECK,
     "scripts/run_provider_free_quality_gate.py",
     "src/cera/provider_dispatch_guard.py",
     "src/cera/cognition",
     "src/cera/semantic_validation",
+    *_PROVIDER_STAGE_RETRY_TYPE_TARGETS,
 )
 
 
@@ -172,6 +334,30 @@ def _tracked_python_sources() -> tuple[tuple[Path, bytes], ...]:
     return tuple((path, path.read_bytes()) for path in _tracked_python_paths())
 
 
+def _assert_required_retry_targets(
+    sources: tuple[tuple[Path, bytes], ...],
+) -> None:
+    missing_files = sorted(
+        target
+        for target in (
+            *_PROVIDER_STAGE_RETRY_SCHEMA_TARGETS,
+            *_SILLYTAVERN_RETRY_NODE_CHECK_TARGETS,
+        )
+        if not (ROOT / target).is_file()
+    )
+    if missing_files:
+        raise RuntimeError(
+            "provider-stage Retry gate targets are unavailable: " + ", ".join(missing_files)
+        )
+    compiled_targets = {path.relative_to(ROOT).as_posix() for path, _ in sources}
+    missing_python = sorted(set(_PROVIDER_STAGE_RETRY_COMPILE_TARGETS) - compiled_targets)
+    if missing_python:
+        raise RuntimeError(
+            "provider-stage Retry Python targets are not Git-tracked for compilation: "
+            + ", ".join(missing_python)
+        )
+
+
 def _compile_python(
     sources: tuple[tuple[Path, bytes], ...] | None = None,
 ) -> int:
@@ -243,6 +429,9 @@ def _assert_quality_tool_versions() -> None:
 
 def _run_checked(command: tuple[str, ...], *, label: str) -> None:
     environment = dict(os.environ)
+    for name in _PROVIDER_ENVIRONMENT:
+        environment.pop(name, None)
+    environment["CERA_PROVIDER_DISPATCH_DISABLED"] = "1"
     existing_pythonpath = environment.get("PYTHONPATH")
     python_paths = (str(SOURCE_ROOT), str(ROOT))
     environment["PYTHONPATH"] = os.pathsep.join(
@@ -304,13 +493,59 @@ def _run_quality_tools() -> None:
         ),
         label="mypy type check",
     )
+    _run_checked(
+        (
+            sys.executable,
+            "-m",
+            "mypy",
+            "--config-file",
+            str(ROOT / "pyproject.toml"),
+            "--allow-redefinition",
+            *_PROVIDER_STAGE_RETRY_LEGACY_TYPE_TARGETS,
+        ),
+        label="mypy legacy provider Retry dependency type check",
+    )
+    for target in _SILLYTAVERN_RETRY_NODE_CHECK_TARGETS:
+        _run_checked(
+            ("node", "--check", target),
+            label=f"SillyTavern provider-stage Retry syntax check ({target})",
+        )
+    _run_checked(
+        (
+            "node",
+            "--test",
+            *_SILLYTAVERN_RETRY_NODE_TEST_TARGETS,
+        ),
+        label="SillyTavern provider-stage Retry tests",
+    )
+
+
+def _test_cases(suite: unittest.TestSuite) -> tuple[unittest.TestCase, ...]:
+    cases: list[unittest.TestCase] = []
+    for value in suite:
+        if isinstance(value, unittest.TestSuite):
+            cases.extend(_test_cases(value))
+        elif isinstance(value, unittest.TestCase):
+            cases.append(value)
+        else:
+            raise RuntimeError("quality gate discovered an unknown unittest value")
+    return tuple(cases)
 
 
 def _suite(names: tuple[str, ...]) -> unittest.TestSuite:
     loader = unittest.defaultTestLoader
     if names:
         return loader.loadTestsFromNames(names)
-    return loader.discover(str(ROOT / "tests"), top_level_dir=str(ROOT))
+    discovered = _test_cases(loader.discover(str(ROOT / "tests"), top_level_dir=str(ROOT)))
+    discovered_ids = {value.id() for value in discovered}
+    missing = _DEFERRED_PREQUALIFICATION_TESTS - discovered_ids
+    if missing:
+        raise RuntimeError(
+            "deferred installed-SillyTavern test identity changed: " + ", ".join(sorted(missing))
+        )
+    return unittest.TestSuite(
+        value for value in discovered if value.id() not in _DEFERRED_PREQUALIFICATION_TESTS
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -346,6 +581,7 @@ def main(argv: list[str] | None = None) -> int:
         require_clean=not arguments.allow_dirty,
     )
     sources = _tracked_python_sources()
+    _assert_required_retry_targets(sources)
     compiled = _compile_python(sources)
     manifest_sha256 = _tracked_python_manifest_sha256(sources)
     pyproject_sha256 = _file_sha256(ROOT / "pyproject.toml")
@@ -378,6 +614,10 @@ def main(argv: list[str] | None = None) -> int:
     print("ruff_format=passed")
     print("ruff_lint=passed")
     print("mypy=passed")
+    print("sillytavern_retry_syntax=passed")
+    print("sillytavern_retry_tests=passed")
+    if not arguments.tests:
+        print("installed_sillytavern_equivalence=deferred_until_disposable_qualification")
     result = unittest.TextTestRunner(verbosity=2).run(_suite(tuple(arguments.tests)))
     if not result.wasSuccessful():
         return 1
