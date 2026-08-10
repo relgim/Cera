@@ -394,7 +394,7 @@ function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
         },
         attempts_exhausted: {
             stage: 'writer', attempts: 3, retries: 2, observed: 3, conservative: 3,
-            failure: 'provider_unavailable', action: 'explicit_recovery',
+            failure: 'provider_unavailable', action: null,
         },
         recording_repair_required: {
             stage: 'recorder', attempts: 3, retries: 2, observed: 3, conservative: 3,
@@ -402,7 +402,7 @@ function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
         },
         recovery_required: {
             stage: 'writer', attempts: 1, retries: 0, observed: 0, conservative: 0,
-            failure: 'provider_failure_not_retryable', action: 'explicit_recovery',
+            failure: 'provider_failure_not_retryable', action: null,
         },
     }[state];
     if (!stateValues) throw new TypeError(`unsupported test state ${state}`);
@@ -1232,7 +1232,7 @@ test('blocked ambiguity shows Check Status only and reconciliation performs GET 
     }
 });
 
-test('attempt exhaustion exposes explicit recovery but never provider Retry', async () => {
+test('attempt exhaustion is read-only and never exposes provider Retry', async () => {
     const loaded = await loadExtension();
     try {
         assert.equal(
@@ -1241,7 +1241,7 @@ test('attempt exhaustion exposes explicit recovery but never provider Retry', as
             ),
             true,
         );
-        assert.ok(buttonByText(loaded.testDocument, 'Explicit Recovery'));
+        assert.equal(buttonByText(loaded.testDocument, 'Explicit Recovery'), null);
         assert.equal(buttonByText(loaded.testDocument, 'Retry Provider Stage'), null);
         assert.equal(buttonByText(loaded.testDocument, 'Check Status'), null);
         assert.equal(buttonByText(loaded.testDocument, 'Repair Recording'), null);
@@ -1254,7 +1254,7 @@ test('attempt exhaustion exposes explicit recovery but never provider Retry', as
     }
 });
 
-test('known non-Retry terminal exposes only explicit recovery', async () => {
+test('known non-Retry terminal is read-only', async () => {
     const loaded = await loadExtension();
     try {
         assert.equal(
@@ -1263,7 +1263,7 @@ test('known non-Retry terminal exposes only explicit recovery', async () => {
             ),
             true,
         );
-        assert.ok(buttonByText(loaded.testDocument, 'Explicit Recovery'));
+        assert.equal(buttonByText(loaded.testDocument, 'Explicit Recovery'), null);
         assert.equal(buttonByText(loaded.testDocument, 'Retry Provider Stage'), null);
         assert.equal(buttonByText(loaded.testDocument, 'Check Status'), null);
         assert.equal(buttonByText(loaded.testDocument, 'Repair Recording'), null);

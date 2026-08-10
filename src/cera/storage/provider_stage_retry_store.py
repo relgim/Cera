@@ -329,23 +329,31 @@ class SQLiteProviderStageRetryStore:
         *,
         attempt_number: int,
         dispatch_evidence_sha256: str,
+        maximum_provider_operations: int,
     ) -> ProviderStageRetryChainV1:
         self._require_sha(dispatch_evidence_sha256, "dispatch evidence")
+        if type(maximum_provider_operations) is not int or maximum_provider_operations < 1:
+            raise ContractValidationError(
+                "provider-stage maximum provider operations must be positive"
+            )
         with self._transaction() as connection:
             row = self._chain_row(connection, chain_id)
             chain = self._chain_from_row(connection, row)
             current = self._current_attempt(chain, attempt_number)
             if chain.phase is ProviderStageRetryPhase.DISPATCH_STARTED:
-                if current.dispatch_evidence_sha256 == dispatch_evidence_sha256:
+                if (
+                    current.dispatch_evidence_sha256 == dispatch_evidence_sha256
+                    and current.provider_operations_conservative == maximum_provider_operations
+                ):
                     return chain
-                raise StateConflictError("provider-stage dispatch evidence changed")
+                raise StateConflictError("provider-stage dispatch reservation changed")
             if chain.phase is not ProviderStageRetryPhase.ATTEMPT_PREPARED:
                 raise StateConflictError("provider-stage attempt is not prepared")
             updated_attempt = replace(
                 current,
                 phase=ProviderStageAttemptPhase.DISPATCH_STARTED,
                 dispatch_evidence_sha256=dispatch_evidence_sha256,
-                provider_operations_conservative=1,
+                provider_operations_conservative=maximum_provider_operations,
             )
             self._update_attempt(connection, chain_id, updated_attempt)
             updated = replace(
@@ -899,6 +907,72 @@ class SQLiteProviderStageRetryStore:
                 row,
                 updated,
                 "blocked_resolved_failure",
+                extra={"resolution_evidence_sha256": resolution_evidence_sha256},
+            )
+
+    def resolve_blocked_non_retryable_failure(
+        self,
+        chain_id: str,
+        *,
+        resolution_evidence_sha256: str,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        provider_operations_observed: int,
+        provider_operations_conservative: int,
+        duration_ms: int,
+        input_tokens: int | None = None,
+        cached_input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
+    ) -> ProviderStageRetryChainV1:
+        self._require_sha(resolution_evidence_sha256, "blocked resolution evidence")
+        self._require_sha(failure_evidence_sha256, "failure evidence")
+        self._require_sha(ledger_prefix_after_sha256, "ledger prefix after")
+        if failure_class not in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
+            raise ContractValidationError("blocked resolution is not a known non-Retry failure")
+        if provider_operations_conservative != provider_operations_observed:
+            raise ContractValidationError(
+                "non-Retry resolution lacks closed provider-operation accounting"
+            )
+        with self._transaction() as connection:
+            row = self._chain_row(connection, chain_id)
+            chain = self._require_dispatch_block(self._chain_from_row(connection, row))
+            current = chain.attempts[-1]
+            assert current.owner_retirement_evidence_sha256 is not None
+            resolved = ProviderStageAttemptV1(
+                schema_version=ProviderStageAttemptV1.SCHEMA_VERSION,
+                attempt_number=current.attempt_number,
+                phase=ProviderStageAttemptPhase.OWNER_RETIRED,
+                session_scope_sha256=current.session_scope_sha256,
+                ledger_prefix_before_sha256=current.ledger_prefix_before_sha256,
+                dispatch_evidence_sha256=current.dispatch_evidence_sha256,
+                ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+                provider_operations_observed=provider_operations_observed,
+                provider_operations_conservative=provider_operations_conservative,
+                duration_ms=duration_ms,
+                input_tokens=input_tokens,
+                cached_input_tokens=cached_input_tokens,
+                output_tokens=output_tokens,
+                reasoning_tokens=reasoning_tokens,
+                failure_class=failure_class,
+                failure_evidence_sha256=failure_evidence_sha256,
+                owner_retirement_evidence_sha256=current.owner_retirement_evidence_sha256,
+                result_checkpoint_sha256=None,
+            )
+            self._update_attempt(connection, chain_id, resolved)
+            updated = replace(
+                chain,
+                phase=ProviderStageRetryPhase.RECOVERY_REQUIRED,
+                attempts=(*chain.attempts[:-1], resolved),
+                block_reason=None,
+                block_evidence_sha256=None,
+            )
+            return self._write_transition(
+                connection,
+                row,
+                updated,
+                "blocked_resolved_non_retryable_failure",
                 extra={"resolution_evidence_sha256": resolution_evidence_sha256},
             )
 

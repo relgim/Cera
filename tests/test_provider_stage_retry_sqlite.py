@@ -314,9 +314,17 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
             chain_id,
             attempt_number=1,
             dispatch_evidence_sha256=_sha("dispatch-1"),
+            maximum_provider_operations=3,
         )
         self.assertEqual(chain.attempts[-1].provider_operations_observed, 0)
-        self.assertEqual(chain.attempts[-1].provider_operations_conservative, 1)
+        self.assertEqual(chain.attempts[-1].provider_operations_conservative, 3)
+        with self.assertRaisesRegex(StateConflictError, "reservation changed"):
+            self.controller.mark_dispatch_started(
+                chain_id,
+                attempt_number=1,
+                dispatch_evidence_sha256=_sha("dispatch-1"),
+                maximum_provider_operations=2,
+            )
         with closing(sqlite3.connect(self.database_path)) as connection:
             reserved = connection.execute(
                 "SELECT invocation_reserved FROM provider_stage_retry_attempts "
@@ -331,7 +339,7 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
             failure_evidence_sha256=_sha("ambiguous-1"),
             ledger_prefix_after_sha256=_sha("occurrence-1:ledger:1"),
             provider_operations_observed=0,
-            provider_operations_conservative=1,
+            provider_operations_conservative=3,
             duration_ms=7,
         )
         chain = self.controller.mark_owner_retired(
@@ -368,6 +376,7 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
             chain_id,
             attempt_number=1,
             dispatch_evidence_sha256=_sha("non-retryable:dispatch"),
+            maximum_provider_operations=1,
         )
         failed = self.controller.mark_non_retryable_failed(
             chain_id,
@@ -442,6 +451,7 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
             chain_id,
             attempt_number=1,
             dispatch_evidence_sha256=_sha("recorder-non-retryable:dispatch"),
+            maximum_provider_operations=1,
         )
         self.controller.mark_non_retryable_failed(
             chain_id,
@@ -472,6 +482,7 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
             chain_id,
             attempt_number=1,
             dispatch_evidence_sha256=_sha("result-resolution:dispatch"),
+            maximum_provider_operations=1,
         )
         self.controller.mark_attempt_failed(
             chain_id,
@@ -558,6 +569,7 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
             chain_id,
             attempt_number=3,
             dispatch_evidence_sha256=_sha("recorder-ambiguous:dispatch:3"),
+            maximum_provider_operations=1,
         )
         self.controller.mark_attempt_failed(
             chain_id,
@@ -596,6 +608,7 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
             chain_id,
             attempt_number=1,
             dispatch_evidence_sha256=_sha("result-crash:dispatch"),
+            maximum_provider_operations=1,
         )
         crashing = _CrashAfterResultBlobStore(self.authority, self.blobs)
         exact_result = b"protected exact result after crash"
@@ -656,6 +669,7 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
             chain_id,
             attempt_number=1,
             dispatch_evidence_sha256=_sha("adult-scene:dispatch"),
+            maximum_provider_operations=1,
         )
         chain = self.controller.freeze_result(
             chain_id,

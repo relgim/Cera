@@ -5,8 +5,12 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from cera.errors import ContractValidationError, StateConflictError
+from cera.generated.provider_stage_retry_contracts_v1 import (
+    ProviderStageRetryContractError,
+)
 from cera.pi_scene.provider_stage_retry import (
     ProviderStage,
     ProviderStageAttemptV1,
@@ -107,12 +111,16 @@ def _packet(
     )
 
 
-def _scope(packet: ProviderStageFrozenPacketV1) -> ProviderStageRetryOccurrenceScopeV1:
+def _scope(
+    packet: ProviderStageFrozenPacketV1,
+    *,
+    occurrence: str = "runtime-test",
+) -> ProviderStageRetryOccurrenceScopeV1:
     return ProviderStageRetryOccurrenceScopeV1.create(
         world_id="world-runtime-test",
         branch_id="branch-runtime-test",
-        request_id="request-runtime-test",
-        generation_id="generation-runtime-test",
+        request_id=f"request-{occurrence}",
+        generation_id=f"generation-{occurrence}",
         stage=packet.stage,
         stage_ordinal=1,
         accepted_state_sha256=_sha("accepted-state"),
@@ -177,6 +185,10 @@ class _Owner:
     @property
     def ledger_prefix_before_sha256(self) -> str:
         return self._ledger_prefix_before_sha256
+
+    @property
+    def maximum_provider_operations(self) -> int:
+        return 1
 
     def prepare(
         self,
@@ -295,7 +307,9 @@ class _OwnerFactory:
 class _Reconciler:
     def __init__(self) -> None:
         self.calls = 0
+        self.restart_calls = 0
         self.resolution: ProviderStageAmbiguityResolutionV1 | None = None
+        self.restart_outcome: ProviderStageAttemptOutcomeV1 | None = None
 
     def check_status(
         self,
@@ -306,6 +320,29 @@ class _Reconciler:
             raise AssertionError("Check Status was routed outside ambiguity")
         self.calls += 1
         return self.resolution
+
+    def recover_interrupted_dispatch(
+        self,
+        *,
+        chain: ProviderStageRetryChainV1,
+    ) -> ProviderStageAttemptOutcomeV1:
+        if chain.phase is not ProviderStageRetryPhase.DISPATCH_STARTED:
+            raise AssertionError("restart recovery was routed outside dispatch custody")
+        self.restart_calls += 1
+        if self.restart_outcome is not None:
+            return self.restart_outcome
+        attempt = chain.attempts[-1]
+        return ProviderStageDispatchAmbiguousV1(
+            failure_evidence_sha256=_sha(
+                f"restart-ambiguity:{chain.chain_id}:{attempt.attempt_number}"
+            ),
+            metrics=ProviderStageAttemptMetricsV1(
+                ledger_prefix_after_sha256=attempt.ledger_prefix_before_sha256,
+                provider_operations_observed=0,
+                provider_operations_conservative=(attempt.provider_operations_conservative),
+                duration_ms=0,
+            ),
+        )
 
 
 class _BinderEffectJournal:
@@ -416,6 +453,28 @@ class ProviderStageRetryRuntimeTests(unittest.TestCase):
             protected_blob_store=TrustedLocalProtectedStageBlobStore(self.blob_root),
             registrations=self.registrations if registrations is None else registrations,
         )
+
+    @staticmethod
+    def _claim_interrupted_dispatch(
+        service: ProviderStageRetryRuntimeServiceV1,
+        *,
+        scope: ProviderStageRetryOccurrenceScopeV1,
+        packet: ProviderStageFrozenPacketV1,
+    ) -> ProviderStageRetryChainV1:
+        chain = service.store.begin(scope.identity, packet.exact_bytes)
+        chain = service.store.prepare_attempt(
+            chain.chain_id,
+            session_scope_sha256=_sha(f"{scope.identity.chain_id}:session:1"),
+            ledger_prefix_before_sha256=_sha(f"{scope.identity.chain_id}:ledger:0"),
+        )
+        chain = service.store.mark_dispatch_started(
+            chain.chain_id,
+            attempt_number=1,
+            dispatch_evidence_sha256=_sha(f"{scope.identity.chain_id}:dispatch"),
+            maximum_provider_operations=1,
+        )
+        service.remember_scope(scope)
+        return chain
 
     def test_registry_requires_one_adapter_for_each_closed_stage(self) -> None:
         with self.assertRaisesRegex(ContractValidationError, "not exhaustive"):
@@ -584,6 +643,107 @@ class ProviderStageRetryRuntimeTests(unittest.TestCase):
             ProviderStageRetryPhase.RESULT_FROZEN,
         )
 
+    def test_interrupted_dispatch_recovers_each_closed_outcome_without_invoke(self) -> None:
+        cases: tuple[
+            tuple[str, ProviderStageAttemptOutcomeV1, ProviderStageRetryPhase],
+            ...,
+        ] = (
+            ("success", _success("restart-success"), ProviderStageRetryPhase.RESULT_FROZEN),
+            (
+                "retryable",
+                _retryable_failure("restart-retryable"),
+                ProviderStageRetryPhase.OWNER_RETIRED,
+            ),
+            (
+                "non-retry",
+                _non_retryable_failure("restart-non-retry"),
+                ProviderStageRetryPhase.RECOVERY_REQUIRED,
+            ),
+            (
+                "unresolved",
+                _ambiguous("restart-unresolved"),
+                ProviderStageRetryPhase.BLOCKED_AMBIGUOUS,
+            ),
+        )
+        service = self._service()
+        for label, outcome, expected_phase in cases:
+            with self.subTest(label=label):
+                packet = _packet(ProviderStage.WRITER, private_input=f"restart-{label}")
+                scope = _scope(packet, occurrence=f"restart-{label}")
+                claimed = self._claim_interrupted_dispatch(
+                    service,
+                    scope=scope,
+                    packet=packet,
+                )
+                self.assertIs(claimed.phase, ProviderStageRetryPhase.DISPATCH_STARTED)
+                self.writer_reconciler.restart_outcome = outcome
+
+                recovered = service.recover_incomplete(claimed.chain_id)
+
+                self.assertIs(recovered.phase, expected_phase)
+                self.assertEqual(self.invocations.calls, 0)
+        self.writer_reconciler.restart_outcome = None
+
+    def test_interrupted_dispatch_recovery_race_never_invokes_or_redispatches(self) -> None:
+        first = self._service()
+        second = self._service()
+        packet = _packet(ProviderStage.WRITER, private_input="restart-race")
+        scope = _scope(packet, occurrence="restart-race")
+        claimed = self._claim_interrupted_dispatch(first, scope=scope, packet=packet)
+        self.writer_reconciler.restart_outcome = _ambiguous("restart-race")
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = tuple(
+                pool.map(
+                    lambda service: service.recover_incomplete(claimed.chain_id),
+                    (first, second),
+                )
+            )
+
+        self.assertEqual(
+            {result.phase for result in results},
+            {ProviderStageRetryPhase.BLOCKED_AMBIGUOUS},
+        )
+        self.assertEqual(self.invocations.calls, 0)
+        self.assertEqual(first.read_chain(claimed.chain_id).attempts_total, 1)
+
+    def test_failed_owner_retirement_replays_after_crash_without_invoke(self) -> None:
+        first = self._service()
+        packet = _packet(ProviderStage.WRITER, private_input="retirement-crash")
+        scope = _scope(packet, occurrence="retirement-crash")
+        claimed = self._claim_interrupted_dispatch(first, scope=scope, packet=packet)
+        awaiting = first.store.mark_attempt_failed(
+            claimed.chain_id,
+            attempt_number=1,
+            failure_class=ProviderStageFailureClass.PROVIDER_UNAVAILABLE,
+            failure_evidence_sha256=_sha("retirement-crash:failure"),
+            ledger_prefix_after_sha256=_sha("retirement-crash:ledger-after"),
+            provider_operations_observed=1,
+            provider_operations_conservative=1,
+            duration_ms=7,
+        )
+        self.assertIs(
+            awaiting.phase,
+            ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT,
+        )
+
+        with patch.object(
+            first.store,
+            "mark_owner_retired",
+            side_effect=RuntimeError("simulated crash before SQLite retirement mark"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "simulated crash"):
+                first.recover_incomplete(claimed.chain_id)
+        self.assertIs(
+            first.read_chain(claimed.chain_id).phase,
+            ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT,
+        )
+
+        restarted = self._service()
+        recovered = restarted.recover_incomplete(claimed.chain_id)
+        self.assertIs(recovered.phase, ProviderStageRetryPhase.OWNER_RETIRED)
+        self.assertEqual(self.invocations.calls, 0)
+
     def test_manual_retry_is_backend_issued_and_never_automatic(self) -> None:
         self.writer_factory.outcomes[1] = _retryable_failure("attempt-1")
         first = self._service()
@@ -650,7 +810,7 @@ class ProviderStageRetryRuntimeTests(unittest.TestCase):
         self.assertEqual(self.invocations.calls, 1)
         self.assertEqual(service.load_exact_result(chain.chain_id), b"exact-result:reconciled")
 
-    def test_non_retryable_failure_requires_explicit_recovery_without_retry(self) -> None:
+    def test_non_retryable_failure_is_read_only_recovery_without_retry(self) -> None:
         self.writer_factory.outcomes[1] = _non_retryable_failure("authentication")
         service = self._service()
         chain = service.start_initial(scope=self.scope, packet=self.packet)
@@ -659,10 +819,9 @@ class ProviderStageRetryRuntimeTests(unittest.TestCase):
         self.assertEqual(self.invocations.calls, 1)
         envelope = service.canonical_status(chain_id=chain.chain_id, scope=self.scope)
         self.assertEqual(envelope["status"]["state"], "recovery_required")
-        action = backend_action_from_envelope(envelope)
-        self.assertEqual(action["action_kind"], "explicit_recovery")
-        with self.assertRaisesRegex(StateConflictError, "not manual Retry"):
-            service.execute_manual_retry(action)
+        self.assertEqual(envelope["actions"], [])
+        with self.assertRaisesRegex(StateConflictError, "no sole backend action"):
+            backend_action_from_envelope(envelope)
         replay = service.start_initial(scope=self.scope, packet=self.packet)
         self.assertEqual(replay.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
         self.assertEqual(self.invocations.calls, 1)
@@ -674,7 +833,7 @@ class ProviderStageRetryRuntimeTests(unittest.TestCase):
         envelope = service.canonical_status(chain_id=chain.chain_id, scope=self.scope)
         with self.assertRaisesRegex(StateConflictError, "no sole backend action"):
             backend_action_from_envelope(envelope)
-        with self.assertRaisesRegex(StateConflictError, "not Check Status"):
+        with self.assertRaises(ProviderStageRetryContractError):
             service.check_status(
                 {
                     "schema_version": "cera.provider_stage_retry_action.v1",

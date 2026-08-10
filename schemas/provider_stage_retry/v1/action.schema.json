@@ -42,8 +42,7 @@
       "enum": [
         "provider_retry",
         "check_status",
-        "repair_recording",
-        "explicit_recovery"
+        "repair_recording"
       ],
       "description": "Requested backend action. Only provider_retry may authorize provider transport."
     },
@@ -144,25 +143,6 @@
           "type": "null"
         }
       }
-    },
-    {
-      "properties": {
-        "action_kind": {
-          "const": "explicit_recovery"
-        },
-        "automatic": {
-          "const": false
-        },
-        "provider_dispatch_authorized": {
-          "const": false
-        },
-        "consumes_retry_action": {
-          "const": false
-        },
-        "retry_action_ordinal": {
-          "type": "null"
-        }
-      }
     }
   ],
   "examples": [
@@ -207,20 +187,6 @@
       "whole_request_replay_authorized": false,
       "provider_substitution_authorized": false,
       "expected_chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
-    },
-    {
-      "schema_version": "cera.provider_stage_retry_action.v1",
-      "action_id": "stage-action-4444444444444444444444444444444444444444444444444444444444444444",
-      "chain_id": "stage-retry-5555555555555555555555555555555555555555555555555555555555555555",
-      "action_family": "provider_stage_control",
-      "action_kind": "explicit_recovery",
-      "automatic": false,
-      "provider_dispatch_authorized": false,
-      "consumes_retry_action": false,
-      "retry_action_ordinal": null,
-      "whole_request_replay_authorized": false,
-      "provider_substitution_authorized": false,
-      "expected_chain_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
     }
   ],
   "x-cera-negative-fixtures": [
@@ -259,7 +225,7 @@
     },
     {
       "name": "regenerate_is_separate",
-      "base_example": 3,
+      "base_example": 2,
       "patch": [
         {
           "op": "replace",
@@ -270,7 +236,7 @@
     },
     {
       "name": "replan_is_separate",
-      "base_example": 3,
+      "base_example": 2,
       "patch": [
         {
           "op": "replace",

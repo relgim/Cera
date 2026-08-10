@@ -41,8 +41,13 @@ from .provider_stage_retry import (
 from .provider_stage_retry_blob import TrustedLocalProtectedStageBlobStore
 from .provider_stage_retry_executor import (
     ProviderStageAmbiguityResolutionV1,
+    ProviderStageAttemptOutcomeV1,
     ProviderStageAttemptOwnerPort,
+    ProviderStageClosedFailureV1,
+    ProviderStageDispatchAmbiguousV1,
+    ProviderStageNonRetryableFailureV1,
     ProviderStageRetryExecutorV1,
+    ProviderStageSuccessfulResultV1,
 )
 from .provider_stage_retry_packets import ProviderStageFrozenPacketV1
 from .provider_stage_retry_scope import ProviderStageRetryOccurrenceScopeV1
@@ -92,6 +97,14 @@ class ProviderStageAmbiguityReconcilerPort(Protocol):
         *,
         chain: ProviderStageRetryChainV1,
     ) -> ProviderStageAmbiguityResolutionV1 | None: ...
+
+    def recover_interrupted_dispatch(
+        self,
+        *,
+        chain: ProviderStageRetryChainV1,
+    ) -> ProviderStageAttemptOutcomeV1:
+        """Return provider-free evidence for an interrupted dispatch claim."""
+        ...
 
 
 class ProviderStageDownstreamBinderPort(Protocol):
@@ -259,7 +272,10 @@ class ProviderStageRuntimeAdapterV1:
                 self.owner_factory,
                 ("create_initial_owner", "create_retry_owner", "reconstruct_owner"),
             ),
-            (self.ambiguity_reconciler, ("check_status",)),
+            (
+                self.ambiguity_reconciler,
+                ("check_status", "recover_interrupted_dispatch"),
+            ),
             (
                 self.downstream_binder,
                 ("downstream_intent_sha256", "bind_once"),
@@ -429,6 +445,62 @@ class ProviderStageRetryRuntimeServiceV1:
             exact_input=exact_input,
         )
         return self._executor.resume_prepared_attempt(chain_id=chain.chain_id, owner=owner)
+
+    def recover_incomplete(self, chain_id: str) -> ProviderStageRetryChainV1:
+        """Provider-free restart recovery for a claimed dispatch or failed owner.
+
+        This path reconstructs only the exact persisted owner, never invokes a
+        prepared dispatch, and never accepts a Retry action. Owner retirement
+        must be idempotent so a crash after its external fence but before the
+        SQLite transition can safely repeat this method.
+        """
+
+        with self._chain_lock(chain_id):
+            chain = self._store.read(chain_id)
+            if chain.phase not in {
+                ProviderStageRetryPhase.DISPATCH_STARTED,
+                ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT,
+            }:
+                return chain
+            attempt = chain.attempts[-1]
+            exact_input = self._store.load_input(chain_id)
+            registration = self._adapters.for_stage(chain.identity.stage)
+            owner = registration.owner_factory.reconstruct_owner(
+                chain=chain,
+                attempt=attempt,
+                exact_input=exact_input,
+            )
+            try:
+                if chain.phase is ProviderStageRetryPhase.DISPATCH_STARTED:
+                    outcome = registration.ambiguity_reconciler.recover_interrupted_dispatch(
+                        chain=chain
+                    )
+                    if type(outcome) not in {
+                        ProviderStageSuccessfulResultV1,
+                        ProviderStageClosedFailureV1,
+                        ProviderStageNonRetryableFailureV1,
+                        ProviderStageDispatchAmbiguousV1,
+                    }:
+                        raise ContractValidationError(
+                            "provider-stage restart reconciler returned an open value"
+                        )
+                    return self._executor.recover_dispatched_attempt(
+                        chain_id=chain_id,
+                        owner=owner,
+                        outcome=outcome,
+                    )
+                return self._executor.retire_failed_owner(
+                    chain_id=chain_id,
+                    owner=owner,
+                )
+            except StateConflictError:
+                # A process-local or cross-process winner may have completed
+                # the same provider-free transition. Never repeat dispatch;
+                # return that durable winner when the interrupted phase moved.
+                live = self._store.read(chain_id)
+                if live.phase is not chain.phase:
+                    return live
+                raise
 
     def check_status(self, action: object) -> ProviderStageRetryChainV1:
         """Run the exact Check Status action using provider-free evidence only."""

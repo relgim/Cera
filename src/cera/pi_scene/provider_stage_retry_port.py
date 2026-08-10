@@ -63,6 +63,7 @@ class ProviderStageRetryStorePort(Protocol):
         *,
         attempt_number: int,
         dispatch_evidence_sha256: str,
+        maximum_provider_operations: int,
     ) -> ProviderStageRetryChainV1: ...
 
     def mark_pretransport_failed(
@@ -171,6 +172,23 @@ class ProviderStageRetryStorePort(Protocol):
     ) -> ProviderStageRetryChainV1: ...
 
     def resolve_blocked_failure(
+        self,
+        chain_id: str,
+        *,
+        resolution_evidence_sha256: str,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        provider_operations_observed: int,
+        provider_operations_conservative: int,
+        duration_ms: int,
+        input_tokens: int | None = None,
+        cached_input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
+    ) -> ProviderStageRetryChainV1: ...
+
+    def resolve_blocked_non_retryable_failure(
         self,
         chain_id: str,
         *,

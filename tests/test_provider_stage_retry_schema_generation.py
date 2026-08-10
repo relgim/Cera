@@ -116,7 +116,7 @@ class ProviderStageRetrySchemaGenerationTests(unittest.TestCase):
             {0, 1},
         )
         for recovery in recovery_cases:
-            self.assertEqual(recovery["available_actions"], ["explicit_recovery"])
+            self.assertEqual(recovery["available_actions"], [])
             self.assertEqual(recovery["provider_operations_observed_total"], 0)
             self.assertEqual(recovery["provider_operations_conservative_total"], 0)
 

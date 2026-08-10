@@ -90,11 +90,13 @@ class ProviderStageRetryControllerV1:
         *,
         attempt_number: int,
         dispatch_evidence_sha256: str,
+        maximum_provider_operations: int,
     ) -> ProviderStageRetryChainV1:
         return self.store.mark_dispatch_started(
             chain_id,
             attempt_number=attempt_number,
             dispatch_evidence_sha256=dispatch_evidence_sha256,
+            maximum_provider_operations=maximum_provider_operations,
         )
 
     def mark_pretransport_failed(
@@ -296,6 +298,37 @@ class ProviderStageRetryControllerV1:
         reasoning_tokens: int | None = None,
     ) -> ProviderStageRetryChainV1:
         return self.store.resolve_blocked_failure(
+            chain_id,
+            resolution_evidence_sha256=resolution_evidence_sha256,
+            failure_class=failure_class,
+            failure_evidence_sha256=failure_evidence_sha256,
+            ledger_prefix_after_sha256=ledger_prefix_after_sha256,
+            provider_operations_observed=provider_operations_observed,
+            provider_operations_conservative=provider_operations_conservative,
+            duration_ms=duration_ms,
+            input_tokens=input_tokens,
+            cached_input_tokens=cached_input_tokens,
+            output_tokens=output_tokens,
+            reasoning_tokens=reasoning_tokens,
+        )
+
+    def resolve_blocked_non_retryable_failure(
+        self,
+        chain_id: str,
+        *,
+        resolution_evidence_sha256: str,
+        failure_class: ProviderStageFailureClass,
+        failure_evidence_sha256: str,
+        ledger_prefix_after_sha256: str,
+        provider_operations_observed: int,
+        provider_operations_conservative: int,
+        duration_ms: int,
+        input_tokens: int | None = None,
+        cached_input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        reasoning_tokens: int | None = None,
+    ) -> ProviderStageRetryChainV1:
+        return self.store.resolve_blocked_non_retryable_failure(
             chain_id,
             resolution_evidence_sha256=resolution_evidence_sha256,
             failure_class=failure_class,

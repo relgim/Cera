@@ -142,6 +142,18 @@ class ProviderStageClosedFailureV1:
             != self.metrics.provider_operations_observed
         ):
             raise ContractValidationError("closed provider-stage failure has unresolved accounting")
+        if (
+            self.failure_class
+            in {
+                ProviderStageFailureClass.PROVIDER_STREAM_INCOMPLETE,
+                ProviderStageFailureClass.PROVIDER_COMPLETION_INCOMPLETE,
+                ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID,
+            }
+            and self.metrics.provider_operations_observed < 1
+        ):
+            raise ContractValidationError(
+                "provider-stage post-operation failure lacks an observed provider operation"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,6 +271,9 @@ class ProviderStageAttemptOwnerPort(Protocol):
     @property
     def ledger_prefix_before_sha256(self) -> str: ...
 
+    @property
+    def maximum_provider_operations(self) -> int: ...
+
     def prepare(
         self,
         *,
@@ -273,7 +288,9 @@ class ProviderStageAttemptOwnerPort(Protocol):
         chain_id: str,
         attempt_number: int,
         failure_class: ProviderStageFailureClass,
-    ) -> str: ...
+    ) -> str:
+        """Idempotently fence this exact owner and return durable evidence."""
+        ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -281,13 +298,18 @@ class ProviderStageAmbiguityResolutionV1:
     """Provider-free evidence resolving an already fenced ambiguous dispatch."""
 
     resolution_evidence_sha256: str
-    disposition: ProviderStageSuccessfulResultV1 | ProviderStageClosedFailureV1
+    disposition: (
+        ProviderStageSuccessfulResultV1
+        | ProviderStageClosedFailureV1
+        | ProviderStageNonRetryableFailureV1
+    )
 
     def __post_init__(self) -> None:
         _require_sha256(self.resolution_evidence_sha256, "ambiguity resolution evidence")
         if type(self.disposition) not in {
             ProviderStageSuccessfulResultV1,
             ProviderStageClosedFailureV1,
+            ProviderStageNonRetryableFailureV1,
         }:
             raise ContractValidationError("provider-stage ambiguity resolution is not closed")
 
@@ -452,13 +474,64 @@ class ProviderStageRetryExecutorV1:
     ) -> ProviderStageRetryChainV1:
         """Fence an invocation that escaped a typed adapter outcome."""
 
+        return self.recover_dispatched_attempt(
+            chain_id=chain_id,
+            owner=owner,
+            outcome=ambiguity,
+        )
+
+    def recover_dispatched_attempt(
+        self,
+        *,
+        chain_id: str,
+        owner: ProviderStageAttemptOwnerPort,
+        outcome: ProviderStageAttemptOutcomeV1,
+    ) -> ProviderStageRetryChainV1:
+        """Persist one injected provider-free disposition after restart."""
+
         chain = self._store.read(chain_id)
         if chain.phase is not ProviderStageRetryPhase.DISPATCH_STARTED:
             raise StateConflictError("provider-stage dispatch is not awaiting a disposition")
         current = chain.attempts[-1]
-        if current.session_scope_sha256 != owner.session_scope_sha256:
-            raise StateConflictError("provider-stage ambiguity owner changed")
-        return self._close_failure(chain, owner, ambiguity)
+        if (
+            current.session_scope_sha256 != owner.session_scope_sha256
+            or current.ledger_prefix_before_sha256 != owner.ledger_prefix_before_sha256
+            or current.provider_operations_conservative != owner.maximum_provider_operations
+        ):
+            raise StateConflictError("provider-stage recovered owner changed")
+        attempt_number = current.attempt_number
+        if type(outcome) is ProviderStageSuccessfulResultV1:
+            return self._freeze_result(chain.chain_id, attempt_number, outcome)
+        if type(outcome) is ProviderStageNonRetryableFailureV1:
+            return self._close_non_retryable_failure(chain, owner, outcome)
+        if isinstance(
+            outcome,
+            (ProviderStageClosedFailureV1, ProviderStageDispatchAmbiguousV1),
+        ):
+            return self._close_failure(chain, owner, outcome)
+        raise ContractValidationError(
+            "provider-stage restart reconciler returned an open disposition"
+        )
+
+    def retire_failed_owner(
+        self,
+        *,
+        chain_id: str,
+        owner: ProviderStageAttemptOwnerPort,
+    ) -> ProviderStageRetryChainV1:
+        """Provider-free restart completion for an already closed failure."""
+
+        chain = self._store.read(chain_id)
+        if chain.phase is not ProviderStageRetryPhase.AWAITING_OWNER_RETIREMENT:
+            return chain
+        current = chain.attempts[-1]
+        if (
+            current.session_scope_sha256 != owner.session_scope_sha256
+            or current.ledger_prefix_before_sha256 != owner.ledger_prefix_before_sha256
+            or current.failure_class is None
+        ):
+            raise StateConflictError("provider-stage retiring owner changed")
+        return self._retire(chain, owner, current.failure_class)
 
     def reconcile_ambiguous(
         self,
@@ -495,6 +568,21 @@ class ProviderStageRetryExecutorV1:
                 resolution_evidence_sha256=resolution.resolution_evidence_sha256,
                 exact_result=disposition.exact_result,
                 result_evidence_sha256=disposition.result_evidence_sha256,
+                ledger_prefix_after_sha256=metrics.ledger_prefix_after_sha256,
+                provider_operations_observed=metrics.provider_operations_observed,
+                provider_operations_conservative=metrics.provider_operations_conservative,
+                duration_ms=metrics.duration_ms,
+                input_tokens=metrics.input_tokens,
+                cached_input_tokens=metrics.cached_input_tokens,
+                output_tokens=metrics.output_tokens,
+                reasoning_tokens=metrics.reasoning_tokens,
+            )
+        if type(disposition) is ProviderStageNonRetryableFailureV1:
+            return self._store.resolve_blocked_non_retryable_failure(
+                chain.chain_id,
+                resolution_evidence_sha256=resolution.resolution_evidence_sha256,
+                failure_class=disposition.failure_class,
+                failure_evidence_sha256=disposition.failure_evidence_sha256,
                 ledger_prefix_after_sha256=metrics.ledger_prefix_after_sha256,
                 provider_operations_observed=metrics.provider_operations_observed,
                 provider_operations_conservative=metrics.provider_operations_conservative,
@@ -699,6 +787,7 @@ class ProviderStageRetryExecutorV1:
                 chain.chain_id,
                 attempt_number=attempt.attempt_number,
                 dispatch_evidence_sha256=reservation_evidence,
+                maximum_provider_operations=owner.maximum_provider_operations,
             )
         except StateConflictError:
             # Unique reservation evidence makes the durable state transition a
@@ -919,7 +1008,7 @@ class ProviderStageRetryExecutorV1:
             failure = chain.attempts[-1].failure_class
             if failure not in RETRYABLE_PROVIDER_STAGE_FAILURES:
                 raise StateConflictError("exhausted provider-stage failure is not closed")
-            return "attempts_exhausted", failure.value, "explicit_recovery"
+            return "attempts_exhausted", failure.value, None
         if chain.phase is ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED:
             failure = chain.attempts[-1].failure_class
             if failure not in RETRYABLE_PROVIDER_STAGE_FAILURES:
@@ -933,7 +1022,7 @@ class ProviderStageRetryExecutorV1:
                 if failure not in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
                     raise StateConflictError("provider-stage recovery reason is not closed")
                 failure_category = failure.value
-            return "recovery_required", failure_category, "explicit_recovery"
+            return "recovery_required", failure_category, None
         raise StateConflictError("provider-stage public status is unavailable")
 
 

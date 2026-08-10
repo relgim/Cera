@@ -44,8 +44,7 @@ export const CONTRACT_SCHEMAS = deepFreeze({
         "enum": [
           "provider_retry",
           "check_status",
-          "repair_recording",
-          "explicit_recovery"
+          "repair_recording"
         ],
         "description": "Requested backend action. Only provider_retry may authorize provider transport."
       },
@@ -135,25 +134,6 @@ export const CONTRACT_SCHEMAS = deepFreeze({
           },
           "automatic": {
             "type": "boolean"
-          },
-          "provider_dispatch_authorized": {
-            "const": false
-          },
-          "consumes_retry_action": {
-            "const": false
-          },
-          "retry_action_ordinal": {
-            "type": "null"
-          }
-        }
-      },
-      {
-        "properties": {
-          "action_kind": {
-            "const": "explicit_recovery"
-          },
-          "automatic": {
-            "const": false
           },
           "provider_dispatch_authorized": {
             "const": false
@@ -882,8 +862,7 @@ export const CONTRACT_SCHEMAS = deepFreeze({
           "enum": [
             "provider_retry",
             "check_status",
-            "repair_recording",
-            "explicit_recovery"
+            "repair_recording"
           ]
         },
         "description": "Concise UI actions. Semantic Regenerate and Replan use different DTO families."
@@ -1019,9 +998,7 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                 "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/retryable_failure_category"
               },
               "available_actions": {
-                "const": [
-                  "explicit_recovery"
-                ]
+                "const": []
               }
             }
           },
@@ -1074,12 +1051,10 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                 ]
               },
               "available_actions": {
-                "const": [
-                  "explicit_recovery"
-                ]
+                "const": []
               }
             },
-            "$comment": "A known non-Retry terminal or non-dispatch custody conflict preserves accepted state and requires explicit recovery."
+            "$comment": "A known non-Retry terminal or non-dispatch custody conflict preserves accepted state. Recovery is a separate operator workflow, not a generic Retry-chain action."
           }
         ]
       }
@@ -1188,7 +1163,9 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                   "state": {
                     "enum": [
                       "in_progress",
-                      "succeeded"
+                      "succeeded",
+                      "attempts_exhausted",
+                      "recovery_required"
                     ]
                   }
                 }
@@ -1228,31 +1205,6 @@ export const CONTRACT_SCHEMAS = deepFreeze({
               "status": {
                 "properties": {
                   "state": {
-                    "const": "attempts_exhausted"
-                  }
-                }
-              },
-              "actions": {
-                "minItems": 1,
-                "maxItems": 1,
-                "prefixItems": [
-                  {
-                    "properties": {
-                      "action_kind": {
-                        "const": "explicit_recovery"
-                      }
-                    }
-                  }
-                ],
-                "items": false
-              }
-            }
-          },
-          {
-            "properties": {
-              "status": {
-                "properties": {
-                  "state": {
                     "const": "recording_repair_required"
                   }
                 }
@@ -1265,31 +1217,6 @@ export const CONTRACT_SCHEMAS = deepFreeze({
                     "properties": {
                       "action_kind": {
                         "const": "repair_recording"
-                      }
-                    }
-                  }
-                ],
-                "items": false
-              }
-            }
-          },
-          {
-            "properties": {
-              "status": {
-                "properties": {
-                  "state": {
-                    "const": "recovery_required"
-                  }
-                }
-              },
-              "actions": {
-                "minItems": 1,
-                "maxItems": 1,
-                "prefixItems": [
-                  {
-                    "properties": {
-                      "action_kind": {
-                        "const": "explicit_recovery"
                       }
                     }
                   }

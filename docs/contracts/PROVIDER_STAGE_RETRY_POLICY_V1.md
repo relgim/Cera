@@ -63,7 +63,14 @@ The shared states are:
   is incomplete after the third closed retryable failure;
 - `recovery_required`: a known non-Retry failure or non-dispatch custody
   conflict stopped this occurrence with its last accepted branch head
-  preserved. Only explicit recovery is allowed.
+  preserved. The shared V1 panel is read-only in this state.
+
+`attempts_exhausted` and `recovery_required` expose no generic clickable
+backend action in V1. "Explicit recovery" means a separately authorized
+operator or stage-specific workflow that establishes a proven-safe next
+occurrence; it never marks the stopped Retry chain `succeeded`. Check Status
+remains available only for `blocked_ambiguous`, and Recorder repair remains the
+dedicated action for `recording_repair_required`.
 
 `blocked_ambiguous` may later become recovered success, confirmed retryable
 failure, confirmed exhaustion, or operator repair required. It never silently
@@ -139,6 +146,11 @@ A pre-transport failure consumes its stage attempt and, when applicable, its
 accepted Retry action. It consumes zero provider operations. A submitted or
 possibly submitted operation remains conservatively charged.
 
+Every fresh owner binds `maximum_provider_operations` before dispatch. Codex
+owners bind one operation; Pi/DeepSeek owners bind the configured per-invocation
+ceiling. Until reconciliation proves exact ledger accounting, an interrupted
+dispatch reserves that full bound rather than assuming one operation.
+
 Pre-transport Retry classification is limited to typed process/start failure,
 temporary unavailability, or a typed pre-submit connection/start timeout.
 Output, stream, and completion-shape failures cannot be claimed before
@@ -185,7 +197,7 @@ The primary panel shows:
 - attempt number, such as `Attempt 2 of 3`;
 - safe failure category;
 - whether story prose was already accepted;
-- Retry, Check Status, recording repair, or no-further-attempt action;
+- Retry, Check Status, recording repair, or a read-only terminal state;
 - one fixed concise explanation.
 
 Hashes, schema versions, operation counts, and correlation identifiers belong

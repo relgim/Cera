@@ -35,6 +35,7 @@ from cera.serialization import bytes_sha256, canonical_bytes, canonical_sha256, 
 from .provider_stage_retry import (
     MAXIMUM_PROVIDER_STAGE_ATTEMPTS,
     MAXIMUM_SAFE_INTEGER,
+    NON_RETRYABLE_PROVIDER_STAGE_FAILURES,
     ProviderStage,
     ProviderStageAttemptPhase,
     ProviderStageAttemptV1,
@@ -207,21 +208,29 @@ class ProviderStageRetryStoreV1:
         *,
         attempt_number: int,
         dispatch_evidence_sha256: str,
+        maximum_provider_operations: int,
     ) -> ProviderStageRetryChainV1:
+        if type(maximum_provider_operations) is not int or maximum_provider_operations < 1:
+            raise ContractValidationError(
+                "provider-stage maximum provider operations must be positive"
+            )
         with self._lock, self._claim(chain_id):
             chain = self._reconcile_locked(self._require_chain_locked(chain_id))
             current = self._require_current_attempt(chain, attempt_number)
             if chain.phase is ProviderStageRetryPhase.DISPATCH_STARTED:
-                if current.dispatch_evidence_sha256 == dispatch_evidence_sha256:
+                if (
+                    current.dispatch_evidence_sha256 == dispatch_evidence_sha256
+                    and current.provider_operations_conservative == maximum_provider_operations
+                ):
                     return chain
-                raise StateConflictError("provider-stage dispatch evidence changed")
+                raise StateConflictError("provider-stage dispatch reservation changed")
             if chain.phase is not ProviderStageRetryPhase.ATTEMPT_PREPARED:
                 raise StateConflictError("provider-stage attempt is not prepared")
             updated_attempt = replace(
                 current,
                 phase=ProviderStageAttemptPhase.DISPATCH_STARTED,
                 dispatch_evidence_sha256=dispatch_evidence_sha256,
-                provider_operations_conservative=1,
+                provider_operations_conservative=maximum_provider_operations,
             )
             updated = replace(
                 chain,
@@ -488,6 +497,10 @@ class ProviderStageRetryStoreV1:
                         "retirement_evidence_sha256": retirement_evidence_sha256,
                     },
                 )
+            elif current.failure_class in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
+                phase = ProviderStageRetryPhase.RECOVERY_REQUIRED
+                block_reason = None
+                block_evidence = None
             elif attempt_number == MAXIMUM_PROVIDER_STAGE_ATTEMPTS:
                 phase = (
                     ProviderStageRetryPhase.RECORDING_REPAIR_REQUIRED

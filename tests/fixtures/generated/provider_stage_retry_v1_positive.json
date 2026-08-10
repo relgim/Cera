@@ -1,13 +1,13 @@
 {
   "schema_version": "cera.provider_stage_retry_fixture_set.v1",
   "generated_from_sha256": {
-    "action.schema.json": "f8cdcf769ab1e1f17d3034765d23c26cd76cbe916af64d9db1bde15312061bc2",
+    "action.schema.json": "218097ac12af5a5f89e67135067a99caee28b1f8d2da5d1b0c84bf89d25bab8f",
     "blocked_ambiguous.schema.json": "64ecb7f614cf82cbcd4e88e89ef0689e7ff13ab0eed553f922b424fc4a8598f9",
     "common.schema.json": "ace7f2a1bbb3e978d12e1cbbbc860a092d515213697e5a1b5d3f418e6980d233",
     "compatibility_adapter.schema.json": "8d594a711622234dfa6fed64d08218e768a0328c6a31dd1c7d5aabba174a9dff",
     "exhausted.schema.json": "53f5e889e8a0e0b68b3ec5dad3a246223bf0e7ae1566216c16fead7ab8df264b",
-    "status.schema.json": "e87887566d0102012767bce43f1102fa52bf3ee4b66fc49473742b11c0dddcb5",
-    "status_envelope.schema.json": "caf257ecbc15cd75647e4de7d6b40711b0b2665fe9a647ef842773f441a30998"
+    "status.schema.json": "c2935ee88af75dd14ff108641ab6066d408da281fb5faaab48c417704fd1ce34",
+    "status_envelope.schema.json": "caa95ad9b3f7201103fd470ed3f89646d07434eb9390cc5ee36a90e801157d45"
   },
   "expected_valid": true,
   "cases": [
@@ -63,24 +63,6 @@
         "whole_request_replay_authorized": false,
         "provider_substitution_authorized": false,
         "expected_chain_sha256": "3333333333333333333333333333333333333333333333333333333333333333"
-      }
-    },
-    {
-      "case_id": "action.schema.positive.04",
-      "contract_schema_version": "cera.provider_stage_retry_action.v1",
-      "value": {
-        "schema_version": "cera.provider_stage_retry_action.v1",
-        "action_id": "stage-action-4444444444444444444444444444444444444444444444444444444444444444",
-        "chain_id": "stage-retry-5555555555555555555555555555555555555555555555555555555555555555",
-        "action_family": "provider_stage_control",
-        "action_kind": "explicit_recovery",
-        "automatic": false,
-        "provider_dispatch_authorized": false,
-        "consumes_retry_action": false,
-        "retry_action_ordinal": null,
-        "whole_request_replay_authorized": false,
-        "provider_substitution_authorized": false,
-        "expected_chain_sha256": "6666666666666666666666666666666666666666666666666666666666666666"
       }
     },
     {
@@ -350,9 +332,7 @@
         "story_state_committed": false,
         "branch_preserved_at_last_accepted_head": true,
         "failure_category": "provider_unavailable",
-        "available_actions": [
-          "explicit_recovery"
-        ],
+        "available_actions": [],
         "technical_details": {
           "schema_version": "cera.provider_stage_retry_technical_details.v1",
           "request_occurrence_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
@@ -412,9 +392,7 @@
         "story_state_committed": false,
         "branch_preserved_at_last_accepted_head": true,
         "failure_category": "provider_failure_not_retryable",
-        "available_actions": [
-          "explicit_recovery"
-        ],
+        "available_actions": [],
         "technical_details": {
           "schema_version": "cera.provider_stage_retry_technical_details.v1",
           "request_occurrence_sha256": "2323232323232323232323232323232323232323232323232323232323232323",
@@ -443,9 +421,7 @@
         "story_state_committed": false,
         "branch_preserved_at_last_accepted_head": true,
         "failure_category": "authority_changed",
-        "available_actions": [
-          "explicit_recovery"
-        ],
+        "available_actions": [],
         "technical_details": {
           "schema_version": "cera.provider_stage_retry_technical_details.v1",
           "request_occurrence_sha256": "8989898989898989898989898989898989898989898989898989898989898989",
@@ -642,9 +618,7 @@
           "story_state_committed": false,
           "branch_preserved_at_last_accepted_head": true,
           "failure_category": "provider_unavailable",
-          "available_actions": [
-            "explicit_recovery"
-          ],
+          "available_actions": [],
           "technical_details": {
             "schema_version": "cera.provider_stage_retry_technical_details.v1",
             "request_occurrence_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
@@ -654,22 +628,7 @@
             "chain_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
           }
         },
-        "actions": [
-          {
-            "schema_version": "cera.provider_stage_retry_action.v1",
-            "action_id": "stage-action-4444444444444444444444444444444444444444444444444444444444444444",
-            "chain_id": "stage-retry-4444444444444444444444444444444444444444444444444444444444444444",
-            "action_family": "provider_stage_control",
-            "action_kind": "explicit_recovery",
-            "automatic": false,
-            "provider_dispatch_authorized": false,
-            "consumes_retry_action": false,
-            "retry_action_ordinal": null,
-            "whole_request_replay_authorized": false,
-            "provider_substitution_authorized": false,
-            "expected_chain_sha256": "9999999999999999999999999999999999999999999999999999999999999999"
-          }
-        ]
+        "actions": []
       }
     },
     {
@@ -742,9 +701,7 @@
           "story_state_committed": false,
           "branch_preserved_at_last_accepted_head": true,
           "failure_category": "provider_failure_not_retryable",
-          "available_actions": [
-            "explicit_recovery"
-          ],
+          "available_actions": [],
           "technical_details": {
             "schema_version": "cera.provider_stage_retry_technical_details.v1",
             "request_occurrence_sha256": "2323232323232323232323232323232323232323232323232323232323232323",
@@ -754,22 +711,7 @@
             "chain_sha256": "6767676767676767676767676767676767676767676767676767676767676767"
           }
         },
-        "actions": [
-          {
-            "schema_version": "cera.provider_stage_retry_action.v1",
-            "action_id": "stage-action-4444444444444444444444444444444444444444444444444444444444444444",
-            "chain_id": "stage-retry-1212121212121212121212121212121212121212121212121212121212121212",
-            "action_family": "provider_stage_control",
-            "action_kind": "explicit_recovery",
-            "automatic": false,
-            "provider_dispatch_authorized": false,
-            "consumes_retry_action": false,
-            "retry_action_ordinal": null,
-            "whole_request_replay_authorized": false,
-            "provider_substitution_authorized": false,
-            "expected_chain_sha256": "6767676767676767676767676767676767676767676767676767676767676767"
-          }
-        ]
+        "actions": []
       }
     },
     {
@@ -792,9 +734,7 @@
           "story_state_committed": false,
           "branch_preserved_at_last_accepted_head": true,
           "failure_category": "authority_changed",
-          "available_actions": [
-            "explicit_recovery"
-          ],
+          "available_actions": [],
           "technical_details": {
             "schema_version": "cera.provider_stage_retry_technical_details.v1",
             "request_occurrence_sha256": "8989898989898989898989898989898989898989898989898989898989898989",
@@ -804,22 +744,7 @@
             "chain_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
           }
         },
-        "actions": [
-          {
-            "schema_version": "cera.provider_stage_retry_action.v1",
-            "action_id": "stage-action-4444444444444444444444444444444444444444444444444444444444444444",
-            "chain_id": "stage-retry-7878787878787878787878787878787878787878787878787878787878787878",
-            "action_family": "provider_stage_control",
-            "action_kind": "explicit_recovery",
-            "automatic": false,
-            "provider_dispatch_authorized": false,
-            "consumes_retry_action": false,
-            "retry_action_ordinal": null,
-            "whole_request_replay_authorized": false,
-            "provider_substitution_authorized": false,
-            "expected_chain_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-          }
-        ]
+        "actions": []
       }
     }
   ]

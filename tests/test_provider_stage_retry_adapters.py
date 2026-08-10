@@ -5,7 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from cera.errors import ErrorCode, StateConflictError
+from cera.errors import ContractValidationError, ErrorCode, StateConflictError
 from cera.evaluation import EvaluationRole
 from cera.ids import IdKind, TypedId
 from cera.pi_scene.contracts import PiWriterReceiptV1, SceneRoute
@@ -148,6 +148,7 @@ def _owner[ResultT](
     read_session_scope_sha256: Callable[[], str] | None = None,
     read_ledger_snapshot: Callable[[], ProviderStageLedgerSnapshotV1] | None = None,
     clock_ns: Callable[[], int] | None = None,
+    maximum_provider_operations: int = 1,
 ) -> CallableProviderStageAttemptOwnerV1[bytes, ResultT]:
     def retire(request: ProviderStageOwnerRetirementV1) -> str:
         boundary.retirements.append(request)
@@ -166,6 +167,7 @@ def _owner[ResultT](
             stage_input_sha256=stage_input_sha256 or bytes_sha256(_EXACT_INPUT),
             session_scope_sha256=boundary.session,
             ledger_before=boundary.snapshot,
+            maximum_provider_operations=maximum_provider_operations,
         ),
         read_session_scope_sha256=(read_session_scope_sha256 or (lambda: boundary.session)),
         read_ledger_snapshot=read_ledger_snapshot or (lambda: boundary.snapshot),
@@ -322,6 +324,37 @@ class ProviderStageRetryAdapterTests(unittest.TestCase):
             ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
         )
 
+    def test_post_operation_retry_classes_require_one_observed_operation(self) -> None:
+        for category in (
+            ProviderRetryableFailureCategory.PROVIDER_STREAM_INCOMPLETE,
+            ProviderRetryableFailureCategory.PROVIDER_COMPLETION_INCOMPLETE,
+            ProviderRetryableFailureCategory.PROVIDER_OUTPUT_INVALID,
+        ):
+            with self.subTest(category=category):
+                boundary = _Boundary()
+
+                def invoke(
+                    _request: bytes,
+                    *,
+                    category: ProviderRetryableFailureCategory = category,
+                ) -> object:
+                    raise ProviderTransportError(
+                        ErrorCode.PROVIDER_TRANSPORT_FAILED,
+                        "typed post-operation claim with no operation",
+                        external_provider_calls_observed=0,
+                        retryable_failure_category=category,
+                    )
+
+                outcome = _invoke_prepared(_owner(boundary, invoke))
+                self.assertIsInstance(outcome, ProviderStageNonRetryableFailureV1)
+                assert isinstance(outcome, ProviderStageNonRetryableFailureV1)
+                self.assertIs(
+                    outcome.failure_class,
+                    ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
+                )
+                self.assertEqual(outcome.metrics.provider_operations_observed, 0)
+                self.assertEqual(outcome.metrics.provider_operations_conservative, 0)
+
     def test_untyped_or_unresolved_failure_is_dispatch_ambiguity(self) -> None:
         boundary = _Boundary()
 
@@ -352,10 +385,38 @@ class ProviderStageRetryAdapterTests(unittest.TestCase):
             return "completed before local clock failure"
 
         clock_outcome = _invoke_prepared(_owner(clock_boundary, completed_provider, clock_ns=clock))
-        self.assertIsInstance(clock_outcome, ProviderStageDispatchAmbiguousV1)
-        assert isinstance(clock_outcome, ProviderStageDispatchAmbiguousV1)
+        self.assertIsInstance(clock_outcome, ProviderStageNonRetryableFailureV1)
+        assert isinstance(clock_outcome, ProviderStageNonRetryableFailureV1)
         self.assertEqual(clock_boundary.provider_calls, 1)
         self.assertEqual(clock_outcome.metrics.provider_operations_observed, 1)
+
+    def test_pi_ambiguity_reserves_the_configured_multi_operation_ceiling(self) -> None:
+        boundary = _Boundary()
+
+        def invoke(_request: bytes) -> object:
+            boundary.provider_calls += 1
+            raise RuntimeError("provider disposition unavailable")
+
+        outcome = _invoke_prepared(
+            _owner(
+                boundary,
+                invoke,
+                maximum_provider_operations=4,
+            )
+        )
+
+        self.assertIsInstance(outcome, ProviderStageDispatchAmbiguousV1)
+        assert isinstance(outcome, ProviderStageDispatchAmbiguousV1)
+        self.assertEqual(outcome.metrics.provider_operations_observed, 0)
+        self.assertEqual(outcome.metrics.provider_operations_conservative, 4)
+
+        with self.assertRaisesRegex(ContractValidationError, "Codex.*exactly one"):
+            _owner(
+                _Boundary(),
+                lambda _request: "unused",
+                stage=ProviderStage.PLANNER,
+                maximum_provider_operations=2,
+            )
 
     def test_zero_operation_or_malformed_failure_receipt_uses_durable_ambiguity(
         self,
@@ -399,8 +460,12 @@ class ProviderStageRetryAdapterTests(unittest.TestCase):
             raise failure
 
         malformed_outcome = _invoke_prepared(_owner(malformed_boundary, malformed_failure))
-        self.assertIsInstance(malformed_outcome, ProviderStageDispatchAmbiguousV1)
-        assert isinstance(malformed_outcome, ProviderStageDispatchAmbiguousV1)
+        self.assertIsInstance(malformed_outcome, ProviderStageNonRetryableFailureV1)
+        assert isinstance(malformed_outcome, ProviderStageNonRetryableFailureV1)
+        self.assertIs(
+            malformed_outcome.failure_class,
+            ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
+        )
         self.assertEqual(malformed_outcome.metrics.provider_operations_observed, 1)
         self.assertEqual(
             malformed_outcome.metrics.ledger_prefix_after_sha256,
@@ -430,6 +495,50 @@ class ProviderStageRetryAdapterTests(unittest.TestCase):
             ProviderStageSemanticDisposition.REJECTED,
         )
         self.assertEqual(outcome.exact_result, b"semantic rejection payload")
+
+    def test_deterministic_post_result_processing_failures_are_known_non_retry(self) -> None:
+        def fail_receipt(_value: str) -> ProviderStageReceiptMetricsV1:
+            raise RuntimeError("deterministic local processing failure")
+
+        def fail_serialize(_value: str) -> bytes:
+            raise RuntimeError("deterministic local processing failure")
+
+        def fail_semantic(_value: str) -> ProviderStageSemanticDisposition:
+            raise RuntimeError("deterministic local processing failure")
+
+        for failing_boundary in ("receipt", "serialize", "semantic"):
+            with self.subTest(failing_boundary=failing_boundary):
+                boundary = _Boundary()
+
+                def invoke(
+                    _request: bytes,
+                    *,
+                    boundary: _Boundary = boundary,
+                ) -> str:
+                    boundary.advance(1)
+                    return "provider result already received"
+
+                owner = _owner(
+                    boundary,
+                    invoke,
+                    result_receipt_metrics=(
+                        fail_receipt if failing_boundary == "receipt" else None
+                    ),
+                    serialize_result=(fail_serialize if failing_boundary == "serialize" else None),
+                    semantic_disposition=(
+                        fail_semantic if failing_boundary == "semantic" else None
+                    ),
+                )
+                outcome = _invoke_prepared(owner)
+
+                self.assertIsInstance(outcome, ProviderStageNonRetryableFailureV1)
+                assert isinstance(outcome, ProviderStageNonRetryableFailureV1)
+                self.assertIs(
+                    outcome.failure_class,
+                    ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
+                )
+                self.assertEqual(outcome.metrics.provider_operations_observed, 1)
+                self.assertEqual(outcome.metrics.provider_operations_conservative, 1)
 
     def test_post_dispatch_session_substitution_requires_recovery(self) -> None:
         boundary = _Boundary()
@@ -739,6 +848,38 @@ class ProviderStageRetryAdapterTests(unittest.TestCase):
         self.assertEqual(preparation.ledger_prefix_after_sha256, _sha("ledger-0"))
         self.assertEqual(provider_calls, 0)
 
+    def test_preparation_clock_failure_is_zero_operation_non_retryable(self) -> None:
+        provider_calls = 0
+
+        def failed_clock() -> int:
+            raise RuntimeError("local clock unavailable")
+
+        def invoke(_request: bytes) -> object:
+            nonlocal provider_calls
+            provider_calls += 1
+            return object()
+
+        preparation = _owner(
+            _Boundary(),
+            invoke,
+            clock_ns=failed_clock,
+        ).prepare(
+            chain_id=_CHAIN_ID,
+            attempt_number=1,
+            exact_input=_EXACT_INPUT,
+        )
+
+        self.assertIsInstance(
+            preparation,
+            ProviderStagePretransportNonRetryableFailureV1,
+        )
+        assert isinstance(preparation, ProviderStagePretransportNonRetryableFailureV1)
+        self.assertIs(
+            preparation.failure_class,
+            ProviderStageFailureClass.CONFIGURATION_FAILED,
+        )
+        self.assertEqual(provider_calls, 0)
+
     def test_executor_reserves_dispatch_before_provider_invoke_and_retires_exact_owner(
         self,
     ) -> None:
@@ -858,14 +999,14 @@ class ProviderStageRetryAdapterTests(unittest.TestCase):
             )
 
             self.assertEqual(session_read_calls, 1)
-            self.assertIs(ambiguous.phase, ProviderStageRetryPhase.BLOCKED_AMBIGUOUS)
+            self.assertIs(ambiguous.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
             self.assertEqual(
                 ambiguous.attempts[-1].provider_operations_observed,
                 0,
             )
             self.assertEqual(
                 ambiguous.attempts[-1].provider_operations_conservative,
-                1,
+                0,
             )
 
             build_failure_scope = ProviderStageRetryOccurrenceScopeV1.create(

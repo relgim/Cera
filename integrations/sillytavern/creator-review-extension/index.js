@@ -615,9 +615,9 @@ function providerStageRetryStatusText(status) {
     }
     if (status.state === 'recovery_required') {
         const accepted = status.story_state_committed ? ' The assistant story remains accepted.' : '';
-        return `${attempt} ${provider} ${stage} stopped on a known non-Retry failure.${accepted} Explicit recovery is required.`;
+        return `${attempt} ${provider} ${stage} stopped on a known non-Retry failure.${accepted} Separate operator recovery is required; this panel is read-only.`;
     }
-    return 'Three attempts were exhausted for this stage occurrence. The branch remains at its last accepted head; explicit recovery is required.';
+    return 'Three attempts were exhausted for this stage occurrence. The branch remains at its last accepted head; this panel is read-only pending separately authorized recovery.';
 }
 
 function renderProviderStageRetryControl({ detail = null, allowAction = true } = {}) {
@@ -664,16 +664,6 @@ function renderProviderStageRetryControl({ detail = null, allowAction = true } =
             'Repair Recording',
             !recordingRepairTarget(),
             () => repairRecordingFromProviderStage(),
-        ));
-    } else if (
-        allowAction
-        && !providerStageRetryInFlight
-        && action?.action_kind === 'explicit_recovery'
-    ) {
-        actions.append(actionButton(
-            'Explicit Recovery',
-            false,
-            () => submitProviderStageControlAction(action),
         ));
     }
     if (actions.children.length) panel.appendChild(actions);
@@ -729,12 +719,6 @@ async function submitProviderStageControlAction(action) {
     const allowed = (
         envelope?.status.state === 'eligible'
         && current?.action_kind === 'provider_retry'
-    ) || (
-        envelope?.status.state === 'attempts_exhausted'
-        && current?.action_kind === 'explicit_recovery'
-    ) || (
-        envelope?.status.state === 'recovery_required'
-        && current?.action_kind === 'explicit_recovery'
     );
     if (
         providerStageRetryInFlight
@@ -746,9 +730,7 @@ async function submitProviderStageControlAction(action) {
     providerStageRetryInFlight = true;
     deactivateSendButtons();
     renderProviderStageRetryControl({
-        detail: current.action_kind === 'provider_retry'
-            ? 'Submitting the exact backend-issued Retry action once.'
-            : 'Submitting the exact backend-issued provider-free recovery action.',
+        detail: 'Submitting the exact backend-issued Retry action once.',
         allowAction: false,
     });
     try {

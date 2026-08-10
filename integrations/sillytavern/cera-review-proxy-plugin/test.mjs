@@ -93,12 +93,12 @@ function providerStageRetryEnvelope(state, { chainCharacter = 'a' } = {}) {
         in_progress: ['writer', 2, 1, 1, 1, null, null],
         succeeded: ['writer', 2, 1, 2, 2, null, null],
         blocked_ambiguous: ['adult_scene', 1, 0, 0, 1, 'dispatch_ambiguous', 'check_status'],
-        attempts_exhausted: ['writer', 3, 2, 3, 3, 'provider_unavailable', 'explicit_recovery'],
+        attempts_exhausted: ['writer', 3, 2, 3, 3, 'provider_unavailable', null],
         recording_repair_required: [
             'recorder', 3, 2, 3, 3, 'provider_completion_incomplete', 'repair_recording',
         ],
         recovery_required: [
-            'writer', 1, 0, 0, 0, 'provider_failure_not_retryable', 'explicit_recovery',
+            'writer', 1, 0, 0, 0, 'provider_failure_not_retryable', null,
         ],
     }[state];
     const [stage, attempts, retries, observed, conservative, failure, actionKind] = config;

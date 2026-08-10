@@ -122,8 +122,7 @@
         "enum": [
           "provider_retry",
           "check_status",
-          "repair_recording",
-          "explicit_recovery"
+          "repair_recording"
         ]
       },
       "description": "Concise UI actions. Semantic Regenerate and Replan use different DTO families."
@@ -259,9 +258,7 @@
               "$ref": "https://schemas.cera.local/provider-stage-retry/v1/common.schema.json#/$defs/retryable_failure_category"
             },
             "available_actions": {
-              "const": [
-                "explicit_recovery"
-              ]
+              "const": []
             }
           }
         },
@@ -314,12 +311,10 @@
               ]
             },
             "available_actions": {
-              "const": [
-                "explicit_recovery"
-              ]
+              "const": []
             }
           },
-          "$comment": "A known non-Retry terminal or non-dispatch custody conflict preserves accepted state and requires explicit recovery."
+          "$comment": "A known non-Retry terminal or non-dispatch custody conflict preserves accepted state. Recovery is a separate operator workflow, not a generic Retry-chain action."
         }
       ]
     }
@@ -478,9 +473,7 @@
       "story_state_committed": false,
       "branch_preserved_at_last_accepted_head": true,
       "failure_category": "provider_unavailable",
-      "available_actions": [
-        "explicit_recovery"
-      ],
+      "available_actions": [],
       "technical_details": {
         "schema_version": "cera.provider_stage_retry_technical_details.v1",
         "request_occurrence_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
@@ -532,9 +525,7 @@
       "story_state_committed": false,
       "branch_preserved_at_last_accepted_head": true,
       "failure_category": "provider_failure_not_retryable",
-      "available_actions": [
-        "explicit_recovery"
-      ],
+      "available_actions": [],
       "technical_details": {
         "schema_version": "cera.provider_stage_retry_technical_details.v1",
         "request_occurrence_sha256": "2323232323232323232323232323232323232323232323232323232323232323",
@@ -559,9 +550,7 @@
       "story_state_committed": false,
       "branch_preserved_at_last_accepted_head": true,
       "failure_category": "authority_changed",
-      "available_actions": [
-        "explicit_recovery"
-      ],
+      "available_actions": [],
       "technical_details": {
         "schema_version": "cera.provider_stage_retry_technical_details.v1",
         "request_occurrence_sha256": "8989898989898989898989898989898989898989898989898989898989898989",
@@ -596,9 +585,7 @@
         {
           "op": "replace",
           "path": "/available_actions",
-          "value": [
-            "explicit_recovery"
-          ]
+          "value": []
         }
       ]
     },

@@ -30,6 +30,7 @@ from .contracts import PiWriterReceiptV1
 from .pi_adapter import PiSceneInvocationResultV1
 from .provider_stage_retry import (
     MAXIMUM_PROVIDER_STAGE_ATTEMPTS,
+    MAXIMUM_SAFE_INTEGER,
     NON_RETRYABLE_PROVIDER_STAGE_FAILURES,
     PRETRANSPORT_PROVIDER_STAGE_FAILURES,
     ProviderStage,
@@ -147,6 +148,7 @@ class ProviderStageAttemptOwnerBindingV1:
     stage_input_sha256: str
     session_scope_sha256: str
     ledger_before: ProviderStageLedgerSnapshotV1
+    maximum_provider_operations: int
 
     def __post_init__(self) -> None:
         if (
@@ -175,6 +177,20 @@ class ProviderStageAttemptOwnerBindingV1:
         _require_sha256(self.session_scope_sha256, "session scope")
         if type(self.ledger_before) is not ProviderStageLedgerSnapshotV1:
             raise ContractValidationError("provider-stage adapter ledger binding changed")
+        if (
+            type(self.maximum_provider_operations) is not int
+            or not 1 <= self.maximum_provider_operations <= MAXIMUM_SAFE_INTEGER
+        ):
+            raise ContractValidationError(
+                "provider-stage adapter maximum provider operations is invalid"
+            )
+        if (
+            self.boundary_kind is ProviderStageBoundaryKind.CODEX
+            and self.maximum_provider_operations != 1
+        ):
+            raise ContractValidationError(
+                "Codex provider-stage owners must reserve exactly one operation"
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -311,6 +327,10 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
     def ledger_prefix_before_sha256(self) -> str:
         return self.binding.ledger_before.prefix_sha256
 
+    @property
+    def maximum_provider_operations(self) -> int:
+        return self.binding.maximum_provider_operations
+
     def prepare(
         self,
         *,
@@ -322,11 +342,26 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
         with self._prepare_lock:
             if self._preparation is not None:
                 return self._preparation
-            started = self._clock_ns()
+            try:
+                started = self._clock_ns()
+            except Exception as exc:
+                clock_failure_class = ProviderStageFailureClass.CONFIGURATION_FAILED
+                self._preparation = ProviderStagePretransportNonRetryableFailureV1(
+                    failure_class=clock_failure_class,
+                    failure_evidence_sha256=self._local_failure_evidence(
+                        exc,
+                        failure_class=clock_failure_class,
+                        ledger_after=self.binding.ledger_before,
+                        disposition="local_clock_start_failure",
+                    ),
+                    ledger_prefix_after_sha256=self.ledger_prefix_before_sha256,
+                    duration_ms=0,
+                )
+                return self._preparation
             try:
                 request = self._build_request(exact_input)
             except ProviderTransportError as exc:
-                elapsed = self._elapsed_ms(started)
+                elapsed = self._elapsed_or_zero(started)
                 failure_class = _retryable_failure_class(exc)
                 try:
                     current = self._read_ledger_snapshot()
@@ -368,7 +403,7 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
                 )
                 return self._preparation
             except Exception as exc:
-                elapsed = self._elapsed_ms(started)
+                elapsed = self._elapsed_or_zero(started)
                 try:
                     current = self._read_ledger_snapshot()
                 except Exception:
@@ -400,6 +435,7 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
                     "stage_input_sha256": self.binding.stage_input_sha256,
                     "session_scope_sha256": self.session_scope_sha256,
                     "ledger_prefix_before_sha256": self.ledger_prefix_before_sha256,
+                    "maximum_provider_operations": self.maximum_provider_operations,
                 },
             )
             self._preparation = ProviderStagePreparedCallableDispatchV1(
@@ -417,8 +453,6 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
         failure_class: ProviderStageFailureClass,
     ) -> str:
         self._require_attempt_identity(chain_id, attempt_number)
-        if self._preparation is None:
-            raise StateConflictError("provider-stage owner cannot retire before preparation")
         request = ProviderStageOwnerRetirementV1(
             chain_id=chain_id,
             attempt_number=attempt_number,
@@ -444,7 +478,13 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
             _require_sha256(live_session, "live session scope")
             live_before = self._read_ledger_snapshot()
         except Exception as exc:
-            return self._ambiguity_without_snapshot(exc, duration_ms=0)
+            return self._known_local_failure(
+                exc,
+                after=self.binding.ledger_before,
+                duration_ms=0,
+                failure_class=ProviderStageFailureClass.CUSTODY_FAILED,
+                disposition="pre_dispatch_identity_unavailable",
+            )
         if live_session != self.session_scope_sha256 or live_before != self.binding.ledger_before:
             return ProviderStageNonRetryableFailureV1(
                 failure_class=ProviderStageFailureClass.CUSTODY_FAILED,
@@ -467,31 +507,86 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
                 ),
             )
 
-        started = self._clock_ns()
+        try:
+            started = self._clock_ns()
+        except Exception as exc:
+            return self._known_local_failure(
+                exc,
+                after=live_before,
+                duration_ms=0,
+                disposition="pre_provider_clock_failed",
+            )
         try:
             result = self._invoke_provider(request)
         except ProviderTransportError as exc:
-            duration_ms = self._elapsed_ms(started)
+            try:
+                duration_ms = self._elapsed_ms(started)
+            except Exception as clock_exc:
+                try:
+                    _, after = self._read_post_dispatch_identity()
+                    self._operation_delta(after)
+                except Exception as accounting_exc:
+                    return self._ambiguity_without_snapshot(accounting_exc, duration_ms=0)
+                return self._known_local_failure(
+                    clock_exc,
+                    after=after,
+                    duration_ms=0,
+                    disposition="post_failure_clock_failed",
+                )
             return self._transport_failure(exc, duration_ms=duration_ms)
         except Exception as exc:
             duration_ms = self._elapsed_ms(started)
             return self._unknown_failure(exc, duration_ms=duration_ms)
-        duration_ms = self._elapsed_ms(started)
+        try:
+            duration_ms = self._elapsed_ms(started)
+        except Exception as exc:
+            try:
+                _, after = self._read_post_dispatch_identity()
+                self._operation_delta(after)
+            except Exception as accounting_exc:
+                return self._ambiguity_without_snapshot(accounting_exc, duration_ms=0)
+            return self._known_local_failure(
+                exc,
+                after=after,
+                duration_ms=0,
+                disposition="post_result_clock_failed",
+            )
 
         try:
             live_after_session, after = self._read_post_dispatch_identity()
+            self._operation_delta(after)
+        except Exception as exc:
+            return self._ambiguity_without_snapshot(exc, duration_ms=duration_ms)
+        try:
             receipt = self._result_receipt_metrics(result)
+        except Exception as exc:
+            return self._known_local_failure(
+                exc,
+                after=after,
+                duration_ms=duration_ms,
+                disposition="result_receipt_processing_failed",
+            )
+        try:
             metrics = self._closed_metrics(
                 after,
                 duration_ms=duration_ms,
                 receipt=receipt,
             )
-            if live_after_session != self.session_scope_sha256:
-                return self._custody_failure(
-                    actual_session_scope_sha256=live_after_session,
-                    metrics=metrics,
-                    disposition="post_result_session_changed",
-                )
+        except Exception as exc:
+            return self._ambiguity(
+                exc,
+                after=after,
+                duration_ms=duration_ms,
+                receipt=receipt,
+                disposition="result_receipt_accounting_unresolved",
+            )
+        if live_after_session != self.session_scope_sha256:
+            return self._custody_failure(
+                actual_session_scope_sha256=live_after_session,
+                metrics=metrics,
+                disposition="post_result_session_changed",
+            )
+        try:
             exact_result = self._serialize_result(result)
             if not isinstance(exact_result, bytes) or not exact_result:
                 raise ContractValidationError(
@@ -503,9 +598,11 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
                     "provider-stage semantic classifier returned an open value"
                 )
         except Exception as exc:
-            return self._post_result_ambiguity(
+            return self._known_local_failure(
                 exc,
+                after=after,
                 duration_ms=duration_ms,
+                disposition="result_processing_failed",
             )
         return ProviderStageSuccessfulResultV1(
             exact_result=exact_result,
@@ -541,12 +638,11 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
         try:
             receipt = _provider_failure_receipt_metrics(failure)
         except Exception as exc:
-            return self._ambiguity(
+            return self._known_local_failure(
                 exc,
                 after=after,
                 duration_ms=duration_ms,
-                receipt=None,
-                disposition="failure_receipt_unresolved",
+                disposition="failure_receipt_processing_failed",
             )
         if not _transport_observation_is_closed(failure, delta) or (
             receipt is not None and receipt.provider_operations != delta
@@ -571,6 +667,25 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
             )
         retryable = _retryable_failure_class(failure)
         if retryable is not None:
+            if (
+                retryable
+                in {
+                    ProviderStageFailureClass.PROVIDER_STREAM_INCOMPLETE,
+                    ProviderStageFailureClass.PROVIDER_COMPLETION_INCOMPLETE,
+                    ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID,
+                }
+                and metrics.provider_operations_observed < 1
+            ):
+                return ProviderStageNonRetryableFailureV1(
+                    failure_class=(ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE),
+                    failure_evidence_sha256=self._failure_evidence(
+                        failure,
+                        failure_class=(ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE),
+                        ledger_after=after,
+                        disposition="post_operation_retry_claim_without_operation",
+                    ),
+                    metrics=metrics,
+                )
             return ProviderStageClosedFailureV1(
                 failure_class=retryable,
                 failure_evidence_sha256=self._failure_evidence(
@@ -588,21 +703,19 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
                 else self._classify_non_retryable(failure)
             )
         except Exception as exc:
-            return self._ambiguity(
+            return self._known_local_failure(
                 exc,
                 after=after,
                 duration_ms=duration_ms,
-                receipt=receipt,
-                disposition="non_retryable_classifier_unresolved",
+                disposition="non_retryable_classifier_failed",
             )
         if non_retryable is None:
             non_retryable = ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE
         if non_retryable not in NON_RETRYABLE_PROVIDER_STAGE_FAILURES:
-            return self._ambiguity(
+            return self._known_local_failure(
                 failure,
                 after=after,
                 duration_ms=duration_ms,
-                receipt=receipt,
                 disposition="non_retryable_classifier_open_value",
             )
         return ProviderStageNonRetryableFailureV1(
@@ -634,22 +747,34 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
             disposition="untyped_transport_unresolved",
         )
 
-    def _post_result_ambiguity(
+    def _known_local_failure(
         self,
         failure: Exception,
         *,
+        after: ProviderStageLedgerSnapshotV1,
         duration_ms: int,
-    ) -> ProviderStageDispatchAmbiguousV1:
-        try:
-            _, after = self._read_post_dispatch_identity()
-        except Exception as exc:
-            return self._ambiguity_without_snapshot(exc, duration_ms=duration_ms)
-        return self._ambiguity(
-            failure,
-            after=after,
-            duration_ms=duration_ms,
-            receipt=None,
-            disposition="result_boundary_unresolved",
+        disposition: str,
+        failure_class: ProviderStageFailureClass = (
+            ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE
+        ),
+    ) -> ProviderStageNonRetryableFailureV1:
+        metrics = self._closed_metrics(after, duration_ms=duration_ms, receipt=None)
+        return ProviderStageNonRetryableFailureV1(
+            failure_class=failure_class,
+            failure_evidence_sha256=domain_sha256(
+                "cera.provider_stage_local_processing_failure.v1",
+                {
+                    "chain_id": self.binding.chain_id,
+                    "attempt_number": self.binding.attempt_number,
+                    "stage": self.binding.stage.value,
+                    "failure_class": failure_class.value,
+                    "exception_type": _exception_identity(failure),
+                    "ledger_prefix_after_sha256": after.prefix_sha256,
+                    "provider_operations_observed": (metrics.provider_operations_observed),
+                    "disposition": disposition,
+                },
+            ),
+            metrics=metrics,
         )
 
     def _ambiguity(
@@ -679,12 +804,16 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
                     "ledger_prefix_before_sha256": self.ledger_prefix_before_sha256,
                     "ledger_prefix_after_sha256": after.prefix_sha256,
                     "provider_operations_observed": delta,
+                    "maximum_provider_operations": self.maximum_provider_operations,
                 },
             ),
             metrics=ProviderStageAttemptMetricsV1(
                 ledger_prefix_after_sha256=after.prefix_sha256,
                 provider_operations_observed=delta,
-                provider_operations_conservative=max(delta, 1),
+                provider_operations_conservative=max(
+                    delta,
+                    self.maximum_provider_operations,
+                ),
                 duration_ms=(duration_ms if token_receipt is None else token_receipt.duration_ms),
                 input_tokens=(None if token_receipt is None else token_receipt.input_tokens),
                 cached_input_tokens=(
@@ -704,7 +833,7 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
         duration_ms: int,
     ) -> ProviderStageDispatchAmbiguousV1:
         # The last proven durable prefix remains the exact observable prefix.
-        # One conservative operation stays reserved until reconciliation.
+        # The configured per-owner ceiling stays reserved until reconciliation.
         return ProviderStageDispatchAmbiguousV1(
             failure_evidence_sha256=domain_sha256(
                 "cera.provider_stage_ledger_snapshot_ambiguity.v1",
@@ -713,12 +842,13 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
                     "attempt_number": self.binding.attempt_number,
                     "exception_type": _exception_identity(failure),
                     "last_proven_ledger_prefix_sha256": self.ledger_prefix_before_sha256,
+                    "maximum_provider_operations": self.maximum_provider_operations,
                 },
             ),
             metrics=ProviderStageAttemptMetricsV1(
                 ledger_prefix_after_sha256=self.ledger_prefix_before_sha256,
                 provider_operations_observed=0,
-                provider_operations_conservative=1,
+                provider_operations_conservative=self.maximum_provider_operations,
                 duration_ms=duration_ms,
             ),
         )
@@ -869,6 +999,12 @@ class CallableProviderStageAttemptOwnerV1[RequestT, ResultT]:
         if type(started_ns) is not int or type(completed_ns) is not int:
             raise ContractValidationError("provider-stage adapter clock returned an open value")
         return max(0, (completed_ns - started_ns) // 1_000_000)
+
+    def _elapsed_or_zero(self, started_ns: int) -> int:
+        try:
+            return self._elapsed_ms(started_ns)
+        except Exception:
+            return 0
 
 
 def codex_provider_result_receipt_metrics(

@@ -9,13 +9,13 @@ semantic Regenerate, and Replan remain separate identities and DTO families.
 
 | Source | Published DTO | SHA-256 |
 |---|---|---|
-| `schemas/provider_stage_retry/v1/action.schema.json` | `cera.provider_stage_retry_action.v1` | `f8cdcf769ab1e1f17d3034765d23c26cd76cbe916af64d9db1bde15312061bc2` |
+| `schemas/provider_stage_retry/v1/action.schema.json` | `cera.provider_stage_retry_action.v1` | `218097ac12af5a5f89e67135067a99caee28b1f8d2da5d1b0c84bf89d25bab8f` |
 | `schemas/provider_stage_retry/v1/blocked_ambiguous.schema.json` | `cera.provider_stage_retry_blocked_ambiguous.v1` | `64ecb7f614cf82cbcd4e88e89ef0689e7ff13ab0eed553f922b424fc4a8598f9` |
 | `schemas/provider_stage_retry/v1/common.schema.json` | `support schema` | `ace7f2a1bbb3e978d12e1cbbbc860a092d515213697e5a1b5d3f418e6980d233` |
 | `schemas/provider_stage_retry/v1/compatibility_adapter.schema.json` | `cera.provider_stage_retry_compatibility_adapter.v1` | `8d594a711622234dfa6fed64d08218e768a0328c6a31dd1c7d5aabba174a9dff` |
 | `schemas/provider_stage_retry/v1/exhausted.schema.json` | `cera.provider_stage_retry_exhausted.v1` | `53f5e889e8a0e0b68b3ec5dad3a246223bf0e7ae1566216c16fead7ab8df264b` |
-| `schemas/provider_stage_retry/v1/status.schema.json` | `cera.provider_stage_retry_status.v1` | `e87887566d0102012767bce43f1102fa52bf3ee4b66fc49473742b11c0dddcb5` |
-| `schemas/provider_stage_retry/v1/status_envelope.schema.json` | `cera.provider_stage_retry_status_envelope.v1` | `caf257ecbc15cd75647e4de7d6b40711b0b2665fe9a647ef842773f441a30998` |
+| `schemas/provider_stage_retry/v1/status.schema.json` | `cera.provider_stage_retry_status.v1` | `c2935ee88af75dd14ff108641ab6066d408da281fb5faaab48c417704fd1ce34` |
+| `schemas/provider_stage_retry/v1/status_envelope.schema.json` | `cera.provider_stage_retry_status_envelope.v1` | `caa95ad9b3f7201103fd470ed3f89646d07434eb9390cc5ee36a90e801157d45` |
 
 ## `cera.provider_stage_retry_action.v1`
 
@@ -27,7 +27,7 @@ Closed control action for a provider-stage Retry chain. Regenerate and Replan ar
 | `action_id` | yes | action_id | See canonical schema. |
 | `chain_id` | yes | chain_id | See canonical schema. |
 | `action_family` | yes | const `"provider_stage_control"` | Identity boundary separating provider-stage controls from semantic Regenerate and Replan. |
-| `action_kind` | yes | enum `provider_retry`, `check_status`, `repair_recording`, `explicit_recovery` | Requested backend action. Only provider_retry may authorize provider transport. |
+| `action_kind` | yes | enum `provider_retry`, `check_status`, `repair_recording` | Requested backend action. Only provider_retry may authorize provider transport. |
 | `automatic` | yes | closed by schema | Whether provider-free reconciliation may execute without a manual click. |
 | `provider_dispatch_authorized` | yes | closed by schema | True only for a backend-accepted manual provider_retry action. |
 | `consumes_retry_action` | yes | closed by schema | True only when this exact action consumes one of two Retry actions. |

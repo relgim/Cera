@@ -470,10 +470,10 @@ class ProviderStageAttemptV1:
                 )
             )
             or self.provider_operations_observed != 0
-            or self.provider_operations_conservative != 1
+            or self.provider_operations_conservative < 1
         ):
             raise ContractValidationError(
-                "dispatched provider-stage attempt lacks one conservative reservation"
+                "dispatched provider-stage attempt lacks a conservative reservation"
             )
 
     def _require_terminal_common(self, *, require_dispatch: bool = True) -> None:

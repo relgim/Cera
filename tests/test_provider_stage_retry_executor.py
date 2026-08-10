@@ -130,6 +130,10 @@ class _Owner:
     def ledger_prefix_before_sha256(self) -> str:
         return self._ledger_prefix_before_sha256
 
+    @property
+    def maximum_provider_operations(self) -> int:
+        return 1
+
     def prepare(
         self,
         *,
@@ -297,7 +301,28 @@ class ProviderStageRetryExecutorTests(unittest.TestCase):
                         duration_ms=1,
                     )
 
-    def test_pretransport_non_retryable_failure_requires_explicit_recovery(self) -> None:
+    def test_post_operation_retry_failures_reject_zero_operation_metrics(self) -> None:
+        for failure_class in (
+            ProviderStageFailureClass.PROVIDER_STREAM_INCOMPLETE,
+            ProviderStageFailureClass.PROVIDER_COMPLETION_INCOMPLETE,
+            ProviderStageFailureClass.PROVIDER_OUTPUT_INVALID,
+        ):
+            with self.subTest(failure_class=failure_class):
+                with self.assertRaisesRegex(
+                    ContractValidationError,
+                    "lacks an observed provider operation",
+                ):
+                    ProviderStageClosedFailureV1(
+                        failure_class=failure_class,
+                        failure_evidence_sha256=_sha("invalid-zero-operation"),
+                        metrics=_metrics(
+                            "ledger-no-operation",
+                            observed=0,
+                            conservative=0,
+                        ),
+                    )
+
+    def test_pretransport_non_retryable_failure_is_read_only_recovery(self) -> None:
         pretransport = ProviderStagePretransportNonRetryableFailureV1(
             failure_class=ProviderStageFailureClass.PROVIDER_FAILURE_NOT_RETRYABLE,
             failure_evidence_sha256=_sha("pretransport-non-retryable"),
@@ -329,10 +354,7 @@ class ProviderStageRetryExecutorTests(unittest.TestCase):
             envelope["status"]["failure_category"],
             "provider_failure_not_retryable",
         )
-        self.assertEqual(envelope["actions"][0]["action_kind"], "explicit_recovery")
-        self.assertFalse(envelope["actions"][0]["provider_dispatch_authorized"])
-        with self.assertRaises(StateConflictError):
-            self.executor.execute_manual_retry(action=envelope["actions"][0], owner=owner)
+        self.assertEqual(envelope["actions"], [])
 
         replay_owner, replay_dispatch = self._owner(
             "pretransport-must-not-run",
@@ -373,9 +395,7 @@ class ProviderStageRetryExecutorTests(unittest.TestCase):
             envelope["status"]["failure_category"],
             "provider_failure_not_retryable",
         )
-        self.assertEqual(envelope["actions"][0]["action_kind"], "explicit_recovery")
-        self.assertFalse(envelope["actions"][0]["provider_dispatch_authorized"])
-        self.assertFalse(envelope["actions"][0]["consumes_retry_action"])
+        self.assertEqual(envelope["actions"], [])
 
         restarted = ProviderStageRetryExecutorV1(self.store)
         replay_owner, replay_dispatch = self._owner(
@@ -391,11 +411,6 @@ class ProviderStageRetryExecutorTests(unittest.TestCase):
         self.assertEqual(replay, terminal)
         self.assertEqual(replay_owner.prepare_calls, 0)
         self.assertEqual(replay_dispatch.invoke_calls, 0)
-        with self.assertRaises(StateConflictError):
-            restarted.execute_manual_retry(
-                action=envelope["actions"][0],
-                owner=replay_owner,
-            )
 
     def test_pre_attempt_authority_conflict_projects_zero_attempt_recovery(self) -> None:
         chain = self.store.begin(self.scope.identity, self.packet.exact_bytes)
@@ -410,7 +425,7 @@ class ProviderStageRetryExecutorTests(unittest.TestCase):
         self.assertEqual(envelope["status"]["stage_attempts_total"], 0)
         self.assertEqual(envelope["status"]["retry_actions_accepted"], 0)
         self.assertEqual(envelope["status"]["failure_category"], "authority_changed")
-        self.assertEqual(envelope["actions"][0]["action_kind"], "explicit_recovery")
+        self.assertEqual(envelope["actions"], [])
 
     def test_manual_retry_is_idempotent_and_backend_forbids_attempt_four(self) -> None:
         owner1, _ = self._owner("attempt-1", "ledger-0", _failure("one", "ledger-1"))
@@ -459,7 +474,7 @@ class ProviderStageRetryExecutorTests(unittest.TestCase):
         self.assertEqual(dispatch3.invoke_calls, 1)
         envelope = self.executor.status_envelope(self.scope)
         self.assertEqual(envelope["status"]["state"], "attempts_exhausted")
-        self.assertEqual(envelope["actions"][0]["action_kind"], "explicit_recovery")
+        self.assertEqual(envelope["actions"], [])
 
         forged_fourth = dict(action2)
         forged_fourth["retry_action_ordinal"] = 3
@@ -539,6 +554,40 @@ class ProviderStageRetryExecutorTests(unittest.TestCase):
             self.executor.status_envelope(self.scope)["status"]["state"],
             "succeeded",
         )
+
+    def test_ambiguity_reconciles_to_known_non_retry_without_retry_action(self) -> None:
+        owner, dispatch = self._owner(
+            "attempt-1",
+            "ledger-0",
+            ProviderStageDispatchAmbiguousV1(
+                failure_evidence_sha256=_sha("ambiguous-non-retry"),
+                metrics=_metrics("ledger-ambiguous", observed=0, conservative=1),
+            ),
+        )
+        blocked = self.executor.execute_initial(
+            scope=self.scope,
+            packet=self.packet,
+            owner=owner,
+        )
+        check_status = self.executor.status_envelope(self.scope)["actions"][0]
+        resolved = self.executor.reconcile_ambiguous(
+            action=check_status,
+            resolution=ProviderStageAmbiguityResolutionV1(
+                resolution_evidence_sha256=_sha("known-non-retry-resolution"),
+                disposition=ProviderStageNonRetryableFailureV1(
+                    failure_class=ProviderStageFailureClass.AUTHENTICATION_FAILED,
+                    failure_evidence_sha256=_sha("authentication-failed"),
+                    metrics=_metrics("ledger-closed", observed=0, conservative=0),
+                ),
+            ),
+        )
+
+        self.assertIs(blocked.phase, ProviderStageRetryPhase.BLOCKED_AMBIGUOUS)
+        self.assertIs(resolved.phase, ProviderStageRetryPhase.RECOVERY_REQUIRED)
+        self.assertEqual(dispatch.invoke_calls, 1)
+        envelope = self.executor.status_envelope(self.scope)
+        self.assertEqual(envelope["status"]["failure_category"], "authentication_failed")
+        self.assertEqual(envelope["actions"], [])
 
     def test_semantic_rejection_is_a_successful_provider_result_not_retry(self) -> None:
         result = _success(

@@ -74,7 +74,7 @@ it never posts that action. `recording_repair_required` carries only
 authority instead of the provider-stage POST. The immutable repair envelope is
 cleared only when that separate authority returns `recording_status=complete`;
 the UI does not fabricate completion through a generic GET. A known non-Retry
-terminal carries only `recovery_required` plus `explicit_recovery`; it never
+terminal carries read-only `recovery_required` with no generic action; it never
 offers or redispatches provider Retry. Regenerate and Replan remain separate
 review actions and cannot validate as provider-stage actions. The legacy
 `transport_retry` contract below is a Planner compatibility adapter, not the

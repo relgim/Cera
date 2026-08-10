@@ -263,6 +263,7 @@ class ProviderStageRetryStoreTests(unittest.TestCase):
             chain_id,
             attempt_number=attempt_number,
             dispatch_evidence_sha256=_sha(f"dispatch:{attempt_number}"),
+            maximum_provider_operations=1,
         )
 
     @staticmethod
@@ -438,6 +439,7 @@ class ProviderStageRetryStoreTests(unittest.TestCase):
                     chain_id,
                     attempt_number=1,
                     dispatch_evidence_sha256=_sha("dispatch:1"),
+                    maximum_provider_operations=1,
                 )
         self.assertEqual(
             self._controller().status(chain_id).phase,
@@ -447,6 +449,7 @@ class ProviderStageRetryStoreTests(unittest.TestCase):
             chain_id,
             attempt_number=1,
             dispatch_evidence_sha256=_sha("dispatch:1"),
+            maximum_provider_operations=1,
         )
         self.assertEqual(recovered.phase, ProviderStageRetryPhase.DISPATCH_STARTED)
         states = self._chain_root(chain_id) / "STATES"
@@ -472,6 +475,7 @@ class ProviderStageRetryStoreTests(unittest.TestCase):
             chain_id,
             attempt_number=1,
             dispatch_evidence_sha256=_sha("dispatch:1"),
+            maximum_provider_operations=1,
         )
         self.assertEqual(
             self._controller().recover(chain_id).action,
