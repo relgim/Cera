@@ -63,6 +63,11 @@ from cera.pi_scene.http_contracts import (
 from cera.pi_scene.operation_ledger import PiProviderOperationLedger
 from cera.pi_scene.pi_adapter import PiSceneAdapter
 from cera.pi_scene.planner_state import PlannerThreadStateStore
+from cera.pi_scene.provider_stage_retry_assembly import (
+    OrdinaryStageProviderPortsV1,
+    ProviderStageRetryProductionAssemblyV1,
+    build_provider_stage_retry_production_assembly,
+)
 from cera.pi_scene.readable_debug import ReadablePiSceneDebugLog
 from cera.pi_scene.request_journal import PiSceneRequestBindingV1
 from cera.pi_scene.review_store import LeanSceneTurnInputV1
@@ -114,6 +119,7 @@ class LivePiSceneRuntime:
     readable_debug: ReadablePiSceneDebugLog
     world_resolver: PiSceneChatWorldResolver
     full_model_controller: FullModelSceneController
+    provider_stage_retry: ProviderStageRetryProductionAssemblyV1 | None
     transport_retry_reinitializer: Callable[
         [PiSceneRequestBindingV1, LeanSceneTurnInputV1, str, str],
         None,
@@ -451,6 +457,7 @@ def build_live_runtime(
             scope_root=runtime_root / "chat_scopes",
             base_seed=initial_hanezawa_doorway_seed(),
         )
+        planner_backends: dict[tuple[str, str], Any] = {}
 
         def build_planner(
             session_id: str,
@@ -500,6 +507,7 @@ def build_live_runtime(
                     route_id=(f"cera_pi_scene_cognition_{backend.route.model_name}_{effort}_v1"),
                     reasoning_effort=effort,
                 )
+            planner_backends[(session_id, effort)] = backend
             session = selected_session_factory(session_id, effort, backend)
             return RetrievalDirectedCognitionPlanner(
                 RetainedCognitionPlannerAdapter(
@@ -620,6 +628,41 @@ def build_live_runtime(
                 return "injected_smoke_recorder_failure"
             return None
 
+        def planner_provider_result(turn: LeanSceneTurnInputV1) -> Any:
+            controls = turn.request_controls
+            if controls is None:
+                raise StateConflictError("Planner Retry receipt lost request controls")
+            backend = planner_backends.get((controls.session_id, controls.reasoning_effort))
+            result = None if backend is None else getattr(backend, "last_provider_result", None)
+            if result is None:
+                raise StateConflictError("Planner Retry receipt is unavailable")
+            return result
+
+        def luna_provider_result() -> Any:
+            result = getattr(luna_backend, "last_provider_result", None)
+            if result is None:
+                raise StateConflictError("Luna Retry receipt is unavailable")
+            return result
+
+        provider_stage_retry = (
+            build_provider_stage_retry_production_assembly(
+                runtime_root=runtime_root,
+                scene_store=store,
+                sol_ledger=sol_ledger,
+                pi_adapter=pi,
+                ordinary_ports=OrdinaryStageProviderPortsV1(
+                    resolve_planner=planner_registry.resolve,
+                    planner_active_thread_sha256=(planner_registry.active_thread_sha256),
+                    retire_planner_thread=(planner_registry.reset_after_transport_failure),
+                    planner_provider_result=planner_provider_result,
+                    semantic_validator=semantic_validator,
+                    luna_provider_result=luna_provider_result,
+                ),
+            )
+            if type(pi) is PiSceneAdapter
+            else None
+        )
+
         coordinator = LeanPiSceneCoordinator(
             store=store,
             planner=_ResolverOnlyOrdinaryPlanner(),
@@ -629,6 +672,9 @@ def build_live_runtime(
             recording_fault_injector=fault,
             planner_resolver=planner_registry.resolve,
             semantic_validator=semantic_validator,
+            ordinary_stage_retry=(
+                None if provider_stage_retry is None else provider_stage_retry.ordinary
+            ),
         )
         adult_runtime = FullModelAdultRuntimeFactory(
             store=store,
@@ -636,16 +682,42 @@ def build_live_runtime(
             catalog_root=ROOT / "adult" / "catalog" / "adult_craft_v1",
             protected_runtime_root=runtime_root / "protected_adult",
         )
+
+        def adult_orchestrator(
+            turn: LeanSceneTurnInputV1,
+            request_id: str,
+            candidate_id: str,
+        ) -> Any:
+            wrapped = adult_runtime.orchestrator(turn, request_id, candidate_id)
+            return (
+                wrapped
+                if provider_stage_retry is None
+                else provider_stage_retry.wrap_adult_orchestrator(wrapped, turn)
+            )
+
+        def adult_regeneration_executor(
+            prepared: Any,
+            frozen_turn: LeanSceneTurnInputV1,
+        ) -> Any:
+            if provider_stage_retry is None:
+                return adult_runtime.regeneration_executor(prepared, frozen_turn)
+            return provider_stage_retry.execute_adult_regeneration(
+                prepared=prepared,
+                frozen_turn=frozen_turn,
+            )
+
         full_model_controller = FullModelSceneController(
             ordinary=coordinator,
             store=store,
-            adult_orchestrator_factory=adult_runtime.orchestrator,
+            adult_orchestrator_factory=adult_orchestrator,
             adult_context_provider=adult_runtime.execution_context,
-            adult_regeneration_executor=adult_runtime.regeneration_executor,
+            adult_regeneration_executor=adult_regeneration_executor,
             adult_operation_controller_factory=lambda: ProtectedAdultOperationController(
                 ProtectedAdultOperationStore(runtime_root / "protected_adult")
             ),
         )
+        if provider_stage_retry is not None:
+            provider_stage_retry.bind_full_model_controller(full_model_controller)
         return LivePiSceneRuntime(
             stack=stack,
             coordinator=coordinator,
@@ -655,6 +727,7 @@ def build_live_runtime(
             readable_debug=readable_debug,
             world_resolver=world_resolver,
             full_model_controller=full_model_controller,
+            provider_stage_retry=provider_stage_retry,
             transport_retry_reinitializer=reinitialize_transport_owner,
             transport_provider_ledger_snapshot=transport_provider_ledger_snapshot,
             transport_retry_active_thread_snapshot=(transport_retry_active_thread_snapshot),
@@ -947,6 +1020,10 @@ def run_live_smoke(
         st_origin = f"http://127.0.0.1:{st_port}"
         st_process = _start_isolated_sillytavern(isolated_st_root, port=st_port)
         context = AcceptedBranchContextProvider(runtime.store, initial_hana_seed())
+        provider_stage_retry = getattr(runtime, "provider_stage_retry", None)
+        retry_http_kwargs = (
+            {} if provider_stage_retry is None else provider_stage_retry.http_adapter_kwargs()
+        )
         adapter = PiSceneHttpAdapter(
             coordinator=runtime.coordinator,
             session_id=session_id,
@@ -964,7 +1041,10 @@ def run_live_smoke(
                 runtime.transport_retry_fresh_thread_initializer
             ),
             transport_completed_planner_abandoner=(runtime.transport_completed_planner_abandoner),
+            **retry_http_kwargs,
         )
+        if provider_stage_retry is not None:
+            provider_stage_retry.bind_http_adapter(adapter)
         server = build_pi_scene_server(
             adapter,
             PiSceneServerConfigV1(
@@ -1338,6 +1418,10 @@ def serve(
         deepseek_per_invocation_ceiling=deepseek_per_invocation_ceiling,
         seed_runtime_root=resume_from_runtime_root,
     )
+    provider_stage_retry = getattr(runtime, "provider_stage_retry", None)
+    retry_http_kwargs = (
+        {} if provider_stage_retry is None else provider_stage_retry.http_adapter_kwargs()
+    )
     adapter = PiSceneHttpAdapter(
         coordinator=runtime.coordinator,
         request_context_provider=build_session_context_provider(
@@ -1376,7 +1460,10 @@ def serve(
             "transport_completed_planner_abandoner",
             None,
         ),
+        **retry_http_kwargs,
     )
+    if provider_stage_retry is not None:
+        provider_stage_retry.bind_http_adapter(adapter)
     readable_debug_root = getattr(
         runtime.readable_debug,
         "root",

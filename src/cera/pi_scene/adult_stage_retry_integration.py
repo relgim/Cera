@@ -646,17 +646,32 @@ class AdultStageRetryContinuationServiceV1:
         *,
         prepared: PreparedAdultRouteOperationV1,
         source: AdultStageRetryExecutionInputV1,
+        before_stage_dispatch: Callable[
+            [ProviderStageRetryOccurrenceScopeV1, ProviderStageFrozenPacketV1],
+            None,
+        ]
+        | None = None,
     ) -> AdultStageRetryProgressV1:
         """Freeze operation/source custody, then explicitly advance the pipeline."""
 
         with self._lock:
             self._validate_source(prepared, source)
             self.operation_store.begin(prepared)
-            return self._continue(prepared, source)
+            return self._continue(
+                prepared,
+                source,
+                before_stage_dispatch=before_stage_dispatch,
+            )
 
     def execute_action(
         self,
         action: object,
+        *,
+        before_stage_dispatch: Callable[
+            [ProviderStageRetryOccurrenceScopeV1, ProviderStageFrozenPacketV1],
+            None,
+        ]
+        | None = None,
     ) -> AdultStageRetryProgressV1:
         """Execute one exact manual provider Retry, then continue from protected source."""
 
@@ -668,11 +683,21 @@ class AdultStageRetryContinuationServiceV1:
             source = self.source_for_chain(chain_id)
             prepared = self._prepared_for_chain(chain_id)
             self.runtime.execute_manual_retry(validated)
-            return self._continue(prepared, source)
+            return self._continue(
+                prepared,
+                source,
+                before_stage_dispatch=before_stage_dispatch,
+            )
 
     def resume_succeeded_chain(
         self,
         chain_id: str,
+        *,
+        before_stage_dispatch: Callable[
+            [ProviderStageRetryOccurrenceScopeV1, ProviderStageFrozenPacketV1],
+            None,
+        ]
+        | None = None,
     ) -> AdultStageRetryProgressV1:
         """Explicitly continue forward progress; never accept another Retry attempt."""
 
@@ -681,7 +706,11 @@ class AdultStageRetryContinuationServiceV1:
             self.runtime.recover_incomplete(latest)
             source = self.source_for_chain(latest)
             prepared = self._prepared_for_chain(latest)
-            return self._continue(prepared, source)
+            return self._continue(
+                prepared,
+                source,
+                before_stage_dispatch=before_stage_dispatch,
+            )
 
     def status(self, chain_id: str) -> ProviderStageRetryStatusEnvelopeV1:
         """Provider-free GET seam, including interrupted-dispatch reconciliation."""
@@ -764,6 +793,12 @@ class AdultStageRetryContinuationServiceV1:
         self,
         prepared: PreparedAdultRouteOperationV1,
         source: AdultStageRetryExecutionInputV1,
+        *,
+        before_stage_dispatch: Callable[
+            [ProviderStageRetryOccurrenceScopeV1, ProviderStageFrozenPacketV1],
+            None,
+        ]
+        | None = None,
     ) -> AdultStageRetryProgressV1:
         scene_packet = self.packets.scene_packet(source)
         scene_scope = self.packets.scope(source, scene_packet)
@@ -795,9 +830,17 @@ class AdultStageRetryContinuationServiceV1:
                 successor_filter_chain_id=scope.identity.chain_id,
             )
 
+        def freeze_bind_and_notify(
+            scope: ProviderStageRetryOccurrenceScopeV1,
+            packet: ProviderStageFrozenPacketV1,
+        ) -> None:
+            freeze_and_bind(scope, packet)
+            if before_stage_dispatch is not None:
+                before_stage_dispatch(scope, packet)
+
         progress = self._coordinator.execute_or_continue(
             source,
-            before_stage_dispatch=freeze_and_bind,
+            before_stage_dispatch=freeze_bind_and_notify,
         )
         if progress.execution is not None:
             self._bind_terminal(prepared, progress)
