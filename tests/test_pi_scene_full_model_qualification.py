@@ -73,6 +73,7 @@ class _FakeQualificationClient:
         reject_fixture_id: str | None = None,
         automatic_repair_fixture_id: str | None = None,
         planner_durations_ms: tuple[int, ...] = (),
+        planner_session_identities: tuple[str, ...] = (),
     ) -> None:
         self.runtime_root = runtime_root
         self.runtime_root.mkdir(parents=True, exist_ok=True)
@@ -80,6 +81,7 @@ class _FakeQualificationClient:
         self.reject_fixture_id = reject_fixture_id
         self.automatic_repair_fixture_id = automatic_repair_fixture_id
         self.planner_durations_ms = planner_durations_ms
+        self.planner_session_identities = planner_session_identities
         self.planner_duration_index = 0
         self.rejected = False
         self.calls = 0
@@ -179,9 +181,13 @@ class _FakeQualificationClient:
         call_id = f"call-{len(existing) + 1}-{owner}"
         started = datetime.now(UTC)
         duration_ms = 0
+        stored_thread_sha256 = "d" * 64
         if owner == "planner":
-            if self.planner_duration_index < len(self.planner_durations_ms):
-                duration_ms = self.planner_durations_ms[self.planner_duration_index]
+            planner_index = self.planner_duration_index
+            if planner_index < len(self.planner_durations_ms):
+                duration_ms = self.planner_durations_ms[planner_index]
+            if planner_index < len(self.planner_session_identities):
+                stored_thread_sha256 = self.planner_session_identities[planner_index]
             self.planner_duration_index += 1
         for state in ("transport_invoked", "provider_completed"):
             timestamp = (
@@ -197,7 +203,7 @@ class _FakeQualificationClient:
                 "state": state,
                 "route": "fake",
                 "model": "gpt-5.6-luna" if owner == "validator" else "gpt-5.6-sol",
-                "stored_thread_sha256": "d" * 64,
+                "stored_thread_sha256": stored_thread_sha256,
                 "provider_receipt_sha256": "e" * 64,
                 "recorded_at_utc": timestamp,
             }
@@ -596,11 +602,67 @@ class FullModelQualificationTests(unittest.TestCase):
                 {
                     "cold_start_latency_ms": 420_000,
                     "retained_concern_threshold_ms": 180_000,
+                    "cold_rehydration_calls": 0,
+                    "maximum_cold_rehydration_latency_ms": None,
                     "retained_planner_calls": 11,
                     "retained_latency_concern_count": 1,
                     "maximum_retained_latency_ms": 180_000,
                 },
             )
+
+    def test_planner_thread_rotation_is_cold_then_retained_at_inclusive_threshold(
+        self,
+    ) -> None:
+        fixtures = load_qualification_fixtures(FIXTURES)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            runtime = root / "runtime"
+            initial_thread = "d" * 64
+            replacement_thread = "f" * 64
+            result = FullModelQualificationRunner(
+                manifest=_manifest(),
+                runtime_root=runtime,
+                evidence_root=root / "evidence",
+            ).run_phase(
+                QualificationPhase.BACKEND,
+                fixtures,
+                _FakeQualificationClient(
+                    runtime,
+                    planner_durations_ms=(420_000, 179_999, 240_000, 180_000),
+                    planner_session_identities=(
+                        initial_thread,
+                        initial_thread,
+                        *(replacement_thread for _ in range(10)),
+                    ),
+                ),
+            )
+
+            observations = [
+                observation for row in result["results"] for observation in row["planner_latency"]
+            ]
+            self.assertEqual(
+                [value["latency_class"] for value in observations[:4]],
+                [
+                    "cold_start",
+                    "retained_within_target",
+                    "cold_rehydration",
+                    "retained_latency_concern",
+                ],
+            )
+            self.assertEqual(
+                [value["planner_thread_call_index"] for value in observations[:4]],
+                [1, 2, 1, 2],
+            )
+            self.assertTrue(observations[2]["cold_start"])
+            self.assertTrue(observations[2]["rehydrated_after_thread_rotation"])
+            self.assertFalse(observations[2]["retained_latency_concern"])
+            self.assertTrue(observations[3]["retained_latency_concern"])
+            self.assertEqual(result["planner_latency_summary"]["cold_rehydration_calls"], 1)
+            self.assertEqual(
+                result["planner_latency_summary"]["maximum_cold_rehydration_latency_ms"],
+                240_000,
+            )
+            self.assertEqual(result["planner_latency_summary"]["retained_planner_calls"], 10)
 
     def test_one_noncritical_rejection_allows_one_explicit_regenerate(self) -> None:
         fixtures = load_qualification_fixtures(FIXTURES)
@@ -714,6 +776,19 @@ class FullModelQualificationTests(unittest.TestCase):
             self.assertEqual(result["restart_count"], 1)
             self.assertEqual(result["retained_conversation_messages"], 20)
             self.assertEqual(client.calls, 10)
+            post_restart = [
+                observation
+                for row in result["results"]
+                if row["turn_index"] > 5
+                for observation in row["planner_latency"]
+            ]
+            self.assertTrue(post_restart)
+            self.assertTrue(all(value["cold_start"] is False for value in post_restart))
+            self.assertTrue(
+                all(value["rehydrated_after_thread_rotation"] is False for value in post_restart)
+            )
+            self.assertEqual(post_restart[0]["planner_call_index"], 5)
+            self.assertEqual(post_restart[0]["planner_thread_call_index"], 5)
 
     def test_manifest_verification_fails_closed_after_artifact_drift(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -959,9 +1034,9 @@ class FullModelQualificationTests(unittest.TestCase):
             self.assertIn("window.ceraCaptureCompletionMetadata(data.cera)", openai)
             self.assertEqual(openai.count("window.ceraCaptureTransportFailure(data)"), 1)
             self.assertNotIn("data?.cera?.provisional", openai)
-            backend = (
-                target / "src/endpoints/backends/chat-completions.js"
-            ).read_text(encoding="utf-8")
+            backend = (target / "src/endpoints/backends/chat-completions.js").read_text(
+                encoding="utf-8"
+            )
             self.assertIn("CERA_PROVIDER_TRANSPORT_FAILED", backend)
             self.assertIn("ceraTransportRetryError", backend)
             self.assertNotIn("debug_log_path", backend)

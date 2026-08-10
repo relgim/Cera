@@ -1416,15 +1416,18 @@ Material decisions should remain semantically stable.
 
 ### 15.1 Latency target
 
-For an existing retained Codex session, the ordinary logic path target is no
-more than three minutes under the chosen quality configuration. Testing must not
+For an existing retained Codex session, the ordinary logic path target is under
+three minutes under the chosen quality configuration. Testing must not
 lower effort, simplify the cognition protocol, or alter model settings merely
 to satisfy that target.
 
-The first Planner operation in each new chat/session is a separate cold-start
-class. It is expected to be the longest because it establishes the retained
-provider context and first world/evidence cache. It must be reported separately
-and must not be used to classify later retained-session performance.
+The first Planner operation on each physical provider thread is a separate
+cold class. The first thread in a new chat/session is a cold start; a replacement
+thread created after a proven transport failure is a cold rehydration. Both are
+expected to be longer because they establish retained provider context and a
+world/evidence cache. They must be reported separately and must not be used to
+classify later retained-thread performance. A backend-process restart that
+resumes the same physical thread remains retained.
 
 A second or later retained Planner operation at or above 180 seconds is a
 latency concern. CERA records the owning stage, retrieval activity, cache/token

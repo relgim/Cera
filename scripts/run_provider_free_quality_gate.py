@@ -37,6 +37,7 @@ _FORMAT_TARGETS = (
     "scripts/run_provider_free_quality_gate.py",
     "src/cera/provider_dispatch_guard.py",
     "src/cera/cognition",
+    "src/cera/pi_scene/qualification.py",
     "src/cera/semantic_validation",
     "tests/test_cognition_contracts.py",
     "tests/test_cognition_provider.py",

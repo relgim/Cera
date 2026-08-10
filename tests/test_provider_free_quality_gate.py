@@ -39,6 +39,11 @@ class ProviderFreeQualityGateTests(unittest.TestCase):
         module = _load_runner()
         self.assertGreater(module._compile_python(), 350)
 
+    def test_latency_qualification_source_is_format_and_lint_checked(self) -> None:
+        module = _load_runner()
+        self.assertIn("src/cera/pi_scene/qualification.py", module._FORMAT_TARGETS)
+        self.assertEqual(module._LINT_TARGETS, module._FORMAT_TARGETS)
+
 
 if __name__ == "__main__":
     unittest.main()

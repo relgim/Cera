@@ -42,10 +42,10 @@ DEEPSEEK_HTTP_OPERATION_CEILING = 480
 DEEPSEEK_PER_INVOCATION_CEILING = 6
 TERRA_CEILING = 0
 
-# The first retained Planner operation hydrates the world/context cache and is
-# reported separately.  Later Planner calls are still allowed to finish within
-# their hard transport bound, but three minutes is a diagnostic concern that
-# should be visible in qualification evidence.
+# The first Planner operation on each physical thread hydrates world/context
+# state and is reported separately, including a fresh thread after transport
+# recovery. Later retained calls may finish within their hard transport bound,
+# but three minutes is a diagnostic concern visible in qualification evidence.
 RETAINED_PLANNER_LATENCY_CONCERN_MS = 180_000
 
 EXPECTED_PHASE_COUNTS: Mapping[str, Mapping[str, int]] = {
@@ -84,9 +84,7 @@ class QualificationFixtureV1:
                 self.initial_route is not QualificationRoute.ORDINARY
                 or self.expected_next_route is not QualificationRoute.ORDINARY
             ):
-                raise ContractValidationError(
-                    "ordinary qualification changed route ownership"
-                )
+                raise ContractValidationError("ordinary qualification changed route ownership")
             if self.adult_craft_mode != "off":
                 raise ContractValidationError("ordinary qualification enabled adult craft")
         elif self.adult_craft_mode == "off":
@@ -305,6 +303,7 @@ class QualificationCampaignRun:
         self.deepseek_cached_input_tokens = 0
         self.deepseek_input_tokens = 0
         self.planner_operation_count = 0
+        self.planner_thread_operation_counts: dict[str, int] = {}
         self.restart_count = 0
 
     def run_segment(
@@ -357,10 +356,7 @@ class QualificationCampaignRun:
                     }
                 )
                 first = _classify_completion_response(fixture, response)
-                first_pass = (
-                    isinstance(first, Mapping)
-                    and first["first_pass_accepted"] is True
-                )
+                first_pass = isinstance(first, Mapping) and first["first_pass_accepted"] is True
                 regeneration: ClientResponseV1 | None = None
                 projections: list[Mapping[str, Any]] = []
                 projection: Mapping[str, Any]
@@ -446,12 +442,8 @@ class QualificationCampaignRun:
                     "source_sha256": text_sha256(fixture.user_source),
                     "status": "passed",
                     "first_pass_accepted": first_pass,
-                    "explicit_regenerate_actions": (
-                        0 if regeneration is None else 1
-                    ),
-                    "automatic_repair_actions": projection[
-                        "automatic_repair_actions"
-                    ],
+                    "explicit_regenerate_actions": (0 if regeneration is None else 1),
+                    "automatic_repair_actions": projection["automatic_repair_actions"],
                     "first_pass_response_sha256": canonical_sha256(response.body),
                     "response_sha256": canonical_sha256(accepted_response.body),
                     "visible_prose_sha256": projection["visible_prose_sha256"],
@@ -526,20 +518,36 @@ class QualificationCampaignRun:
         self,
         operation_records: Sequence[Mapping[str, Any]],
     ) -> list[dict[str, Any]]:
-        observations: list[dict[str, Any]] = []
-        for operation in operation_records:
-            if (
-                operation.get("provider_family") != "sol"
-                or operation.get("owner") != "planner"
-            ):
-                continue
-            self.planner_operation_count += 1
+        planner_operations = [
+            operation
+            for operation in operation_records
+            if operation.get("provider_family") == "sol" and operation.get("owner") == "planner"
+        ]
+        for operation in planner_operations:
+            session_identity_sha256 = operation.get("session_identity_sha256")
             duration_ms = operation.get("duration_ms")
-            if duration_ms is not None and (
-                type(duration_ms) is not int or duration_ms < 0
+            if not isinstance(session_identity_sha256, str) or not re_is_sha256(
+                session_identity_sha256
             ):
+                raise StateConflictError("qualification Planner session identity is invalid")
+            if duration_ms is not None and (type(duration_ms) is not int or duration_ms < 0):
                 raise StateConflictError("qualification Planner duration is invalid")
-            cold_start = self.planner_operation_count == 1
+
+        observations: list[dict[str, Any]] = []
+        for operation in planner_operations:
+            session_identity_sha256 = cast(str, operation["session_identity_sha256"])
+            self.planner_operation_count += 1
+            planner_thread_call_index = (
+                self.planner_thread_operation_counts.get(session_identity_sha256, 0) + 1
+            )
+            rehydrated_after_thread_rotation = planner_thread_call_index == 1 and bool(
+                self.planner_thread_operation_counts
+            )
+            self.planner_thread_operation_counts[session_identity_sha256] = (
+                planner_thread_call_index
+            )
+            duration_ms = operation.get("duration_ms")
+            cold_start = planner_thread_call_index == 1
             retained_concern = (
                 not cold_start
                 and type(duration_ms) is int
@@ -548,9 +556,11 @@ class QualificationCampaignRun:
             observations.append(
                 {
                     "planner_call_index": self.planner_operation_count,
+                    "planner_thread_call_index": planner_thread_call_index,
+                    "session_identity_sha256": session_identity_sha256,
                     "duration_ms": duration_ms,
                     "latency_class": (
-                        "cold_start"
+                        ("cold_rehydration" if rehydrated_after_thread_rotation else "cold_start")
                         if cold_start
                         else (
                             "retained_latency_concern"
@@ -559,10 +569,9 @@ class QualificationCampaignRun:
                         )
                     ),
                     "cold_start": cold_start,
+                    "rehydrated_after_thread_rotation": (rehydrated_after_thread_rotation),
                     "retained_latency_concern": retained_concern,
-                    "retained_concern_threshold_ms": (
-                        RETAINED_PLANNER_LATENCY_CONCERN_MS
-                    ),
+                    "retained_concern_threshold_ms": (RETAINED_PLANNER_LATENCY_CONCERN_MS),
                 }
             )
         return observations
@@ -585,7 +594,12 @@ class QualificationCampaignRun:
         retained_latencies = [
             observation["duration_ms"]
             for observation in planner_latency
-            if observation["cold_start"] is False
+            if observation["cold_start"] is False and type(observation["duration_ms"]) is int
+        ]
+        rehydration_latencies = [
+            observation["duration_ms"]
+            for observation in planner_latency
+            if observation["rehydrated_after_thread_rotation"] is True
             and type(observation["duration_ms"]) is int
         ]
         passed = (
@@ -606,8 +620,7 @@ class QualificationCampaignRun:
                 int(value.get("explicit_regenerate_actions", 0)) for value in self.results
             ),
             "automatic_repair_actions": sum(
-                int(value.get("automatic_repair_actions", 0))
-                for value in self.results
+                int(value.get("automatic_repair_actions", 0)) for value in self.results
             ),
             "sequential_session_id_sha256": text_sha256(self.session_id),
             "retained_conversation_messages": len(self.history),
@@ -618,12 +631,16 @@ class QualificationCampaignRun:
             "deepseek_input_tokens": self.deepseek_input_tokens,
             "planner_latency_summary": {
                 "cold_start_latency_ms": cold_start_latency,
-                "retained_concern_threshold_ms": (
-                    RETAINED_PLANNER_LATENCY_CONCERN_MS
+                "retained_concern_threshold_ms": (RETAINED_PLANNER_LATENCY_CONCERN_MS),
+                "cold_rehydration_calls": sum(
+                    observation["rehydrated_after_thread_rotation"] is True
+                    for observation in planner_latency
+                ),
+                "maximum_cold_rehydration_latency_ms": (
+                    max(rehydration_latencies) if rehydration_latencies else None
                 ),
                 "retained_planner_calls": sum(
-                    observation["cold_start"] is False
-                    for observation in planner_latency
+                    observation["cold_start"] is False for observation in planner_latency
                 ),
                 "retained_latency_concern_count": sum(
                     observation["retained_latency_concern"] is True
@@ -676,9 +693,7 @@ def load_qualification_fixtures(path: Path) -> tuple[QualificationFixtureV1, ...
                 phase=QualificationPhase(str(value["phase"])),
                 initial_route=QualificationRoute(str(value["initial_route"])),
                 expected_route=QualificationRoute(str(value["expected_route"])),
-                expected_next_route=QualificationRoute(
-                    str(value["expected_next_route"])
-                ),
+                expected_next_route=QualificationRoute(str(value["expected_next_route"])),
                 adult_craft_mode=str(value["adult_craft_mode"]),
                 user_source=str(value["user_source"]),
             )
@@ -986,8 +1001,7 @@ def _adult_repair_count(cera: Mapping[str, Any]) -> int:
         if not isinstance(attempt, Mapping) or set(attempt) != expected_fields:
             raise StateConflictError("adult qualification repair trace shape changed")
         if (
-            re.fullmatch(r"review-[a-f0-9]{28}", str(attempt["public_review_id"]))
-            is None
+            re.fullmatch(r"review-[a-f0-9]{28}", str(attempt["public_review_id"])) is None
             or attempt["conflict_class"] not in critical_classes
             or not re_is_sha256(str(attempt["operation_sha256"]))
             or not re_is_sha256(str(attempt["outcome_sha256"]))
@@ -1000,9 +1014,7 @@ def _adult_repair_count(cera: Mapping[str, Any]) -> int:
         ):
             value = attempt[field_name]
             if type(value) is not int or value < 0:
-                raise StateConflictError(
-                    "adult qualification repair operation count is invalid"
-                )
+                raise StateConflictError("adult qualification repair operation count is invalid")
     return len(attempts)
 
 
@@ -1021,8 +1033,8 @@ def _ordinary_attempt_trace(
             ("semantic_pass",)
             if len(attempts) == 1
             else (
-            "semantic_rejected",
-            "semantic_pass",
+                "semantic_rejected",
+                "semantic_pass",
             )
         )
     else:
@@ -1048,8 +1060,7 @@ def _ordinary_attempt_trace(
             attempt["attempt_number"] != index
             or attempt["disposition"] != disposition
             or not isinstance(candidate_id, str)
-            or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{2,239}", candidate_id)
-            is None
+            or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._:-]{2,239}", candidate_id) is None
             or not isinstance(attempt_operations, Mapping)
             or set(attempt_operations) != {"planner", "writer", "validator"}
         ):
@@ -1167,9 +1178,7 @@ def _validate_completion_response(
         if set(operations) != required:
             raise StateConflictError("adult qualification operation projection changed")
         expected_planner = (
-            0
-            if regenerated or fixture.initial_route is QualificationRoute.ADULT
-            else 1
+            0 if regenerated or fixture.initial_route is QualificationRoute.ADULT else 1
         )
         if (
             operations["planner"] != expected_planner
@@ -1192,9 +1201,7 @@ def _validate_completion_response(
         ):
             raise StateConflictError("adult qualification candidate binding is missing")
         creator_trace = cera.get("creator_trace")
-        recording = (
-            creator_trace.get("recording") if isinstance(creator_trace, Mapping) else None
-        )
+        recording = creator_trace.get("recording") if isinstance(creator_trace, Mapping) else None
         if not isinstance(recording, Mapping) or dict(recording) != {
             "status": "complete_preaccept_filter",
             "recorder_required": False,
@@ -1287,8 +1294,7 @@ def _classify_completion_response(
             ) from exc
         if fixture.expected_route is QualificationRoute.ORDINARY:
             if (
-                set(operations)
-                != {"planner", "writer", "validator", "recorder"}
+                set(operations) != {"planner", "writer", "validator", "recorder"}
                 or operations["writer"] < 1
                 or operations["validator"] != 1
                 or operations["recorder"] != 0
@@ -1303,12 +1309,9 @@ def _classify_completion_response(
                 accepted=False,
             )
         else:
-            expected_planner = (
-                1 if fixture.initial_route is QualificationRoute.ORDINARY else 0
-            )
+            expected_planner = 1 if fixture.initial_route is QualificationRoute.ORDINARY else 0
             if (
-                set(operations)
-                != {"planner", "adult_scene", "adult_filter", "recorder"}
+                set(operations) != {"planner", "adult_scene", "adult_filter", "recorder"}
                 or operations["planner"] != expected_planner
                 or operations["adult_scene"] < 1
                 or operations["adult_filter"] < 1
@@ -1392,9 +1395,7 @@ def _validate_provider_delta(
         cast(Mapping[str, int], projection["provider_operations"]) for projection in projections
     ]
     if fixture.expected_route is QualificationRoute.ORDINARY:
-        expected_sol = sum(
-            value["planner"] + value["validator"] for value in operation_sets
-        )
+        expected_sol = sum(value["planner"] + value["validator"] for value in operation_sets)
         expected_deepseek = sum(value["writer"] + value["recorder"] for value in operation_sets)
     else:
         expected_sol = sum(value["planner"] for value in operation_sets)
