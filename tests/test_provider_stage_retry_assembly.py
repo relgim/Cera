@@ -813,9 +813,10 @@ class ProviderStageRetryAssemblyTests(unittest.TestCase):
                 return planner
 
             registry = _PiScenePlannerRegistry(build_planner)
+            scene_store = LeanSceneStore(root / "accepted_world")
             assembly = build_provider_stage_retry_production_assembly(
                 runtime_root=root,
-                scene_store=LeanSceneStore(root / "accepted_world"),
+                scene_store=scene_store,
                 sol_ledger=sol,
                 pi_adapter=pi,
                 ordinary_ports=OrdinaryStageProviderPortsV1(
@@ -874,7 +875,7 @@ class ProviderStageRetryAssemblyTests(unittest.TestCase):
                 controls=controls,
             )
             branch_root = lean_scene_branch_root(
-                root,
+                scene_store.root,
                 turn.world_id,
                 turn.branch_id,
             )

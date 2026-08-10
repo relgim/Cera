@@ -1516,7 +1516,7 @@ def build_provider_stage_retry_production_assembly(
     root = (runtime_root / "provider_stage_retry").resolve()
     owner_root = root / "protected" / "ordinary_owners"
     custody = ProtectedOrdinaryStageRetryCustodyStoreV1(root / "protected" / "ordinary_requests")
-    retrieval = ActiveDerivedPlannerRetrievalManifestPortV1(runtime_root.resolve())
+    retrieval = ActiveDerivedPlannerRetrievalManifestPortV1(scene_store.root)
     sol_current, sol_prefix = _sol_ledger_ports(sol_ledger)
     pi_current, pi_prefix = _pi_ledger_ports(pi_adapter.operation_ledger)
 
