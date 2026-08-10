@@ -292,12 +292,9 @@ class LiveProviderCallReceipt:
         require_kind(self.provider_receipt_id, IdKind.PROVIDER_RECEIPT, "provider_receipt_id")
         for value in (self.route_sha256, self.request_sha256, self.output_sha256):
             _sha256(value, "provider receipt hash")
-        for metadata_hash in (
-            self.provider_request_id_sha256,
-            self.system_fingerprint_sha256,
-        ):
-            if metadata_hash is not None:
-                _sha256(metadata_hash, "provider metadata hash")
+        for value in (self.provider_request_id_sha256, self.system_fingerprint_sha256):
+            if value is not None:
+                _sha256(value, "provider metadata hash")
         for value, label in (
             (self.requested_model, "requested_model"),
             (self.returned_model, "returned_model"),

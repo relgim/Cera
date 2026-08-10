@@ -452,7 +452,10 @@ def _deepseek_retryable_failure_category(
         status = exc.code
         if status == 408:
             return ProviderRetryableFailureCategory.TRANSPORT_TIMEOUT
-        if status == 429 or 500 <= status <= 599:
+        # Only statuses that unambiguously denote a transient server/gateway
+        # condition are Retry-eligible.  Other 5xx statuses can encode a
+        # deterministic protocol, configuration, or network-auth failure.
+        if status == 429 or status in {500, 502, 503, 504}:
             return ProviderRetryableFailureCategory.PROVIDER_UNAVAILABLE
         return None
     if isinstance(exc, TimeoutError):

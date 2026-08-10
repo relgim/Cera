@@ -224,7 +224,7 @@ class ProviderRetryableFailureMetadataTests(unittest.TestCase):
                 caught = self._deepseek_failure(_RaisingOpener(failure))
                 self.assertIs(caught.retryable_failure_category, expected)
 
-        for status in (400, 401, 403, 413, 422):
+        for status in (400, 401, 403, 413, 422, 501, 505, 511):
             with self.subTest(nonretryable_status=status):
                 caught = self._deepseek_failure(
                     _RaisingOpener(
