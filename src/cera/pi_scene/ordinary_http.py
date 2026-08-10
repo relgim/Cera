@@ -18,6 +18,7 @@ def ordinary_review_payload(
     review: LeanReviewRecordV1,
     *,
     recording_status: str | None,
+    provider_attempts: Sequence[LeanReviewRecordV1] | None = None,
 ) -> dict[str, Any]:
     """Project one review after its recording status was read by the adapter."""
 
@@ -42,6 +43,10 @@ def ordinary_review_payload(
     provisional_canon = (
         review.accepted_receipt is not None
         and review.accepted_receipt.creator_action == "provisional_accept"
+    )
+    attempt_payloads, provider_operations = _provider_attempt_accounting(
+        review,
+        provider_attempts=provider_attempts,
     )
     return {
         "schema_version": "cera.pi_scene.review.v1",
@@ -86,15 +91,8 @@ def ordinary_review_payload(
             RecordingStatus.PROJECTION_PENDING.value,
             RecordingStatus.PENDING_REPAIR.value,
         },
-        "provider_operations": {
-            "planner": review.result.planner_provider_operations,
-            "writer": review.result.writer_provider_operations,
-            "recorder": (
-                0
-                if review.recording_attempt is None
-                else review.recording_attempt.provider_operations
-            ),
-        },
+        "provider_attempts": attempt_payloads,
+        "provider_operations": provider_operations,
     }
 
 
@@ -119,37 +117,9 @@ def ordinary_completion_payload(
     review_status = (
         "accepted" if committed else "validation_rejected" if rejected else "review_ready"
     )
-    attempts = (review,) if provider_attempts is None else tuple(provider_attempts)
-    if not attempts or attempts[-1] != review:
-        raise StateConflictError("Pi Scene provider-attempt accounting lost its terminal review")
-    attempt_payloads: list[dict[str, Any]] = [
-        {
-            "attempt_number": index,
-            "candidate_id": attempt.candidate.candidate_id,
-            "disposition": (
-                "semantic_pass"
-                if attempt.semantic_validation is not None
-                and attempt.semantic_validation.verdict.verdict.value == "pass"
-                else "semantic_rejected"
-            ),
-            "provider_operations": {
-                "planner": attempt.result.planner_provider_operations,
-                "writer": attempt.result.writer_provider_operations,
-                "validator": 1 if attempt.semantic_validation is not None else 0,
-            },
-        }
-        for index, attempt in enumerate(attempts, start=1)
-    ]
-    provider_operations = {
-        role: sum(
-            attempt_payload["provider_operations"][role] for attempt_payload in attempt_payloads
-        )
-        for role in ("planner", "writer", "validator")
-    }
-    provider_operations["recorder"] = (
-        0
-        if not committed or review.recording_attempt is None
-        else review.recording_attempt.provider_operations
+    attempt_payloads, provider_operations = _provider_attempt_accounting(
+        review,
+        provider_attempts=provider_attempts,
     )
     cera_payload: dict[str, Any] = {
         "profile_id": PI_SCENE_PROFILE,
@@ -236,6 +206,48 @@ def ordinary_completion_payload(
         cera_payload["creator_trace"] = trace
         cera_payload.update(trace)
     return response
+
+
+def _provider_attempt_accounting(
+    review: LeanReviewRecordV1,
+    *,
+    provider_attempts: Sequence[LeanReviewRecordV1] | None,
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """Return request-total ordinary provider accounting for HTTP projections."""
+
+    attempts = (review,) if provider_attempts is None else tuple(provider_attempts)
+    if not attempts or attempts[-1] != review:
+        raise StateConflictError("Pi Scene provider-attempt accounting lost its terminal review")
+    attempt_payloads: list[dict[str, Any]] = [
+        {
+            "attempt_number": index,
+            "candidate_id": attempt.candidate.candidate_id,
+            "disposition": (
+                "semantic_pass"
+                if attempt.semantic_validation is not None
+                and attempt.semantic_validation.verdict.verdict.value == "pass"
+                else "semantic_rejected"
+            ),
+            "provider_operations": {
+                "planner": attempt.result.planner_provider_operations,
+                "writer": attempt.result.writer_provider_operations,
+                "validator": 1 if attempt.semantic_validation is not None else 0,
+            },
+        }
+        for index, attempt in enumerate(attempts, start=1)
+    ]
+    provider_operations = {
+        role: sum(
+            attempt_payload["provider_operations"][role] for attempt_payload in attempt_payloads
+        )
+        for role in ("planner", "writer", "validator")
+    }
+    provider_operations["recorder"] = (
+        0
+        if review.accepted_receipt is None or review.recording_attempt is None
+        else review.recording_attempt.provider_operations
+    )
+    return attempt_payloads, provider_operations
 
 
 def safe_semantic_validation_trace(validation: Any) -> dict[str, Any] | None:

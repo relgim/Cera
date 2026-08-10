@@ -2075,7 +2075,11 @@ class PiSceneHttpAdapter:
             if review.accepted_receipt is None
             else self.coordinator.store.recording_status(review.accepted_receipt).value
         )
-        return ordinary_review_payload(review, recording_status=status)
+        return ordinary_review_payload(
+            review,
+            recording_status=status,
+            provider_attempts=self.coordinator.provider_operation_attempts(review),
+        )
 
     @staticmethod
     def _completion_payload(

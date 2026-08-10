@@ -201,11 +201,12 @@ class PiSceneSemanticRuntimeTests(unittest.TestCase):
                 "cera_profile_id": PI_SCENE_PROFILE,
                 "cera_session_id": "semantic-repair-accounting",
             }
-            first = PiSceneHttpAdapter(
+            adapter = PiSceneHttpAdapter(
                 coordinator=coordinator,
                 session_id="semantic-repair-accounting",
                 context_provider=lambda *_args: turn(),
-            ).complete(payload)
+            )
+            first = adapter.complete(payload)
 
             self.assertEqual(
                 first["cera"]["provider_operations"],
@@ -240,18 +241,31 @@ class PiSceneSemanticRuntimeTests(unittest.TestCase):
                 first["cera"]["provider_attempts"][0]["candidate_id"],
                 first["cera"]["candidate_id"],
             )
+            review_id = first["cera"]["review_url"].rsplit("/", 1)[-1]
+            review_get = adapter.review_payload(coordinator.get_review(review_id))
+            self.assertEqual(
+                review_get["provider_operations"],
+                {"planner": 1, "writer": 2, "validator": 2, "recorder": 1},
+            )
+            self.assertEqual(
+                review_get["provider_attempts"],
+                first["cera"]["provider_attempts"],
+            )
 
             restarted, _, restarted_planner = _runtime(
                 root,
                 _SemanticValidator(SemanticVerdict.PASS),
             )
-            replay = PiSceneHttpAdapter(
+            restarted_adapter = PiSceneHttpAdapter(
                 coordinator=restarted,
                 session_id="semantic-repair-accounting",
                 context_provider=lambda *_args: turn(),
-            ).complete(payload)
+            )
+            replay = restarted_adapter.complete(payload)
             self.assertEqual(replay, first)
             self.assertEqual(restarted_planner.calls, 0)
+            restarted_review_get = restarted_adapter.review_payload(restarted.get_review(review_id))
+            self.assertEqual(restarted_review_get, review_get)
 
     def test_provider_operation_attempts_are_one_for_an_unrepaired_pass(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
