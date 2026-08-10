@@ -492,7 +492,7 @@ class ProviderStageRetryStoreTests(unittest.TestCase):
         )
         self.assertEqual(
             self._controller().recover(chain_id).action,
-            ProviderStageRecoveryAction.PREPARE_ATTEMPT,
+            ProviderStageRecoveryAction.AWAIT_MANUAL_RETRY,
         )
         with self.assertRaisesRegex(ContractValidationError, "reused a session scope"):
             controller.prepare_attempt(

@@ -327,11 +327,11 @@ class ProviderStageRetryControllerV1:
 
         chain = self.store.read(chain_id)
         attempt_number: int | None
-        if chain.phase in {
-            ProviderStageRetryPhase.INPUT_FROZEN,
-            ProviderStageRetryPhase.OWNER_RETIRED,
-        }:
+        if chain.phase is ProviderStageRetryPhase.INPUT_FROZEN:
             action = ProviderStageRecoveryAction.PREPARE_ATTEMPT
+            attempt_number = len(chain.attempts) + 1
+        elif chain.phase is ProviderStageRetryPhase.OWNER_RETIRED:
+            action = ProviderStageRecoveryAction.AWAIT_MANUAL_RETRY
             attempt_number = len(chain.attempts) + 1
         elif chain.phase is ProviderStageRetryPhase.ATTEMPT_PREPARED:
             action = ProviderStageRecoveryAction.DISPATCH_PREPARED_ATTEMPT

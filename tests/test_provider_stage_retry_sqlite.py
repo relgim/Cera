@@ -224,6 +224,10 @@ class SQLiteProviderStageRetryTests(unittest.TestCase):
     def test_manual_retry_is_idempotent_bounded_and_never_mints_attempt_four(self) -> None:
         _, chain_id = self._prepared()
         self._close_pretransport_attempt(chain_id, 1)
+        self.assertIs(
+            self.controller.recover(chain_id).action,
+            ProviderStageRecoveryAction.AWAIT_MANUAL_RETRY,
+        )
         with self.assertRaises(StateConflictError):
             self.controller.prepare_attempt(
                 chain_id,

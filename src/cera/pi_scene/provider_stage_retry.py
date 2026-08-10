@@ -90,6 +90,7 @@ class ProviderStageCheckpointKind(StrEnum):
 
 class ProviderStageRecoveryAction(StrEnum):
     PREPARE_ATTEMPT = "prepare_attempt"
+    AWAIT_MANUAL_RETRY = "await_manual_retry"
     DISPATCH_PREPARED_ATTEMPT = "dispatch_prepared_attempt"
     RESOLVE_AMBIGUOUS_DISPATCH = "resolve_ambiguous_dispatch"
     RETIRE_FAILED_OWNER = "retire_failed_owner"
