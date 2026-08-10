@@ -3,11 +3,15 @@
 The qualification runner deliberately owns no story logic and no automatic
 provider retry.  It submits two ordered, retained-session campaigns to
 ``cera-alpha``, verifies each committed HTTP projection, and reconciles that
-projection with the append-only Sol and DeepSeek ledgers.  One explicit creator
-Regenerate may replace a noncritical rejected first pass; the rejected outcome
-remains visible in evidence.  Exact adult prose is never copied into
-qualification evidence; only its response hash and protected custody hashes
-are retained.
+projection with the append-only Sol and DeepSeek ledgers. A closed, naturally
+occurring ordinary-Planner transport failure may receive at most two
+manifest-authorized manual Retry actions after authenticated GET eligibility,
+for three total Planner attempts. Each distinct backend-issued Retry ID is
+POSTed at most once, and every terminal result is reconciled only through
+authenticated GET. One explicit creator Regenerate may replace a noncritical
+rejected first pass; both earlier outcomes remain visible in evidence. Exact
+adult prose is never copied into qualification evidence; only its response hash
+and protected custody hashes are retained.
 """
 
 from __future__ import annotations
@@ -15,8 +19,10 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
@@ -34,8 +40,8 @@ from cera.serialization import (
 from .http_contracts import PI_SCENE_AUTO_MODEL, PI_SCENE_PROFILE
 
 QUALIFICATION_FIXTURE_SCHEMA = "cera.pi_scene.full_model_qualification_fixtures.v1"
-QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v1"
-QUALIFICATION_RESULT_SCHEMA = "cera.pi_scene.full_model_qualification_result.v1"
+QUALIFICATION_MANIFEST_SCHEMA = "cera.pi_scene.full_model_qualification_manifest.v3"
+QUALIFICATION_RESULT_SCHEMA = "cera.pi_scene.full_model_qualification_result.v3"
 
 SOL_FAMILY_CEILING = 60
 DEEPSEEK_HTTP_OPERATION_CEILING = 480
@@ -47,6 +53,65 @@ TERRA_CEILING = 0
 # recovery. Later retained calls may finish within their hard transport bound,
 # but three minutes is a diagnostic concern visible in qualification evidence.
 RETAINED_PLANNER_LATENCY_CONCERN_MS = 180_000
+QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS = 600
+QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES = 6
+QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS = (
+    QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES + 1
+) * QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS
+TRANSPORT_RETRY_STATUS_POLL_SECONDS = 0.25
+# If the one POST disconnects immediately, the replacement can still be
+# completing Planner, Writer, Luna, repair, and Recorder work. Read-only GET
+# reconciliation therefore outlives the same complete outer HTTP boundary.
+TRANSPORT_RETRY_STATUS_TIMEOUT_SECONDS = QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS + 15
+
+MANUAL_PLANNER_TRANSPORT_RETRY_POLICY: Mapping[str, Any] = {
+    "authorized": True,
+    "logic_owner": "planner",
+    "route": "ordinary",
+    "maximum_actions_per_prompt": 2,
+    "maximum_total_provider_attempts": 3,
+    "automatic": False,
+    "fallback": False,
+    "request_body": {},
+    "pre_dispatch_status": "authenticated_get_eligible",
+    "post_dispatch_reconciliation": "authenticated_get_only",
+    "terminal_failure_projection": "critical_provider_stage_error",
+    "terminal_status_schema": "cera.pi_scene.transport_retry_status.v2",
+    "terminal_status_state": "attempts_exhausted",
+    "terminal_failure_schema": "cera.provider_stage_retry_exhausted.v1",
+    "terminal_retry_action_enabled": False,
+}
+
+FINAL_PROVIDER_FAILURE_CLASSES = frozenset(
+    {
+        "transport_timeout",
+        "provider_unavailable",
+        "provider_process_failed",
+        "provider_stream_incomplete",
+        "provider_completion_incomplete",
+        "provider_output_invalid",
+        "dispatch_ambiguous",
+    }
+)
+
+QUALIFICATION_EXECUTION_POLICY: Mapping[str, Any] = {
+    "one_sequential_session_per_phase": True,
+    "backend_route_order": ["ordinary"] * 5 + ["adult"] * 5 + ["ordinary"] * 5 + ["adult"] * 5,
+    "sillytavern_route_order": ["ordinary"] * 3 + ["adult"] * 3 + ["ordinary"] * 2 + ["adult"] * 2,
+    "first_pass_outcome_preserved": True,
+    "maximum_explicit_regenerates_per_prompt": 1,
+    "automatic_retry": False,
+    "manual_planner_transport_retry": dict(MANUAL_PLANNER_TRANSPORT_RETRY_POLICY),
+    "fallback": False,
+    "model_substitution": False,
+    "ordinary_semantic_pass_auto_accept_required": True,
+    "adult_filter_pass_atomic_accept_required": True,
+    "exact_adult_prose_in_qualification_evidence": False,
+    "dynamic_loopback_only_cera_port": True,
+    "installed_cera_port_5101_untouched": True,
+    "frozen_isolated_sillytavern_tree_required": True,
+    "phase_order": ["backend", "sillytavern"],
+}
 
 EXPECTED_PHASE_COUNTS: Mapping[str, Mapping[str, int]] = {
     "backend": {"ordinary": 10, "adult": 10},
@@ -62,6 +127,10 @@ class QualificationPhase(StrEnum):
 class QualificationRoute(StrEnum):
     ORDINARY = "ordinary"
     ADULT = "adult"
+
+
+class _CriticalProviderStageError(StateConflictError):
+    """Qualification reached the closed Planner provider-attempt ceiling."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +191,39 @@ class RejectionReviewV1:
     projection: Mapping[str, Any]
 
 
+@dataclass(frozen=True, slots=True)
+class TransportRetryFailureV1:
+    """One exact, closed Planner transport failure eligible for manual Retry."""
+
+    request_id: str
+    retry_id: str
+    effect_proof_sha256: str
+    provider_operation_submitted: bool | None
+    response_sha256: str | None
+
+    @property
+    def request_id_sha256(self) -> str:
+        return text_sha256(self.request_id)
+
+    @property
+    def retry_id_sha256(self) -> str:
+        return text_sha256(self.retry_id)
+
+
+@dataclass(frozen=True, slots=True)
+class TransportRetryResolutionV1:
+    """One bounded successor chain, before final whole-turn ledger parity."""
+
+    failure: TransportRetryFailureV1
+    failures: tuple[TransportRetryFailureV1, ...]
+    failed_calls: tuple[Mapping[str, Any], ...]
+    completion_response: ClientResponseV1 | None
+    actions: tuple[Mapping[str, Any], ...]
+    critical_failure: Mapping[str, Any] | None
+    retry_action_count: int
+    duration_ms: int
+
+
 class QualificationClient(Protocol):
     def complete(
         self,
@@ -137,6 +239,10 @@ class QualificationClient(Protocol):
         fixture: QualificationFixtureV1,
         review_id: str,
     ) -> ClientResponseV1: ...
+
+    def transport_retry_status(self, *, retry_id: str) -> ClientResponseV1: ...
+
+    def retry_transport(self, *, retry_id: str) -> ClientResponseV1: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +261,10 @@ class ProviderLedgerSnapshotV1:
     @property
     def sol_transport_operations(self) -> int:
         return sum(value.get("state") == "transport_invoked" for value in self.sol_events)
+
+    @property
+    def sol_charged_operations(self) -> int:
+        return _sol_charged_operation_count(self.sol_events)
 
     @property
     def deepseek_started_operations(self) -> int:
@@ -181,6 +291,10 @@ class ProviderLedgerDeltaV1:
     @property
     def sol_transport_operations(self) -> int:
         return sum(value.get("state") == "transport_invoked" for value in self.sol_events)
+
+    @property
+    def sol_charged_operations(self) -> int:
+        return _sol_charged_operation_count(self.sol_events)
 
     @property
     def deepseek_started_operations(self) -> int:
@@ -304,6 +418,9 @@ class QualificationCampaignRun:
         self.deepseek_input_tokens = 0
         self.planner_operation_count = 0
         self.planner_thread_operation_counts: dict[str, int] = {}
+        self.transport_retry_actions = 0
+        self.transport_retry_chains = 0
+        self.transport_retry_terminal_critical_failures = 0
         self.restart_count = 0
 
     def run_segment(
@@ -335,8 +452,9 @@ class QualificationCampaignRun:
                 messages=request_messages,
             )
             planner_latency: list[dict[str, Any]] | None = None
+            retry_resolution: TransportRetryResolutionV1 | None = None
             try:
-                response = client.complete(
+                initial_response = client.complete(
                     fixture=fixture,
                     session_id=self.session_id,
                     payload=payload,
@@ -348,13 +466,35 @@ class QualificationCampaignRun:
                         "fixture_id": fixture.fixture_id,
                         "phase": self.phase.value,
                         "turn_index": turn_index,
-                        "transport": response.transport,
-                        "path": response.path,
-                        "status_code": response.status_code,
-                        "duration_ms": response.duration_ms,
-                        "response_sha256": canonical_sha256(response.body),
+                        "transport": initial_response.transport,
+                        "path": initial_response.path,
+                        "status_code": initial_response.status_code,
+                        "duration_ms": initial_response.duration_ms,
+                        "response_sha256": canonical_sha256(initial_response.body),
                     }
                 )
+                retry_resolution = self._resolve_manual_transport_retry(
+                    fixture=fixture,
+                    turn_index=turn_index,
+                    client=client,
+                    runtime_root=segment_root,
+                    before=before,
+                    response=initial_response,
+                )
+                if retry_resolution is not None and retry_resolution.completion_response is None:
+                    self._record_critical_transport_retry_failure(
+                        fixture=fixture,
+                        turn_index=turn_index,
+                        runtime_root=segment_root,
+                        before=before,
+                        initial_response=initial_response,
+                        resolution=retry_resolution,
+                    )
+                    break
+                response = initial_response
+                if retry_resolution is not None:
+                    assert retry_resolution.completion_response is not None
+                    response = retry_resolution.completion_response
                 first = _classify_completion_response(fixture, response)
                 first_pass = isinstance(first, Mapping) and first["first_pass_accepted"] is True
                 regeneration: ClientResponseV1 | None = None
@@ -415,8 +555,33 @@ class QualificationCampaignRun:
                 )
                 after = ProviderLedgerSnapshotV1.load(segment_root)
                 delta = after.delta_from(before)
-                telemetry = _validate_provider_delta(fixture, projections, delta)
                 operation_records = _provider_operation_records(delta)
+                retry_chains: list[dict[str, Any]] = []
+                if retry_resolution is not None:
+                    retry_chain = _finalize_transport_retry_chain(
+                        retry_resolution,
+                        operation_records=operation_records,
+                    )
+                    retry_chains.append(retry_chain)
+                    self.transport_retry_chains += 1
+                    self.parent.evidence.append(
+                        {
+                            "schema_version": (
+                                "cera.pi_scene.qualification_transport_retry_chain.v1"
+                            ),
+                            "event": "manual_planner_transport_retry_succeeded",
+                            "fixture_id": fixture.fixture_id,
+                            "phase": self.phase.value,
+                            "turn_index": turn_index,
+                            **retry_chain,
+                        }
+                    )
+                telemetry = _validate_provider_delta(
+                    fixture,
+                    projections,
+                    delta,
+                    retry_chains=retry_chains,
+                )
                 planner_latency = self._planner_latency_observations(operation_records)
                 for operation in operation_records:
                     self.parent.evidence.append(
@@ -443,20 +608,26 @@ class QualificationCampaignRun:
                     "status": "passed",
                     "first_pass_accepted": first_pass,
                     "explicit_regenerate_actions": (0 if regeneration is None else 1),
+                    "transport_retry_actions": (
+                        0 if retry_resolution is None else retry_resolution.retry_action_count
+                    ),
+                    "transport_retry_chains": retry_chains,
                     "automatic_repair_actions": projection["automatic_repair_actions"],
+                    "initial_http_response_sha256": canonical_sha256(initial_response.body),
                     "first_pass_response_sha256": canonical_sha256(response.body),
                     "response_sha256": canonical_sha256(accepted_response.body),
                     "visible_prose_sha256": projection["visible_prose_sha256"],
                     "accepted_turn_id": projection["accepted_turn_id"],
                     "accepted_receipt_sha256": projection["accepted_receipt_sha256"],
                     "provider_operations": projection["provider_operations"],
-                    "latency_ms": response.duration_ms
+                    "latency_ms": initial_response.duration_ms
+                    + (0 if retry_resolution is None else retry_resolution.duration_ms)
                     + (0 if regeneration is None else regeneration.duration_ms),
                     "planner_latency": planner_latency,
                     **telemetry,
                 }
                 self.results.append(result)
-                self.sol_operations += delta.sol_transport_operations
+                self.sol_operations += delta.sol_charged_operations
                 self.deepseek_operations += delta.deepseek_started_operations
                 self.deepseek_cached_input_tokens += delta.deepseek_cached_input_tokens
                 self.deepseek_input_tokens += delta.deepseek_input_tokens
@@ -485,14 +656,14 @@ class QualificationCampaignRun:
                     "session_id_sha256": text_sha256(self.session_id),
                     "source_sha256": text_sha256(fixture.user_source),
                     "status": "failed",
-                    "failure_type": type(exc).__name__,
-                    "failure_message": str(exc),
+                    **_closed_failure_projection(exc),
                     "sol_operations_observed": delta.sol_transport_operations,
+                    "sol_charged_operations_observed": delta.sol_charged_operations,
                     "deepseek_operations_observed": delta.deepseek_started_operations,
                     "planner_latency": planner_latency,
                 }
                 self.results.append(failed)
-                self.sol_operations += delta.sol_transport_operations
+                self.sol_operations += delta.sol_charged_operations
                 self.deepseek_operations += delta.deepseek_started_operations
                 self.parent.evidence.append(
                     {
@@ -514,6 +685,398 @@ class QualificationCampaignRun:
         ):
             raise StateConflictError("qualification exceeded its DeepSeek ceiling")
 
+    def _resolve_manual_transport_retry(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        turn_index: int,
+        client: QualificationClient,
+        runtime_root: Path,
+        before: ProviderLedgerSnapshotV1,
+        response: ClientResponseV1,
+    ) -> TransportRetryResolutionV1 | None:
+        failure = _closed_transport_retry_failure(response)
+        if failure is None:
+            return None
+        policy = self.parent.manifest.get("execution_policy")
+        retry_policy = (
+            policy.get("manual_planner_transport_retry") if isinstance(policy, Mapping) else None
+        )
+        if retry_policy != MANUAL_PLANNER_TRANSPORT_RETRY_POLICY:
+            raise StateConflictError("qualification manual transport Retry is not authorized")
+        if fixture.expected_route is not QualificationRoute.ORDINARY:
+            raise StateConflictError("qualification transport Retry is ordinary Planner-only")
+        status_reader = getattr(client, "transport_retry_status", None)
+        retry_writer = getattr(client, "retry_transport", None)
+        if not callable(status_reader) or not callable(retry_writer):
+            raise StateConflictError("qualification client lacks manual transport Retry support")
+
+        failed_snapshot = ProviderLedgerSnapshotV1.load(runtime_root)
+        failed_delta = failed_snapshot.delta_from(before)
+        failed_call = _closed_failed_planner_call(failure, failed_delta)
+        failures = [failure]
+        failed_calls = [failed_call]
+        actions: list[Mapping[str, Any]] = []
+        total_duration_ms = 0
+        self._append_transport_failure_evidence(
+            fixture=fixture,
+            turn_index=turn_index,
+            failure=failure,
+            failed_call=failed_call,
+            attempt_number=1,
+        )
+
+        for action_index in range(1, 3):
+            current = failures[-1]
+            pre_status_response = status_reader(retry_id=current.retry_id)
+            pre_status = _validate_transport_retry_status(
+                pre_status_response,
+                failure=current,
+            )
+            if pre_status["state"] != "eligible":
+                raise StateConflictError(
+                    "qualification transport Retry was not stably eligible before dispatch"
+                )
+
+            # Each backend-issued identity is written at most once. The action
+            # counter advances first, so response loss can lead only to GET
+            # reconciliation, never to a repeated POST for the same identity.
+            self.transport_retry_actions += 1
+            action_ledger_before = ProviderLedgerSnapshotV1.load(runtime_root)
+            self.parent.evidence.append(
+                {
+                    "schema_version": "cera.pi_scene.qualification_transport_retry_action.v2",
+                    "event": "manual_planner_transport_retry_dispatched",
+                    "fixture_id": fixture.fixture_id,
+                    "phase": self.phase.value,
+                    "turn_index": turn_index,
+                    "request_id_sha256": current.request_id_sha256,
+                    "retry_id_sha256": current.retry_id_sha256,
+                    "effect_proof_sha256": current.effect_proof_sha256,
+                    "retry_action_index": action_index,
+                    "maximum_retry_actions": 2,
+                    "request_body_sha256": canonical_sha256({}),
+                    "pre_status_sha256": canonical_sha256(pre_status_response.body),
+                }
+            )
+            post_response: ClientResponseV1 | None = None
+            post_failure: dict[str, str] | None = None
+            post_started_ns = time.perf_counter_ns()
+            try:
+                post_response = retry_writer(retry_id=current.retry_id)
+            except Exception as exc:
+                post_failure = _closed_failure_projection(exc)
+            post_dispatch_duration_ms = max(
+                0,
+                (time.perf_counter_ns() - post_started_ns) // 1_000_000,
+            )
+
+            post_status_response, post_status, status_duration_ms = (
+                _poll_terminal_transport_retry_status(
+                    client,
+                    failure=current,
+                )
+            )
+            total_duration_ms += (
+                pre_status_response.duration_ms + post_dispatch_duration_ms + status_duration_ms
+            )
+            action = _transport_retry_action_receipt(
+                current,
+                action_index=action_index,
+                pre_status_response=pre_status_response,
+                post_response=post_response,
+                post_failure=post_failure,
+                post_dispatch_duration_ms=post_dispatch_duration_ms,
+                status_response=post_status_response,
+                status=post_status,
+                status_reconciliation_duration_ms=status_duration_ms,
+            )
+            actions.append(action)
+            self.parent.evidence.append(
+                {
+                    "schema_version": "cera.pi_scene.qualification_transport_retry_action.v2",
+                    "event": "manual_planner_transport_retry_terminal_observed",
+                    "fixture_id": fixture.fixture_id,
+                    "phase": self.phase.value,
+                    "turn_index": turn_index,
+                    **action,
+                }
+            )
+
+            state = post_status["state"]
+            if state == "succeeded":
+                completion = cast(Mapping[str, Any], post_status["completion"])
+                completion_sha256 = cast(str, post_status["completion_sha256"])
+                if post_response is not None and post_response.status_code == 200:
+                    if canonical_sha256(post_response.body) != completion_sha256:
+                        raise StateConflictError(
+                            "qualification Retry POST differs from authenticated GET completion"
+                        )
+                self.parent.evidence.append(
+                    {
+                        "schema_version": "cera.pi_scene.qualification_transport_retry_action.v2",
+                        "event": "manual_planner_transport_retry_reconciled",
+                        "fixture_id": fixture.fixture_id,
+                        "phase": self.phase.value,
+                        "turn_index": turn_index,
+                        **action,
+                    }
+                )
+                return TransportRetryResolutionV1(
+                    failure=failure,
+                    failures=tuple(failures),
+                    failed_calls=tuple(failed_calls),
+                    completion_response=ClientResponseV1(
+                        transport="authenticated_transport_retry_status",
+                        path=f"/v1/cera/transport-retries/{current.retry_id}",
+                        status_code=200,
+                        duration_ms=0,
+                        body=completion,
+                    ),
+                    actions=tuple(actions),
+                    critical_failure=None,
+                    retry_action_count=len(actions),
+                    duration_ms=total_duration_ms,
+                )
+            if state == "attempts_exhausted":
+                if action_index != 2:
+                    raise StateConflictError(
+                        "qualification exhausted Planner attempts before the policy ceiling"
+                    )
+                backend_critical = cast(
+                    Mapping[str, Any],
+                    post_status["critical_provider_stage_failure"],
+                )
+                post_provider_operation_submitted = _validate_attempts_exhausted_post(
+                    post_response,
+                    failure=current,
+                    critical=backend_critical,
+                )
+                action_ledger_after = ProviderLedgerSnapshotV1.load(runtime_root)
+                terminal_call = _closed_exhausted_planner_call(
+                    backend_critical,
+                    action_ledger_after.delta_from(action_ledger_before),
+                    prior_failed_calls=failed_calls,
+                    post_provider_operation_submitted=(post_provider_operation_submitted),
+                )
+                if terminal_call["call_id"] in {
+                    value["call_id"] for value in failed_calls
+                } or terminal_call["stored_thread_sha256"] in {
+                    value["stored_thread_sha256"] for value in failed_calls
+                }:
+                    raise StateConflictError(
+                        "qualification final Planner attempt did not use a distinct thread"
+                    )
+                failed_calls.append(terminal_call)
+                critical = _critical_provider_stage_failure(
+                    backend=backend_critical,
+                    failures=failures,
+                    failed_calls=failed_calls,
+                    actions=actions,
+                )
+                self._append_exhausted_transport_failure_evidence(
+                    fixture=fixture,
+                    turn_index=turn_index,
+                    dispatch_failure=failures[-1],
+                    failed_call=terminal_call,
+                    critical=critical,
+                )
+                self.parent.evidence.append(
+                    {
+                        "schema_version": (
+                            "cera.pi_scene.qualification_critical_provider_stage_failure.v1"
+                        ),
+                        "event": "planner_provider_attempt_limit_exhausted",
+                        "fixture_id": fixture.fixture_id,
+                        "phase": self.phase.value,
+                        "turn_index": turn_index,
+                        "critical_provider_stage_failure": dict(critical),
+                        "critical_failure_sha256": canonical_sha256(critical),
+                    }
+                )
+                return TransportRetryResolutionV1(
+                    failure=failure,
+                    failures=tuple(failures),
+                    failed_calls=tuple(failed_calls),
+                    completion_response=None,
+                    actions=tuple(actions),
+                    critical_failure=critical,
+                    retry_action_count=len(actions),
+                    duration_ms=total_duration_ms,
+                )
+            if state != "superseded":
+                raise StateConflictError(
+                    "qualification manual transport Retry did not reach a usable terminal status"
+                )
+            if action_index == 2:
+                raise StateConflictError(
+                    "qualification backend exposed a fourth Planner provider attempt"
+                )
+
+            successor = _superseding_transport_failure(
+                current,
+                status=post_status,
+                post_response=post_response,
+            )
+            if successor.retry_id in {value.retry_id for value in failures}:
+                raise StateConflictError("qualification Retry successor identity cycled")
+            action_ledger_after = ProviderLedgerSnapshotV1.load(runtime_root)
+            successor_call = _closed_failed_planner_call(
+                successor,
+                action_ledger_after.delta_from(action_ledger_before),
+            )
+            successor = replace(
+                successor,
+                provider_operation_submitted=cast(bool, successor_call["submitted"]),
+            )
+            if successor_call["call_id"] in {
+                value["call_id"] for value in failed_calls
+            } or successor_call["stored_thread_sha256"] in {
+                value["stored_thread_sha256"] for value in failed_calls
+            }:
+                raise StateConflictError(
+                    "qualification Retry successor did not use a distinct Planner attempt"
+                )
+            failures.append(successor)
+            failed_calls.append(successor_call)
+            self._append_transport_failure_evidence(
+                fixture=fixture,
+                turn_index=turn_index,
+                failure=successor,
+                failed_call=successor_call,
+                attempt_number=len(failures),
+            )
+        raise StateConflictError("qualification transport Retry action bound changed")
+
+    def _record_critical_transport_retry_failure(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        turn_index: int,
+        runtime_root: Path,
+        before: ProviderLedgerSnapshotV1,
+        initial_response: ClientResponseV1,
+        resolution: TransportRetryResolutionV1,
+    ) -> None:
+        critical = resolution.critical_failure
+        if critical is None or resolution.completion_response is not None:
+            raise StateConflictError("qualification critical Retry resolution changed")
+        after = ProviderLedgerSnapshotV1.load(runtime_root)
+        delta = after.delta_from(before)
+        operation_records = _provider_operation_records(delta)
+        chain = _finalize_transport_retry_exhaustion(
+            resolution,
+            operation_records=operation_records,
+        )
+        telemetry = _validate_exhausted_transport_retry_delta(
+            delta,
+            failed_calls=resolution.failed_calls,
+        )
+        planner_latency = self._planner_latency_observations(operation_records)
+        for operation in operation_records:
+            self.parent.evidence.append(
+                {
+                    "schema_version": "cera.pi_scene.qualification_provider_operation.v1",
+                    "event": "provider_http_operation",
+                    "fixture_id": fixture.fixture_id,
+                    "phase": self.phase.value,
+                    "turn_index": turn_index,
+                    **operation,
+                }
+            )
+        self.transport_retry_chains += 1
+        self.transport_retry_terminal_critical_failures += 1
+        failure_identity = {
+            "failure_type": "CriticalProviderStageError",
+            "failure_category": "provider_stage_attempts_exhausted",
+        }
+        failed = {
+            "fixture_id": fixture.fixture_id,
+            "phase": self.phase.value,
+            "turn_index": turn_index,
+            "initial_route": fixture.initial_route.value,
+            "expected_route": fixture.expected_route.value,
+            "expected_next_route": fixture.expected_next_route.value,
+            "session_id_sha256": text_sha256(self.session_id),
+            "source_sha256": text_sha256(fixture.user_source),
+            "status": "failed",
+            **failure_identity,
+            "failure_sha256": canonical_sha256(failure_identity),
+            "critical_provider_stage_failure": dict(critical),
+            "transport_retry_actions": resolution.retry_action_count,
+            "transport_retry_chains": [chain],
+            "automatic_transport_retry_actions": 0,
+            "fallback_used": False,
+            "initial_http_response_sha256": canonical_sha256(initial_response.body),
+            "latency_ms": initial_response.duration_ms + resolution.duration_ms,
+            "planner_latency": planner_latency,
+            **telemetry,
+        }
+        self.results.append(failed)
+        self.sol_operations += delta.sol_charged_operations
+        self.deepseek_operations += delta.deepseek_started_operations
+        self.parent.evidence.append(
+            {
+                "schema_version": "cera.pi_scene.qualification_fixture_result.v2",
+                "event": "fixture_failed_critical_provider_stage",
+                **failed,
+            }
+        )
+        self.failure = _CriticalProviderStageError(
+            "qualification critical Planner provider attempt limit exhausted"
+        )
+
+    def _append_transport_failure_evidence(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        turn_index: int,
+        failure: TransportRetryFailureV1,
+        failed_call: Mapping[str, Any],
+        attempt_number: int,
+    ) -> None:
+        self.parent.evidence.append(
+            {
+                "schema_version": "cera.pi_scene.qualification_transport_failure.v2",
+                "event": "eligible_planner_transport_failure_observed",
+                "fixture_id": fixture.fixture_id,
+                "phase": self.phase.value,
+                "turn_index": turn_index,
+                "attempt_number": attempt_number,
+                "request_id_sha256": failure.request_id_sha256,
+                "retry_id_sha256": failure.retry_id_sha256,
+                "effect_proof_sha256": failure.effect_proof_sha256,
+                "provider_operation_submitted": failure.provider_operation_submitted,
+                "failure_response_sha256": failure.response_sha256,
+                "failed_call": dict(failed_call),
+            }
+        )
+
+    def _append_exhausted_transport_failure_evidence(
+        self,
+        *,
+        fixture: QualificationFixtureV1,
+        turn_index: int,
+        dispatch_failure: TransportRetryFailureV1,
+        failed_call: Mapping[str, Any],
+        critical: Mapping[str, Any],
+    ) -> None:
+        self.parent.evidence.append(
+            {
+                "schema_version": "cera.pi_scene.qualification_transport_failure.v2",
+                "event": "terminal_planner_transport_failure_observed",
+                "fixture_id": fixture.fixture_id,
+                "phase": self.phase.value,
+                "turn_index": turn_index,
+                "attempt_number": 3,
+                "request_id_sha256": dispatch_failure.request_id_sha256,
+                "dispatch_retry_id_sha256": dispatch_failure.retry_id_sha256,
+                "dispatch_effect_proof_sha256": dispatch_failure.effect_proof_sha256,
+                "critical_failure_sha256": canonical_sha256(critical),
+                "failed_call": dict(failed_call),
+            }
+        )
+
     def _planner_latency_observations(
         self,
         operation_records: Sequence[Mapping[str, Any]],
@@ -532,10 +1095,18 @@ class QualificationCampaignRun:
                 raise StateConflictError("qualification Planner session identity is invalid")
             if duration_ms is not None and (type(duration_ms) is not int or duration_ms < 0):
                 raise StateConflictError("qualification Planner duration is invalid")
+            if type(operation.get("submitted")) is not bool:
+                raise StateConflictError("qualification Planner submission state is invalid")
 
         observations: list[dict[str, Any]] = []
         for operation in planner_operations:
             session_identity_sha256 = cast(str, operation["session_identity_sha256"])
+            if operation["submitted"] is False:
+                # A proven local pretransport failure is not a model call and
+                # consumes no grant. Retain the physical thread identity so a
+                # later fresh replacement is still classified as rehydration.
+                self.planner_thread_operation_counts.setdefault(session_identity_sha256, 0)
+                continue
             self.planner_operation_count += 1
             planner_thread_call_index = (
                 self.planner_thread_operation_counts.get(session_identity_sha256, 0) + 1
@@ -619,6 +1190,20 @@ class QualificationCampaignRun:
             "explicit_regenerate_actions": sum(
                 int(value.get("explicit_regenerate_actions", 0)) for value in self.results
             ),
+            "transport_retry_actions": self.transport_retry_actions,
+            "transport_retry_chains": self.transport_retry_chains,
+            "transport_retry_chain_actions": sum(
+                int(chain.get("retry_action_count", 0))
+                for result in self.results
+                for chain in cast(
+                    Sequence[Mapping[str, Any]],
+                    result.get("transport_retry_chains", ()),
+                )
+            ),
+            "transport_retry_terminal_critical_failures": (
+                self.transport_retry_terminal_critical_failures
+            ),
+            "automatic_transport_retry_actions": 0,
             "automatic_repair_actions": sum(
                 int(value.get("automatic_repair_actions", 0)) for value in self.results
             ),
@@ -626,6 +1211,11 @@ class QualificationCampaignRun:
             "retained_conversation_messages": len(self.history),
             "restart_count": self.restart_count,
             "sol_operations": self.sol_operations,
+            "sol_submitted_operations": sum(
+                int(value.get("sol_http_operations", value.get("sol_operations_observed", 0)))
+                for value in self.results
+            ),
+            "sol_charged_operations": self.sol_operations,
             "deepseek_http_operations": self.deepseek_operations,
             "deepseek_cached_input_tokens": self.deepseek_cached_input_tokens,
             "deepseek_input_tokens": self.deepseek_input_tokens,
@@ -649,15 +1239,22 @@ class QualificationCampaignRun:
                 "maximum_retained_latency_ms": (
                     max(retained_latencies) if retained_latencies else None
                 ),
+                "average_retained_latency_ms": (
+                    round(sum(retained_latencies) / len(retained_latencies))
+                    if retained_latencies
+                    else None
+                ),
             },
             "results": self.results,
         }
         result_payload["result_sha256"] = canonical_sha256(result_payload)
         self.parent.evidence.publish_result(self.phase, result_payload)
         if self.failure is not None:
+            failure = _closed_failure_projection(self.failure)
             raise StateConflictError(
-                f"qualification failed at {self.results[-1]['fixture_id']}: {self.failure}"
-            ) from self.failure
+                "qualification failed at "
+                f"{self.results[-1]['fixture_id']}: {failure['failure_category']}"
+            ) from None
         if not passed:
             raise StateConflictError("qualification campaign ended before all accepted turns")
         return result_payload
@@ -791,29 +1388,7 @@ def build_qualification_manifest(
             "deepseek_per_invocation": DEEPSEEK_PER_INVOCATION_CEILING,
             "terra": TERRA_CEILING,
         },
-        "execution_policy": {
-            "one_sequential_session_per_phase": True,
-            "backend_route_order": ["ordinary"] * 5
-            + ["adult"] * 5
-            + ["ordinary"] * 5
-            + ["adult"] * 5,
-            "sillytavern_route_order": ["ordinary"] * 3
-            + ["adult"] * 3
-            + ["ordinary"] * 2
-            + ["adult"] * 2,
-            "first_pass_outcome_preserved": True,
-            "maximum_explicit_regenerates_per_prompt": 1,
-            "automatic_retry": False,
-            "fallback": False,
-            "model_substitution": False,
-            "ordinary_semantic_pass_auto_accept_required": True,
-            "adult_filter_pass_atomic_accept_required": True,
-            "exact_adult_prose_in_qualification_evidence": False,
-            "dynamic_loopback_only_cera_port": True,
-            "installed_cera_port_5101_untouched": True,
-            "frozen_isolated_sillytavern_tree_required": True,
-            "phase_order": [phase.value for phase in QualificationPhase],
-        },
+        "execution_policy": deepcopy(QUALIFICATION_EXECUTION_POLICY),
         "artifact_categories": categories,
     }
     return {**body, "manifest_sha256": canonical_sha256(body)}
@@ -855,6 +1430,8 @@ def validate_qualification_manifest(manifest: Mapping[str, Any]) -> None:
         "terra": TERRA_CEILING,
     }:
         raise StateConflictError("qualification provider ceilings changed")
+    if manifest["execution_policy"] != QUALIFICATION_EXECUTION_POLICY:
+        raise StateConflictError("qualification execution policy changed")
 
 
 def verify_qualification_artifacts(
@@ -1384,10 +1961,770 @@ def _visible_prose(body: Mapping[str, Any]) -> str:
     return prose
 
 
+def _closed_transport_retry_failure(
+    response: ClientResponseV1,
+) -> TransportRetryFailureV1 | None:
+    """Recognize only the two closed direct/relay Planner-failure envelopes."""
+
+    body = response.body
+    if (
+        response.status_code != 500
+        or set(body) != {"status", "story_state_committed", "error"}
+        or body.get("status") != "error"
+        or body.get("story_state_committed") is not False
+    ):
+        return None
+    error = body.get("error")
+    if not isinstance(error, Mapping):
+        return None
+    common_keys = {
+        "schema_version",
+        "error_code",
+        "message",
+        "request_id",
+        "story_state_committed",
+        "retry_mode",
+        "provider_operation_submitted",
+        "accepted_state_changed",
+        "fallback_used",
+        "next_action",
+        "retry_transport_enabled",
+        "transport_retry",
+    }
+    direct_only = {
+        "trace_id",
+        "branch_id",
+        "generation_id",
+        "stage",
+        "details",
+        "debug_log_path",
+    }
+    if frozenset(error) not in {
+        frozenset(common_keys),
+        frozenset(common_keys | direct_only),
+    }:
+        return None
+    request_id = error.get("request_id")
+    submitted = error.get("provider_operation_submitted")
+    if (
+        error.get("schema_version") != "cera.error.v1"
+        or error.get("error_code") != "CERA_PROVIDER_TRANSPORT_FAILED"
+        or error.get("message")
+        not in {
+            "A provider transport failed with no candidate or story-state effect.",
+            "CERA provider transport failed before any candidate or accepted effect.",
+        }
+        or not isinstance(request_id, str)
+        or re.fullmatch(r"request-[a-f0-9]{64}", request_id) is None
+        or error.get("story_state_committed") is not False
+        or error.get("retry_mode") != "manual_transport"
+        or type(submitted) is not bool
+        or error.get("accepted_state_changed") is not False
+        or error.get("fallback_used") is not False
+        or error.get("next_action") != "use_transport_retry"
+        or error.get("retry_transport_enabled") is not True
+    ):
+        return None
+    if direct_only.issubset(error):
+        debug_log_path = error.get("debug_log_path")
+        if (
+            not isinstance(error.get("trace_id"), str)
+            or re.fullmatch(r"trace:[a-f0-9]{32}", cast(str, error["trace_id"])) is None
+            or error.get("branch_id") is not None
+            or error.get("generation_id") is not None
+            or error.get("stage") != "pi_scene_http"
+            or error.get("details") != []
+            or debug_log_path is not None
+            and (
+                not isinstance(debug_log_path, str)
+                or len(debug_log_path) > 2_000
+                or re.search(r"[\x00-\x1f\x7f]", debug_log_path) is not None
+            )
+        ):
+            return None
+    action = _validate_transport_retry_action(error.get("transport_retry"))
+    if action is None:
+        return None
+    return TransportRetryFailureV1(
+        request_id=request_id,
+        retry_id=cast(str, action["retry_id"]),
+        effect_proof_sha256=cast(str, action["effect_proof_sha256"]),
+        provider_operation_submitted=submitted,
+        response_sha256=canonical_sha256(body),
+    )
+
+
+def _validate_transport_retry_action(value: object) -> Mapping[str, Any] | None:
+    if not isinstance(value, Mapping) or set(value) != {
+        "schema_version",
+        "retry_id",
+        "retry_url",
+        "method",
+        "eligible",
+        "automatic",
+        "effect_proof_sha256",
+    }:
+        return None
+    retry_id = value.get("retry_id")
+    effect_sha256 = value.get("effect_proof_sha256")
+    if (
+        value.get("schema_version") != "cera.pi_scene.transport_retry.v1"
+        or not isinstance(retry_id, str)
+        or re.fullmatch(r"retry-[a-f0-9]{64}", retry_id) is None
+        or value.get("retry_url") != f"/v1/cera/transport-retries/{retry_id}"
+        or value.get("method") != "POST"
+        or value.get("eligible") is not True
+        or value.get("automatic") is not False
+        or not isinstance(effect_sha256, str)
+        or not re_is_sha256(effect_sha256)
+    ):
+        return None
+    return value
+
+
+def _validate_transport_retry_status(
+    response: ClientResponseV1,
+    *,
+    failure: TransportRetryFailureV1,
+) -> Mapping[str, Any]:
+    if response.status_code != 200:
+        raise StateConflictError(
+            f"qualification transport Retry status returned HTTP {response.status_code}"
+        )
+    value = response.body
+    common = {
+        "schema_version",
+        "retry_id",
+        "request_id",
+        "state",
+        "effect_proof_sha256",
+        "retry_transport_enabled",
+    }
+    state = value.get("state")
+    expected_schema = (
+        "cera.pi_scene.transport_retry_status.v2"
+        if state == "attempts_exhausted"
+        else "cera.pi_scene.transport_retry_status.v1"
+    )
+    if (
+        value.get("schema_version") != expected_schema
+        or value.get("retry_id") != failure.retry_id
+        or value.get("request_id") != failure.request_id
+        or value.get("effect_proof_sha256") != failure.effect_proof_sha256
+        or type(value.get("retry_transport_enabled")) is not bool
+    ):
+        raise StateConflictError("qualification transport Retry status identity changed")
+    if state == "eligible":
+        action = _validate_transport_retry_action(value.get("transport_retry"))
+        if (
+            set(value) != common | {"transport_retry"}
+            or value.get("retry_transport_enabled") is not True
+            or action is None
+            or action.get("retry_id") != failure.retry_id
+            or action.get("effect_proof_sha256") != failure.effect_proof_sha256
+        ):
+            raise StateConflictError("qualification eligible Retry status changed")
+    elif state == "in_progress":
+        if (
+            set(value) != common | {"phase"}
+            or value.get("retry_transport_enabled") is not False
+            or value.get("phase") not in {"authorized", "owner_rotated", "dispatch_started"}
+        ):
+            raise StateConflictError("qualification in-progress Retry status changed")
+    elif state == "succeeded":
+        completion = value.get("completion")
+        completion_sha256 = value.get("completion_sha256")
+        cera = completion.get("cera") if isinstance(completion, Mapping) else None
+        if (
+            set(value) != common | {"completion", "completion_sha256"}
+            or value.get("retry_transport_enabled") is not False
+            or not isinstance(completion, Mapping)
+            or not isinstance(cera, Mapping)
+            or cera.get("request_id") != failure.request_id
+            or not isinstance(completion_sha256, str)
+            or not re_is_sha256(completion_sha256)
+            or canonical_sha256(completion) != completion_sha256
+        ):
+            raise StateConflictError("qualification succeeded Retry status changed")
+    elif state == "superseded":
+        successor = value.get("superseded_by_retry_id")
+        action = _validate_transport_retry_action(value.get("transport_retry"))
+        if (
+            set(value) != common | {"superseded_by_retry_id", "transport_retry"}
+            or value.get("retry_transport_enabled") is not True
+            or not isinstance(successor, str)
+            or re.fullmatch(r"retry-[a-f0-9]{64}", successor) is None
+            or successor == failure.retry_id
+            or action is None
+            or action.get("retry_id") != successor
+            or action.get("effect_proof_sha256") == failure.effect_proof_sha256
+        ):
+            raise StateConflictError("qualification superseded Retry status changed")
+    elif state == "attempts_exhausted":
+        critical = _validate_critical_provider_stage_failure(
+            value.get("critical_provider_stage_failure")
+        )
+        if (
+            set(value) != common | {"critical_provider_stage_failure"}
+            or value.get("retry_transport_enabled") is not False
+            or critical is None
+        ):
+            raise StateConflictError("qualification exhausted Retry status changed")
+    elif state == "blocked":
+        if (
+            set(value) != common | {"blocked_reason_code"}
+            or value.get("retry_transport_enabled") is not False
+            or value.get("blocked_reason_code")
+            not in {
+                "effect_state_changed",
+                "route_or_context_changed",
+                "provider_ledger_changed",
+                "owner_rotation_failed",
+                "dispatch_state_ambiguous",
+                "durable_request_progressed",
+            }
+        ):
+            raise StateConflictError("qualification blocked Retry status changed")
+    else:
+        raise StateConflictError("qualification transport Retry status state changed")
+    return value
+
+
+def _validate_critical_provider_stage_failure(
+    value: object,
+) -> Mapping[str, Any] | None:
+    if not isinstance(value, Mapping) or set(value) != {
+        "schema_version",
+        "severity",
+        "provider",
+        "model_family",
+        "stage",
+        "maximum_attempts",
+        "attempts_total",
+        "retries_consumed",
+        "story_state_committed",
+        "failed_stage_effect_committed",
+        "provider_operations_observed_total",
+        "provider_operations_conservative_total",
+        "final_failure_class",
+        "request_sha256",
+        "stage_input_sha256",
+        "attempt_chain_sha256",
+        "terminal_evidence_sha256",
+    }:
+        return None
+    observed = value.get("provider_operations_observed_total")
+    conservative = value.get("provider_operations_conservative_total")
+    hashes = (
+        value.get("request_sha256"),
+        value.get("stage_input_sha256"),
+        value.get("attempt_chain_sha256"),
+        value.get("terminal_evidence_sha256"),
+    )
+    if (
+        value.get("schema_version") != "cera.provider_stage_retry_exhausted.v1"
+        or value.get("severity") != "critical"
+        or value.get("provider") != "codex"
+        or value.get("model_family") != "sol"
+        or value.get("stage") != "planner"
+        or value.get("maximum_attempts") != 3
+        or value.get("attempts_total") != 3
+        or value.get("retries_consumed") != 2
+        or value.get("story_state_committed") is not False
+        or value.get("failed_stage_effect_committed") is not False
+        or type(observed) is not int
+        or not 0 <= observed <= 3
+        or type(conservative) is not int
+        or not observed <= conservative <= 3
+        or value.get("final_failure_class") not in FINAL_PROVIDER_FAILURE_CLASSES
+        or any(not isinstance(item, str) or not re_is_sha256(item) for item in hashes)
+    ):
+        return None
+    return value
+
+
+def _poll_terminal_transport_retry_status(
+    client: QualificationClient,
+    *,
+    failure: TransportRetryFailureV1,
+) -> tuple[ClientResponseV1, Mapping[str, Any], int]:
+    started_ns = time.perf_counter_ns()
+    deadline = time.monotonic() + TRANSPORT_RETRY_STATUS_TIMEOUT_SECONDS
+    while True:
+        response = client.transport_retry_status(retry_id=failure.retry_id)
+        status = _validate_transport_retry_status(response, failure=failure)
+        if status["state"] != "in_progress":
+            duration_ms = max(0, (time.perf_counter_ns() - started_ns) // 1_000_000)
+            return response, status, duration_ms
+        if time.monotonic() >= deadline:
+            raise StateConflictError("qualification transport Retry status remained in progress")
+        time.sleep(TRANSPORT_RETRY_STATUS_POLL_SECONDS)
+
+
+def _transport_retry_action_receipt(
+    failure: TransportRetryFailureV1,
+    *,
+    action_index: int,
+    pre_status_response: ClientResponseV1,
+    post_response: ClientResponseV1 | None,
+    post_failure: Mapping[str, str] | None,
+    post_dispatch_duration_ms: int,
+    status_response: ClientResponseV1,
+    status: Mapping[str, Any],
+    status_reconciliation_duration_ms: int,
+) -> dict[str, Any]:
+    state = status.get("state")
+    body: dict[str, Any] = {
+        "request_id_sha256": failure.request_id_sha256,
+        "retry_id_sha256": failure.retry_id_sha256,
+        "effect_proof_sha256": failure.effect_proof_sha256,
+        "retry_action_index": action_index,
+        "retry_action_count": action_index,
+        "maximum_retry_actions": 2,
+        "request_body_sha256": canonical_sha256({}),
+        "post_response_observed": post_response is not None,
+        "post_response_sha256": (
+            None if post_response is None else canonical_sha256(post_response.body)
+        ),
+        "post_failure": None if post_failure is None else dict(post_failure),
+        "post_dispatch_duration_ms": post_dispatch_duration_ms,
+        "status_reconciliation_duration_ms": status_reconciliation_duration_ms,
+        "pre_status_sha256": canonical_sha256(pre_status_response.body),
+        "post_status_state": state,
+        "post_status_sha256": canonical_sha256(status_response.body),
+    }
+    if state == "succeeded":
+        body["completion_sha256"] = status["completion_sha256"]
+    elif state == "superseded":
+        action = cast(Mapping[str, Any], status["transport_retry"])
+        body["successor_retry_id_sha256"] = text_sha256(cast(str, action["retry_id"]))
+        body["successor_effect_proof_sha256"] = action["effect_proof_sha256"]
+    elif state == "attempts_exhausted":
+        body["critical_failure_sha256"] = canonical_sha256(
+            cast(Mapping[str, Any], status["critical_provider_stage_failure"])
+        )
+    return {**body, "action_sha256": canonical_sha256(body)}
+
+
+def _validate_attempts_exhausted_post(
+    response: ClientResponseV1 | None,
+    *,
+    failure: TransportRetryFailureV1,
+    critical: Mapping[str, Any],
+) -> bool | None:
+    """Treat the POST as an observation; the authenticated GET is authority."""
+
+    if response is None:
+        return None
+    body = response.body
+    error = body.get("error") if isinstance(body, Mapping) else None
+    outer_keys = {"status", "story_state_committed", "error"}
+    common_error_keys = {
+        "schema_version",
+        "error_code",
+        "message",
+        "story_state_committed",
+        "retry_mode",
+        "provider_operation_submitted",
+        "accepted_state_changed",
+        "fallback_used",
+        "next_action",
+        "retry_transport_enabled",
+        "critical_provider_stage_failure",
+    }
+    direct_only_keys = {
+        "trace_id",
+        "request_id",
+        "branch_id",
+        "generation_id",
+        "stage",
+        "details",
+        "debug_log_path",
+    }
+    error_keys = set(error) if isinstance(error, Mapping) else set()
+    if (
+        response.status_code != 503
+        or set(body) != outer_keys
+        or body.get("status") != "error"
+        or body.get("story_state_committed") is not False
+        or not isinstance(error, Mapping)
+        or error_keys != common_error_keys
+        and error_keys != common_error_keys | direct_only_keys
+        or error.get("schema_version") != "cera.error.v1"
+        or error.get("error_code") != "CERA_PROVIDER_STAGE_RETRY_EXHAUSTED"
+        or not isinstance(error.get("message"), str)
+        or not 1 <= len(cast(str, error["message"])) <= 500
+        or error.get("story_state_committed") is not False
+        or error.get("retry_mode") != "exhausted"
+        or type(error.get("provider_operation_submitted")) is not bool
+        or error.get("accepted_state_changed") is not False
+        or error.get("fallback_used") is not False
+        or error.get("next_action") != "report_critical_provider_failure"
+        or error.get("retry_transport_enabled") is not False
+        or error.get("critical_provider_stage_failure") != critical
+    ):
+        raise StateConflictError("qualification Retry POST contradicted authenticated terminal GET")
+    if error_keys == common_error_keys:
+        if error.get("message") != (
+            "CERA stopped after three failed attempts at one provider stage."
+        ):
+            raise StateConflictError("qualification Retry relay terminal projection changed")
+    else:
+        trace_id = error.get("trace_id")
+        details = error.get("details")
+        debug_log_path = error.get("debug_log_path")
+        if (
+            not isinstance(trace_id, str)
+            or re.fullmatch(r"trace:[a-f0-9]{32}", trace_id) is None
+            or error.get("request_id") != failure.request_id
+            or error.get("branch_id") is not None
+            or error.get("generation_id") is not None
+            or error.get("stage") != "pi_scene_http"
+            or not isinstance(details, list)
+            or any(not isinstance(item, str) or len(item) > 500 for item in details)
+            or debug_log_path is not None
+            and (
+                not isinstance(debug_log_path, str)
+                or len(debug_log_path) > 2_000
+                or re.search(r"[\x00-\x1f\x7f]", debug_log_path) is not None
+            )
+        ):
+            raise StateConflictError("qualification Retry direct terminal projection changed")
+    return cast(bool, error["provider_operation_submitted"])
+
+
+def _superseding_transport_failure(
+    prior: TransportRetryFailureV1,
+    *,
+    status: Mapping[str, Any],
+    post_response: ClientResponseV1 | None,
+) -> TransportRetryFailureV1:
+    if status.get("state") != "superseded":
+        raise StateConflictError("qualification Retry did not provide a successor failure")
+    action = _validate_transport_retry_action(status.get("transport_retry"))
+    if action is None:
+        raise StateConflictError("qualification Retry successor action changed")
+    successor = TransportRetryFailureV1(
+        request_id=prior.request_id,
+        retry_id=cast(str, action["retry_id"]),
+        effect_proof_sha256=cast(str, action["effect_proof_sha256"]),
+        provider_operation_submitted=None,
+        response_sha256=None,
+    )
+    if post_response is None:
+        return successor
+    if post_response.status_code == 200:
+        raise StateConflictError("qualification successful Retry POST was superseded")
+    if post_response.status_code != 500:
+        return successor
+    observed = _closed_transport_retry_failure(post_response)
+    if (
+        observed is None
+        or observed.request_id != successor.request_id
+        or observed.retry_id != successor.retry_id
+        or observed.effect_proof_sha256 != successor.effect_proof_sha256
+    ):
+        raise StateConflictError("qualification Retry POST successor failure changed")
+    return observed
+
+
+def _critical_provider_stage_failure(
+    *,
+    backend: Mapping[str, Any],
+    failures: Sequence[TransportRetryFailureV1],
+    failed_calls: Sequence[Mapping[str, Any]],
+    actions: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    validated = _validate_critical_provider_stage_failure(backend)
+    if validated is None or len(failures) != 2 or len(failed_calls) != 3 or len(actions) != 2:
+        raise StateConflictError("qualification critical Retry attempt count changed")
+    if len({value.request_id for value in failures}) != 1:
+        raise StateConflictError("qualification critical Retry request identity changed")
+    if [value.get("post_status_state") for value in actions] != [
+        "superseded",
+        "attempts_exhausted",
+    ]:
+        raise StateConflictError("qualification critical Retry terminal chain changed")
+    return dict(validated)
+
+
+def _closed_exhausted_planner_call(
+    critical: Mapping[str, Any],
+    delta: ProviderLedgerDeltaV1,
+    *,
+    prior_failed_calls: Sequence[Mapping[str, Any]],
+    post_provider_operation_submitted: bool | None,
+) -> dict[str, Any]:
+    if _validate_critical_provider_stage_failure(critical) is None:
+        raise StateConflictError("qualification critical provider-stage projection changed")
+    if delta.deepseek_started_operations != 0:
+        raise StateConflictError("qualification exhausted Retry dispatched DeepSeek")
+    calls = [
+        value
+        for value in _provider_operation_records(delta)
+        if value.get("provider_family") == "sol"
+    ]
+    if len(calls) != 1:
+        raise StateConflictError("qualification exhausted Retry ledger span changed")
+    call = calls[0]
+    terminal_state = call.get("terminal_state")
+    if (
+        call.get("owner") != "planner"
+        or terminal_state not in {"provider_failed", "pretransport_failed"}
+        or type(call.get("submitted")) is not bool
+        or type(call.get("charged")) is not bool
+        or call.get("charged") is not call.get("submitted")
+        or post_provider_operation_submitted is not None
+        and call.get("submitted") is not post_provider_operation_submitted
+        or not isinstance(call.get("operation_id"), str)
+        or not re_is_sha256(str(call.get("session_identity_sha256", "")))
+        or not re_is_sha256(str(call.get("call_events_sha256", "")))
+        or (
+            terminal_state == "pretransport_failed"
+            and critical.get("final_failure_class") != "provider_unavailable"
+        )
+    ):
+        raise StateConflictError("qualification exhausted Retry is not a Planner failure")
+    projected = _safe_sol_call_projection(call)
+    all_calls = [*prior_failed_calls, projected]
+    if critical.get("provider_operations_observed_total") != sum(
+        value.get("submitted") is True for value in all_calls
+    ) or critical.get("provider_operations_conservative_total") != sum(
+        value.get("charged") is True for value in all_calls
+    ):
+        raise StateConflictError("qualification exhausted Retry accounting changed")
+    return projected
+
+
+def _closed_failed_planner_call(
+    failure: TransportRetryFailureV1,
+    delta: ProviderLedgerDeltaV1,
+) -> dict[str, Any]:
+    if delta.deepseek_started_operations != 0:
+        raise StateConflictError("qualification Retry failure occurred after DeepSeek dispatch")
+    sol_calls = [
+        value
+        for value in _provider_operation_records(delta)
+        if value.get("provider_family") == "sol"
+    ]
+    if len(sol_calls) != 1:
+        raise StateConflictError("qualification Retry failure ledger span changed")
+    call = sol_calls[0]
+    submitted = call.get("submitted")
+    charged = call.get("charged")
+    thread_sha256 = call.get("session_identity_sha256")
+    terminal_state = call.get("terminal_state")
+    expected_terminal_state = (
+        None
+        if failure.provider_operation_submitted is None
+        else ("provider_failed" if failure.provider_operation_submitted else "pretransport_failed")
+    )
+    if (
+        call.get("owner") != "planner"
+        or (
+            failure.provider_operation_submitted is not None
+            and submitted is not failure.provider_operation_submitted
+        )
+        or type(charged) is not bool
+        or charged is not submitted
+        or terminal_state not in {"provider_failed", "pretransport_failed"}
+        or expected_terminal_state is not None
+        and terminal_state != expected_terminal_state
+        or not isinstance(thread_sha256, str)
+        or not re_is_sha256(thread_sha256)
+        or not isinstance(call.get("operation_id"), str)
+        or not re_is_sha256(str(call.get("call_events_sha256", "")))
+    ):
+        raise StateConflictError("qualification Retry is not an exact Planner failure")
+    return _safe_sol_call_projection(call)
+
+
+def _safe_sol_call_projection(call: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "call_id": call["operation_id"],
+        "stored_thread_sha256": call["session_identity_sha256"],
+        "submitted": call["submitted"],
+        "charged": call["charged"],
+        "terminal_state": call["terminal_state"],
+        "duration_ms": call["duration_ms"],
+        "provider_receipt_sha256": call.get("provider_receipt_sha256"),
+        "failure_receipt_sha256": call.get("failure_receipt_sha256"),
+        "call_events_sha256": call["call_events_sha256"],
+    }
+
+
+def _finalize_transport_retry_chain(
+    resolution: TransportRetryResolutionV1,
+    *,
+    operation_records: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    if resolution.completion_response is None or resolution.critical_failure is not None:
+        raise StateConflictError("qualification successful Retry resolution changed")
+    planner_calls = [
+        value
+        for value in operation_records
+        if value.get("provider_family") == "sol" and value.get("owner") == "planner"
+    ]
+    failed_call_ids = {str(value["call_id"]) for value in resolution.failed_calls}
+    failed = [value for value in planner_calls if value.get("operation_id") in failed_call_ids]
+    replacements = [
+        value for value in planner_calls if value.get("operation_id") not in failed_call_ids
+    ]
+    if (
+        len(resolution.failures) != resolution.retry_action_count
+        or len(resolution.failed_calls) != resolution.retry_action_count
+        or len(failed) != len(resolution.failed_calls)
+        or len(replacements) != 1
+    ):
+        raise StateConflictError("qualification Retry Planner chain changed")
+    if [_safe_sol_call_projection(value) for value in failed] != [
+        dict(value) for value in resolution.failed_calls
+    ]:
+        raise StateConflictError("qualification Retry failed-call chain changed")
+    replacement = replacements[0]
+    replacement_thread = replacement.get("session_identity_sha256")
+    if (
+        replacement.get("submitted") is not True
+        or replacement.get("charged") is not True
+        or replacement.get("terminal_state") != "typed_accepted"
+        or not isinstance(replacement_thread, str)
+        or not re_is_sha256(replacement_thread)
+        or replacement_thread
+        in {value["stored_thread_sha256"] for value in resolution.failed_calls}
+    ):
+        raise StateConflictError("qualification Retry did not use one fresh successful Planner")
+    completion_sha256 = canonical_sha256(resolution.completion_response.body)
+    failure_chain = [
+        _transport_failure_chain_entry(failure, call, attempt_number=index)
+        for index, (failure, call) in enumerate(
+            zip(resolution.failures, resolution.failed_calls, strict=True),
+            start=1,
+        )
+    ]
+    body = {
+        "request_id_sha256": resolution.failure.request_id_sha256,
+        "retry_id_sha256": resolution.failure.retry_id_sha256,
+        "effect_proof_sha256": resolution.failure.effect_proof_sha256,
+        "failure_response_sha256": resolution.failure.response_sha256,
+        "failed_call": dict(resolution.failed_calls[0]),
+        "failed_calls": [dict(value) for value in resolution.failed_calls],
+        "failure_chain": failure_chain,
+        "replacement_call": _safe_sol_call_projection(replacement),
+        "retry_action_count": resolution.retry_action_count,
+        "maximum_retry_actions": 2,
+        "provider_attempt_count": len(resolution.failed_calls) + 1,
+        "actions": [dict(value) for value in resolution.actions],
+        "completion_sha256": completion_sha256,
+    }
+    return {**body, "chain_sha256": canonical_sha256(body)}
+
+
+def _finalize_transport_retry_exhaustion(
+    resolution: TransportRetryResolutionV1,
+    *,
+    operation_records: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    critical = resolution.critical_failure
+    if resolution.completion_response is not None or critical is None:
+        raise StateConflictError("qualification exhausted Retry resolution changed")
+    planner_calls = [
+        value
+        for value in operation_records
+        if value.get("provider_family") == "sol" and value.get("owner") == "planner"
+    ]
+    if (
+        len(operation_records) != 3
+        or len(planner_calls) != 3
+        or len(resolution.failures) != 2
+        or len(resolution.failed_calls) != 3
+        or len(resolution.actions) != 2
+        or [_safe_sol_call_projection(value) for value in planner_calls]
+        != [dict(value) for value in resolution.failed_calls]
+    ):
+        raise StateConflictError("qualification exhausted Retry ledger chain changed")
+    failure_chain = [
+        _transport_failure_chain_entry(failure, call, attempt_number=index)
+        for index, (failure, call) in enumerate(
+            zip(resolution.failures, resolution.failed_calls[:2], strict=True),
+            start=1,
+        )
+    ]
+    terminal_dispatch = resolution.failures[-1]
+    failure_chain.append(
+        {
+            "attempt_number": 3,
+            "request_id_sha256": terminal_dispatch.request_id_sha256,
+            "dispatch_retry_id_sha256": terminal_dispatch.retry_id_sha256,
+            "dispatch_effect_proof_sha256": terminal_dispatch.effect_proof_sha256,
+            "request_sha256": critical["request_sha256"],
+            "stage_input_sha256": critical["stage_input_sha256"],
+            "attempt_chain_sha256": critical["attempt_chain_sha256"],
+            "terminal_evidence_sha256": critical["terminal_evidence_sha256"],
+            "final_failure_class": critical["final_failure_class"],
+            "failed_call": dict(resolution.failed_calls[-1]),
+        }
+    )
+    body = {
+        "outcome": "critical_provider_stage_failure",
+        "request_id_sha256": resolution.failure.request_id_sha256,
+        "retry_id_sha256": resolution.failure.retry_id_sha256,
+        "effect_proof_sha256": resolution.failure.effect_proof_sha256,
+        "failure_response_sha256": resolution.failure.response_sha256,
+        "failed_call": dict(resolution.failed_calls[0]),
+        "failed_calls": [dict(value) for value in resolution.failed_calls],
+        "failure_chain": failure_chain,
+        "replacement_call": None,
+        "retry_action_count": resolution.retry_action_count,
+        "maximum_retry_actions": 2,
+        "provider_attempt_count": len(resolution.failed_calls),
+        "actions": [dict(value) for value in resolution.actions],
+        "critical_provider_stage_failure": dict(critical),
+        "critical_failure_sha256": canonical_sha256(critical),
+        "completion_sha256": None,
+    }
+    return {**body, "chain_sha256": canonical_sha256(body)}
+
+
+def _transport_failure_chain_entry(
+    failure: TransportRetryFailureV1,
+    call: Mapping[str, Any],
+    *,
+    attempt_number: int,
+) -> dict[str, Any]:
+    return {
+        "attempt_number": attempt_number,
+        "request_id_sha256": failure.request_id_sha256,
+        "retry_id_sha256": failure.retry_id_sha256,
+        "effect_proof_sha256": failure.effect_proof_sha256,
+        "failure_response_sha256": failure.response_sha256,
+        "failed_call": dict(call),
+    }
+
+
+def _sol_charged_operation_count(events: Sequence[Mapping[str, Any]]) -> int:
+    by_call: dict[str, list[Mapping[str, Any]]] = {}
+    for event in events:
+        call_id = event.get("call_id")
+        if isinstance(call_id, str):
+            by_call.setdefault(call_id, []).append(event)
+    charged = 0
+    for values in by_call.values():
+        states = {value.get("state") for value in values}
+        if "transport_invoked" in states or values[-1].get("state") in {
+            "prepared_not_invoked",
+            "worker_started_not_invoked",
+            "worker_preflight_not_invoked",
+        }:
+            charged += 1
+    return charged
+
+
 def _validate_provider_delta(
     fixture: QualificationFixtureV1,
     projections: Sequence[Mapping[str, Any]],
     delta: ProviderLedgerDeltaV1,
+    *,
+    retry_chains: Sequence[Mapping[str, Any]] = (),
 ) -> dict[str, Any]:
     if not projections or len(projections) > 2:
         raise StateConflictError("qualification attempt accounting is invalid")
@@ -1402,22 +2739,40 @@ def _validate_provider_delta(
         expected_deepseek = sum(
             value["adult_scene"] + value["adult_filter"] for value in operation_sets
         )
-    if delta.sol_transport_operations != expected_sol:
+    failed_calls = [
+        failed
+        for chain in retry_chains
+        for failed in cast(Sequence[Mapping[str, Any]], chain["failed_calls"])
+    ]
+    expected_submitted_sol = expected_sol + sum(
+        value.get("submitted") is True for value in failed_calls
+    )
+    expected_charged_sol = expected_sol + sum(
+        value.get("charged") is True for value in failed_calls
+    )
+    if delta.sol_transport_operations != expected_submitted_sol:
         raise StateConflictError("qualification Sol ledger differs from HTTP projection")
+    if delta.sol_charged_operations != expected_charged_sol:
+        raise StateConflictError("qualification charged Sol ledger differs from HTTP projection")
     if delta.deepseek_started_operations != expected_deepseek:
         raise StateConflictError("qualification DeepSeek ledger differs from HTTP projection")
     if delta.deepseek_completed_operations != delta.deepseek_started_operations:
         raise StateConflictError("qualification DeepSeek operation did not complete")
-    if any(
-        value.get("state")
-        in {
-            "provider_failed",
+    allowed_failed_call_ids = {
+        str(value["call_id"]) for value in failed_calls if isinstance(value.get("call_id"), str)
+    }
+    for value in delta.sol_events:
+        state = value.get("state")
+        if state in {
             "provider_completed_post_validation_failed",
             "pretransport_failed",
-        }
-        for value in delta.sol_events
-    ):
-        raise StateConflictError("qualification Sol ledger contains a failure")
+            "provider_failed",
+        }:
+            if value.get("call_id") not in allowed_failed_call_ids or state not in {
+                "pretransport_failed",
+                "provider_failed",
+            }:
+                raise StateConflictError("qualification Sol ledger contains an unrelated failure")
     if any(
         value.get("event") in {"invocation_failed", "forbidden_automatic_operation_observed"}
         for value in delta.deepseek_events
@@ -1427,12 +2782,50 @@ def _validate_provider_delta(
     cached_tokens = delta.deepseek_cached_input_tokens
     return {
         "sol_http_operations": delta.sol_transport_operations,
+        "sol_charged_operations": delta.sol_charged_operations,
         "deepseek_http_operations": delta.deepseek_started_operations,
         "deepseek_input_tokens": input_tokens,
         "deepseek_cached_input_tokens": cached_tokens,
         "deepseek_cache_ratio": (
             0.0 if input_tokens == 0 else round(cached_tokens / input_tokens, 6)
         ),
+        "provider_operation_evidence_sha256": canonical_sha256(_provider_operation_records(delta)),
+    }
+
+
+def _validate_exhausted_transport_retry_delta(
+    delta: ProviderLedgerDeltaV1,
+    *,
+    failed_calls: Sequence[Mapping[str, Any]],
+) -> dict[str, Any]:
+    if len(failed_calls) != 3 or delta.deepseek_started_operations != 0:
+        raise StateConflictError("qualification exhausted Retry provider span changed")
+    expected_submitted = sum(value.get("submitted") is True for value in failed_calls)
+    expected_charged = sum(value.get("charged") is True for value in failed_calls)
+    if (
+        delta.sol_transport_operations != expected_submitted
+        or delta.sol_charged_operations != expected_charged
+    ):
+        raise StateConflictError("qualification exhausted Retry Sol accounting changed")
+    allowed_call_ids = {str(value["call_id"]) for value in failed_calls}
+    if any(value.get("call_id") not in allowed_call_ids for value in delta.sol_events):
+        raise StateConflictError("qualification exhausted Retry contains an unrelated Sol call")
+    if any(
+        value.get("state")
+        in {
+            "provider_completed_post_validation_failed",
+        }
+        or (
+            value.get("state") in {"pretransport_failed", "provider_failed"}
+            and value.get("call_id") not in allowed_call_ids
+        )
+        for value in delta.sol_events
+    ):
+        raise StateConflictError("qualification exhausted Retry terminal state changed")
+    return {
+        "sol_operations_observed": delta.sol_transport_operations,
+        "sol_charged_operations_observed": delta.sol_charged_operations,
+        "deepseek_operations_observed": delta.deepseek_started_operations,
         "provider_operation_evidence_sha256": canonical_sha256(_provider_operation_records(delta)),
     }
 
@@ -1445,34 +2838,36 @@ def _provider_operation_records(delta: ProviderLedgerDeltaV1) -> list[dict[str, 
         if isinstance(call_id, str):
             sol_by_call.setdefault(call_id, []).append(event)
     for call_id, events in sol_by_call.items():
+        identity = events[0]
         invoked = next(
             (value for value in events if value.get("state") == "transport_invoked"),
             None,
         )
-        if invoked is None:
-            continue
-        terminal = next(
-            (
-                value
-                for value in reversed(events)
-                if value.get("state") in {"provider_completed", "typed_accepted", "provider_failed"}
-            ),
-            None,
-        )
+        terminal = events[-1]
+        terminal_state = terminal.get("state")
+        charged = invoked is not None or terminal_state in {
+            "prepared_not_invoked",
+            "worker_started_not_invoked",
+            "worker_preflight_not_invoked",
+        }
+        timing_start = identity if invoked is None else invoked
         records.append(
             {
                 "provider_family": "sol",
                 "operation_id": call_id,
-                "owner": invoked.get("owner"),
-                "route": invoked.get("route"),
-                "model": invoked.get("model"),
-                "session_identity_sha256": invoked.get("stored_thread_sha256"),
-                "started_at_utc": invoked.get("recorded_at_utc"),
-                "completed_at_utc": None if terminal is None else terminal.get("recorded_at_utc"),
-                "duration_ms": _duration_ms(invoked, terminal),
-                "provider_receipt_sha256": (
-                    None if terminal is None else terminal.get("provider_receipt_sha256")
-                ),
+                "owner": identity.get("owner"),
+                "route": identity.get("route"),
+                "model": identity.get("model"),
+                "session_identity_sha256": identity.get("stored_thread_sha256"),
+                "submitted": invoked is not None,
+                "charged": charged,
+                "terminal_state": terminal_state,
+                "started_at_utc": timing_start.get("recorded_at_utc"),
+                "completed_at_utc": terminal.get("recorded_at_utc"),
+                "duration_ms": _duration_ms(timing_start, terminal),
+                "provider_receipt_sha256": terminal.get("provider_receipt_sha256"),
+                "failure_receipt_sha256": terminal.get("failure_receipt_sha256"),
+                "call_events_sha256": canonical_sha256(events),
             }
         )
 
@@ -1671,6 +3066,37 @@ def _duration_ms(
     return max(0, int((end - start).total_seconds() * 1000))
 
 
+def _closed_failure_projection(exc: BaseException) -> dict[str, str]:
+    """Return an identity-free failure receipt safe for durable evidence."""
+
+    if isinstance(exc, _CriticalProviderStageError):
+        failure_type = "CriticalProviderStageError"
+        failure_category = "provider_stage_attempts_exhausted"
+    elif isinstance(exc, ContractValidationError):
+        failure_type = "ContractValidationError"
+        failure_category = "contract_validation"
+    elif isinstance(exc, StateConflictError):
+        failure_type = "StateConflictError"
+        failure_category = "state_conflict"
+    elif isinstance(exc, TimeoutError):
+        failure_type = "TimeoutError"
+        failure_category = "transport_timeout"
+    elif isinstance(exc, OSError):
+        failure_type = "OSError"
+        failure_category = "transport_io"
+    elif isinstance(exc, (KeyboardInterrupt, SystemExit)):
+        failure_type = "Interrupted"
+        failure_category = "interrupted"
+    else:
+        failure_type = "UnexpectedError"
+        failure_category = "unexpected"
+    identity = {
+        "failure_type": failure_type,
+        "failure_category": failure_category,
+    }
+    return {**identity, "failure_sha256": canonical_sha256(identity)}
+
+
 def _nonnegative_int(value: object, *, default: int) -> int:
     return value if type(value) is int and value >= 0 else default
 
@@ -1694,6 +3120,7 @@ __all__ = [
     "QualificationFixtureV1",
     "QualificationPhase",
     "QualificationRoute",
+    "QUALIFICATION_EXECUTION_POLICY",
     "RETAINED_PLANNER_LATENCY_CONCERN_MS",
     "SOL_FAMILY_CEILING",
     "TERRA_CEILING",

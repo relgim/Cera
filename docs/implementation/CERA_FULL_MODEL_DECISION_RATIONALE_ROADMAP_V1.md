@@ -867,6 +867,22 @@ attempt identity. A running, pending, ambiguous, or story-effective operation
 cannot be retried. The UI must not offer Retry merely because three minutes
 have elapsed while an operation may still be running.
 
+The frozen qualification may exercise this control only after a naturally
+occurring, closed ordinary-Planner transport failure. It first reconciles the
+exact Retry identity through authenticated GET and sends one explicit
+empty-object POST for that identity. If the replacement Planner also has a
+closed zero-effect failure, qualification may follow the one backend-issued
+successor identity and send one final explicit empty-object POST: three Planner
+attempts total, with no fourth attempt or fallback. Authenticated GET is the
+only authority after an ambiguous POST result. After the third failed attempt,
+GET must return the closed `attempts_exhausted` status with no successor action,
+and SillyTavern shows the hash-safe Codex/Planner critical error in a collapsible
+view with Retry disabled. Writer, Luna, Adult Scene, Adult Filter, and Recorder
+failures are never transport-retried. A proven local pretransport failure is
+retained in the evidence chain but consumes zero submitted and zero charged
+provider calls; a submitted failed Planner attempt remains charged. The live
+campaign does not inject a failure merely to exercise Retry.
+
 ### 11.2 Required user-visible states
 
 ```text
@@ -887,6 +903,7 @@ route_transition_pending
 error_recoverable
 transport_failed_retryable
 transport_retrying
+provider_stage_retry_exhausted
 ```
 
 Every error shows:
@@ -1208,8 +1225,11 @@ Exit gate:
 
 - Accept, provisional acceptance, Decline, Regenerate, Replan, restart, and
   new-chat flows work without stale IDs;
-- an eligible transport failure can be retried once per explicit click without
-  resuming the interrupted provider thread or duplicating accepted state;
+- an eligible transport failure can be retried once per backend-issued identity
+  and explicit click, up to two Retry actions and three total attempts, without
+  resuming an interrupted provider thread or duplicating accepted state;
+- the third failed attempt shows a critical Codex/Planner error, exposes no
+  fourth Retry action, and does not fall back to another provider;
 - every failure states whether accepted state changed;
 - no generic unexplained `Bad Request` remains for known error classes.
 
@@ -1225,8 +1245,32 @@ Work:
 2. Prove the actual launcher, HTTP, workspace, retrieval, Planner, Writer,
    Validator, Adult Filter, Recorder, review, reducer, and restart call shapes
    through fake transports.
-3. Run one complete clean-checkout suite after bytes stop changing.
-4. Freeze exact source, prompts, schemas, tools, profiles, fixtures, and
+3. Prove that the qualification launcher passes the same five manual-Retry
+   seams as the normal lean server: failed-owner reinitializer, provider-ledger
+   snapshot, active-thread snapshot, fresh-thread initializer, and completed
+   uncommitted Planner abandoner.
+4. In the disposable SillyTavern tree, hash-bind and execute the repository
+   proxy and creator-extension Node suites. Preflight authenticated Retry GET,
+   exact empty POST, successor GET, a second exact empty POST, and the terminal
+   no-action `attempts_exhausted` GET through the fake loopback relay.
+5. Freeze and exact-validate the complete qualification execution policy, not
+   only its Retry subsection. A rehashed change to route order, phase order,
+   regenerate authority, adult-evidence custody, fallback, or substitution
+   fails closed.
+6. Prove that a transient SillyTavern readiness miss keeps the disposable
+   process alive until the bounded startup deadline. Durable and console
+   failure receipts retain only an allowlisted type, category, and hash; raw
+   Retry identities, paths, response content, and adult prose are excluded.
+7. Route disposable SillyTavern stdout and stderr to the operating-system null
+   sink. SillyTavern debug output may contain complete retained requests and
+   responses, so no ordinary qualification log file is an acceptable custody
+   location for those streams.
+8. Make the fake exhausted POST emit the exact full production
+   `cera.error.v1` envelope, then prove the staged proxy accepts it, removes
+   trace/path/provider prose, and returns only the exact closed terminal
+   projection. Reduced or partially shaped direct envelopes fail closed.
+9. Run one complete clean-checkout suite after bytes stop changing.
+10. Freeze exact source, prompts, schemas, tools, profiles, fixtures, and
    provider ledgers.
 
 Exit gate:
@@ -1263,14 +1307,19 @@ Exit gate:
 - no hidden retry, fallback, duplicate dispatch, or accounting ambiguity;
 - repeated-session latency telemetry is complete.
 
-### Phase 10 — Isolated SillyTavern creator-readiness smoke
+### Phase 10 — Twenty-turn backend reliability campaign
 
-Run one progressing branch with:
+Run one progressing direct-backend branch first with:
 
 ```text
-3 ordinary user prompts
-3 adult user prompts
+10 ordinary user prompts
+10 adult user prompts
 ```
+
+Preserve every first response, any explicit transport-Retry chain, provider
+submission/charge parity, call and thread hashes, terminal states, durations,
+and completion hash. If no natural eligible Planner transport failure occurs,
+the required Retry action and chain counts are both zero.
 
 It must exercise:
 
@@ -1279,6 +1328,32 @@ It must exercise:
 - route transition and logic-owner indicator;
 - adult full record and safe projection;
 - return to Codex;
+- repeated retained-thread latency;
+- exact provider accounting;
+- no automatic Retry or fallback.
+
+Exit gate:
+
+- all twenty prompts progress without API, persistence, recording, session, or
+  route error;
+- every charged failed Planner attempt, if any, is additive to the successful
+  replacement call rather than hidden by HTTP projection accounting;
+- protected information does not leak.
+
+### Phase 11 — Ten-turn isolated SillyTavern creator-readiness campaign
+
+Only after Phase 10 passes, run the same frozen route through the hash-bound
+disposable SillyTavern copy with:
+
+```text
+5 ordinary user prompts
+5 adult user prompts
+```
+
+It must exercise:
+
+- automatic acceptance and the same route boundaries as the backend run;
+- authenticated local relay and exact completion metadata;
 - one process restart;
 - one fork;
 - ordinary retrieval of the safe adult projection;
@@ -1288,18 +1363,17 @@ The pass is technical. Ted remains the judge of subjective adult prose.
 
 Exit gate:
 
-- six prompts progress without API, review-ID, persistence, recording,
+- all ten prompts progress without API, review-ID, persistence, recording,
   retrieval, session, or route error;
 - accepted state is coherent after restart and fork;
+- installed SillyTavern and its user data remain untouched;
 - protected information does not leak.
 
-### Phase 11 — Twenty-turn reliability campaign
-
-**Purpose:** expose common technical, critical, major, and generalized defects,
-not demand perfect stochastic prose.
-
-Freeze the exact source, route, prompts, tools, schemas, profiles, fixtures, and
-provider ceilings. Preserve every first-pass result before any user action.
+The combined backend and SillyTavern campaigns expose common technical,
+critical, major, and generalized defects without demanding perfect stochastic
+prose. Freeze the exact source, route, prompts, tools, schemas, profiles,
+fixtures, and provider ceilings before either campaign, and preserve every
+first-pass result before any user action.
 
 Measure:
 
@@ -1432,9 +1506,18 @@ resumes the same physical thread remains retained.
 A second or later retained Planner operation at or above 180 seconds is a
 latency concern. CERA records the owning stage, retrieval activity, cache/token
 telemetry, and duration for optimization, but does not automatically cancel or
-retry it. The provider hard transport-loss boundary is 600 seconds. The outer
-qualification HTTP timeout must exceed the complete bounded sequential-stage
-budget so the client cannot abandon backend work that may still commit.
+retry it. The summary records the retained-call sample count, maximum, and
+average using only `cold_start=false` observations; cold start and cold
+rehydration samples never enter that average, including across a backend
+process restart that retains the same physical thread. The provider hard
+transport-loss boundary is 600 seconds. The outer
+qualification HTTP timeout is 4,200 seconds: six sequential 600-second provider
+stages plus one stage of margin, so the client cannot abandon backend work that
+may still commit. If either explicit Retry POST becomes ambiguous, read-only
+GET reconciliation for that exact identity remains available for 4,215 seconds
+and never repeats the POST. Retry timing uses wall-clock duration for each POST
+even when its response is lost, and for the complete GET reconciliation window
+including poll intervals; it must not report either ambiguous wait as zero.
 
 When a change materially increases latency, record the increase and its owning
 stage before optimizing.

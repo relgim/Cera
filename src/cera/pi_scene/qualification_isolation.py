@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,33 @@ MANIFEST_NAME = "CERA_QUALIFICATION_ISOLATED_COPY_MANIFEST.json"
 _BASE_MANIFEST_NAME = "CERA_ISOLATED_COPY_MANIFEST.json"
 _METADATA_BRIDGE_RELATIVE = Path("public/scripts/openai.js")
 _TRANSPORT_RETRY_SERVER_BRIDGE_RELATIVE = Path("src/endpoints/backends/chat-completions.js")
+_STAGED_NODE_SUITE_RELATIVES = (
+    Path("plugins/cera-review-proxy/test.mjs"),
+    Path("public/scripts/extensions/third-party/cera-creator-review/metadata-panel.test.mjs"),
+)
+TRANSPORT_RETRY_TERMINAL_UI_CONTRACT: dict[str, Any] = {
+    "schema_version": "cera.pi_scene.qualification_critical_provider_stage_ui.v1",
+    "projection_key": "critical_provider_stage_failure",
+    "severity": "critical",
+    "provider_required": True,
+    "stage_required": True,
+    "maximum_total_provider_attempts": 3,
+    "maximum_retry_actions": 2,
+    "retry_action_enabled": False,
+    "collapsible": True,
+    "display_fields": [
+        "severity",
+        "provider",
+        "model_family",
+        "stage",
+        "maximum_attempts",
+        "attempts_total",
+        "retries_consumed",
+        "final_failure_class",
+    ],
+    "hash_safe_only": True,
+    "raw_provider_or_story_prose_allowed": False,
+}
 _LEGACY_METADATA_BRIDGE = (
     b"        if (data?.cera?.provisional && "
     b"data.cera.provisional_review_id) {\n"
@@ -187,7 +215,7 @@ def stage_qualification_sillytavern(
     proxy_entries = _relative_entries(proxy_target, target)
     extension_entries = _relative_entries(extension_target, target)
     body = {
-        "schema_version": "cera.pi_scene.qualification_isolated_sillytavern.v1",
+        "schema_version": "cera.pi_scene.qualification_isolated_sillytavern.v3",
         "base_manifest_sha256": base["manifest_sha256"],
         "base_user_data_copied": base["user_data_copied"],
         "base_plugins_copied": base["plugins_copied"],
@@ -207,6 +235,17 @@ def stage_qualification_sillytavern(
         ),
         "transport_retry_server_bridge_contract": (
             "cera.transport_retry.closed_error_projection.v1"
+        ),
+        "transport_retry_terminal_ui_contract": dict(TRANSPORT_RETRY_TERMINAL_UI_CONTRACT),
+        "staged_node_suite_paths": [value.as_posix() for value in _STAGED_NODE_SUITE_RELATIVES],
+        "staged_node_suite_source_sha256": canonical_sha256(
+            [
+                {
+                    "path": value.as_posix(),
+                    "sha256": bytes_sha256((target / value).read_bytes()),
+                }
+                for value in _STAGED_NODE_SUITE_RELATIVES
+            ]
         ),
         "copied_file_count": len(entries),
         "copied_tree_sha256": canonical_sha256(entries),
@@ -237,7 +276,7 @@ def verify_qualification_sillytavern(target_root: Path) -> dict[str, Any]:
     unsigned = {key: item for key, item in value.items() if key != "manifest_sha256"}
     if value.get(
         "schema_version"
-    ) != "cera.pi_scene.qualification_isolated_sillytavern.v1" or expected != canonical_sha256(
+    ) != "cera.pi_scene.qualification_isolated_sillytavern.v3" or expected != canonical_sha256(
         unsigned
     ):
         raise StateConflictError("qualification SillyTavern manifest binding changed")
@@ -288,9 +327,25 @@ def verify_qualification_sillytavern(target_root: Path) -> dict[str, Any]:
         != "cera.transport_retry.capture_function.v1"
         or value.get("transport_retry_server_bridge_contract")
         != "cera.transport_retry.closed_error_projection.v1"
+        or value.get("transport_retry_terminal_ui_contract") != TRANSPORT_RETRY_TERMINAL_UI_CONTRACT
     ):
         raise StateConflictError("qualification transport retry bridge changed")
     _verify_transport_retry_server_bridge(transport_retry_server_bridge_path)
+    suite_entries = [
+        {
+            "path": relative.as_posix(),
+            "sha256": bytes_sha256((target / relative).read_bytes()),
+        }
+        for relative in _STAGED_NODE_SUITE_RELATIVES
+        if (target / relative).is_file()
+    ]
+    if (
+        value.get("staged_node_suite_paths")
+        != [relative.as_posix() for relative in _STAGED_NODE_SUITE_RELATIVES]
+        or len(suite_entries) != len(_STAGED_NODE_SUITE_RELATIVES)
+        or value.get("staged_node_suite_source_sha256") != canonical_sha256(suite_entries)
+    ):
+        raise StateConflictError("qualification staged Node suite binding changed")
     entries = _tree_entries(target)
     if len(entries) != value.get("copied_file_count") or canonical_sha256(entries) != value.get(
         "copied_tree_sha256"
@@ -303,6 +358,47 @@ def verify_qualification_sillytavern(target_root: Path) -> dict[str, Any]:
     ):
         raise StateConflictError("qualification SillyTavern plugin policy changed")
     return value
+
+
+def run_staged_sillytavern_node_suites(
+    target_root: Path,
+    *,
+    node_executable: Path,
+) -> dict[str, Any]:
+    """Execute only the two hash-bound repository suites in the staged copy."""
+
+    target = target_root.resolve()
+    manifest = verify_qualification_sillytavern(target)
+    node = node_executable.resolve()
+    if not node.is_file():
+        raise ContractValidationError("qualification Node.js executable is unavailable")
+    command = (
+        str(node),
+        "--test",
+        *(str((target / relative).resolve()) for relative in _STAGED_NODE_SUITE_RELATIVES),
+    )
+    completed = subprocess.run(
+        command,
+        cwd=target,
+        capture_output=True,
+        text=False,
+        timeout=180,
+        check=False,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
+    if completed.returncode != 0:
+        raise StateConflictError("qualification staged SillyTavern Node suites failed")
+    body = {
+        "schema_version": "cera.pi_scene.qualification_staged_node_suites.v1",
+        "suite_count": len(_STAGED_NODE_SUITE_RELATIVES),
+        "suite_source_sha256": manifest["staged_node_suite_source_sha256"],
+        "node_executable_sha256": bytes_sha256(node.read_bytes()),
+        "stdout_sha256": bytes_sha256(completed.stdout),
+        "stderr_sha256": bytes_sha256(completed.stderr),
+        "return_code": completed.returncode,
+        "provider_calls": 0,
+    }
+    return {**body, "proof_sha256": canonical_sha256(body)}
 
 
 def qualification_sillytavern_command(
@@ -508,7 +604,9 @@ def _write_new_json(path: Path, payload: dict[str, Any]) -> None:
 
 __all__ = [
     "MANIFEST_NAME",
+    "TRANSPORT_RETRY_TERMINAL_UI_CONTRACT",
     "qualification_sillytavern_command",
+    "run_staged_sillytavern_node_suites",
     "stage_qualification_sillytavern",
     "verify_qualification_sillytavern",
 ]

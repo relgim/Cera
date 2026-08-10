@@ -4,9 +4,13 @@ The live command is deliberately two-step.  ``freeze`` must complete against a
 clean exact Git tree before ``live`` can construct provider transports.  The
 live phase performs 10 ordinary plus 10 adult direct-backend requests, then 5
 ordinary plus 5 adult requests through a disposable SillyTavern copy.  Each
-phase is one retained ``cera-alpha`` story branch.  No automatic retry or
-fallback exists; one explicit creator Regenerate may follow a noncritical
-rejected first pass, and both outcomes remain in evidence.
+phase is one retained ``cera-alpha`` story branch. No automatic retry or
+fallback exists. Up to two exact manifest-authorized manual Planner transport
+Retry actions may follow naturally occurring closed ordinary failures, for
+three total Planner provider attempts. Attempt exhaustion is a critical
+Codex/Planner failure with no further action. One explicit creator Regenerate
+may follow a noncritical rejected first pass; every earlier outcome remains in
+evidence.
 """
 
 from __future__ import annotations
@@ -26,7 +30,7 @@ from http.cookiejar import CookieJar
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from threading import Thread
-from typing import Any
+from typing import Any, cast
 from urllib.error import HTTPError
 from urllib.request import HTTPCookieProcessor, Request, build_opener, urlopen
 
@@ -38,6 +42,9 @@ from cera.pi_scene.http_contracts import LeanSceneRequestControlsV2
 from cera.pi_scene.qualification import (
     DEEPSEEK_HTTP_OPERATION_CEILING,
     DEEPSEEK_PER_INVOCATION_CEILING,
+    QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
+    QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
+    QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
     SOL_FAMILY_CEILING,
     ClientResponseV1,
     FullModelQualificationRunner,
@@ -53,11 +60,13 @@ from cera.pi_scene.qualification_isolation import (
     MANIFEST_NAME as ISOLATED_ST_MANIFEST_NAME,
 )
 from cera.pi_scene.qualification_isolation import (
+    TRANSPORT_RETRY_TERMINAL_UI_CONTRACT,
     qualification_sillytavern_command,
+    run_staged_sillytavern_node_suites,
     stage_qualification_sillytavern,
     verify_qualification_sillytavern,
 )
-from cera.serialization import canonical_bytes, canonical_sha256
+from cera.serialization import canonical_bytes, canonical_sha256, text_sha256
 from scripts.run_pi_scene_lean_server import (
     DEFAULT_PI,
     DEFAULT_SILLYTAVERN,
@@ -79,15 +88,13 @@ _CODEX_RUNTIME_DISTRIBUTIONS = (
     ("mcp", "mcp"),
 )
 
-# One ordinary request can contain Planner, Writer, Luna, one critical
-# Writer/Luna repair, and Recorder. Each provider stage has a 600-second hard
-# boundary. The HTTP client must outlive that complete bounded sequence so it
-# never abandons authoritative backend work while it is still committing.
-QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS = 600
-QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES = 6
-QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS = (
-    QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES + 1
-) * QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS
+# Preserve one explicit relationship among the entrypoint-level names used by
+# frozen qualification checks while sourcing all values from the runner.
+_QUALIFICATION_TIMEOUT_CONTRACT = (
+    QUALIFICATION_MAX_SEQUENTIAL_PROVIDER_STAGES,
+    QUALIFICATION_PROVIDER_STAGE_HARD_TIMEOUT_SECONDS,
+    QUALIFICATION_HTTP_HARD_TIMEOUT_SECONDS,
+)
 
 
 def _preflight_runtime_path_budget(output_root: Path) -> None:
@@ -237,6 +244,24 @@ def _assert_frozen_python_interpreter(manifest: dict[str, Any]) -> None:
         )
 
 
+def _frozen_node_executable(manifest: dict[str, Any]) -> Path:
+    current = shutil.which("node")
+    if current is None:
+        raise StateConflictError("qualification frozen Node.js executable is unavailable")
+    resolved = Path(current).resolve()
+    categories = manifest.get("artifact_categories")
+    entries = categories.get("provider_runtime_tools") if isinstance(categories, dict) else None
+    if not isinstance(entries, list) or not any(
+        isinstance(entry, dict)
+        and entry.get("location") == "external"
+        and isinstance(entry.get("path"), str)
+        and Path(entry["path"]).resolve() == resolved
+        for entry in entries
+    ):
+        raise StateConflictError("qualification current Node.js is not frozen in the manifest")
+    return resolved
+
+
 class DirectCeraQualificationClient:
     def __init__(self, *, base_url: str, token: str) -> None:
         self.base_url = base_url.rstrip("/")
@@ -270,6 +295,25 @@ class DirectCeraQualificationClient:
             payload={"action": "regenerate"},
             transport="direct_cera_review_action",
             path=f"/v1/cera/reviews/{review_id}/decision",
+        )
+
+    def transport_retry_status(self, *, retry_id: str) -> ClientResponseV1:
+        path = f"/v1/cera/transport-retries/{retry_id}"
+        return _get_json_response(
+            self.base_url + path,
+            token=self.token,
+            transport="direct_cera_transport_retry_status",
+            path=path,
+        )
+
+    def retry_transport(self, *, retry_id: str) -> ClientResponseV1:
+        path = f"/v1/cera/transport-retries/{retry_id}"
+        return _post_json(
+            self.base_url + path,
+            token=self.token,
+            payload={},
+            transport="direct_cera_transport_retry_action",
+            path=path,
         )
 
     def verify_ready(self) -> dict[str, Any]:
@@ -373,11 +417,27 @@ class IsolatedSillyTavernQualificationClient:
             payload={"action": "regenerate"},
         )
 
+    def transport_retry_status(self, *, retry_id: str) -> ClientResponseV1:
+        return self._relay(
+            path=(f"/api/plugins/cera-review/v1/cera/transport-retries/{retry_id}"),
+            method="GET",
+        )
+
+    def retry_transport(self, *, retry_id: str) -> ClientResponseV1:
+        return self._relay(
+            path=(f"/api/plugins/cera-review/v1/cera/transport-retries/{retry_id}"),
+            method="POST",
+            payload={},
+        )
+
     def probe_relay(
         self,
         *,
         decline_review_id: str,
         regenerate_review_id: str,
+        retry_id: str,
+        retry_request_id: str,
+        retry_effect_proof_sha256: str,
     ) -> dict[str, Any]:
         health = self._relay(
             path="/api/plugins/cera-review/health",
@@ -401,8 +461,34 @@ class IsolatedSillyTavernQualificationClient:
             method="POST",
             payload={"action": "regenerate"},
         )
-        observed = (health, decline_review, regenerate_review, decline, regenerate)
-        if any(value.status_code != 200 for value in observed):
+        retry_1_eligible = self.transport_retry_status(retry_id=retry_id)
+        retry_1_action = self.retry_transport(retry_id=retry_id)
+        retry_1_terminal = self.transport_retry_status(retry_id=retry_id)
+        successor_action = retry_1_terminal.body.get("transport_retry")
+        successor_id = (
+            successor_action.get("retry_id") if isinstance(successor_action, dict) else None
+        )
+        if not isinstance(successor_id, str):
+            raise StateConflictError("qualification Retry relay omitted its one successor")
+        retry_2_eligible = self.transport_retry_status(retry_id=successor_id)
+        retry_2_action = self.retry_transport(retry_id=successor_id)
+        retry_2_terminal = self.transport_retry_status(retry_id=successor_id)
+        ordinary_successes = (
+            health,
+            decline_review,
+            regenerate_review,
+            decline,
+            regenerate,
+            retry_1_eligible,
+            retry_1_terminal,
+            retry_2_eligible,
+            retry_2_terminal,
+        )
+        if (
+            any(value.status_code != 200 for value in ordinary_successes)
+            or retry_1_action.status_code != 500
+            or retry_2_action.status_code != 503
+        ):
             raise StateConflictError("qualification CERA review relay failed")
         if (
             decline_review.body.get("review_id") != decline_review_id
@@ -411,12 +497,84 @@ class IsolatedSillyTavernQualificationClient:
             or regenerate.body.get("review_id") != regenerate_review_id
         ):
             raise StateConflictError("qualification CERA review relay changed identity")
+        eligible_action = retry_1_eligible.body.get("transport_retry")
+        retry_1_error = retry_1_action.body.get("error")
+        retry_2_error = retry_2_action.body.get("error")
+        critical = retry_2_terminal.body.get("critical_provider_stage_failure")
+        projected_exhausted_error_keys = {
+            "schema_version",
+            "error_code",
+            "message",
+            "story_state_committed",
+            "retry_mode",
+            "provider_operation_submitted",
+            "accepted_state_changed",
+            "fallback_used",
+            "next_action",
+            "retry_transport_enabled",
+            "critical_provider_stage_failure",
+        }
+        if (
+            retry_1_eligible.body.get("state") != "eligible"
+            or retry_1_eligible.body.get("request_id") != retry_request_id
+            or retry_1_eligible.body.get("effect_proof_sha256") != retry_effect_proof_sha256
+            or not isinstance(eligible_action, dict)
+            or eligible_action.get("retry_id") != retry_id
+            or not isinstance(retry_1_error, dict)
+            or retry_1_error.get("transport_retry") != successor_action
+            or retry_1_terminal.body.get("state") != "superseded"
+            or retry_1_terminal.body.get("superseded_by_retry_id") != successor_id
+            or retry_2_eligible.body.get("state") != "eligible"
+            or retry_2_eligible.body.get("transport_retry") != successor_action
+            or not isinstance(retry_2_error, dict)
+            or set(retry_2_action.body) != {"status", "story_state_committed", "error"}
+            or retry_2_action.body.get("status") != "error"
+            or retry_2_action.body.get("story_state_committed") is not False
+            or set(retry_2_error) != projected_exhausted_error_keys
+            or retry_2_error.get("message")
+            != "CERA stopped after three failed attempts at one provider stage."
+            or retry_2_error.get("provider_operation_submitted") is not True
+            or retry_2_error.get("accepted_state_changed") is not False
+            or retry_2_error.get("fallback_used") is not False
+            or retry_2_error.get("critical_provider_stage_failure") != critical
+            or retry_2_terminal.body.get("schema_version")
+            != "cera.pi_scene.transport_retry_status.v2"
+            or retry_2_terminal.body.get("state") != "attempts_exhausted"
+            or retry_2_terminal.body.get("retry_transport_enabled") is not False
+            or "transport_retry" in retry_2_terminal.body
+            or "superseded_by_retry_id" in retry_2_terminal.body
+            or not isinstance(critical, dict)
+            or critical.get("provider") != "codex"
+            or critical.get("model_family") != "sol"
+            or critical.get("stage") != "planner"
+            or any(
+                sentinel in json.dumps(retry_2_action.body, sort_keys=True)
+                for sentinel in (
+                    "RAW PROVIDER FAILURE PROSE",
+                    "PRIVATE PROVIDER OUTPUT",
+                    "provider-output.md",
+                    "trace:" + "a" * 32,
+                    retry_request_id,
+                )
+            )
+        ):
+            raise StateConflictError("qualification CERA transport Retry relay changed")
         return {
             "health_sha256": canonical_sha256(health.body),
             "decline_review_sha256": canonical_sha256(decline_review.body),
             "regenerate_review_sha256": canonical_sha256(regenerate_review.body),
             "decline_decision_sha256": canonical_sha256(decline.body),
             "regenerate_decision_sha256": canonical_sha256(regenerate.body),
+            "retry_1_eligible_sha256": canonical_sha256(retry_1_eligible.body),
+            "retry_1_action_sha256": canonical_sha256(retry_1_action.body),
+            "retry_1_terminal_sha256": canonical_sha256(retry_1_terminal.body),
+            "retry_2_eligible_sha256": canonical_sha256(retry_2_eligible.body),
+            "retry_2_action_sha256": canonical_sha256(retry_2_action.body),
+            "retry_2_terminal_sha256": canonical_sha256(retry_2_terminal.body),
+            "critical_provider_stage_failure_sha256": canonical_sha256(critical),
+            "critical_provider_stage_ui_contract_sha256": canonical_sha256(
+                TRANSPORT_RETRY_TERMINAL_UI_CONTRACT
+            ),
             "provider_calls": 0,
         }
 
@@ -510,6 +668,10 @@ def provider_free_check(
         "sol_ceiling": SOL_FAMILY_CEILING,
         "deepseek_http_operation_ceiling": DEEPSEEK_HTTP_OPERATION_CEILING,
         "deepseek_per_invocation_ceiling": DEEPSEEK_PER_INVOCATION_CEILING,
+        "manual_planner_transport_retry_authorized": True,
+        "maximum_manual_transport_retry_actions_per_prompt": 2,
+        "maximum_total_planner_provider_attempts": 3,
+        "automatic_transport_retry_actions": 0,
         "provider_calls": 0,
     }
     if manifest_path is not None:
@@ -518,8 +680,13 @@ def provider_free_check(
         isolated = verify_qualification_sillytavern(
             manifest_path.resolve().parent / "isolated_sillytavern"
         )
+        node_proof = run_staged_sillytavern_node_suites(
+            manifest_path.resolve().parent / "isolated_sillytavern",
+            node_executable=_frozen_node_executable(manifest),
+        )
         result["manifest_sha256"] = manifest["manifest_sha256"]
         result["isolated_sillytavern_manifest_sha256"] = isolated["manifest_sha256"]
+        result["staged_node_suite_proof_sha256"] = node_proof["proof_sha256"]
     result["result_sha256"] = canonical_sha256(result)
     return result
 
@@ -566,6 +733,13 @@ def _start_cera_service(
             readable_debug=runtime.readable_debug,
             logic_route_resolver=lambda turn: accepted_logic_route(runtime.store, turn),
             full_model_controller=runtime.full_model_controller,
+            transport_retry_reinitializer=runtime.transport_retry_reinitializer,
+            transport_provider_ledger_snapshot=(runtime.transport_provider_ledger_snapshot),
+            transport_retry_active_thread_snapshot=(runtime.transport_retry_active_thread_snapshot),
+            transport_retry_fresh_thread_initializer=(
+                runtime.transport_retry_fresh_thread_initializer
+            ),
+            transport_completed_planner_abandoner=(runtime.transport_completed_planner_abandoner),
         )
         server = build_pi_scene_server(
             adapter,
@@ -596,11 +770,132 @@ class _FakeRelayUpstream:
         port: int,
         decline_review_id: str,
         regenerate_review_id: str,
+        authorization_token: str,
+        retry_id: str,
+        retry_request_id: str,
+        retry_effect_proof_sha256: str,
     ) -> None:
         expected_reviews = {
             f"/v1/cera/reviews/{decline_review_id}": decline_review_id,
             f"/v1/cera/reviews/{regenerate_review_id}": regenerate_review_id,
         }
+        retry_ids = (retry_id, "retry-" + "4" * 64)
+        retry_effects = (retry_effect_proof_sha256, "5" * 64)
+        retry_paths = tuple(f"/v1/cera/transport-retries/{value}" for value in retry_ids)
+        critical = {
+            "schema_version": "cera.provider_stage_retry_exhausted.v1",
+            "severity": "critical",
+            "provider": "codex",
+            "model_family": "sol",
+            "stage": "planner",
+            "maximum_attempts": 3,
+            "attempts_total": 3,
+            "retries_consumed": 2,
+            "story_state_committed": False,
+            "failed_stage_effect_committed": False,
+            "provider_operations_observed_total": 3,
+            "provider_operations_conservative_total": 3,
+            "final_failure_class": "provider_unavailable",
+            "request_sha256": "6" * 64,
+            "stage_input_sha256": "7" * 64,
+            "attempt_chain_sha256": "8" * 64,
+            "terminal_evidence_sha256": "9" * 64,
+        }
+        retry_state: dict[str, Any] = {
+            "authenticated_gets": 0,
+            "authenticated_posts": 0,
+            "exact_empty_posts": 0,
+            "posted": [False, False],
+        }
+
+        def retry_action(index: int) -> dict[str, Any]:
+            return {
+                "schema_version": "cera.pi_scene.transport_retry.v1",
+                "retry_id": retry_ids[index],
+                "retry_url": retry_paths[index],
+                "method": "POST",
+                "eligible": True,
+                "automatic": False,
+                "effect_proof_sha256": retry_effects[index],
+            }
+
+        def retry_status(index: int) -> dict[str, Any]:
+            common = {
+                "schema_version": "cera.pi_scene.transport_retry_status.v1",
+                "retry_id": retry_ids[index],
+                "request_id": retry_request_id,
+                "effect_proof_sha256": retry_effects[index],
+            }
+            if not retry_state["posted"][index]:
+                return {
+                    **common,
+                    "state": "eligible",
+                    "retry_transport_enabled": True,
+                    "transport_retry": retry_action(index),
+                }
+            if index == 0:
+                return {
+                    **common,
+                    "state": "superseded",
+                    "retry_transport_enabled": True,
+                    "superseded_by_retry_id": retry_ids[1],
+                    "transport_retry": retry_action(1),
+                }
+            return {
+                **common,
+                "schema_version": "cera.pi_scene.transport_retry_status.v2",
+                "state": "attempts_exhausted",
+                "retry_transport_enabled": False,
+                "critical_provider_stage_failure": critical,
+            }
+
+        def successor_failure() -> dict[str, Any]:
+            return {
+                "status": "error",
+                "story_state_committed": False,
+                "error": {
+                    "schema_version": "cera.error.v1",
+                    "error_code": "CERA_PROVIDER_TRANSPORT_FAILED",
+                    "message": (
+                        "A provider transport failed with no candidate or story-state effect."
+                    ),
+                    "request_id": retry_request_id,
+                    "story_state_committed": False,
+                    "retry_mode": "manual_transport",
+                    "provider_operation_submitted": True,
+                    "accepted_state_changed": False,
+                    "fallback_used": False,
+                    "next_action": "use_transport_retry",
+                    "retry_transport_enabled": True,
+                    "transport_retry": retry_action(1),
+                },
+            }
+
+        def exhausted_failure() -> dict[str, Any]:
+            return {
+                "status": "error",
+                "story_state_committed": False,
+                "error": {
+                    "schema_version": "cera.error.v1",
+                    "error_code": "CERA_PROVIDER_STAGE_RETRY_EXHAUSTED",
+                    "message": "RAW PROVIDER FAILURE PROSE",
+                    "trace_id": "trace:" + "a" * 32,
+                    "request_id": retry_request_id,
+                    "branch_id": None,
+                    "generation_id": None,
+                    "stage": "pi_scene_http",
+                    "story_state_committed": False,
+                    "retry_mode": "exhausted",
+                    "details": ["PRIVATE PROVIDER OUTPUT"],
+                    "fallback_used": False,
+                    "provider_operation_submitted": True,
+                    "accepted_state_changed": False,
+                    "next_action": "report_critical_provider_failure",
+                    "debug_log_path": r"D:\private\provider-output.md",
+                    "retry_transport_enabled": False,
+                    "critical_provider_stage_failure": critical,
+                },
+            }
 
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
@@ -615,6 +910,13 @@ class _FakeRelayUpstream:
                             "story_state_committed": False,
                         }
                     )
+                elif self.path in retry_paths:
+                    if self.headers.get("Authorization") != f"Bearer {authorization_token}":
+                        self.send_error(401)
+                        return
+                    retry_index = retry_paths.index(self.path)
+                    retry_state["authenticated_gets"] += 1
+                    self._json(retry_status(retry_index))
                 else:
                     self.send_error(404)
 
@@ -629,6 +931,24 @@ class _FakeRelayUpstream:
                         "regenerate",
                     ),
                 }
+                if self.path in retry_paths:
+                    if self.headers.get("Authorization") != f"Bearer {authorization_token}":
+                        self.send_error(401)
+                        return
+                    retry_index = retry_paths.index(self.path)
+                    length = int(self.headers.get("Content-Length", "0"))
+                    payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                    retry_state["authenticated_posts"] += 1
+                    if payload != {} or retry_state["posted"][retry_index]:
+                        self.send_error(422)
+                        return
+                    retry_state["exact_empty_posts"] += 1
+                    retry_state["posted"][retry_index] = True
+                    self._json(
+                        successor_failure() if retry_index == 0 else exhausted_failure(),
+                        status=500 if retry_index == 0 else 503,
+                    )
+                    return
                 if self.path not in decision_paths:
                     self.send_error(404)
                     return
@@ -648,9 +968,9 @@ class _FakeRelayUpstream:
                     }
                 )
 
-            def _json(self, payload: dict[str, Any]) -> None:
+            def _json(self, payload: dict[str, Any], *, status: int = 200) -> None:
                 data = canonical_bytes(payload)
-                self.send_response(200)
+                self.send_response(status)
                 self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
@@ -662,6 +982,11 @@ class _FakeRelayUpstream:
         self.server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
         self.worker = Thread(target=self.server.serve_forever, daemon=True)
         self._started = False
+        self._retry_state = retry_state
+        self._retry_ids = retry_ids
+        self._retry_request_id = retry_request_id
+        self._retry_effect_proof_sha256s = retry_effects
+        self._critical = critical
 
     def start(self) -> None:
         self.worker.start()
@@ -675,13 +1000,32 @@ class _FakeRelayUpstream:
         self.worker.join(timeout=10)
         self._started = False
 
+    def retry_proof(self) -> dict[str, Any]:
+        body = {
+            "schema_version": "cera.pi_scene.qualification_fake_retry_relay.v2",
+            "retry_id_sha256s": [text_sha256(value) for value in self._retry_ids],
+            "request_id_sha256": text_sha256(self._retry_request_id),
+            "effect_proof_sha256s": list(self._retry_effect_proof_sha256s),
+            "critical_provider_stage_failure_sha256": canonical_sha256(self._critical),
+            "authenticated_gets": self._retry_state["authenticated_gets"],
+            "authenticated_posts": self._retry_state["authenticated_posts"],
+            "exact_empty_posts": self._retry_state["exact_empty_posts"],
+            "provider_calls": 0,
+        }
+        if (
+            body["authenticated_gets"] != 4
+            or body["authenticated_posts"] != 2
+            or body["exact_empty_posts"] != 2
+        ):
+            raise StateConflictError("qualification fake Retry relay proof is incomplete")
+        return {**body, "proof_sha256": canonical_sha256(body)}
+
 
 def _start_qualification_sillytavern(
     root: Path,
     *,
     port: int,
     cera_port: int,
-    log_root: Path,
 ) -> subprocess.Popen[str]:
     node = shutil.which("node")
     if node is None:
@@ -695,22 +1039,18 @@ def _start_qualification_sillytavern(
         raise ContractValidationError("qualification CERA loopback port is invalid")
     environment = dict(os.environ)
     environment["CERA_REVIEW_LOOPBACK_ROOT"] = f"http://127.0.0.1:{cera_port}"
-    log_root.mkdir(parents=True, exist_ok=False)
-    stdout = (log_root / "stdout.log").open("w", encoding="utf-8")
-    stderr = (log_root / "stderr.log").open("w", encoding="utf-8")
-    try:
-        process = subprocess.Popen(
-            command,
-            cwd=root,
-            stdout=stdout,
-            stderr=stderr,
-            env=environment,
-            text=True,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-        )
-    finally:
-        stdout.close()
-        stderr.close()
+    # SillyTavern debug output can contain the complete retained request and
+    # response. Qualification custody permits no raw ordinary/adult prose in
+    # its output tree, so the disposable process has no durable console sink.
+    process = subprocess.Popen(
+        command,
+        cwd=root,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        env=environment,
+        text=True,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+    )
     deadline = time.monotonic() + 60
     while time.monotonic() < deadline:
         if process.poll() is not None:
@@ -721,7 +1061,7 @@ def _start_qualification_sillytavern(
                     return process
         except OSError:
             time.sleep(0.2)
-    _stop_process(process)
+    _stop_process(cast(Any, process))
     raise StateConflictError("qualification SillyTavern did not become ready")
 
 
@@ -848,6 +1188,11 @@ def live(
 
     isolated_root = root / "isolated_sillytavern"
     isolated_manifest = verify_qualification_sillytavern(isolated_root)
+    staged_node_proof = run_staged_sillytavern_node_suites(
+        isolated_root,
+        node_executable=_frozen_node_executable(manifest),
+    )
+    _atomic_write_json(root / "STAGED_NODE_SUITE_PROOF.json", staged_node_proof)
     _atomic_write_json(
         root / "ISOLATED_SILLYTAVERN_BINDING.json",
         {
@@ -862,12 +1207,19 @@ def live(
     cera_token = secrets.token_urlsafe(32)
     decline_probe_id = "review-0123456789abcdef0123456789ab"
     regenerate_probe_id = "review-fedcba9876543210fedcba987654"
+    retry_probe_id = "retry-" + "1" * 64
+    retry_request_id = "request-" + "2" * 64
+    retry_effect_proof_sha256 = "3" * 64
     relay_port = _available_port_excluding(5101)
     relay_st_port = _available_port_excluding(5101, relay_port)
     fake_relay = _FakeRelayUpstream(
         port=relay_port,
         decline_review_id=decline_probe_id,
         regenerate_review_id=regenerate_probe_id,
+        authorization_token=cera_token,
+        retry_id=retry_probe_id,
+        retry_request_id=retry_request_id,
+        retry_effect_proof_sha256=retry_effect_proof_sha256,
     )
     relay_process: subprocess.Popen[str] | None = None
     try:
@@ -876,7 +1228,6 @@ def live(
             isolated_root,
             port=relay_st_port,
             cera_port=relay_port,
-            log_root=root / "relay-preflight-sillytavern-logs",
         )
         relay_client = IsolatedSillyTavernQualificationClient(
             origin=f"http://127.0.0.1:{relay_st_port}",
@@ -886,12 +1237,20 @@ def live(
         relay_proof = relay_client.probe_relay(
             decline_review_id=decline_probe_id,
             regenerate_review_id=regenerate_probe_id,
+            retry_id=retry_probe_id,
+            retry_request_id=retry_request_id,
+            retry_effect_proof_sha256=retry_effect_proof_sha256,
         )
+        relay_proof = {
+            **relay_proof,
+            "fake_upstream_retry_proof": fake_relay.retry_proof(),
+        }
+        relay_proof["proof_sha256"] = canonical_sha256(relay_proof)
         _atomic_write_json(root / "REVIEW_RELAY_PREFLIGHT.json", relay_proof)
     finally:
         fake_relay.close()
         if relay_process is not None:
-            _stop_process(relay_process)
+            _stop_process(cast(Any, relay_process))
     _reset_disposable_sillytavern_data(isolated_root)
     verify_qualification_sillytavern(isolated_root)
 
@@ -902,7 +1261,6 @@ def live(
         isolated_root,
         port=st_port,
         cera_port=cera_port,
-        log_root=root / "sillytavern-logs",
     )
     service: _LiveCeraService | None = None
     try:
@@ -982,8 +1340,24 @@ def live(
         _atomic_write_json(root / "CHAT_ISOLATION_PROOF.json", isolation_proof)
         if st_process.poll() is not None:
             raise StateConflictError("isolated SillyTavern exited during qualification")
+        retry_actions = int(backend["transport_retry_actions"]) + int(
+            st_result["transport_retry_actions"]
+        )
+        retry_chains = int(backend["transport_retry_chains"]) + int(
+            st_result["transport_retry_chains"]
+        )
+        retry_chain_actions = int(backend["transport_retry_chain_actions"]) + int(
+            st_result["transport_retry_chain_actions"]
+        )
+        terminal_critical_failures = int(
+            backend["transport_retry_terminal_critical_failures"]
+        ) + int(st_result["transport_retry_terminal_critical_failures"])
+        if retry_actions != retry_chain_actions or terminal_critical_failures != 0:
+            raise StateConflictError(
+                "qualification manual transport Retry lacks one terminal evidence chain"
+            )
         result = {
-            "schema_version": "cera.pi_scene.full_model_complete_qualification.v1",
+            "schema_version": "cera.pi_scene.full_model_complete_qualification.v3",
             "qualification_id": manifest["qualification_id"],
             "manifest_sha256": manifest["manifest_sha256"],
             "status": "passed",
@@ -992,6 +1366,13 @@ def live(
             "backend_passed": backend["passed_fixtures"],
             "sillytavern_passed": st_result["passed_fixtures"],
             "sol_operations": (int(backend["sol_operations"]) + int(st_result["sol_operations"])),
+            "sol_submitted_operations": (
+                int(backend["sol_submitted_operations"])
+                + int(st_result["sol_submitted_operations"])
+            ),
+            "sol_charged_operations": (
+                int(backend["sol_charged_operations"]) + int(st_result["sol_charged_operations"])
+            ),
             "deepseek_http_operations": (
                 int(backend["deepseek_http_operations"])
                 + int(st_result["deepseek_http_operations"])
@@ -999,9 +1380,16 @@ def live(
             "backend_sequential_turns": backend["passed_fixtures"],
             "sillytavern_sequential_turns": st_result["passed_fixtures"],
             "sillytavern_runtime_restarts": st_result["restart_count"],
+            "transport_retry_actions": retry_actions,
+            "transport_retry_chains": retry_chains,
+            "transport_retry_chain_actions": retry_chain_actions,
+            "transport_retry_terminal_critical_failures": terminal_critical_failures,
+            "automatic_transport_retry_actions": 0,
+            "fallback_used": False,
             "review_relay_preflight_sha256": canonical_sha256(relay_proof),
             "chat_isolation_proof_sha256": canonical_sha256(isolation_proof),
             "isolated_sillytavern_manifest_sha256": isolated_manifest["manifest_sha256"],
+            "staged_node_suite_proof_sha256": staged_node_proof["proof_sha256"],
             "installed_sillytavern_mutated": False,
         }
         result["result_sha256"] = canonical_sha256(result)
@@ -1010,7 +1398,7 @@ def live(
     finally:
         if service is not None:
             service.close()
-        _stop_process(st_process)
+        _stop_process(cast(Any, st_process))
 
 
 def _post_json(
@@ -1061,6 +1449,35 @@ def _get_json(url: str, *, token: str) -> dict[str, Any]:
         if response.status != 200:
             raise StateConflictError("qualification preflight HTTP status changed")
         return _decode_json_object(response.read())
+
+
+def _get_json_response(
+    url: str,
+    *,
+    token: str,
+    transport: str,
+    path: str,
+) -> ClientResponseV1:
+    started = time.perf_counter_ns()
+    request = Request(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    try:
+        with urlopen(request, timeout=30) as response:
+            status = response.status
+            body = _decode_json_object(response.read())
+    except HTTPError as exc:
+        status = exc.code
+        body = _decode_json_object(exc.read())
+    return ClientResponseV1(
+        transport=transport,
+        path=path,
+        status_code=status,
+        duration_ms=max(0, (time.perf_counter_ns() - started) // 1_000_000),
+        body=body,
+    )
 
 
 def _decode_json_object(data: bytes) -> dict[str, Any]:
