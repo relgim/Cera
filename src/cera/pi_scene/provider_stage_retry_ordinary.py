@@ -51,6 +51,9 @@ from .provider_stage_retry_executor import ProviderStageSemanticDisposition
 from .provider_stage_retry_ordinary_custody import (
     ProtectedOrdinaryChainRequestIdentityV1,
     ProtectedOrdinaryCustodyReceiptV1,
+    ProtectedOrdinaryReviewActionChainIdentityV1,
+    ProtectedOrdinaryReviewActionIdentityV1,
+    ProtectedOrdinaryReviewActionResponseReceiptV1,
     ProtectedOrdinaryReviewRequestIdentityV1,
     ProtectedOrdinaryStageRetryCustodyStoreV1,
     ProtectedOrdinaryTerminalResponseReceiptV1,
@@ -227,6 +230,7 @@ class _BoundRequestState:
     stage_occurrences: dict[ProviderStage, int] = field(default_factory=dict)
     semantic_action_rebind: bool = False
     semantic_action_boundary_consumed: bool = False
+    review_action_id: str | None = None
 
     def next_stage_ordinal(self, stage: ProviderStage) -> int:
         ordinal = self.stage_occurrences.get(stage, 0) + 1
@@ -279,9 +283,23 @@ class OrdinaryRecorderContinuationPort(Protocol):
     def repair_recording(self, review_id: str) -> object: ...
 
 
+@runtime_checkable
+class OrdinaryReviewActionContinuationPort(Protocol):
+    """Exact provider-free re-entry into one protected creator action."""
+
+    def resume_review_action(
+        self,
+        *,
+        action_identity: ProtectedOrdinaryReviewActionIdentityV1,
+        review_id: str,
+        normalized_action: Mapping[str, Any],
+    ) -> object: ...
+
+
 class OrdinaryPipelineContinuationPort(
     OrdinaryPipelineReplayPort,
     OrdinaryRecorderContinuationPort,
+    OrdinaryReviewActionContinuationPort,
     Protocol,
 ):
     """Full continuation seam implemented by the future HTTP adapter."""
@@ -481,6 +499,104 @@ class OrdinaryProviderStageRetryRuntimeV1:
             {ProviderStage(stage): count for stage, count in counts.items()},
         )
 
+    @contextmanager
+    def bind_review_action(
+        self,
+        *,
+        review_id: str,
+        normalized_action: Mapping[str, Any],
+    ) -> Iterator[ProtectedOrdinaryReviewActionIdentityV1]:
+        """Freeze and bind one exact semantic action before provider work."""
+
+        identity, exact_action, counts = self._custody_store.bind_review_action(
+            review_id=review_id,
+            normalized_action=normalized_action,
+        )
+        _, context, recovered_counts = self.pending_request_for_review(review_id)
+        expected_counts = {ProviderStage(stage): count for stage, count in counts.items()}
+        if (
+            recovered_counts != expected_counts
+            or canonical_sha256(exact_action) != identity.normalized_action_sha256
+            or canonical_sha256(context.context_payload()) != identity.context_sha256
+        ):
+            raise StateConflictError("ordinary protected review action changed Request A")
+        with self.bind_request(
+            context,
+            prior_stage_occurrences=expected_counts,
+        ):
+            state = self._bound_request.get()
+            if state is None:
+                raise StateConflictError("ordinary protected review action lost binding")
+            state.review_action_id = identity.action_id
+            yield identity
+
+    def review_action_for_chain(
+        self,
+        chain_id: str,
+    ) -> ProtectedOrdinaryReviewActionIdentityV1 | None:
+        return self._custody_store.review_action_for_chain(chain_id)
+
+    def review_action_chain_identity(
+        self,
+        chain_id: str,
+    ) -> ProtectedOrdinaryReviewActionChainIdentityV1 | None:
+        return self._custody_store.review_action_chain_identity(chain_id)
+
+    def retire_review_action(
+        self,
+        action_id: str,
+        *,
+        terminal_evidence_sha256: str,
+    ) -> ProtectedOrdinaryReviewActionIdentityV1:
+        return self._custody_store.retire_review_action(
+            action_id,
+            terminal_evidence_sha256=terminal_evidence_sha256,
+        )
+
+    def finalize_review_action(
+        self,
+        action_id: str,
+    ) -> tuple[
+        ProtectedOrdinaryReviewActionIdentityV1,
+        ProtectedOrdinaryCustodyReceiptV1,
+    ]:
+        return self._custody_store.finalize_review_action(action_id)
+
+    def bind_review_action_response(
+        self,
+        *,
+        action_id: str,
+        response: Mapping[str, Any],
+    ) -> ProtectedOrdinaryReviewActionResponseReceiptV1:
+        return self._custody_store.bind_review_action_response(
+            action_id=action_id,
+            response=response,
+        )
+
+    def load_review_action_response(
+        self,
+        action_id: str,
+    ) -> tuple[dict[str, Any], ProtectedOrdinaryReviewActionResponseReceiptV1]:
+        return self._custody_store.load_review_action_response(action_id)
+
+    def load_review_action_response_optional(
+        self,
+        action_id: str,
+    ) -> (
+        tuple[
+            dict[str, Any],
+            ProtectedOrdinaryReviewActionResponseReceiptV1,
+        ]
+        | None
+    ):
+        return self._custody_store.load_review_action_response_optional(action_id)
+
+    def load_review_action_response_for_chain(
+        self,
+        chain_id: str,
+    ) -> tuple[dict[str, Any], ProtectedOrdinaryReviewActionResponseReceiptV1]:
+        return self._custody_store.load_review_action_response_for_chain(chain_id)
+
     def retire_review_request(
         self,
         review_id: str,
@@ -570,7 +686,11 @@ class OrdinaryProviderStageRetryRuntimeV1:
         self,
         chain_id: str,
         *,
-        continuation: OrdinaryPipelineReplayPort | OrdinaryRecorderContinuationPort,
+        continuation: (
+            OrdinaryPipelineReplayPort
+            | OrdinaryRecorderContinuationPort
+            | OrdinaryReviewActionContinuationPort
+        ),
     ) -> object:
         """Resume only after a manual action has produced a frozen stage result."""
 
@@ -580,6 +700,40 @@ class OrdinaryProviderStageRetryRuntimeV1:
         ):
             raise StateConflictError("ordinary provider-stage result is not resumable")
         normalized_request, context = self.pending_request_for_chain(chain_id)
+        review_action = self._custody_store.review_action_for_chain(chain_id)
+        if review_action is not None:
+            if not isinstance(continuation, OrdinaryReviewActionContinuationPort):
+                raise StateConflictError(
+                    "ordinary stage continuation lacks protected review action replay"
+                )
+            active, exact_action, _ = self._custody_store.load_review_action(
+                review_action.action_id
+            )
+            if (
+                active != review_action
+                or active.request_id != context.binding.request_id
+                or active.context_sha256 != canonical_sha256(context.context_payload())
+            ):
+                raise StateConflictError("ordinary review action continuation changed Request A")
+            with self.bind_review_action(
+                review_id=active.review_id,
+                normalized_action=exact_action,
+            ):
+                if chain.identity.stage is ProviderStage.RECORDER:
+                    if not isinstance(continuation, OrdinaryRecorderContinuationPort):
+                        raise StateConflictError(
+                            "Recorder review action continuation port is unavailable"
+                        )
+                    self._repair_recorder_result(
+                        chain_id=chain_id,
+                        context=context,
+                        continuation=continuation,
+                    )
+                return continuation.resume_review_action(
+                    action_identity=active,
+                    review_id=active.review_id,
+                    normalized_action=exact_action,
+                )
         if chain.identity.stage is not ProviderStage.RECORDER:
             if not isinstance(continuation, OrdinaryPipelineReplayPort):
                 raise StateConflictError("ordinary stage continuation lacks request replay")
@@ -591,6 +745,22 @@ class OrdinaryProviderStageRetryRuntimeV1:
 
         if not isinstance(continuation, OrdinaryRecorderContinuationPort):
             raise StateConflictError("Recorder continuation port is unavailable")
+        with self.bind_request(context):
+            return self._repair_recorder_result(
+                chain_id=chain_id,
+                context=context,
+                continuation=continuation,
+            )
+
+    def _repair_recorder_result(
+        self,
+        *,
+        chain_id: str,
+        context: OrdinaryStageRetryRequestContextV1,
+        continuation: OrdinaryRecorderContinuationPort,
+    ) -> object:
+        """Apply one already-succeeded Recorder result without accepting again."""
+
         controls = context.turn_input.request_controls
         if not isinstance(controls, (LeanSceneRequestControlsV1, LeanSceneRequestControlsV2)):
             raise StateConflictError("Recorder continuation lost request controls")
@@ -613,8 +783,7 @@ class OrdinaryProviderStageRetryRuntimeV1:
             or bound.accepted_receipt_sha256 != review.accepted_receipt.receipt_sha256
         ):
             raise StateConflictError("Recorder continuation changed accepted review")
-        with self.bind_request(context):
-            return continuation.repair_recording(review.review_id)
+        return continuation.repair_recording(review.review_id)
 
     def bind_recorder_pending(
         self,
@@ -849,6 +1018,14 @@ class OrdinaryProviderStageRetryRuntimeV1:
             request_id=context.binding.request_id,
             context_sha256=pending.context_sha256,
         )
+        if state.review_action_id is not None:
+            self._custody_store.bind_review_action_chain(
+                chain_id=scope.identity.chain_id,
+                action_id=state.review_action_id,
+                request_id=context.binding.request_id,
+                request_sha256=scope.request_sha256,
+                context_sha256=pending.context_sha256,
+            )
         self._custody_store.advance_latest_chain(
             scope=scope,
             context_sha256=pending.context_sha256,
@@ -1249,6 +1426,7 @@ __all__ = [
     "OrdinaryPipelineContinuationPort",
     "OrdinaryPipelineReplayPort",
     "OrdinaryRecorderContinuationPort",
+    "OrdinaryReviewActionContinuationPort",
     "OrdinaryStageRetryRequestContextV1",
     "PlannerFrozenRetrievalV1",
     "ProviderStageActionProjectionV1",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import threading
 import unittest
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -81,7 +81,13 @@ from cera.semantic_validation import (
     BoundSemanticValidationV1,
     SemanticVerdict,
 )
-from cera.serialization import bytes_sha256, canonical_sha256, text_sha256, to_primitive
+from cera.serialization import (
+    bytes_sha256,
+    canonical_bytes,
+    canonical_sha256,
+    text_sha256,
+    to_primitive,
+)
 from cera.storage.sqlite_store import SQLiteAuthorityStore
 
 from .test_cognition_contracts import _plan
@@ -1282,6 +1288,421 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
         )
         self.assertEqual(replayed_retirement, completed)
 
+    def test_replan_planner_retry_resumes_exact_action_without_chat_replay(self) -> None:
+        self.factories[ProviderStage.WRITER].initial_outcome_from_input = lambda exact_input: (
+            _success(
+                "action-replan-writer",
+                serialize_pi_result(
+                    _pi_result(
+                        writer_invocation_from_frozen_input(exact_input),
+                        "action-replan-writer",
+                    )
+                ),
+            )
+        )
+        context = _context()
+        self._freeze(context)
+        scene_store = LeanSceneStore(self.root / "action-replan-world")
+        review_root = self.root / "action-replan-reviews"
+        views = WriterViewMaterializer(self.root / "action-replan-views")
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        with self.integration.bind_request(context):
+            review = coordinator.start_ordinary(context.turn_input)
+            self.integration.bind_review_request(review)
+
+        planner_result = PlannerTurnOutputV1(
+            sequence=sequence("action_replan_retry"),
+            provider_operations=1,
+        )
+        self.factories[ProviderStage.PLANNER].initial_outcomes_by_ordinal[2] = _failure(
+            "action-replan-planner:1"
+        )
+        self.factories[ProviderStage.PLANNER].outcomes[2] = _success(
+            "action-replan-planner:2",
+            serialize_planner_result(planner_result),
+        )
+        feedback_sentinel = "ACTION-FEEDBACK-MUST-STAY-PROTECTED-7f9e"
+        exact_action = {"action": "replan", "feedback": feedback_sentinel}
+        with self.integration.bind_review_action(
+            review_id=review.review_id,
+            normalized_action=exact_action,
+        ) as action_identity:
+            with self.assertRaises(ProviderStageRetryPendingError) as captured:
+                coordinator.replan(
+                    review.review_id,
+                    feedback=feedback_sentinel,
+                    allow_replay=True,
+                )
+        chain_id = captured.exception.chain_id
+        self.assertEqual(
+            self.integration.review_action_for_chain(chain_id),
+            action_identity,
+        )
+        action_chain = self.integration.review_action_chain_identity(chain_id)
+        self.assertIsNotNone(action_chain)
+        assert action_chain is not None
+        self.assertEqual(
+            action_chain.request_sha256,
+            self.service.scope_for_chain(chain_id).request_sha256,
+        )
+        sentinel = feedback_sentinel.encode()
+        action_path = (
+            self.root
+            / "ordinary-protected-custody"
+            / "review_actions"
+            / f"{action_identity.action_id.removeprefix('review-action-')}.json"
+        )
+        self.assertIn(sentinel, action_path.read_bytes())
+        self.assertNotIn(sentinel, canonical_bytes(captured.exception.envelope))
+        private_free_paths = list(self.root.glob("authority.sqlite3*"))
+        private_free_paths.extend(
+            (self.root / "ordinary-protected-custody" / "review_action_chains").glob("*.json")
+        )
+        for path in private_free_paths:
+            if path.exists():
+                self.assertNotIn(sentinel, path.read_bytes(), path)
+        planner_calls_before_retry = self.counts.by_stage[ProviderStage.PLANNER]
+
+        self._restart_runtime()
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        with self.assertRaisesRegex(StateConflictError, "different protected action"):
+            with self.integration.bind_review_action(
+                review_id=review.review_id,
+                normalized_action={"action": "decline"},
+            ):
+                pass
+        action = backend_action_from_envelope(captured.exception.envelope)
+        self.integration.execute_action(action)
+        self.assertEqual(
+            self.counts.by_stage[ProviderStage.PLANNER],
+            planner_calls_before_retry + 1,
+        )
+
+        integration = self.integration
+
+        class _Continuation:
+            chat_replays = 0
+            action_replays = 0
+
+            def resume_original_request(self, **_kwargs: Any) -> object:
+                self.chat_replays += 1
+                raise AssertionError("review Retry replayed the original chat")
+
+            def resume_review_action(
+                self,
+                *,
+                action_identity: Any,
+                review_id: str,
+                normalized_action: Mapping[str, Any],
+            ) -> LeanDecisionResultV1:
+                self.action_replays += 1
+                if action_identity != action_identity_outer or normalized_action != exact_action:
+                    raise AssertionError("review Retry changed the exact action")
+                result = coordinator.replan(
+                    review_id,
+                    feedback=cast(str, normalized_action["feedback"]),
+                    allow_replay=True,
+                )
+                assert result.successor is not None
+                integration.bind_review_request(result.successor)
+                return result
+
+        action_identity_outer = action_identity
+        continuation = _Continuation()
+        decision = self.integration.resume_succeeded_chain(
+            chain_id,
+            continuation=continuation,
+        )
+        self.assertIsInstance(decision, LeanDecisionResultV1)
+        self.assertEqual(continuation.action_replays, 1)
+        self.assertEqual(continuation.chat_replays, 0)
+        self.assertEqual(
+            self.counts.by_stage[ProviderStage.PLANNER],
+            planner_calls_before_retry + 1,
+        )
+        latest = self.integration.latest_chain_for_chain(chain_id)
+        self.assertEqual(
+            self.integration.review_action_for_chain(latest.chain_id),
+            action_identity,
+        )
+
+        response = {
+            "schema_version": "cera.pi_scene.review_decision.v1",
+            "review_id": review.review_id,
+            "creator_action": "replan",
+        }
+        receipt = self.integration.bind_review_action_response(
+            action_id=action_identity.action_id,
+            response=response,
+        )
+        crash_window_receipt = self.integration.retire_review_request(
+            review.review_id,
+            terminal_evidence_sha256=receipt.response_sha256,
+        )
+        self.assertEqual(crash_window_receipt.disposition, "active")
+        self._restart_runtime()
+        finalized, request_receipt = self.integration.finalize_review_action(
+            action_identity.action_id
+        )
+        self.assertEqual(finalized, action_identity)
+        self.assertEqual(request_receipt.disposition, "active")
+        self.assertEqual(
+            self.integration.finalize_review_action(action_identity.action_id),
+            (finalized, request_receipt),
+        )
+        self.assertNotIn(sentinel, action_path.read_bytes())
+        self._restart_runtime()
+        self.assertEqual(
+            self.integration.load_review_action_response_for_chain(chain_id),
+            (response, receipt),
+        )
+        with self.assertRaisesRegex(StateConflictError, "retired"):
+            with self.integration.bind_review_action(
+                review_id=review.review_id,
+                normalized_action=exact_action,
+            ):
+                pass
+
+    def test_regenerate_writer_retry_preserves_prior_planner_and_action_identity(self) -> None:
+        self.factories[ProviderStage.WRITER].initial_outcome_from_input = lambda exact_input: (
+            _success(
+                "action-regenerate-writer",
+                serialize_pi_result(
+                    _pi_result(
+                        writer_invocation_from_frozen_input(exact_input),
+                        "action-regenerate-writer",
+                    )
+                ),
+            )
+        )
+        context = _context()
+        self._freeze(context)
+        scene_store = LeanSceneStore(self.root / "action-regenerate-world")
+        review_root = self.root / "action-regenerate-reviews"
+        views = WriterViewMaterializer(self.root / "action-regenerate-views")
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        with self.integration.bind_request(context):
+            review = coordinator.start_ordinary(context.turn_input)
+            self.integration.bind_review_request(review)
+        self.factories[ProviderStage.WRITER].initial_outcome_from_input = lambda _exact_input: (
+            _failure("action-regenerate-writer:1")
+        )
+        exact_action = {"action": "regenerate", "force_rehydrate": False}
+        planner_calls_before_action = self.counts.by_stage[ProviderStage.PLANNER]
+        with self.integration.bind_review_action(
+            review_id=review.review_id,
+            normalized_action=exact_action,
+        ) as action_identity:
+            with self.assertRaises(ProviderStageRetryPendingError) as captured:
+                coordinator.regenerate(
+                    review.review_id,
+                    force_rehydrate=False,
+                    allow_replay=True,
+                )
+        chain_id = captured.exception.chain_id
+        planner_calls_after_pending = self.counts.by_stage[ProviderStage.PLANNER]
+        self.assertEqual(planner_calls_after_pending, planner_calls_before_action + 1)
+        action = backend_action_from_envelope(captured.exception.envelope)
+        # The retry result must be generated from the exact frozen Writer input.
+        frozen = self.service.store.load_input(chain_id)
+        invocation = writer_invocation_from_frozen_input(frozen)
+        self.factories[ProviderStage.WRITER].outcomes[2] = _success(
+            "action-regenerate-writer:2",
+            serialize_pi_result(_pi_result(invocation, "action-regenerate-writer:2")),
+        )
+        self.integration.execute_action(action)
+
+        integration = self.integration
+
+        class _Continuation:
+            def resume_review_action(
+                self,
+                *,
+                action_identity: Any,
+                review_id: str,
+                normalized_action: Mapping[str, Any],
+            ) -> LeanDecisionResultV1:
+                if action_identity != action_identity_outer or normalized_action != exact_action:
+                    raise AssertionError("Regenerate action changed")
+                result = coordinator.regenerate(
+                    review_id,
+                    force_rehydrate=cast(bool, normalized_action["force_rehydrate"]),
+                    allow_replay=True,
+                )
+                assert result.successor is not None
+                integration.bind_review_request(result.successor)
+                return result
+
+        action_identity_outer = action_identity
+        decision = self.integration.resume_succeeded_chain(
+            chain_id,
+            continuation=_Continuation(),
+        )
+        self.assertIsInstance(decision, LeanDecisionResultV1)
+        self.assertEqual(
+            self.counts.by_stage[ProviderStage.PLANNER],
+            planner_calls_after_pending,
+        )
+        self.assertEqual(
+            self.integration.review_action_for_chain(chain_id),
+            action_identity,
+        )
+
+    def test_review_action_restart_and_request_review_count_drift_fail_closed(self) -> None:
+        self.factories[ProviderStage.WRITER].initial_outcome_from_input = lambda exact_input: (
+            _success(
+                "action-drift-writer",
+                serialize_pi_result(
+                    _pi_result(
+                        writer_invocation_from_frozen_input(exact_input),
+                        "action-drift-writer",
+                    )
+                ),
+            )
+        )
+        context = _context()
+        self._freeze(context)
+        coordinator = LeanPiSceneCoordinator(
+            store=LeanSceneStore(self.root / "action-drift-world"),
+            planner=FakePlanner(),
+            writer_views=WriterViewMaterializer(self.root / "action-drift-views"),
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=self.root / "action-drift-reviews",
+            ordinary_stage_retry=self.integration,
+        )
+        with self.integration.bind_request(context):
+            review = coordinator.start_ordinary(context.turn_input)
+            self.integration.bind_review_request(review)
+        exact_action = {
+            "action": "replan",
+            "feedback": "DRIFT-SENTINEL-PROTECTED-f83a",
+        }
+        with self.integration.bind_review_action(
+            review_id=review.review_id,
+            normalized_action=exact_action,
+        ) as identity:
+            pass
+        calls_before_restart = dict(self.counts.by_stage)
+        self._restart_runtime()
+        with self.integration.bind_review_action(
+            review_id=review.review_id,
+            normalized_action=exact_action,
+        ) as restarted_identity:
+            self.assertEqual(restarted_identity, identity)
+        self.assertEqual(self.counts.by_stage, calls_before_restart)
+
+        action_path = (
+            self.root
+            / "ordinary-protected-custody"
+            / "review_actions"
+            / f"{identity.action_id.removeprefix('review-action-')}.json"
+        )
+        original = action_path.read_bytes()
+        for field_name, changed in (
+            ("review_id", "review-drifted"),
+            ("request_id", "request-" + "9" * 64),
+            ("stage_occurrence_counts", None),
+        ):
+            payload = cast(dict[str, Any], json.loads(original))
+            if field_name == "stage_occurrence_counts":
+                counts = cast(dict[str, int], payload[field_name])
+                counts[ProviderStage.PLANNER.value] += 1
+            else:
+                payload[field_name] = changed
+            unsigned = {
+                key: value for key, value in payload.items() if key != "review_action_sha256"
+            }
+            payload["review_action_sha256"] = canonical_sha256(unsigned)
+            action_path.write_bytes(canonical_bytes(payload))
+            try:
+                with self.assertRaises(StateConflictError, msg=field_name):
+                    self.custody.load_review_action(identity.action_id)
+            finally:
+                action_path.write_bytes(original)
+
+    def test_review_action_chain_is_bound_before_cursor_crash_and_dispatch(self) -> None:
+        self.factories[ProviderStage.WRITER].initial_outcome_from_input = lambda exact_input: (
+            _success(
+                "action-cursor-crash-writer",
+                serialize_pi_result(
+                    _pi_result(
+                        writer_invocation_from_frozen_input(exact_input),
+                        "action-cursor-crash-writer",
+                    )
+                ),
+            )
+        )
+        context = _context()
+        self._freeze(context)
+        coordinator = LeanPiSceneCoordinator(
+            store=LeanSceneStore(self.root / "action-cursor-crash-world"),
+            planner=FakePlanner(),
+            writer_views=WriterViewMaterializer(self.root / "action-cursor-crash-views"),
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=self.root / "action-cursor-crash-reviews",
+            ordinary_stage_retry=self.integration,
+        )
+        with self.integration.bind_request(context):
+            review = coordinator.start_ordinary(context.turn_input)
+            self.integration.bind_review_request(review)
+        exact_action = {"action": "replan", "feedback": "Crash before cursor."}
+        calls_before = dict(self.counts.by_stage)
+        with self.integration.bind_review_action(
+            review_id=review.review_id,
+            normalized_action=exact_action,
+        ) as action_identity:
+            with patch.object(
+                self.custody,
+                "advance_latest_chain",
+                side_effect=OSError("simulated cursor publication crash"),
+            ):
+                with self.assertRaisesRegex(OSError, "cursor publication crash"):
+                    coordinator.replan(
+                        review.review_id,
+                        feedback="Crash before cursor.",
+                        allow_replay=True,
+                    )
+        self.assertEqual(self.counts.by_stage, calls_before)
+        mappings = list(
+            (self.root / "ordinary-protected-custody" / "review_action_chains").glob("*.json")
+        )
+        self.assertGreaterEqual(len(mappings), 1)
+        payload = cast(dict[str, Any], json.loads(mappings[-1].read_bytes()))
+        chain_id = cast(str, payload["chain_id"])
+        self.assertEqual(
+            self.integration.review_action_for_chain(chain_id),
+            action_identity,
+        )
+        self.assertGreater(len(self.service.store.load_input(chain_id)), 0)
+        self.assertEqual(self.service.scope_for_chain(chain_id).identity.chain_id, chain_id)
+        self._restart_runtime()
+        self.assertEqual(
+            self.integration.review_action_for_chain(chain_id),
+            action_identity,
+        )
+        self.assertEqual(self.counts.by_stage, calls_before)
+
     def test_explicit_accept_recorder_uses_original_review_request_after_restart(self) -> None:
         self.factories[ProviderStage.WRITER].initial_outcome_from_input = lambda exact_input: (
             _success(
@@ -1395,6 +1816,176 @@ class OrdinaryProviderStageRetryIntegrationTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(StateConflictError, "mapping is retired"):
             self.integration.pending_request_for_review(review.review_id)
+
+    def test_accept_recorder_retry_repairs_once_then_returns_exact_accept_decision(self) -> None:
+        self.factories[ProviderStage.WRITER].initial_outcome_from_input = lambda exact_input: (
+            _success(
+                "accept-action-writer",
+                serialize_pi_result(
+                    _pi_result(
+                        writer_invocation_from_frozen_input(exact_input),
+                        "accept-action-writer",
+                    )
+                ),
+            )
+        )
+        self.factories[ProviderStage.RECORDER].initial_outcome_from_input = lambda _exact_input: (
+            _failure("accept-action-recorder:1")
+        )
+        context = _context()
+        self._freeze(context)
+        scene_store = LeanSceneStore(self.root / "accept-action-world")
+        review_root = self.root / "accept-action-reviews"
+        views = WriterViewMaterializer(self.root / "accept-action-views")
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        with self.integration.bind_request(context):
+            review = coordinator.start_ordinary(context.turn_input)
+            self.integration.bind_review_request(review)
+
+        exact_action = {"action": "accept"}
+        with self.integration.bind_review_action(
+            review_id=review.review_id,
+            normalized_action=exact_action,
+        ) as action_identity:
+            with self.assertRaises(ProviderStageRetryPendingError) as captured:
+                coordinator.accept(review.review_id, allow_replay=True)
+        chain_id = captured.exception.chain_id
+        accepted_before = coordinator.get_review(review.review_id)
+        self.assertIsNotNone(accepted_before.accepted_receipt)
+        assert accepted_before.accepted_receipt is not None
+        accepted_receipt_sha256 = accepted_before.accepted_receipt.receipt_sha256
+        head_before = scene_store.load_head(
+            world_id=context.binding.world_id,
+            branch_id=context.binding.branch_id,
+        )
+        self.assertIs(head_before.recording_status, RecordingStatus.PROJECTION_PENDING)
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 1)
+        self.assertEqual(
+            self.integration.review_action_for_chain(chain_id),
+            action_identity,
+        )
+
+        frozen = self.service.store.load_input(chain_id)
+        invocation = recorder_invocation_from_frozen_input(frozen)
+        output = json.dumps(
+            {
+                "secondary_canon": [],
+                "resulting_public_state": "The accepted conversation remains open.",
+                "relationship_changes": [],
+                "knowledge_changes": [],
+                "durable_changes": [],
+                "unresolved_threads": ["Ted may respond."],
+            },
+            separators=(",", ":"),
+        )
+        base = _pi_result(invocation, "accept-action-recorder:2")
+        recorder_result = replace(
+            base,
+            output_text=output,
+            writer_receipt=replace(
+                base.writer_receipt,
+                output_sha256=text_sha256(output),
+            ),
+        )
+        self.factories[ProviderStage.RECORDER].outcomes[2] = _success(
+            "accept-action-recorder:2",
+            serialize_pi_result(recorder_result),
+        )
+        self._restart_runtime()
+        coordinator = LeanPiSceneCoordinator(
+            store=scene_store,
+            planner=FakePlanner(),
+            writer_views=views,
+            pi=cast(PiSceneAdapter, FakePi()),
+            session_root=review_root,
+            ordinary_stage_retry=self.integration,
+        )
+        self.integration.execute_action(backend_action_from_envelope(captured.exception.envelope))
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 2)
+
+        class _Continuation:
+            def durable_result_for_request(self, **kwargs: Any) -> Any:
+                return coordinator.durable_result_for_request(**kwargs)
+
+            def repair_recording(self, review_id: str) -> LeanDecisionResultV1:
+                return coordinator.repair_recording(review_id)
+
+            def resume_review_action(
+                self,
+                *,
+                action_identity: Any,
+                review_id: str,
+                normalized_action: Mapping[str, Any],
+            ) -> dict[str, Any]:
+                if action_identity != action_identity_outer or normalized_action != exact_action:
+                    raise AssertionError("Accept action changed")
+                decision = coordinator.accept(review_id, allow_replay=True)
+                return {
+                    "schema_version": "cera.pi_scene.review_decision.v1",
+                    "creator_action": "accept",
+                    "review_id": decision.review.review_id,
+                    "recording_status": (
+                        None
+                        if decision.review.recording_attempt is None
+                        else decision.review.recording_attempt.status.value
+                    ),
+                    "accepted_receipt_sha256": (
+                        None
+                        if decision.review.accepted_receipt is None
+                        else decision.review.accepted_receipt.receipt_sha256
+                    ),
+                }
+
+        action_identity_outer = action_identity
+        response = self.integration.resume_succeeded_chain(
+            chain_id,
+            continuation=_Continuation(),
+        )
+        self.assertEqual(
+            response,
+            {
+                "schema_version": "cera.pi_scene.review_decision.v1",
+                "creator_action": "accept",
+                "review_id": review.review_id,
+                "recording_status": RecordingStatus.COMPLETE.value,
+                "accepted_receipt_sha256": accepted_receipt_sha256,
+            },
+        )
+        self.assertEqual(self.counts.by_stage[ProviderStage.RECORDER], 2)
+        accepted_after = coordinator.get_review(review.review_id)
+        self.assertIsNotNone(accepted_after.accepted_receipt)
+        assert accepted_after.accepted_receipt is not None
+        self.assertEqual(
+            accepted_after.accepted_receipt.receipt_sha256,
+            accepted_receipt_sha256,
+        )
+        head_after = scene_store.load_head(
+            world_id=context.binding.world_id,
+            branch_id=context.binding.branch_id,
+        )
+        self.assertEqual(head_after.generation, head_before.generation)
+        self.assertIs(head_after.recording_status, RecordingStatus.COMPLETE)
+
+        response_receipt = self.integration.bind_review_action_response(
+            action_id=action_identity.action_id,
+            response=cast(dict[str, Any], response),
+        )
+        finalized, request_receipt = self.integration.finalize_review_action(
+            action_identity.action_id
+        )
+        self.assertEqual(finalized, action_identity)
+        self.assertEqual(request_receipt.disposition, "completed")
+        self.assertEqual(
+            self.integration.load_review_action_response_for_chain(chain_id),
+            (response, response_receipt),
+        )
 
     def test_semantic_reject_keeps_request_until_later_decline(self) -> None:
         plan = to_primitive(_plan())

@@ -271,6 +271,93 @@ class ProtectedOrdinaryReviewRequestIdentityV1:
 
 
 @dataclass(frozen=True, slots=True)
+class ProtectedOrdinaryReviewActionIdentityV1:
+    """Content-free identity for one exact creator action under Request A."""
+
+    action_id: str
+    review_id: str
+    request_id: str
+    world_id: str
+    branch_id: str
+    context_sha256: str
+    normalized_action_sha256: str
+    stage_occurrence_counts_sha256: str
+
+    def __post_init__(self) -> None:
+        for value, field_name in (
+            (self.action_id, "review action ID"),
+            (self.review_id, "review action review ID"),
+            (self.world_id, "review action world ID"),
+            (self.branch_id, "review action branch ID"),
+        ):
+            _require_identifier(value, field_name)
+        if not self.action_id.startswith("review-action-") or not re_is_sha256(
+            self.action_id.removeprefix("review-action-")
+        ):
+            raise ContractValidationError("ordinary protected custody review action ID is invalid")
+        _require_request_id(self.request_id)
+        for value, field_name in (
+            (self.context_sha256, "review action context hash"),
+            (self.normalized_action_sha256, "normalized review action hash"),
+            (
+                self.stage_occurrence_counts_sha256,
+                "review action stage occurrence counts hash",
+            ),
+        ):
+            _require_sha256(value, field_name)
+
+
+@dataclass(frozen=True, slots=True)
+class ProtectedOrdinaryReviewActionChainIdentityV1:
+    """Action epoch plus the exact provider-stage request hash for one chain."""
+
+    chain_id: str
+    action_id: str
+    review_id: str
+    request_id: str
+    request_sha256: str
+    context_sha256: str
+    normalized_action_sha256: str
+
+    def __post_init__(self) -> None:
+        _require_chain_id(self.chain_id)
+        _require_identifier(self.action_id, "review action ID")
+        if not self.action_id.startswith("review-action-") or not re_is_sha256(
+            self.action_id.removeprefix("review-action-")
+        ):
+            raise ContractValidationError("ordinary protected custody review action ID is invalid")
+        _require_identifier(self.review_id, "review action review ID")
+        _require_request_id(self.request_id)
+        for value, field_name in (
+            (self.request_sha256, "review action provider-stage request hash"),
+            (self.context_sha256, "review action chain context hash"),
+            (self.normalized_action_sha256, "normalized review action hash"),
+        ):
+            _require_sha256(value, field_name)
+
+
+@dataclass(frozen=True, slots=True)
+class ProtectedOrdinaryReviewActionResponseReceiptV1:
+    """Content-free receipt for one durable review-decision response."""
+
+    action_id: str
+    response_sha256: str
+    response_size_bytes: int
+
+    def __post_init__(self) -> None:
+        _require_identifier(self.action_id, "review action ID")
+        if not self.action_id.startswith("review-action-") or not re_is_sha256(
+            self.action_id.removeprefix("review-action-")
+        ):
+            raise ContractValidationError("ordinary protected custody review action ID is invalid")
+        _require_sha256(self.response_sha256, "review action response hash")
+        if type(self.response_size_bytes) is not int or self.response_size_bytes < 2:
+            raise ContractValidationError(
+                "ordinary protected custody review action response size is invalid"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class ProtectedRecorderContinuationV1:
     """Exact accepted-review target for Recorder-only continuation."""
 
@@ -310,6 +397,16 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
     REVIEW_TOMBSTONE_SCHEMA_VERSION: ClassVar[str] = (
         "cera.ordinary_stage_retry_review_request_tombstone.v1"
     )
+    REVIEW_ACTION_SCHEMA_VERSION: ClassVar[str] = "cera.ordinary_stage_retry_review_action.v1"
+    REVIEW_ACTION_TOMBSTONE_SCHEMA_VERSION: ClassVar[str] = (
+        "cera.ordinary_stage_retry_review_action_tombstone.v1"
+    )
+    REVIEW_ACTION_CHAIN_SCHEMA_VERSION: ClassVar[str] = (
+        "cera.ordinary_stage_retry_review_action_chain.v1"
+    )
+    REVIEW_ACTION_RESPONSE_SCHEMA_VERSION: ClassVar[str] = (
+        "cera.ordinary_stage_retry_review_action_response.v1"
+    )
 
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
@@ -318,6 +415,9 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         self.occurrences_root = self.root / "occurrences"
         self.latest_chains_root = self.root / "latest_chains"
         self.reviews_root = self.root / "reviews"
+        self.review_actions_root = self.root / "review_actions"
+        self.review_action_chains_root = self.root / "review_action_chains"
+        self.review_action_responses_root = self.root / "review_action_responses"
         self.responses_root = self.root / "responses"
         self.recorder_root = self.root / "recorder"
         self.locks_root = self.root / "locks"
@@ -328,6 +428,9 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             self.occurrences_root,
             self.latest_chains_root,
             self.reviews_root,
+            self.review_actions_root,
+            self.review_action_chains_root,
+            self.review_action_responses_root,
             self.responses_root,
             self.recorder_root,
             self.locks_root,
@@ -829,6 +932,441 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             raise StateConflictError("ordinary review request identity changed")
         return identity, counts
 
+    def bind_review_action(
+        self,
+        *,
+        review_id: str,
+        normalized_action: Mapping[str, Any],
+    ) -> tuple[
+        ProtectedOrdinaryReviewActionIdentityV1,
+        dict[str, Any],
+        dict[str, int],
+    ]:
+        """Write one exact creator action before any of its provider stages."""
+
+        review, counts = self.load_review_request(review_id)
+        normalized = to_primitive(normalized_action)
+        if not isinstance(normalized, dict) or not normalized:
+            raise ContractValidationError(
+                "ordinary protected review action must be a nonempty object"
+            )
+        # Reject values that cannot round-trip as one exact canonical action.
+        canonical_bytes(normalized)
+        normalized_sha256 = canonical_sha256(normalized)
+        counts_sha256 = canonical_sha256(counts)
+        action_id = "review-action-" + domain_sha256(
+            "cera.ordinary_stage_retry_review_action_identity.v1",
+            {
+                "review_id": review.review_id,
+                "request_id": review.request_id,
+                "context_sha256": review.context_sha256,
+                "normalized_action_sha256": normalized_sha256,
+                "stage_occurrence_counts_sha256": counts_sha256,
+            },
+        )
+        identity = ProtectedOrdinaryReviewActionIdentityV1(
+            action_id=action_id,
+            review_id=review.review_id,
+            request_id=review.request_id,
+            world_id=review.world_id,
+            branch_id=review.branch_id,
+            context_sha256=review.context_sha256,
+            normalized_action_sha256=normalized_sha256,
+            stage_occurrence_counts_sha256=counts_sha256,
+        )
+        body = {
+            "schema_version": self.REVIEW_ACTION_SCHEMA_VERSION,
+            **to_primitive(identity),
+            "normalized_action": normalized,
+            "stage_occurrence_counts": counts,
+        }
+        payload = {**body, "review_action_sha256": canonical_sha256(body)}
+        path = self._review_action_path(action_id)
+        with self._claim(f"review-action:{review_id}"):
+            active = self._active_review_action_for_review(review_id)
+            if active is not None and active.action_id != action_id:
+                raise StateConflictError("ordinary review already has a different protected action")
+            if path.exists():
+                prior = self._read_json(path)
+                if prior.get("schema_version") == self.REVIEW_ACTION_TOMBSTONE_SCHEMA_VERSION:
+                    self._verify_review_action_tombstone(prior, action_id=action_id)
+                    raise StateConflictError("ordinary protected review action is retired")
+                if prior != payload:
+                    raise StateConflictError("ordinary protected review action changed")
+            else:
+                self._atomic_write(path, payload)
+            loaded = self.load_review_action(action_id)
+            if loaded != (identity, normalized, counts):
+                raise StateConflictError("ordinary protected review action readback changed")
+            return loaded
+
+    def load_review_action(
+        self,
+        action_id: str,
+    ) -> tuple[
+        ProtectedOrdinaryReviewActionIdentityV1,
+        dict[str, Any],
+        dict[str, int],
+    ]:
+        """Load exact active action bytes and their original occurrence base."""
+
+        path = self._review_action_path(action_id)
+        if not path.exists():
+            raise FileNotFoundError(path)
+        payload = self._read_json(path)
+        if payload.get("schema_version") == self.REVIEW_ACTION_TOMBSTONE_SCHEMA_VERSION:
+            self._verify_review_action_tombstone(payload, action_id=action_id)
+            raise StateConflictError("ordinary protected review action is retired")
+        expected = {
+            "schema_version",
+            "action_id",
+            "review_id",
+            "request_id",
+            "world_id",
+            "branch_id",
+            "context_sha256",
+            "normalized_action_sha256",
+            "stage_occurrence_counts_sha256",
+            "normalized_action",
+            "stage_occurrence_counts",
+            "review_action_sha256",
+        }
+        unsigned = {key: value for key, value in payload.items() if key != "review_action_sha256"}
+        if (
+            set(payload) != expected
+            or payload.get("schema_version") != self.REVIEW_ACTION_SCHEMA_VERSION
+            or canonical_sha256(unsigned) != payload.get("review_action_sha256")
+        ):
+            raise StateConflictError("ordinary protected review action shape changed")
+        action = payload["normalized_action"]
+        counts_value = payload["stage_occurrence_counts"]
+        if not isinstance(action, dict) or not isinstance(counts_value, dict):
+            raise StateConflictError("ordinary protected review action content changed")
+        try:
+            counts = _normalize_stage_occurrence_counts(counts_value)
+            identity = ProtectedOrdinaryReviewActionIdentityV1(
+                action_id=payload["action_id"],
+                review_id=payload["review_id"],
+                request_id=payload["request_id"],
+                world_id=payload["world_id"],
+                branch_id=payload["branch_id"],
+                context_sha256=payload["context_sha256"],
+                normalized_action_sha256=payload["normalized_action_sha256"],
+                stage_occurrence_counts_sha256=(payload["stage_occurrence_counts_sha256"]),
+            )
+        except (ContractValidationError, KeyError, TypeError) as exc:
+            raise StateConflictError("ordinary protected review action changed") from exc
+        if (
+            identity.action_id != action_id
+            or canonical_sha256(action) != identity.normalized_action_sha256
+            or canonical_sha256(counts) != identity.stage_occurrence_counts_sha256
+        ):
+            raise StateConflictError("ordinary protected review action binding changed")
+        review, review_counts = self._review_request_identity_any(identity.review_id)
+        if (
+            identity.request_id != review.request_id
+            or identity.world_id != review.world_id
+            or identity.branch_id != review.branch_id
+            or identity.context_sha256 != review.context_sha256
+            or counts != review_counts
+        ):
+            raise StateConflictError("ordinary protected review action lost Request A")
+        return identity, dict(action), counts
+
+    def bind_review_action_chain(
+        self,
+        *,
+        chain_id: str,
+        action_id: str,
+        request_id: str,
+        request_sha256: str,
+        context_sha256: str,
+    ) -> ProtectedOrdinaryReviewActionIdentityV1:
+        """Bind every action-produced stage chain before its provider dispatch."""
+
+        _require_chain_id(chain_id)
+        _require_request_id(request_id)
+        _require_sha256(request_sha256, "review action provider-stage request hash")
+        _require_sha256(context_sha256, "review action chain context hash")
+        identity, _, _ = self.load_review_action(action_id)
+        if identity.request_id != request_id or identity.context_sha256 != context_sha256:
+            raise StateConflictError("ordinary review action chain changed Request A")
+        chain = self.chain_context(chain_id)
+        if chain.request_id != request_id or chain.context_sha256 != context_sha256:
+            raise StateConflictError("ordinary review action chain changed request context")
+        body = {
+            "schema_version": self.REVIEW_ACTION_CHAIN_SCHEMA_VERSION,
+            "chain_id": chain_id,
+            "request_sha256": request_sha256,
+            **to_primitive(identity),
+        }
+        payload = {**body, "review_action_chain_sha256": canonical_sha256(body)}
+        path = self._review_action_chain_path(chain_id)
+        with self._claim(f"review-action-chain:{chain_id}"):
+            if path.exists():
+                if self._read_json(path) != payload:
+                    raise StateConflictError("ordinary review action chain mapping changed")
+            else:
+                self._atomic_write(path, payload)
+        loaded = self.review_action_for_chain(chain_id)
+        if loaded != identity:
+            raise StateConflictError("ordinary review action chain readback changed")
+        return identity
+
+    def review_action_for_chain(
+        self,
+        chain_id: str,
+    ) -> ProtectedOrdinaryReviewActionIdentityV1 | None:
+        """Return content-free action identity, or None for an initial chat chain."""
+
+        chain_identity = self.review_action_chain_identity(chain_id)
+        if chain_identity is None:
+            return None
+        return self._review_action_identity_from_chain(chain_identity)
+
+    def review_action_chain_identity(
+        self,
+        chain_id: str,
+    ) -> ProtectedOrdinaryReviewActionChainIdentityV1 | None:
+        """Return the action epoch bound to one exact provider-stage request."""
+
+        path = self._review_action_chain_path(chain_id)
+        if not path.exists():
+            return None
+        payload = self._read_json(path)
+        expected = {
+            "schema_version",
+            "chain_id",
+            "request_sha256",
+            "action_id",
+            "review_id",
+            "request_id",
+            "world_id",
+            "branch_id",
+            "context_sha256",
+            "normalized_action_sha256",
+            "stage_occurrence_counts_sha256",
+            "review_action_chain_sha256",
+        }
+        unsigned = {
+            key: value for key, value in payload.items() if key != "review_action_chain_sha256"
+        }
+        if (
+            set(payload) != expected
+            or payload.get("schema_version") != self.REVIEW_ACTION_CHAIN_SCHEMA_VERSION
+            or payload.get("chain_id") != chain_id
+            or canonical_sha256(unsigned) != payload.get("review_action_chain_sha256")
+        ):
+            raise StateConflictError("ordinary review action chain mapping changed")
+        try:
+            chain_identity = ProtectedOrdinaryReviewActionChainIdentityV1(
+                chain_id=payload["chain_id"],
+                action_id=payload["action_id"],
+                review_id=payload["review_id"],
+                request_id=payload["request_id"],
+                request_sha256=payload["request_sha256"],
+                context_sha256=payload["context_sha256"],
+                normalized_action_sha256=payload["normalized_action_sha256"],
+            )
+        except (ContractValidationError, KeyError, TypeError) as exc:
+            raise StateConflictError("ordinary review action chain identity changed") from exc
+        chain = self.chain_context(chain_id)
+        if (
+            chain.request_id != chain_identity.request_id
+            or chain.context_sha256 != chain_identity.context_sha256
+        ):
+            raise StateConflictError("ordinary review action chain lost Request A")
+        self._review_action_identity_from_chain(chain_identity)
+        return chain_identity
+
+    def _review_action_identity_from_chain(
+        self,
+        chain_identity: ProtectedOrdinaryReviewActionChainIdentityV1,
+    ) -> ProtectedOrdinaryReviewActionIdentityV1:
+        identity, _ = self._review_action_identity_any(chain_identity.action_id)
+        if (
+            identity.review_id != chain_identity.review_id
+            or identity.request_id != chain_identity.request_id
+            or identity.context_sha256 != chain_identity.context_sha256
+            or identity.normalized_action_sha256 != chain_identity.normalized_action_sha256
+        ):
+            raise StateConflictError("ordinary review action chain changed action identity")
+        return identity
+
+    def bind_review_action_response(
+        self,
+        *,
+        action_id: str,
+        response: Mapping[str, Any],
+    ) -> ProtectedOrdinaryReviewActionResponseReceiptV1:
+        """Durably bind the exact safe review-decision projection once."""
+
+        identity, _, _ = self.load_review_action(action_id)
+        projected = to_primitive(response)
+        if not isinstance(projected, dict) or not projected:
+            raise ContractValidationError(
+                "ordinary protected review action response must be an object"
+            )
+        exact = canonical_bytes(projected)
+        receipt = ProtectedOrdinaryReviewActionResponseReceiptV1(
+            action_id=identity.action_id,
+            response_sha256=canonical_sha256(projected),
+            response_size_bytes=len(exact),
+        )
+        body = {
+            "schema_version": self.REVIEW_ACTION_RESPONSE_SCHEMA_VERSION,
+            **to_primitive(receipt),
+            "response": projected,
+        }
+        payload = {
+            **body,
+            "review_action_response_sha256": canonical_sha256(body),
+        }
+        path = self._review_action_response_path(action_id)
+        with self._claim(f"review-action-response:{action_id}"):
+            if path.exists():
+                if self._read_json(path) != payload:
+                    raise StateConflictError("ordinary protected review action response changed")
+            else:
+                self._atomic_write(path, payload)
+        loaded, loaded_receipt = self.load_review_action_response(action_id)
+        if loaded != projected or loaded_receipt != receipt:
+            raise StateConflictError("ordinary protected review action response readback changed")
+        return loaded_receipt
+
+    def load_review_action_response(
+        self,
+        action_id: str,
+    ) -> tuple[dict[str, Any], ProtectedOrdinaryReviewActionResponseReceiptV1]:
+        path = self._review_action_response_path(action_id)
+        payload = self._read_json(path)
+        expected = {
+            "schema_version",
+            "action_id",
+            "response_sha256",
+            "response_size_bytes",
+            "response",
+            "review_action_response_sha256",
+        }
+        unsigned = {
+            key: value for key, value in payload.items() if key != "review_action_response_sha256"
+        }
+        response = payload.get("response")
+        if (
+            set(payload) != expected
+            or payload.get("schema_version") != self.REVIEW_ACTION_RESPONSE_SCHEMA_VERSION
+            or canonical_sha256(unsigned) != payload.get("review_action_response_sha256")
+            or not isinstance(response, dict)
+        ):
+            raise StateConflictError("ordinary protected review action response shape changed")
+        try:
+            receipt = ProtectedOrdinaryReviewActionResponseReceiptV1(
+                action_id=payload["action_id"],
+                response_sha256=payload["response_sha256"],
+                response_size_bytes=payload["response_size_bytes"],
+            )
+        except (ContractValidationError, KeyError, TypeError) as exc:
+            raise StateConflictError("ordinary protected review action response changed") from exc
+        if (
+            receipt.action_id != action_id
+            or canonical_sha256(response) != receipt.response_sha256
+            or len(canonical_bytes(response)) != receipt.response_size_bytes
+        ):
+            raise StateConflictError("ordinary protected review action response binding changed")
+        return dict(response), receipt
+
+    def load_review_action_response_optional(
+        self,
+        action_id: str,
+    ) -> tuple[dict[str, Any], ProtectedOrdinaryReviewActionResponseReceiptV1] | None:
+        path = self._review_action_response_path(action_id)
+        if not path.exists():
+            return None
+        return self.load_review_action_response(action_id)
+
+    def load_review_action_response_for_chain(
+        self,
+        chain_id: str,
+    ) -> tuple[dict[str, Any], ProtectedOrdinaryReviewActionResponseReceiptV1]:
+        identity = self.review_action_for_chain(chain_id)
+        if identity is None:
+            raise FileNotFoundError(self._review_action_chain_path(chain_id))
+        return self.load_review_action_response(identity.action_id)
+
+    def retire_review_action(
+        self,
+        action_id: str,
+        *,
+        terminal_evidence_sha256: str,
+    ) -> ProtectedOrdinaryReviewActionIdentityV1:
+        """Redact exact action bytes only after final decision evidence exists."""
+
+        _require_sha256(terminal_evidence_sha256, "review action terminal evidence")
+        path = self._review_action_path(action_id)
+        with self._claim(f"review-action-id:{action_id}"):
+            payload = self._read_json(path)
+            if payload.get("schema_version") == self.REVIEW_ACTION_TOMBSTONE_SCHEMA_VERSION:
+                identity = self._verify_review_action_tombstone(
+                    payload,
+                    action_id=action_id,
+                )
+                if payload["terminal_evidence_sha256"] != terminal_evidence_sha256:
+                    raise StateConflictError(
+                        "ordinary protected review action retirement evidence changed"
+                    )
+                return identity
+            identity, _, counts = self.load_review_action(action_id)
+            _, response_receipt = self.load_review_action_response(action_id)
+            if response_receipt.response_sha256 != terminal_evidence_sha256:
+                raise StateConflictError(
+                    "ordinary protected review action terminal response changed"
+                )
+            body = {
+                "schema_version": self.REVIEW_ACTION_TOMBSTONE_SCHEMA_VERSION,
+                **to_primitive(identity),
+                "stage_occurrence_counts": counts,
+                "terminal_evidence_sha256": terminal_evidence_sha256,
+            }
+            tombstone = {
+                **body,
+                "review_action_tombstone_sha256": canonical_sha256(body),
+            }
+            self._atomic_write(path, tombstone)
+            verified = self._verify_review_action_tombstone(
+                self._read_json(path),
+                action_id=action_id,
+            )
+            if verified != identity:
+                raise StateConflictError(
+                    "ordinary protected review action retirement changed identity"
+                )
+            return verified
+
+    def finalize_review_action(
+        self,
+        action_id: str,
+    ) -> tuple[
+        ProtectedOrdinaryReviewActionIdentityV1,
+        ProtectedOrdinaryCustodyReceiptV1,
+    ]:
+        """Provider-free crash reconciliation after a decision response is bound."""
+
+        _, response_receipt = self.load_review_action_response(action_id)
+        identity, _ = self._review_action_identity_any(action_id)
+        request_receipt = self.retire_review_request(
+            identity.review_id,
+            terminal_evidence_sha256=response_receipt.response_sha256,
+        )
+        retired = self.retire_review_action(
+            action_id,
+            terminal_evidence_sha256=response_receipt.response_sha256,
+        )
+        if retired != identity or request_receipt.request_id != identity.request_id:
+            raise StateConflictError(
+                "ordinary protected review action finalization changed Request A"
+            )
+        return retired, request_receipt
+
     def stage_occurrence_counts(self, request_id: str) -> dict[str, int]:
         """Return durable per-stage occurrence maxima for one request."""
 
@@ -1239,6 +1777,24 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
         )
         return self.reviews_root / f"{key}.json"
 
+    def _review_action_path(self, action_id: str) -> Path:
+        _require_identifier(action_id, "review action ID")
+        if not action_id.startswith("review-action-") or not re_is_sha256(
+            action_id.removeprefix("review-action-")
+        ):
+            raise ContractValidationError("ordinary protected custody review action ID is invalid")
+        return self.review_actions_root / f"{action_id.removeprefix('review-action-')}.json"
+
+    def _review_action_chain_path(self, chain_id: str) -> Path:
+        _require_chain_id(chain_id)
+        return self.review_action_chains_root / f"{chain_id.removeprefix('stage-retry-')}.json"
+
+    def _review_action_response_path(self, action_id: str) -> Path:
+        self._review_action_path(action_id)
+        return self.review_action_responses_root / (
+            f"{action_id.removeprefix('review-action-')}.json"
+        )
+
     def _occurrence_path(self, occurrence_key: str) -> Path:
         _require_sha256(occurrence_key, "occurrence key")
         return self.occurrences_root / f"{occurrence_key}.json"
@@ -1263,12 +1819,120 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
                 found = True
         return found
 
+    def _active_review_action_for_review(
+        self,
+        review_id: str,
+    ) -> ProtectedOrdinaryReviewActionIdentityV1 | None:
+        _require_identifier(review_id, "review ID")
+        matches: list[ProtectedOrdinaryReviewActionIdentityV1] = []
+        for path in self.review_actions_root.glob("*.json"):
+            payload = self._read_json(path)
+            if payload.get("schema_version") == self.REVIEW_ACTION_TOMBSTONE_SCHEMA_VERSION:
+                self._verify_review_action_tombstone(payload)
+                continue
+            action_id = payload.get("action_id")
+            if not isinstance(action_id, str):
+                raise StateConflictError("ordinary protected review action changed")
+            identity, _, _ = self.load_review_action(action_id)
+            if identity.review_id == review_id:
+                matches.append(identity)
+        if len(matches) > 1:
+            raise StateConflictError("ordinary review has multiple protected actions")
+        return None if not matches else matches[0]
+
+    def _review_request_identity_any(
+        self,
+        review_id: str,
+    ) -> tuple[ProtectedOrdinaryReviewRequestIdentityV1, dict[str, int]]:
+        payload = self._read_json(self._review_path(review_id))
+        if payload.get("schema_version") == self.REVIEW_TOMBSTONE_SCHEMA_VERSION:
+            return self._verify_review_tombstone(payload, review_id=review_id)
+        return self.load_review_request(review_id)
+
+    def _review_action_identity_any(
+        self,
+        action_id: str,
+    ) -> tuple[ProtectedOrdinaryReviewActionIdentityV1, dict[str, int]]:
+        payload = self._read_json(self._review_action_path(action_id))
+        if payload.get("schema_version") == self.REVIEW_ACTION_TOMBSTONE_SCHEMA_VERSION:
+            identity = self._verify_review_action_tombstone(
+                payload,
+                action_id=action_id,
+            )
+            counts_value = payload.get("stage_occurrence_counts")
+            if not isinstance(counts_value, dict):
+                raise StateConflictError("ordinary protected review action tombstone changed")
+            try:
+                counts = _normalize_stage_occurrence_counts(counts_value)
+            except ContractValidationError as exc:
+                raise StateConflictError(
+                    "ordinary protected review action tombstone changed"
+                ) from exc
+            return identity, counts
+        identity, _, counts = self.load_review_action(action_id)
+        return identity, counts
+
+    def _verify_review_action_tombstone(
+        self,
+        payload: Mapping[str, Any],
+        *,
+        action_id: str | None = None,
+    ) -> ProtectedOrdinaryReviewActionIdentityV1:
+        expected = {
+            "schema_version",
+            "action_id",
+            "review_id",
+            "request_id",
+            "world_id",
+            "branch_id",
+            "context_sha256",
+            "normalized_action_sha256",
+            "stage_occurrence_counts_sha256",
+            "stage_occurrence_counts",
+            "terminal_evidence_sha256",
+            "review_action_tombstone_sha256",
+        }
+        unsigned = {
+            key: value for key, value in payload.items() if key != "review_action_tombstone_sha256"
+        }
+        counts_value = payload.get("stage_occurrence_counts")
+        if (
+            set(payload) != expected
+            or payload.get("schema_version") != self.REVIEW_ACTION_TOMBSTONE_SCHEMA_VERSION
+            or canonical_sha256(unsigned) != payload.get("review_action_tombstone_sha256")
+            or not isinstance(counts_value, dict)
+        ):
+            raise StateConflictError("ordinary protected review action tombstone changed")
+        try:
+            counts = _normalize_stage_occurrence_counts(counts_value)
+            identity = ProtectedOrdinaryReviewActionIdentityV1(
+                action_id=payload["action_id"],
+                review_id=payload["review_id"],
+                request_id=payload["request_id"],
+                world_id=payload["world_id"],
+                branch_id=payload["branch_id"],
+                context_sha256=payload["context_sha256"],
+                normalized_action_sha256=payload["normalized_action_sha256"],
+                stage_occurrence_counts_sha256=(payload["stage_occurrence_counts_sha256"]),
+            )
+            _require_sha256(
+                payload["terminal_evidence_sha256"],
+                "review action terminal evidence",
+            )
+        except (ContractValidationError, KeyError, TypeError) as exc:
+            raise StateConflictError("ordinary protected review action tombstone changed") from exc
+        if canonical_sha256(counts) != identity.stage_occurrence_counts_sha256 or (
+            action_id is not None and identity.action_id != action_id
+        ):
+            raise StateConflictError("ordinary protected review action tombstone identity changed")
+        return identity
+
     def _verify_review_tombstone(
         self,
         payload: Mapping[str, Any],
         *,
         review_id: str | None = None,
-    ) -> None:
+    ) -> tuple[ProtectedOrdinaryReviewRequestIdentityV1, dict[str, int]]:
         expected = {
             "schema_version",
             "review_id",
@@ -1317,6 +1981,7 @@ class ProtectedOrdinaryStageRetryCustodyStoreV1:
             review_id is not None and identity.review_id != review_id
         ):
             raise StateConflictError("ordinary review request tombstone identity changed")
+        return identity, counts
 
     def _verify_latest_chain_payload(
         self,
@@ -1553,6 +2218,9 @@ __all__ = [
     "ProtectedOrdinaryChainRequestIdentityV1",
     "ProtectedOrdinaryCustodyReceiptV1",
     "ProtectedOrdinaryPendingRequestV1",
+    "ProtectedOrdinaryReviewActionChainIdentityV1",
+    "ProtectedOrdinaryReviewActionIdentityV1",
+    "ProtectedOrdinaryReviewActionResponseReceiptV1",
     "ProtectedOrdinaryReviewRequestIdentityV1",
     "ProtectedOrdinaryStageRetryCustodyStoreV1",
     "ProtectedOrdinaryTerminalResponseReceiptV1",
