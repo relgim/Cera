@@ -276,6 +276,68 @@
       }
     }
   ],
+  "x-cera-example-names": [
+    "all_required_checks_pending",
+    "all_required_checks_pass",
+    "luna_semantic_reject",
+    "luna_inconclusive_without_retry",
+    "luna_blocked_ambiguous",
+    "reader_blocked_ambiguous"
+  ],
+  "x-cera-positive-fixtures": [
+    {
+      "name": "luna_manual_retry_eligible",
+      "base_example": 4,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/luna/provider_stage_retry_status",
+          "value": {
+            "$cera-external-example": "luna_manual_retry"
+          }
+        }
+      ]
+    },
+    {
+      "name": "reader_manual_retry_eligible",
+      "base_example": 5,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/reader/provider_stage_retry_status",
+          "value": {
+            "$cera-external-example": "reader_manual_retry"
+          }
+        }
+      ]
+    },
+    {
+      "name": "luna_attempts_exhausted",
+      "base_example": 4,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/luna/provider_stage_retry_status",
+          "value": {
+            "$cera-external-example": "luna_exhausted"
+          }
+        }
+      ]
+    },
+    {
+      "name": "reader_attempts_exhausted",
+      "base_example": 5,
+      "patch": [
+        {
+          "op": "replace",
+          "path": "/reader/provider_stage_retry_status",
+          "value": {
+            "$cera-external-example": "reader_exhausted"
+          }
+        }
+      ]
+    }
+  ],
   "x-cera-negative-fixtures": [
     {
       "name": "unknown_root_field",
@@ -383,28 +445,23 @@
       "patch": [
         {
           "op": "replace",
-          "path": "/luna/provider_stage_retry_status/status/state",
-          "value": "succeeded"
-        },
+          "path": "/luna/provider_stage_retry_status",
+          "value": {
+            "$cera-external-example": "luna_succeeded"
+          }
+        }
+      ]
+    },
+    {
+      "name": "reader_lane_contains_succeeded_retry_status",
+      "base_example": 5,
+      "patch": [
         {
           "op": "replace",
-          "path": "/luna/provider_stage_retry_status/status/provider_operations_observed_total",
-          "value": 1
-        },
-        {
-          "op": "replace",
-          "path": "/luna/provider_stage_retry_status/status/failure_category",
-          "value": null
-        },
-        {
-          "op": "replace",
-          "path": "/luna/provider_stage_retry_status/status/available_actions",
-          "value": []
-        },
-        {
-          "op": "replace",
-          "path": "/luna/provider_stage_retry_status/actions",
-          "value": []
+          "path": "/reader/provider_stage_retry_status",
+          "value": {
+            "$cera-external-example": "reader_succeeded"
+          }
         }
       ]
     },

@@ -16,7 +16,7 @@ existing exact completion validator; no open successor object is accepted.
 |---|---|---:|---|
 | `schemas/pi_scene/ordinary_review/v2/common.schema.json` | `support schema` | branch-specific | `d2230897646611053ac48a20883a033eb01eeb8b52219e1450a687c599f2269d` |
 | `schemas/pi_scene/ordinary_review/v2/review.schema.json` | `cera.pi_scene.review.v2` | 21 | `5ed5d0678d0adce834fc6677c2b8d30e186bd6209657a261eb483075fb0935af` |
-| `schemas/pi_scene/ordinary_review/v2/review_checks.schema.json` | `cera.pi_scene.review_checks.v1` | 5 | `f074e12d448303a261fbe8464d6199864000a7264cad0b57e37e5956a5fb1d45` |
+| `schemas/pi_scene/ordinary_review/v2/review_checks.schema.json` | `cera.pi_scene.review_checks.v1` | 5 | `aa9c50c3c6053ce1e9ad8435a7144f5228c30c1b83b680b7901f9ca9a00f0523` |
 | `schemas/pi_scene/ordinary_review/v2/review_decision.schema.json` | `cera.pi_scene.review_decision.v2` | branch-specific | `5453d2ddd80d62a2fe112ede0c2e2e24bb69186644ed3c629cb5ea1b26cf64af` |
 | `schemas/pi_scene/ordinary_review/v2/review_lifecycle.schema.json` | `cera.pi_scene.review_lifecycle.v1` | 10 | `99d65ee13b5f795ddd0894dbf79fdb32caed99596108365785ab220e41692d02` |
 

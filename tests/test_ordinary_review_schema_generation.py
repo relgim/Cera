@@ -21,6 +21,9 @@ from cera.generated.ordinary_review_contracts_v2 import (
     validate_ordinary_review_lifecycle_v1,
     validate_schema_version,
 )
+from cera.generated.provider_stage_retry_contracts_v1 import (
+    validate_provider_stage_retry_status_envelope_v1,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 GENERATOR = ROOT / "scripts" / "generate_ordinary_review_contracts.py"
@@ -200,7 +203,7 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
             copy.deepcopy(
                 _case(
                     POSITIVE_FIXTURES,
-                    "review_checks.schema.positive.positive_05",
+                    "review_checks.schema.positive.luna_blocked_ambiguous",
                 )["value"]
             ),
         )
@@ -220,7 +223,7 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
             copy.deepcopy(
                 _case(
                     POSITIVE_FIXTURES,
-                    "review_checks.schema.positive.positive_06",
+                    "review_checks.schema.positive.reader_blocked_ambiguous",
                 )["value"]
             ),
         )
@@ -244,8 +247,66 @@ class OrdinaryReviewSchemaGenerationTests(unittest.TestCase):
             {
                 "review_checks.schema.negative.pending_lane_contains_retry_status",
                 "review_checks.schema.negative.inconclusive_lane_contains_succeeded_retry_status",
+                "review_checks.schema.negative.reader_lane_contains_succeeded_retry_status",
             }.issubset(negative_ids)
         )
+
+        nested_cases = [
+            cast(dict[str, object], case["value"])
+            for case in _fixture_cases(POSITIVE_FIXTURES)
+            if case["contract_schema_version"] == "cera.pi_scene.review_checks.v1"
+        ]
+        observed: set[tuple[str, str, tuple[str, ...]]] = set()
+        for checks in nested_cases:
+            for lane_name in ("luna", "reader"):
+                lane = cast(dict[str, object], checks[lane_name])
+                retry = lane["provider_stage_retry_status"]
+                if retry is None:
+                    continue
+                normalized_envelope = validate_provider_stage_retry_status_envelope_v1(
+                    retry
+                )
+                status = normalized_envelope["status"]
+                actions = normalized_envelope["actions"]
+                observed.add(
+                    (
+                        lane_name,
+                        cast(str, status["state"]),
+                        tuple(cast(str, action["action_kind"]) for action in actions),
+                    )
+                )
+        self.assertTrue(
+            {
+                ("luna", "eligible", ("provider_retry",)),
+                ("reader", "eligible", ("provider_retry",)),
+                ("luna", "blocked_ambiguous", ("check_status",)),
+                ("reader", "blocked_ambiguous", ("check_status",)),
+                ("luna", "attempts_exhausted", ()),
+                ("reader", "attempts_exhausted", ()),
+            }.issubset(observed)
+        )
+
+        for case_id, lane_name in (
+            (
+                "review_checks.schema.negative.inconclusive_lane_contains_succeeded_retry_status",
+                "luna",
+            ),
+            (
+                "review_checks.schema.negative.reader_lane_contains_succeeded_retry_status",
+                "reader",
+            ),
+        ):
+            checks = cast(
+                dict[str, object],
+                _case(NEGATIVE_FIXTURES, case_id)["value"],
+            )
+            lane = cast(dict[str, object], checks[lane_name])
+            succeeded = lane["provider_stage_retry_status"]
+            self.assertIsNotNone(
+                validate_provider_stage_retry_status_envelope_v1(succeeded)
+            )
+            with self.assertRaises(OrdinaryReviewContractError):
+                validate_ordinary_review_checks_v1(checks)
 
     def test_manual_pass_and_resolved_choices_preserve_the_completed_gate(self) -> None:
         manual = cast(

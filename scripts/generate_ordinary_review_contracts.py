@@ -134,14 +134,30 @@ def _expand_positive_fixtures(
     loaded: list[tuple[Path, dict[str, Any], bytes]],
 ) -> None:
     for path, schema, _ in loaded:
-        specifications = schema.get("x-cera-positive-fixtures")
-        if specifications is None:
-            continue
         examples = schema.get("examples")
-        if not isinstance(examples, list) or not isinstance(specifications, list):
-            raise ValueError(f"{path} positive fixtures changed shape")
+        if not isinstance(examples, list):
+            continue
         base_examples = copy.deepcopy(examples)
-        names = [f"base_{index + 1:02d}" for index in range(len(base_examples))]
+        source_names = schema.get("x-cera-example-names")
+        specifications = schema.get("x-cera-positive-fixtures")
+        if source_names is None and specifications is None:
+            continue
+        if source_names is None:
+            names = [f"base_{index + 1:02d}" for index in range(len(base_examples))]
+        elif (
+            not isinstance(source_names, list)
+            or len(source_names) != len(base_examples)
+            or not all(isinstance(name, str) and name for name in source_names)
+            or len(set(source_names)) != len(source_names)
+        ):
+            raise ValueError(f"{path} example names changed shape")
+        else:
+            names = list(source_names)
+        if specifications is None:
+            schema["x-cera-materialized-example-names"] = names
+            continue
+        if not isinstance(specifications, list):
+            raise ValueError(f"{path} positive fixtures changed shape")
         for specification in specifications:
             if not isinstance(specification, dict):
                 raise ValueError(f"{path} positive fixture is not an object")
@@ -169,16 +185,21 @@ def _provider_external_examples(
     examples = status_schema.get("examples")
     if not isinstance(examples, list):
         raise ValueError("provider-stage status-envelope examples are unavailable")
-    blocked = next(
-        copy.deepcopy(example)
-        for example in examples
-        if isinstance(example, dict)
-        and isinstance(example.get("status"), dict)
-        and example["status"].get("state") == "blocked_ambiguous"
-    )
+    def select(state: str) -> dict[str, Any]:
+        return next(
+            copy.deepcopy(example)
+            for example in examples
+            if isinstance(example, dict)
+            and isinstance(example.get("status"), dict)
+            and example["status"].get("state") == state
+            and (
+                state != "in_progress"
+                or example.get("actions") == []
+            )
+        )
 
-    def bind(*, stage: str, model_family: str) -> dict[str, Any]:
-        value = copy.deepcopy(blocked)
+    def bind(source: dict[str, Any], *, stage: str, model_family: str) -> dict[str, Any]:
+        value = copy.deepcopy(source)
         status = value["status"]
         assert isinstance(status, dict)
         status["provider"] = "codex"
@@ -186,10 +207,25 @@ def _provider_external_examples(
         status["stage"] = stage
         return value
 
-    return {
-        "luna_blocked": bind(stage="semantic_validator", model_family="luna"),
-        "reader_blocked": bind(stage="reader", model_family="sol"),
-    }
+    output: dict[str, dict[str, Any]] = {}
+    for state, fixture_name in (
+        ("eligible", "manual_retry"),
+        ("succeeded", "succeeded"),
+        ("blocked_ambiguous", "blocked"),
+        ("attempts_exhausted", "exhausted"),
+    ):
+        source = select(state)
+        output[f"luna_{fixture_name}"] = bind(
+            source,
+            stage="semantic_validator",
+            model_family="luna",
+        )
+        output[f"reader_{fixture_name}"] = bind(
+            source,
+            stage="reader",
+            model_family="sol",
+        )
+    return output
 
 
 def _resolve_examples(
@@ -296,6 +332,7 @@ def _runtime_schemas(
     schemas, _ = schema_engine._runtime_schemas([*ordinary, *provider])  # noqa: SLF001
     for schema in schemas.values():
         schema.pop("x-cera-positive-fixtures", None)
+        schema.pop("x-cera-example-names", None)
         schema.pop("x-cera-materialized-example-names", None)
     versions = {
         schema["x-cera-schema-version"]: schema["$id"]
