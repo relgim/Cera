@@ -56,7 +56,17 @@ class PiSceneAutomaticRouteTests(unittest.TestCase):
             )
             response = adapter.complete(_payload())
 
-            self.assertEqual(context_routes, [SceneRoute.ORDINARY, SceneRoute.ADULT])
+            # The second pair is the under-claim revalidation immediately
+            # before provider dispatch.
+            self.assertEqual(
+                context_routes,
+                [
+                    SceneRoute.ORDINARY,
+                    SceneRoute.ADULT,
+                    SceneRoute.ORDINARY,
+                    SceneRoute.ADULT,
+                ],
+            )
             self.assertEqual(response["model"], PI_SCENE_ADULT_MODEL)
             self.assertEqual(response["cera"]["route_mode"], "adult")
             self.assertEqual(planner.calls, 0)
